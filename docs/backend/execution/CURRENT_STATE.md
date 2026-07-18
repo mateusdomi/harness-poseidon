@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T16:51:27Z
+Atualizado em: 2026-07-18T16:58:12Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-DOC-1c.3 — classificação e lifecycle transacionais; criação/leitura/versionamento dual-provider estão verdes.
+- Épico atual: F1-DOC-1c.4 — aprovações documentais transacionais; criação, versionamento, metadados e lifecycle dual-provider estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `da1da5d` (`develop`); F1-DOC-1c.2 está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: ampliar `IDocumentStore` com classificação/fase e transição de estado usando `expectedVersion`; persistir histórico append-only apenas para transições, adotar/remover condição de órfão e finalizar Inbox/ledger/Outbox atomicamente nos dois providers.
+- Último commit remoto validado: `9a83ba7` (`develop`); F1-DOC-1c.3 está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: ampliar `IDocumentStore` com request/resolve/cancel de aprovação usando `expectedVersion`; vincular request à versão corrente imutável, garantir uma pendência, exigir critic/profile e nota na rejeição, transicionar estado e finalizar Inbox/ledger/Outbox/eventos `approval.*` atomicamente nos dois providers.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -59,8 +59,9 @@ Atualizado em: 2026-07-18T16:51:27Z
 - Document schema F1-DOC-1b: migrations SQLite `0006_documents` e PostgreSQL `0007_documents` criam documento, versão, classificação, approval request e histórico de transição. FKs compostas isolam tenant/projeto; índice parcial permite uma aprovação pendente; índices cobrem órfãos/fila; triggers recusam update/delete de versões e histórico em ambos providers.
 - Document store F1-DOC-1c.1: `IDocumentStore` valida ULIDs, catálogo/path relativo, SHA-256, classificações normalizadas e idempotency key. SQLite usa o dispatcher único; PostgreSQL usa locks advisory para comando e ledger. Documento v1, referência imutável, classificações, Inbox, ledger e Outbox `document.stateChanged` commitam juntos; 10 concorrentes resultam 1 aplicação/9 replays, colisão de chave não muta o agregado e a leitura recompõe versões, classificações, aprovações e histórico.
 - Document versioning F1-DOC-1c.2: append exige `expectedDocumentVersion` e estado `in_elaboration`, cria exclusivamente nova row imutável com `supersedesId`, incrementa versão do agregado/currentVersion e finaliza Inbox/ledger/Outbox na mesma transação. PostgreSQL bloqueia o documento com `FOR UPDATE`; SQLite usa dispatcher. Dez concorrentes produzem 1 aplicação/9 replays; versão stale e documento ausente ficam idempotentes sem ledger/Outbox; colisão de payload é rejeitada.
+- Document lifecycle F1-DOC-1c.3: atualização de metadados substitui classificações, fase e flag de inconsistência com OCC sem fabricar histórico; assim um documento órfão foi adotado pela fase `Review`. Transição valida a matriz fechada, grava estado + `document_state_transitions` append-only + Inbox/ledger/Outbox atomicamente e registra ator/nota/versão. Dez concorrentes produzem 1 aplicação/9 replays; salto `in_review→approved` é rejeitado e idempotente sem auditoria falsa.
 - Migrations: SQLite `6→0` e PostgreSQL `7→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F1-DOC-1c.2: restore locked, format, build Release com zero warnings/erros e 92/92 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após F1-DOC-1c.3: restore locked, format, build Release com zero warnings/erros e 92/92 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão e workflow completo/progresso verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para documentos e workers.
 

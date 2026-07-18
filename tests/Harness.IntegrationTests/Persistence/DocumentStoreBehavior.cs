@@ -162,6 +162,115 @@ internal static class DocumentStoreBehavior
             DocumentMutationStatus.IdempotentReplay,
             (await store.AppendVersionAsync(missing, cancellationToken)).Status);
 
+        var metadata = new DocumentMetadataUpdateCommand(
+            command.TenantId,
+            command.DocumentId,
+            ["architecture", "decision", "governance"],
+            "Review",
+            Inconsistent: true,
+            ExpectedDocumentVersion: 2,
+            "document:metadata:adopt-review",
+            append.OccurredAt.AddMinutes(3));
+        var metadataResults = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ =>
+                store.UpdateMetadataAsync(metadata, cancellationToken)));
+        Assert.Single(
+            metadataResults,
+            receipt => receipt.Status == DocumentMutationStatus.Applied);
+        Assert.Equal(
+            9,
+            metadataResults.Count(receipt =>
+                receipt.Status == DocumentMutationStatus.IdempotentReplay));
+        Assert.All(metadataResults, receipt =>
+        {
+            Assert.Equal(3, receipt.DocumentVersion);
+            Assert.Equal(2, receipt.CurrentVersion);
+            Assert.Equal("in_elaboration", receipt.State);
+            Assert.NotNull(receipt.LedgerSequence);
+            Assert.NotNull(receipt.OutboxMessageId);
+        });
+        var classified = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(classified);
+        Assert.Equal(3, classified.Version);
+        Assert.Equal("Review", classified.PhaseName);
+        Assert.True(classified.Inconsistent);
+        Assert.Equal(metadata.Classifications, classified.Classifications);
+        Assert.Empty(classified.StateTransitions);
+
+        var transition = new DocumentTransitionCommand(
+            command.TenantId,
+            command.DocumentId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FZK",
+            "in_review",
+            "Ready for critic review",
+            "agent",
+            "01ARZ3NDEKTSV4RRFFQ69G5FZJ",
+            ExpectedDocumentVersion: 3,
+            "document:transition:review",
+            append.OccurredAt.AddMinutes(4));
+        var transitionResults = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ =>
+                store.TransitionAsync(transition, cancellationToken)));
+        Assert.Single(
+            transitionResults,
+            receipt => receipt.Status == DocumentMutationStatus.Applied);
+        Assert.Equal(
+            9,
+            transitionResults.Count(receipt =>
+                receipt.Status == DocumentMutationStatus.IdempotentReplay));
+        Assert.All(transitionResults, receipt =>
+        {
+            Assert.Equal(4, receipt.DocumentVersion);
+            Assert.Equal(2, receipt.CurrentVersion);
+            Assert.Equal("in_review", receipt.State);
+            Assert.NotNull(receipt.LedgerSequence);
+            Assert.NotNull(receipt.OutboxMessageId);
+        });
+        var inReview = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(inReview);
+        Assert.Equal(4, inReview.Version);
+        Assert.Equal("in_review", inReview.State);
+        Assert.Equal(2, inReview.Versions.Count);
+        var transitionSnapshot = Assert.Single(inReview.StateTransitions);
+        Assert.Equal(transition.TransitionId, transitionSnapshot.TransitionId);
+        Assert.Equal(4, transitionSnapshot.DocumentVersion);
+        Assert.Equal("in_elaboration", transitionSnapshot.FromState);
+        Assert.Equal("in_review", transitionSnapshot.ToState);
+        Assert.Equal(transition.Note, transitionSnapshot.Note);
+        Assert.Equal(transition.ActorKind, transitionSnapshot.ActorKind);
+        Assert.Equal(transition.ActorId, transitionSnapshot.ActorId);
+        Assert.Equal(transition.OccurredAt, transitionSnapshot.OccurredAt);
+
+        var invalidTransition = transition with
+        {
+            TransitionId = "01ARZ3NDEKTSV4RRFFQ69G5FZH",
+            TargetState = "approved",
+            ExpectedDocumentVersion = 4,
+            IdempotencyKey = "document:transition:invalid",
+            OccurredAt = append.OccurredAt.AddMinutes(5),
+        };
+        var invalidResult = await store.TransitionAsync(invalidTransition, cancellationToken);
+        Assert.Equal(DocumentMutationStatus.InvalidState, invalidResult.Status);
+        Assert.Equal(4, invalidResult.DocumentVersion);
+        Assert.Null(invalidResult.LedgerSequence);
+        Assert.Null(invalidResult.OutboxMessageId);
+        Assert.Equal(
+            DocumentMutationStatus.IdempotentReplay,
+            (await store.TransitionAsync(invalidTransition, cancellationToken)).Status);
+        var afterInvalidTransition = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(afterInvalidTransition);
+        Assert.Equal(4, afterInvalidTransition.Version);
+        Assert.Single(afterInvalidTransition.StateTransitions);
+
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FZZ",
@@ -185,7 +294,7 @@ internal static class DocumentStoreBehavior
         "Architecture decision record",
         "design",
         ["architecture", "governance"],
-        "Foundation",
+        null,
         "01ARZ3NDEKTSV4RRFFQ69G5FZV",
         "docs/architecture/context-map.md",
         new string('D', 64),

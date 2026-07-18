@@ -57,8 +57,9 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 21. F1-DOC-1b: schema dual-provider append-only de documentos — verde em 2026-07-18.
 22. F1-DOC-1c.1: criação/leitura transacional e idempotente dual-provider — verde em 2026-07-18.
 23. F1-DOC-1c.2: append de versão com OCC, supersession e auditoria dual-provider — verde em 2026-07-18.
-24. F1-DOC-1c.3: classificação/lifecycle/aprovação com OCC e histórico — próximo incremento.
-25. Workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
+24. F1-DOC-1c.3: classificação/fase e lifecycle com OCC/histórico — verde em 2026-07-18.
+25. F1-DOC-1c.4: aprovações documentais com pendência única e eventos — próximo incremento.
+26. Workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 

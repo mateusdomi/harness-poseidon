@@ -61,4 +61,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F1-DOC-1b | verde | 5 tabelas, FKs compostas, aprovação pendente única, índice de órfãos e triggers append-only; migrations SQLite `6→0` / PostgreSQL `7→0`; `evidence/F1-DOCUMENT-SCHEMA.md` |
 | F1-DOC-1c.1 | verde | criação/leitura dual-provider: 10 concorrentes=1 aplicação/9 replays; catálogo+Inbox+ledger+Outbox atômicos e snapshot integral; `evidence/F1-DOCUMENT-STORE-CREATION.md` |
 | F1-DOC-1c.2 | verde | append v2→v1 com OCC e `FOR UPDATE`/dispatcher; 10 concorrentes=1 aplicação/9 replays; stale/ausente sem auditoria falsa; `evidence/F1-DOCUMENT-VERSIONING.md` |
-| F1-DOC-1c.3 | próximo | classificação/fase e lifecycle com histórico append-only, OCC, Inbox, ledger e Outbox |
+| F1-DOC-1c.3 | verde | órfão adotado por fase sem histórico falso; lifecycle com matriz fechada, ator/nota, OCC e transição append-only; 10 concorrentes=1/9; `evidence/F1-DOCUMENT-LIFECYCLE.md` |
+| F1-DOC-1c.4 | próximo | request/resolve/cancel de aprovação com pendência única, OCC, Inbox, ledger e Outbox `approval.*` |

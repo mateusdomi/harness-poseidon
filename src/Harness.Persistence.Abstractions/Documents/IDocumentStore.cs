@@ -18,6 +18,14 @@ public interface IDocumentStore
     Task<DocumentMutationReceipt> AppendVersionAsync(
         DocumentVersionAppendCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<DocumentMutationReceipt> UpdateMetadataAsync(
+        DocumentMetadataUpdateCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<DocumentMutationReceipt> TransitionAsync(
+        DocumentTransitionCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record DocumentCreateCommand(
