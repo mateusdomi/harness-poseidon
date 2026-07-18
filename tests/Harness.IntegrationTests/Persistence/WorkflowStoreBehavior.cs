@@ -71,5 +71,51 @@ internal static class WorkflowStoreBehavior
                 cancellationToken));
         Assert.Null(await store.ReadDefinitionAsync(
             command.TenantId, "01ARZ3NDEKTSV4RRFFQ69G5FHZ", cancellationToken));
+
+        await AssertRunCreationAsync(store, command, cancellationToken);
+    }
+
+    private static async Task AssertRunCreationAsync(
+        IWorkflowStore store,
+        WorkflowDefinitionCreateCommand definition,
+        CancellationToken cancellationToken)
+    {
+        var command = new WorkflowRunCreateCommand(
+            definition.TenantId,
+            FoundationTransactionBehavior.ProjectId,
+            definition.DefinitionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FH6",
+            "workflow:run:create:first",
+            definition.OccurredAt.AddMinutes(1));
+        var receipts = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ =>
+            store.CreateRunAsync(command, cancellationToken)));
+
+        Assert.Single(receipts, receipt => !receipt.Replay);
+        Assert.Equal(9, receipts.Count(receipt => receipt.Replay));
+        Assert.All(receipts, receipt => Assert.Equal(1, receipt.RunVersion));
+        Assert.Single(receipts.Select(receipt => receipt.LedgerHash).Distinct(StringComparer.Ordinal));
+        Assert.Single(receipts.Select(receipt => receipt.OutboxMessageId).Distinct(StringComparer.Ordinal));
+
+        var snapshot = await store.ReadRunAsync(command.TenantId, command.RunId, cancellationToken);
+        Assert.NotNull(snapshot);
+        Assert.Equal(command.ProjectId, snapshot.ProjectId);
+        Assert.Equal(command.DefinitionVersionId, snapshot.DefinitionVersionId);
+        Assert.Equal("pending", snapshot.State);
+        Assert.Equal(1, snapshot.Version);
+        Assert.Equal(1, snapshot.PhaseCount);
+        Assert.Equal(2, snapshot.ObjectiveCount);
+        Assert.Equal(1, snapshot.GateCount);
+        Assert.Equal(0m, snapshot.Executed);
+        Assert.Equal(0m, snapshot.Validated);
+        Assert.Equal(0m, snapshot.Approved);
+
+        await Assert.ThrowsAsync<IdempotencyConflictException>(() =>
+            store.CreateRunAsync(
+                command with { RunId = "01ARZ3NDEKTSV4RRFFQ69G5FH7" },
+                cancellationToken));
+        Assert.Equal(snapshot, await store.ReadRunAsync(
+            command.TenantId, command.RunId, cancellationToken));
+        Assert.Null(await store.ReadRunAsync(
+            command.TenantId, "01ARZ3NDEKTSV4RRFFQ69G5FHY", cancellationToken));
     }
 }

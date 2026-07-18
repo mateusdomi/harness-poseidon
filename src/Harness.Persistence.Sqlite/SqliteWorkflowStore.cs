@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed class SqliteWorkflowStore(SqliteWriteDispatcher dispatcher) : IWorkflowStore
+public sealed partial class SqliteWorkflowStore(SqliteWriteDispatcher dispatcher) : IWorkflowStore
 {
     private readonly SqliteWriteDispatcher _dispatcher =
         dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));

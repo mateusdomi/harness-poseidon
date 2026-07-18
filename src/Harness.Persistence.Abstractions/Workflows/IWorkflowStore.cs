@@ -14,6 +14,15 @@ public interface IWorkflowStore
         string tenantId,
         string definitionId,
         CancellationToken cancellationToken = default);
+
+    Task<WorkflowRunCreateReceipt> CreateRunAsync(
+        WorkflowRunCreateCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkflowRunStoreSnapshot?> ReadRunAsync(
+        string tenantId,
+        string runId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkflowDefinitionCreateCommand(
@@ -71,6 +80,36 @@ public sealed record WorkflowDefinitionStoreSnapshot(
     int ObjectiveCount,
     int GateCount,
     int RequirementCount);
+
+public sealed record WorkflowRunCreateCommand(
+    string TenantId,
+    string ProjectId,
+    string DefinitionVersionId,
+    string RunId,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkflowRunCreateReceipt(
+    string RunId,
+    long RunVersion,
+    long LedgerSequence,
+    string LedgerHash,
+    string OutboxMessageId,
+    bool Replay);
+
+public sealed record WorkflowRunStoreSnapshot(
+    string TenantId,
+    string ProjectId,
+    string DefinitionVersionId,
+    string RunId,
+    string State,
+    long Version,
+    int PhaseCount,
+    int ObjectiveCount,
+    int GateCount,
+    decimal Executed,
+    decimal Validated,
+    decimal Approved);
 
 public static class WorkflowDefinitionCreateValidator
 {
@@ -224,4 +263,35 @@ public static class WorkflowDefinitionContentHash
         ArgumentNullException.ThrowIfNull(phases);
         return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(phases)));
     }
+}
+
+public static class WorkflowRunCreateValidator
+{
+    public static void Validate(WorkflowRunCreateCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateId(command.TenantId, nameof(command));
+        ValidateId(command.ProjectId, nameof(command));
+        ValidateId(command.DefinitionVersionId, nameof(command));
+        ValidateId(command.RunId, nameof(command));
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.IdempotencyKey, nameof(command));
+        if (command.IdempotencyKey.Length > 200)
+        {
+            throw new ArgumentException("Idempotency key exceeds 200 characters.", nameof(command));
+        }
+    }
+
+    private static void ValidateId(string value, string parameterName)
+    {
+        if (!UlidValue.TryParse(value, out _))
+        {
+            throw new ArgumentException("Value must be a canonical ULID.", parameterName);
+        }
+    }
+}
+
+public static class WorkflowRunCreateHash
+{
+    public static string Compute(WorkflowRunCreateCommand command) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
 }

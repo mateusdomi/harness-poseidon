@@ -7,7 +7,7 @@ using NpgsqlTypes;
 
 namespace Harness.Persistence.Postgres;
 
-public sealed class PostgresWorkflowStore(NpgsqlDataSource dataSource) : IWorkflowStore
+public sealed partial class PostgresWorkflowStore(NpgsqlDataSource dataSource) : IWorkflowStore
 {
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
