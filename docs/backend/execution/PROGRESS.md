@@ -4,7 +4,7 @@
 
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
-| GNG-1 | nove PoCs verdes | fechado | nenhuma PoC executada ainda |
+| GNG-1 | nove PoCs verdes | fechado | PoC-1 verde; 1/9 comprovadas |
 | GNG-2 | recuperação abrupta com auditoria completa | fechado | F1 não iniciada |
 | GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
@@ -21,7 +21,7 @@
 | Estrutura/arquitetura | executado e validado | 28 projetos, 28 lockfiles; 5 testes de arquitetura verdes, incluindo ArchUnitNET 0.13.3 |
 | Host mínimo/porta dinâmica | executado e validado | Host ouviu em `127.0.0.1:53906`, `/health` retornou `{"status":"healthy"}`, shutdown exit 0 |
 | SharedKernel/contratos primitivos | executado e validado | 23 testes unitários; suíte completa com 32 testes, build 0 warnings/0 errors em 2026-07-18 |
-| PoC-1 SQLite/dispatcher | pendente | — |
+| PoC-1 SQLite/dispatcher | verde | 960 writes, 24 produtores, single reader, WAL/FK/5 s busy timeout, 5 repetições; `evidence/F0-POC-1.md` |
 | PoC-2 retomada | pendente | — |
 | PoC-3 lease/fencing | pendente | — |
 | PoC-4 Codex CLI | pendente | — |

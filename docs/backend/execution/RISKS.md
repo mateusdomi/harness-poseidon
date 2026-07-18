@@ -8,5 +8,6 @@
 | R-004 | drift com frontend em desenvolvimento | schemas/nome de evento divergem | OpenAPI/eventos canônicos + reconciliação explícita; nunca editar frontend | ativo |
 | R-005 | SDK .NET 10 ausente globalmente | bootstrap `net10.0` não compila fora do wrapper | SDK 10.0.302 local e instalador idempotente | mitigado |
 | R-006 | pushes concorrentes em `develop` | push rejeitado ou rebase conflita | fetch/rebase/teste novamente; preservar integralmente conteúdo Kimi | ativo |
+| R-007 | EF Core SQLite traz native SQLite vulnerável | restore emite `NU1903` GHSA-2m69-gcr7-jv3q | pin central `SQLitePCLRaw.lib.e_sqlite3` 3.53.3, lockfiles e audit obrigatório | mitigado |
 
 Não há No-Go registrado. GNG-1 permanece fechado por trabalho ainda não executado, não por falha.

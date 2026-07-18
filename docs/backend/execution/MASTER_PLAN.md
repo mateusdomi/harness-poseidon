@@ -21,8 +21,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 1. EP-01: documentação viva, ambiente, SDK local, solução e pipeline.
 2. EP-02: SharedKernel e contratos primitivos.
 3. Testes de arquitetura e ADR-001 a ADR-014.
-4. PoC-1: SQLite WAL + dispatcher único.
-5. PoC-2: kill abrupto + reconciliação.
+4. PoC-1: SQLite WAL + dispatcher único — verde em 2026-07-18.
+5. PoC-2: kill abrupto + reconciliação — próximo incremento.
 6. PoC-3: lease + fencing.
 7. PoC-4: Codex CLI subprocesso/checkpoint/reidratação.
 8. PoC-5: Git fixtures, branches/worktrees e claims.
