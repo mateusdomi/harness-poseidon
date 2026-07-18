@@ -1,1 +1,10 @@
-// Hooks da feature "cockpit" — implementados em fatias futuras.
+export {
+  cockpitKeys,
+  useCockpitActivity,
+  useCockpitAgents,
+  useCockpitApprovals,
+  useCockpitBudgets,
+  useCockpitRealtime,
+  useCockpitTasks,
+  useCockpitWorkflow,
+} from './use-cockpit';

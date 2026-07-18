@@ -1,0 +1,129 @@
+import type {
+  Agent,
+  AgentState,
+  Budget,
+  Gate,
+  Phase,
+  Progress,
+  Task,
+  TaskState,
+} from '@/api';
+import { AGENT_STATES, TASK_STATES } from '@/api';
+
+/**
+ * Derivações puras do cockpit — sem React, sem i18n (labels são chaves).
+ * Regra de domínio: as TRÊS trilhas (executado/validado/aprovado) são
+ * sempre apresentadas separadas; NUNCA somar ou fundir trilhas.
+ */
+
+/** Média aritmética por trilha (arredondada). Lista vazia → tudo 0. */
+export function aggregateProgress(tasks: readonly Task[]): Progress {
+  if (tasks.length === 0) return { executed: 0, validated: 0, approved: 0 };
+  const sum = tasks.reduce(
+    (acc, task) => ({
+      executed: acc.executed + task.progress.executed,
+      validated: acc.validated + task.progress.validated,
+      approved: acc.approved + task.progress.approved,
+    }),
+    { executed: 0, validated: 0, approved: 0 },
+  );
+  return {
+    executed: Math.round(sum.executed / tasks.length),
+    validated: Math.round(sum.validated / tasks.length),
+    approved: Math.round(sum.approved / tasks.length),
+  };
+}
+
+/**
+ * Colunas do quadro agregadas por fase do workflow (fase → domínio de
+ * colunas). As chaves são os NOMES das fases vindos do template
+ * (dado, não texto de UI). Fases fora do mapa agregam todas as colunas.
+ */
+export const PHASE_TASK_STATES: Record<string, readonly TaskState[]> = {
+  Planejamento: ['backlog', 'ready'],
+  Execução: ['development'],
+  Validação: ['review', 'corrections', 'testsGates'],
+  Publicação: ['done'],
+};
+
+/** Tarefas agregadas no progresso da fase (todas, se a fase não tem mapa). */
+export function tasksOfPhase(tasks: readonly Task[], phase: Phase | null): Task[] {
+  if (!phase) return [];
+  const states = PHASE_TASK_STATES[phase.name];
+  if (!states) return [...tasks];
+  return tasks.filter((task) => states.includes(task.state));
+}
+
+/** Fase "atual" do run: a ativa, senão a primeira pendente na ordem. */
+export function currentPhase(phases: readonly Phase[]): Phase | null {
+  const ordered = [...phases].sort((a, b) => a.order - b.order);
+  return ordered.find((p) => p.state === 'active') ?? ordered.find((p) => p.state === 'pending') ?? null;
+}
+
+/** Gate associado à fase (o primeiro pendente dela, senão qualquer um dela). */
+export function gateOfPhase(gates: readonly Gate[], phase: Phase | null): Gate | null {
+  if (!phase) return null;
+  const ofPhase = gates.filter((g) => g.phaseId === phase.id);
+  return ofPhase.find((g) => g.state === 'pending') ?? ofPhase[0] ?? null;
+}
+
+/** Contadores por coluna do quadro (todas as 8 colunas sempre presentes). */
+export function countTasksByState(tasks: readonly Task[]): Record<TaskState, number> {
+  const counts = Object.fromEntries(TASK_STATES.map((s) => [s, 0])) as Record<TaskState, number>;
+  for (const task of tasks) counts[task.state] += 1;
+  return counts;
+}
+
+/** Contadores por estado de agente (todos os estados sempre presentes). */
+export function countAgentsByState(agents: readonly Agent[]): Record<AgentState, number> {
+  const counts = Object.fromEntries(AGENT_STATES.map((s) => [s, 0])) as Record<AgentState, number>;
+  for (const agent of agents) counts[agent.state] += 1;
+  return counts;
+}
+
+export type BudgetSeverity = 'ok' | 'warning' | 'critical';
+
+/** Percentual de uso do budget (0–100+); `null` quando o limite é 0. */
+export function budgetUsagePct(budget: Budget): number | null {
+  if (budget.limitUsd <= 0) return null;
+  return Math.round((budget.spentUsd / budget.limitUsd) * 100);
+}
+
+/**
+ * Severidade do budget: `critical` no/alem de 100%, `warning` a partir do
+ * limiar de alerta configurado (`alertThresholdPct`).
+ */
+export function budgetSeverity(budget: Budget): BudgetSeverity {
+  const pct = budgetUsagePct(budget);
+  if (pct === null) return 'ok';
+  if (pct >= 100) return 'critical';
+  if (pct >= budget.alertThresholdPct) return 'warning';
+  return 'ok';
+}
+
+export type NextActionKey =
+  | 'resolveApprovals'
+  | 'unblockTasks'
+  | 'recoverAgents'
+  | 'reviewQuotas'
+  | 'reviewPhase';
+
+export interface NextActionInput {
+  pendingApprovals: number;
+  blockedTasks: number;
+  errorAgents: number;
+  criticalBudgets: number;
+}
+
+/**
+ * Próxima ação recomendada (regras em ordem de prioridade).
+ * Retorna a CHAVE i18n — label e mensagem do chat vivem no catálogo
+ * (`cockpit.nextAction.actions.<key>`).
+ */
+export function recommendNextAction(input: NextActionInput): NextActionKey {
+  if (input.pendingApprovals > 0) return 'resolveApprovals';
+  if (input.blockedTasks > 0) return 'unblockTasks';
+  if (input.errorAgents > 0) return 'recoverAgents';
+  if (input.criticalBudgets > 0) return 'reviewQuotas';
+  return 'reviewPhase';
+}

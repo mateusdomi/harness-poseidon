@@ -54,6 +54,7 @@ export type DocumentState = z.infer<typeof documentStateSchema>;
 /** Estados de um agente (instância). */
 export const agentStateSchema = z.enum(['working', 'idle', 'waiting', 'error', 'outOfQuota']);
 export type AgentState = z.infer<typeof agentStateSchema>;
+export const AGENT_STATES = agentStateSchema.options;
 
 /** Papel do agente: chefe coordena o projeto e delega a especialistas. */
 export const agentRoleSchema = z.enum(['chief', 'specialist']);

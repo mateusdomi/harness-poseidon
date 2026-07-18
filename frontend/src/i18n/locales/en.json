@@ -121,6 +121,58 @@
       "bitbucket": "Bitbucket",
       "local": "Local",
       "other": "Other"
+    },
+    "taskState": {
+      "backlog": "Backlog",
+      "ready": "Ready",
+      "development": "In development",
+      "review": "In review",
+      "corrections": "In correction",
+      "testsGates": "Tests & gates",
+      "blocked": "Blocked",
+      "done": "Done"
+    },
+    "agentState": {
+      "working": "Working",
+      "idle": "Idle",
+      "waiting": "Waiting",
+      "error": "Error",
+      "outOfQuota": "Out of quota"
+    },
+    "approvalState": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "gateState": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "waived": "Waived"
+    },
+    "phaseState": {
+      "pending": "Pending",
+      "active": "Active",
+      "completed": "Completed",
+      "skipped": "Skipped",
+      "failed": "Failed"
+    },
+    "budgetScope": {
+      "global": "Global",
+      "project": "Project",
+      "account": "Account"
+    },
+    "budgetPeriod": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "auditActorKind": {
+      "user": "You",
+      "chief": "Chief",
+      "agent": "Agent",
+      "system": "System"
     }
   },
   "onboarding": {
@@ -275,6 +327,166 @@
       },
       "create": "Create project"
     }
+  },
+  "shared": {
+    "reconnection": {
+      "reconnecting": "Reconnecting to realtime…",
+      "disconnected": "No realtime connection. Automatic updates are paused."
+    }
+  },
+  "cockpit": {
+    "projectSelector": {
+      "label": "Active project"
+    },
+    "empty": {
+      "title": "No active project",
+      "body": "The cockpit shows a project's operation: phase, progress, blockers and agents. Create your first project to get started.",
+      "cta": "Create project"
+    },
+    "phase": {
+      "title": "Current phase",
+      "noRun": "No workflow run in progress in this project.",
+      "gate": "Associated gate:",
+      "noGate": "No gate in this phase"
+    },
+    "progress": {
+      "globalTitle": "Project-wide progress",
+      "tracks": {
+        "executed": "Executed",
+        "validated": "Validated",
+        "approved": "Approved"
+      }
+    },
+    "nextAction": {
+      "title": "Recommended next action",
+      "runInChat": "Run in chat",
+      "actions": {
+        "resolveApprovals": {
+          "label": "There are approvals awaiting your decision. Resolving them unblocks the workflow gates.",
+          "message": "Chief, list the project's pending approvals and help me decide each one."
+        },
+        "unblockTasks": {
+          "label": "There are blocked tasks. Ask the chief for an unblocking plan.",
+          "message": "Chief, which tasks are blocked and what is needed to unblock each one?"
+        },
+        "recoverAgents": {
+          "label": "There are agents in error or out of quota. The chief can redistribute the work.",
+          "message": "Chief, we have agents in error or out of quota. How do we recover the team's capacity?"
+        },
+        "reviewQuotas": {
+          "label": "Some budgets are near the limit. Review consumption before running out of quota.",
+          "message": "Chief, how is the project's cost consumption and what can we optimize?"
+        },
+        "reviewPhase": {
+          "label": "Healthy operation. Ask for a summary of the current phase.",
+          "message": "Chief, give me a summary of the current phase progress and next steps."
+        }
+      }
+    },
+    "tasksByState": {
+      "title": "Tasks by state",
+      "open": "Open board filtered by {{state}} ({{count}} tasks)"
+    },
+    "blocked": {
+      "title": "Blockers",
+      "empty": "No blocked tasks."
+    },
+    "approvals": {
+      "title": "Pending approvals",
+      "empty": "No pending approvals.",
+      "viewAll": "View all approvals"
+    },
+    "agents": {
+      "title": "Agent health",
+      "empty": "No agents linked to this project."
+    },
+    "quotas": {
+      "title": "Critical quotas",
+      "empty": "No budget near the limit.",
+      "severity": {
+        "warning": "Warning: {{pct}}% of the budget consumed.",
+        "critical": "Limit reached: {{pct}}% of the budget consumed."
+      }
+    },
+    "activity": {
+      "title": "Recent activity",
+      "empty": "No audit events yet."
+    }
+  },
+  "chat": {
+    "authors": {
+      "user": "You",
+      "chief": "Chief",
+      "agent": "Agent",
+      "system": "System"
+    },
+    "conversation": {
+      "label": "Conversation",
+      "new": "New conversation",
+      "newTitle": "New conversation"
+    },
+    "messagesLabel": "Conversation messages",
+    "noProject": {
+      "body": "The chat talks to a project's chief. Create a project to get started.",
+      "cta": "Create project"
+    },
+    "empty": {
+      "title": "Talk to the project's chief",
+      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. The chief coordinates the agents and replies here."
+    },
+    "turn": {
+      "coordinating": "Chief is coordinating…",
+      "states": {
+        "thinking": "thinking",
+        "delegating": "delegating",
+        "waitingApproval": "waiting for approval",
+        "streaming": "replying",
+        "idle": "idle"
+      }
+    },
+    "quickActions": {
+      "title": "Quick actions",
+      "actions": {
+        "summarizeProgress": {
+          "label": "Summarize progress",
+          "message": "Chief, summarize the project's current progress across the three tracks (executed, validated, approved)."
+        },
+        "blockedStatus": {
+          "label": "View blockers",
+          "message": "Chief, which tasks are blocked and what is the plan to unblock them?"
+        },
+        "approvalStatus": {
+          "label": "View pending approvals",
+          "message": "Chief, which approvals are pending and what do I need to decide?"
+        },
+        "planNewDemand": {
+          "label": "Plan new demand",
+          "message": "Chief, I want to plan a new demand. Shall we detail the scope?"
+        }
+      }
+    },
+    "references": {
+      "label": "Mentioned references"
+    },
+    "composer": {
+      "messageLabel": "Message to the chief",
+      "placeholder": "Write to the project's chief…",
+      "send": "Send message",
+      "attach": "Attach file",
+      "attachments": "Attachments",
+      "uploading": "Uploading {{name}}",
+      "uploaded": "Attached",
+      "removeAttachment": "Remove attachment {{name}}",
+      "model": "Model",
+      "modelDefault": "Chief's default",
+      "effort": "Effort",
+      "effortOptions": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      }
+    },
+    "sendError": "Could not send the message. Please try again."
   },
   "features": {
     "onboarding": { "title": "Onboarding", "description": "First steps and initial account setup." },

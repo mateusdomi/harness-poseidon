@@ -13,6 +13,7 @@ import { LanguageSelector } from '@/app/components/language-selector';
 import { NotificationsButton } from '@/app/components/notifications-button';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
 import { ThemeToggle } from '@/app/components/theme-toggle';
+import { ReconnectionBanner } from '@/features/shared/components/reconnection-banner';
 
 function BrandMark() {
   return (
@@ -177,6 +178,7 @@ export function AppShell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
+        <ReconnectionBanner />
         <main id="main-content" className="flex-1 p-4 pb-24 lg:p-6 lg:pb-6">
           <Suspense fallback={<RouteSkeleton />}>
             <Outlet />

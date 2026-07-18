@@ -121,6 +121,58 @@
       "bitbucket": "Bitbucket",
       "local": "Local",
       "other": "Outro"
+    },
+    "taskState": {
+      "backlog": "Backlog",
+      "ready": "Pronta",
+      "development": "Em desenvolvimento",
+      "review": "Em revisão",
+      "corrections": "Em correção",
+      "testsGates": "Testes e gates",
+      "blocked": "Bloqueada",
+      "done": "Concluída"
+    },
+    "agentState": {
+      "working": "Trabalhando",
+      "idle": "Ocioso",
+      "waiting": "Aguardando",
+      "error": "Em erro",
+      "outOfQuota": "Sem cota"
+    },
+    "approvalState": {
+      "pending": "Pendente",
+      "approved": "Aprovada",
+      "rejected": "Reprovada",
+      "cancelled": "Cancelada"
+    },
+    "gateState": {
+      "pending": "Pendente",
+      "approved": "Aprovado",
+      "rejected": "Reprovado",
+      "waived": "Dispensado"
+    },
+    "phaseState": {
+      "pending": "Pendente",
+      "active": "Ativa",
+      "completed": "Concluída",
+      "skipped": "Pulada",
+      "failed": "Falhou"
+    },
+    "budgetScope": {
+      "global": "Global",
+      "project": "Projeto",
+      "account": "Conta"
+    },
+    "budgetPeriod": {
+      "daily": "Diário",
+      "weekly": "Semanal",
+      "monthly": "Mensal"
+    },
+    "auditActorKind": {
+      "user": "Você",
+      "chief": "Chefe",
+      "agent": "Agente",
+      "system": "Sistema"
     }
   },
   "onboarding": {
@@ -275,6 +327,166 @@
       },
       "create": "Criar projeto"
     }
+  },
+  "shared": {
+    "reconnection": {
+      "reconnecting": "Reconectando ao tempo real…",
+      "disconnected": "Sem conexão em tempo real. As atualizações automáticas estão pausadas."
+    }
+  },
+  "cockpit": {
+    "projectSelector": {
+      "label": "Projeto ativo"
+    },
+    "empty": {
+      "title": "Nenhum projeto ativo",
+      "body": "O cockpit mostra a operação de um projeto: fase, progresso, bloqueios e agentes. Crie o primeiro projeto para começar.",
+      "cta": "Criar projeto"
+    },
+    "phase": {
+      "title": "Fase atual",
+      "noRun": "Nenhuma execução de workflow em andamento neste projeto.",
+      "gate": "Gate associado:",
+      "noGate": "Sem gate nesta fase"
+    },
+    "progress": {
+      "globalTitle": "Progresso global do projeto",
+      "tracks": {
+        "executed": "Executado",
+        "validated": "Validado",
+        "approved": "Aprovado"
+      }
+    },
+    "nextAction": {
+      "title": "Próxima ação recomendada",
+      "runInChat": "Executar no chat",
+      "actions": {
+        "resolveApprovals": {
+          "label": "Há aprovações aguardando sua decisão. Resolver libera os gates do workflow.",
+          "message": "Chefe, liste as aprovações pendentes do projeto e me ajude a decidir cada uma."
+        },
+        "unblockTasks": {
+          "label": "Há tarefas bloqueadas. Peça ao chefe um plano de desbloqueio.",
+          "message": "Chefe, quais tarefas estão bloqueadas e o que falta para desbloquear cada uma?"
+        },
+        "recoverAgents": {
+          "label": "Há agentes em erro ou sem cota. O chefe pode redistribuir o trabalho.",
+          "message": "Chefe, tem agente em erro ou sem cota. Como recuperamos a capacidade do time?"
+        },
+        "reviewQuotas": {
+          "label": "Há budgets perto do limite. Revise o consumo antes de estourar a cota.",
+          "message": "Chefe, como está o consumo de custo do projeto e o que podemos otimizar?"
+        },
+        "reviewPhase": {
+          "label": "Operação saudável. Peça um resumo do andamento da fase atual.",
+          "message": "Chefe, me dê um resumo do progresso da fase atual e dos próximos passos."
+        }
+      }
+    },
+    "tasksByState": {
+      "title": "Tarefas por estado",
+      "open": "Abrir quadro filtrado por {{state}} ({{count}} tarefas)"
+    },
+    "blocked": {
+      "title": "Bloqueios",
+      "empty": "Nenhuma tarefa bloqueada."
+    },
+    "approvals": {
+      "title": "Aprovações pendentes",
+      "empty": "Nenhuma aprovação pendente.",
+      "viewAll": "Ver todas as aprovações"
+    },
+    "agents": {
+      "title": "Saúde dos agentes",
+      "empty": "Nenhum agente vinculado a este projeto."
+    },
+    "quotas": {
+      "title": "Cotas críticas",
+      "empty": "Nenhum budget perto do limite.",
+      "severity": {
+        "warning": "Atenção: {{pct}}% do budget consumido.",
+        "critical": "Limite atingido: {{pct}}% do budget consumido."
+      }
+    },
+    "activity": {
+      "title": "Atividade recente",
+      "empty": "Nenhum evento de auditoria ainda."
+    }
+  },
+  "chat": {
+    "authors": {
+      "user": "Você",
+      "chief": "Chefe",
+      "agent": "Agente",
+      "system": "Sistema"
+    },
+    "conversation": {
+      "label": "Conversa",
+      "new": "Nova conversa",
+      "newTitle": "Nova conversa"
+    },
+    "messagesLabel": "Mensagens da conversa",
+    "noProject": {
+      "body": "O chat conversa com o chefe de um projeto. Crie um projeto para começar.",
+      "cta": "Criar projeto"
+    },
+    "empty": {
+      "title": "Converse com o chefe do projeto",
+      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. O chefe coordena os agentes e responde por aqui."
+    },
+    "turn": {
+      "coordinating": "Chefe está coordenando…",
+      "states": {
+        "thinking": "pensando",
+        "delegating": "delegando",
+        "waitingApproval": "aguardando aprovação",
+        "streaming": "respondendo",
+        "idle": "ocioso"
+      }
+    },
+    "quickActions": {
+      "title": "Ações rápidas",
+      "actions": {
+        "summarizeProgress": {
+          "label": "Resumir progresso",
+          "message": "Chefe, resuma o progresso atual do projeto nas três trilhas (executado, validado, aprovado)."
+        },
+        "blockedStatus": {
+          "label": "Ver bloqueios",
+          "message": "Chefe, quais tarefas estão bloqueadas e qual o plano para desbloqueá-las?"
+        },
+        "approvalStatus": {
+          "label": "Ver aprovações pendentes",
+          "message": "Chefe, quais aprovações estão pendentes e o que preciso decidir?"
+        },
+        "planNewDemand": {
+          "label": "Planejar nova demanda",
+          "message": "Chefe, quero planejar uma nova demanda. Vamos detalhar o escopo?"
+        }
+      }
+    },
+    "references": {
+      "label": "Referências citadas"
+    },
+    "composer": {
+      "messageLabel": "Mensagem para o chefe",
+      "placeholder": "Escreva para o chefe do projeto…",
+      "send": "Enviar mensagem",
+      "attach": "Anexar arquivo",
+      "attachments": "Anexos",
+      "uploading": "Enviando {{name}}",
+      "uploaded": "Anexado",
+      "removeAttachment": "Remover anexo {{name}}",
+      "model": "Modelo",
+      "modelDefault": "Padrão do chefe",
+      "effort": "Esforço",
+      "effortOptions": {
+        "low": "Baixo",
+        "medium": "Médio",
+        "high": "Alto"
+      }
+    },
+    "sendError": "Não foi possível enviar a mensagem. Tente novamente."
   },
   "features": {
     "onboarding": { "title": "Onboarding", "description": "Primeiros passos e configuração inicial da conta." },

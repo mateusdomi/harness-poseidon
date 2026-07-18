@@ -1,1 +1,5 @@
-// Componentes da feature "chat" — implementados em fatias futuras.
+export { Composer } from './composer';
+export type { ChatAttachment, EffortLevel } from './composer';
+export { MarkdownContent } from './markdown-content';
+export { MessageBubble } from './message-bubble';
+export { QuickActions } from './quick-actions';

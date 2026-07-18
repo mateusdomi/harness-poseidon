@@ -33,6 +33,11 @@ export function formatCurrencyBRL(value: number, locale: string = DEFAULT_LOCALE
   return formatNumber(value, { style: 'currency', currency: 'BRL' }, locale);
 }
 
+/** Custos do domínio (tokens, quotas, budgets) são sempre em USD. */
+export function formatCurrencyUSD(value: number, locale: string = DEFAULT_LOCALE): string {
+  return formatNumber(value, { style: 'currency', currency: 'USD' }, locale);
+}
+
 export function formatRelativeTime(
   value: Date | number | string,
   locale: string = DEFAULT_LOCALE,
