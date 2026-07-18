@@ -132,7 +132,7 @@ public sealed class ChiefOrchestrationApiTests
                     var projectEvents = await WaitForEventAsync(client, $"project:{projectId}", "task.stateChanged", timeout.Token);
                     var drained = projectEvents.Delta.Last(x => x.Type == "task.stateChanged").Payload;
                     Assert.Equal("chief", drained.GetProperty("changedByKind").GetString());
-                    var globalEvents = await WaitForEventAsync(client, "global", "audit.eventAppended", timeout.Token);
+                    var globalEvents = await WaitForAuditActionAsync(client, "chief.tasksDrained", timeout.Token);
                     Assert.Contains(globalEvents.Delta, x => x.Type == "agent.statusChanged");
                     Assert.Contains(globalEvents.Delta, x => x.Type == "audit.eventAppended" &&
                         x.Payload.GetProperty("auditEvent").GetProperty("action").GetString() == "chief.tasksDrained");
@@ -165,6 +165,29 @@ public sealed class ChiefOrchestrationApiTests
             await Task.Delay(25, token);
         }
         throw new TimeoutException($"Event {type} was not dispatched to {stream}.");
+    }
+
+    private static async Task<EventStreamSnapshot> WaitForAuditActionAsync(
+        HttpClient client,
+        string action,
+        CancellationToken token)
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>(
+                "/api/v1/event-streams/snapshot?stream=global",
+                token);
+            if (snapshot is not null && snapshot.Delta.Any(x =>
+                    x.Type == "audit.eventAppended" &&
+                    x.Payload.GetProperty("auditEvent").GetProperty("action").GetString() == action))
+            {
+                return snapshot;
+            }
+
+            await Task.Delay(25, token);
+        }
+
+        throw new TimeoutException($"Audit action {action} was not dispatched to global.");
     }
 
     private static async Task<ProfileResponse> CreateProfileAsync(HttpClient client, CancellationToken token)
