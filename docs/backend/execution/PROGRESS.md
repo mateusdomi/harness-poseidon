@@ -92,4 +92,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-APP-1 central unificada | verde | documento+tarefa+gate+decisão humana, prioridade/prazo, resolução, gate sem burla, eventos e restart; gate 134/134; `evidence/F2-APPROVAL-CENTER.md` |
 | F2-ORCH-1a catálogo/instâncias | verde | seis definições canônicas, Chief atômico por projeto, métricas+lease/fencing, list/read, filtro, restart e OpenAPI/drift; gate 135/135; `evidence/F2-AGENT-CATALOG.md` |
 | F2-ORCH-1b comandos do Chief | verde | pause/resume, handoff chief-only com fencing 1→2, drain atômico de tarefa/attempt/execução/agente, streams e restart; gate 136/136; `evidence/F2-CHIEF-COMMANDS.md` |
-| F2-TOOL-1 ferramentas/skills/plugins/MCP | próximo | catálogos exatos, estado, policy/allowlist e execução tipada |
+| F2-TOOL-1 ferramentas/skills/plugins/MCP | verde | quatro catálogos, vínculos de agentes, PATCH, MCP 2025-11-25, checksum/permissões/risk, policy/allowlist/sandbox e eventos; gate 145/145; `evidence/F2-TOOL-CATALOG-POLICY.md` |
+| F2-PROV-1 providers/contas/modelos/budgets | próximo | catálogo, sync, roteamento, quota e budgets |
