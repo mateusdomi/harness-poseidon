@@ -31,6 +31,9 @@ public sealed class PostgresSkipLockedPocTests
         await OutboxStoreBehavior.AssertAsync(
             new PostgresOutboxStore(dataSource),
             timeout.Token);
+        await RealtimeEventStoreBehavior.AssertAsync(
+            new PostgresRealtimeEventStore(dataSource),
+            timeout.Token);
         await ValidateDurableSchemaAsync(dataSource, timeout.Token);
         await ValidateWorkChainSchemaAsync(dataSource, timeout.Token);
         await WorkChainStoreBehavior.AssertAsync(

@@ -27,6 +27,9 @@ public sealed class SqliteWorkflowStoreTests
             await OutboxStoreBehavior.AssertAsync(
                 new SqliteOutboxStore(dispatcher),
                 timeout.Token);
+            await RealtimeEventStoreBehavior.AssertAsync(
+                new SqliteRealtimeEventStore(dispatcher),
+                timeout.Token);
             await WorkflowStoreBehavior.AssertAsync(new SqliteWorkflowStore(dispatcher), timeout.Token);
             await DocumentStoreBehavior.AssertAsync(new SqliteDocumentStore(dispatcher), timeout.Token);
         }
