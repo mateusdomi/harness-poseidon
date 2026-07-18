@@ -6,6 +6,9 @@ public interface IChiefTurnStore
 {
     Task<ChiefTurnRecord> EnqueueAsync(ChiefTurnEnqueueCommand command, CancellationToken cancellationToken = default);
     Task<ChiefTurnLease> AcquireAsync(ChiefTurnAcquireCommand command, CancellationToken cancellationToken = default);
+    Task<ChiefTurnLease?> AcquireNextAsync(
+        string ownerId, DateTimeOffset now, TimeSpan leaseDuration,
+        CancellationToken cancellationToken = default);
     Task CompleteAsync(ChiefTurnCompleteCommand command, CancellationToken cancellationToken = default);
     Task FailAsync(ChiefTurnFailCommand command, CancellationToken cancellationToken = default);
     Task<ChiefTurnRecord?> GetAsync(string tenantId, string turnId, CancellationToken cancellationToken = default);
@@ -27,7 +30,7 @@ public sealed record ChiefTurnAcquireCommand(
 
 public sealed record ChiefTurnLease(
     ChiefTurnRecord Turn, string OwnerId, long FencingToken, DateTimeOffset ExpiresAt,
-    string ChiefAgentId, string? SessionId);
+    string ChiefAgentId, string Instruction, string? SessionId);
 
 public sealed record ChiefTurnCompleteCommand(
     ChiefTurnLease Lease, MessageRecord ChiefMessage, IReadOnlyList<string> Chunks,

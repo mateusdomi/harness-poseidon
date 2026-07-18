@@ -15,6 +15,32 @@ public sealed partial class SqliteConversationStore
     public Task<ChiefTurnLease> AcquireAsync(ChiefTurnAcquireCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((connection, token) => AcquireCoreAsync(connection, command, token), cancellationToken);
 
+    public Task<ChiefTurnLease?> AcquireNextAsync(
+        string ownerId, DateTimeOffset now, TimeSpan leaseDuration,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            await using var query = connection.CreateCommand();
+            query.CommandText =
+                """
+                SELECT m.tenant_id,m.id
+                FROM chief_turn_mailbox m
+                JOIN chief_states s ON s.tenant_id=m.tenant_id AND s.project_id=m.project_id
+                WHERE m.state='pending'
+                   OR (m.state='processing' AND s.lease_expires_at<=$now)
+                ORDER BY m.created_at,m.id LIMIT 1;
+                """;
+            Add(query, "$now", Store(now));
+            await using var reader = await query.ExecuteReaderAsync(token);
+            if (!await reader.ReadAsync(token)) return null;
+            var tenant = reader.GetString(0); var turn = reader.GetString(1);
+            await reader.DisposeAsync();
+            return await AcquireCoreAsync(
+                connection,
+                new ChiefTurnAcquireCommand(tenant, turn, ownerId, now, leaseDuration),
+                token);
+        }, cancellationToken);
+
     public Task CompleteAsync(ChiefTurnCompleteCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<object?>(async (connection, token) =>
         {
@@ -100,8 +126,10 @@ public sealed partial class SqliteConversationStore
             token, ("$owner", command.OwnerId), ("$fencing", fencing), ("$expires", Store(leaseExpires)),
             ("$now", Store(command.Now)), ("$tenant", command.TenantId), ("$project", turn.ProjectId),
             ("$turn", turn.TurnId), ("$agent", agent));
+        var userMessage = await ReadMessageAsync(connection, tx, command.TenantId, turn.UserMessageId, token)
+            ?? throw new ChiefTurnConflictException("The Chief turn user message does not exist.");
         await tx.CommitAsync(token);
-        return new ChiefTurnLease(turn with { State = "processing", AttemptCount = turn.AttemptCount + 1 }, command.OwnerId, fencing, leaseExpires, agent, session);
+        return new ChiefTurnLease(turn with { State = "processing", AttemptCount = turn.AttemptCount + 1 }, command.OwnerId, fencing, leaseExpires, agent, userMessage.Content, session);
     }
 
     private static async Task CompleteCoreAsync(

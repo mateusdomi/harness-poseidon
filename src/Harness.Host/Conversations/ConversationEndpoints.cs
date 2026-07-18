@@ -1,10 +1,7 @@
-using System.Text.Json;
 using Harness.Host.Profiles;
-using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Persistence.Abstractions.Conversations;
-using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
@@ -226,8 +223,6 @@ public static class ConversationEndpoints
         IConversationStore conversations,
         IChiefTurnStore chiefTurns,
         IProjectStore projects,
-        ICockpitDigestStore digests,
-        IAgentExecutor executor,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -240,13 +235,11 @@ public static class ConversationEndpoints
         var project = await projects.GetAsync(
             profile.TenantId, conversation.ProjectId, cancellationToken);
         if (project is null) return ProjectNotFound();
-        ChiefTurnLease? lease = null;
         try
         {
             var now = clock.UtcNow;
             var turnId = UlidValue.New(now).ToString();
             var userAt = now.AddMilliseconds(1);
-            var chiefAt = now.AddMilliseconds(2);
             var user = ConversationApplicationService.CreateUserMessage(
                 UlidValue.New(userAt).ToString(), profile.Id,
                 new CreateMessageRequest(conversationId, input.Content), userAt);
@@ -261,59 +254,11 @@ public static class ConversationEndpoints
                     $"chief-turn:{turnId}",
                     now),
                 cancellationToken);
-            lease = await chiefTurns.AcquireAsync(
-                new ChiefTurnAcquireCommand(
-                    profile.TenantId,
-                    turnId,
-                    $"host:{Environment.ProcessId}:{Guid.NewGuid():N}",
-                    now,
-                    TimeSpan.FromMinutes(2)),
-                cancellationToken);
-            var digest = await digests.ReadAsync(
-                profile.TenantId, project.Id, activityLimit: 20, cancellationToken);
-            var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
-            var execution = await executor.ExecuteAsync(
-                new AgentExecutionRequest(
-                    profile.TenantId,
-                    project.Id,
-                    conversationId,
-                    project.ChiefAgentId,
-                    input.Content,
-                    digestJson,
-                    AppContext.BaseDirectory,
-                    lease.SessionId),
-                cancellationToken);
-            var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
-            var chunks = execution.Chunks.Count == 0
-                ? new[] { output.Response }
-                : execution.Chunks.ToArray();
-            var chief = ConversationApplicationService.CreateChiefMessage(
-                UlidValue.New(chiefAt).ToString(), conversationId, project.ChiefAgentId,
-                output.Response, chiefAt);
-            await chiefTurns.CompleteAsync(
-                new ChiefTurnCompleteCommand(
-                    lease,
-                    ToRecord(profile.TenantId, conversation.ProjectId, chief),
-                    chunks,
-                    execution.SessionId,
-                    digestJson,
-                    chiefAt.AddMilliseconds(1)),
-                cancellationToken);
             return Results.Accepted(value: new ChatTurnHandle(turnId, conversationId));
         }
         catch (ArgumentException exception)
         {
             return Problem(400, "invalid_chat_turn", exception.Message);
-        }
-        catch (AgentOutputValidationException exception)
-        {
-            if (lease is not null)
-            {
-                await chiefTurns.FailAsync(
-                    new ChiefTurnFailCommand(lease, "agent_output_invalid", clock.UtcNow, false),
-                    cancellationToken);
-            }
-            return Problem(502, "agent_output_invalid", exception.Message);
         }
         catch (ChiefTurnConflictException exception)
         {
@@ -367,7 +312,6 @@ public static class ConversationEndpoints
     private static IResult Problem(int status, string title, string detail) =>
         Results.Problem(statusCode: status, title: title, detail: detail);
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 }
 
 public sealed record ConversationResponse(

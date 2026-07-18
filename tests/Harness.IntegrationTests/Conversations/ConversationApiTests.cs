@@ -7,10 +7,15 @@ using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Host.Realtime;
 using Harness.Modules.Conversations.Contracts;
+using Harness.Modules.Conversations.Application;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Sqlite;
+using Harness.Persistence.Abstractions.Agents;
+using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -20,6 +25,77 @@ namespace Harness.IntegrationTests.Conversations;
 
 public sealed class ConversationApiTests
 {
+    [Fact]
+    public async Task ExpiredChiefLeaseIsReacquiredAfterRestartAndOldFencingIsRejected()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var artifactRoot = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"chief-recovery-{Guid.NewGuid():N}");
+        var databasePath = Path.Combine(artifactRoot, "chief.db");
+        Directory.CreateDirectory(artifactRoot);
+        string tenantId; string profileId; string projectId; string chiefAgentId; string conversationId;
+        ChiefTurnLease staleLease;
+        try
+        {
+            await using (var app = CreateHost(databasePath))
+            {
+                await app.StartAsync(timeout.Token);
+                try
+                {
+                    using var client = new HttpClient { BaseAddress = GetBaseAddress(app.Services) };
+                    var profile = await CreateProfileAsync(client, "Recovery", timeout.Token); profileId = profile.Id;
+                    tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>().GetAsync(profileId, timeout.Token))!.TenantId;
+                    var organization = await CreateOrganizationAsync(client, timeout.Token);
+                    var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                    projectId = project.Id; chiefAgentId = project.ChiefAgentId;
+                    using var created = await client.PostAsJsonAsync("/api/v1/conversations", new CreateConversationRequest(projectId, "Recovery"), timeout.Token);
+                    created.EnsureSuccessStatusCode();
+                    conversationId = (await created.Content.ReadFromJsonAsync<ConversationResponse>(timeout.Token))!.Id;
+                }
+                finally { await app.StopAsync(timeout.Token); }
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var turnId = UlidValue.New(now).ToString();
+            var user = ConversationApplicationService.CreateUserMessage(
+                UlidValue.New(now.AddMilliseconds(1)).ToString(), profileId,
+                new CreateMessageRequest(conversationId, "Retome após o restart"), now.AddMilliseconds(1));
+            await using (var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
+            {
+                Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+                var store = new SqliteConversationStore(dispatcher);
+                await store.EnqueueAsync(new ChiefTurnEnqueueCommand(
+                    tenantId, projectId, conversationId, turnId, chiefAgentId,
+                    new MessageRecord(tenantId, projectId, user.Id, conversationId, "user", profileId, null, user.Content, null, user.CreatedAt),
+                    $"chief-turn:{turnId}", now), timeout.Token);
+                staleLease = await store.AcquireAsync(
+                    new ChiefTurnAcquireCommand(tenantId, turnId, "crashed-owner", now, TimeSpan.FromMilliseconds(1)),
+                    timeout.Token);
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
+
+            await using var restarted = CreateHost(databasePath);
+            await restarted.StartAsync(timeout.Token);
+            try
+            {
+                using var client = new HttpClient { BaseAddress = GetBaseAddress(restarted.Services) };
+                client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
+                _ = await WaitForTurnAsync(client, conversationId, turnId, timeout.Token);
+                var recovered = await ReadChiefPipelineAsync(restarted.Services, turnId, timeout.Token);
+                Assert.Equal("completed", recovered.MailboxState);
+                Assert.Equal(2, recovered.AttemptCount);
+                Assert.Equal(2, recovered.FencingToken);
+                await Assert.ThrowsAsync<ChiefTurnConflictException>(() =>
+                    restarted.Services.GetRequiredService<IChiefTurnStore>().FailAsync(
+                        new ChiefTurnFailCommand(staleLease, "stale", DateTimeOffset.UtcNow, false), timeout.Token));
+            }
+            finally { await restarted.StopAsync(timeout.Token); }
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot)) Directory.Delete(artifactRoot, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task ConversationMessagesAndTurnAreTenantScopedDurableAndSequenced()
     {

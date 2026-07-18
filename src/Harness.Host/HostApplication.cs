@@ -136,6 +136,11 @@ public static class HostApplication
                 TimeSpan.FromSeconds(1),
                 TimeSpan.FromMinutes(2)));
         builder.Services.AddHostedService<DurableExecutionWatchdogBackgroundService>();
+        builder.Services.AddSingleton(
+            new ChiefTurnWorkerOptions(
+                TimeSpan.FromMilliseconds(100),
+                TimeSpan.FromMinutes(2)));
+        builder.Services.AddHostedService<ChiefTurnBackgroundService>();
         builder.Services.AddSingleton<EventPublisher>();
         builder.Services.AddSingleton<RunnerIpcMessageProcessor>();
         builder.Services.AddSignalR(options => options.EnableDetailedErrors = builder.Environment.IsDevelopment());
