@@ -102,4 +102,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-LIC-1 licenças/entitlements | verde | ativação local, auditoria mascarada, cinco entitlements, estados temporais, expiração sem bloquear dados e restart; gate 166/166; `evidence/F2-LICENSING.md` |
 | F2-OPS-1 backup/diagnóstico | verde | snapshot online SQLite+catálogo, restore com rollback, auditoria, quick_check e contrato diagnóstico; gate 168/168; `evidence/F2-LOCAL-OPERATIONS.md` |
 | F2-FE-1 integração frontend | verde técnico | cópia isolada da fonte protegida, lint/typecheck/270 testes/build, 127 assets embarcados, fallback SPA, proxy dev, publish e smoke HTTP; backend 169/169; homologação visual pendente; `evidence/F2-FRONTEND-INTEGRATION.md` |
-| F2-DOGFOOD-1 pipeline real | próximo | integrar Chief, executor Codex CLI, claims Git e sandbox Docker em um fluxo completo recuperável |
+| F2-DOGFOOD-1a executor estruturado | verde | `IAgentExecutor`, Fake determinístico, protocolo Codex app-server V2, streaming, JSON Schema+validação+repair e prova obrigatória de sandbox; Host recompõe digest; gate 173/173; `evidence/F2-AGENT-EXECUTION.md` |
+| F2-DOGFOOD-1b pipeline durável | próximo | persistir Inbox/mailbox, lease/fencing, sessão/digest e recuperação do turno; depois compor claims/worktree/sandbox Docker |
