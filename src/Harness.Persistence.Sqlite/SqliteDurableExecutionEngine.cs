@@ -6,6 +6,30 @@ public sealed partial class SqliteDurableExecutionEngine(SqliteWriteDispatcher d
 {
     private readonly SqliteWriteDispatcher _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
+    public Task<IReadOnlyList<string>> ListMaintenanceTenantsAsync(
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<IReadOnlyList<string>>(
+            async (connection, token) =>
+            {
+                var tenants = new List<string>();
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT DISTINCT tenant_id
+                    FROM durable_executions
+                    WHERE state IN ('running','waiting_retry','waiting_signal')
+                    ORDER BY tenant_id;
+                    """;
+                await using var reader = await command.ExecuteReaderAsync(token);
+                while (await reader.ReadAsync(token))
+                {
+                    tenants.Add(reader.GetString(0));
+                }
+
+                return tenants;
+            },
+            cancellationToken);
+
     public Task<DurableCommandResult> StartAsync(
         DurableExecutionStartRequest request,
         DateTimeOffset occurredAt,

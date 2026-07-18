@@ -1,9 +1,13 @@
+using Harness.Persistence.Abstractions.Realtime;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Harness.Host.Realtime;
 
-public sealed class EventsHub : Hub
+public sealed class EventsHub(IRealtimeEventStore store) : Hub
 {
+    private readonly IRealtimeEventStore _store =
+        store ?? throw new ArgumentNullException(nameof(store));
+
     public async Task<EventSubscriptionAck> Subscribe(IReadOnlyList<string> streams)
     {
         ArgumentNullException.ThrowIfNull(streams);
@@ -28,6 +32,22 @@ public sealed class EventsHub : Hub
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetGroupName(stream), Context.ConnectionAborted);
         }
+    }
+
+    public async Task<EventStreamSnapshot> GetStreamSnapshot(
+        string stream,
+        long afterSequence = 0)
+    {
+        if (!EventStreamName.IsValid(stream) || afterSequence < 0)
+        {
+            throw new HubException("invalid_event_stream_cursor");
+        }
+
+        var snapshot = await _store.ReadSnapshotAsync(
+            stream,
+            afterSequence,
+            Context.ConnectionAborted);
+        return RealtimeSnapshotMapper.ToContract(snapshot);
     }
 
     internal static string GetGroupName(string stream) => $"stream::{stream}";

@@ -1,4 +1,5 @@
 using Harness.Persistence.Abstractions.Foundation;
+using Harness.IntegrationTests.Workers;
 using Harness.Persistence.Sqlite;
 
 namespace Harness.IntegrationTests.Persistence;
@@ -22,9 +23,9 @@ public sealed class SqliteDurableExecutionEngineTests
                 timeout.Token);
             await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
             await SeedFoundationAsync(dispatcher, timeout.Token);
-            await DurableExecutionEngineBehavior.AssertAsync(
-                new SqliteDurableExecutionEngine(dispatcher),
-                timeout.Token);
+            var engine = new SqliteDurableExecutionEngine(dispatcher);
+            await DurableExecutionWatchdogBehavior.AssertAsync(engine, timeout.Token);
+            await DurableExecutionEngineBehavior.AssertAsync(engine, timeout.Token);
         }
         finally
         {

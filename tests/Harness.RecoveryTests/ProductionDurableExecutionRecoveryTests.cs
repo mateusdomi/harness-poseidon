@@ -1,11 +1,14 @@
 using System.Diagnostics;
 using System.Globalization;
+using Harness.Host.Workers;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Postgres;
 using Harness.Persistence.Sqlite;
 using Harness.RecoveryTests.Fixtures;
+using Harness.SharedKernel.Time;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 namespace Harness.RecoveryTests;
@@ -30,7 +33,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
         {
             await using (var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
             {
-                Assert.Equal(4, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+                Assert.Equal(12, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
                 await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
                     ProductionDurableRecoveryScenario.ProvisionCommand(),
                     timeout.Token);
@@ -74,7 +77,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
             repositoryRoot,
             timeout.Token);
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
-        Assert.Equal(5, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
+        Assert.Equal(9, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
         await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
             ProductionDurableRecoveryScenario.ProvisionCommand(),
             timeout.Token);
@@ -128,16 +131,19 @@ public sealed class ProductionDurableExecutionRecoveryTests
             interrupted.LatestCheckpointKey,
             interrupted.LatestCheckpointJson);
         var recoveryAt = ProductionDurableRecoveryScenario.StartedAt.AddMinutes(1);
-        var reconciliation = await engine.ReconcileAsync(
-            ProductionDurableRecoveryScenario.TenantId,
-            recoveryAt,
-            recoveryAt,
-            cancellationToken);
+        var clock = new MutableClock(recoveryAt);
+        var watchdog = CreateWatchdog(engine, clock);
+        var reconciliation = await watchdog.RunOnceAsync(cancellationToken);
         Assert.Equal(1, reconciliation.Requeued);
         Assert.Equal(0, reconciliation.DeadLettered);
         Assert.Equal(
             [ProductionDurableRecoveryScenario.ExecutionId],
             reconciliation.ExecutionIds);
+
+        var restartReplay = await CreateWatchdog(engine, clock).RunOnceAsync(cancellationToken);
+        Assert.Equal(0, restartReplay.Requeued);
+        Assert.Equal(0, restartReplay.DeadLettered);
+        Assert.Empty(restartReplay.ExecutionIds);
 
         var checkpointReplay = await engine.CheckpointAsync(
             ProductionDurableRecoveryScenario.Checkpoint(interruptedLease, 3),
@@ -145,12 +151,8 @@ public sealed class ProductionDurableExecutionRecoveryTests
         Assert.Equal(DurableCommandStatus.IdempotentReplay, checkpointReplay.Status);
 
         var retryAt = recoveryAt.AddSeconds(1);
-        Assert.Equal(
-            1,
-            await engine.FireDueTimersAsync(
-                ProductionDurableRecoveryScenario.TenantId,
-                retryAt,
-                cancellationToken));
+        clock.UtcNow = retryAt;
+        Assert.Equal(1, (await watchdog.RunOnceAsync(cancellationToken)).TimersFired);
         var recoveryLease = await engine.TryAcquireNextAsync(
             ProductionDurableRecoveryScenario.TenantId,
             ProductionDurableRecoveryScenario.RecoveryOwner,
@@ -193,6 +195,17 @@ public sealed class ProductionDurableExecutionRecoveryTests
         Assert.Null(completed.ActiveAttemptId);
         Assert.Equal("step-6", completed.LatestCheckpointKey);
     }
+
+    private static DurableExecutionWatchdogBackgroundService CreateWatchdog(
+        IDurableExecutionEngine engine,
+        IClock clock) =>
+        new(
+            engine,
+            clock,
+            new DurableExecutionWatchdogOptions(
+                TimeSpan.FromMilliseconds(10),
+                TimeSpan.FromSeconds(30)),
+            NullLogger<DurableExecutionWatchdogBackgroundService>.Instance);
 
     private static void AssertEvidence(RecoveryEvidence evidence)
     {
@@ -241,6 +254,11 @@ public sealed class ProductionDurableExecutionRecoveryTests
         Assert.All(
             evidence.Ledger.Skip(1),
             entry => Assert.Equal("durable.stateChanged", entry.EventType));
+    }
+
+    private sealed class MutableClock(DateTimeOffset utcNow) : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
     }
 
     private static Task<RecoveryEvidence> ReadSqliteEvidenceAsync(

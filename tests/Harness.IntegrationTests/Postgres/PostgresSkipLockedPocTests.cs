@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using Harness.Modules.Execution.Infrastructure.Sandbox;
 using Harness.IntegrationTests.Persistence;
+using Harness.IntegrationTests.Workers;
 using Harness.Persistence.Postgres;
 using Npgsql;
 
@@ -19,20 +20,37 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(5, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(9, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
             new PostgresFoundationTransactionStore(dataSource),
+            timeout.Token);
+        await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
+            OutboxStoreBehavior.SecondProjectCommand(),
+            timeout.Token);
+        await OutboxStoreBehavior.AssertAsync(
+            new PostgresOutboxStore(dataSource),
+            timeout.Token);
+        await RealtimeEventStoreBehavior.AssertAsync(
+            new PostgresRealtimeEventStore(dataSource),
             timeout.Token);
         await ValidateDurableSchemaAsync(dataSource, timeout.Token);
         await ValidateWorkChainSchemaAsync(dataSource, timeout.Token);
         await WorkChainStoreBehavior.AssertAsync(
             new PostgresWorkChainStore(dataSource),
             timeout.Token);
-        await DurableExecutionEngineBehavior.AssertAsync(
-            new PostgresDurableExecutionEngine(dataSource),
+        await ValidateWorkflowSchemaAsync(dataSource, timeout.Token);
+        await WorkflowStoreBehavior.AssertAsync(
+            new PostgresWorkflowStore(dataSource),
             timeout.Token);
+        await ValidateDocumentSchemaAsync(dataSource, timeout.Token);
+        await DocumentStoreBehavior.AssertAsync(
+            new PostgresDocumentStore(dataSource),
+            timeout.Token);
+        var durableEngine = new PostgresDurableExecutionEngine(dataSource);
+        await DurableExecutionWatchdogBehavior.AssertAsync(durableEngine, timeout.Token);
+        await DurableExecutionEngineBehavior.AssertAsync(durableEngine, timeout.Token);
         await RunnerMessageStoreBehavior.AssertAsync(
             new PostgresRunnerMessageStore(dataSource),
             "attempt-dual-postgres",
@@ -161,6 +179,33 @@ public sealed class PostgresSkipLockedPocTests
             Assert.Equal(7L, await countCommand.ExecuteScalarAsync(cancellationToken));
         }
 
+        await using (var dispatchSchemaCommand = dataSource.CreateCommand(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM information_schema.tables
+                 WHERE table_schema='harness' AND table_name='outbox_dispatch_failures'),
+                (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema='harness' AND table_name='outbox_messages'
+                   AND column_name IN ('available_at','lock_owner','lock_token','lock_expires_at',
+                                       'last_error','dead_lettered_at'));
+            """))
+        await using (var reader = await dispatchSchemaCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            Assert.True(await reader.ReadAsync(cancellationToken));
+            Assert.Equal(1L, reader.GetInt64(0));
+            Assert.Equal(6L, reader.GetInt64(1));
+        }
+
+        await using (var realtimeSchemaCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema='harness'
+              AND table_name IN ('realtime_streams','realtime_events');
+            """))
+        {
+            Assert.Equal(2L, await realtimeSchemaCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
         await using (var insertCommand = dataSource.CreateCommand(
             """
             INSERT INTO harness.tenants (id, name, created_at)
@@ -174,6 +219,32 @@ public sealed class PostgresSkipLockedPocTests
             """))
         {
             await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var realtimeInsertCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.realtime_streams
+                (tenant_id,stream_name,last_sequence,created_at,updated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FAV','project:01ARZ3NDEKTSV4RRFFQ69G5FAX',1,
+                 '2026-07-18T17:30:00Z','2026-07-18T17:30:00Z');
+            INSERT INTO harness.realtime_events
+                (message_id,tenant_id,stream_name,sequence,event_type,payload_json,occurred_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FB0','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 'project:01ARZ3NDEKTSV4RRFFQ69G5FAX',1,'task.created','{}',
+                 '2026-07-18T17:30:00Z');
+            """))
+        {
+            await realtimeInsertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var realtimeUpdateCommand = dataSource.CreateCommand(
+            "UPDATE harness.realtime_events SET event_type='task.stateChanged';"))
+        {
+            var realtimeException = await Assert.ThrowsAsync<PostgresException>(
+                () => realtimeUpdateCommand.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal(PostgresErrorCodes.IntegrityConstraintViolation, realtimeException.SqlState);
         }
 
         await using var invalidCommand = dataSource.CreateCommand(
@@ -279,6 +350,205 @@ public sealed class PostgresSkipLockedPocTests
             () => duplicateAttempt.ExecuteNonQueryAsync(cancellationToken));
         Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
     }
+
+    private static async Task ValidateWorkflowSchemaAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using (var countCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema = 'harness' AND table_name IN
+                ('workflow_definitions', 'workflow_definition_versions',
+                 'workflow_phase_definitions', 'workflow_objective_definitions',
+                 'workflow_gate_definitions', 'workflow_gate_requirements',
+                 'workflow_runs', 'workflow_phase_runs',
+                 'workflow_objective_runs', 'workflow_gate_runs');
+            """))
+        {
+            Assert.Equal(10L, await countCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        await using (var insertCommand = dataSource.CreateCommand(WorkflowInsertSql))
+        {
+            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var duplicateActivePhase = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.workflow_phase_runs
+                (id, tenant_id, project_id, workflow_run_id, phase_definition_id,
+                 phase_order, state, activated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FGC', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG6',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FGB', 2, 'active', '2026-07-18T16:30:01Z');
+            """);
+        var exception = await Assert.ThrowsAsync<PostgresException>(
+            () => duplicateActivePhase.ExecuteNonQueryAsync(cancellationToken));
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
+    }
+
+    private static async Task ValidateDocumentSchemaAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using (var countCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema='harness' AND table_name IN
+                ('documents', 'document_versions', 'document_classifications',
+                 'document_approval_requests', 'document_state_transitions');
+            """))
+        {
+            Assert.Equal(5L, await countCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        await using (var insertCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.documents
+                (id,tenant_id,project_id,title,kind,state,current_version,
+                 phase_name,inconsistent,version,created_at,updated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH0','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','Delivery spec','spec',
+                 'awaiting_approval',1,NULL,false,3,
+                 '2026-07-18T17:00:00Z','2026-07-18T17:02:00Z');
+            INSERT INTO harness.document_versions
+                (id,tenant_id,project_id,document_id,version,catalog_path,
+                 content_hash,supersedes_id,author_kind,author_id,created_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH1','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',1,
+                 'documents/spec-v1.md',
+                 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                 NULL,'agent','01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:00:00Z');
+            INSERT INTO harness.document_classifications
+                (tenant_id,project_id,document_id,label,ordinal)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FAV','01ARZ3NDEKTSV4RRFFQ69G5FAX',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FH0','requirements',1);
+            INSERT INTO harness.document_approval_requests
+                (id,tenant_id,project_id,document_id,document_version_id,
+                 title,description,priority,due_at,state,requested_by_agent_id,requested_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH2','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FH1','Approve spec','Review current version',
+                 'high','2026-07-20T17:00:00Z','pending',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:02:00Z');
+            INSERT INTO harness.document_state_transitions
+                (id,tenant_id,project_id,document_id,document_version,
+                 from_state,to_state,actor_kind,actor_id,occurred_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH3','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',3,
+                 'in_review','awaiting_approval','agent',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:02:00Z');
+            """))
+        {
+            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var duplicatePending = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.document_approval_requests
+                (id,tenant_id,project_id,document_id,document_version_id,
+                 title,description,priority,state,requested_by_agent_id,requested_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH4','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FH1','Duplicate','Duplicate','low','pending',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:03:00Z');
+            """))
+        {
+            var exception = await Assert.ThrowsAsync<PostgresException>(
+                () => duplicatePending.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
+        }
+
+        await using (var immutableVersion = dataSource.CreateCommand(
+            "UPDATE harness.document_versions SET catalog_path='changed.md' WHERE id='01ARZ3NDEKTSV4RRFFQ69G5FH1';"))
+        {
+            var exception = await Assert.ThrowsAsync<PostgresException>(
+                () => immutableVersion.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal("23000", exception.SqlState);
+        }
+
+        await using (var immutableTransition = dataSource.CreateCommand(
+            "DELETE FROM harness.document_state_transitions WHERE id='01ARZ3NDEKTSV4RRFFQ69G5FH3';"))
+        {
+            var exception = await Assert.ThrowsAsync<PostgresException>(
+                () => immutableTransition.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal("23000", exception.SqlState);
+        }
+
+        await using var orphanCount = dataSource.CreateCommand(
+            "SELECT COUNT(*) FROM harness.documents WHERE phase_name IS NULL;");
+        Assert.Equal(1L, await orphanCount.ExecuteScalarAsync(cancellationToken));
+    }
+
+    private const string WorkflowInsertSql =
+        """
+        INSERT INTO harness.workflow_definitions (id, tenant_id, name, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG0', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                'Delivery', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_definition_versions
+            (id, tenant_id, definition_id, version, status, content_hash, created_at, published_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG1', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG0', 1, 'published',
+                'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                '2026-07-18T16:30:00Z', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_phase_definitions
+            (id, tenant_id, definition_version_id, phase_key, name, phase_order)
+        VALUES
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG2', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG1', 'analysis', 'Analysis', 1),
+            ('01ARZ3NDEKTSV4RRFFQ69G5FGB', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG1', 'delivery', 'Delivery', 2);
+        INSERT INTO harness.workflow_objective_definitions
+            (id, tenant_id, phase_definition_id, objective_key, name, kind, weight)
+        VALUES
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG3', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG2', 'requirements', 'Requirements', 'document', 2),
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG4', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG2', 'analysis-gate', 'Analysis gate', 'gate', 1);
+        INSERT INTO harness.workflow_gate_definitions
+            (id, tenant_id, phase_definition_id, objective_definition_id,
+             gate_key, name, minimum_required_state)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG5', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG2', '01ARZ3NDEKTSV4RRFFQ69G5FG4',
+                'analysis-gate', 'Analysis gate', 'validated');
+        INSERT INTO harness.workflow_gate_requirements
+            (phase_definition_id, gate_definition_id, objective_definition_id, requirement_order)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG2', '01ARZ3NDEKTSV4RRFFQ69G5FG5',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG3', 1);
+        INSERT INTO harness.workflow_runs
+            (id, tenant_id, project_id, definition_version_id, state, created_at, started_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG1', 'running',
+                '2026-07-18T16:30:00Z', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_phase_runs
+            (id, tenant_id, project_id, workflow_run_id, phase_definition_id,
+             phase_order, state, activated_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG6',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG2', 1, 'active', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_objective_runs
+            (id, tenant_id, project_id, phase_run_id, objective_definition_id, state, updated_at)
+        VALUES
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG8', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG7',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG3', 'validated', '2026-07-18T16:30:00Z'),
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG9', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG7',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG4', 'pending', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_gate_runs
+            (id, tenant_id, project_id, phase_run_id, gate_definition_id, state)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FGA', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG7',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG5', 'pending');
+        """;
 
     private const string WorkChainInsertSql =
         """

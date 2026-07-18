@@ -5,8 +5,8 @@
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
-| GNG-2 | recuperação abrupta com auditoria completa | critério técnico verde; fase aberta | `SIGKILL` dual-provider, 6/6 checkpoints, 2 attempts e cadeia de 7 eventos íntegra; restante do escopo F1 pendente |
-| GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
+| GNG-2 | recuperação abrupta com auditoria completa | verde | `SIGKILL` dual-provider retomado automaticamente pelo watchdog, 6/6 checkpoints, 2 attempts, Outbox/Inbox idempotentes e cadeia de 7 eventos íntegra; `evidence/F1-GNG2-CLOSURE.md` |
+| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit e chat/conversas verdes; cadeia/quadro é o próximo incremento |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
 | GNG-6 | hardening e DoD global | fechado | F11 não iniciada |
@@ -52,4 +52,35 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Store EP-09b.2b.1 | verde | start/complete/review dual-provider com optimistic concurrency, Inbox, ledger e Outbox; actor–critic médio; snapshot v4/1 attempt/1 evidência/1 review; `evidence/F1-WORK-CHAIN-MUTATIONS.md` |
 | Store EP-09b.2b.2 | verde | correção imutável v2→v1, segunda tentativa aprovada e leitura transacional integral; final v8/2 instruções/2 attempts/2 evidências/2 reviews; `evidence/F1-WORK-CHAIN-HISTORY.md` |
 | Contrato EP-10a | verde | 9 cenários: versão/publicação, lifecycle, fases, gates, pausa e progresso ponderado recomputável até 100/100/100; `evidence/F1-WORKFLOW-CONTRACT.md` |
-| Schema EP-10b | próximo | migrations separadas de definições/versões/fases/itens/gates/runs nos dois providers |
+| Schema EP-10b.1 | verde | 10 tabelas, FKs/checks/índice de fase ativa, migrations idempotentes SQLite `5→0` e PostgreSQL `6→0`; `evidence/F1-WORKFLOW-SCHEMA.md` |
+| Store EP-10b.2a | verde | definição inicial publicada atomicamente: 10 concorrentes=1 aplicação/9 replays, snapshot hierárquico e Inbox/ledger/Outbox dual-provider; `evidence/F1-WORKFLOW-STORE.md` |
+| Store EP-10b.2b.1 | verde | run pendente inicializado a partir de versão publicada com projeções e Inbox/ledger/Outbox atômicos; 10 concorrentes=1 aplicação/9 replays; snapshot 1/2/1 e progresso 0/0/0; `evidence/F1-WORKFLOW-RUN-CREATION.md` |
+| Store EP-10b.2b.2 | verde | start/pause/resume/cancel dual-provider com versão esperada, fase ativa única, rejeições idempotentes e auditoria somente para aplicações; `evidence/F1-WORKFLOW-RUN-LIFECYCLE.md` |
+| Store EP-10b.2b.3 | verde | 2 fases até run v14/100-100-100; avanço monotônico, gate failed→passed, bloqueio, ativação ordenada, snapshot hierárquico e 10 concorrentes=1 aplicação/9 replays; `evidence/F1-WORKFLOW-RUN-PROGRESS.md` |
+| F1-DOC-1a | verde | agregado cataloga conteúdo por path+SHA-256, versão/supersession imutável, órfão/classificação, lifecycle e aprovação/rejeição/cancelamento; 8/8 cenários; `evidence/F1-DOCUMENT-CONTRACT.md` |
+| F1-DOC-1b | verde | 5 tabelas, FKs compostas, aprovação pendente única, índice de órfãos e triggers append-only; migrations SQLite `6→0` / PostgreSQL `7→0`; `evidence/F1-DOCUMENT-SCHEMA.md` |
+| F1-DOC-1c.1 | verde | criação/leitura dual-provider: 10 concorrentes=1 aplicação/9 replays; catálogo+Inbox+ledger+Outbox atômicos e snapshot integral; `evidence/F1-DOCUMENT-STORE-CREATION.md` |
+| F1-DOC-1c.2 | verde | append v2→v1 com OCC e `FOR UPDATE`/dispatcher; 10 concorrentes=1 aplicação/9 replays; stale/ausente sem auditoria falsa; `evidence/F1-DOCUMENT-VERSIONING.md` |
+| F1-DOC-1c.3 | verde | órfão adotado por fase sem histórico falso; lifecycle com matriz fechada, ator/nota, OCC e transição append-only; 10 concorrentes=1/9; `evidence/F1-DOCUMENT-LIFECYCLE.md` |
+| F1-DOC-1c.4 | verde | request/cancel/reject/correct/reapprove dual-provider; pendência única, nota obrigatória, v12/3 versões/3 approvals/8 transições; `evidence/F1-DOCUMENT-APPROVALS.md` |
+| F1-WRK-1a | verde | contrato de claim/fencing/retry/dead-letter; migrations SQLite `7→0`/PostgreSQL `8→0`, histórico append-only e backoff 2/2; `evidence/F1-OUTBOX-DISPATCH-SCHEMA.md` |
+| F1-WRK-1b | verde | 10 workers→2 claims únicos; expiry/fencing 1→2, retry token 3, stale recusado, 1 dispatch/1 dead-letter/2 falhas nos dois providers; `evidence/F1-OUTBOX-STORES.md` |
+| F1-WRK-1c | verde | worker cancelável com sink tipado; restart pós-falha sem duplicar sucesso e recuperação após expiração de claim; gate 96/96; `evidence/F1-OUTBOX-DISPATCHER-WORKER.md` |
+| F1-WRK-1d.1 | verde | contrato append/replay/snapshot+delta; schema stream head + eventos append-only, migrations SQLite `8→0`/PostgreSQL `9→0`; gate 102/102; `evidence/F1-REALTIME-EVENT-SCHEMA.md` |
+| F1-WRK-1d.2 | verde | 10 appends concorrentes→sequências 1–10; replay/conflito sem avanço e snapshot delta 8–11 equivalente nos dois providers; `evidence/F1-REALTIME-EVENT-STORES.md` |
+| F1-WRK-1d.3a | verde | append antes de broadcast; replay após restart preserva uma row/sequence e zero retransmissão; fallback tenant; `evidence/F1-REALTIME-OUTBOX-SINK.md` |
+| F1-WRK-1d.3b | verde | dispatcher/migrations/stores/worker compartilhados no Host; shutdown+restart, snapshot HTTP/SignalR `[2,3]`, replay sem broadcast e sequência final `[1,2,3,4]`; gate 104/104; `evidence/F1-HOST-PERSISTED-REALTIME.md` |
+| F1-WRK-2 | verde | 10 ciclos concorrentes→1 reconciliação; timer/signal timeout, retry, fencing, checkpoint, dead-letter, restart idempotente e shutdown limpo equivalentes nos dois providers; `evidence/F1-WATCHDOG-RECONCILIATION.md` |
+| Encerramento F1/GNG-2 | verde | SIGKILL dual-provider retomado automaticamente, auditoria completa, migrations 8→0/9→0, gate 104/104 e zero órfão; `evidence/F1-GNG2-CLOSURE.md` |
+
+## Fase 2
+
+| Incremento | Estado | Última evidência |
+|---|---|---|
+| F2-PREP-1 | verde | fetch/rebase e leitura integral de estado, handoff e 13 contratos TypeScript; drift registrado sem editar frontend |
+| F2-ID-1 perfil local | verde | domínio/aplicação, migration/store SQLite, cookie local, API current/list/create/patch, restart, Problem Details, OpenAPI e drift; gate 108/108; `evidence/F2-LOCAL-PROFILE.md` |
+| F2-ORG-1 organizações | verde | agregado/marca/templates/policies, migration/store tenant-scoped, sessão, API list/read/create/patch, unicidade, restart, OpenAPI e drift; gate 112/112; `evidence/F2-ORGANIZATIONS.md` |
+| F2-PRJ-1 projetos | verde | configuração versionada, tenant/organização, CRUD+tombstone, ledger/Outbox `project.created`, realtime, restart, OpenAPI e drift; gate 116/116; `evidence/F2-PROJECTS.md` |
+| F2-CPK-1 cockpit/digest | verde | read model determinístico de progresso/tarefas/approvals/workflow/ledger, fingerprint, sinais indisponíveis explícitos e reconciliação `task.created`; gate 117/117; `evidence/F2-COCKPIT-DIGEST.md` |
+| F2-CHAT-1 conversas/chat | verde | conversa/mensagem persistidas, CRUD tenant-scoped, turno Fake determinístico transacional, ledger/Outbox e sete eventos sequenciados; restart, OpenAPI e drift; gate 121/121; `evidence/F2-CONVERSATIONS-CHAT.md` |
+| F2-WORK-1 cadeia/quadro | próximo | expor Solicitação→Demanda→Tarefa→Tentativa existente por API/SignalR conforme contratos do frontend |

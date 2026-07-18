@@ -2,6 +2,9 @@ namespace Harness.Persistence.Abstractions.DurableExecution;
 
 public interface IDurableExecutionEngine
 {
+    Task<IReadOnlyList<string>> ListMaintenanceTenantsAsync(
+        CancellationToken cancellationToken = default);
+
     Task<DurableCommandResult> StartAsync(
         DurableExecutionStartRequest request,
         DateTimeOffset occurredAt,

@@ -1,6 +1,20 @@
 using System.Net;
+using Harness.Host.Conversations;
 using Harness.Host.Ipc;
+using Harness.Host.Organizations;
+using Harness.Host.Persistence;
+using Harness.Host.Profiles;
+using Harness.Host.Projects;
 using Harness.Host.Realtime;
+using Harness.Host.Workers;
+using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.Cockpit;
+using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Messaging;
+using Harness.Persistence.Abstractions.Organizations;
+using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Realtime;
 using Harness.Persistence.Abstractions.RunnerIpc;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Time;
@@ -11,8 +25,7 @@ public static class HostApplication
 {
     public static WebApplication Build(
         string[] args,
-        RunnerIpcToken? runnerIpcToken = null,
-        IRunnerMessageStore? runnerMessageStore = null)
+        RunnerIpcToken? runnerIpcToken = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         var builder = WebApplication.CreateBuilder(args);
@@ -23,25 +36,47 @@ public static class HostApplication
         }
 
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
-        builder.Services.AddSingleton<EventStreamStore>();
-        builder.Services.AddSingleton<EventPublisher>();
         builder.Services.AddSingleton(runnerIpcToken ?? RunnerIpcToken.Create());
-        if (runnerMessageStore is null)
+        var databasePath = builder.Configuration["Harness:DatabasePath"];
+        if (string.IsNullOrWhiteSpace(databasePath))
         {
-            var databasePath = builder.Configuration["Harness:DatabasePath"];
-            if (string.IsNullOrWhiteSpace(databasePath))
-            {
-                databasePath = Path.Combine(AppContext.BaseDirectory, "data", "harness.db");
-            }
-
-            builder.Services.AddSingleton<IRunnerMessageStore>(
-                _ => new SqliteRunnerMessageStore(databasePath));
-        }
-        else
-        {
-            builder.Services.AddSingleton(runnerMessageStore);
+            databasePath = Path.Combine(AppContext.BaseDirectory, "data", "harness.db");
         }
 
+        builder.Services.AddSingleton(
+            _ => SqliteWriteDispatcher.CreateAsync(databasePath).GetAwaiter().GetResult());
+        builder.Services.AddSingleton<IHostedService, SqliteMigrationHostedService>();
+        builder.Services.AddSingleton<IRunnerMessageStore>(services =>
+            new SqliteRunnerMessageStore(services.GetRequiredService<SqliteWriteDispatcher>()));
+        builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
+        builder.Services.AddSingleton<IRealtimeEventStore, SqliteRealtimeEventStore>();
+        builder.Services.AddSingleton<IDurableExecutionEngine, SqliteDurableExecutionEngine>();
+        builder.Services.AddSingleton<ILocalProfileStore, SqliteLocalProfileStore>();
+        builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
+        builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
+        builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
+        builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
+        builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
+        builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
+        builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
+        builder.Services.AddSingleton(
+            new OutboxDispatcherOptions(
+                $"host-outbox-{Guid.NewGuid():N}",
+                TimeSpan.FromSeconds(30),
+                TimeSpan.FromMilliseconds(100),
+                100,
+                new OutboxRetryPolicy(
+                    5,
+                    TimeSpan.FromSeconds(1),
+                    2m,
+                    TimeSpan.FromMinutes(1))));
+        builder.Services.AddHostedService<OutboxDispatcherBackgroundService>();
+        builder.Services.AddSingleton(
+            new DurableExecutionWatchdogOptions(
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromMinutes(2)));
+        builder.Services.AddHostedService<DurableExecutionWatchdogBackgroundService>();
+        builder.Services.AddSingleton<EventPublisher>();
         builder.Services.AddSingleton<RunnerIpcMessageProcessor>();
         builder.Services.AddSignalR(options => options.EnableDetailedErrors = builder.Environment.IsDevelopment());
         builder.Services.AddOpenApi(options =>
@@ -59,9 +94,17 @@ public static class HostApplication
         app.MapOpenApi("/openapi/{documentName}.json");
         app.MapHub<EventsHub>("/hubs/events");
         app.MapRunnerIpc();
+        app.MapLocalProfiles();
+        app.MapOrganizations();
+        app.MapProjects();
+        app.MapConversations();
         app.MapGet(
             "/api/v1/event-streams/snapshot",
-            IResult (string? stream, long? afterSequence, EventStreamStore store) =>
+            async Task<IResult> (
+                string? stream,
+                long? afterSequence,
+                IRealtimeEventStore store,
+                CancellationToken cancellationToken) =>
             {
                 if (!EventStreamName.IsValid(stream))
                 {
@@ -80,7 +123,11 @@ public static class HostApplication
                         detail: "afterSequence cannot be negative.");
                 }
 
-                return Results.Ok(store.ReadSnapshot(stream!, cursor));
+                var snapshot = await store.ReadSnapshotAsync(
+                    stream!,
+                    cursor,
+                    cancellationToken);
+                return Results.Ok(RealtimeSnapshotMapper.ToContract(snapshot));
             })
             .WithTags("events")
             .Produces<EventStreamSnapshot>()
