@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { documentStateSchema, operationModeSchema, prioritySchema, solicitationStateSchema, taskStateSchema } from './enums';
+import { workflowPhaseConfigSchema } from './delivery';
 
 /**
  * Comandos de domínio (POSTs fora do CRUD) — espelhados no backend.
@@ -51,6 +52,30 @@ export const transitionDocumentInputSchema = z.object({
   note: z.string().optional(),
 });
 export type TransitionDocumentInput = z.infer<typeof transitionDocumentInputSchema>;
+
+/**
+ * Classificação de documento (metadados — não é edição de conteúdo):
+ * rótulos e vínculo de fase. Usada também para "adotar" documentos órfãos.
+ */
+export const classifyDocumentInputSchema = z.object({
+  classifications: z.array(z.string()).optional(),
+  phaseName: z.string().nullable().optional(),
+});
+export type ClassifyDocumentInput = z.infer<typeof classifyDocumentInputSchema>;
+
+/**
+ * Nova versão de template de workflow — já nasce publicada (imutável) e
+ * emite `workflow.versionPublished`. Fases na ordem de execução.
+ */
+export const publishWorkflowVersionInputSchema = z.object({
+  phases: z.array(z.string().min(1)).min(1),
+  gatesByPhase: z.record(z.array(z.string())),
+  phaseConfigs: z.record(workflowPhaseConfigSchema).optional(),
+  defaultOperationMode: operationModeSchema.nullable().optional(),
+  transitions: z.record(z.array(z.string())).optional(),
+  changelog: z.string().optional(),
+});
+export type PublishWorkflowVersionInput = z.infer<typeof publishWorkflowVersionInputSchema>;
 
 /**
  * Troca de modo de operação do workflow — exige confirmação com

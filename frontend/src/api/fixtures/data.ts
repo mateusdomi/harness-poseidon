@@ -956,7 +956,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
   const documentVersions: DocumentVersion[] = [];
   const addDocument = (
     input: Pick<Document, 'title' | 'kind' | 'state'> &
-      Partial<Pick<Document, 'classifications' | 'inconsistent' | 'waiver'>>,
+      Partial<Pick<Document, 'classifications' | 'inconsistent' | 'waiver' | 'phaseName'>>,
     corpos: string[],
   ) => {
     const doc: Document = {
@@ -967,6 +967,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       state: input.state,
       currentVersion: corpos.length,
       classifications: input.classifications ?? [],
+      phaseName: input.phaseName ?? null,
       inconsistent: input.inconsistent ?? false,
       waiver: input.waiver ?? null,
       createdAt: tick(),
@@ -988,28 +989,28 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
   };
 
   addDocument(
-    { title: 'PRD do Poseidon Console', kind: 'prd', state: 'approved', classifications: ['produto', 'normativo'] },
+    { title: 'PRD do Poseidon Console', kind: 'prd', state: 'approved', classifications: ['produto', 'normativo'], phaseName: 'Planejamento' },
     ['# PRD\n\nVisão do console web do Harness Poseidon.', '# PRD v2\n\nInclui cockpit e quadro.'],
   );
   const docSpecApi = addDocument(
-    { title: 'Spec da API v1', kind: 'spec', state: 'inReview', classifications: ['arquitetura'] },
+    { title: 'Spec da API v1', kind: 'spec', state: 'inReview', classifications: ['arquitetura'], phaseName: 'Planejamento' },
     ['# Spec API v1\n\nContratos REST e eventos realtime.'],
   );
   addDocument(
-    { title: 'Guia de UX do quadro', kind: 'design', state: 'inElaboration', classifications: ['ux'] },
+    { title: 'Guia de UX do quadro', kind: 'design', state: 'inElaboration', classifications: ['ux'], phaseName: 'Execução' },
     ['# Guia de UX\n\nColunas, drag-and-drop e estados vazios.'],
   );
-  addDocument({ title: 'Runbook de deploy', kind: 'runbook', state: 'planned', classifications: ['ops'] }, [
+  addDocument({ title: 'Runbook de deploy', kind: 'runbook', state: 'planned', classifications: ['ops'], phaseName: 'Publicação' }, [
     '# Runbook\n\nPassos de deploy em staging e produção.',
   ]);
   addDocument(
-    { title: 'Nota de arquitetura realtime', kind: 'note', state: 'awaitingApproval', classifications: ['arquitetura', 'realtime'] },
+    { title: 'Nota de arquitetura realtime', kind: 'note', state: 'awaitingApproval', classifications: ['arquitetura', 'realtime'], phaseName: 'Validação' },
     ['# Realtime\n\nHub único /hubs/events com snapshot+delta.'],
   );
   addDocument({ title: 'Spec do protótipo v0', kind: 'spec', state: 'outdated', classifications: ['ux'] }, [
     '# Protótipo v0\n\nSubstituída pela v1.',
   ]);
-  addDocument({ title: 'ADR 001 — SPA simples', kind: 'note', state: 'superseded', classifications: ['arquitetura'] }, [
+  addDocument({ title: 'ADR 001 — SPA simples', kind: 'note', state: 'superseded', classifications: ['arquitetura'], phaseName: 'Planejamento' }, [
     '# ADR 001\n\nDecisão antiga, substituída pelo ADR 007.',
   ]);
   addDocument({ title: 'ADR 002 — SSR', kind: 'note', state: 'notApplicable', classifications: ['arquitetura'] }, [
@@ -1021,6 +1022,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       kind: 'spec',
       state: 'inElaboration',
       classifications: ['arquitetura', 'pagamentos'],
+      phaseName: 'Execução',
       inconsistent: true,
       waiver: {
         reason: 'Divergência conhecida com o gateway legado; waiver até a migração.',
@@ -1226,6 +1228,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       documentId: null,
       title: 'Aprovar Gate de Qualidade',
       description: 'Evidências da sprint 12 anexadas; testes de contrato verdes.',
+      priority: 'high',
+      dueAt: '2026-07-19T00:00:00Z',
       state: 'pending',
       requestedByAgentId: chefePoseidon.id,
       requestedAt: tick(),
@@ -1241,6 +1245,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       documentId: docSpecApi.id,
       title: 'Aprovar Spec da API v1',
       description: 'Revisão concluída; aguardando aprovação para virar referência.',
+      priority: 'medium',
+      dueAt: '2026-07-25T00:00:00Z',
       state: 'pending',
       requestedByAgentId: chefePoseidon.id,
       requestedAt: tick(),
@@ -1256,6 +1262,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       documentId: null,
       title: 'Aprovar publicação da suíte E2E',
       description: 'Suíte completa rodando em CI; aprovar para marcar o gate.',
+      priority: 'critical',
+      dueAt: '2026-07-18T00:00:00Z',
       state: 'pending',
       requestedByAgentId: agenteTestador.id,
       requestedAt: tick(),
@@ -1271,6 +1279,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       documentId: documents[0].id,
       title: 'Aprovar PRD do console',
       description: 'PRD revisado com o time.',
+      priority: 'medium',
+      dueAt: null,
       state: 'approved',
       requestedByAgentId: chefePoseidon.id,
       requestedAt: tick(),
@@ -1286,6 +1296,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       documentId: null,
       title: 'Aprovar aumento de budget',
       description: 'Pedido de aumento do limite mensal global.',
+      priority: 'low',
+      dueAt: null,
       state: 'rejected',
       requestedByAgentId: chefePoseidon.id,
       requestedAt: tick(),

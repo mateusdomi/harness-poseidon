@@ -180,6 +180,36 @@
       "chief": "Chefe",
       "agent": "Agente",
       "system": "Sistema"
+    },
+    "documentState": {
+      "planned": "Planejado",
+      "inElaboration": "Em elaboração",
+      "inReview": "Em revisão",
+      "awaitingApproval": "Aguardando aprovação",
+      "approved": "Aprovado",
+      "outdated": "Desatualizado",
+      "superseded": "Substituído",
+      "notApplicable": "Não aplicável"
+    },
+    "documentKind": {
+      "prd": "PRD",
+      "spec": "Especificação",
+      "design": "Design",
+      "runbook": "Runbook",
+      "note": "Nota",
+      "report": "Relatório"
+    },
+    "operationMode": {
+      "manual": "Manual",
+      "semiautonomous": "Semiautônomo",
+      "autonomous": "Autônomo"
+    },
+    "workflowRunState": {
+      "running": "Em andamento",
+      "paused": "Pausada",
+      "completed": "Concluída",
+      "failed": "Falhou",
+      "cancelled": "Cancelada"
     }
   },
   "onboarding": {
@@ -581,26 +611,294 @@
     "sendError": "Não foi possível enviar a mensagem. Tente novamente."
   },
   "features": {
-    "onboarding": { "title": "Onboarding", "description": "Primeiros passos e configuração inicial da conta." },
-    "organizations": { "title": "Organizações", "description": "Gerencie organizações, marca, políticas e projetos associados." },
-    "projects": { "title": "Projetos", "description": "Lista e detalhes dos projetos desenvolvidos pelos agentes." },
-    "cockpit": { "title": "Cockpit", "description": "Visão geral da operação: status dos agentes e projetos ativos." },
-    "chat": { "title": "Chat", "description": "Converse com o agente chefe e a equipe de IA." },
-    "conversations": { "title": "Conversas", "description": "Histórico de conversas com os agentes." },
-    "workflows": { "title": "Fluxos de trabalho", "description": "Pipelines e automações dos projetos." },
-    "board": { "title": "Quadro", "description": "Quadro de tarefas do projeto." },
-    "documents": { "title": "Documentos", "description": "Documentação gerada e mantida pelos agentes." },
-    "prototypes": { "title": "Protótipos", "description": "Protótipos navegáveis gerados durante o desenvolvimento." },
-    "approvals": { "title": "Aprovações", "description": "Decisões pendentes de aprovação humana." },
-    "orchestrator": { "title": "Orquestrador", "description": "Coordenação do agente chefe sobre os demais agentes." },
-    "agents": { "title": "Agentes", "description": "Catálogo e status dos agentes de IA." },
-    "tools": { "title": "Ferramentas", "description": "Ferramentas disponíveis para os agentes." },
-    "run-project": { "title": "Executar projeto", "description": "Dispare uma nova execução de projeto." },
-    "notifications": { "title": "Notificações", "description": "Central de notificações." },
-    "providers": { "title": "Provedores", "description": "Provedores de modelos e integrações." },
-    "po-assistant": { "title": "Assistente de PO", "description": "Assistente de Product Owner para refino de requisitos." },
-    "governance": { "title": "Governança", "description": "Políticas, limites e auditoria." },
-    "licenses": { "title": "Licenças", "description": "Licenças e plano de uso." },
-    "settings": { "title": "Configurações", "description": "Preferências da aplicação." }
+    "onboarding": {
+      "title": "Onboarding",
+      "description": "Primeiros passos e configuração inicial da conta."
+    },
+    "organizations": {
+      "title": "Organizações",
+      "description": "Gerencie organizações, marca, políticas e projetos associados."
+    },
+    "projects": {
+      "title": "Projetos",
+      "description": "Lista e detalhes dos projetos desenvolvidos pelos agentes."
+    },
+    "cockpit": {
+      "title": "Cockpit",
+      "description": "Visão geral da operação: status dos agentes e projetos ativos."
+    },
+    "chat": {
+      "title": "Chat",
+      "description": "Converse com o agente chefe e a equipe de IA."
+    },
+    "conversations": {
+      "title": "Conversas",
+      "description": "Histórico de conversas com os agentes."
+    },
+    "workflows": {
+      "title": "Fluxos de trabalho",
+      "description": "Pipelines e automações dos projetos."
+    },
+    "board": {
+      "title": "Quadro",
+      "description": "Quadro de tarefas do projeto."
+    },
+    "documents": {
+      "title": "Documentos",
+      "description": "Documentação gerada e mantida pelos agentes."
+    },
+    "prototypes": {
+      "title": "Protótipos",
+      "description": "Protótipos navegáveis gerados durante o desenvolvimento."
+    },
+    "approvals": {
+      "title": "Aprovações",
+      "description": "Decisões pendentes de aprovação humana."
+    },
+    "orchestrator": {
+      "title": "Orquestrador",
+      "description": "Coordenação do agente chefe sobre os demais agentes."
+    },
+    "agents": {
+      "title": "Agentes",
+      "description": "Catálogo e status dos agentes de IA."
+    },
+    "tools": {
+      "title": "Ferramentas",
+      "description": "Ferramentas disponíveis para os agentes."
+    },
+    "run-project": {
+      "title": "Executar projeto",
+      "description": "Dispare uma nova execução de projeto."
+    },
+    "notifications": {
+      "title": "Notificações",
+      "description": "Central de notificações."
+    },
+    "providers": {
+      "title": "Provedores",
+      "description": "Provedores de modelos e integrações."
+    },
+    "po-assistant": {
+      "title": "Assistente de PO",
+      "description": "Assistente de Product Owner para refino de requisitos."
+    },
+    "governance": {
+      "title": "Governança",
+      "description": "Políticas, limites e auditoria."
+    },
+    "licenses": {
+      "title": "Licenças",
+      "description": "Licenças e plano de uso."
+    },
+    "settings": {
+      "title": "Configurações",
+      "description": "Preferências da aplicação."
+    }
+  },
+  "workflows": {
+    "noProject": {
+      "body": "Selecione ou crie um projeto para ver os workflows.",
+      "cta": "Ver projetos"
+    },
+    "empty": {
+      "title": "Nenhum workflow vinculado",
+      "body": "Este projeto ainda não tem um workflow. Vincule um template para começar."
+    },
+    "run": {
+      "versionPinned": "Esta execução segue a versão v{{version}} do template \"{{template}}\": publicar novas versões não altera execuções em andamento."
+    },
+    "mode": {
+      "title": "Modo de operação",
+      "description": {
+        "manual": "Todos os gates e transições aguardam a sua decisão.",
+        "semiautonomous": "Os agentes avançam sozinhos; apenas os gates selecionados pausam para aprovação.",
+        "autonomous": "Os agentes executam e aprovam gates sem intervenção humana."
+      },
+      "change": "Alterar modo",
+      "dialogTitle": "Trocar modo de operação",
+      "selectLabel": "Novo modo",
+      "risk": {
+        "manual": "No modo manual, nenhum gate avança sem a sua aprovação. A operação fica mais lenta, mas sob controle total.",
+        "semiautonomous": "No modo semiautônomo, os agentes avançam fases e gates por conta própria, exceto nos gates que você escolher para pausar. Você responde pelas decisões delegadas.",
+        "autonomous": "No modo autônomo, os agentes executam e aprovam gates sem intervenção humana, incluindo publicações. O risco operacional é integralmente seu."
+      },
+      "pauseGatesLabel": "Gates que pausam para aprovação humana",
+      "noteLabel": "Justificativa do aceite",
+      "notePlaceholder": "Por que você aceita este modo agora?",
+      "acceptCheckbox": "Li e aceito os riscos deste modo de operação",
+      "confirm": "Confirmar troca",
+      "errors": {
+        "acceptanceRequired": "Marque o aceite de risco e escreva a justificativa.",
+        "gatesRequired": "Selecione ao menos um gate que pausa para aprovação."
+      },
+      "pauseGates": "Pausa nos gates: {{gates}}",
+      "noPauseGates": "Nenhum gate pausa para aprovação.",
+      "acceptances": "{{count}} aceite(s) de risco registrado(s)",
+      "acceptanceItem": "{{mode}} — {{date}} — {{note}}"
+    },
+    "phases": {
+      "title": "Fases do workflow",
+      "label": "Fases do workflow",
+      "gatesLabel": "Gates da fase {{phase}}",
+      "documentsLabel": "Documentos",
+      "noDocuments": "Nenhum documento vinculado.",
+      "documentVersion": "v{{version}}"
+    },
+    "templates": {
+      "title": "Templates de workflow",
+      "newVersion": "Nova versão",
+      "version": "v{{version}}",
+      "current": "Atual",
+      "phaseCount": "{{count}} fases",
+      "dialogTitle": "Nova versão — {{name}}",
+      "dialogHint": "A versão nasce publicada e imutável; execuções em andamento não são afetadas.",
+      "phasesLabel": "Fases (uma por linha, na ordem de execução)",
+      "phasesHint": "A ordem das linhas define a ordem das fases.",
+      "changelogLabel": "Changelog",
+      "defaultModeLabel": "Modo de operação padrão",
+      "noDefaultMode": "Sem modo padrão",
+      "gatesLabel": "Gates",
+      "gatesHint": "Separados por vírgula.",
+      "weightLabel": "Peso no progresso (%)",
+      "documentKindsLabel": "Documentos esperados",
+      "agentsLabel": "Agentes permitidos",
+      "transitionsLabel": "Transições permitidas",
+      "publish": "Publicar versão",
+      "errors": {
+        "phasesRequired": "Informe ao menos uma fase.",
+        "invalidWeight": "Peso inválido na fase {{phase}} (use 0–100)."
+      }
+    }
+  },
+  "documents": {
+    "noProject": {
+      "body": "Selecione ou crie um projeto para ver os documentos.",
+      "cta": "Ver projetos"
+    },
+    "empty": {
+      "title": "Nenhum documento encontrado",
+      "body": "Ajuste os filtros ou aguarde o chefe criar documentos neste projeto."
+    },
+    "filters": {
+      "kind": "Categoria",
+      "phase": "Fase",
+      "state": "Estado",
+      "inconsistent": "Inconsistentes",
+      "waiver": "Com waiver",
+      "all": "Todas"
+    },
+    "flags": {
+      "inconsistent": "Inconsistente",
+      "waiver": "Waiver"
+    },
+    "catalog": {
+      "label": "Catálogo de documentos",
+      "noPhase": "Sem fase",
+      "columns": {
+        "title": "Título",
+        "kind": "Categoria",
+        "phase": "Fase",
+        "state": "Estado",
+        "version": "Versão",
+        "updatedAt": "Atualizado"
+      }
+    },
+    "detail": {
+      "back": "Voltar ao catálogo",
+      "version": "v{{version}}",
+      "phase": "Fase: {{phase}}",
+      "inconsistent": "Documento marcado como inconsistente: há conflito com outro artefato ou com o estado do projeto.",
+      "waiver": "Waiver: {{reason}} (concedido em {{date}})",
+      "contentTitle": "Conteúdo",
+      "noContent": "Versão vigente não encontrada.",
+      "approvalTitle": "Aprovação",
+      "requestHint": "Revisão concluída? Solicite a aprovação para o documento virar referência.",
+      "requestApproval": "Solicitar aprovação",
+      "requestTitle": "Aprovar {{title}}",
+      "requestDescription": "Documento em revisão; aprovação solicitada pela tela de documentos.",
+      "noPendingApproval": "Nenhuma aprovação pendente para este documento.",
+      "versionsTitle": "Versões",
+      "authorKind": {
+        "user": "Você",
+        "chief": "Chefe",
+        "agent": "Agente"
+      },
+      "diffFrom": "Comparar de",
+      "diffTo": "para",
+      "diffSelect": "Selecionar",
+      "diffIdentical": "As versões são idênticas.",
+      "diffSummary": "{{added}} linha(s) adicionada(s), {{removed}} removida(s)"
+    },
+    "orphans": {
+      "title": "Documentos órfãos",
+      "body": "Documentos sem vínculo com uma fase do workflow. Classifique para integrá-los ao fluxo.",
+      "classify": "Classificar",
+      "dialogTitle": "Classificar \"{{title}}\"",
+      "phaseLabel": "Fase do workflow",
+      "phaseHint": "Sugestão: fases da versão ativa do workflow do projeto.",
+      "classificationsLabel": "Classificações",
+      "classificationsHint": "Separadas por vírgula."
+    },
+    "upload": {
+      "open": "Enviar documento",
+      "title": "Enviar documento externo",
+      "fileLabel": "Arquivo (.md, .txt)",
+      "nameLabel": "Nome do documento",
+      "kindLabel": "Categoria",
+      "progressLabel": "Progresso do envio",
+      "submit": "Enviar",
+      "errors": {
+        "required": "Selecione um arquivo e informe o nome."
+      },
+      "externalTag": "externo"
+    }
+  },
+  "approvals": {
+    "kind": {
+      "gate": "Gate",
+      "document": "Documento",
+      "task": "Tarefa",
+      "decision": "Decisão"
+    },
+    "queue": {
+      "count": "{{count}} pendente(s)",
+      "label": "Fila de aprovações"
+    },
+    "filters": {
+      "project": "Projeto",
+      "priority": "Criticidade",
+      "due": "Prazo",
+      "all": "Todos",
+      "dueAll": "Todos",
+      "dueOverdue": "Vencidas",
+      "dueWeek": "Próximos 7 dias",
+      "dueNone": "Sem prazo"
+    },
+    "empty": {
+      "title": "Nada pendente",
+      "body": "Todas as decisões foram tomadas. Novas aprovações aparecem aqui em tempo real."
+    },
+    "item": {
+      "overdue": "Vencida {{when}}",
+      "due": "Prazo {{when}}",
+      "requestedAt": "Solicitada em {{when}}",
+      "showContext": "Ver impacto e evidências",
+      "hideContext": "Ocultar contexto",
+      "contextTitle": "Impacto e evidências",
+      "openWorkflow": "Abrir workflow",
+      "openDocument": "Abrir documento",
+      "openTask": "Abrir tarefa",
+      "decisionContext": "Decisão humana sem vínculo direto; o contexto está na descrição."
+    },
+    "actions": {
+      "noteRequired": "A observação é obrigatória para reprovar.",
+      "noteLabel": "Observação",
+      "notePlaceholder": "Explique o motivo da reprovação",
+      "rejectConfirm": "Confirmar reprovação",
+      "approve": "Aprovar",
+      "reject": "Reprovar",
+      "resolutionNote": "Observação: {{note}}"
+    }
   }
 }

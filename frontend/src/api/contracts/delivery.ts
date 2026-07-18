@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   approvalStateSchema,
   attemptStateSchema,
+  documentKindSchema,
   gateStateSchema,
   instructionAuthorKindSchema,
   operationModeSchema,
@@ -92,6 +93,17 @@ export const workflowTemplateSchema = z.object({
 });
 export type WorkflowTemplate = z.infer<typeof workflowTemplateSchema>;
 
+/** Configuração de uma fase dentro de uma versão de workflow. */
+export const workflowPhaseConfigSchema = z.object({
+  /** Tipos de documento esperados na fase. */
+  documentKinds: z.array(documentKindSchema),
+  /** Peso da fase no progresso global (0–100). */
+  progressWeight: z.number().min(0).max(100),
+  /** Definições de agente permitidas na fase (vazio = todas). */
+  allowedAgentDefinitionIds: z.array(ulidSchema),
+});
+export type WorkflowPhaseConfig = z.infer<typeof workflowPhaseConfigSchema>;
+
 /** Versão publicada (imutável) de um template de workflow. */
 export const workflowVersionSchema = z.object({
   id: ulidSchema,
@@ -101,6 +113,12 @@ export const workflowVersionSchema = z.object({
   phases: z.array(z.string()),
   /** Nomes dos gates por fase (fase → gates). */
   gatesByPhase: z.record(z.array(z.string())),
+  /** Configuração por fase (documentos, peso de progresso, agentes). */
+  phaseConfigs: z.record(workflowPhaseConfigSchema).optional(),
+  /** Modo de operação sugerido ao vincular o template a um projeto. */
+  defaultOperationMode: operationModeSchema.nullable().optional(),
+  /** Regras de transição: fase → fases seguintes permitidas. */
+  transitions: z.record(z.array(z.string())).optional(),
   changelog: z.string().nullable(),
   publishedAt: isoDateTimeSchema,
 });
@@ -177,6 +195,10 @@ export const approvalSchema = z
     documentId: ulidSchema.nullable(),
     title: z.string(),
     description: z.string(),
+    /** Criticidade da decisão (fila ordena por prazo → criticidade). */
+    priority: prioritySchema,
+    /** Prazo limite para decidir (null = sem prazo). */
+    dueAt: isoDateTimeSchema.nullable(),
     state: approvalStateSchema,
     requestedByAgentId: ulidSchema,
     requestedAt: isoDateTimeSchema,

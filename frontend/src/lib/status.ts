@@ -2,11 +2,14 @@ import type {
   AgentState,
   ApprovalState,
   AttemptState,
+  DocumentState,
   GateState,
+  OperationMode,
   PhaseState,
   Priority,
   ProjectState,
   TaskState,
+  WorkflowRunState,
 } from '@/api';
 import type { BadgeProps } from '@/design-system';
 
@@ -110,4 +113,42 @@ export const PHASE_STATE_VARIANTS: Record<PhaseState, BadgeProps['variant']> = {
 
 export function phaseStateVariant(state: PhaseState): BadgeProps['variant'] {
   return PHASE_STATE_VARIANTS[state];
+}
+
+/** Documentos: atenção em revisão/aprovação, sucesso só no aprovado. */
+export const DOCUMENT_STATE_VARIANTS: Record<DocumentState, BadgeProps['variant']> = {
+  planned: 'outline',
+  inElaboration: 'info',
+  inReview: 'warning',
+  awaitingApproval: 'warning',
+  approved: 'success',
+  outdated: 'error',
+  superseded: 'outline',
+  notApplicable: 'outline',
+};
+
+export function documentStateVariant(state: DocumentState): BadgeProps['variant'] {
+  return DOCUMENT_STATE_VARIANTS[state];
+}
+
+export const OPERATION_MODE_VARIANTS: Record<OperationMode, BadgeProps['variant']> = {
+  manual: 'outline',
+  semiautonomous: 'warning',
+  autonomous: 'brand',
+};
+
+export function operationModeVariant(mode: OperationMode): BadgeProps['variant'] {
+  return OPERATION_MODE_VARIANTS[mode];
+}
+
+export const WORKFLOW_RUN_STATE_VARIANTS: Record<WorkflowRunState, BadgeProps['variant']> = {
+  running: 'info',
+  paused: 'warning',
+  completed: 'success',
+  failed: 'error',
+  cancelled: 'outline',
+};
+
+export function workflowRunStateVariant(state: WorkflowRunState): BadgeProps['variant'] {
+  return WORKFLOW_RUN_STATE_VARIANTS[state];
 }

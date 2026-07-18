@@ -125,12 +125,21 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | `POST /tasks/<id>/priority` | `{ priority: Priority }` | `Task` | — | board (alterar prioridade — ação humana) |
 | `POST /tasks/<id>/instructions` | `{ body }` | `TaskInstruction` (v+1) | — | board (correção de instrução) |
 | `POST /solicitations/<id>/transitions` | `{ state }` | `Solicitation` | — | po-assistant (triagem) |
-| `POST /approvals/<id>/resolution` | `{ decision: "approved"\|"rejected", note? }` — **note obrigatória ao reprovar** | `Approval` | `approval.resolved` (+ `gate.changed` se houver gate) | approvals, governance |
+| `POST /approvals/<id>/resolution` | `{ decision: "approved"\|"rejected", note? }` — **note obrigatória ao reprovar** | `Approval` | `approval.resolved` (+ `gate.changed` se houver gate; + `document.stateChanged` se houver documento) | approvals, governance |
 | `POST /documents/<id>/transitions` | `{ toState: DocumentState, note? }` | `Document` | `document.stateChanged` | documents |
 | `POST /workflows/<id>/operation-mode` | `{ mode, semiautonomousPauseGates?, riskAcceptanceNote }` | `Workflow` | `audit.eventAppended` | workflows, governance |
+| `POST /documents/<id>/classification` (FE-2a) | `{ classifications?, phaseName? }` — metadados, não conteúdo | `Document` | — | documents (classificar órfãos) |
+| `POST /workflow-templates/<id>/versions` (FE-2a) | `{ phases, gatesByPhase, phaseConfigs?, defaultOperationMode?, transitions?, changelog? }` — versão nasce **publicada** (imutável), número = última + 1 | `WorkflowVersion` | `workflow.versionPublished` | workflows (admin de templates) |
 | `POST /notifications/read` | `{ ids: Ulid[] }` | `number` (alteradas) | — | notifications |
 | `POST /notifications/mute` | `{ ids: Ulid[] }` | `number` | — | notifications |
 | `POST /conversations/<id>/turns` | `{ content }` | `{ turnId, conversationId }` | `message.appended`, `chat.turnStarted/Chunk/Completed` | chat, po-assistant |
+
+### Campos adicionados na FE-2a
+
+- `Approval.priority: Priority` e `Approval.dueAt: string | null` — criticidade e prazo da decisão; a fila consolidada ordena por prazo → criticidade → mais antigo.
+- `Document.phaseName: string | null` — vínculo do documento com a fase do workflow (nome da fase do template). `null` = documento **órfão** (a UI oferece a ação de classificar).
+- `WorkflowVersion.phaseConfigs?` (`fase → { documentKinds, progressWeight (0–100), allowedAgentDefinitionIds }`), `WorkflowVersion.defaultOperationMode?`, `WorkflowVersion.transitions?` (`fase → próximas fases permitidas`) — configuração da versão na criação/publicação.
+- Resolver aprovação com `documentId` também transiciona o documento (`awaitingApproval` → `approved` | `inElaboration`) e emite `document.stateChanged` (mock já implementa; backend deve espelhar).
 
 ## 5. Tempo real — hub `/hubs/events`
 
@@ -172,7 +181,7 @@ Métodos do hub SignalR (backend): cliente chama `SubscribeToStreams(string[])`,
 | `approval.resolved` | `{ approvalId, state, resolvedByProfileId, note? }` | `project:<id>` | approvals, governance |
 | `document.stateChanged` | `{ documentId, from, to }` | `project:<id>` | documents |
 | `prototype.stateChanged` | `{ prototypeId, from, to }` | `project:<id>` | prototypes |
-| `workflow.versionPublished` | `{ templateId, versionId, version }` | `project:<id>` | workflows |
+| `workflow.versionPublished` | `{ templateId, versionId, version }` | `project:<id>` (projetos que usam o template), `global` | workflows |
 | `notification.created` | `{ notification }` | `profile:<id>` | notifications, shell (badge) |
 | `agent.statusChanged` | `{ agentId, from, to, currentTaskId? }` | `global` | agents, cockpit |
 | `tool.statusChanged` | `{ toolId, from, to }` | `global` | tools |

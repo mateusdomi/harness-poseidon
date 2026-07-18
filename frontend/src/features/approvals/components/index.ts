@@ -1,1 +1,1 @@
-// Componentes da feature "approvals" — implementados em fatias futuras.
+export { ApprovalItem } from './approval-item';

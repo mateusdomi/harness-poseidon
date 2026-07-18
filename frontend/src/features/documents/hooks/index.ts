@@ -1,1 +1,1 @@
-// Hooks da feature "documents" — implementados em fatias futuras.
+export * from './use-documents';

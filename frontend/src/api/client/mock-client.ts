@@ -1,7 +1,9 @@
 import {
   ApiError,
   appendTaskInstructionInputSchema,
+  classifyDocumentInputSchema,
   moveTaskInputSchema,
+  publishWorkflowVersionInputSchema,
   resolveApprovalInputSchema,
   setOperationModeInputSchema,
   setTaskPriorityInputSchema,
@@ -13,6 +15,7 @@ import {
   type AppendTaskInstructionInput,
   type Attempt,
   type ChatTurnHandle,
+  type ClassifyDocumentInput,
   type CreatableResource,
   type CreateInputMap,
   type Demand,
@@ -25,6 +28,7 @@ import {
   type ProblemDetails,
   type Profile,
   type Project,
+  type PublishWorkflowVersionInput,
   type RemovableResource,
   type ResolveApprovalInput,
   type ResourceKind,
@@ -41,6 +45,7 @@ import {
   type UpdatableResource,
   type UpdateInputMap,
   type Workflow,
+  type WorkflowVersion,
 } from '../contracts';
 import { streams } from '../contracts';
 import type { ApiClient } from './api-client';
@@ -329,6 +334,20 @@ export class MockApiClient implements ApiClient {
       }
     }
 
+    if (approval.documentId) {
+      const document = this.#table('documents').get(approval.documentId);
+      if (document && document.state === 'awaitingApproval') {
+        const from = document.state;
+        document.state = parsed.decision === 'approved' ? 'approved' : 'inElaboration';
+        document.updatedAt = approval.resolvedAt;
+        this.#options.realtime?.emit(streams.project(document.projectId), 'document.stateChanged', {
+          documentId: document.id,
+          from,
+          to: document.state,
+        });
+      }
+    }
+
     this.#options.realtime?.emit(streams.project(approval.projectId), 'approval.resolved', {
       approvalId: approval.id,
       state: parsed.decision,
@@ -351,6 +370,55 @@ export class MockApiClient implements ApiClient {
       to: parsed.toState,
     });
     return structuredClone(document);
+  }
+
+  async classifyDocument(id: Ulid, input: ClassifyDocumentInput): Promise<Document> {
+    await this.#simulate();
+    const parsed = classifyDocumentInputSchema.parse(input);
+    const document = this.#require('documents', id);
+    if (parsed.classifications !== undefined) document.classifications = parsed.classifications;
+    if (parsed.phaseName !== undefined) document.phaseName = parsed.phaseName;
+    document.updatedAt = this.#options.now();
+    return structuredClone(document);
+  }
+
+  async publishWorkflowVersion(
+    templateId: Ulid,
+    input: PublishWorkflowVersionInput,
+  ): Promise<WorkflowVersion> {
+    await this.#simulate();
+    const parsed = publishWorkflowVersionInputSchema.parse(input);
+    const template = this.#require('workflow-templates', templateId);
+    const existing = [...this.#table('workflow-versions').values()].filter(
+      (version) => version.templateId === templateId,
+    );
+    const version: WorkflowVersion = {
+      id: this.#options.nextId(),
+      templateId,
+      version: existing.reduce((max, entry) => Math.max(max, entry.version), 0) + 1,
+      phases: parsed.phases,
+      gatesByPhase: parsed.gatesByPhase,
+      phaseConfigs: parsed.phaseConfigs,
+      defaultOperationMode: parsed.defaultOperationMode ?? null,
+      transitions: parsed.transitions,
+      changelog: parsed.changelog ?? null,
+      publishedAt: this.#options.now(),
+    };
+    this.#table('workflow-versions').set(version.id, version);
+    template.currentVersionId = version.id;
+
+    // Emite no stream global e nos projetos que usam o template.
+    const payload = { templateId, versionId: version.id, version: version.version };
+    this.#options.realtime?.emit(streams.global(), 'workflow.versionPublished', payload);
+    const projectIds = new Set(
+      [...this.#table('workflows').values()]
+        .filter((workflow) => workflow.templateId === templateId)
+        .map((workflow) => workflow.projectId),
+    );
+    for (const projectId of projectIds) {
+      this.#options.realtime?.emit(streams.project(projectId), 'workflow.versionPublished', payload);
+    }
+    return structuredClone(version);
   }
 
   async setWorkflowOperationMode(
@@ -643,6 +711,8 @@ export class MockApiClient implements ApiClient {
           documentId: i.documentId ?? null,
           title: i.title,
           description: i.description,
+          priority: i.priority ?? 'medium',
+          dueAt: i.dueAt ?? null,
           state: 'pending',
           requestedByAgentId: i.requestedByAgentId,
           requestedAt: now,
@@ -695,7 +765,8 @@ export class MockApiClient implements ApiClient {
           kind: i.kind,
           state: 'planned',
           currentVersion: 1,
-          classifications: [],
+          classifications: i.classifications ?? [],
+          phaseName: i.phaseName ?? null,
           inconsistent: false,
           waiver: null,
           createdAt: now,

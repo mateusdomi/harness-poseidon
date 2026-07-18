@@ -1,12 +1,14 @@
 import type {
   AppendTaskInstructionInput,
   ChatTurnHandle,
+  ClassifyDocumentInput,
   CreatableResource,
   CreateInputMap,
   ListQuery,
   MoveTaskInput,
   Page,
   Profile,
+  PublishWorkflowVersionInput,
   RemovableResource,
   ResolveApprovalInput,
   ResourceKind,
@@ -22,6 +24,7 @@ import type {
   UpdatableResource,
   UpdateInputMap,
   Workflow,
+  WorkflowVersion,
   Approval,
   Document,
   Solicitation,
@@ -65,6 +68,19 @@ export interface ApiClient {
   resolveApproval(id: Ulid, input: ResolveApprovalInput): Promise<Approval>;
   /** Transição da máquina de estados de documento → emite `document.stateChanged`. */
   transitionDocument(id: Ulid, input: TransitionDocumentInput): Promise<Document>;
+  /**
+   * Classificação de documento (metadados: rótulos + vínculo de fase) —
+   * também usada para adotar documentos órfãos. Não emite evento próprio.
+   */
+  classifyDocument(id: Ulid, input: ClassifyDocumentInput): Promise<Document>;
+  /**
+   * Publica nova versão de template (imutável; número = última + 1) →
+   * emite `workflow.versionPublished`. O template passa a apontar para ela.
+   */
+  publishWorkflowVersion(
+    templateId: Ulid,
+    input: PublishWorkflowVersionInput,
+  ): Promise<WorkflowVersion>;
   /**
    * Troca modo de operação do workflow com aceite de risco registrado →
    * emite `audit.eventAppended`. No semiautônomo define quais gates pausam.

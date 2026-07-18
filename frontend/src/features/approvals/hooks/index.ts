@@ -1,1 +1,1 @@
-// Hooks da feature "approvals" — implementados em fatias futuras.
+export * from './use-approvals';

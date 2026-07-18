@@ -32,6 +32,12 @@ export const documentSchema = z.object({
   currentVersion: z.number().int().positive(),
   /** Rótulos de classificação (ex.: "arquitetura", "ux", "normativo"). */
   classifications: z.array(z.string()),
+  /**
+   * Fase do workflow à qual o documento está vinculado (nome da fase do
+   * template vigente). `null` = documento órfão (sem vínculo de fase) —
+   * a UI oferece ação de classificação.
+   */
+  phaseName: z.string().nullable(),
   /** Marcado como inconsistente (conflito com outro artefato/estado). */
   inconsistent: z.boolean(),
   waiver: documentWaiverSchema.nullable(),

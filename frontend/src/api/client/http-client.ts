@@ -3,12 +3,14 @@ import {
   problemDetailsSchema,
   type AppendTaskInstructionInput,
   type ChatTurnHandle,
+  type ClassifyDocumentInput,
   type CreatableResource,
   type CreateInputMap,
   type ListQuery,
   type MoveTaskInput,
   type Page,
   type Profile,
+  type PublishWorkflowVersionInput,
   type RemovableResource,
   type ResolveApprovalInput,
   type ResourceKind,
@@ -24,6 +26,7 @@ import {
   type UpdatableResource,
   type UpdateInputMap,
   type Workflow,
+  type WorkflowVersion,
   type Approval,
   type Document,
   type Solicitation,
@@ -111,6 +114,17 @@ export class HttpApiClient implements ApiClient {
 
   transitionDocument(id: Ulid, input: TransitionDocumentInput): Promise<Document> {
     return this.#request('POST', `/documents/${id}/transitions`, input);
+  }
+
+  classifyDocument(id: Ulid, input: ClassifyDocumentInput): Promise<Document> {
+    return this.#request('POST', `/documents/${id}/classification`, input);
+  }
+
+  publishWorkflowVersion(
+    templateId: Ulid,
+    input: PublishWorkflowVersionInput,
+  ): Promise<WorkflowVersion> {
+    return this.#request('POST', `/workflow-templates/${templateId}/versions`, input);
   }
 
   setWorkflowOperationMode(workflowId: Ulid, input: SetOperationModeInput): Promise<Workflow> {

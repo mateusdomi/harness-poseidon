@@ -158,8 +158,9 @@ export interface CreateInputMap {
     };
   'task-instructions': Pick<TaskInstruction, 'taskId' | 'body'>;
   approvals: Pick<Approval, 'projectId' | 'title' | 'description' | 'requestedByAgentId'> &
-    Partial<Pick<Approval, 'gateId' | 'taskId' | 'documentId'>>;
-  documents: Pick<Document, 'projectId' | 'title' | 'kind'> & { body: string };
+    Partial<Pick<Approval, 'gateId' | 'taskId' | 'documentId' | 'priority' | 'dueAt'>>;
+  documents: Pick<Document, 'projectId' | 'title' | 'kind'> & { body: string } &
+    Partial<Pick<Document, 'classifications' | 'phaseName'>>;
   'document-versions': Pick<DocumentVersion, 'documentId' | 'body'>;
   prototypes: Pick<Prototype, 'projectId' | 'name'> &
     Partial<Pick<Prototype, 'description' | 'sourceDocumentId'>>;

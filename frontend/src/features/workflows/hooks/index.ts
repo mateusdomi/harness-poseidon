@@ -1,1 +1,1 @@
-// Hooks da feature "workflows" — implementados em fatias futuras.
+export * from './use-workflows';

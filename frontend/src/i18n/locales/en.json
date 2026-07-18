@@ -180,6 +180,36 @@
       "chief": "Chief",
       "agent": "Agent",
       "system": "System"
+    },
+    "documentState": {
+      "planned": "Planned",
+      "inElaboration": "In elaboration",
+      "inReview": "In review",
+      "awaitingApproval": "Awaiting approval",
+      "approved": "Approved",
+      "outdated": "Outdated",
+      "superseded": "Superseded",
+      "notApplicable": "Not applicable"
+    },
+    "documentKind": {
+      "prd": "PRD",
+      "spec": "Spec",
+      "design": "Design",
+      "runbook": "Runbook",
+      "note": "Note",
+      "report": "Report"
+    },
+    "operationMode": {
+      "manual": "Manual",
+      "semiautonomous": "Semi-autonomous",
+      "autonomous": "Autonomous"
+    },
+    "workflowRunState": {
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
     }
   },
   "onboarding": {
@@ -581,26 +611,294 @@
     "sendError": "Could not send the message. Please try again."
   },
   "features": {
-    "onboarding": { "title": "Onboarding", "description": "First steps and initial account setup." },
-    "organizations": { "title": "Organizations", "description": "Manage organizations, brand, policies and associated projects." },
-    "projects": { "title": "Projects", "description": "List and details of projects built by the agents." },
-    "cockpit": { "title": "Cockpit", "description": "Operation overview: agent status and active projects." },
-    "chat": { "title": "Chat", "description": "Talk to the chief agent and the AI team." },
-    "conversations": { "title": "Conversations", "description": "Conversation history with the agents." },
-    "workflows": { "title": "Workflows", "description": "Project pipelines and automations." },
-    "board": { "title": "Board", "description": "Project task board." },
-    "documents": { "title": "Documents", "description": "Documentation generated and maintained by the agents." },
-    "prototypes": { "title": "Prototypes", "description": "Navigable prototypes generated during development." },
-    "approvals": { "title": "Approvals", "description": "Decisions pending human approval." },
-    "orchestrator": { "title": "Orchestrator", "description": "Chief agent coordination over the other agents." },
-    "agents": { "title": "Agents", "description": "Catalog and status of AI agents." },
-    "tools": { "title": "Tools", "description": "Tools available to the agents." },
-    "run-project": { "title": "Run project", "description": "Trigger a new project run." },
-    "notifications": { "title": "Notifications", "description": "Notification center." },
-    "providers": { "title": "Providers", "description": "Model providers and integrations." },
-    "po-assistant": { "title": "PO Assistant", "description": "Product Owner assistant for requirement refinement." },
-    "governance": { "title": "Governance", "description": "Policies, limits and auditing." },
-    "licenses": { "title": "Licenses", "description": "Licenses and usage plan." },
-    "settings": { "title": "Settings", "description": "Application preferences." }
+    "onboarding": {
+      "title": "Onboarding",
+      "description": "First steps and initial account setup."
+    },
+    "organizations": {
+      "title": "Organizations",
+      "description": "Manage organizations, brand, policies and associated projects."
+    },
+    "projects": {
+      "title": "Projects",
+      "description": "List and details of projects built by the agents."
+    },
+    "cockpit": {
+      "title": "Cockpit",
+      "description": "Operation overview: agent status and active projects."
+    },
+    "chat": {
+      "title": "Chat",
+      "description": "Talk to the chief agent and the AI team."
+    },
+    "conversations": {
+      "title": "Conversations",
+      "description": "Conversation history with the agents."
+    },
+    "workflows": {
+      "title": "Workflows",
+      "description": "Project pipelines and automations."
+    },
+    "board": {
+      "title": "Board",
+      "description": "Project task board."
+    },
+    "documents": {
+      "title": "Documents",
+      "description": "Documentation generated and maintained by the agents."
+    },
+    "prototypes": {
+      "title": "Prototypes",
+      "description": "Navigable prototypes generated during development."
+    },
+    "approvals": {
+      "title": "Approvals",
+      "description": "Decisions pending human approval."
+    },
+    "orchestrator": {
+      "title": "Orchestrator",
+      "description": "Chief agent coordination over the other agents."
+    },
+    "agents": {
+      "title": "Agents",
+      "description": "Catalog and status of AI agents."
+    },
+    "tools": {
+      "title": "Tools",
+      "description": "Tools available to the agents."
+    },
+    "run-project": {
+      "title": "Run project",
+      "description": "Trigger a new project run."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Notification center."
+    },
+    "providers": {
+      "title": "Providers",
+      "description": "Model providers and integrations."
+    },
+    "po-assistant": {
+      "title": "PO Assistant",
+      "description": "Product Owner assistant for requirement refinement."
+    },
+    "governance": {
+      "title": "Governance",
+      "description": "Policies, limits and auditing."
+    },
+    "licenses": {
+      "title": "Licenses",
+      "description": "Licenses and usage plan."
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Application preferences."
+    }
+  },
+  "workflows": {
+    "noProject": {
+      "body": "Select or create a project to see its workflows.",
+      "cta": "View projects"
+    },
+    "empty": {
+      "title": "No workflow linked",
+      "body": "This project has no workflow yet. Link a template to get started."
+    },
+    "run": {
+      "versionPinned": "This run follows version v{{version}} of the \"{{template}}\" template: publishing new versions does not change runs in progress."
+    },
+    "mode": {
+      "title": "Operation mode",
+      "description": {
+        "manual": "Every gate and transition waits for your decision.",
+        "semiautonomous": "Agents advance on their own; only the selected gates pause for approval.",
+        "autonomous": "Agents execute and approve gates with no human intervention."
+      },
+      "change": "Change mode",
+      "dialogTitle": "Change operation mode",
+      "selectLabel": "New mode",
+      "risk": {
+        "manual": "In manual mode, no gate advances without your approval. Slower, but fully under your control.",
+        "semiautonomous": "In semi-autonomous mode, agents advance phases and gates on their own, except at the gates you choose to pause. You are accountable for delegated decisions.",
+        "autonomous": "In autonomous mode, agents execute and approve gates with no human intervention, including releases. The operational risk is entirely yours."
+      },
+      "pauseGatesLabel": "Gates that pause for human approval",
+      "noteLabel": "Acceptance rationale",
+      "notePlaceholder": "Why do you accept this mode now?",
+      "acceptCheckbox": "I have read and accept the risks of this operation mode",
+      "confirm": "Confirm change",
+      "errors": {
+        "acceptanceRequired": "Check the risk acceptance and write the rationale.",
+        "gatesRequired": "Select at least one gate that pauses for approval."
+      },
+      "pauseGates": "Pauses at gates: {{gates}}",
+      "noPauseGates": "No gate pauses for approval.",
+      "acceptances": "{{count}} risk acceptance(s) recorded",
+      "acceptanceItem": "{{mode}} — {{date}} — {{note}}"
+    },
+    "phases": {
+      "title": "Workflow phases",
+      "label": "Workflow phases",
+      "gatesLabel": "Gates of phase {{phase}}",
+      "documentsLabel": "Documents",
+      "noDocuments": "No linked documents.",
+      "documentVersion": "v{{version}}"
+    },
+    "templates": {
+      "title": "Workflow templates",
+      "newVersion": "New version",
+      "version": "v{{version}}",
+      "current": "Current",
+      "phaseCount": "{{count}} phases",
+      "dialogTitle": "New version — {{name}}",
+      "dialogHint": "The version is published immutable; runs in progress are not affected.",
+      "phasesLabel": "Phases (one per line, in execution order)",
+      "phasesHint": "Line order defines phase order.",
+      "changelogLabel": "Changelog",
+      "defaultModeLabel": "Default operation mode",
+      "noDefaultMode": "No default mode",
+      "gatesLabel": "Gates",
+      "gatesHint": "Comma separated.",
+      "weightLabel": "Progress weight (%)",
+      "documentKindsLabel": "Expected documents",
+      "agentsLabel": "Allowed agents",
+      "transitionsLabel": "Allowed transitions",
+      "publish": "Publish version",
+      "errors": {
+        "phasesRequired": "Provide at least one phase.",
+        "invalidWeight": "Invalid weight in phase {{phase}} (use 0–100)."
+      }
+    }
+  },
+  "documents": {
+    "noProject": {
+      "body": "Select or create a project to see its documents.",
+      "cta": "View projects"
+    },
+    "empty": {
+      "title": "No documents found",
+      "body": "Adjust the filters or wait for the chief to create documents in this project."
+    },
+    "filters": {
+      "kind": "Category",
+      "phase": "Phase",
+      "state": "State",
+      "inconsistent": "Inconsistent",
+      "waiver": "With waiver",
+      "all": "All"
+    },
+    "flags": {
+      "inconsistent": "Inconsistent",
+      "waiver": "Waiver"
+    },
+    "catalog": {
+      "label": "Document catalog",
+      "noPhase": "No phase",
+      "columns": {
+        "title": "Title",
+        "kind": "Category",
+        "phase": "Phase",
+        "state": "State",
+        "version": "Version",
+        "updatedAt": "Updated"
+      }
+    },
+    "detail": {
+      "back": "Back to catalog",
+      "version": "v{{version}}",
+      "phase": "Phase: {{phase}}",
+      "inconsistent": "Document marked as inconsistent: it conflicts with another artifact or with the project state.",
+      "waiver": "Waiver: {{reason}} (granted on {{date}})",
+      "contentTitle": "Content",
+      "noContent": "Current version not found.",
+      "approvalTitle": "Approval",
+      "requestHint": "Review done? Request approval so the document becomes a reference.",
+      "requestApproval": "Request approval",
+      "requestTitle": "Approve {{title}}",
+      "requestDescription": "Document in review; approval requested from the documents screen.",
+      "noPendingApproval": "No pending approval for this document.",
+      "versionsTitle": "Versions",
+      "authorKind": {
+        "user": "You",
+        "chief": "Chief",
+        "agent": "Agent"
+      },
+      "diffFrom": "Compare from",
+      "diffTo": "to",
+      "diffSelect": "Select",
+      "diffIdentical": "The versions are identical.",
+      "diffSummary": "{{added}} line(s) added, {{removed}} removed"
+    },
+    "orphans": {
+      "title": "Orphan documents",
+      "body": "Documents not linked to a workflow phase. Classify them to bring them into the flow.",
+      "classify": "Classify",
+      "dialogTitle": "Classify \"{{title}}\"",
+      "phaseLabel": "Workflow phase",
+      "phaseHint": "Suggestion: phases of the project's active workflow version.",
+      "classificationsLabel": "Classifications",
+      "classificationsHint": "Comma separated."
+    },
+    "upload": {
+      "open": "Upload document",
+      "title": "Upload external document",
+      "fileLabel": "File (.md, .txt)",
+      "nameLabel": "Document name",
+      "kindLabel": "Category",
+      "progressLabel": "Upload progress",
+      "submit": "Upload",
+      "errors": {
+        "required": "Select a file and provide a name."
+      },
+      "externalTag": "external"
+    }
+  },
+  "approvals": {
+    "kind": {
+      "gate": "Gate",
+      "document": "Document",
+      "task": "Task",
+      "decision": "Decision"
+    },
+    "queue": {
+      "count": "{{count}} pending",
+      "label": "Approval queue"
+    },
+    "filters": {
+      "project": "Project",
+      "priority": "Criticality",
+      "due": "Due date",
+      "all": "All",
+      "dueAll": "All",
+      "dueOverdue": "Overdue",
+      "dueWeek": "Next 7 days",
+      "dueNone": "No due date"
+    },
+    "empty": {
+      "title": "Nothing pending",
+      "body": "Every decision was made. New approvals appear here in real time."
+    },
+    "item": {
+      "overdue": "Overdue {{when}}",
+      "due": "Due {{when}}",
+      "requestedAt": "Requested on {{when}}",
+      "showContext": "Show impact and evidence",
+      "hideContext": "Hide context",
+      "contextTitle": "Impact and evidence",
+      "openWorkflow": "Open workflow",
+      "openDocument": "Open document",
+      "openTask": "Open task",
+      "decisionContext": "Human decision with no direct link; context is in the description."
+    },
+    "actions": {
+      "noteRequired": "A note is required to reject.",
+      "noteLabel": "Note",
+      "notePlaceholder": "Explain the reason for rejection",
+      "rejectConfirm": "Confirm rejection",
+      "approve": "Approve",
+      "reject": "Reject",
+      "resolutionNote": "Note: {{note}}"
+    }
   }
 }
