@@ -27,6 +27,23 @@ public interface IWorkflowStore
     Task<WorkflowRunMutationReceipt> TransitionRunAsync(
         WorkflowRunTransitionCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<WorkflowRunMutationReceipt> AdvanceObjectiveAsync(
+        WorkflowObjectiveAdvanceCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkflowRunMutationReceipt> EvaluateGateAsync(
+        WorkflowGateEvaluateCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkflowRunMutationReceipt> CompletePhaseAsync(
+        WorkflowPhaseCompleteCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkflowRunAggregateSnapshot?> ReadRunAggregateAsync(
+        string tenantId,
+        string runId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkflowDefinitionCreateCommand(
@@ -134,6 +151,13 @@ public enum WorkflowRunMutationStatus
     NotFound,
     VersionConflict,
     InvalidState,
+    PhaseNotActive,
+    ObjectiveNotFound,
+    ObjectiveTransitionInvalid,
+    GateEvaluationRequired,
+    GateNotFound,
+    GateRequirementsNotMet,
+    PhaseCompletionBlocked,
 }
 
 public sealed record WorkflowRunTransitionCommand(
@@ -152,6 +176,84 @@ public sealed record WorkflowRunMutationReceipt(
     long? LedgerSequence = null,
     string? LedgerHash = null,
     string? OutboxMessageId = null);
+
+public sealed record WorkflowObjectiveAdvanceCommand(
+    string TenantId,
+    string RunId,
+    string PhaseKey,
+    string ObjectiveKey,
+    string TargetState,
+    long ExpectedRunVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkflowGateEvaluateCommand(
+    string TenantId,
+    string RunId,
+    string PhaseKey,
+    string GateKey,
+    bool Passed,
+    long ExpectedRunVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkflowPhaseCompleteCommand(
+    string TenantId,
+    string RunId,
+    string PhaseKey,
+    long ExpectedRunVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkflowRunAggregateSnapshot(
+    string TenantId,
+    string ProjectId,
+    string DefinitionVersionId,
+    string RunId,
+    string State,
+    long Version,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt,
+    decimal Executed,
+    decimal Validated,
+    decimal Approved,
+    IReadOnlyList<WorkflowPhaseRunSnapshot> Phases);
+
+public sealed record WorkflowPhaseRunSnapshot(
+    string PhaseRunId,
+    string PhaseDefinitionId,
+    string Key,
+    string Name,
+    int Order,
+    string State,
+    long Version,
+    DateTimeOffset? ActivatedAt,
+    DateTimeOffset? CompletedAt,
+    IReadOnlyList<WorkflowObjectiveRunSnapshot> Objectives,
+    IReadOnlyList<WorkflowGateRunSnapshot> Gates);
+
+public sealed record WorkflowObjectiveRunSnapshot(
+    string ObjectiveRunId,
+    string ObjectiveDefinitionId,
+    string Key,
+    string Name,
+    string Kind,
+    decimal Weight,
+    string State,
+    long Version,
+    DateTimeOffset UpdatedAt);
+
+public sealed record WorkflowGateRunSnapshot(
+    string GateRunId,
+    string GateDefinitionId,
+    string Key,
+    string Name,
+    string MinimumRequiredState,
+    string State,
+    long Version,
+    DateTimeOffset? EvaluatedAt,
+    IReadOnlyList<string> RequiredObjectiveKeys);
 
 public static class WorkflowDefinitionCreateValidator
 {
@@ -364,6 +466,87 @@ public static class WorkflowRunMutationValidator
 
     public static string Hash(WorkflowRunTransitionCommand command) =>
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+
+    public static void Validate(WorkflowObjectiveAdvanceCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.RunId,
+            command.ExpectedRunVersion,
+            command.IdempotencyKey,
+            command);
+        ValidateText(command.PhaseKey, nameof(command.PhaseKey));
+        ValidateText(command.ObjectiveKey, nameof(command.ObjectiveKey));
+        if (command.TargetState is not ("executed" or "validated" or "approved"))
+        {
+            throw new ArgumentException("Target state is invalid.", nameof(command));
+        }
+    }
+
+    public static void Validate(WorkflowGateEvaluateCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.RunId,
+            command.ExpectedRunVersion,
+            command.IdempotencyKey,
+            command);
+        ValidateText(command.PhaseKey, nameof(command.PhaseKey));
+        ValidateText(command.GateKey, nameof(command.GateKey));
+    }
+
+    public static void Validate(WorkflowPhaseCompleteCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.RunId,
+            command.ExpectedRunVersion,
+            command.IdempotencyKey,
+            command);
+        ValidateText(command.PhaseKey, nameof(command.PhaseKey));
+    }
+
+    public static string Hash(WorkflowObjectiveAdvanceCommand command) => HashCore(command);
+
+    public static string Hash(WorkflowGateEvaluateCommand command) => HashCore(command);
+
+    public static string Hash(WorkflowPhaseCompleteCommand command) => HashCore(command);
+
+    private static string HashCore<T>(T command) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+
+    private static void ValidateCommon(
+        string tenantId,
+        string runId,
+        long expectedVersion,
+        string idempotencyKey,
+        object command)
+    {
+        ValidateId(tenantId, nameof(command));
+        ValidateId(runId, nameof(command));
+        if (expectedVersion <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(command), "Expected version must be positive.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(idempotencyKey, nameof(command));
+        if (idempotencyKey.Length > 200)
+        {
+            throw new ArgumentException("Idempotency key exceeds 200 characters.", nameof(command));
+        }
+    }
+
+    private static void ValidateText(string value, string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, parameterName);
+        if (value.Length > 100)
+        {
+            throw new ArgumentException("Value exceeds 100 characters.", parameterName);
+        }
+    }
 
     private static void ValidateId(string value, string parameterName)
     {

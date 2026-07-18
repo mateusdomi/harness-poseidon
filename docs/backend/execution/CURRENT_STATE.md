@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T16:09:05Z
+Atualizado em: 2026-07-18T16:21:54Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-10b.2b.3 — objetivos, gates, fases e reidratação de WorkflowRun; lifecycle externo está verde.
+- Épico atual: F1-DOC-1 — contrato e schema de documentos versionados/aprovações; EP-10 está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `4376049` (`develop`); lifecycle EP-10b.2b.2 está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: estender `IWorkflowStore` com avanço monotônico de objetivo, avaliação/retry de gate e conclusão/ativação de fase; reutilizar a versão esperada e a finalização Inbox/ledger/Outbox, então reidratar a hierarquia completa e comprovar o progresso ponderado nos dois providers.
+- Último commit remoto validado: `4556b0b` (`develop`); EP-10b.2b.3 está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: inspecionar `Harness.Modules.Documents`, definir agregado/contratos de documento, versão imutável, aprovação e órfão; criar migrations provider-specific e comportamento comum antes de implementar o store transacional com Inbox/ledger/Outbox.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -51,13 +51,14 @@ Atualizado em: 2026-07-18T16:09:05Z
 - Store EP-09b.2b.2: review rejeitado exige nova instrução. Correção imutável cria v2 com `supersedesId=v1`, versão otimista, Inbox, ledger e Outbox; tentativa 2 conclui e é aprovada. Leitura transacional completa reidrata Solicitação→Demandas→Tarefas→todas as instruções/tentativas/evidências/reviews. Comportamento final nos dois providers: tarefa v8, 2 instruções, 2 tentativas, 2 evidências e 2 reviews.
 - Workflow EP-10a: definições tipadas possuem versões imutáveis/hash/publicação; runs aceitam somente versão publicada, mantêm uma fase ativa, itens monotônicos e gates não contornáveis. Progresso executado/validado/aprovado é recomputado dos pesos e estados; 9 cenários cobrem validação, lifecycle, gate/retry, pausa e conclusão 100/100/100.
 - Workflow schema EP-10b.1: migrations SQLite `0005_workflows` e PostgreSQL `0006_workflows` criam 10 tabelas de definição/run com FKs compostas, estados fechados, pesos positivos, publicação/lifecycle coerentes e índice parcial de uma fase ativa. Cadeia válida foi inserida e segunda fase ativa foi rejeitada nos dois providers; migrations `5→0`/`6→0`.
-- Workflow store EP-10b.2a: criação/publicação inicial valida toda a hierarquia e seu SHA-256, persiste definição→requisitos + Inbox/ledger/Outbox atomicamente. Dez concorrentes resultam 1 aplicação/9 replays nos dois providers; snapshot comprova 1 fase/2 objetivos/1 gate/1 requisito e conflito não muta estado.
-- Workflow run EP-10b.2b.1: criação aceita somente versão publicada do mesmo tenant/projeto, materializa run pendente e todas as projeções de fases/objetivos/gates, e grava Inbox, ledger e Outbox `progress.updated` atomicamente. Dez concorrentes resultam 1 aplicação/9 replays; snapshot nos dois providers comprova versão 1, 1 fase, 2 objetivos, 1 gate e progresso inicial 0/0/0; chave conflitante não muta estado.
+- Workflow store EP-10b.2a: criação/publicação inicial valida toda a hierarquia e seu SHA-256, persiste definição→requisitos + Inbox/ledger/Outbox atomicamente. Dez concorrentes resultam 1 aplicação/9 replays nos dois providers; o cenário atual recompõe 2 fases/3 objetivos/1 gate/1 requisito e conflito não muta estado.
+- Workflow run EP-10b.2b.1: criação aceita somente versão publicada do mesmo tenant/projeto, materializa run pendente e todas as projeções de fases/objetivos/gates, e grava Inbox, ledger e Outbox `progress.updated` atomicamente. Dez concorrentes resultam 1 aplicação/9 replays; snapshot atual comprova versão 1, 2 fases, 3 objetivos, 1 gate e progresso inicial 0/0/0; chave conflitante não muta estado.
 - Workflow lifecycle EP-10b.2b.2: `start/pause/resume/cancel` usam versão esperada e Inbox idempotente. SQLite serializa no dispatcher; PostgreSQL combina locks advisory por chave/run e `FOR UPDATE`. Dez starts concorrentes resultam 1 aplicação/9 replays e uma única fase ativa; conflito de versão/estado e run ausente ficam deterministicamente reexecutáveis sem ledger/Outbox; mutações aplicadas atualizam run, ledger e `progress.updated` atomicamente.
+- Workflow progress EP-10b.2b.3: avanço objetivo é estritamente monotônico e objetivo-gate só muda por avaliação; requisitos bloqueiam gate, failed pode ser reavaliado para passed, e fase só conclui sem pendências/gates abertos. Conclusão ativa a próxima fase ou fecha o run. Snapshot hierárquico consistente recompõe definições, rows, versões, timestamps, requisitos e progresso ponderado. Cenário dual-provider percorre 2 fases até v14 e 100/100/100, com 10 avanços concorrentes resultando 1 aplicação/9 replays.
 - Migrations: SQLite `5→0` e PostgreSQL `6→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após lifecycle EP-10b.2b.2: restore locked, format, build Release com zero warnings/erros e 84/84 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após progresso EP-10b.2b.3: restore locked, format, build Release com zero warnings/erros e 84/84 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão e contrato/schema/definição/inicialização de workflow verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para lifecycle EP-10, documentos e workers.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão e workflow completo/progresso verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para documentos e workers.
 
 ## Sanidade antes de retomar
 
