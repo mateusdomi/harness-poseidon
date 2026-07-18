@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T12:21:38Z
+Atualizado em: 2026-07-18T12:28:53Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-12 — operações Git e PoC-5; PoCs 1–4 validadas.
+- Épico atual: EP-11 — sandbox Docker e PoC-6; PoCs 1–5 validadas.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `b9ebe33` (`develop`); a fatia PoC-4 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: implementar a PoC-5 em três repositórios fixture descartáveis, exercitando branches/worktrees paralelas e claims com/sem interseção, e provar que nenhuma branch/worktree foi criada no repositório oficial.
+- Último commit remoto validado: `731e1c7` (`develop`); a fatia PoC-5 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: reinventariar Docker imediatamente antes da mutação e executar a PoC-6 com recursos prefixados/labelados, limites de CPU/memória/disco, worktree montada, egress via proxy default-deny, cleanup e detecção de órfãos.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -33,9 +33,10 @@ Atualizado em: 2026-07-18T12:21:38Z
 - Recuperação: processo fixture sofreu SIGKILL real após 3/6 checkpoints; nova instância reconciliou e concluiu com 6 checkpoints únicos.
 - Fencing: token antigo não gravou nem renovou após aquisição do token crescente pelo novo owner.
 - Codex CLI: app-server real supervisionado com ambiente/estado isolados; heartbeat crescente, kill da árvore, retomada por `threadId` e sessão nova reidratada do commit Git, sem turno de modelo.
-- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 36 testes verdes nas seis suítes; teste PoC-4 verde em seis execuções.
+- Git/claims: três fixtures criaram duas branches/worktrees de tentativa; claims disjuntos executaram em paralelo e claim ancestral bloqueou conflito; refs/worktrees oficiais ficaram idênticas antes/depois.
+- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 42 testes verdes nas seis suítes; integração PoC-5 verde em seis execuções.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–4 verdes e catalogadas; PoCs 5–9 pendentes e GNG-1 permanece fechado (4/9).
+- Evidências: PoCs 1–5 verdes e catalogadas; PoCs 6–9 pendentes e GNG-1 permanece fechado (5/9).
 
 ## Sanidade antes de retomar
 
