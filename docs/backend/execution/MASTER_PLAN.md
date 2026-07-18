@@ -41,10 +41,10 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 5. EP-05b: schema dual-provider para execução, tentativa, checkpoint, timer, sinal, transição, dead-letter, Inbox e Outbox — verde em 2026-07-18.
 6. EP-05c.1: engine SQLite completo para leases, heartbeats, fencing, checkpoints, timers, retry e dead-letter — verde em 2026-07-18.
 7. EP-05c.2: engine PostgreSQL com o mesmo comportamento e aquisição `SKIP LOCKED` — verde em 2026-07-18.
-8. EP-05d: prova GNG-2 com encerramento abrupto e auditoria completa nos dois providers — próximo incremento.
-9. EP-06/EP-09: Tenant, Organização, Projeto, Usuário local e cadeia Solicitação→Tentativa.
+8. EP-05d: critério de recuperação GNG-2 com encerramento abrupto e auditoria completa nos dois providers — verde em 2026-07-18.
+9. EP-06/EP-09: Tenant, Organização, Projeto, Usuário local e cadeia Solicitação→Tentativa — próximo incremento.
 10. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
-11. Documentos/versionamento/aprovações, workers e SignalR persistido.
+11. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 

@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
 using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.Foundation;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
@@ -189,6 +191,77 @@ public sealed partial class SqliteDurableExecutionEngine
         Add(command, "$eventType", "durable.stateChanged");
         Add(command, "$payloadJson", payload);
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await AppendAuditLedgerAsync(
+            connection,
+            transaction,
+            executionId,
+            payload,
+            occurredAt,
+            cancellationToken);
+    }
+
+    private static async Task AppendAuditLedgerAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string executionId,
+        string payloadJson,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
+        string tenantId;
+        long sequence;
+        string previousHash;
+        await using (var state = connection.CreateCommand())
+        {
+            state.Transaction = transaction;
+            state.CommandText =
+                """
+                SELECT e.tenant_id,
+                       COALESCE((SELECT MAX(l.sequence) FROM audit_ledger l WHERE l.tenant_id = e.tenant_id), 0),
+                       COALESCE((SELECT l.event_hash FROM audit_ledger l
+                                 WHERE l.tenant_id = e.tenant_id ORDER BY l.sequence DESC LIMIT 1), $genesis)
+                FROM durable_executions e
+                WHERE e.id = $executionId;
+                """;
+            Add(state, "$executionId", executionId);
+            Add(state, "$genesis", AuditLedgerHash.Genesis);
+            await using var reader = await state.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new InvalidOperationException("The durable execution tenant could not be resolved for auditing.");
+            }
+
+            tenantId = reader.GetString(0);
+            sequence = reader.GetInt64(1) + 1;
+            previousHash = reader.GetString(2);
+        }
+
+        const string eventType = "durable.stateChanged";
+        var eventHash = AuditLedgerHash.Compute(
+            previousHash,
+            tenantId,
+            sequence,
+            eventType,
+            payloadJson,
+            occurredAt);
+        await using var insert = connection.CreateCommand();
+        insert.Transaction = transaction;
+        insert.CommandText =
+            """
+            INSERT INTO audit_ledger
+                (id, tenant_id, sequence, previous_hash, event_hash, event_type, payload_json, occurred_at)
+            VALUES
+                ($id, $tenantId, $sequence, $previousHash, $eventHash, $eventType, $payloadJson, $occurredAt);
+            """;
+        Add(insert, "$id", UlidValue.New(occurredAt).ToString());
+        Add(insert, "$tenantId", tenantId);
+        Add(insert, "$sequence", sequence);
+        Add(insert, "$previousHash", previousHash);
+        Add(insert, "$eventHash", eventHash);
+        Add(insert, "$eventType", eventType);
+        Add(insert, "$payloadJson", payloadJson);
+        Add(insert, "$occurredAt", ToStorage(occurredAt));
+        await insert.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task<(string? Key, string? Payload)> ReadLatestCheckpointAsync(

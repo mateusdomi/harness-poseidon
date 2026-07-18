@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
 using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.Foundation;
+using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -185,6 +187,88 @@ public sealed partial class PostgresDurableExecutionEngine
             Bigint(sequence),
             Text("durable.stateChanged"),
             Json(payload),
+            Timestamp(occurredAt));
+        await AppendAuditLedgerAsync(
+            connection,
+            transaction,
+            executionId,
+            payload,
+            occurredAt,
+            cancellationToken);
+    }
+
+    private static async Task AppendAuditLedgerAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string executionId,
+        string payloadJson,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
+        string tenantId;
+        await using (var tenant = connection.CreateCommand())
+        {
+            tenant.Transaction = transaction;
+            tenant.CommandText = "SELECT tenant_id FROM harness.durable_executions WHERE id = $1;";
+            tenant.Parameters.Add(Text(executionId));
+            tenantId = ((string?)await tenant.ExecuteScalarAsync(cancellationToken))?.TrimEnd()
+                ?? throw new InvalidOperationException(
+                    "The durable execution tenant could not be resolved for auditing.");
+        }
+
+        await ExecuteAsync(
+            connection,
+            transaction,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));",
+            cancellationToken,
+            Text($"audit-ledger:{tenantId}"));
+        long sequence = 1;
+        var previousHash = AuditLedgerHash.Genesis;
+        await using (var previous = connection.CreateCommand())
+        {
+            previous.Transaction = transaction;
+            previous.CommandText =
+                """
+                SELECT sequence, event_hash
+                FROM harness.audit_ledger
+                WHERE tenant_id = $1
+                ORDER BY sequence DESC
+                LIMIT 1
+                FOR UPDATE;
+                """;
+            previous.Parameters.Add(Text(tenantId));
+            await using var reader = await previous.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                sequence = reader.GetInt64(0) + 1;
+                previousHash = reader.GetString(1).TrimEnd();
+            }
+        }
+
+        const string eventType = "durable.stateChanged";
+        var eventHash = AuditLedgerHash.Compute(
+            previousHash,
+            tenantId,
+            sequence,
+            eventType,
+            payloadJson,
+            occurredAt);
+        await ExecuteAsync(
+            connection,
+            transaction,
+            """
+            INSERT INTO harness.audit_ledger
+                (id, tenant_id, sequence, previous_hash, event_hash, event_type, payload_json, occurred_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+            """,
+            cancellationToken,
+            Text(UlidValue.New(occurredAt).ToString()),
+            Text(tenantId),
+            Bigint(sequence),
+            Text(previousHash),
+            Text(eventHash),
+            Text(eventType),
+            Json(payloadJson),
             Timestamp(occurredAt));
     }
 

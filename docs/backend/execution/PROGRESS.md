@@ -5,7 +5,7 @@
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
-| GNG-2 | recuperação abrupta com auditoria completa | fechado | motor durável dual-provider verde; prova abrupta F1 pendente |
+| GNG-2 | recuperação abrupta com auditoria completa | critério técnico verde; fase aberta | `SIGKILL` dual-provider, 6/6 checkpoints, 2 attempts e cadeia de 7 eventos íntegra; restante do escopo F1 pendente |
 | GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
@@ -45,4 +45,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Borda comum do motor | verde | codecs exaustivos, validação canônica ULID/JSON/bounds/lease e fingerprint SHA-256; gate 61/61; `evidence/F1-DURABLE-ENGINE-BOUNDARY.md` |
 | Motor durável SQLite | verde | contrato completo executado: lifecycle, Inbox, aquisição concorrente, fencing, checkpoint, retry/dead-letter, timer/sinal e reconciliação; gate 62/62; `evidence/F1-DURABLE-ENGINE-SQLITE.md` |
 | Motor durável PostgreSQL | verde | mesmo comportamento completo do SQLite com locks transacionais e aquisição `FOR UPDATE SKIP LOCKED`; gate 62/62; `evidence/F1-DURABLE-ENGINE-POSTGRES.md` |
-| Recuperação abrupta GNG-2 | em andamento | executar kill/restart sobre o motor de produção e provar Inbox, transições, Outbox e ledger nos dois providers |
+| Recuperação abrupta GNG-2 | verde | `SIGKILL` real após 3/6 checkpoints em SQLite e PostgreSQL; retomada 6/6, fencing crescente, 8 Inbox, 6 transições/Outbox e 7 elos válidos; `evidence/F1-GNG2-RECOVERY.md` |
+| Agregados EP-06/EP-09 | próximo | contratos/invariantes da cadeia imutável e migrations dual-provider |

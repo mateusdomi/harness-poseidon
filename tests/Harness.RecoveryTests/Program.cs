@@ -7,6 +7,30 @@ public static class RecoveryFixtureProgram
 {
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length == 4 &&
+            string.Equals(args[0], "production-durable-worker", StringComparison.Ordinal))
+        {
+            if (string.Equals(args[1], "sqlite", StringComparison.Ordinal))
+            {
+                await ProductionDurableRecoveryScenario.RunSqliteWorkerAsync(
+                    args[2],
+                    args[3],
+                    CancellationToken.None);
+                return 0;
+            }
+
+            if (string.Equals(args[1], "postgres", StringComparison.Ordinal))
+            {
+                await ProductionDurableRecoveryScenario.RunPostgresWorkerAsync(
+                    args[2],
+                    args[3],
+                    CancellationToken.None);
+                return 0;
+            }
+
+            return 64;
+        }
+
         if (args.Length != 6 || !string.Equals(args[0], "durable-worker", StringComparison.Ordinal))
         {
             return 64;
