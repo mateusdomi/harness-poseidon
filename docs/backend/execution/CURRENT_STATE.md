@@ -7,7 +7,7 @@ Atualizado em: 2026-07-18T21:35:00Z
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-WF-1b — comandos de versão, modo, lifecycle, gates e progresso; catálogo/run inicial está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `6a84662` (`develop`), checkpoint de F2-WORK-1b; F2-WF-1a está localmente verde e aguarda o push desta fatia.
+- Último commit remoto validado: `805a8c1` (`develop`), contendo F2-WF-1a verde com 129/129 testes e o checkpoint FE-3 preservado.
 - Próximo passo exato: implementar publicação imutável de vN, troca de modo com aceite, comandos de run/objetivo/gate/fase e eventos canônicos sobre a projeção F2-WF-1a.
 - Bloqueios: nenhum.
 
