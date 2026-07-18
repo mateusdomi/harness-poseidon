@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(7, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(8, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -126,6 +126,22 @@ public sealed class SqliteFoundationMigrationsTests
                 },
                 timeout.Token);
             Assert.Equal((1, 6), outboxDispatchSchema);
+
+            var realtimeTableCount = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT COUNT(*) FROM sqlite_master
+                        WHERE type='table' AND name IN ('realtime_streams','realtime_events');
+                        """;
+                    return Convert.ToInt32(
+                        await command.ExecuteScalarAsync(token),
+                        CultureInfo.InvariantCulture);
+                },
+                timeout.Token);
+            Assert.Equal(2, realtimeTableCount);
 
             var durableTableCount = await dispatcher.ExecuteAsync(
                 async (connection, token) =>
@@ -207,6 +223,39 @@ public sealed class SqliteFoundationMigrationsTests
                     await command.ExecuteNonQueryAsync(token);
                 },
                 timeout.Token);
+
+            await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        INSERT INTO realtime_streams
+                            (tenant_id,stream_name,last_sequence,created_at,updated_at)
+                        VALUES
+                            ('01ARZ3NDEKTSV4RRFFQ69G5FAV','project:01ARZ3NDEKTSV4RRFFQ69G5FAX',1,
+                             '2026-07-18T17:30:00.0000000+00:00','2026-07-18T17:30:00.0000000+00:00');
+                        INSERT INTO realtime_events
+                            (message_id,tenant_id,stream_name,sequence,event_type,payload_json,occurred_at)
+                        VALUES
+                            ('01ARZ3NDEKTSV4RRFFQ69G5FB0','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                             'project:01ARZ3NDEKTSV4RRFFQ69G5FAX',1,'task.created','{}',
+                             '2026-07-18T17:30:00.0000000+00:00');
+                        """;
+                    await command.ExecuteNonQueryAsync(token);
+                },
+                timeout.Token);
+
+            await Assert.ThrowsAsync<SqliteException>(() =>
+                dispatcher.ExecuteAsync(
+                    async (connection, token) =>
+                    {
+                        await using var command = connection.CreateCommand();
+                        command.CommandText =
+                            "UPDATE realtime_events SET event_type='task.stateChanged';";
+                        await command.ExecuteNonQueryAsync(token);
+                    },
+                    timeout.Token));
 
             var exception = await Assert.ThrowsAsync<SqliteException>(() =>
                 dispatcher.ExecuteAsync(

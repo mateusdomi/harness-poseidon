@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T17:26:51Z
+Atualizado em: 2026-07-18T17:35:42Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-WRK-1d — persistência dual-provider do stream SignalR e sink durável Outbox→realtime; o worker está verde.
+- Épico atual: F1-WRK-1d.2 — stores dual-provider de eventos sequenciados; contrato/schema estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `e5de085` (`develop`); F1-WRK-1c está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: criar contrato/schema/store dual-provider para eventos sequenciados por stream, substituir `EventStreamStore` em memória no snapshot/delta e implementar `IOutboxMessageSink` que persiste o envelope antes de publicar no hub; provar dedupe por message ID, sequência sem lacuna e resync após restart.
+- Último commit remoto validado: `c2703ae` (`develop`); F1-WRK-1d.1 está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: implementar `SqliteRealtimeEventStore` no dispatcher e `PostgresRealtimeEventStore` com lock transacional do stream; provar append concorrente sem lacuna, replay estrutural por message ID, conflito sem mutação e snapshot/latest-by-type/delta equivalentes antes do sink Outbox→SignalR.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T17:26:51Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia, workflows, documentos e dispatch da Outbox; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`7→0` e `8→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia, workflows, documentos, dispatch da Outbox e eventos realtime; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`8→0` e `9→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -64,8 +64,9 @@ Atualizado em: 2026-07-18T17:26:51Z
 - Outbox contract/schema F1-WRK-1a: `IOutboxStore` define claim expirável, fencing, completion, retry/dead-letter, recuperação e snapshot. Backoff decimal é determinístico/capado. Migrations adicionam agenda/owner/token/expiração/erro/dead-letter às mensagens e histórico de falhas append-only, preservando inserts existentes por `COALESCE(available_at,occurred_at)`; índices provider-specific cobrem dispatch e claims expirados.
 - Outbox stores F1-WRK-1b: SQLite serializa no dispatcher e PostgreSQL adquire por `FOR UPDATE SKIP LOCKED`. Claims expiráveis incrementam fencing; completion/failure recusam owner/token antigo; retry agenda backoff e dead-letter preserva histórico. Dez aquisições concorrentes consumiram exatamente 2 mensagens, recovery elevou tokens 1→2, retry elevou 2→3 e snapshot final comprovou 1 dispatched/1 dead-letter/2 failures/0 pendentes.
 - Outbox worker F1-WRK-1c: `OutboxDispatcherBackgroundService` executa batch/poll cancelável sobre `IOutboxStore`, despacha por sink tipado e finaliza com fencing; exceções registram somente seu tipo. Restart após falha concluiu a pendência sem duplicar a mensagem já finalizada; cancelamento dentro do sink preservou a claim e outra instância a recuperou após expiração.
-- Migrations: SQLite `7→0` e PostgreSQL `8→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1c: restore locked, format, build Release com zero warnings/erros e 96/96 testes verdes.
+- Realtime contract/schema F1-WRK-1d.1: `IRealtimeEventStore` define append idempotente por message ID, sequência por stream e snapshot+delta. Migrations criam stream heads + histórico append-only isolado por tenant, com unicidades e índices provider-specific; update/delete foi recusado nos dois bancos.
+- Migrations: SQLite `8→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1d.1: restore locked, format, build Release com zero warnings/erros e 102/102 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações e worker Outbox verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para realtime persistido e watchdog/reconciliador.
 

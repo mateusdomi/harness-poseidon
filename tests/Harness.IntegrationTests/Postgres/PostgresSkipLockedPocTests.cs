@@ -19,7 +19,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(8, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(9, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -192,6 +192,16 @@ public sealed class PostgresSkipLockedPocTests
             Assert.Equal(6L, reader.GetInt64(1));
         }
 
+        await using (var realtimeSchemaCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema='harness'
+              AND table_name IN ('realtime_streams','realtime_events');
+            """))
+        {
+            Assert.Equal(2L, await realtimeSchemaCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
         await using (var insertCommand = dataSource.CreateCommand(
             """
             INSERT INTO harness.tenants (id, name, created_at)
@@ -205,6 +215,32 @@ public sealed class PostgresSkipLockedPocTests
             """))
         {
             await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var realtimeInsertCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.realtime_streams
+                (tenant_id,stream_name,last_sequence,created_at,updated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FAV','project:01ARZ3NDEKTSV4RRFFQ69G5FAX',1,
+                 '2026-07-18T17:30:00Z','2026-07-18T17:30:00Z');
+            INSERT INTO harness.realtime_events
+                (message_id,tenant_id,stream_name,sequence,event_type,payload_json,occurred_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FB0','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 'project:01ARZ3NDEKTSV4RRFFQ69G5FAX',1,'task.created','{}',
+                 '2026-07-18T17:30:00Z');
+            """))
+        {
+            await realtimeInsertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var realtimeUpdateCommand = dataSource.CreateCommand(
+            "UPDATE harness.realtime_events SET event_type='task.stateChanged';"))
+        {
+            var realtimeException = await Assert.ThrowsAsync<PostgresException>(
+                () => realtimeUpdateCommand.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal(PostgresErrorCodes.IntegrityConstraintViolation, realtimeException.SqlState);
         }
 
         await using var invalidCommand = dataSource.CreateCommand(

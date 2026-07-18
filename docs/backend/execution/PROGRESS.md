@@ -66,4 +66,6 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F1-WRK-1a | verde | contrato de claim/fencing/retry/dead-letter; migrations SQLite `7→0`/PostgreSQL `8→0`, histórico append-only e backoff 2/2; `evidence/F1-OUTBOX-DISPATCH-SCHEMA.md` |
 | F1-WRK-1b | verde | 10 workers→2 claims únicos; expiry/fencing 1→2, retry token 3, stale recusado, 1 dispatch/1 dead-letter/2 falhas nos dois providers; `evidence/F1-OUTBOX-STORES.md` |
 | F1-WRK-1c | verde | worker cancelável com sink tipado; restart pós-falha sem duplicar sucesso e recuperação após expiração de claim; gate 96/96; `evidence/F1-OUTBOX-DISPATCHER-WORKER.md` |
-| F1-WRK-1d | próximo | store sequenciado dual-provider e sink persistido Outbox→SignalR com dedupe/resync após restart |
+| F1-WRK-1d.1 | verde | contrato append/replay/snapshot+delta; schema stream head + eventos append-only, migrations SQLite `8→0`/PostgreSQL `9→0`; gate 102/102; `evidence/F1-REALTIME-EVENT-SCHEMA.md` |
+| F1-WRK-1d.2 | próximo | stores dual-provider com sequência concorrente, replay estrutural e snapshot equivalente |
+| F1-WRK-1d.3 | pendente | sink persistido Outbox→SignalR com dedupe/resync após restart |
