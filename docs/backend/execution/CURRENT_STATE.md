@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T11:47:21Z
+Atualizado em: 2026-07-18T11:52:57Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-02 — SharedKernel e contratos primitivos; bootstrap EP-01 validado.
+- Épico atual: EP-03 — persistência SQLite e PoC-1; EP-01/EP-02 validados.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `dae3315` (`develop`); a fatia de bootstrap da solução está validada e aguardando o commit que conterá este estado.
-- Próximo passo exato: implementar IDs ULID tipados, `Result`, clock, erros e primitivas no SharedKernel com testes unitários; depois iniciar a PoC-1 SQLite/dispatcher.
+- Último commit remoto validado: `7396d12` (`develop`); a fatia SharedKernel está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: adicionar EF Core SQLite 10.x, modelar o work item mínimo da PoC-1 e implementar dispatcher único via `System.Threading.Channels`, WAL/foreign keys/busy timeout e teste concorrente sem `SQLITE_BUSY` não tratado.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -28,7 +28,8 @@ Atualizado em: 2026-07-18T11:47:21Z
 - Containers em execução: nenhum.
 - Recursos Docker com `com.harness.managed=true`: nenhum container, volume ou network.
 - Solução: 22 projetos de produção (Host, Runner, Launcher, SharedKernel, persistência e 15 módulos) e 6 projetos de teste em `Harness.sln`.
-- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 10 testes verdes nas seis suítes.
+- SharedKernel: ULID canônico, `EntityId<TTag>`, `IClock`, `SystemClock`, `ErrorDescriptor` e `Result`/`Result<T>` implementados.
+- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 32 testes verdes nas seis suítes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: bootstrap e testes de arquitetura comprovados; ainda não há PoC 1–9 concluída e GNG-1 permanece fechado.
 
