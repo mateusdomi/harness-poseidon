@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+# Storybook
+storybook-static/
+# Env / secrets
+.env
+.env.local
+.env.*.local
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+# Logs
+*.log
