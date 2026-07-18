@@ -19,7 +19,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(6, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(7, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -34,6 +34,7 @@ public sealed class PostgresSkipLockedPocTests
         await WorkflowStoreBehavior.AssertAsync(
             new PostgresWorkflowStore(dataSource),
             timeout.Token);
+        await ValidateDocumentSchemaAsync(dataSource, timeout.Token);
         await DurableExecutionEngineBehavior.AssertAsync(
             new PostgresDurableExecutionEngine(dataSource),
             timeout.Token);
@@ -320,6 +321,105 @@ public sealed class PostgresSkipLockedPocTests
         var exception = await Assert.ThrowsAsync<PostgresException>(
             () => duplicateActivePhase.ExecuteNonQueryAsync(cancellationToken));
         Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
+    }
+
+    private static async Task ValidateDocumentSchemaAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using (var countCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema='harness' AND table_name IN
+                ('documents', 'document_versions', 'document_classifications',
+                 'document_approval_requests', 'document_state_transitions');
+            """))
+        {
+            Assert.Equal(5L, await countCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        await using (var insertCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.documents
+                (id,tenant_id,project_id,title,kind,state,current_version,
+                 phase_name,inconsistent,version,created_at,updated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH0','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','Delivery spec','spec',
+                 'awaiting_approval',1,NULL,false,3,
+                 '2026-07-18T17:00:00Z','2026-07-18T17:02:00Z');
+            INSERT INTO harness.document_versions
+                (id,tenant_id,project_id,document_id,version,catalog_path,
+                 content_hash,supersedes_id,author_kind,author_id,created_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH1','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',1,
+                 'documents/spec-v1.md',
+                 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                 NULL,'agent','01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:00:00Z');
+            INSERT INTO harness.document_classifications
+                (tenant_id,project_id,document_id,label,ordinal)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FAV','01ARZ3NDEKTSV4RRFFQ69G5FAX',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FH0','requirements',1);
+            INSERT INTO harness.document_approval_requests
+                (id,tenant_id,project_id,document_id,document_version_id,
+                 title,description,priority,due_at,state,requested_by_agent_id,requested_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH2','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FH1','Approve spec','Review current version',
+                 'high','2026-07-20T17:00:00Z','pending',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:02:00Z');
+            INSERT INTO harness.document_state_transitions
+                (id,tenant_id,project_id,document_id,document_version,
+                 from_state,to_state,actor_kind,actor_id,occurred_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH3','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',3,
+                 'in_review','awaiting_approval','agent',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:02:00Z');
+            """))
+        {
+            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var duplicatePending = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.document_approval_requests
+                (id,tenant_id,project_id,document_id,document_version_id,
+                 title,description,priority,state,requested_by_agent_id,requested_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FH4','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FH1','Duplicate','Duplicate','low','pending',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:03:00Z');
+            """))
+        {
+            var exception = await Assert.ThrowsAsync<PostgresException>(
+                () => duplicatePending.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
+        }
+
+        await using (var immutableVersion = dataSource.CreateCommand(
+            "UPDATE harness.document_versions SET catalog_path='changed.md' WHERE id='01ARZ3NDEKTSV4RRFFQ69G5FH1';"))
+        {
+            var exception = await Assert.ThrowsAsync<PostgresException>(
+                () => immutableVersion.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal("23000", exception.SqlState);
+        }
+
+        await using (var immutableTransition = dataSource.CreateCommand(
+            "DELETE FROM harness.document_state_transitions WHERE id='01ARZ3NDEKTSV4RRFFQ69G5FH3';"))
+        {
+            var exception = await Assert.ThrowsAsync<PostgresException>(
+                () => immutableTransition.ExecuteNonQueryAsync(cancellationToken));
+            Assert.Equal("23000", exception.SqlState);
+        }
+
+        await using var orphanCount = dataSource.CreateCommand(
+            "SELECT COUNT(*) FROM harness.documents WHERE phase_name IS NULL;");
+        Assert.Equal(1L, await orphanCount.ExecuteScalarAsync(cancellationToken));
     }
 
     private const string WorkflowInsertSql =

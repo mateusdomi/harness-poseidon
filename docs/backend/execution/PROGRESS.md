@@ -57,4 +57,6 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Store EP-10b.2b.1 | verde | run pendente inicializado a partir de versão publicada com projeções e Inbox/ledger/Outbox atômicos; 10 concorrentes=1 aplicação/9 replays; snapshot 1/2/1 e progresso 0/0/0; `evidence/F1-WORKFLOW-RUN-CREATION.md` |
 | Store EP-10b.2b.2 | verde | start/pause/resume/cancel dual-provider com versão esperada, fase ativa única, rejeições idempotentes e auditoria somente para aplicações; `evidence/F1-WORKFLOW-RUN-LIFECYCLE.md` |
 | Store EP-10b.2b.3 | verde | 2 fases até run v14/100-100-100; avanço monotônico, gate failed→passed, bloqueio, ativação ordenada, snapshot hierárquico e 10 concorrentes=1 aplicação/9 replays; `evidence/F1-WORKFLOW-RUN-PROGRESS.md` |
-| F1-DOC-1 | próximo | agregado/schema dual-provider de documentos, versões imutáveis, aprovações e órfãos |
+| F1-DOC-1a | verde | agregado cataloga conteúdo por path+SHA-256, versão/supersession imutável, órfão/classificação, lifecycle e aprovação/rejeição/cancelamento; 8/8 cenários; `evidence/F1-DOCUMENT-CONTRACT.md` |
+| F1-DOC-1b | verde | 5 tabelas, FKs compostas, aprovação pendente única, índice de órfãos e triggers append-only; migrations SQLite `6→0` / PostgreSQL `7→0`; `evidence/F1-DOCUMENT-SCHEMA.md` |
+| F1-DOC-1c | próximo | store dual-provider completo com OCC, Inbox, histórico, ledger, Outbox e snapshot |

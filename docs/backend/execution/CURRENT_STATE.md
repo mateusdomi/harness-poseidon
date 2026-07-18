@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T16:21:54Z
+Atualizado em: 2026-07-18T16:33:30Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-DOC-1 — contrato e schema de documentos versionados/aprovações; EP-10 está verde.
+- Épico atual: F1-DOC-1c — store transacional de documentos; contrato e schema estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `4556b0b` (`develop`); EP-10b.2b.3 está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: inspecionar `Harness.Modules.Documents`, definir agregado/contratos de documento, versão imutável, aprovação e órfão; criar migrations provider-specific e comportamento comum antes de implementar o store transacional com Inbox/ledger/Outbox.
+- Último commit remoto validado: `299f1a2` (`develop`); F1-DOC-1a/1b está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: criar `IDocumentStore` com criação/versionamento/classificação/transição/solicitação e resolução de aprovação, receipts idempotentes e snapshot completo; implementar SQLite/PostgreSQL com versão esperada, Inbox, histórico, ledger e Outbox atômicos, então executar comportamento comum nos dois providers.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T16:21:54Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia e workflows; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`5→0` e `6→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia, workflows e documentos; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`6→0` e `7→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -55,8 +55,10 @@ Atualizado em: 2026-07-18T16:21:54Z
 - Workflow run EP-10b.2b.1: criação aceita somente versão publicada do mesmo tenant/projeto, materializa run pendente e todas as projeções de fases/objetivos/gates, e grava Inbox, ledger e Outbox `progress.updated` atomicamente. Dez concorrentes resultam 1 aplicação/9 replays; snapshot atual comprova versão 1, 2 fases, 3 objetivos, 1 gate e progresso inicial 0/0/0; chave conflitante não muta estado.
 - Workflow lifecycle EP-10b.2b.2: `start/pause/resume/cancel` usam versão esperada e Inbox idempotente. SQLite serializa no dispatcher; PostgreSQL combina locks advisory por chave/run e `FOR UPDATE`. Dez starts concorrentes resultam 1 aplicação/9 replays e uma única fase ativa; conflito de versão/estado e run ausente ficam deterministicamente reexecutáveis sem ledger/Outbox; mutações aplicadas atualizam run, ledger e `progress.updated` atomicamente.
 - Workflow progress EP-10b.2b.3: avanço objetivo é estritamente monotônico e objetivo-gate só muda por avaliação; requisitos bloqueiam gate, failed pode ser reavaliado para passed, e fase só conclui sem pendências/gates abertos. Conclusão ativa a próxima fase ou fecha o run. Snapshot hierárquico consistente recompõe definições, rows, versões, timestamps, requisitos e progresso ponderado. Cenário dual-provider percorre 2 fases até v14 e 100/100/100, com 10 avanços concorrentes resultando 1 aplicação/9 replays.
-- Migrations: SQLite `5→0` e PostgreSQL `6→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após progresso EP-10b.2b.3: restore locked, format, build Release com zero warnings/erros e 84/84 testes verdes.
+- Document contract F1-DOC-1a: `DocumentAggregate` cataloga conteúdo por caminho relativo + SHA-256, preserva versões imutáveis/supersession, órfão por `phaseName=null`, classificação, inconsistência, lifecycle e solicitações de aprovação vinculadas à versão corrente. Rejeição exige nota, retorna a elaboração e correção cria nova versão; 8 cenários unitários verdes.
+- Document schema F1-DOC-1b: migrations SQLite `0006_documents` e PostgreSQL `0007_documents` criam documento, versão, classificação, approval request e histórico de transição. FKs compostas isolam tenant/projeto; índice parcial permite uma aprovação pendente; índices cobrem órfãos/fila; triggers recusam update/delete de versões e histórico em ambos providers.
+- Migrations: SQLite `6→0` e PostgreSQL `7→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F1-DOC-1a/1b: restore locked, format, build Release com zero warnings/erros e 92/92 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão e workflow completo/progresso verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para documentos e workers.
 

@@ -53,8 +53,10 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 17. EP-10b.2b.1: inicialização transacional de run e projeções objetivas — verde em 2026-07-18.
 18. EP-10b.2b.2: start/pause/resume/cancel transacionais com optimistic concurrency — verde em 2026-07-18.
 19. EP-10b.2b.3: objetivos/gates/fases, reidratação e progresso dual-provider — verde em 2026-07-18.
-20. F1-DOC-1: documentos, versões imutáveis, aprovações e órfãos — próximo incremento.
-21. Workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
+20. F1-DOC-1a: agregado de documentos, versões imutáveis, aprovações e órfãos — verde em 2026-07-18.
+21. F1-DOC-1b: schema dual-provider append-only de documentos — verde em 2026-07-18.
+22. F1-DOC-1c: store transacional, reidratação e auditoria de documentos — próximo incremento.
+23. Workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 

@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(5, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(6, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -234,6 +234,7 @@ public sealed class SqliteFoundationMigrationsTests
             Assert.Equal(19, duplicateActiveAttempt.SqliteErrorCode);
 
             await ValidateWorkflowSchemaAsync(dispatcher, timeout.Token);
+            await ValidateDocumentSchemaAsync(dispatcher, timeout.Token);
 
             await dispatcher.ExecuteAsync(
                 async (connection, token) =>
@@ -319,6 +320,135 @@ public sealed class SqliteFoundationMigrationsTests
                 },
                 cancellationToken));
         Assert.Equal(19, duplicateActivePhase.SqliteErrorCode);
+    }
+
+    private static async Task ValidateDocumentSchemaAsync(
+        SqliteWriteDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var tableCount = await dispatcher.ExecuteAsync(
+            async (connection, token) =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN
+                        ('documents', 'document_versions', 'document_classifications',
+                         'document_approval_requests', 'document_state_transitions');
+                    """;
+                return Convert.ToInt64(
+                    await command.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+            },
+            cancellationToken);
+        Assert.Equal(5, tableCount);
+
+        await dispatcher.ExecuteAsync(
+            async (connection, token) =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    INSERT INTO documents
+                        (id,tenant_id,project_id,title,kind,state,current_version,
+                         phase_name,inconsistent,version,created_at,updated_at)
+                    VALUES
+                        ('01ARZ3NDEKTSV4RRFFQ69G5FH0','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FAX','Delivery spec','spec',
+                         'awaiting_approval',1,NULL,0,3,
+                         '2026-07-18T17:00:00.0000000+00:00',
+                         '2026-07-18T17:02:00.0000000+00:00');
+                    INSERT INTO document_versions
+                        (id,tenant_id,project_id,document_id,version,catalog_path,
+                         content_hash,supersedes_id,author_kind,author_id,created_at)
+                    VALUES
+                        ('01ARZ3NDEKTSV4RRFFQ69G5FH1','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',1,
+                         'documents/spec-v1.md',
+                         'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                         NULL,'agent','01ARZ3NDEKTSV4RRFFQ69G5FAY',
+                         '2026-07-18T17:00:00.0000000+00:00');
+                    INSERT INTO document_classifications
+                        (tenant_id,project_id,document_id,label,ordinal)
+                    VALUES
+                        ('01ARZ3NDEKTSV4RRFFQ69G5FAV','01ARZ3NDEKTSV4RRFFQ69G5FAX',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FH0','requirements',1);
+                    INSERT INTO document_approval_requests
+                        (id,tenant_id,project_id,document_id,document_version_id,
+                         title,description,priority,due_at,state,requested_by_agent_id,requested_at)
+                    VALUES
+                        ('01ARZ3NDEKTSV4RRFFQ69G5FH2','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FH1','Approve spec','Review current version',
+                         'high','2026-07-20T17:00:00.0000000+00:00','pending',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:02:00.0000000+00:00');
+                    INSERT INTO document_state_transitions
+                        (id,tenant_id,project_id,document_id,document_version,
+                         from_state,to_state,actor_kind,actor_id,occurred_at)
+                    VALUES
+                        ('01ARZ3NDEKTSV4RRFFQ69G5FH3','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',3,
+                         'in_review','awaiting_approval','agent',
+                         '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:02:00.0000000+00:00');
+                    """;
+                await command.ExecuteNonQueryAsync(token);
+            },
+            cancellationToken);
+
+        var duplicatePending = await Assert.ThrowsAsync<SqliteException>(() =>
+            dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        INSERT INTO document_approval_requests
+                            (id,tenant_id,project_id,document_id,document_version_id,
+                             title,description,priority,state,requested_by_agent_id,requested_at)
+                        VALUES
+                            ('01ARZ3NDEKTSV4RRFFQ69G5FH4','01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                             '01ARZ3NDEKTSV4RRFFQ69G5FAX','01ARZ3NDEKTSV4RRFFQ69G5FH0',
+                             '01ARZ3NDEKTSV4RRFFQ69G5FH1','Duplicate','Duplicate','low','pending',
+                             '01ARZ3NDEKTSV4RRFFQ69G5FAY','2026-07-18T17:03:00.0000000+00:00');
+                        """;
+                    await command.ExecuteNonQueryAsync(token);
+                },
+                cancellationToken));
+        Assert.Equal(19, duplicatePending.SqliteErrorCode);
+
+        var immutableVersion = await Assert.ThrowsAsync<SqliteException>(() =>
+            dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        "UPDATE document_versions SET catalog_path='changed.md' WHERE id='01ARZ3NDEKTSV4RRFFQ69G5FH1';";
+                    await command.ExecuteNonQueryAsync(token);
+                },
+                cancellationToken));
+        Assert.Equal(19, immutableVersion.SqliteErrorCode);
+
+        var immutableTransition = await Assert.ThrowsAsync<SqliteException>(() =>
+            dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        "DELETE FROM document_state_transitions WHERE id='01ARZ3NDEKTSV4RRFFQ69G5FH3';";
+                    await command.ExecuteNonQueryAsync(token);
+                },
+                cancellationToken));
+        Assert.Equal(19, immutableTransition.SqliteErrorCode);
+
+        var orphanCount = await dispatcher.ExecuteAsync(
+            async (connection, token) =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "SELECT COUNT(*) FROM documents WHERE phase_name IS NULL;";
+                return Convert.ToInt64(
+                    await command.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+            },
+            cancellationToken);
+        Assert.Equal(1, orphanCount);
     }
 
     private const string WorkflowInsertSql =

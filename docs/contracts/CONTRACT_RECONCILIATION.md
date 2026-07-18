@@ -35,3 +35,16 @@ O rebase incorporou FE-1a/1b/1c e o handoff passou de 201 para 203 linhas. Mudan
 ## Atualização PoC-7 — 2026-07-18
 
 O contrato backend canônico agora materializa `/hubs/events`, método de assinatura `Subscribe`, método cliente `event`, envelope completo e `GET /api/v1/event-streams/snapshot`. O catálogo segue estritamente a missão v1.3, portanto as divergências `workflow.versionPublished`/`workflow.definitionPublished` e `tool.statusChanged`/`tool.catalogChanged` permanecem explícitas e ainda não ganharam aliases. Nenhum arquivo do frontend foi modificado.
+
+## Atualização F1-DOC-1 — 2026-07-18
+
+Os contratos FE-2 de `Document`, `DocumentVersion`, `Approval`, comandos e handoff foram lidos e preservados. O modelo de fundação adotou:
+
+- conteúdo de versão fora do banco, catalogado por caminho relativo e SHA-256, conforme a missão; a API futura resolve `body` pelo catálogo/filesystem;
+- `phaseName = null` como órfão e classificação como metadado separado de conteúdo, compatível com D-029;
+- estados persistidos em snake_case e mapeamento camelCase (`in_elaboration` ↔ `inElaboration`) somente na borda HTTP;
+- entidade canônica `DocumentApprovalRequest`, alinhada ao recurso obrigatório `approval-requests`; na integração, a UI poderá receber projeção compatível em `approvals` sem fundir decisões humanas distintas;
+- resolução aprovada leva `awaitingApproval→approved`; rejeição com nota obrigatória leva `awaitingApproval→inElaboration`, como exige o handoff;
+- `inconsistent` foi modelado; waiver permanece para a fatia de prototipação/governança prevista na missão e não foi fabricado antecipadamente.
+
+Nenhum contrato do frontend foi editado. Eventos públicos continuam os canônicos `document.stateChanged`, `approval.requested` e `approval.resolved`.
