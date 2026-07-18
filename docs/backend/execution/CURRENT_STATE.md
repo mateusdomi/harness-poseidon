@@ -7,7 +7,7 @@ Atualizado em: 2026-07-18T18:59:52Z
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-ORG-1 — organizações; perfil local está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `54d9395` (`develop`); F2-ID-1 aguarda o commit que conterá este estado.
+- Último commit remoto validado: `5a762a3` (`develop`), contendo F2-ID-1 verde com 108/108 testes.
 - Próximo passo exato: implementar a fatia vertical de organizações conforme `organizationSchema`: domínio, marca/policies/templates herdáveis, persistência SQLite, API list/read/create/update, testes e OpenAPI, sem editar frontend.
 - Bloqueios: nenhum.
 
