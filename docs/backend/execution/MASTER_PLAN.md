@@ -6,8 +6,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 
 | Ordem | Fase | Marco | Estado |
 |---|---|---|---|
-| 1 | F0 — Bootstrap e nove PoCs | GNG-1 | em andamento |
-| 2 | F1 — Fundação determinística | GNG-2 | pendente |
+| 1 | F0 — Bootstrap e nove PoCs | GNG-1 | concluída; gate verde |
+| 2 | F1 — Fundação determinística | GNG-2 | em andamento |
 | 3 | F2 — MVP pessoal e integração frontend | GNG-3 | pendente |
 | 4 | F3 — Workflows completos/autônomo | gate da fase | pendente |
 | 5 | F6, F4, F5 — execução, PO Assistant, prototipação | gates das fases | pendente |
@@ -29,8 +29,17 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 9. PoC-6: sandbox Docker com limites, proxy/egress e cleanup — verde em 2026-07-18.
 10. PoC-7: SignalR com sequência e re-sync — verde em 2026-07-18.
 11. PoC-8: PostgreSQL gerenciado e `SKIP LOCKED` — verde em 2026-07-18.
-12. PoC-9: IPC loopback autenticado e idempotente — próximo incremento.
-13. Executar suíte completa, catalogar evidências e avaliar GNG-1.
+12. PoC-9: IPC loopback autenticado e idempotente — verde em 2026-07-18.
+13. Suíte completa e GNG-1 — verdes em 2026-07-18, 49/49 testes.
+
+## Fase 1 — fatias retomáveis
+
+1. EP-03/EP-04: modelo relacional de produção, migrations dual-provider, Inbox/Outbox e ledger encadeado — próximo incremento.
+2. EP-05: leases, heartbeats, fencing, checkpoints e `IDurableExecutionEngine` completo.
+3. EP-06/EP-09: Tenant, Organização, Projeto, Usuário local e cadeia Solicitação→Tentativa.
+4. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
+5. Documentos/versionamento/aprovações, workers e SignalR persistido.
+6. Prova GNG-2 com encerramento abrupto e auditoria completa nos dois providers.
 
 ## Backlog épico
 

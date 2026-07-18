@@ -1,1 +1,1 @@
-return 0;
+return await Harness.Runner.RunnerCommand.RunAsync(args);

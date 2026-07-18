@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T13:18:20Z
+Atualizado em: 2026-07-18T13:29:41Z
 
 ## Retomada rápida
 
-- Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-07/EP-04 — IPC Host–Runner e PoC-9; PoCs 1–8 validadas.
+- Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
+- Épico atual: EP-03/EP-04 — modelo relacional dual, Inbox/Outbox e ledger.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `d2c0faa` (`develop`); a fatia PoC-8 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: definir contratos tipados Runner→Host (`runnerId`, `attemptId`, `sequence`, `idempotencyKey`), autenticar token efêmero em loopback e provar heartbeat/checkpoint/conclusão, replay idempotente e rejeição/reconciliação fora de sequência na PoC-9 sem acesso do Runner ao banco.
+- Último commit remoto validado: `7504e11` (`develop`); a fatia PoC-9/GNG-1 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: definir o modelo conceitual mínimo de Tenant/Organização/Projeto/usuário local, Inbox, Outbox e ledger; implementar migrations separadas SQLite/PostgreSQL e testes de comportamento idêntico antes de mover o store IPC in-memory para a autoridade relacional.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -37,9 +37,10 @@ Atualizado em: 2026-07-18T13:18:20Z
 - Sandbox: Docker provider validou CPU 0,5, memória 64 MiB, 64 PIDs, disk limit 8 MiB, worktree montada, proxy-only egress, rootfs read-only e cleanup label-guarded em seis execuções verdes.
 - Realtime: hub `/hubs/events`, sequência por stream, catálogo tipado, endpoint snapshot+delta e OpenAPI determinístico; lacuna 3–5 recuperada e live retomado em 6.
 - PostgreSQL: Npgsql/EF provider 10.0.3; 80 itens adquiridos uma vez por 12 workers, linha bloqueada pulada sem espera, token antigo rejeitado após lease expirada e migrations `1` depois `0`; imagem final Alpine/PostgreSQL 18.4 passou Scout com 0 crítica/alta/média e residual 2 baixas + 1 não classificada sem correção disponível.
-- Pipeline: `tools/backend/verify.sh` verde após a PoC-8: restore locked, format, build Release com zero warnings/erros e 47/47 testes verdes; teste PostgreSQL final também ficou verde em seis execuções isoladas.
+- IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; replay integral não duplica, gap/token inválido não criam estado e assembly Runner não referencia banco. Store da PoC é in-memory e será persistido na primeira fatia F1.
+- Pipeline: `tools/backend/verify.sh` verde após a PoC-9: restore locked, format, build Release com zero warnings/erros e 49/49 testes verdes; teste IPC final também ficou verde em seis execuções isoladas.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–8 verdes e catalogadas; PoC-9 pendente e GNG-1 permanece fechado (8/9).
+- Evidências: PoCs 1–9 verdes e catalogadas; GNG-1 verde. GNG-2 permanece fechado até a recuperação F1 com auditoria completa.
 
 ## Sanidade antes de retomar
 
@@ -57,4 +58,4 @@ docker network ls --filter label=com.harness.managed=true
 tools/backend/dotnet.sh --info
 ```
 
-O SDK local esperado é 10.0.302. Se estiver ausente, executar `tools/backend/install-dotnet.sh`; se estiver válido, executar `tools/backend/verify.sh` e retomar pelo SharedKernel.
+O SDK local esperado é 10.0.302. Se estiver ausente, executar `tools/backend/install-dotnet.sh`; se estiver válido, executar `tools/backend/verify.sh` e retomar pelo modelo relacional F1 descrito no próximo passo.

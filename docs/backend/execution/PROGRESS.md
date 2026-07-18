@@ -4,7 +4,7 @@
 
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
-| GNG-1 | nove PoCs verdes | fechado | PoCs 1–8 verdes; 8/9 comprovadas |
+| GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
 | GNG-2 | recuperação abrupta com auditoria completa | fechado | F1 não iniciada |
 | GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
@@ -29,6 +29,6 @@
 | PoC-6 sandbox | verde | limites CPU/memória/PIDs/disco, worktree, proxy-only egress, cleanup label-guarded; `evidence/F0-POC-6.md` |
 | PoC-7 SignalR | verde | envelope sequenciado, desconexão, delta `[3,4,5]`, retomada na sequência 6 e drift tests; `evidence/F0-POC-7.md` |
 | PoC-8 PostgreSQL | verde | migration própria idempotente, 80 itens/12 workers sem duplicação, `SKIP LOCKED`, fencing e imagem sem vulnerabilidade crítica/alta/média; `evidence/F0-POC-8.md` |
-| PoC-9 IPC | pendente | — |
+| PoC-9 IPC | verde | Runner real, loopback+token, heartbeat/checkpoint/completion, replay 3/3, gap e token inválido rejeitados; `evidence/F0-POC-9.md` |
 
 Conclusão só será registrada após execução. Arquivo existente ou teste apenas escrito não conta como evidência.

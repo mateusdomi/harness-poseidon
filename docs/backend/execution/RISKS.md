@@ -11,5 +11,6 @@
 | R-007 | EF Core SQLite traz native SQLite vulnerável | restore emite `NU1903` GHSA-2m69-gcr7-jv3q | pin central `SQLitePCLRaw.lib.e_sqlite3` 3.53.3, lockfiles e audit obrigatório | mitigado |
 | R-008 | gerador OpenAPI traz parser vulnerável | restore emite `NU1903` GHSA-v5pm-xwqc-g5wc | pin central `Microsoft.OpenApi` 2.7.5, primeira versão 2.x corrigida; audit obrigatório | mitigado |
 | R-009 | imagem oficial PostgreSQL contém runtime Go crítico | Docker Scout detecta CVE-2025-68121 no `gosu` da base oficial | imagem Harness mínima sobre Alpine 3.24 com PostgreSQL 18/su-exec; exigir zero crítica/alta/média e monitorar 2 baixas + 1 não classificada em libxml2 sem fix disponível | mitigado/monitorar |
+| R-010 | SDK local encerra restore abruptamente | `dotnet restore --force-evaluate` terminou uma vez com exit 139 sem diagnóstico | repetir isoladamente com verbosity; recorrência exige crash dump antes de editar; restore subsequente, build e gate completo passaram | monitorar |
 
-Não há No-Go registrado. GNG-1 permanece fechado por trabalho ainda não executado, não por falha.
+Não há No-Go registrado. GNG-1 está verde; riscos monitorados não bloqueiam a Fase 1.

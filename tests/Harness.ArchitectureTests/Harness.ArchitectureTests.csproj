@@ -19,4 +19,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../../src/Harness.Runner/Harness.Runner.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
 </Project>

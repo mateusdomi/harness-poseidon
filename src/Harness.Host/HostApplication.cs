@@ -1,4 +1,5 @@
 using System.Net;
+using Harness.Host.Ipc;
 using Harness.Host.Realtime;
 using Harness.SharedKernel.Time;
 
@@ -6,7 +7,7 @@ namespace Harness.Host;
 
 public static class HostApplication
 {
-    public static WebApplication Build(string[] args)
+    public static WebApplication Build(string[] args, RunnerIpcToken? runnerIpcToken = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,8 @@ public static class HostApplication
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
         builder.Services.AddSingleton<EventStreamStore>();
         builder.Services.AddSingleton<EventPublisher>();
+        builder.Services.AddSingleton(runnerIpcToken ?? RunnerIpcToken.Create());
+        builder.Services.AddSingleton<RunnerIpcMessageProcessor>();
         builder.Services.AddSignalR(options => options.EnableDetailedErrors = builder.Environment.IsDevelopment());
         builder.Services.AddOpenApi(options =>
             options.AddDocumentTransformer(
@@ -34,6 +37,7 @@ public static class HostApplication
             .WithTags("system");
         app.MapOpenApi("/openapi/{documentName}.json");
         app.MapHub<EventsHub>("/hubs/events");
+        app.MapRunnerIpc();
         app.MapGet(
             "/api/v1/event-streams/snapshot",
             IResult (string? stream, long? afterSequence, EventStreamStore store) =>
