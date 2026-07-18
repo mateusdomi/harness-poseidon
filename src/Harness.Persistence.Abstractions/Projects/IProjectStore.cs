@@ -10,12 +10,20 @@ public interface IProjectStore
 }
 
 public sealed record ProjectBrandRecord(string? LogoUrl, string? PrimaryColor, string? SecondaryColor, string? Typography);
+public sealed record ProjectPrototypingWaiverRecord(string Reason, DateTimeOffset GrantedAt);
+public sealed record ProjectPrototypingRecord(string Mode, ProjectPrototypingWaiverRecord? Waiver)
+{
+    public static ProjectPrototypingRecord Default { get; } = new("autonomousGeneration", null);
+}
 public sealed record ProjectRecord(
     string TenantId, string Id, string OrganizationId, string Name, string Key, string Description,
     string State, string Criticality, string? RepositoryUrl, string RepositoryProvider, string DefaultBranch,
     IReadOnlyList<string> Technologies, ProjectBrandRecord Brand, IReadOnlyList<string> MemberProfileIds,
     long ConfigVersion, string ChiefAgentId, string OperationMode, DateTimeOffset CreatedAt,
-    DateTimeOffset LastActivityAt, long Version);
+    DateTimeOffset LastActivityAt, long Version)
+{
+    public ProjectPrototypingRecord Prototyping { get; init; } = ProjectPrototypingRecord.Default;
+}
 public sealed record ProjectCreateCommand(string TenantId, ProjectRecord Project, DateTimeOffset OccurredAt);
 public sealed record ProjectUpdateCommand(ProjectRecord Project, long ExpectedVersion);
 public enum ProjectMutationStatus { Applied, AlreadyExists, OrganizationNotFound, NotFound, VersionConflict }

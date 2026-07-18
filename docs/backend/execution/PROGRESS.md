@@ -96,4 +96,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-PROV-1 providers/contas/modelos/budgets | verde | tenant catalog, referências sem segredo, sync, routing, budgets/quota, eventos e restart; gate 151/151; `evidence/F2-PROVIDERS-ROUTING-BUDGETS.md` |
 | F2-NOTIF-1 notificações/settings | verde | perfil transacional, coalescência por `groupKey`, read/mute em lote, stream privado, ledger/auditoria, restart e contratos exatos; gate 154/154; `evidence/F2-NOTIFICATIONS-SETTINGS.md` |
 | F2-GOV-1 governança/auditoria | verde | projeção completa do ledger, filtros/get, integridade SHA-256, export JSON/CSV mascarado, append-only dual-provider e restart; gate 156/156; `evidence/F2-GOVERNANCE-AUDIT.md` |
-| F2-PROT-1 prototipação | próximo | projetos, protótipos, referências visuais, galerias e waivers |
+| F2-PROT-1 prototipação | verde | `Project.prototyping`+waiver, galeria/lifecycle, referências, soft-delete, eventos, restart e contratos exatos; gate 159/159; `evidence/F2-PROTOTYPING.md` |
+| F2-RUN-1 rodar projeto | próximo | detecção e lifecycle mínimo de targets .NET/Node com logs e cleanup |

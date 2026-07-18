@@ -6,13 +6,21 @@ public sealed record ProjectBrandContract(string? LogoUrl, string? PrimaryColor,
 {
     public static ProjectBrandContract Empty { get; } = new(null, null, null, null);
 }
+public sealed record PrototypingWaiverContract(string Reason, DateTimeOffset GrantedAt);
+public sealed record PrototypingConfigContract(string Mode, PrototypingWaiverContract? Waiver)
+{
+    public static PrototypingConfigContract Default { get; } = new("autonomousGeneration", null);
+}
 
 public sealed record ProjectContract(
     string Id, string OrganizationId, string Name, string Key, string Description,
     string State, string Criticality, string? RepositoryUrl, string RepositoryProvider,
     string DefaultBranch, IReadOnlyList<string> Technologies, ProjectBrandContract Brand,
     IReadOnlyList<string> MemberProfileIds, long ConfigVersion, string ChiefAgentId,
-    string OperationMode, DateTimeOffset CreatedAt, DateTimeOffset LastActivityAt, long Version);
+    string OperationMode, DateTimeOffset CreatedAt, DateTimeOffset LastActivityAt, long Version)
+{
+    public PrototypingConfigContract Prototyping { get; init; } = PrototypingConfigContract.Default;
+}
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed class CreateProjectRequest
@@ -37,6 +45,7 @@ public sealed class UpdateProjectRequest
     private string? _repositoryUrl; private string? _repositoryProvider; private string? _defaultBranch;
     private IReadOnlyList<string>? _technologies; private ProjectBrandContract? _brand;
     private IReadOnlyList<string>? _memberProfileIds;
+    private PrototypingConfigContract? _prototyping;
 
     public string? Name { get => _name; init { _name = value; NameSpecified = true; } }
     public string? Description { get => _description; init { _description = value; DescriptionSpecified = true; } }
@@ -48,6 +57,7 @@ public sealed class UpdateProjectRequest
     public IReadOnlyList<string>? Technologies { get => _technologies; init { _technologies = value; TechnologiesSpecified = true; } }
     public ProjectBrandContract? Brand { get => _brand; init { _brand = value; BrandSpecified = true; } }
     public IReadOnlyList<string>? MemberProfileIds { get => _memberProfileIds; init { _memberProfileIds = value; MemberProfileIdsSpecified = true; } }
+    public PrototypingConfigContract? Prototyping { get => _prototyping; init { _prototyping = value; PrototypingSpecified = true; } }
 
     [JsonIgnore] public bool NameSpecified { get; private set; }
     [JsonIgnore] public bool DescriptionSpecified { get; private set; }
@@ -59,13 +69,14 @@ public sealed class UpdateProjectRequest
     [JsonIgnore] public bool TechnologiesSpecified { get; private set; }
     [JsonIgnore] public bool BrandSpecified { get; private set; }
     [JsonIgnore] public bool MemberProfileIdsSpecified { get; private set; }
+    [JsonIgnore] public bool PrototypingSpecified { get; private set; }
 
     [JsonIgnore]
     public bool AnySpecified => NameSpecified || DescriptionSpecified || StateSpecified || CriticalitySpecified ||
         RepositoryUrlSpecified || RepositoryProviderSpecified || DefaultBranchSpecified || TechnologiesSpecified ||
-        BrandSpecified || MemberProfileIdsSpecified;
+        BrandSpecified || MemberProfileIdsSpecified || PrototypingSpecified;
 
     [JsonIgnore]
     public bool ConfigurationSpecified => RepositoryUrlSpecified || RepositoryProviderSpecified ||
-        DefaultBranchSpecified || TechnologiesSpecified || BrandSpecified;
+        DefaultBranchSpecified || TechnologiesSpecified || BrandSpecified || PrototypingSpecified;
 }

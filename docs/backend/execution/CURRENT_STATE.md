@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T22:34:06Z
+Atualizado em: 2026-07-18T22:43:48Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-PROT-1 — prototipação, referências visuais, galerias e waivers; governança está verde.
+- Épico atual: F2-RUN-1 — detecção e lifecycle mínimo de run targets .NET/Node; prototipação está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `bcb71b9` (`develop`), contendo F2-GOV-1 verde com 156/156 testes.
-- Próximo passo exato: implementar `prototypes` e `visual-references` tenant/project-scoped, lifecycle, galeria e waiver consistente com `Project.prototyping`.
+- Último commit remoto validado: `2e47ea3` (`develop`), contendo F2-PROT-1 verde com 159/159 testes após rebase concorrente.
+- Próximo passo exato: implementar `run-targets` para detecção e start/stop/restart de aplicações .NET/Node, streaming de logs e cleanup seguro.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T22:34:06Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` até `0023_audit_ledger_append_only`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`23→0` e `11→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` até `0024_prototyping`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`24→0` e `11→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -88,10 +88,11 @@ Atualizado em: 2026-07-18T22:34:06Z
 - F2 providers: catálogo lazy tenant-scoped oferece providers, referências de conta sem segredo, modelos, políticas de roteamento e budgets. Sync determinístico não usa rede em teste, publica quotas por conta; PATCH de provider/model/routing/budget audita e budget publica quota. Definições usam modelos existentes, handoff valida modelo habilitado e restart preserva tudo.
 - F2 notificações/settings: settings nasce atomicamente com o perfil e permanece tenant/profile-scoped. Notificações validam enums, coalescem somente grupos unread, incrementam `dedupeCount`, aceitam read/mute em lote e publicam payload completo em `profile:<id>`. Todas as mutações gravam ledger encadeado e auditoria global; contratos, isolamento, restart e o teste de corrida do Chief estabilizado estão comprovados.
 - F2 governança/auditoria: `audit-events` projeta tanto payloads explícitos quanto eventos legados do ledger sem expor payload bruto. List/get e filtros são tenant-scoped; integridade recalcula sequência, elo e SHA-256; export JSON/CSV mascara segredos. Triggers recusam UPDATE/DELETE do ledger no SQLite e PostgreSQL, e o estado permanece verificável após restart.
-- Migrations: SQLite `23→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-GOV-1: restore locked, format, build Release com zero warnings/erros e 156/156 testes verdes (`Unit 91`, `Integration 29`, `Contract 23`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- F2 prototipação: projeto expõe cenário `externalPrototype|guidelinesOnly|autonomousGeneration|notApplicable`; dispensa exige waiver formal e impede criação de galeria. Protótipos/referências são tenant/project-scoped, tags são normalizadas, vínculo documental/protótipo é validado, lifecycle publica eventos e soft-delete/restart estão comprovados.
+- Migrations: SQLite `24→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-PROT-1, inclusive depois do rebase sobre o merge remoto `9bf6ffe`: restore locked, format, build Release com zero warnings/erros e 159/159 testes verdes (`Unit 91`, `Integration 30`, `Contract 25`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings e governança F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é prototipação.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança e prototipação F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é run targets.
 
 ## Sanidade antes de retomar
 
