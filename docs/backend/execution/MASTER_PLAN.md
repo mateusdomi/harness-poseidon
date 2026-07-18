@@ -7,8 +7,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 | Ordem | Fase | Marco | Estado |
 |---|---|---|---|
 | 1 | F0 — Bootstrap e nove PoCs | GNG-1 | concluída; gate verde |
-| 2 | F1 — Fundação determinística | GNG-2 | em andamento |
-| 3 | F2 — MVP pessoal e integração frontend | GNG-3 | pendente |
+| 2 | F1 — Fundação determinística | GNG-2 | concluída; gate verde |
+| 3 | F2 — MVP pessoal e integração frontend | GNG-3 | próximo caminho crítico |
 | 4 | F3 — Workflows completos/autônomo | gate da fase | pendente |
 | 5 | F6, F4, F5 — execução, PO Assistant, prototipação | gates das fases | pendente |
 | 6 | F7 e F8 — desktop e licenciamento | GNG-4 | pendente |
@@ -66,7 +66,16 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 30. F1-WRK-1d.2: stores sequenciados dual-provider — verde em 2026-07-18.
 31. F1-WRK-1d.3a: sink persistido da Outbox e replay sem retransmissão — verde em 2026-07-18.
 32. F1-WRK-1d.3b: wiring do Host, snapshot SignalR persistido e resync após restart — verde em 2026-07-18.
-33. F1-WRK-2: watchdog/reconciliador dual-provider; então fechar formalmente a Fase 1/GNG-2 — próximo incremento.
+33. F1-WRK-2: watchdog/reconciliador dual-provider — verde em 2026-07-18.
+34. Suíte completa, recuperação abrupta automática e encerramento formal da Fase 1/GNG-2 — verde em 2026-07-18.
+
+## Fase 2 — ordem inicial retomável
+
+1. Sincronizar `origin/develop`, reler estado/contratos atuais do frontend e registrar drift sem editar sua área.
+2. Fatia vertical de perfil local: domínio, aplicação, persistência, API, eventos, testes e OpenAPI.
+3. Organizações.
+4. Projetos.
+5. Cockpit/digest e demais fatias na ordem definida pelo handoff.
 
 ## Backlog épico
 

@@ -5,7 +5,7 @@
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
-| GNG-2 | recuperação abrupta com auditoria completa | critério técnico verde; fase aberta | `SIGKILL` dual-provider, 6/6 checkpoints, 2 attempts e cadeia de 7 eventos íntegra; restante do escopo F1 pendente |
+| GNG-2 | recuperação abrupta com auditoria completa | verde | `SIGKILL` dual-provider retomado automaticamente pelo watchdog, 6/6 checkpoints, 2 attempts, Outbox/Inbox idempotentes e cadeia de 7 eventos íntegra; `evidence/F1-GNG2-CLOSURE.md` |
 | GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
@@ -70,4 +70,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F1-WRK-1d.2 | verde | 10 appends concorrentes→sequências 1–10; replay/conflito sem avanço e snapshot delta 8–11 equivalente nos dois providers; `evidence/F1-REALTIME-EVENT-STORES.md` |
 | F1-WRK-1d.3a | verde | append antes de broadcast; replay após restart preserva uma row/sequence e zero retransmissão; fallback tenant; `evidence/F1-REALTIME-OUTBOX-SINK.md` |
 | F1-WRK-1d.3b | verde | dispatcher/migrations/stores/worker compartilhados no Host; shutdown+restart, snapshot HTTP/SignalR `[2,3]`, replay sem broadcast e sequência final `[1,2,3,4]`; gate 104/104; `evidence/F1-HOST-PERSISTED-REALTIME.md` |
-| F1-WRK-2 | próximo | watchdog/reconciliador dual-provider para leases, heartbeats, timers/sinais, retry/dead-letter e reativação idempotente |
+| F1-WRK-2 | verde | 10 ciclos concorrentes→1 reconciliação; timer/signal timeout, retry, fencing, checkpoint, dead-letter, restart idempotente e shutdown limpo equivalentes nos dois providers; `evidence/F1-WATCHDOG-RECONCILIATION.md` |
+| Encerramento F1/GNG-2 | verde | SIGKILL dual-provider retomado automaticamente, auditoria completa, migrations 8→0/9→0, gate 104/104 e zero órfão; `evidence/F1-GNG2-CLOSURE.md` |

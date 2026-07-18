@@ -7,6 +7,28 @@ public sealed partial class PostgresDurableExecutionEngine(NpgsqlDataSource data
 {
     private readonly NpgsqlDataSource _dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
 
+    public async Task<IReadOnlyList<string>> ListMaintenanceTenantsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var tenants = new List<string>();
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT DISTINCT tenant_id
+            FROM harness.durable_executions
+            WHERE state IN ('running','waiting_retry','waiting_signal')
+            ORDER BY tenant_id;
+            """;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            tenants.Add(reader.GetString(0).TrimEnd());
+        }
+
+        return tenants;
+    }
+
     public Task<DurableCommandResult> StartAsync(
         DurableExecutionStartRequest request,
         DateTimeOffset occurredAt,

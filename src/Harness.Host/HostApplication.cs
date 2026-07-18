@@ -3,6 +3,7 @@ using Harness.Host.Ipc;
 using Harness.Host.Persistence;
 using Harness.Host.Realtime;
 using Harness.Host.Workers;
+using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Messaging;
 using Harness.Persistence.Abstractions.Realtime;
 using Harness.Persistence.Abstractions.RunnerIpc;
@@ -40,6 +41,7 @@ public static class HostApplication
             new SqliteRunnerMessageStore(services.GetRequiredService<SqliteWriteDispatcher>()));
         builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
         builder.Services.AddSingleton<IRealtimeEventStore, SqliteRealtimeEventStore>();
+        builder.Services.AddSingleton<IDurableExecutionEngine, SqliteDurableExecutionEngine>();
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
@@ -55,6 +57,11 @@ public static class HostApplication
                     2m,
                     TimeSpan.FromMinutes(1))));
         builder.Services.AddHostedService<OutboxDispatcherBackgroundService>();
+        builder.Services.AddSingleton(
+            new DurableExecutionWatchdogOptions(
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromMinutes(2)));
+        builder.Services.AddHostedService<DurableExecutionWatchdogBackgroundService>();
         builder.Services.AddSingleton<EventPublisher>();
         builder.Services.AddSingleton<RunnerIpcMessageProcessor>();
         builder.Services.AddSignalR(options => options.EnableDetailedErrors = builder.Environment.IsDevelopment());

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using Harness.Modules.Execution.Infrastructure.Sandbox;
 using Harness.IntegrationTests.Persistence;
+using Harness.IntegrationTests.Workers;
 using Harness.Persistence.Postgres;
 using Npgsql;
 
@@ -47,9 +48,9 @@ public sealed class PostgresSkipLockedPocTests
         await DocumentStoreBehavior.AssertAsync(
             new PostgresDocumentStore(dataSource),
             timeout.Token);
-        await DurableExecutionEngineBehavior.AssertAsync(
-            new PostgresDurableExecutionEngine(dataSource),
-            timeout.Token);
+        var durableEngine = new PostgresDurableExecutionEngine(dataSource);
+        await DurableExecutionWatchdogBehavior.AssertAsync(durableEngine, timeout.Token);
+        await DurableExecutionEngineBehavior.AssertAsync(durableEngine, timeout.Token);
         await RunnerMessageStoreBehavior.AssertAsync(
             new PostgresRunnerMessageStore(dataSource),
             "attempt-dual-postgres",

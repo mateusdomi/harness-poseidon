@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T18:40:00Z
+Atualizado em: 2026-07-18T18:47:54Z
 
 ## Retomada rápida
 
-- Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-WRK-2 — watchdog/reconciliador; F1-WRK-1d.3b está verde.
+- Fase atual: transição para Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
+- Épico atual: preparação F2 — sincronização e reconciliação de contratos; watchdog/reconciliador está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `71d5776` (`develop`); F1-WRK-1d.3b está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: implementar contrato e worker dual-provider que detecta leases/heartbeats expirados, reconcilia attempts, timers e sinais, respeita fencing e aplica retry/backoff ou dead-letter idempotentemente após restart.
+- Último commit remoto validado: `381f78f` (`develop`); F1-WRK-2/GNG-2 aguardam o commit que conterá este estado.
+- Próximo passo exato: publicar o fechamento F1, fazer fetch/rebase, reler `docs/frontend/CURRENT_STATE.md`, `docs/frontend/HANDOFF_API.md` e `frontend/src/api/contracts/**`, atualizar reconciliação/drift e iniciar a fatia vertical de perfil local.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -68,10 +68,12 @@ Atualizado em: 2026-07-18T18:40:00Z
 - Realtime stores F1-WRK-1d.2: SQLite usa dispatcher único; PostgreSQL usa advisory lock por message ID + row lock do stream. Dez appends concorrentes geraram sequências 1–10 contíguas; replay preservou sequência, conflito não avançou head e snapshot após 7 retornou delta 8–11/latest correto em ambos providers.
 - Realtime sink F1-WRK-1d.3a: stream resolver escolhe projeto ou fallback tenant; sink persiste antes do broadcaster SignalR e suprime transmissão em replay. Restart SQLite conservou exatamente uma row/sequence 1 e o segundo processo transmitiu zero duplicatas.
 - Host realtime F1-WRK-1d.3b: o modo pessoal cria um único dispatcher SQLite, aplica migrations antes dos workers e compartilha o ciclo de vida entre Runner IPC, Outbox e realtime. O store em memória foi removido; snapshots HTTP e SignalR são persistidos. O teste end-to-end desconectou, encerrou e reiniciou o Host no mesmo banco, recuperou delta `[2,3]`, suprimiu replay da mensagem 1 e retomou live em 4 sem duplicação/lacuna.
+- Watchdog F1-WRK-2: tenants ativos são descobertos nos dois providers; dez ciclos concorrentes produzem uma reconciliação, fencing antigo é recusado, checkpoint sobrevive, retry/backoff reativa sem LLM e o limite produz dead-letter único. Novo worker sobre o mesmo estado é no-op, e o BackgroundService encerra por cancellation.
+- GNG-2: formalmente verde. Os testes de `SIGKILL` SQLite/PostgreSQL usam agora o watchdog após restart e preservam 6/6 checkpoints, 2 attempts, 8 Inbox, 6 transições/Outbox e ledger de 7 elos íntegros.
 - Migrations: SQLite `8→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1d.3b: restore locked, format, build Release com zero warnings/erros e 104/104 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde no fechamento F1/GNG-2: restore locked, format, build Release com zero warnings/erros e 104/104 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações e realtime persistido no Host verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para watchdog/reconciliador.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido e watchdog verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo caminho crítico é F2.
 
 ## Sanidade antes de retomar
 
