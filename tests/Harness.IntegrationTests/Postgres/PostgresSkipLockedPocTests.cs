@@ -19,7 +19,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(5, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(6, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -30,6 +30,7 @@ public sealed class PostgresSkipLockedPocTests
         await WorkChainStoreBehavior.AssertAsync(
             new PostgresWorkChainStore(dataSource),
             timeout.Token);
+        await ValidateWorkflowSchemaAsync(dataSource, timeout.Token);
         await DurableExecutionEngineBehavior.AssertAsync(
             new PostgresDurableExecutionEngine(dataSource),
             timeout.Token);
@@ -279,6 +280,106 @@ public sealed class PostgresSkipLockedPocTests
             () => duplicateAttempt.ExecuteNonQueryAsync(cancellationToken));
         Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
     }
+
+    private static async Task ValidateWorkflowSchemaAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using (var countCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema = 'harness' AND table_name IN
+                ('workflow_definitions', 'workflow_definition_versions',
+                 'workflow_phase_definitions', 'workflow_objective_definitions',
+                 'workflow_gate_definitions', 'workflow_gate_requirements',
+                 'workflow_runs', 'workflow_phase_runs',
+                 'workflow_objective_runs', 'workflow_gate_runs');
+            """))
+        {
+            Assert.Equal(10L, await countCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        await using (var insertCommand = dataSource.CreateCommand(WorkflowInsertSql))
+        {
+            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var duplicateActivePhase = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.workflow_phase_runs
+                (id, tenant_id, project_id, workflow_run_id, phase_definition_id,
+                 phase_order, state, activated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FGC', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG6',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FGB', 2, 'active', '2026-07-18T16:30:01Z');
+            """);
+        var exception = await Assert.ThrowsAsync<PostgresException>(
+            () => duplicateActivePhase.ExecuteNonQueryAsync(cancellationToken));
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
+    }
+
+    private const string WorkflowInsertSql =
+        """
+        INSERT INTO harness.workflow_definitions (id, tenant_id, name, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG0', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                'Delivery', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_definition_versions
+            (id, tenant_id, definition_id, version, status, content_hash, created_at, published_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG1', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG0', 1, 'published',
+                'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                '2026-07-18T16:30:00Z', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_phase_definitions
+            (id, tenant_id, definition_version_id, phase_key, name, phase_order)
+        VALUES
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG2', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG1', 'analysis', 'Analysis', 1),
+            ('01ARZ3NDEKTSV4RRFFQ69G5FGB', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG1', 'delivery', 'Delivery', 2);
+        INSERT INTO harness.workflow_objective_definitions
+            (id, tenant_id, phase_definition_id, objective_key, name, kind, weight)
+        VALUES
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG3', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG2', 'requirements', 'Requirements', 'document', 2),
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG4', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG2', 'analysis-gate', 'Analysis gate', 'gate', 1);
+        INSERT INTO harness.workflow_gate_definitions
+            (id, tenant_id, phase_definition_id, objective_definition_id,
+             gate_key, name, minimum_required_state)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG5', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG2', '01ARZ3NDEKTSV4RRFFQ69G5FG4',
+                'analysis-gate', 'Analysis gate', 'validated');
+        INSERT INTO harness.workflow_gate_requirements
+            (phase_definition_id, gate_definition_id, objective_definition_id, requirement_order)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG2', '01ARZ3NDEKTSV4RRFFQ69G5FG5',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG3', 1);
+        INSERT INTO harness.workflow_runs
+            (id, tenant_id, project_id, definition_version_id, state, created_at, started_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG1', 'running',
+                '2026-07-18T16:30:00Z', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_phase_runs
+            (id, tenant_id, project_id, workflow_run_id, phase_definition_id,
+             phase_order, state, activated_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FG7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG6',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG2', 1, 'active', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_objective_runs
+            (id, tenant_id, project_id, phase_run_id, objective_definition_id, state, updated_at)
+        VALUES
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG8', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG7',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG3', 'validated', '2026-07-18T16:30:00Z'),
+            ('01ARZ3NDEKTSV4RRFFQ69G5FG9', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+             '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG7',
+             '01ARZ3NDEKTSV4RRFFQ69G5FG4', 'pending', '2026-07-18T16:30:00Z');
+        INSERT INTO harness.workflow_gate_runs
+            (id, tenant_id, project_id, phase_run_id, gate_definition_id, state)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FGA', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FG7',
+                '01ARZ3NDEKTSV4RRFFQ69G5FG5', 'pending');
+        """;
 
     private const string WorkChainInsertSql =
         """

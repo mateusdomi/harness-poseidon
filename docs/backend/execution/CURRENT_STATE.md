@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T15:37:49Z
+Atualizado em: 2026-07-18T15:44:37Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-10b — persistência dual-provider de workflow; contrato/agregados EP-10a estão verdes.
+- Épico atual: EP-10b.2 — store transacional dual-provider de workflow; contrato e schema estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `cab549e` (`develop`); contrato EP-10a está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: criar migrations SQLite `0005_workflows.sql` e PostgreSQL `0006_workflows.sql` para definições/versões/fases/itens/gates/runs e seus estados; provar FKs/checks/versionamento/imutabilidade e aplicação idempotente antes do store transacional.
+- Último commit remoto validado: `0e4b4a6` (`develop`); schema EP-10b.1 está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: definir `IWorkflowStore` e comandos provider-neutral para criar/publicar definição e iniciar/avançar run; implementar primeiro a criação/publicação atômica com Inbox, ledger e Outbox nos dois providers, seguida das mutações optimistic-concurrency e reidratação.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T15:37:49Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui fundação, Runner IPC e `0003_durable_execution.sql`; PostgreSQL possui PoC queue, fundação, Runner IPC e `0004_durable_execution.sql`. Históricos são separados/idempotentes (`3→0` e `4→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia e workflows; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`5→0` e `6→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -50,10 +50,11 @@ Atualizado em: 2026-07-18T15:37:49Z
 - Store EP-09b.2b.1: start/complete/review usam versão esperada e Inbox idempotente. SQLite serializa no dispatcher; PostgreSQL usa advisory lock por tarefa e `FOR UPDATE`. Estado, ledger e Outbox commitam juntos. Partida concorrente resulta 1 aplicação/1 replay; versão antiga não muta; completion persiste evidência; autoaprovação de risco médio é recusada; critic independente conclui a tarefa. Snapshot final comprova versão 4 e contagens 1/1/1.
 - Store EP-09b.2b.2: review rejeitado exige nova instrução. Correção imutável cria v2 com `supersedesId=v1`, versão otimista, Inbox, ledger e Outbox; tentativa 2 conclui e é aprovada. Leitura transacional completa reidrata Solicitação→Demandas→Tarefas→todas as instruções/tentativas/evidências/reviews. Comportamento final nos dois providers: tarefa v8, 2 instruções, 2 tentativas, 2 evidências e 2 reviews.
 - Workflow EP-10a: definições tipadas possuem versões imutáveis/hash/publicação; runs aceitam somente versão publicada, mantêm uma fase ativa, itens monotônicos e gates não contornáveis. Progresso executado/validado/aprovado é recomputado dos pesos e estados; 9 cenários cobrem validação, lifecycle, gate/retry, pausa e conclusão 100/100/100.
-- Migrations: SQLite `4→0` e PostgreSQL `5→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após contrato EP-10a: restore locked, format, build Release com zero warnings/erros e 83/83 testes verdes.
+- Workflow schema EP-10b.1: migrations SQLite `0005_workflows` e PostgreSQL `0006_workflows` criam 10 tabelas de definição/run com FKs compostas, estados fechados, pesos positivos, publicação/lifecycle coerentes e índice parcial de uma fase ativa. Cadeia válida foi inserida e segunda fase ativa foi rejeitada nos dois providers; migrations `5→0`/`6→0`.
+- Migrations: SQLite `5→0` e PostgreSQL `6→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após schema EP-10b.1: restore locked, format, build Release com zero warnings/erros e 83/83 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão e contrato de workflow verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para persistência EP-10, documentos e workers.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão e contrato/schema de workflow verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para store EP-10, documentos e workers.
 
 ## Sanidade antes de retomar
 
