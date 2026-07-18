@@ -39,7 +39,7 @@ function Sidebar() {
         collapsed ? 'w-16' : 'w-64',
       )}
     >
-      <div className={cn('flex items-center border-b border-border px-4', collapsed ? 'h-20 justify-center px-0' : 'h-24')}>
+      <div className={cn('flex items-center border-b border-border px-4', collapsed ? 'h-20 justify-center px-0' : 'h-20')}>
         {collapsed ? (
           <img
             src={logoIconUrl}
@@ -47,7 +47,7 @@ function Sidebar() {
             className="h-12 w-auto object-contain dark:brightness-125"
           />
         ) : (
-          <BrandMark className="h-auto w-40" />
+          <BrandMark className="h-auto w-[134px]" />
         )}
       </div>
       <nav aria-label={t('shell.primaryNav')} className="flex-1 overflow-y-auto p-2">
