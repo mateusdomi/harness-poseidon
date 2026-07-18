@@ -6,7 +6,7 @@
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
 | GNG-2 | recuperação abrupta com auditoria completa | verde | `SIGKILL` dual-provider retomado automaticamente pelo watchdog, 6/6 checkpoints, 2 attempts, Outbox/Inbox idempotentes e cadeia de 7 eventos íntegra; `evidence/F1-GNG2-CLOSURE.md` |
-| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos e aprovações verdes; orquestrador/agentes é o próximo incremento |
+| GNG-3 | dogfood integrado com validação humana | em execução | bundle HTTP integrado e smoke técnico verde; faltam pipeline real Chief→Codex/sandbox e homologação visual/humana em navegador |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
 | GNG-6 | hardening e DoD global | fechado | F11 não iniciada |
@@ -101,4 +101,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-PO-1 análise de solicitação | verde | criação imutável, cinco painéis determinísticos, anexos por nome validados, restart e contrato exato; gate 163/163; `evidence/F2-SOLICITATION-ANALYSIS.md` |
 | F2-LIC-1 licenças/entitlements | verde | ativação local, auditoria mascarada, cinco entitlements, estados temporais, expiração sem bloquear dados e restart; gate 166/166; `evidence/F2-LICENSING.md` |
 | F2-OPS-1 backup/diagnóstico | verde | snapshot online SQLite+catálogo, restore com rollback, auditoria, quick_check e contrato diagnóstico; gate 168/168; `evidence/F2-LOCAL-OPERATIONS.md` |
-| F2-FE-1 integração frontend | próximo | build reproduzível, assets embarcados no Host, proxy dev e E2E contra API real |
+| F2-FE-1 integração frontend | verde técnico | cópia isolada da fonte protegida, lint/typecheck/270 testes/build, 127 assets embarcados, fallback SPA, proxy dev, publish e smoke HTTP; backend 169/169; homologação visual pendente; `evidence/F2-FRONTEND-INTEGRATION.md` |
+| F2-DOGFOOD-1 pipeline real | próximo | integrar Chief, executor Codex CLI, claims Git e sandbox Docker em um fluxo completo recuperável |

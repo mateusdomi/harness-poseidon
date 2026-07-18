@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-19T02:20:00Z
+Atualizado em: 2026-07-18T23:26:53Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-FE-1 — integração e build do frontend preservado; backup/restore/diagnóstico estão verdes.
+- Épico atual: F2-DOGFOOD-1 — integrar o pipeline do Chief ao executor Codex CLI e ao sandbox; F2-FE-1 está tecnicamente verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `b1edd80` (`develop`), contendo F2-OPS-1 verde com 168/168 testes.
-- Próximo passo exato: executar o build reproduzível existente em `frontend/`, integrar seus assets ao `Harness.Host` sem editar a árvore protegida e preparar smoke/E2E contra a API real.
+- Último commit remoto validado: `c117a2f` (`develop`), contendo F2-FE-1 com 169 testes backend e 270 testes frontend verdes.
+- Próximo passo exato: auditar e integrar a drenagem do Chief com `CodexCliAgentExecutor`, claims Git e sandbox Docker, mantendo a validação visual/humana do GNG-3 pendente até existir navegador conectado.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -93,10 +93,11 @@ Atualizado em: 2026-07-19T02:20:00Z
 - F2 análise de solicitação: `POST /solicitations/analyze` valida texto e nomes de anexos sem aceitar paths, cria uma solicitação `request` imutável e devolve requisitos, ambiguidades, contradições, perguntas e critérios de aceite com IDs canônicos. A extração local é determinística e não usa rede/cota; a solicitação sobrevive restart.
 - F2 licenciamento: uma licença por tenant/dispositivo nasce `unlicensed`; ativação de chave formatada armazena somente SHA-256, mascara o valor na auditoria, concede cinco entitlements e define validade anual+grace. Estado público é derivado como active/offline/gracePeriod/expired; expiração simulada não bloqueou leitura de projeto nem entitlements após restart.
 - F2 operações locais: backup usa a API online do SQLite dentro do dispatcher e copia o catálogo sem seguir symlinks para uma raiz confinada por ULID. Restore mantém cópias de rollback do banco e catálogo, reaplica auditoria global e foi comprovado removendo estado criado após o snapshot. Diagnóstico retorna metadados do produto, `quick_check`, catálogo, backups e realtime.
+- F2 frontend integrado: `build-frontend.sh` copia a árvore protegida para `.artifacts`, executa `npm ci`, lint, typecheck, 270 testes e build HTTP same-origin, e publica 127 arquivos em `Harness.Host/wwwroot`. O Host serve arquivos estáticos e fallback SPA sem mascarar 404 de API/hub; o publish Release contém o bundle. O proxy dev também usa cópia isolada. Smoke HTTP real está verde; a sessão não expôs navegador, portanto a homologação visual/humana continua pendente e GNG-3 não foi promovido.
 - Migrations: SQLite `26→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-OPS-1: restore locked, format, build Release com zero warnings/erros e 168/168 testes verdes (`Unit 93`, `Integration 34`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- Pipeline: `tools/backend/verify.sh` verde após F2-FE-1: frontend com lint/typecheck/build e 270/270 testes; backend com restore locked, format, build Release com zero warnings/erros e 169/169 testes verdes (`Unit 93`, `Integration 35`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança, prototipação, run targets, análise de solicitação, licenciamento e operações locais F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é integração frontend.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 
 ## Sanidade antes de retomar
 
