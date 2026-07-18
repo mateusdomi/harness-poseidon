@@ -1,0 +1,120 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "harness.modules.agents": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.conversations": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.coordination": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.documents": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.execution": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.governance": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.identity": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.licensing": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.notifications": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.organizations": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.projects": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.prototyping": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.providers": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.tools": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.workflows": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.persistence.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.persistence.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.Persistence.Abstractions": "[1.0.0, )",
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.persistence.sqlite": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.Persistence.Abstractions": "[1.0.0, )",
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.sharedkernel": {
+        "type": "Project"
+      }
+    }
+  }
+}

@@ -25,7 +25,7 @@ Inventário capturado em 2026-07-18T11:32:35Z, antes de criar qualquer recurso D
 |---|---|---|---|---|
 | .NET SDK | 10.0.302 (runtime 10.0.10) | `tools/backend/.tooling/dotnet` | alvo congelado pela missão sem alterar instalação global | instalado e verificado |
 
-Instalação concluída em 2026-07-18 pelo script oficial `dotnet-install.sh`, cujo SHA-256 observado e fixado pelo instalador idempotente é `082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e`. O diretório de tooling local é ignorado apenas neste clone por `.git/info/exclude`; nenhum PATH, perfil de shell ou instalação global foi modificado.
+Instalação concluída em 2026-07-18 pelo script oficial `dotnet-install.sh`, cujo SHA-256 observado e fixado pelo instalador idempotente é `082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e`. O diretório de tooling local é ignorado apenas neste clone por `.git/info/exclude`; nenhum PATH, perfil de shell ou instalação global foi modificado. A primeira execução do template informou geração automática de certificado de desenvolvimento do SDK (não confiado); o wrapper passou então a isolar `DOTNET_CLI_HOME`, NuGet, first-run e telemetria dentro do tooling do clone.
 
 ## Inventário Docker preexistente
 
