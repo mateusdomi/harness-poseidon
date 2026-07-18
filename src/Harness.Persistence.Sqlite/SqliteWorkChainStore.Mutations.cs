@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -93,7 +94,8 @@ public sealed partial class SqliteWorkChainStore
                 VALUES
                     ($instructionId, $tenantId, $projectId, $taskId, $instructionVersion,
                      $content, $contentHash, $supersedesId, $occurredAt);
-                UPDATE work_tasks SET version = $nextTaskVersion, updated_at = $occurredAt
+                UPDATE work_tasks SET version = $nextTaskVersion, updated_at = $occurredAt,
+                    board_state='ready',blocked_reason=NULL
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedTaskVersion;
                 """;
             Add(mutation, "$instructionId", command.InstructionVersionId);
@@ -165,7 +167,8 @@ public sealed partial class SqliteWorkChainStore
                 VALUES
                     ($attemptId, $tenantId, $projectId, $taskId, $instructionId, $attemptNumber,
                      $producer, 'running', $occurredAt);
-                UPDATE work_tasks SET state = 'running', version = $nextVersion, updated_at = $occurredAt
+                UPDATE work_tasks SET state = 'running', version = $nextVersion,
+                    updated_at = $occurredAt,board_state='development',blocked_reason=NULL
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
                 """;
             Add(mutation, "$attemptId", command.AttemptId);
@@ -249,7 +252,8 @@ public sealed partial class SqliteWorkChainStore
                 """
                 UPDATE work_attempts SET state = 'awaiting_review', completed_at = $occurredAt
                 WHERE id = $attemptId AND state = 'running';
-                UPDATE work_tasks SET state = 'awaiting_review', version = $nextVersion, updated_at = $occurredAt
+                UPDATE work_tasks SET state = 'awaiting_review', version = $nextVersion,
+                    updated_at = $occurredAt,board_state='review',blocked_reason=NULL
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
                 """;
             Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
@@ -322,7 +326,10 @@ public sealed partial class SqliteWorkChainStore
                 VALUES
                     ($reviewId, $tenantId, $projectId, $attemptId, $reviewer, $decision, $rationale, $occurredAt);
                 UPDATE work_attempts SET state = $decision WHERE id = $attemptId AND state = 'awaiting_review';
-                UPDATE work_tasks SET state = $taskState, version = $nextVersion, updated_at = $occurredAt
+                UPDATE work_tasks SET state = $taskState, version = $nextVersion,
+                    updated_at = $occurredAt,
+                    board_state=CASE WHEN $taskState='completed' THEN 'done' ELSE 'corrections' END,
+                    blocked_reason=NULL
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
                 """;
             Add(mutation, "$reviewId", command.ReviewId);
@@ -345,7 +352,7 @@ public sealed partial class SqliteWorkChainStore
 
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
-            "gate.changed", command.OccurredAt, receipt, cancellationToken);
+            "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
     }
 
     private static async Task<TaskRow?> ReadTaskAsync(
@@ -433,16 +440,8 @@ public sealed partial class SqliteWorkChainStore
         var final = receipt;
         if (receipt.Status == WorkChainMutationStatus.Applied)
         {
-            var payload = JsonSerializer.Serialize(new
-            {
-                taskId = receipt.TaskId,
-                attemptId = receipt.AttemptId,
-                taskState = receipt.TaskState,
-                attemptState = receipt.AttemptState,
-                instructionVersionId = receipt.InstructionVersionId,
-                instructionVersion = receipt.InstructionVersion,
-                version = receipt.TaskVersion,
-            });
+            var payload = await BuildMutationPayloadAsync(
+                connection, transaction, eventType, receipt, occurredAt, cancellationToken);
             var (sequence, previousHash) = await ReadLedgerTailAsync(
                 connection, transaction, tenantId, cancellationToken);
             var eventHash = AuditLedgerHash.Compute(
@@ -492,6 +491,121 @@ public sealed partial class SqliteWorkChainStore
         await inbox.ExecuteNonQueryAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return final;
+    }
+
+    private static async Task<string> BuildMutationPayloadAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string eventType,
+        WorkChainMutationReceipt receipt,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
+        await using var query = connection.CreateCommand();
+        query.Transaction = transaction;
+        query.CommandText =
+            """
+            SELECT t.project_id,t.board_state,t.title,t.priority,t.source_demand_id,
+                   t.assignee_agent_id,t.blocked_reason,t.created_at,t.updated_at,t.due_at,
+                   (SELECT MAX(version) FROM instruction_versions i WHERE i.task_id=t.id)
+            FROM work_tasks t WHERE t.id=$taskId;
+            """;
+        Add(query, "$taskId", receipt.TaskId);
+        await using var taskReader = await query.ExecuteReaderAsync(cancellationToken);
+        if (!await taskReader.ReadAsync(cancellationToken))
+        {
+            throw new InvalidOperationException("Applied work mutation lost its task projection.");
+        }
+
+        var projectId = taskReader.GetString(0);
+        var boardState = taskReader.GetString(1);
+        await taskReader.DisposeAsync();
+        if (eventType == "task.stateChanged")
+        {
+            var from = receipt.InstructionVersionId is not null ? "corrections" : "review";
+            return JsonSerializer.Serialize(new
+            {
+                projectId,
+                taskId = receipt.TaskId,
+                from,
+                to = boardState,
+                changedByKind = "system",
+                note = (string?)null,
+            });
+        }
+
+        if (receipt.AttemptId is null)
+        {
+            throw new InvalidOperationException("Attempt event has no attempt identifier.");
+        }
+
+        await using var attempt = connection.CreateCommand();
+        attempt.Transaction = transaction;
+        attempt.CommandText =
+            """
+            SELECT a.attempt_number,a.state,a.producer_agent_id,a.started_at,a.completed_at,
+                   a.duration_ms,a.cost_usd,a.tokens_input,a.tokens_output,a.summary,a.failure_reason,
+                   COALESCE((SELECT json_group_array(reference) FROM work_evidence e
+                             WHERE e.attempt_id=a.id),'[]')
+            FROM work_attempts a WHERE a.id=$attemptId;
+            """;
+        Add(attempt, "$attemptId", receipt.AttemptId);
+        await using var reader = await attempt.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            throw new InvalidOperationException("Applied work mutation lost its attempt projection.");
+        }
+
+        var startedAt = DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture);
+        var finishedAt = reader.IsDBNull(4)
+            ? (DateTimeOffset?)null
+            : DateTimeOffset.Parse(reader.GetString(4), CultureInfo.InvariantCulture);
+        var durationMs = reader.IsDBNull(5)
+            ? finishedAt is null ? 0L : Math.Max(0L, (long)(finishedAt.Value - startedAt).TotalMilliseconds)
+            : reader.GetInt64(5);
+        var commitRefs = JsonSerializer.Deserialize<string[]>(reader.GetString(11)) ?? [];
+        if (eventType == "attempt.started")
+        {
+            return JsonSerializer.Serialize(new
+            {
+                projectId,
+                attempt = new
+                {
+                    id = receipt.AttemptId,
+                    taskId = receipt.TaskId,
+                    number = reader.GetInt32(0),
+                    state = "running",
+                    agentId = reader.GetString(2),
+                    startedAt,
+                    finishedAt = (DateTimeOffset?)null,
+                    durationMs = (long?)null,
+                    costUsd = reader.GetDecimal(6),
+                    tokensInput = reader.GetInt64(7),
+                    tokensOutput = reader.GetInt64(8),
+                    commitRefs,
+                    summary = reader.IsDBNull(9) ? null : reader.GetString(9),
+                    failureReason = (string?)null,
+                },
+            });
+        }
+
+        if (eventType == "attempt.completed")
+        {
+            return JsonSerializer.Serialize(new
+            {
+                projectId,
+                attemptId = receipt.AttemptId,
+                taskId = receipt.TaskId,
+                durationMs,
+                tokensInput = reader.GetInt64(7),
+                tokensOutput = reader.GetInt64(8),
+                costUsd = reader.GetDecimal(6),
+                commitRefs,
+                summary = reader.IsDBNull(9) ? null : reader.GetString(9),
+            });
+        }
+
+        throw new InvalidOperationException($"Unsupported work event type: {eventType} at {occurredAt:O}.");
     }
 
     private static WorkChainMutationReceipt Rejected(

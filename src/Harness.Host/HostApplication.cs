@@ -7,6 +7,7 @@ using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Host.Realtime;
 using Harness.Host.Workers;
+using Harness.Host.WorkBoard;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
@@ -16,6 +17,7 @@ using Harness.Persistence.Abstractions.Organizations;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Realtime;
 using Harness.Persistence.Abstractions.RunnerIpc;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Time;
 
@@ -56,6 +58,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
         builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
         builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
+        builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
@@ -98,6 +101,7 @@ public static class HostApplication
         app.MapOrganizations();
         app.MapProjects();
         app.MapConversations();
+        app.MapWorkBoard();
         app.MapGet(
             "/api/v1/event-streams/snapshot",
             async Task<IResult> (

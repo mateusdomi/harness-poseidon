@@ -83,4 +83,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-PRJ-1 projetos | verde | configuração versionada, tenant/organização, CRUD+tombstone, ledger/Outbox `project.created`, realtime, restart, OpenAPI e drift; gate 116/116; `evidence/F2-PROJECTS.md` |
 | F2-CPK-1 cockpit/digest | verde | read model determinístico de progresso/tarefas/approvals/workflow/ledger, fingerprint, sinais indisponíveis explícitos e reconciliação `task.created`; gate 117/117; `evidence/F2-COCKPIT-DIGEST.md` |
 | F2-CHAT-1 conversas/chat | verde | conversa/mensagem persistidas, CRUD tenant-scoped, turno Fake determinístico transacional, ledger/Outbox e sete eventos sequenciados; restart, OpenAPI e drift; gate 121/121; `evidence/F2-CONVERSATIONS-CHAT.md` |
-| F2-WORK-1 cadeia/quadro | próximo | expor Solicitação→Demanda→Tarefa→Tentativa existente por API/SignalR conforme contratos do frontend |
+| F2-WORK-1a cadeia/quadro read/create | verde | projeção na autoridade F1, APIs de seis recursos, elos internos ocultos para origens nulas, cockpit 8 colunas, ledger/Outbox e payloads tipados; restart/OpenAPI/drift; gate 125/125; `evidence/F2-WORK-BOARD-READ-CREATE.md` |
+| F2-WORK-1b comandos/lifecycle | próximo | transição de solicitação, movimento/prioridade, nova instrução e lifecycle do quadro com eventos canônicos |

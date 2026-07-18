@@ -54,24 +54,29 @@ public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatche
             state.Transaction = transaction;
             state.CommandText =
                 """
-                INSERT INTO solicitations (id, tenant_id, project_id, user_id, content, created_at)
-                VALUES ($solicitationId, $tenantId, $projectId, $userId, $solicitationContent, $occurredAt);
+                INSERT INTO solicitations
+                    (id, tenant_id, project_id, user_id, content, created_at, kind, title, state, is_internal)
+                VALUES ($solicitationId, $tenantId, $projectId, $userId, $solicitationContent,
+                        $occurredAt, 'request', $demandTitle, 'open', 0);
                 INSERT INTO demands
-                    (id, tenant_id, project_id, solicitation_id, title, acceptance_criteria_json, created_at)
+                    (id, tenant_id, project_id, solicitation_id, title, acceptance_criteria_json,
+                     created_at, description, state, priority, source_solicitation_id, is_internal)
                 VALUES
                     ($demandId, $tenantId, $projectId, $solicitationId, $demandTitle,
-                     $acceptanceCriteriaJson, $occurredAt);
+                     $acceptanceCriteriaJson, $occurredAt, $solicitationContent, 'open',
+                     $riskTier, $solicitationId, 0);
                 INSERT INTO work_tasks
                     (id, tenant_id, project_id, demand_id, title, risk_tier, weight,
-                     state, version, created_at, updated_at)
+                     state, version, created_at, updated_at, source_demand_id, board_state, priority)
                 VALUES
                     ($taskId, $tenantId, $projectId, $demandId, $taskTitle, $riskTier,
-                     $weight, 'ready', 1, $occurredAt, $occurredAt);
+                     $weight, 'ready', 1, $occurredAt, $occurredAt, $demandId, 'ready', $riskTier);
                 INSERT INTO instruction_versions
-                    (id, tenant_id, project_id, task_id, version, content, content_hash, created_at)
+                    (id, tenant_id, project_id, task_id, version, content, content_hash, created_at,
+                     author_kind, author_id)
                 VALUES
                     ($instructionId, $tenantId, $projectId, $taskId, 1, $instructionContent,
-                     $instructionHash, $occurredAt);
+                     $instructionHash, $occurredAt, 'chief', NULL);
                 """;
             AddStateParameters(state, command, occurredAt);
             await state.ExecuteNonQueryAsync(cancellationToken);
@@ -80,10 +85,22 @@ public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatche
         var payload = JsonSerializer.Serialize(new
         {
             projectId = command.ProjectId,
-            solicitationId = command.SolicitationId,
-            demandId = command.DemandId,
-            taskId = command.TaskId,
-            instructionVersionId = command.InstructionVersionId,
+            task = new
+            {
+                id = command.TaskId,
+                projectId = command.ProjectId,
+                demandId = command.DemandId,
+                title = command.TaskTitle,
+                state = "ready",
+                priority = command.RiskTier,
+                assigneeAgentId = (string?)null,
+                blockedReason = (string?)null,
+                instructionVersion = 1,
+                progress = new { executed = 0, validated = 0, approved = 0 },
+                createdAt = command.OccurredAt,
+                updatedAt = command.OccurredAt,
+                dueAt = (DateTimeOffset?)null,
+            },
         });
         var (ledgerSequence, previousHash) = await ReadLedgerTailAsync(
             connection,

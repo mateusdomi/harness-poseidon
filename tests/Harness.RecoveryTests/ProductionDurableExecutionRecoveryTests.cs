@@ -33,7 +33,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
         {
             await using (var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
             {
-                Assert.Equal(12, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+                Assert.Equal(13, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
                 await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
                     ProductionDurableRecoveryScenario.ProvisionCommand(),
                     timeout.Token);
