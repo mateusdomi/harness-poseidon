@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T17:41:03Z
+Atualizado em: 2026-07-18T17:47:25Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-WRK-1d.3 — sink persistido Outbox→SignalR e resync após restart; stores dual-provider estão verdes.
+- Épico atual: F1-WRK-1d.3b — wiring do Host e resync HTTP/SignalR após restart; sink persistido está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `ae71344` (`develop`); F1-WRK-1d.2 está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: criar resolver determinístico (`project:{projectId}` quando presente; fallback legado `tenant:{tenantId}`), implementar sink que faz append idempotente antes do broadcast, adaptar snapshot HTTP para `IRealtimeEventStore` e provar que replay após restart não duplica evento nem sequência.
+- Último commit remoto validado: `c0a7f86` (`develop`); F1-WRK-1d.3a está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: registrar `IRealtimeEventStore`, broadcaster, sink, Outbox store/worker e migrations no modo pessoal do Host; trocar snapshot para leitura assíncrona persistida e provar desconexão+restart+delta sem duplicar sequência.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -66,8 +66,9 @@ Atualizado em: 2026-07-18T17:41:03Z
 - Outbox worker F1-WRK-1c: `OutboxDispatcherBackgroundService` executa batch/poll cancelável sobre `IOutboxStore`, despacha por sink tipado e finaliza com fencing; exceções registram somente seu tipo. Restart após falha concluiu a pendência sem duplicar a mensagem já finalizada; cancelamento dentro do sink preservou a claim e outra instância a recuperou após expiração.
 - Realtime contract/schema F1-WRK-1d.1: `IRealtimeEventStore` define append idempotente por message ID, sequência por stream e snapshot+delta. Migrations criam stream heads + histórico append-only isolado por tenant, com unicidades e índices provider-specific; update/delete foi recusado nos dois bancos.
 - Realtime stores F1-WRK-1d.2: SQLite usa dispatcher único; PostgreSQL usa advisory lock por message ID + row lock do stream. Dez appends concorrentes geraram sequências 1–10 contíguas; replay preservou sequência, conflito não avançou head e snapshot após 7 retornou delta 8–11/latest correto em ambos providers.
+- Realtime sink F1-WRK-1d.3a: stream resolver escolhe projeto ou fallback tenant; sink persiste antes do broadcaster SignalR e suprime transmissão em replay. Restart SQLite conservou exatamente uma row/sequence 1 e o segundo processo transmitiu zero duplicatas.
 - Migrations: SQLite `8→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1d.2: restore locked, format, build Release com zero warnings/erros e 102/102 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1d.3a: restore locked, format, build Release com zero warnings/erros e 104/104 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações e worker Outbox verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para realtime persistido e watchdog/reconciliador.
 

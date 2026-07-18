@@ -24,6 +24,7 @@ public static class EventTypeCatalog
         "message.appended",
         "notification.created",
         "progress.updated",
+        "project.created",
         "prototype.created",
         "prototype.stateChanged",
         "quota.updated",
