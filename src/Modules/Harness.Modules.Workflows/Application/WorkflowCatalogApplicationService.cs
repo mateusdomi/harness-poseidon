@@ -66,6 +66,71 @@ public static class WorkflowCatalogApplicationService
         ArgumentNullException.ThrowIfNull(request); return Id(request.WorkflowId);
     }
 
+    public static WorkflowVersionCreation CreateVersion(
+        string templateId, string versionId, PublishWorkflowVersionRequest request,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var hierarchy = CreateTemplate(templateId, versionId,
+            new CreateWorkflowTemplateRequest("Published version", "Published version",
+                request.Phases, request.GatesByPhase, request.Changelog), now);
+        var phaseSet = request.Phases.ToHashSet(StringComparer.Ordinal);
+        var configs = request.PhaseConfigs ?? new Dictionary<string, WorkflowPhaseConfigContract>();
+        if (configs.Keys.Any(key => !phaseSet.Contains(key)) ||
+            configs.Values.Any(value => value.DocumentKinds is null ||
+                value.AllowedAgentDefinitionIds is null ||
+                value.ProgressWeight is < 0m or > 100m ||
+                value.AllowedAgentDefinitionIds.Any(id => !UlidValue.TryParse(id, out _))))
+            throw new ArgumentException("Phase configuration is invalid.", nameof(request));
+        var transitions = request.Transitions ?? new Dictionary<string, IReadOnlyList<string>>();
+        if (transitions.Any(rule => !phaseSet.Contains(rule.Key) ||
+            rule.Value is null || rule.Value.Any(next => !phaseSet.Contains(next))))
+            throw new ArgumentException("Workflow transitions reference an unknown phase.", nameof(request));
+        var mode = request.DefaultOperationMode is null ? null : Choice(request.DefaultOperationMode, Modes);
+        return new(hierarchy, configs, mode, transitions);
+    }
+
+    public static WorkflowBindingInput SetOperationMode(
+        string workflowId, string projectId, string templateId, string versionId,
+        SetWorkflowOperationModeRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        _ = Id(workflowId);
+        return CreateBinding(new CreateWorkflowRequest(projectId, templateId, versionId,
+            request.Mode, request.SemiautonomousPauseGates, request.RiskAcceptanceNote));
+    }
+
+    public static string RunTransition(TransitionWorkflowRunRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return request.Transition switch
+        {
+            "pause" => "pause",
+            "resume" => "resume",
+            "cancel" => "cancel",
+            _ => throw new ArgumentException("Run transition is invalid.", nameof(request)),
+        };
+    }
+
+    public static (string PhaseKey, string ObjectiveKey, string TargetState) AdvanceObjective(
+        AdvanceWorkflowObjectiveRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var target = request.TargetState is "executed" or "validated" or "approved"
+            ? request.TargetState : throw new ArgumentException("Objective target state is invalid.", nameof(request));
+        return (Text(request.PhaseKey, 100), Text(request.ObjectiveKey, 100), target);
+    }
+
+    public static (string PhaseKey, string GateKey, bool Passed, string? Note) EvaluateGate(
+        EvaluateWorkflowGateRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : Text(request.Note, 10_000);
+        if (!request.Passed && note is null)
+            throw new ArgumentException("A failed gate requires a note.", nameof(request));
+        return (Text(request.PhaseKey, 100), Text(request.GateKey, 100), request.Passed, note);
+    }
+
     private static string Id(string value) => UlidValue.TryParse(value, out var id)
         ? id.ToString() : throw new ArgumentException("Value must be a canonical ULID.", nameof(value));
     private static string Text(string value, int max)
@@ -97,3 +162,9 @@ public sealed record WorkflowApiGateCreation(
 public sealed record WorkflowBindingInput(
     string ProjectId, string TemplateId, string? VersionId, string OperationMode,
     IReadOnlyList<string> PauseGates, string RiskAcceptanceNote);
+
+public sealed record WorkflowVersionCreation(
+    WorkflowTemplateCreation Hierarchy,
+    IReadOnlyDictionary<string, WorkflowPhaseConfigContract> PhaseConfigs,
+    string? DefaultOperationMode,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> Transitions);

@@ -48,6 +48,15 @@ public sealed class RealtimeEventContractTests
                 -1));
     }
 
+    [Fact]
+    public void GlobalStreamIsCanonicalAndAccepted()
+    {
+        var command = Command() with { Stream = "global" };
+
+        RealtimeEventContractValidator.Validate(command);
+        RealtimeEventContractValidator.ValidateRead("global", 0);
+    }
+
     private static RealtimeEventAppendCommand Command(string payload = "{\"state\":\"running\"}") =>
         new(
             "01ARZ3NDEKTSV4RRFFQ69G5FB0",

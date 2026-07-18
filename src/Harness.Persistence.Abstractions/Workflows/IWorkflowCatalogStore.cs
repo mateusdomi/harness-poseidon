@@ -11,6 +11,8 @@ public interface IWorkflowCatalogStore
         CancellationToken cancellationToken = default);
     Task<WorkflowVersionCatalogRecord?> GetVersionAsync(
         string tenantId, string versionId, CancellationToken cancellationToken = default);
+    Task<WorkflowVersionCatalogRecord> PublishVersionAsync(
+        WorkflowVersionPublishCommand command, CancellationToken cancellationToken = default);
     Task<WorkflowBindingCatalogRecord> CreateBindingAsync(
         WorkflowBindingCreateCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkflowBindingCatalogRecord>> ListBindingsAsync(
@@ -18,6 +20,8 @@ public interface IWorkflowCatalogStore
         CancellationToken cancellationToken = default);
     Task<WorkflowBindingCatalogRecord?> GetBindingAsync(
         string tenantId, string workflowId, CancellationToken cancellationToken = default);
+    Task<WorkflowBindingCatalogRecord> SetOperationModeAsync(
+        WorkflowOperationModeCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkflowRunCatalogRecord>> ListRunsAsync(
         string tenantId, string? workflowId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
@@ -41,8 +45,8 @@ public sealed record WorkflowTemplateCatalogRecord(
 
 public sealed record WorkflowVersionCatalogRecord(
     string TenantId, string Id, string TemplateId, int Version, IReadOnlyList<string> Phases,
-    IReadOnlyDictionary<string, IReadOnlyList<string>> GatesByPhase, string? Changelog,
-    DateTimeOffset PublishedAt);
+    IReadOnlyDictionary<string, IReadOnlyList<string>> GatesByPhase, string PhaseConfigsJson,
+    string? DefaultOperationMode, string TransitionsJson, string? Changelog, DateTimeOffset PublishedAt);
 
 public sealed record WorkflowRiskAcceptanceCatalogRecord(
     string Mode, string AcceptedByProfileId, string Note, DateTimeOffset AcceptedAt);
@@ -69,6 +73,16 @@ public sealed record WorkflowBindingCreateCommand(
     string OperationMode, IReadOnlyList<string> SemiautonomousPauseGates,
     string AcceptedByProfileId, string RiskAcceptanceId, string RiskAcceptanceNote,
     DateTimeOffset OccurredAt);
+
+public sealed record WorkflowVersionPublishCommand(
+    string TenantId, string TemplateId, string VersionId,
+    IReadOnlyList<WorkflowPhaseCreateInput> Phases, string PhaseConfigsJson,
+    string? DefaultOperationMode, string TransitionsJson, string? Changelog,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkflowOperationModeCommand(
+    string TenantId, string WorkflowId, string Mode, IReadOnlyList<string> PauseGates,
+    string AcceptanceId, string AcceptedByProfileId, string Note, DateTimeOffset OccurredAt);
 
 public sealed class WorkflowCatalogReferenceNotFoundException(string reference) : Exception(reference)
 {

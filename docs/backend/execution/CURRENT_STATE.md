@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T21:35:00Z
+Atualizado em: 2026-07-18T21:07:00Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-WF-1b — comandos de versão, modo, lifecycle, gates e progresso; catálogo/run inicial está verde.
+- Épico atual: F2-DOC-1b — classificação, lifecycle e central de aprovações; catálogo/versões estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `805a8c1` (`develop`), contendo F2-WF-1a verde com 129/129 testes e o checkpoint FE-3 preservado.
-- Próximo passo exato: implementar publicação imutável de vN, troca de modo com aceite, comandos de run/objetivo/gate/fase e eventos canônicos sobre a projeção F2-WF-1a.
+- Último commit remoto validado: `cd50888` (`develop`), contendo F2-DOC-1a verde com 134/134 testes.
+- Próximo passo exato: expor classificação e transições documentais, fila consolidada de aprovações, criação/resolução com nota obrigatória e eventos canônicos.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T21:35:00Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles`, `0010_organizations`, `0011_projects`, `0012_conversations`, `0013_work_board_projection` e `0014_workflow_catalog_projection`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`14→0` e `9→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` até `0016_global_realtime_stream`; PostgreSQL possui `0010_global_realtime_stream`. Históricos são separados/idempotentes (`16→0` e `10→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -78,10 +78,12 @@ Atualizado em: 2026-07-18T21:35:00Z
 - F2 cadeia/quadro read/create: as tabelas F1 ganharam projeção das oito colunas e campos completos; seis recursos têm list/read, três têm create, elos internos preservam a cadeia quando a origem pública é nula, e eventos de criação carregam payloads completos.
 - F2 cadeia/quadro comandos/lifecycle: APIs canônicas fazem triagem de solicitação, movimento/prioridade de tarefa e append imutável de instrução somente após rejeição. O Host registra a autoridade `IWorkChainStore`; start/complete/review projetam quadro, tentativas e eventos `log/note`. O cenário real percorre bloqueio→retomada→rejeição→v2→aprovação→`done`, impõe actor–critic crítico e recupera o estado após restart.
 - F2 workflow catálogo/run: `IWorkflowStore` F1 está registrado como autoridade no Host; projeção SQLite expõe templates, versões, vínculos por projeto, runs, fases e gates nos contratos exatos do frontend. Criação de template expande fases/gates simples para objetivos/requisitos ricos, vínculo registra aceite de risco e run nasce `running` com uma fase ativa. OpenAPI, drift, unicidade por projeto e restart estão comprovados.
-- Migrations: SQLite `13→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-WF-1a: restore locked, format, build Release com zero warnings/erros e 129/129 testes verdes.
+- F2 workflow comandos/lifecycle: publicação imutável numera vN e persiste configurações, modo padrão, transições e changelog. Troca de modo exige novo aceite e audita `audit.eventAppended`; run pausa/retoma, objetivos avançam monotonicamente, gate humano falha somente com nota e pode passar depois, fases concluem até run `completed`. `workflow.versionPublished` usa stream `global`; `gate.changed`, stream de projeto e payload de decisão foram comprovados após restart.
+- F2 documentos catálogo/versões: documentos e versões expõem os campos exatos do frontend sobre a autoridade F1. Corpos UTF-8 ficam fora do banco em catálogo filesystem com path relativo e SHA-256 verificado; criação/append usam compensação em falha, versões são imutáveis e o Host recupera metadados e conteúdo após restart.
+- Migrations: SQLite `16→0` e PostgreSQL `10→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-DOC-1a: restore locked, format, build Release com zero warnings/erros e 134/134 testes verdes (`Unit 87`, `Integration 24`, `Contract 10`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat e quadro verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é workflows/gates/progresso F2.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro e workflows F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é documentos/aprovações F2.
 
 ## Sanidade antes de retomar
 

@@ -48,3 +48,26 @@ public sealed record CreateWorkflowRequest(
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateWorkflowRunRequest(string WorkflowId);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record PublishWorkflowVersionRequest(
+    IReadOnlyList<string> Phases, IReadOnlyDictionary<string, IReadOnlyList<string>> GatesByPhase,
+    IReadOnlyDictionary<string, WorkflowPhaseConfigContract>? PhaseConfigs = null,
+    string? DefaultOperationMode = null,
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? Transitions = null,
+    string? Changelog = null);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record SetWorkflowOperationModeRequest(
+    string Mode, IReadOnlyList<string>? SemiautonomousPauseGates, string RiskAcceptanceNote);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record TransitionWorkflowRunRequest(string Transition);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AdvanceWorkflowObjectiveRequest(
+    string PhaseKey, string ObjectiveKey, string TargetState);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record EvaluateWorkflowGateRequest(
+    string PhaseKey, string GateKey, bool Passed, string? Note = null);

@@ -89,11 +89,11 @@ public static class RealtimeEventContractValidator
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(stream);
         if (stream.Length > 200 ||
-            stream.IndexOf(':', StringComparison.Ordinal) <= 0 ||
+            (stream != "global" && stream.IndexOf(':', StringComparison.Ordinal) <= 0) ||
             stream.Any(char.IsWhiteSpace))
         {
             throw new ArgumentException(
-                "Stream must contain a namespace separator, contain no whitespace, and be at most 200 characters.",
+                "Stream must be global or contain a namespace separator, contain no whitespace, and be at most 200 characters.",
                 nameof(stream));
         }
     }

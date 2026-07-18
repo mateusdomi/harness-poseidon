@@ -19,4 +19,50 @@ public sealed class WorkflowCatalogApplicationTests
         Assert.Throws<ArgumentException>(() => WorkflowCatalogApplicationService.CreateBinding(
             new CreateWorkflowRequest("01ARZ3NDEKTSV4RRFFQ69G5FAX", "01ARZ3NDEKTSV4RRFFQ69G5FAY", null, "autonomous", ["Release"], "aceite")));
     }
+
+    [Fact]
+    public void VersionAndRuntimeCommandsEnforceWorkflowInvariants()
+    {
+        var agentId = "01ARZ3NDEKTSV4RRFFQ69G5FAZ";
+        var value = WorkflowCatalogApplicationService.CreateVersion(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            new PublishWorkflowVersionRequest(
+                ["Planejar", "Entregar"],
+                new Dictionary<string, IReadOnlyList<string>>(),
+                new Dictionary<string, WorkflowPhaseConfigContract>
+                {
+                    ["Planejar"] = new(["brief"], 40m, [agentId]),
+                },
+                "semiautonomous",
+                new Dictionary<string, IReadOnlyList<string>>
+                {
+                    ["Planejar"] = ["Entregar"],
+                },
+                "v2"),
+            new DateTimeOffset(2026, 7, 18, 21, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal("semiautonomous", value.DefaultOperationMode);
+        Assert.Equal(40m, value.PhaseConfigs["Planejar"].ProgressWeight);
+        Assert.Equal(["Entregar"], value.Transitions["Planejar"]);
+        Assert.Equal("pause", WorkflowCatalogApplicationService.RunTransition(
+            new TransitionWorkflowRunRequest("pause")));
+        Assert.Equal(("Planejar", "work-1", "approved"),
+            WorkflowCatalogApplicationService.AdvanceObjective(
+                new AdvanceWorkflowObjectiveRequest("Planejar", "work-1", "approved")));
+
+        Assert.Throws<ArgumentException>(() => WorkflowCatalogApplicationService.EvaluateGate(
+            new EvaluateWorkflowGateRequest("Entregar", "gate-1", false)));
+        Assert.Throws<ArgumentException>(() => WorkflowCatalogApplicationService.CreateVersion(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            new PublishWorkflowVersionRequest(
+                ["Planejar"],
+                new Dictionary<string, IReadOnlyList<string>>(),
+                Transitions: new Dictionary<string, IReadOnlyList<string>>
+                {
+                    ["Planejar"] = ["Ausente"],
+                }),
+            new DateTimeOffset(2026, 7, 18, 21, 0, 0, TimeSpan.Zero)));
+    }
 }

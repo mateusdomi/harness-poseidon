@@ -36,6 +36,10 @@ O rebase incorporou FE-1a/1b/1c e o handoff passou de 201 para 203 linhas. Mudan
 
 O contrato backend canônico agora materializa `/hubs/events`, método de assinatura `Subscribe`, método cliente `event`, envelope completo e `GET /api/v1/event-streams/snapshot`. O catálogo segue estritamente a missão v1.3, portanto as divergências `workflow.versionPublished`/`workflow.definitionPublished` e `tool.statusChanged`/`tool.catalogChanged` permanecem explícitas e ainda não ganharam aliases. Nenhum arquivo do frontend foi modificado.
 
+## Reconciliação F2-WF — 2026-07-18
+
+Com o contrato final FE-4, publicação significa criação de uma `WorkflowVersion` imutável. O evento público foi consolidado como `workflow.versionPublished`, nome comum à arquitetura normativa atual e ao handoff, sem alias legado. Seu payload exato é `{ templateId, versionId, version }`; o stream canônico é `global`. `docs/contracts/events.json`, o catálogo tipado, Outbox e teste de drift foram atualizados juntos. Nenhum arquivo em `frontend/**` ou `docs/frontend/**` foi editado pelo backend.
+
 ## Atualização F1-DOC-1 — 2026-07-18
 
 Os contratos FE-2 de `Document`, `DocumentVersion`, `Approval`, comandos e handoff foram lidos e preservados. O modelo de fundação adotou:

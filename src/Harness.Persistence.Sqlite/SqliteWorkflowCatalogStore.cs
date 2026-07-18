@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dispatcher) : IWorkflowCatalogStore
+public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dispatcher) : IWorkflowCatalogStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SqliteWriteDispatcher _dispatcher =
@@ -202,14 +202,18 @@ public sealed class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dispatcher)
     private static async Task<WorkflowVersionCatalogRecord?> ReadVersionAsync(
         SqliteConnection c, string tenant, string id, CancellationToken token)
     {
-        string template; int version; DateTimeOffset published;
+        string template; int version; string phaseConfigs; string? defaultMode;
+        string transitions; string? changelog; DateTimeOffset published;
         await using (var q = c.CreateCommand())
         {
-            q.CommandText = "SELECT definition_id,version,published_at FROM workflow_definition_versions " +
+            q.CommandText = "SELECT definition_id,version,phase_configs_json,default_operation_mode," +
+                "transitions_json,changelog,published_at FROM workflow_definition_versions " +
                 "WHERE tenant_id=$tenant AND id=$id AND status='published';";
             Add(q, "$tenant", tenant); Add(q, "$id", id); await using var r = await q.ExecuteReaderAsync(token);
             if (!await r.ReadAsync(token)) return null;
-            template = r.GetString(0); version = r.GetInt32(1); published = Parse(r.GetString(2));
+            template = r.GetString(0); version = r.GetInt32(1); phaseConfigs = r.GetString(2);
+            defaultMode = r.IsDBNull(3) ? null : r.GetString(3); transitions = r.GetString(4);
+            changelog = r.IsDBNull(5) ? null : r.GetString(5); published = Parse(r.GetString(6));
         }
         var phases = new List<string>(); var gates = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         var phaseIds = new List<(string Id, string Name)>(); await using (var q = c.CreateCommand())
@@ -225,7 +229,8 @@ public sealed class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dispatcher)
             Add(q, "$id", phase.Id); await using var r = await q.ExecuteReaderAsync(token);
             while (await r.ReadAsync(token)) names.Add(r.GetString(0)); if (names.Count > 0) gates[phase.Name] = names;
         }
-        return new(tenant, id, template, version, phases, gates, null, published);
+        return new(tenant, id, template, version, phases, gates, phaseConfigs, defaultMode,
+            transitions, changelog, published);
     }
 
     private static async Task<WorkflowBindingCatalogRecord?> ReadBindingAsync(

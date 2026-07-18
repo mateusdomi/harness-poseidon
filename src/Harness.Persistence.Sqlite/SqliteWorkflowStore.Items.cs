@@ -170,6 +170,7 @@ public sealed partial class SqliteWorkflowStore
 
         var run = await ReadRunForMutationAsync(
             connection, transaction, command.TenantId, command.RunId, cancellationToken);
+        string? eventPayload = null;
         WorkflowRunMutationReceipt receipt;
         if (run is null)
         {
@@ -232,12 +233,15 @@ public sealed partial class SqliteWorkflowStore
                         transaction,
                         """
                         UPDATE workflow_gate_runs
-                        SET state=$state,version=version+1,evaluated_at=$occurredAt
+                        SET state=$state,version=version+1,evaluated_at=$occurredAt,
+                            decided_by_profile_id=$profile,decision_note=$note
                         WHERE id=$id AND version=$version;
                         """,
                         cancellationToken,
                         ("$state", gateState),
                         ("$occurredAt", Store(command.OccurredAt)),
+                        ("$profile", (object?)command.DecidedByProfileId ?? DBNull.Value),
+                        ("$note", (object?)command.Note ?? DBNull.Value),
                         ("$id", gate.GateRunId),
                         ("$version", gate.Version));
                     if (command.Passed)
@@ -264,6 +268,16 @@ public sealed partial class SqliteWorkflowStore
                         command.RunId,
                         nextVersion,
                         run.State);
+                    eventPayload = JsonSerializer.Serialize(new
+                    {
+                        projectId = run.ProjectId,
+                        gateId = gate.GateRunId,
+                        runId = command.RunId,
+                        from = gate.State,
+                        to = gateState,
+                        decidedByProfileId = command.DecidedByProfileId,
+                        note = command.Note,
+                    });
                 }
             }
         }
@@ -280,7 +294,8 @@ public sealed partial class SqliteWorkflowStore
             command.PhaseKey,
             command.GateKey,
             receipt,
-            cancellationToken);
+            cancellationToken,
+            eventPayload);
     }
 
     private static async Task<WorkflowRunMutationReceipt> CompletePhaseCoreAsync(
@@ -585,12 +600,13 @@ public sealed partial class SqliteWorkflowStore
         string phaseKey,
         string? itemKey,
         WorkflowRunMutationReceipt receipt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? appliedPayload = null)
     {
         var final = receipt;
         if (receipt.Status == WorkflowRunMutationStatus.Applied)
         {
-            var payload = JsonSerializer.Serialize(new
+            var payload = appliedPayload ?? JsonSerializer.Serialize(new
             {
                 runId = receipt.RunId,
                 state = receipt.RunState,
