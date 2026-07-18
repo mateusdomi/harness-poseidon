@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T19:51:09Z
+Atualizado em: 2026-07-18T20:25:00Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-CHAT-1 — conversas/chat streaming; cockpit/digest está verde.
+- Épico atual: F2-WORK-1 — Solicitação→Demanda→Tarefa→Tentativa e quadro; chat/conversas está verde.
 - Branch obrigatória: `develop`.
 - Último commit remoto validado: `5cee958` (`develop`), contendo F2-CPK-1 verde com 117/117 testes.
-- Próximo passo exato: implementar conversas e mensagens persistidas, list/read/create/delete conforme contrato, e turnos de chat com eventos sequenciados `chat.turnStarted/Chunk/Completed` e `message.appended`, sem editar frontend.
+- Próximo passo exato: reconciliar os contratos de solicitações, demandas, tarefas, instruções, tentativas e quadro; projetar a cadeia F1 existente em APIs tenant-scoped e eventos canônicos, sem editar frontend.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T19:51:09Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles`, `0010_organizations` e `0011_projects`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`11→0` e `9→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles`, `0010_organizations`, `0011_projects` e `0012_conversations`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`12→0` e `9→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -74,10 +74,11 @@ Atualizado em: 2026-07-18T19:51:09Z
 - F2 organizações: agregado no módulo Organizations, marca/policies/templates herdáveis, store tenant-scoped no dispatcher, sessão local, cursor, list/read/create/patch, slug único e OCC interno. Restart preservou organização e marca; OpenAPI/drift batem com os nove campos TypeScript.
 - F2 projetos: domínio/contrato completo, configVersion seletiva, store tenant-scoped com organização, OCC, tombstone, ledger+Outbox atômicos e API CRUD. Restart preservou configuração; `project.created` chegou ao stream persistido; OpenAPI/drift batem com os 18 campos TypeScript.
 - F2 cockpit/digest: projeção tenant/project-scoped recompõe progresso ponderado em três trilhas, tarefas, approvals, workflow/fase/gates e ledger; próxima ação/fingerprint são determinísticos. Sinais de agentes/budgets ainda indisponíveis ficam explícitos. `task.created` foi reconciliado nos stores SQLite/PostgreSQL e roteado pelo Outbox.
-- Migrations: SQLite `11→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-CPK-1: restore locked, format, build Release com zero warnings/erros e 117/117 testes verdes.
+- F2 chat/conversas: conversas/mensagens persistidas e turnos Fake determinísticos. Estado, ledger e Outbox commitam juntos; o dispatcher entrega mensagem humana, início, chunks, resposta e conclusão em `conversation:<id>`, com restart e soft-delete comprovados.
+- Migrations: SQLite `12→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-CHAT-1: restore locked, format, build Release com zero warnings/erros e 121/121 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil e organizações verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é projetos F2.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil, organizações, projetos, cockpit e chat verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é cadeia/quadro F2.
 
 ## Sanidade antes de retomar
 

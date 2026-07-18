@@ -6,7 +6,7 @@
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
 | GNG-2 | recuperação abrupta com auditoria completa | verde | `SIGKILL` dual-provider retomado automaticamente pelo watchdog, 6/6 checkpoints, 2 attempts, Outbox/Inbox idempotentes e cadeia de 7 eventos íntegra; `evidence/F1-GNG2-CLOSURE.md` |
-| GNG-3 | dogfood integrado com validação humana | em execução | F2 iniciada; perfil e organizações verdes, projetos é o próximo incremento |
+| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit e chat/conversas verdes; cadeia/quadro é o próximo incremento |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
 | GNG-6 | hardening e DoD global | fechado | F11 não iniciada |
@@ -82,4 +82,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-ORG-1 organizações | verde | agregado/marca/templates/policies, migration/store tenant-scoped, sessão, API list/read/create/patch, unicidade, restart, OpenAPI e drift; gate 112/112; `evidence/F2-ORGANIZATIONS.md` |
 | F2-PRJ-1 projetos | verde | configuração versionada, tenant/organização, CRUD+tombstone, ledger/Outbox `project.created`, realtime, restart, OpenAPI e drift; gate 116/116; `evidence/F2-PROJECTS.md` |
 | F2-CPK-1 cockpit/digest | verde | read model determinístico de progresso/tarefas/approvals/workflow/ledger, fingerprint, sinais indisponíveis explícitos e reconciliação `task.created`; gate 117/117; `evidence/F2-COCKPIT-DIGEST.md` |
-| F2-CHAT-1 conversas/chat | próximo | persistência/API de conversas e mensagens, turnos com streaming realtime sequenciado |
+| F2-CHAT-1 conversas/chat | verde | conversa/mensagem persistidas, CRUD tenant-scoped, turno Fake determinístico transacional, ledger/Outbox e sete eventos sequenciados; restart, OpenAPI e drift; gate 121/121; `evidence/F2-CONVERSATIONS-CHAT.md` |
+| F2-WORK-1 cadeia/quadro | próximo | expor Solicitação→Demanda→Tarefa→Tentativa existente por API/SignalR conforme contratos do frontend |
