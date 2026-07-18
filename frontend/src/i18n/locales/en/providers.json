@@ -2,6 +2,7 @@
   "providers": {
     "enabled": "Enabled",
     "disabled": "Disabled",
+    "empty": "No providers configured. Providers appear here once the catalog is synced by the API.",
     "sync": {
       "action": "Sync",
       "feedback": "Catalog synced: {{count}} model(s)."
@@ -21,6 +22,7 @@
     },
     "budgets": {
       "title": "Budgets",
+      "empty": "No budgets configured. Without a budget, usage follows only the account limits.",
       "global": "Global",
       "bar": "Budget usage {{scope}}",
       "consumption": "{{spent}} of {{limit}} · alert at {{threshold}}%"
@@ -31,6 +33,7 @@
     },
     "routing": {
       "title": "Routing policy",
+      "empty": "No routing policy defined. Routing falls back to each agent's default model.",
       "active": "Active",
       "inactive": "Inactive",
       "edit": "Edit policy",

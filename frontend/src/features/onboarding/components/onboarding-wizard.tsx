@@ -189,7 +189,7 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
               >
                 <Input
                   id="onboarding-workingDirectory"
-                  placeholder="~/poseidon"
+                  placeholder={t('onboarding.wizard.workspace.directoryPlaceholder')}
                   {...register('workingDirectory')}
                 />
               </Field>

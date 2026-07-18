@@ -15,6 +15,7 @@
       "title": "Serviços detectados",
       "empty": "Nenhum serviço detectado neste projeto ainda.",
       "port": "Porta",
+      "url": "URL",
       "stack": "Stack",
       "dependencies": "Dependências",
       "dependenciesUnavailable": "Não disponível no contrato atual"

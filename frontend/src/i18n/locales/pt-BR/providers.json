@@ -2,6 +2,7 @@
   "providers": {
     "enabled": "Habilitado",
     "disabled": "Desabilitado",
+    "empty": "Nenhum provider configurado. Os providers aparecem aqui quando o catálogo é sincronizado pela API.",
     "sync": {
       "action": "Sincronizar",
       "feedback": "Catálogo sincronizado: {{count}} modelo(s)."
@@ -21,6 +22,7 @@
     },
     "budgets": {
       "title": "Budgets",
+      "empty": "Nenhum budget configurado. Sem budget, o consumo segue apenas os limites das contas.",
       "global": "Global",
       "bar": "Consumo do budget {{scope}}",
       "consumption": "{{spent}} de {{limit}} · alerta em {{threshold}}%"
@@ -31,6 +33,7 @@
     },
     "routing": {
       "title": "Política de roteamento",
+      "empty": "Nenhuma política de roteamento definida. O roteamento usa o modelo padrão de cada agente.",
       "active": "Ativa",
       "inactive": "Inativa",
       "edit": "Editar política",

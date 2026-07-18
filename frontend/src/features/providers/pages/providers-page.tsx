@@ -44,7 +44,9 @@ export default function UprovidersPage() {
   useProvidersRealtime();
 
   const [editingPolicy, setEditingPolicy] = useState<RoutingPolicy | null>(null);
-  const [syncFeedback, setSyncFeedback] = useState<{ providerId: Ulid; count: number } | null>(null);
+  const [syncFeedback, setSyncFeedback] = useState<{ providerId: Ulid; count: number } | null>(
+    null,
+  );
 
   const providers = providersQuery.data ?? [];
   const accounts = accountsQuery.data ?? [];
@@ -79,7 +81,7 @@ export default function UprovidersPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+      <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -104,11 +106,23 @@ export default function UprovidersPage() {
     <div className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold">{t('features.providers.title')}</h1>
 
+      {providers.length === 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-foreground-muted">{t('providers.empty')}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {providers.map((provider) => {
         const providerAccounts = accounts.filter((account) => account.providerId === provider.id);
         const providerModels = models.filter((model) => model.providerId === provider.id);
         return (
-          <section key={provider.id} className="flex flex-col gap-3" aria-labelledby={`provider-${provider.id}`}>
+          <section
+            key={provider.id}
+            className="flex flex-col gap-3"
+            aria-labelledby={`provider-${provider.id}`}
+          >
             <div className="flex flex-wrap items-center gap-3">
               <h2 id={`provider-${provider.id}`} className="font-heading text-lg font-semibold">
                 {provider.name}
@@ -244,40 +258,46 @@ export default function UprovidersPage() {
         <h2 id="budgets-section" className="font-heading text-lg font-semibold">
           {t('providers.budgets.title')}
         </h2>
-        <div className="grid gap-3 lg:grid-cols-3">
-          {budgets.map((budget) => (
-            <Card key={budget.id}>
-              <CardContent className="flex flex-col gap-2 p-4">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <Badge variant="outline">{t(`status.budgetScope.${budget.scope}`)}</Badge>
-                  <span className="font-medium">
-                    {budget.scope === 'project'
-                      ? projectName(budget.scopeId)
-                      : budget.scope === 'account'
-                        ? accountLabel(budget.scopeId)
-                        : t('providers.budgets.global')}
-                  </span>
-                  <span className="text-xs text-foreground-muted">
-                    {t(`status.budgetPeriod.${budget.period}`)}
-                  </span>
-                </div>
-                <ConsumptionBar
-                  used={budget.spentUsd}
-                  limit={budget.limitUsd}
-                  alertThresholdPct={budget.alertThresholdPct}
-                  label={t('providers.budgets.bar', { scope: t(`status.budgetScope.${budget.scope}`) })}
-                />
-                <p className="text-xs text-foreground-muted">
-                  {t('providers.budgets.consumption', {
-                    spent: formatCurrencyUSD(budget.spentUsd),
-                    limit: formatCurrencyUSD(budget.limitUsd),
-                    threshold: budget.alertThresholdPct,
-                  })}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {budgets.length === 0 ? (
+          <p className="text-sm text-foreground-muted">{t('providers.budgets.empty')}</p>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-3">
+            {budgets.map((budget) => (
+              <Card key={budget.id}>
+                <CardContent className="flex flex-col gap-2 p-4">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge variant="outline">{t(`status.budgetScope.${budget.scope}`)}</Badge>
+                    <span className="font-medium">
+                      {budget.scope === 'project'
+                        ? projectName(budget.scopeId)
+                        : budget.scope === 'account'
+                          ? accountLabel(budget.scopeId)
+                          : t('providers.budgets.global')}
+                    </span>
+                    <span className="text-xs text-foreground-muted">
+                      {t(`status.budgetPeriod.${budget.period}`)}
+                    </span>
+                  </div>
+                  <ConsumptionBar
+                    used={budget.spentUsd}
+                    limit={budget.limitUsd}
+                    alertThresholdPct={budget.alertThresholdPct}
+                    label={t('providers.budgets.bar', {
+                      scope: t(`status.budgetScope.${budget.scope}`),
+                    })}
+                  />
+                  <p className="text-xs text-foreground-muted">
+                    {t('providers.budgets.consumption', {
+                      spent: formatCurrencyUSD(budget.spentUsd),
+                      limit: formatCurrencyUSD(budget.limitUsd),
+                      threshold: budget.alertThresholdPct,
+                    })}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-3" aria-labelledby="routing-section">
@@ -286,52 +306,58 @@ export default function UprovidersPage() {
             {t('providers.routing.title')}
           </h2>
         </div>
-        {(routingQuery.data ?? []).map((policy) => (
-          <Card key={policy.id}>
-            <CardHeader className="flex-row flex-wrap items-center gap-3">
-              <CardTitle>{policy.name}</CardTitle>
-              <Badge variant={policy.active ? 'success' : 'outline'}>
-                {policy.active ? t('providers.routing.active') : t('providers.routing.inactive')}
-              </Badge>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-                onClick={() => setEditingPolicy(policy)}
-              >
-                <Pencil aria-hidden="true" />
-                {t('providers.routing.edit')}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <ul className="flex flex-col gap-2">
-                {policy.rules.map((rule, index) => (
-                  <li key={index} className="rounded-md border border-border p-3 text-sm">
-                    <span className="font-medium">
-                      {rule.taskKind ?? t('providers.routing.defaultRule')}
-                    </span>
-                    : {modelDisplayName(rule.preferredModelId, models)}
-                    {rule.fallbackModelIds.length > 0 && (
-                      <span className="text-foreground-muted">
-                        {' → '}
-                        {rule.fallbackModelIds.map((id) => modelDisplayName(id, models)).join(', ')}
+        {(routingQuery.data ?? []).length === 0 ? (
+          <p className="text-sm text-foreground-muted">{t('providers.routing.empty')}</p>
+        ) : (
+          (routingQuery.data ?? []).map((policy) => (
+            <Card key={policy.id}>
+              <CardHeader className="flex-row flex-wrap items-center gap-3">
+                <CardTitle>{policy.name}</CardTitle>
+                <Badge variant={policy.active ? 'success' : 'outline'}>
+                  {policy.active ? t('providers.routing.active') : t('providers.routing.inactive')}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setEditingPolicy(policy)}
+                >
+                  <Pencil aria-hidden="true" />
+                  {t('providers.routing.edit')}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ul className="flex flex-col gap-2">
+                  {policy.rules.map((rule, index) => (
+                    <li key={index} className="rounded-md border border-border p-3 text-sm">
+                      <span className="font-medium">
+                        {rule.taskKind ?? t('providers.routing.defaultRule')}
                       </span>
-                    )}
-                    {rule.maxCostPerAttemptUsd !== null && (
-                      <span className="text-foreground-muted">
-                        {' · '}
-                        {t('providers.routing.maxCostShort', {
-                          value: formatCurrencyUSD(rule.maxCostPerAttemptUsd),
-                        })}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        ))}
+                      : {modelDisplayName(rule.preferredModelId, models)}
+                      {rule.fallbackModelIds.length > 0 && (
+                        <span className="text-foreground-muted">
+                          {' → '}
+                          {rule.fallbackModelIds
+                            .map((id) => modelDisplayName(id, models))
+                            .join(', ')}
+                        </span>
+                      )}
+                      {rule.maxCostPerAttemptUsd !== null && (
+                        <span className="text-foreground-muted">
+                          {' · '}
+                          {t('providers.routing.maxCostShort', {
+                            value: formatCurrencyUSD(rule.maxCostPerAttemptUsd),
+                          })}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </section>
 
       {editingPolicy && (

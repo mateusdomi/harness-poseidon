@@ -359,6 +359,7 @@
       },
       "workspace": {
         "directory": "Diretório de trabalho",
+        "directoryPlaceholder": "~/poseidon",
         "hint": "Pasta local onde os agentes leem e escrevem arquivos. Deixe em branco para definir depois."
       },
       "safety": {

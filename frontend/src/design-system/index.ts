@@ -1,4 +1,5 @@
-export { Button, buttonVariants, type ButtonProps } from './components/button';
+export { Button, type ButtonProps } from './components/button';
+export { buttonVariants } from './components/button-variants';
 export {
   Card,
   CardHeader,
@@ -7,7 +8,8 @@ export {
   CardContent,
   CardFooter,
 } from './components/card';
-export { Badge, badgeVariants, type BadgeProps } from './components/badge';
+export { Badge, type BadgeProps } from './components/badge';
+export { badgeVariants } from './components/badge-variants';
 export { Input, type InputProps } from './components/input';
 export { Select, type SelectProps } from './components/select';
 export { Textarea, type TextareaProps } from './components/textarea';

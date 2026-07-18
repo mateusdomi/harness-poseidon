@@ -14,17 +14,15 @@ import { NotificationsButton } from '@/app/components/notifications-button';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
 import { ThemeToggle } from '@/app/components/theme-toggle';
 import { ReconnectionBanner } from '@/features/shared/components/reconnection-banner';
+import logoUrl from '@/assets/logo.png';
 
 function BrandMark() {
   return (
-    <span className="flex items-center gap-2">
-      <span
-        aria-hidden="true"
-        className="size-6 rounded-md"
-        style={{ backgroundImage: 'var(--gradient-brand)' }}
-      />
-      <span className="font-heading text-lg font-semibold">{product.name}</span>
-    </span>
+    <img
+      src={logoUrl}
+      alt={product.name}
+      className="h-8 w-auto object-contain"
+    />
   );
 }
 
@@ -42,10 +40,10 @@ function Sidebar() {
     >
       <div className={cn('flex h-16 items-center border-b border-border px-4', collapsed && 'justify-center px-0')}>
         {collapsed ? (
-          <span
-            aria-hidden="true"
-            className="size-6 rounded-md"
-            style={{ backgroundImage: 'var(--gradient-brand)' }}
+          <img
+            src={logoUrl}
+            alt={product.name}
+            className="h-8 w-auto object-contain"
           />
         ) : (
           <BrandMark />

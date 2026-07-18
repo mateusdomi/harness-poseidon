@@ -72,7 +72,7 @@ export default function UagentsPage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col gap-4" aria-label={t('common.states.loading')}>
+        <div className="flex flex-col gap-4" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="mx-auto h-56 w-full max-w-sm" />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 3 }, (_, index) => (

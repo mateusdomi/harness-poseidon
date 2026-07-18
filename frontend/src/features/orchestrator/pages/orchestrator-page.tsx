@@ -76,7 +76,7 @@ export default function UorchestratorPage() {
       <h1 className="font-heading text-2xl font-semibold">{t('features.orchestrator.title')}</h1>
 
       {loading ? (
-        <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+        <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-48 w-full" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Skeleton className="h-36 w-full" />

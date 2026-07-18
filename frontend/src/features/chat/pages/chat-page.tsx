@@ -111,7 +111,7 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+      <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
         <Skeleton className="h-11 w-full" />
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-24 w-full" />

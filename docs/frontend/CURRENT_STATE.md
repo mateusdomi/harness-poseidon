@@ -4,9 +4,9 @@
 
 ## Estado atual
 
-- **Fase em andamento:** FE-4 (Qualidade e handoff) — FE-0 a FE-3 CONCLUÍDAS (gates verdes, push feito). Todas as 21 features estão implementadas.
+- **Fase em andamento:** NENHUMA — FE-0 a FE-4 CONCLUÍDAS (DoD do frontend atendido). Todas as 21 features implementadas e os 4 comandos do gate verdes.
 - **Branch ativa:** `develop` (sincronizada com `origin/develop`; atenção: outro agente publica backend na mesma branch — sempre `git pull --no-rebase` antes de push; `git add` apenas de `frontend/`, `docs/frontend/` e `.gitignore`, nunca `git add -A` por causa dos artefatos de build do backend).
-- **Último marco:** gate FE-3 verde — 268 testes, lint 0 erros, build ok, 14 E2E (rodar projeto + PO Assistant) em mobile-360 e desktop-1440.
+- **Último marco:** gate FE-4 verde (2026-07-18) — `npm run check` (lint 0 erros/0 warnings, typecheck, 270 testes), `npm run build` (chunk principal 223 kB após manualChunks), `npm run test:e2e` (56: 14 fluxos + 42 a11y axe em 21 rotas × 2 viewports × 2 temas), `npm run build-storybook`. Novidades FE-4: `e2e/a11y.spec.ts` + script `test:a11y`, skeletons com `role="status"`, estados vazios de providers + retry de templates em organizations, sweep i18n estático + paridade pt-BR/en (`src/i18n/__tests__/i18n-hygiene.test.ts`), `docs/frontend/SCREENS.md` criado, HANDOFF_API/README atualizados, decisões D-049 a D-052.
 
 ## O que existe (FE-0 pronto)
 
@@ -15,14 +15,9 @@
 - `docs/frontend/HANDOFF_API.md` criado (contrato completo consumido).
 - Decisões registradas em `docs/frontend/DECISIONS.md` (D-001 a D-008).
 
-## Próximo passo exato (FE-4 Qualidade e handoff)
+## Próximo passo exato
 
-1. **Acessibilidade**: rodar axe (via `@axe-core/playwright`) em TODAS as páginas/rotas nos dois temas; corrigir violações sérias; verificar contraste AA dos tokens nos dois temas.
-2. **Estados auditados tela a tela**: vazio (com orientação), skeleton, erro com retry, banner de reconexão, permissão negada — auditar as 21 features e completar o que faltar.
-3. **Code splitting**: confirmar lazy por rota; otimizar chunk principal >500 kB (manualChunks para zod/signalr/react-markdown se simples).
-4. **Sweep i18n**: criar teste automatizado que FALHA se detectar literal de texto em JSX fora de allowlist; corrigir o que aparecer; garantir paridade de chaves pt-BR/en.
-5. **Docs finais**: completar `docs/frontend/HANDOFF_API.md` (100% do contrato consumido, telas reais que usam cada endpoint), criar `docs/frontend/SCREENS.md` (inventário de todas as telas com rota, dados consumidos, eventos assinados e estados), finalizar `frontend/README.md` (execução modo mock + integração com API real via VITE_API_MODE=http).
-6. Gate FE-4 final: `npm run check`, `npm run build`, `npm run test:e2e`, `npm run build-storybook` todos verdes → commit + push de `develop`. NÃO fazer merge em `main`.
+FE-4 concluída — todos os itens (axe, estados, code splitting, i18n sweep, docs, gate) entregues e verdes. Resta apenas **commit + push de `develop`** (a sessão FE-4 não commitou por instrução explícita). Depois disso o frontend está pronto para integração com o backend real (`VITE_API_MODE=http` + `VITE_API_BASE_URL`), cujo contrato esperado está em `HANDOFF_API.md`. NÃO fazer merge em `main`.
 
 ## Regras permanentes
 

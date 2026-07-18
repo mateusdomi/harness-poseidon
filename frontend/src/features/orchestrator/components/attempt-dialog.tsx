@@ -50,7 +50,7 @@ export function AttemptDialog({ attempt, onClose }: AttemptDialogProps) {
       </h2>
 
       {eventsQuery.isPending ? (
-        <div className="flex flex-col gap-2" aria-label={t('common.states.loading')}>
+        <div className="flex flex-col gap-2" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-24 w-full" />

@@ -86,7 +86,7 @@ export default function ProjectsPage() {
       {view.kind === 'list' && (
         <>
           {loading ? (
-            <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+            <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
               <Skeleton className="h-11 w-full" />
               <Skeleton className="h-32 w-full" />
               <Skeleton className="h-32 w-full" />

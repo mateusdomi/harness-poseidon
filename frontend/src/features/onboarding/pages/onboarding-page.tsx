@@ -9,6 +9,7 @@ import { useProfiles } from '@/features/shared/hooks/use-profiles';
 import { useSessionStore } from '@/stores/session-store';
 import { OnboardingWizard } from '@/features/onboarding/components/onboarding-wizard';
 import { ProfilePicker } from '@/features/onboarding/components/profile-picker';
+import logoUrl from '@/assets/logo.png';
 
 /**
  * Porta de entrada do app (rota `/onboarding`, fora do AppShell):
@@ -34,7 +35,11 @@ export default function OnboardingPage() {
   let content: React.ReactNode;
   if (profilesQuery.isPending) {
     content = (
-      <div className="flex w-full max-w-xl flex-col gap-3" aria-label={t('common.states.loading')}>
+      <div
+        className="flex w-full max-w-xl flex-col gap-3"
+        role="status"
+        aria-label={t('common.states.loading')}
+      >
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-20 w-full" />
@@ -70,14 +75,11 @@ export default function OnboardingPage() {
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-4">
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className="size-7 rounded-md"
-          style={{ backgroundImage: 'var(--gradient-brand)' }}
-        />
-        <span className="font-heading text-xl font-semibold">{product.name}</span>
-      </div>
+      <img
+        src={logoUrl}
+        alt={product.name}
+        className="h-12 w-auto object-contain"
+      />
       {content}
     </main>
   );

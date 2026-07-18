@@ -39,7 +39,7 @@ describe('AppShell', () => {
   it('exibe o nome do produto e o badge de notificações', () => {
     renderShell();
 
-    expect(screen.getAllByText('Poseidon').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('img', { name: 'Poseidon' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /notificações/i }).length).toBeGreaterThan(0);
   });
 

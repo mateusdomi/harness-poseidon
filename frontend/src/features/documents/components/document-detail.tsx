@@ -58,7 +58,7 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
 
   if (isPending) {
     return (
-      <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+      <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>

@@ -83,7 +83,7 @@ export default function UconversationsPage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+        <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>

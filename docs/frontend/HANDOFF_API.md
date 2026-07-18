@@ -1,6 +1,6 @@
-# HANDOFF — Camada de API do Frontend (FE-0, fatia B)
+# HANDOFF — Camada de API do Frontend
 
-Documento vivo do contrato **contract-first** entre o frontend e o backend (.NET ASP.NET Core + SignalR). Cada endpoint/evento que a UI consome está listado com método, rota, tipos request/response, exemplo e tela que usa. Será refinado nas próximas fases; divergências devem ser resolvidas aqui primeiro.
+Documento vivo do contrato **contract-first** entre o frontend e o backend (.NET ASP.NET Core + SignalR). Cada endpoint/evento que a UI consome está listado com método, rota, tipos request/response, exemplo e a **tela real** que usa (inventário completo em `SCREENS.md`). Atualizado na FE-4; divergências devem ser resolvidas aqui primeiro.
 
 Código-fonte da verdade no frontend: `frontend/src/api/contracts/` (tipos TS + schemas Zod).
 
@@ -36,46 +36,46 @@ Verbos comuns: `GET /api/v1/<recurso>` (lista, cursor), `GET /api/v1/<recurso>/<
 
 | Recurso (rota) | Tipo TS | C | U | D | Tela que usa |
 |---|---|---|---|---|---|
-| `profiles` | `Profile` | — | ✓ | — | onboarding, settings (planejada) |
-| `profiles/current` (GET) | `Profile` | — | — | — | shell (badge), onboarding |
-| `organizations` | `Organization` | — | — | — | organizations (planejada) |
-| `projects` | `Project` | ✓ | ✓ | ✓ | projects, cockpit |
-| `conversations` | `Conversation` | ✓ | ✓ | ✓ | conversations, chat |
-| `messages` | `Message` | ✓ | — | — | chat, conversations |
-| `solicitations` | `Solicitation` (imutável) | ✓ | — | — | po-assistant, cockpit (planejada) |
-| `demands` | `Demand` | ✓ | — | — | cockpit, orchestrator (planejada) |
-| `tasks` | `Task` | ✓ | — | — | board, cockpit |
+| `profiles` | `Profile` | ✓ | — | — | onboarding (seleção/wizard), conversations (nomes) |
+| `profiles/current` (GET) | `Profile` | — | — | — | shell (badge), notifications, settings |
+| `organizations` | `Organization` | ✓ | ✓ | — | organizations, projects (form), prototypes |
+| `projects` | `Project` | ✓ | ✓ | ✓ | projects, cockpit, seletor de projeto ativo (todas as telas de projeto) |
+| `conversations` | `Conversation` | ✓ | ✓ | ✓ | conversations, chat, orchestrator |
+| `messages` | `Message` | ✓ | — | — | chat |
+| `solicitations` | `Solicitation` (imutável) | ✓ | — | — | po-assistant, governance |
+| `demands` | `Demand` | ✓ | — | — | po-assistant (cria), board (detalhe), governance |
+| `tasks` | `Task` | ✓ | — | — | board, cockpit, chat, approvals, agents, orchestrator, governance |
 | `task-instructions` | `TaskInstruction` (imutável, versionada) | ✓¹ | — | — | board (detalhe da tarefa) |
-| `attempts` | `Attempt` | — | — | — | board (evidências), run-project |
-| `attempt-events` | `AttemptEvent` | — | — | — | run-project (logs/evidências) |
-| `workflow-templates` | `WorkflowTemplate` | — | — | — | workflows |
-| `workflow-versions` | `WorkflowVersion` | — | — | — | workflows |
-| `workflows` | `Workflow` (modo + aceites de risco) | — | — | — | workflows, governance |
-| `workflow-runs` | `WorkflowRun` | — | — | — | workflows, run-project |
-| `phases` | `Phase` | — | — | — | workflows, run-project |
-| `gates` | `Gate` | — | — | — | governance, approvals |
+| `attempts` | `Attempt` | — | — | — | board (evidências), orchestrator, agents |
+| `attempt-events` | `AttemptEvent` | — | — | — | board (detalhe), orchestrator (log da tentativa) |
+| `workflow-templates` | `WorkflowTemplate` | — | — | — | workflows, organizations (detalhe) |
+| `workflow-versions` | `WorkflowVersion` | — | — | — | workflows, documents |
+| `workflows` | `Workflow` (modo + aceites de risco) | — | — | — | workflows, cockpit, documents, governance |
+| `workflow-runs` | `WorkflowRun` | — | — | — | workflows, cockpit |
+| `phases` | `Phase` | — | — | — | workflows, cockpit |
+| `gates` | `Gate` | — | — | — | cockpit, workflows, approvals |
 | `approvals` | `Approval` (reprovação exige nota) | ✓ | — | — | approvals, governance |
 | `documents` | `Document` (estados + classificações + waiver) | ✓ | — | ✓ | documents |
 | `document-versions` | `DocumentVersion` (imutável) | ✓ | — | — | documents |
 | `prototypes` | `Prototype` | ✓ | — | ✓ | prototypes |
 | `visual-references` | `VisualReference` | ✓ | — | ✓ | prototypes |
-| `agent-definitions` | `AgentDefinition` | — | — | — | agents |
-| `agents` | `Agent` (instância + métricas) | — | — | — | agents, cockpit |
+| `agent-definitions` | `AgentDefinition` | — | — | — | agents, orchestrator (handoff), workflows |
+| `agents` | `Agent` (instância + métricas) | — | — | — | agents, cockpit, board, orchestrator |
 | `skills` | `Skill` | — | ✓ | — | tools |
 | `tools` | `Tool` | — | ✓ | — | tools |
 | `plugins` | `Plugin` | — | ✓ | — | tools |
 | `mcp-servers` | `McpServer` | — | ✓ | — | tools |
 | `providers` | `Provider` | — | ✓ | — | providers |
-| `accounts` | `Account` | — | — | — | providers |
-| `models` | `Model` | — | ✓ | — | providers |
-| `routing-policies` | `RoutingPolicy` | — | ✓ | — | providers, governance |
-| `budgets` | `Budget` | — | ✓ | — | providers, cockpit (custos) |
+| `accounts` | `Account` | — | — | — | providers, orchestrator |
+| `models` | `Model` | — | ✓ | — | providers, chat, orchestrator, agents |
+| `routing-policies` | `RoutingPolicy` | — | ✓ | — | providers |
+| `budgets` | `Budget` | — | ✓ | — | providers, cockpit (custos), orchestrator |
 | `notifications` | `Notification` | ✓ | — | — | notifications, shell (badge) |
 | `audit-events` | `AuditEvent` | — | — | — | governance |
 | `run-targets` | `RunTarget` | — | — | — | run-project |
-| `settings` | `Settings` | — | ✓ | — | settings |
-| `licenses` | `License` | — | — | — | licenses |
-| `entitlements` | `Entitlement` | — | — | — | licenses, onboarding |
+| `settings` | `Settings` | — | ✓ | — | settings, notifications (preferências), onboarding (wizard) |
+| `licenses` | `License` | — | — | — | licenses, settings (resumo) |
+| `entitlements` | `Entitlement` | — | — | — | licenses |
 
 ¹ Instruções também são criadas via comando `POST /tasks/<id>/instructions` (§4).
 
@@ -132,7 +132,7 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | `POST /workflow-templates/<id>/versions` (FE-2a) | `{ phases, gatesByPhase, phaseConfigs?, defaultOperationMode?, transitions?, changelog? }` — versão nasce **publicada** (imutável), número = última + 1 | `WorkflowVersion` | `workflow.versionPublished` | workflows (admin de templates) |
 | `POST /notifications/read` | `{ ids: Ulid[] }` | `number` (alteradas) | — | notifications |
 | `POST /notifications/mute` | `{ ids: Ulid[] }` | `number` | — | notifications |
-| `POST /conversations/<id>/turns` | `{ content }` | `{ turnId, conversationId }` | `message.appended`, `chat.turnStarted/Chunk/Completed` | chat, po-assistant |
+| `POST /conversations/<id>/turns` | `{ content }` | `{ turnId, conversationId }` | `message.appended`, `chat.turnStarted/Chunk/Completed` | chat |
 | `POST /projects/<id>/chief/pause` (FE-2b) | — | `Project` (state → `paused`) | `agent.statusChanged` (chefe → `waiting`), `audit.eventAppended` (`chief.paused`) | orchestrator |
 | `POST /projects/<id>/chief/resume` (FE-2b) | — | `Project` (state → `active`) | `agent.statusChanged` (chefe → `idle`), `audit.eventAppended` (`chief.resumed`) | orchestrator |
 | `POST /projects/<id>/chief/handoff` (FE-2b) | `{ targetDefinitionId?, targetModelId?, note }` — **note obrigatória** | `Agent` (nova instância chefe) | `agent.statusChanged` (antigo → `idle`, novo), `audit.eventAppended` (`chief.handedOff`) | orchestrator (passagem de bastão) |
@@ -211,27 +211,27 @@ Métodos do hub SignalR (backend): cliente chama `SubscribeToStreams(string[])`,
 | `chat.turnStarted` | `{ conversationId, turnId, agentId }` | `conversation:<id>` | chat |
 | `chat.turnChunk` | `{ conversationId, turnId, index, text }` | `conversation:<id>` | chat |
 | `chat.turnCompleted` | `{ conversationId, turnId, messageId, finishReason }` | `conversation:<id>` | chat |
-| `message.appended` | `{ message }` | `conversation:<id>` | chat, conversations |
-| `demand.created` | `{ demand }` | `project:<id>` | cockpit, orchestrator |
-| `task.created` | `{ task }` | `project:<id>` | board |
+| `message.appended` | `{ message }` | `conversation:<id>` | chat |
+| `demand.created` | `{ demand }` | `project:<id>` | board, cockpit (origem: po-assistant/chefe) |
+| `task.created` | `{ task }` | `project:<id>` | board, cockpit |
 | `task.stateChanged` | `{ taskId, from, to, changedByKind, note? }` | `project:<id>`, `task:<id>` | board |
-| `attempt.started` | `{ attempt }` | `task:<id>`, `attempt:<id>` | board, run-project |
-| `attempt.heartbeat` | `{ attemptId, taskId, elapsedMs, tokensInput, tokensOutput, costUsd }` | `attempt:<id>`, `task:<id>` | run-project, cockpit |
-| `attempt.completed` | `{ attemptId, taskId, durationMs, tokens*, costUsd, commitRefs, summary? }` | `attempt:<id>`, `task:<id>` | board, run-project |
-| `attempt.failed` | `{ attemptId, taskId, reason, durationMs, costUsd }` | `attempt:<id>`, `task:<id>` | board, run-project |
-| `gate.changed` | `{ gateId, runId, from, to, decidedByProfileId?, note? }` | `project:<id>`, `run:<id>` | governance, workflows |
-| `approval.requested` | `{ approval }` | `project:<id>` | approvals |
-| `approval.resolved` | `{ approvalId, state, resolvedByProfileId, note? }` | `project:<id>` | approvals, governance |
-| `document.stateChanged` | `{ documentId, from, to }` | `project:<id>` | documents |
+| `attempt.started` | `{ attempt }` | `task:<id>`, `attempt:<id>` | board, orchestrator |
+| `attempt.heartbeat` | `{ attemptId, taskId, elapsedMs, tokensInput, tokensOutput, costUsd }` | `attempt:<id>`, `task:<id>` | orchestrator, cockpit |
+| `attempt.completed` | `{ attemptId, taskId, durationMs, tokens*, costUsd, commitRefs, summary? }` | `attempt:<id>`, `task:<id>` | board, orchestrator |
+| `attempt.failed` | `{ attemptId, taskId, reason, durationMs, costUsd }` | `attempt:<id>`, `task:<id>` | board, orchestrator |
+| `gate.changed` | `{ gateId, runId, from, to, decidedByProfileId?, note? }` | `project:<id>`, `run:<id>` | cockpit, workflows |
+| `approval.requested` | `{ approval }` | `project:<id>` | approvals, board, cockpit |
+| `approval.resolved` | `{ approvalId, state, resolvedByProfileId, note? }` | `project:<id>` | approvals, board, cockpit |
+| `document.stateChanged` | `{ documentId, from, to }` | `project:<id>` | documents, workflows |
 | `prototype.stateChanged` | `{ prototypeId, from, to }` | `project:<id>` | prototypes |
 | `workflow.versionPublished` | `{ templateId, versionId, version }` | `project:<id>` (projetos que usam o template), `global` | workflows |
 | `notification.created` | `{ notification }` | `profile:<id>` | notifications, shell (badge) |
-| `agent.statusChanged` | `{ agentId, from, to, currentTaskId? }` | `global` | agents, cockpit |
+| `agent.statusChanged` | `{ agentId, from, to, currentTaskId? }` | `global` | agents, cockpit, orchestrator |
 | `tool.statusChanged` | `{ toolId, from, to }` | `global` | tools |
-| `audit.eventAppended` | `{ auditEvent }` | `global` | governance |
+| `audit.eventAppended` | `{ auditEvent }` | `global` | governance, cockpit |
 | `run.logAppended` | `{ runId?, attemptId?, line }` | `run:<id>`, `attempt:<id>` | run-project |
 | `progress.updated` | `{ taskId, track, value, progress }` — trilhas separadas, nunca somar | `task:<id>` | board, cockpit |
-| `quota.updated` | `{ accountId?, budgetId?, usedUsd, limitUsd? }` | `project:<id>`, `global` | providers, cockpit |
+| `quota.updated` | `{ accountId?, budgetId?, usedUsd, limitUsd? }` | `project:<id>`, `global` | providers, cockpit, orchestrator |
 | `chief.turnStateChanged` | `{ conversationId, turnId?, state }` | `conversation:<id>` | chat, orchestrator |
 
 ## 6. Semântica de domínio refletida no contrato

@@ -95,6 +95,19 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
           <CardContent>
             {templatesQuery.isPending ? (
               <Skeleton className="h-6 w-full" />
+            ) : templatesQuery.isError ? (
+              <div className="flex flex-col items-start gap-2">
+                <p role="alert" className="text-sm text-error">
+                  {t('common.states.errorBody')}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void templatesQuery.refetch()}
+                >
+                  {t('common.actions.retry')}
+                </Button>
+              </div>
             ) : defaultTemplates.length === 0 ? (
               <p className="text-sm text-foreground-muted">
                 {t('organizations.detail.noWorkflows')}

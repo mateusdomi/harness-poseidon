@@ -38,7 +38,7 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
 
   if (isPending) {
     return (
-      <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+      <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-40 w-full" />

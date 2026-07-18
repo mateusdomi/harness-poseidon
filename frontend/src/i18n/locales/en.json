@@ -359,6 +359,7 @@
       },
       "workspace": {
         "directory": "Working directory",
+        "directoryPlaceholder": "~/poseidon",
         "hint": "Local folder where agents read and write files. Leave blank to set it later."
       },
       "safety": {

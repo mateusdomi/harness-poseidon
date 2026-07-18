@@ -108,6 +108,7 @@ export default function UboardPage() {
       {loading ? (
         <div
           className="flex gap-3 overflow-x-auto lg:grid lg:grid-cols-2 xl:grid-cols-4"
+          role="status"
           aria-label={t('common.states.loading')}
         >
           {Array.from({ length: 8 }, (_, index) => (

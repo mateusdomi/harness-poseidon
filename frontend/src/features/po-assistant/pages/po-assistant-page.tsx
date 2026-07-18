@@ -125,7 +125,7 @@ export default function UpoAssistantPage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col gap-3" aria-label={t('common.states.loading')}>
+        <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-40 w-full" />
         </div>
