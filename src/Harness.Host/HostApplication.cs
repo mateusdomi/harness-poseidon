@@ -7,6 +7,7 @@ using Harness.Host.Licensing;
 using Harness.Host.Governance;
 using Harness.Host.Organizations;
 using Harness.Host.Notifications;
+using Harness.Host.Operations;
 using Harness.Host.Persistence;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
@@ -104,6 +105,8 @@ public static class HostApplication
         }
         builder.Services.AddSingleton<IDocumentContentCatalog>(
             new FileSystemDocumentContentCatalog(documentCatalogPath));
+        builder.Services.AddSingleton(services => new LocalOperationsService(
+            services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
@@ -157,6 +160,7 @@ public static class HostApplication
         app.MapWorkBoard();
         app.MapWorkflowCatalog();
         app.MapDocumentCatalog();
+        app.MapLocalOperations();
         app.MapGet(
             "/api/v1/event-streams/snapshot",
             async Task<IResult> (

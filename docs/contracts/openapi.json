@@ -81,6 +81,136 @@
                 }
             }
         },
+        "/api/v1/backups": {
+            "post": {
+                "tags": [
+                    "backups"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BackupHandle"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/backups/{id}/restore": {
+            "post": {
+                "tags": [
+                    "backups"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/diagnostics": {
+            "get": {
+                "tags": [
+                    "diagnostics"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DiagnosticsContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/event-streams/snapshot": {
             "get": {
                 "tags": [
@@ -9989,6 +10119,22 @@
                     }
                 }
             },
+            "BackupHandle": {
+                "required": [
+                    "backupId",
+                    "createdAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "backupId": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
             "BoardTaskContract": {
                 "required": [
                     "id",
@@ -10842,6 +10988,56 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "DiagnosticCheck": {
+                "required": [
+                    "key",
+                    "state",
+                    "detail"
+                ],
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DiagnosticsContract": {
+                "required": [
+                    "product",
+                    "apiMode",
+                    "realtimeState",
+                    "checks",
+                    "generatedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "product": {
+                        "$ref": "#/components/schemas/ProductDiagnostic"
+                    },
+                    "apiMode": {
+                        "type": "string"
+                    },
+                    "realtimeState": {
+                        "type": "string"
+                    },
+                    "checks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DiagnosticCheck"
+                        }
+                    },
+                    "generatedAt": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 }
             },
@@ -12066,6 +12262,25 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "ProductDiagnostic": {
+                "required": [
+                    "name",
+                    "version",
+                    "codename"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "codename": {
+                        "type": "string"
                     }
                 }
             },
@@ -14278,6 +14493,12 @@
         },
         {
             "name": "run-project"
+        },
+        {
+            "name": "backups"
+        },
+        {
+            "name": "diagnostics"
         },
         {
             "name": "events"
