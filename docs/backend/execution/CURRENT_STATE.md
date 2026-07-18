@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T17:07:39Z
+Atualizado em: 2026-07-18T17:13:04Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-WRK-1 — workers persistidos de Outbox/watchdog/reconciliação; store documental F1-DOC-1c está completo e verde.
+- Épico atual: F1-WRK-1b — store transacional da Outbox; contrato/schema de dispatch estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `dc18165` (`develop`); F1-DOC-1c.4 está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: inventariar os BackgroundServices existentes e implementar a primeira fatia de workers de produção: reivindicação/dispatch idempotente da Outbox com retry/dead-letter e comportamento comum SQLite/PostgreSQL; depois watchdog de heartbeat e reconciliador, publicando eventos persistidos pelo hub sem transformar Channels em IPC.
+- Último commit remoto validado: `2c15787` (`develop`); F1-WRK-1a está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: implementar `SqliteOutboxStore` e `PostgresOutboxStore` para claim expirável com fencing, `FOR UPDATE SKIP LOCKED` no servidor, completion fenced, retry/backoff, dead-letter e liberação de claims expirados; executar comportamento comum concorrente e de recuperação nos dois providers.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T17:07:39Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia, workflows e documentos; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`6→0` e `7→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia, workflows, documentos e dispatch da Outbox; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`7→0` e `8→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -61,8 +61,9 @@ Atualizado em: 2026-07-18T17:07:39Z
 - Document versioning F1-DOC-1c.2: append exige `expectedDocumentVersion` e estado `in_elaboration`, cria exclusivamente nova row imutável com `supersedesId`, incrementa versão do agregado/currentVersion e finaliza Inbox/ledger/Outbox na mesma transação. PostgreSQL bloqueia o documento com `FOR UPDATE`; SQLite usa dispatcher. Dez concorrentes produzem 1 aplicação/9 replays; versão stale e documento ausente ficam idempotentes sem ledger/Outbox; colisão de payload é rejeitada.
 - Document lifecycle F1-DOC-1c.3: atualização de metadados substitui classificações, fase e flag de inconsistência com OCC sem fabricar histórico; assim um documento órfão foi adotado pela fase `Review`. Transição valida a matriz fechada, grava estado + `document_state_transitions` append-only + Inbox/ledger/Outbox atomicamente e registra ator/nota/versão. Dez concorrentes produzem 1 aplicação/9 replays; salto `in_review→approved` é rejeitado e idempotente sem auditoria falsa.
 - Document approvals F1-DOC-1c.4: request/resolve/cancel usam OCC e vinculam cada request à versão corrente imutável. Request pending único muda `in_review→awaiting_approval`; cancel retorna a review; rejeição exige nota e retorna a elaboração; aprovação fecha em approved. Estado, request versionado, histórico, Inbox, ledger e Outbox `approval.requested/resolved` commitam juntos. Cenário dual-provider final: agregado v12, conteúdo v3, 3 requests (`cancelled/rejected/approved`) e 8 transições; concorrência 1 aplicação/9 replays.
-- Migrations: SQLite `6→0` e PostgreSQL `7→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F1-DOC-1c.4: restore locked, format, build Release com zero warnings/erros e 92/92 testes verdes.
+- Outbox contract/schema F1-WRK-1a: `IOutboxStore` define claim expirável, fencing, completion, retry/dead-letter, recuperação e snapshot. Backoff decimal é determinístico/capado. Migrations adicionam agenda/owner/token/expiração/erro/dead-letter às mensagens e histórico de falhas append-only, preservando inserts existentes por `COALESCE(available_at,occurred_at)`; índices provider-specific cobrem dispatch e claims expirados.
+- Migrations: SQLite `7→0` e PostgreSQL `8→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1a: restore locked, format, build Release com zero warnings/erros e 94/94 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso e documentos/versionamento/aprovações verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para workers persistidos.
 

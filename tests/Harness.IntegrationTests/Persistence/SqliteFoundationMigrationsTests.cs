@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(6, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(7, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -106,6 +106,26 @@ public sealed class SqliteFoundationMigrationsTests
                 },
                 timeout.Token);
             Assert.Equal(7, tableCount);
+
+            var outboxDispatchSchema = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT
+                            (SELECT COUNT(*) FROM sqlite_master
+                             WHERE type='table' AND name='outbox_dispatch_failures'),
+                            (SELECT COUNT(*) FROM pragma_table_info('outbox_messages')
+                             WHERE name IN ('available_at','lock_owner','lock_token','lock_expires_at',
+                                            'last_error','dead_lettered_at'));
+                        """;
+                    await using var reader = await command.ExecuteReaderAsync(token);
+                    Assert.True(await reader.ReadAsync(token));
+                    return (reader.GetInt32(0), reader.GetInt32(1));
+                },
+                timeout.Token);
+            Assert.Equal((1, 6), outboxDispatchSchema);
 
             var durableTableCount = await dispatcher.ExecuteAsync(
                 async (connection, token) =>

@@ -19,7 +19,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(7, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(8, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -167,6 +167,23 @@ public sealed class PostgresSkipLockedPocTests
             """))
         {
             Assert.Equal(7L, await countCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        await using (var dispatchSchemaCommand = dataSource.CreateCommand(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM information_schema.tables
+                 WHERE table_schema='harness' AND table_name='outbox_dispatch_failures'),
+                (SELECT COUNT(*) FROM information_schema.columns
+                 WHERE table_schema='harness' AND table_name='outbox_messages'
+                   AND column_name IN ('available_at','lock_owner','lock_token','lock_expires_at',
+                                       'last_error','dead_lettered_at'));
+            """))
+        await using (var reader = await dispatchSchemaCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            Assert.True(await reader.ReadAsync(cancellationToken));
+            Assert.Equal(1L, reader.GetInt64(0));
+            Assert.Equal(6L, reader.GetInt64(1));
         }
 
         await using (var insertCommand = dataSource.CreateCommand(
