@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(3, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(4, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -128,6 +128,26 @@ public sealed class SqliteFoundationMigrationsTests
                 timeout.Token);
             Assert.Equal(9, durableTableCount);
 
+            var workChainTableCount = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT COUNT(*)
+                        FROM sqlite_master
+                        WHERE type = 'table'
+                          AND name IN ('solicitations', 'demands', 'work_tasks',
+                                       'instruction_versions', 'work_attempts',
+                                       'work_evidence', 'work_reviews');
+                        """;
+                    return Convert.ToInt32(
+                        await command.ExecuteScalarAsync(token),
+                        CultureInfo.InvariantCulture);
+                },
+                timeout.Token);
+            Assert.Equal(7, workChainTableCount);
+
             await dispatcher.ExecuteAsync(
                 async (connection, token) =>
                 {
@@ -162,6 +182,35 @@ public sealed class SqliteFoundationMigrationsTests
                     },
                     timeout.Token));
             Assert.Equal(19, exception.SqliteErrorCode);
+
+            await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText = WorkChainInsertSql;
+                    await command.ExecuteNonQueryAsync(token);
+                },
+                timeout.Token);
+            var duplicateActiveAttempt = await Assert.ThrowsAsync<SqliteException>(() =>
+                dispatcher.ExecuteAsync(
+                    async (connection, token) =>
+                    {
+                        await using var command = connection.CreateCommand();
+                        command.CommandText =
+                            """
+                            INSERT INTO work_attempts
+                                (id, tenant_id, project_id, task_id, instruction_version_id,
+                                 attempt_number, producer_agent_id, state, started_at)
+                            VALUES
+                                ('01ARZ3NDEKTSV4RRFFQ69G5FE7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                                 '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2',
+                                 '01ARZ3NDEKTSV4RRFFQ69G5FE3', 2, 'engineer-2', 'running',
+                                 '2026-07-18T16:00:01.0000000+00:00');
+                            """;
+                        await command.ExecuteNonQueryAsync(token);
+                    },
+                    timeout.Token));
+            Assert.Equal(19, duplicateActiveAttempt.SqliteErrorCode);
 
             await dispatcher.ExecuteAsync(
                 async (connection, token) =>
@@ -213,4 +262,46 @@ public sealed class SqliteFoundationMigrationsTests
             }
         }
     }
+
+    private const string WorkChainInsertSql =
+        """
+        INSERT INTO solicitations (id, tenant_id, project_id, user_id, content, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE0', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FAY',
+                'Request', '2026-07-18T16:00:00.0000000+00:00');
+        INSERT INTO demands
+            (id, tenant_id, project_id, solicitation_id, title, acceptance_criteria_json, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE1', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE0',
+                'Demand', '["green"]', '2026-07-18T16:00:00.0000000+00:00');
+        INSERT INTO work_tasks
+            (id, tenant_id, project_id, demand_id, title, risk_tier, weight, state, created_at, updated_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE2', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE1',
+                'Task', 'medium', 3, 'running', '2026-07-18T16:00:00.0000000+00:00',
+                '2026-07-18T16:00:00.0000000+00:00');
+        INSERT INTO instruction_versions
+            (id, tenant_id, project_id, task_id, version, content, content_hash, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE3', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2', 1,
+                'Instruction', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                '2026-07-18T16:00:00.0000000+00:00');
+        INSERT INTO work_attempts
+            (id, tenant_id, project_id, task_id, instruction_version_id,
+             attempt_number, producer_agent_id, state, started_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE4', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2',
+                '01ARZ3NDEKTSV4RRFFQ69G5FE3', 1, 'engineer', 'running',
+                '2026-07-18T16:00:00.0000000+00:00');
+        INSERT INTO work_evidence
+            (id, tenant_id, project_id, attempt_id, ordinal, reference, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE5', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE4', 1,
+                'test:green', '2026-07-18T16:00:00.0000000+00:00');
+        INSERT INTO work_reviews
+            (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE4',
+                'critic', 'approved', 'Evidence reviewed.', '2026-07-18T16:00:00.0000000+00:00');
+        """;
 }

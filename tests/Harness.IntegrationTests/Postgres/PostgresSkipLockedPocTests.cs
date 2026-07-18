@@ -19,13 +19,14 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(4, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(5, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
             new PostgresFoundationTransactionStore(dataSource),
             timeout.Token);
         await ValidateDurableSchemaAsync(dataSource, timeout.Token);
+        await ValidateWorkChainSchemaAsync(dataSource, timeout.Token);
         await DurableExecutionEngineBehavior.AssertAsync(
             new PostgresDurableExecutionEngine(dataSource),
             timeout.Token);
@@ -240,6 +241,81 @@ public sealed class PostgresSkipLockedPocTests
             "DELETE FROM harness.durable_executions WHERE id = '01ARZ3NDEKTSV4RRFFQ69G5FB9';");
         await cleanupCommand.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    private static async Task ValidateWorkChainSchemaAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using var countCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = 'harness'
+              AND table_name IN ('solicitations', 'demands', 'work_tasks',
+                                 'instruction_versions', 'work_attempts',
+                                 'work_evidence', 'work_reviews');
+            """);
+        Assert.Equal(7L, await countCommand.ExecuteScalarAsync(cancellationToken));
+
+        await using (var insertCommand = dataSource.CreateCommand(WorkChainInsertSql))
+        {
+            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var duplicateAttempt = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.work_attempts
+                (id, tenant_id, project_id, task_id, instruction_version_id,
+                 attempt_number, producer_agent_id, state, started_at)
+            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                    '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2',
+                    '01ARZ3NDEKTSV4RRFFQ69G5FE3', 2, 'engineer-2', 'running',
+                    '2026-07-18T16:00:01Z');
+            """);
+        var exception = await Assert.ThrowsAsync<PostgresException>(
+            () => duplicateAttempt.ExecuteNonQueryAsync(cancellationToken));
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
+    }
+
+    private const string WorkChainInsertSql =
+        """
+        INSERT INTO harness.solicitations (id, tenant_id, project_id, user_id, content, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE0', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FAY', 'Request',
+                '2026-07-18T16:00:00Z');
+        INSERT INTO harness.demands
+            (id, tenant_id, project_id, solicitation_id, title, acceptance_criteria_json, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE1', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE0', 'Demand',
+                '["green"]', '2026-07-18T16:00:00Z');
+        INSERT INTO harness.work_tasks
+            (id, tenant_id, project_id, demand_id, title, risk_tier, weight, state, created_at, updated_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE2', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE1', 'Task',
+                'medium', 3, 'running', '2026-07-18T16:00:00Z', '2026-07-18T16:00:00Z');
+        INSERT INTO harness.instruction_versions
+            (id, tenant_id, project_id, task_id, version, content, content_hash, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE3', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2', 1, 'Instruction',
+                'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                '2026-07-18T16:00:00Z');
+        INSERT INTO harness.work_attempts
+            (id, tenant_id, project_id, task_id, instruction_version_id,
+             attempt_number, producer_agent_id, state, started_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE4', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2',
+                '01ARZ3NDEKTSV4RRFFQ69G5FE3', 1, 'engineer', 'running', '2026-07-18T16:00:00Z');
+        INSERT INTO harness.work_evidence
+            (id, tenant_id, project_id, attempt_id, ordinal, reference, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE5', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE4', 1, 'test:green',
+                '2026-07-18T16:00:00Z');
+        INSERT INTO harness.work_reviews
+            (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, created_at)
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE4', 'critic',
+                'approved', 'Evidence reviewed.', '2026-07-18T16:00:00Z');
+        """;
 
     private sealed class ManagedPostgresFixture : IAsyncDisposable
     {

@@ -127,6 +127,7 @@ internal sealed class ManagedRecoveryPostgresFixture : IAsyncDisposable
                 Timeout = 5,
                 CommandTimeout = 5,
             }.ConnectionString;
+            await WaitUntilConnectableAsync(connectionString, cancellationToken);
             await WritePrivateFileAsync(connectionReferencePath, connectionString, cancellationToken);
             return new ManagedRecoveryPostgresFixture(
                 attemptId,
@@ -199,6 +200,38 @@ internal sealed class ManagedRecoveryPostgresFixture : IAsyncDisposable
         }
 
         throw new InvalidOperationException("Managed GNG-2 PostgreSQL did not become healthy.");
+    }
+
+    private static async Task WaitUntilConnectableAsync(
+        string connectionString,
+        CancellationToken cancellationToken)
+    {
+        Exception? lastError = null;
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            try
+            {
+                await using var connection = new NpgsqlConnection(connectionString);
+                await connection.OpenAsync(cancellationToken);
+                await using var command = new NpgsqlCommand("SELECT 1;", connection);
+                if (Convert.ToInt32(
+                    await command.ExecuteScalarAsync(cancellationToken),
+                    CultureInfo.InvariantCulture) == 1)
+                {
+                    return;
+                }
+            }
+            catch (NpgsqlException exception)
+            {
+                lastError = exception;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+        }
+
+        throw new InvalidOperationException(
+            "Managed GNG-2 PostgreSQL passed container health but did not accept an authenticated query.",
+            lastError);
     }
 
     private static async Task<string> DockerAsync(

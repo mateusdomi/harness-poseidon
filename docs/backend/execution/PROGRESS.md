@@ -47,4 +47,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Motor durável PostgreSQL | verde | mesmo comportamento completo do SQLite com locks transacionais e aquisição `FOR UPDATE SKIP LOCKED`; gate 62/62; `evidence/F1-DURABLE-ENGINE-POSTGRES.md` |
 | Recuperação abrupta GNG-2 | verde | `SIGKILL` real após 3/6 checkpoints em SQLite e PostgreSQL; retomada 6/6, fencing crescente, 8 Inbox, 6 transições/Outbox e 7 elos válidos; `evidence/F1-GNG2-RECOVERY.md` |
 | Contrato/agregado EP-09a | verde | cadeia de negócio append-only, evidência, tentativa única, correção e actor–critic por risco; 8/8 cenários; `evidence/F1-WORK-CHAIN-CONTRACT.md` |
-| Persistência EP-09b | próximo | migrations e store transacional dual-provider para a cadeia, Inbox/ledger/Outbox |
+| Schema EP-09b.1 | verde | 7 tabelas provider-specific, FKs compostas, checks e tentativa ativa única; migrations SQLite `4→0` / PostgreSQL `5→0`; `evidence/F1-WORK-CHAIN-SCHEMA.md` |
+| Store EP-09b.2 | próximo | transações/reidratação dual-provider com Inbox, ledger e Outbox |
