@@ -1,0 +1,79 @@
+/*
+ * Design tokens do Poseidon.
+ * Tema escuro é o padrão. O tema claro é derivado dos mesmos tokens semânticos
+ * (não é uma inversão automática). Componentes NUNCA hardcodam cores — usam
+ * apenas as variáveis abaixo (via classes utilitárias do Tailwind mapeadas em
+ * tailwind.config.js).
+ */
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Superfícies */
+  --color-background: #0a0a0f;
+  --color-surface: #14141c;
+  --color-surface-elevated: #1b1b25;
+
+  /* Texto */
+  --color-foreground: #f5f5f7;
+  --color-foreground-muted: #9ca3af;
+
+  /* Bordas (branco com opacidade) */
+  --color-border: rgb(255 255 255 / 0.08);
+  --color-border-strong: rgb(255 255 255 / 0.14);
+
+  /* Marca (destaques controlados, não semânticos) */
+  --color-brand: #7c5cfc;
+  --color-brand-magenta: #ec4899;
+  --gradient-brand: linear-gradient(135deg, #7c5cfc 0%, #ec4899 100%);
+
+  /* Ação principal (CTA). NÃO usar como cor de sucesso. */
+  --color-accent: #b6ff3c;
+  --color-accent-foreground: #0a0a0f;
+
+  /* Semânticas — contraste AA sobre --color-background / --color-surface */
+  --color-success: #34d399;
+  --color-success-foreground: #052e22;
+  --color-warning: #fbbf24;
+  --color-warning-foreground: #3a2503;
+  --color-error: #f87171;
+  --color-error-foreground: #3d0a0a;
+  --color-info: #60a5fa;
+  --color-info-foreground: #0a1c3d;
+
+  /* Foco visível */
+  --color-focus-ring: #b6ff3c;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --color-background: #f7f7fa;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+
+  --color-foreground: #17171d;
+  --color-foreground-muted: #5b6270;
+
+  --color-border: rgb(10 10 15 / 0.1);
+  --color-border-strong: rgb(10 10 15 / 0.18);
+
+  --color-brand: #6a3ef0;
+  --color-brand-magenta: #d61c7f;
+  --gradient-brand: linear-gradient(135deg, #6a3ef0 0%, #d61c7f 100%);
+
+  --color-accent: #79c400;
+  --color-accent-foreground: #0a0a0f;
+
+  --color-success: #0d7a54;
+  --color-success-foreground: #ffffff;
+  --color-warning: #a16207;
+  --color-warning-foreground: #ffffff;
+  --color-error: #c03434;
+  --color-error-foreground: #ffffff;
+  --color-info: #1d5fd1;
+  --color-info-foreground: #ffffff;
+
+  --color-focus-ring: #5a9e00;
+}

@@ -1,0 +1,83 @@
+{
+  "shell": {
+    "skipToContent": "Pular para o conteúdo",
+    "primaryNav": "Navegação principal",
+    "bottomNav": "Navegação inferior",
+    "more": "Mais",
+    "openMenu": "Abrir menu",
+    "closeMenu": "Fechar menu",
+    "collapseSidebar": "Recolher barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "toggleTheme": {
+      "toLight": "Mudar para tema claro",
+      "toDark": "Mudar para tema escuro"
+    },
+    "language": {
+      "label": "Idioma",
+      "pt-BR": "Português (Brasil)",
+      "en": "English"
+    },
+    "notifications": {
+      "label": "Notificações",
+      "unread": "{{count}} não lidas",
+      "unread_one": "{{count}} não lida"
+    }
+  },
+  "nav": {
+    "onboarding": "Onboarding",
+    "organizations": "Organizações",
+    "projects": "Projetos",
+    "cockpit": "Cockpit",
+    "chat": "Chat",
+    "conversations": "Conversas",
+    "workflows": "Fluxos de trabalho",
+    "board": "Quadro",
+    "documents": "Documentos",
+    "prototypes": "Protótipos",
+    "approvals": "Aprovações",
+    "orchestrator": "Orquestrador",
+    "agents": "Agentes",
+    "tools": "Ferramentas",
+    "run-project": "Executar projeto",
+    "notifications": "Notificações",
+    "providers": "Provedores",
+    "po-assistant": "Assistente de PO",
+    "governance": "Governança",
+    "licenses": "Licenças",
+    "settings": "Configurações"
+  },
+  "placeholder": {
+    "badge": "Em breve",
+    "description": "Esta tela está em construção. A implementação chega em uma próxima fatia.",
+    "statesTitle": "Estados planejados",
+    "states": {
+      "loading": "Carregando",
+      "empty": "Vazio",
+      "error": "Erro",
+      "ready": "Pronto"
+    }
+  },
+  "features": {
+    "onboarding": { "title": "Onboarding", "description": "Primeiros passos e configuração inicial da conta." },
+    "organizations": { "title": "Organizações", "description": "Gerencie organizações, membros e permissões." },
+    "projects": { "title": "Projetos", "description": "Lista e detalhes dos projetos desenvolvidos pelos agentes." },
+    "cockpit": { "title": "Cockpit", "description": "Visão geral da operação: status dos agentes e projetos ativos." },
+    "chat": { "title": "Chat", "description": "Converse com o agente chefe e a equipe de IA." },
+    "conversations": { "title": "Conversas", "description": "Histórico de conversas com os agentes." },
+    "workflows": { "title": "Fluxos de trabalho", "description": "Pipelines e automações dos projetos." },
+    "board": { "title": "Quadro", "description": "Quadro de tarefas do projeto." },
+    "documents": { "title": "Documentos", "description": "Documentação gerada e mantida pelos agentes." },
+    "prototypes": { "title": "Protótipos", "description": "Protótipos navegáveis gerados durante o desenvolvimento." },
+    "approvals": { "title": "Aprovações", "description": "Decisões pendentes de aprovação humana." },
+    "orchestrator": { "title": "Orquestrador", "description": "Coordenação do agente chefe sobre os demais agentes." },
+    "agents": { "title": "Agentes", "description": "Catálogo e status dos agentes de IA." },
+    "tools": { "title": "Ferramentas", "description": "Ferramentas disponíveis para os agentes." },
+    "run-project": { "title": "Executar projeto", "description": "Dispare uma nova execução de projeto." },
+    "notifications": { "title": "Notificações", "description": "Central de notificações." },
+    "providers": { "title": "Provedores", "description": "Provedores de modelos e integrações." },
+    "po-assistant": { "title": "Assistente de PO", "description": "Assistente de Product Owner para refino de requisitos." },
+    "governance": { "title": "Governança", "description": "Políticas, limites e auditoria." },
+    "licenses": { "title": "Licenças", "description": "Licenças e plano de uso." },
+    "settings": { "title": "Configurações", "description": "Preferências da aplicação." }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "shell": {
+    "skipToContent": "Skip to content",
+    "primaryNav": "Primary navigation",
+    "bottomNav": "Bottom navigation",
+    "more": "More",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "toggleTheme": {
+      "toLight": "Switch to light theme",
+      "toDark": "Switch to dark theme"
+    },
+    "language": {
+      "label": "Language",
+      "pt-BR": "Português (Brasil)",
+      "en": "English"
+    },
+    "notifications": {
+      "label": "Notifications",
+      "unread": "{{count}} unread",
+      "unread_one": "{{count}} unread"
+    }
+  },
+  "nav": {
+    "onboarding": "Onboarding",
+    "organizations": "Organizations",
+    "projects": "Projects",
+    "cockpit": "Cockpit",
+    "chat": "Chat",
+    "conversations": "Conversations",
+    "workflows": "Workflows",
+    "board": "Board",
+    "documents": "Documents",
+    "prototypes": "Prototypes",
+    "approvals": "Approvals",
+    "orchestrator": "Orchestrator",
+    "agents": "Agents",
+    "tools": "Tools",
+    "run-project": "Run project",
+    "notifications": "Notifications",
+    "providers": "Providers",
+    "po-assistant": "PO Assistant",
+    "governance": "Governance",
+    "licenses": "Licenses",
+    "settings": "Settings"
+  },
+  "placeholder": {
+    "badge": "Coming soon",
+    "description": "This screen is under construction. It will be implemented in an upcoming slice.",
+    "statesTitle": "Planned states",
+    "states": {
+      "loading": "Loading",
+      "empty": "Empty",
+      "error": "Error",
+      "ready": "Ready"
+    }
+  },
+  "features": {
+    "onboarding": { "title": "Onboarding", "description": "First steps and initial account setup." },
+    "organizations": { "title": "Organizations", "description": "Manage organizations, members and permissions." },
+    "projects": { "title": "Projects", "description": "List and details of projects built by the agents." },
+    "cockpit": { "title": "Cockpit", "description": "Operations overview: agent status and active projects." },
+    "chat": { "title": "Chat", "description": "Chat with the chief agent and the AI team." },
+    "conversations": { "title": "Conversations", "description": "Conversation history with the agents." },
+    "workflows": { "title": "Workflows", "description": "Project pipelines and automations." },
+    "board": { "title": "Board", "description": "Project task board." },
+    "documents": { "title": "Documents", "description": "Documentation generated and maintained by the agents." },
+    "prototypes": { "title": "Prototypes", "description": "Navigable prototypes generated during development." },
+    "approvals": { "title": "Approvals", "description": "Decisions pending human approval." },
+    "orchestrator": { "title": "Orchestrator", "description": "Chief agent coordination over the other agents." },
+    "agents": { "title": "Agents", "description": "Catalog and status of AI agents." },
+    "tools": { "title": "Tools", "description": "Tools available to the agents." },
+    "run-project": { "title": "Run project", "description": "Start a new project run." },
+    "notifications": { "title": "Notifications", "description": "Notification center." },
+    "providers": { "title": "Providers", "description": "Model providers and integrations." },
+    "po-assistant": { "title": "PO Assistant", "description": "Product Owner assistant for requirements refinement." },
+    "governance": { "title": "Governance", "description": "Policies, limits and audit." },
+    "licenses": { "title": "Licenses", "description": "Licenses and usage plan." },
+    "settings": { "title": "Settings", "description": "Application preferences." }
+  }
+}
