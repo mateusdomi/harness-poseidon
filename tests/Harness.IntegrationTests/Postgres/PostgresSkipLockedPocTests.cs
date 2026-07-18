@@ -27,6 +27,9 @@ public sealed class PostgresSkipLockedPocTests
             timeout.Token);
         await ValidateDurableSchemaAsync(dataSource, timeout.Token);
         await ValidateWorkChainSchemaAsync(dataSource, timeout.Token);
+        await WorkChainStoreBehavior.AssertAsync(
+            new PostgresWorkChainStore(dataSource),
+            timeout.Token);
         await DurableExecutionEngineBehavior.AssertAsync(
             new PostgresDurableExecutionEngine(dataSource),
             timeout.Token);

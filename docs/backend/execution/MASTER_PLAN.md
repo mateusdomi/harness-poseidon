@@ -44,9 +44,10 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 8. EP-05d: critério de recuperação GNG-2 com encerramento abrupto e auditoria completa nos dois providers — verde em 2026-07-18.
 9. EP-06/EP-09a: contrato e agregado provider-neutral da cadeia Solicitação→Revisão — verde em 2026-07-18.
 10. EP-09b.1: migrations dual-provider da cadeia — verde em 2026-07-18.
-11. EP-09b.2: store transacional/reidratação dual-provider com Inbox, ledger e Outbox — próximo incremento.
-12. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
-13. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
+11. EP-09b.2a: criação/snapshot transacional dual-provider com Inbox, ledger e Outbox — verde em 2026-07-18.
+12. EP-09b.2b: mutações de attempt/evidência/review e reidratação completa — próximo incremento.
+13. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
+14. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 

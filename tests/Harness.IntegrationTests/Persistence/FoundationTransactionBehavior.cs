@@ -5,11 +5,14 @@ namespace Harness.IntegrationTests.Persistence;
 
 internal static class FoundationTransactionBehavior
 {
+    public const string TenantId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    public const string ProjectId = "01ARZ3NDEKTSV4RRFFQ69G5FAX";
+
     public static async Task AssertAsync(
         IFoundationTransactionStore store,
         CancellationToken cancellationToken)
     {
-        var command = CreateCommand();
+        var command = Command();
         var concurrentResults = await Task.WhenAll(
             Enumerable.Range(0, 10).Select(_ => store.ProvisionProjectAsync(command, cancellationToken)));
 
@@ -67,12 +70,12 @@ internal static class FoundationTransactionBehavior
         Assert.Equal(expectedSnapshot, await store.ReadSnapshotAsync(cancellationToken));
     }
 
-    private static ProjectProvisionCommand CreateCommand() => new(
-        "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    public static ProjectProvisionCommand Command() => new(
+        TenantId,
         "Tenant",
         "01ARZ3NDEKTSV4RRFFQ69G5FAW",
         "Organization",
-        "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+        ProjectId,
         "Project",
         "01ARZ3NDEKTSV4RRFFQ69G5FAY",
         "Local User",
