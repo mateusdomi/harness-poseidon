@@ -90,4 +90,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-DOC-1a catálogo/versões | verde | documentos e versões exatos, corpo imutável no filesystem catalogado por SHA-256, restart, OpenAPI/drift; gate 134/134; `evidence/F2-DOCUMENT-CATALOG.md` |
 | F2-DOC-1b lifecycle/aprovação documental | verde | classificação, estados, request/reject/approve, nota obrigatória, eventos duplos e restart; gate 134/134; `evidence/F2-DOCUMENT-LIFECYCLE.md` |
 | F2-APP-1 central unificada | verde | documento+tarefa+gate+decisão humana, prioridade/prazo, resolução, gate sem burla, eventos e restart; gate 134/134; `evidence/F2-APPROVAL-CENTER.md` |
-| F2-ORCH-1 orquestrador/agentes | próximo | definições/instâncias, equipe, comandos do chief e integração com execução durável |
+| F2-ORCH-1a catálogo/instâncias | verde | seis definições canônicas, Chief atômico por projeto, métricas+lease/fencing, list/read, filtro, restart e OpenAPI/drift; gate 135/135; `evidence/F2-AGENT-CATALOG.md` |
+| F2-ORCH-1b comandos do Chief | próximo | pause/resume/handoff/drain transacionais, fencing, tarefas/attempts e eventos |

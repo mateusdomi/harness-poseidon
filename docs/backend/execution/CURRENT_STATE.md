@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T21:07:00Z
+Atualizado em: 2026-07-18T21:38:00Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-ORCH-1 — orquestrador e agentes; documentos/aprovações estão verdes.
+- Épico atual: F2-ORCH-1b — comandos transacionais pause/resume/handoff/drain do Chief; catálogo/instâncias estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `dedb29a` (`develop`), contendo F2-APP-1 verde com 134/134 testes.
-- Próximo passo exato: implementar catálogo de definições/instâncias de agentes, equipe do projeto e comandos pause/resume/handoff/drain do chief sobre a execução durável.
+- Último commit remoto validado: `e815ca8` (`develop`), contendo F2-ORCH-1a verde com 135/135 testes.
+- Próximo passo exato: implementar pause/resume/handoff/drain do Chief com fencing crescente, ledger/Outbox e integração com tarefas/attempts duráveis.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T21:07:00Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` até `0017_general_approvals`; PostgreSQL possui `0010_global_realtime_stream`. Históricos são separados/idempotentes (`17→0` e `10→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` até `0018_agent_catalog`; PostgreSQL possui `0010_global_realtime_stream`. Históricos são separados/idempotentes (`18→0` e `10→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -82,10 +82,11 @@ Atualizado em: 2026-07-18T21:07:00Z
 - F2 documentos catálogo/versões: documentos e versões expõem os campos exatos do frontend sobre a autoridade F1. Corpos UTF-8 ficam fora do banco em catálogo filesystem com path relativo e SHA-256 verificado; criação/append usam compensação em falha, versões são imutáveis e o Host recupera metadados e conteúdo após restart.
 - F2 documentos lifecycle/aprovação: classificação parcial preserva metadados ausentes; transições usam OCC e matriz F1. A intenção frontend de `awaitingApproval` não cria estado impossível sem request: o POST seguinte cria approval e transição atomicamente. Reprovação sem nota é recusada, reprovação válida retorna à elaboração e segunda aprovação conclui. `approval.requested`, `approval.resolved` e `document.stateChanged` têm payload frontend e stream de projeto comprovados.
 - F2 central de aprovações: a leitura unifica requests documentais F1 e decisões gerais F2. Criação aceita documento, tarefa, gate ou decisão humana, com prioridade/prazo. Resolução de gate é transacional com a approval, verifica run/fase ativos e requisitos objetivos antes de alterar gate/objetivo, portanto tentativa antecipada não burla o workflow. Eventos de approval/gate são sequenciados no projeto e estado sobrevive restart.
-- Migrations: SQLite `17→0` e PostgreSQL `10→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-APP-1: restore locked, format, build Release com zero warnings/erros e 134/134 testes verdes (`Unit 87`, `Integration 24`, `Contract 10`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- F2 catálogo de agentes: migration semeia exatamente as seis definições iniciais da missão e cria instâncias tenant/project-scoped com métricas e lease/fencing. A criação de projeto persiste o Chief correspondente na mesma transação; list/read exatos do frontend, paginação, filtro por projeto, OpenAPI/drift e recuperação após restart estão comprovados.
+- Migrations: SQLite `18→0` e PostgreSQL `10→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-ORCH-1a: restore locked, format, build Release com zero warnings/erros e 135/135 testes verdes (`Unit 87`, `Integration 24`, `Contract 11`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos e aprovações F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é orquestrador/agentes F2.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações e catálogo de agentes F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento são os comandos do Chief.
 
 ## Sanidade antes de retomar
 
