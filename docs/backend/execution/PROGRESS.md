@@ -94,4 +94,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-ORCH-1b comandos do Chief | verde | pause/resume, handoff chief-only com fencing 1→2, drain atômico de tarefa/attempt/execução/agente, streams e restart; gate 136/136; `evidence/F2-CHIEF-COMMANDS.md` |
 | F2-TOOL-1 ferramentas/skills/plugins/MCP | verde | quatro catálogos, vínculos de agentes, PATCH, MCP 2025-11-25, checksum/permissões/risk, policy/allowlist/sandbox e eventos; gate 145/145; `evidence/F2-TOOL-CATALOG-POLICY.md` |
 | F2-PROV-1 providers/contas/modelos/budgets | verde | tenant catalog, referências sem segredo, sync, routing, budgets/quota, eventos e restart; gate 151/151; `evidence/F2-PROVIDERS-ROUTING-BUDGETS.md` |
-| F2-NOTIF-1 notificações | próximo | persistência, dedupe, read/mute em lote e realtime |
+| F2-NOTIF-1 notificações/settings | verde | perfil transacional, coalescência por `groupKey`, read/mute em lote, stream privado, ledger/auditoria, restart e contratos exatos; gate 154/154; `evidence/F2-NOTIFICATIONS-SETTINGS.md` |
+| F2-GOV-1 governança/auditoria | próximo | leitura tenant-scoped do ledger, trilhas verificáveis e exportação |

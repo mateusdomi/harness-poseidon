@@ -83,8 +83,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 10. Orquestrador e agentes — verde em 2026-07-18.
 11. Ferramentas, skills, plugins e MCP — verde em 2026-07-18.
 12. Providers, contas, modelos, roteamento e budgets — verde em 2026-07-18.
-13. Notificações — em execução.
-14. Governança e auditoria — pendente.
+13. Notificações — verde em 2026-07-18.
+14. Governança e auditoria — em execução.
 15. Complementares e integração frontend/dogfood — pendente.
 
 ## Backlog épico
