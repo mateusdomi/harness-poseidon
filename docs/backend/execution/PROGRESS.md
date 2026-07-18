@@ -95,4 +95,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-TOOL-1 ferramentas/skills/plugins/MCP | verde | quatro catálogos, vínculos de agentes, PATCH, MCP 2025-11-25, checksum/permissões/risk, policy/allowlist/sandbox e eventos; gate 145/145; `evidence/F2-TOOL-CATALOG-POLICY.md` |
 | F2-PROV-1 providers/contas/modelos/budgets | verde | tenant catalog, referências sem segredo, sync, routing, budgets/quota, eventos e restart; gate 151/151; `evidence/F2-PROVIDERS-ROUTING-BUDGETS.md` |
 | F2-NOTIF-1 notificações/settings | verde | perfil transacional, coalescência por `groupKey`, read/mute em lote, stream privado, ledger/auditoria, restart e contratos exatos; gate 154/154; `evidence/F2-NOTIFICATIONS-SETTINGS.md` |
-| F2-GOV-1 governança/auditoria | próximo | leitura tenant-scoped do ledger, trilhas verificáveis e exportação |
+| F2-GOV-1 governança/auditoria | verde | projeção completa do ledger, filtros/get, integridade SHA-256, export JSON/CSV mascarado, append-only dual-provider e restart; gate 156/156; `evidence/F2-GOVERNANCE-AUDIT.md` |
+| F2-PROT-1 prototipação | próximo | projetos, protótipos, referências visuais, galerias e waivers |
