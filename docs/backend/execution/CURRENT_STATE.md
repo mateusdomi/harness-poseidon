@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T18:47:54Z
+Atualizado em: 2026-07-18T18:59:52Z
 
 ## Retomada rápida
 
-- Fase atual: transição para Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: preparação F2 — sincronização e reconciliação de contratos; watchdog/reconciliador está verde.
+- Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
+- Épico atual: F2-ORG-1 — organizações; perfil local está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `381f78f` (`develop`); F1-WRK-2/GNG-2 aguardam o commit que conterá este estado.
-- Próximo passo exato: publicar o fechamento F1, fazer fetch/rebase, reler `docs/frontend/CURRENT_STATE.md`, `docs/frontend/HANDOFF_API.md` e `frontend/src/api/contracts/**`, atualizar reconciliação/drift e iniciar a fatia vertical de perfil local.
+- Último commit remoto validado: `54d9395` (`develop`); F2-ID-1 aguarda o commit que conterá este estado.
+- Próximo passo exato: implementar a fatia vertical de organizações conforme `organizationSchema`: domínio, marca/policies/templates herdáveis, persistência SQLite, API list/read/create/update, testes e OpenAPI, sem editar frontend.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T18:47:54Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui fundação, Runner IPC, execução durável, cadeia, workflows, documentos, dispatch da Outbox e eventos realtime; PostgreSQL possui também a PoC queue e as mesmas áreas em SQL próprio. Históricos são separados/idempotentes (`8→0` e `9→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`9→0` e `9→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -70,8 +70,9 @@ Atualizado em: 2026-07-18T18:47:54Z
 - Host realtime F1-WRK-1d.3b: o modo pessoal cria um único dispatcher SQLite, aplica migrations antes dos workers e compartilha o ciclo de vida entre Runner IPC, Outbox e realtime. O store em memória foi removido; snapshots HTTP e SignalR são persistidos. O teste end-to-end desconectou, encerrou e reiniciou o Host no mesmo banco, recuperou delta `[2,3]`, suprimiu replay da mensagem 1 e retomou live em 4 sem duplicação/lacuna.
 - Watchdog F1-WRK-2: tenants ativos são descobertos nos dois providers; dez ciclos concorrentes produzem uma reconciliação, fencing antigo é recusado, checkpoint sobrevive, retry/backoff reativa sem LLM e o limite produz dead-letter único. Novo worker sobre o mesmo estado é no-op, e o BackgroundService encerra por cancellation.
 - GNG-2: formalmente verde. Os testes de `SIGKILL` SQLite/PostgreSQL usam agora o watchdog após restart e preservam 6/6 checkpoints, 2 attempts, 8 Inbox, 6 transições/Outbox e ledger de 7 elos íntegros.
-- Migrations: SQLite `8→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde no fechamento F1/GNG-2: restore locked, format, build Release com zero warnings/erros e 104/104 testes verdes.
+- F2 perfil local: domínio e aplicação no módulo Identity, store SQLite no dispatcher único, sessão por cookie HttpOnly, current/list/create/patch com cursor e Problem Details. Restart do Host preservou perfil e update; segunda criação foi recusada. OpenAPI/drift batem com os sete campos do contrato TypeScript.
+- Migrations: SQLite `9→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-ID-1: restore locked, format, build Release com zero warnings/erros e 108/108 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido e watchdog verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo caminho crítico é F2.
 

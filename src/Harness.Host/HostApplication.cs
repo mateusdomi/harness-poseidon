@@ -1,9 +1,11 @@
 using System.Net;
 using Harness.Host.Ipc;
 using Harness.Host.Persistence;
+using Harness.Host.Profiles;
 using Harness.Host.Realtime;
 using Harness.Host.Workers;
 using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Messaging;
 using Harness.Persistence.Abstractions.Realtime;
 using Harness.Persistence.Abstractions.RunnerIpc;
@@ -42,6 +44,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
         builder.Services.AddSingleton<IRealtimeEventStore, SqliteRealtimeEventStore>();
         builder.Services.AddSingleton<IDurableExecutionEngine, SqliteDurableExecutionEngine>();
+        builder.Services.AddSingleton<ILocalProfileStore, SqliteLocalProfileStore>();
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
@@ -80,6 +83,7 @@ public static class HostApplication
         app.MapOpenApi("/openapi/{documentName}.json");
         app.MapHub<EventsHub>("/hubs/events");
         app.MapRunnerIpc();
+        app.MapLocalProfiles();
         app.MapGet(
             "/api/v1/event-streams/snapshot",
             async Task<IResult> (

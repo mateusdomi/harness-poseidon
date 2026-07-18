@@ -71,9 +71,9 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 
 ## Fase 2 — ordem inicial retomável
 
-1. Sincronizar `origin/develop`, reler estado/contratos atuais do frontend e registrar drift sem editar sua área.
-2. Fatia vertical de perfil local: domínio, aplicação, persistência, API, eventos, testes e OpenAPI.
-3. Organizações.
+1. Sincronizar `origin/develop`, reler estado/contratos atuais do frontend e registrar drift sem editar sua área — verde em 2026-07-18.
+2. Fatia vertical de perfil local: domínio, aplicação, persistência, API, eventos aplicáveis, testes e OpenAPI — verde em 2026-07-18.
+3. Organizações — próximo incremento.
 4. Projetos.
 5. Cockpit/digest e demais fatias na ordem definida pelo handoff.
 

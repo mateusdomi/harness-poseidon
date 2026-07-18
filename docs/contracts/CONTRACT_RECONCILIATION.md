@@ -48,3 +48,11 @@ Os contratos FE-2 de `Document`, `DocumentVersion`, `Approval`, comandos e hando
 - `inconsistent` foi modelado; waiver permanece para a fatia de prototipação/governança prevista na missão e não foi fabricado antecipadamente.
 
 Nenhum contrato do frontend foi editado. Eventos públicos continuam os canônicos `document.stateChanged`, `approval.requested` e `approval.resolved`.
+
+## Entrada F2 e perfil local — 2026-07-18
+
+Todos os 13 arquivos em `frontend/src/api/contracts/**`, `docs/frontend/CURRENT_STATE.md` e `HANDOFF_API.md` foram relidos após fetch/rebase. Os tree hashes protegidos permaneceram `frontend=87552e2b...` e `docs/frontend=8294e1ce...`.
+
+A primeira fatia vertical materializou o schema `Profile` exatamente com `id`, `displayName`, `email`, `avatarUrl`, `locale`, `createdAt` e `lastActiveAt`; a versão OCC permanece interna e não vaza na resposta. `profiles/current`, paginação, POST de onboarding e PATCH foram publicados no OpenAPI.
+
+O quadro do handoff marca criação de `profiles` como indisponível, mas `CreateInputMap` — fonte tipada declarada pelo próprio frontend — inclui criação e a UI de onboarding depende dela. O backend implementou o POST e registrou o desvio documental, sem alterar arquivos da Kimi. Não foi inventado evento `profile.updated`, pois ele não existe nem no catálogo normativo v1.3 nem no catálogo TypeScript; auditoria/evento público será ligado à fatia de governança sem criar drift.

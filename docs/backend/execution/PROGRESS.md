@@ -72,3 +72,11 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F1-WRK-1d.3b | verde | dispatcher/migrations/stores/worker compartilhados no Host; shutdown+restart, snapshot HTTP/SignalR `[2,3]`, replay sem broadcast e sequência final `[1,2,3,4]`; gate 104/104; `evidence/F1-HOST-PERSISTED-REALTIME.md` |
 | F1-WRK-2 | verde | 10 ciclos concorrentes→1 reconciliação; timer/signal timeout, retry, fencing, checkpoint, dead-letter, restart idempotente e shutdown limpo equivalentes nos dois providers; `evidence/F1-WATCHDOG-RECONCILIATION.md` |
 | Encerramento F1/GNG-2 | verde | SIGKILL dual-provider retomado automaticamente, auditoria completa, migrations 8→0/9→0, gate 104/104 e zero órfão; `evidence/F1-GNG2-CLOSURE.md` |
+
+## Fase 2
+
+| Incremento | Estado | Última evidência |
+|---|---|---|
+| F2-PREP-1 | verde | fetch/rebase e leitura integral de estado, handoff e 13 contratos TypeScript; drift registrado sem editar frontend |
+| F2-ID-1 perfil local | verde | domínio/aplicação, migration/store SQLite, cookie local, API current/list/create/patch, restart, Problem Details, OpenAPI e drift; gate 108/108; `evidence/F2-LOCAL-PROFILE.md` |
+| F2-ORG-1 organizações | próximo | domínio, persistência pessoal, API, contratos e testes |
