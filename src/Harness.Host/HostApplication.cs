@@ -1,5 +1,6 @@
 using System.Net;
 using Harness.Host.Conversations;
+using Harness.Host.Documents;
 using Harness.Host.Ipc;
 using Harness.Host.Organizations;
 using Harness.Host.Persistence;
@@ -10,6 +11,7 @@ using Harness.Host.Workers;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
 using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Identity;
@@ -64,6 +66,16 @@ public static class HostApplication
         builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
         builder.Services.AddSingleton<IWorkflowStore, SqliteWorkflowStore>();
         builder.Services.AddSingleton<IWorkflowCatalogStore, SqliteWorkflowCatalogStore>();
+        builder.Services.AddSingleton<IDocumentStore, SqliteDocumentStore>();
+        builder.Services.AddSingleton<IDocumentCatalogStore, SqliteDocumentCatalogStore>();
+        var documentCatalogPath = builder.Configuration["Harness:DocumentCatalogPath"];
+        if (string.IsNullOrWhiteSpace(documentCatalogPath))
+        {
+            documentCatalogPath = Path.Combine(
+                Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "catalog");
+        }
+        builder.Services.AddSingleton<IDocumentContentCatalog>(
+            new FileSystemDocumentContentCatalog(documentCatalogPath));
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
@@ -108,6 +120,7 @@ public static class HostApplication
         app.MapConversations();
         app.MapWorkBoard();
         app.MapWorkflowCatalog();
+        app.MapDocumentCatalog();
         app.MapGet(
             "/api/v1/event-streams/snapshot",
             async Task<IResult> (
