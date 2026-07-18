@@ -24,8 +24,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 4. PoC-1: SQLite WAL + dispatcher único — verde em 2026-07-18.
 5. PoC-2: kill abrupto + reconciliação — verde em 2026-07-18.
 6. PoC-3: lease + fencing — verde em 2026-07-18.
-7. PoC-4: Codex CLI subprocesso/checkpoint/reidratação — próximo incremento.
-8. PoC-5: Git fixtures, branches/worktrees e claims.
+7. PoC-4: Codex CLI subprocesso/checkpoint/reidratação — verde em 2026-07-18.
+8. PoC-5: Git fixtures, branches/worktrees e claims — próximo incremento.
 9. PoC-6: sandbox Docker com limites, proxy/egress e cleanup.
 10. PoC-7: SignalR com sequência e re-sync.
 11. PoC-8: PostgreSQL gerenciado e `SKIP LOCKED`.

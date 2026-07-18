@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T12:08:18Z
+Atualizado em: 2026-07-18T12:21:38Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-11 — subprocesso Codex CLI e PoC-4; PoCs 1–3 validadas.
+- Épico atual: EP-12 — operações Git e PoC-5; PoCs 1–4 validadas.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `db5aa9a` (`develop`); a fatia PoC-3 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: inspecionar as capacidades locais do Codex CLI sem usar credenciais, implementar wrapper de subprocesso/heartbeat/interrupção/checkpoint e executar a parte não autenticada da PoC-4; smoke real permanece opt-in por `HARNESS_RUN_REAL_AGENT_TESTS=true` e configuração explícita.
+- Último commit remoto validado: `b9ebe33` (`develop`); a fatia PoC-4 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: implementar a PoC-5 em três repositórios fixture descartáveis, exercitando branches/worktrees paralelas e claims com/sem interseção, e provar que nenhuma branch/worktree foi criada no repositório oficial.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -32,9 +32,10 @@ Atualizado em: 2026-07-18T12:08:18Z
 - SQLite: EF Core SQLite 10.0.10; native SQLite pinado em 3.53.3 por segurança; dispatcher único validado em WAL.
 - Recuperação: processo fixture sofreu SIGKILL real após 3/6 checkpoints; nova instância reconciliou e concluiu com 6 checkpoints únicos.
 - Fencing: token antigo não gravou nem renovou após aquisição do token crescente pelo novo owner.
-- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 35 testes verdes nas seis suítes.
+- Codex CLI: app-server real supervisionado com ambiente/estado isolados; heartbeat crescente, kill da árvore, retomada por `threadId` e sessão nova reidratada do commit Git, sem turno de modelo.
+- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 36 testes verdes nas seis suítes; teste PoC-4 verde em seis execuções.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–3 verdes e catalogadas; PoCs 4–9 pendentes e GNG-1 permanece fechado (3/9).
+- Evidências: PoCs 1–4 verdes e catalogadas; PoCs 5–9 pendentes e GNG-1 permanece fechado (4/9).
 
 ## Sanidade antes de retomar
 
