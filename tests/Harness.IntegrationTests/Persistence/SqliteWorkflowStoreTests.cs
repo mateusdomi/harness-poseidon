@@ -22,6 +22,7 @@ public sealed class SqliteWorkflowStoreTests
             await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
                 FoundationTransactionBehavior.Command(), timeout.Token);
             await WorkflowStoreBehavior.AssertAsync(new SqliteWorkflowStore(dispatcher), timeout.Token);
+            await DocumentStoreBehavior.AssertAsync(new SqliteDocumentStore(dispatcher), timeout.Token);
         }
         finally
         {

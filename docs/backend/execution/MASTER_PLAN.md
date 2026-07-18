@@ -55,8 +55,9 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 19. EP-10b.2b.3: objetivos/gates/fases, reidratação e progresso dual-provider — verde em 2026-07-18.
 20. F1-DOC-1a: agregado de documentos, versões imutáveis, aprovações e órfãos — verde em 2026-07-18.
 21. F1-DOC-1b: schema dual-provider append-only de documentos — verde em 2026-07-18.
-22. F1-DOC-1c: store transacional, reidratação e auditoria de documentos — próximo incremento.
-23. Workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
+22. F1-DOC-1c.1: criação/leitura transacional e idempotente dual-provider — verde em 2026-07-18.
+23. F1-DOC-1c.2: versionamento/classificação/lifecycle/aprovação com OCC e auditoria — próximo incremento.
+24. Workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 

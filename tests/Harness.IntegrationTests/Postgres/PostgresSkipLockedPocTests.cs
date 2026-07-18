@@ -35,6 +35,9 @@ public sealed class PostgresSkipLockedPocTests
             new PostgresWorkflowStore(dataSource),
             timeout.Token);
         await ValidateDocumentSchemaAsync(dataSource, timeout.Token);
+        await DocumentStoreBehavior.AssertAsync(
+            new PostgresDocumentStore(dataSource),
+            timeout.Token);
         await DurableExecutionEngineBehavior.AssertAsync(
             new PostgresDurableExecutionEngine(dataSource),
             timeout.Token);
