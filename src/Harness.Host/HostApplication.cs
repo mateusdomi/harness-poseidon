@@ -1,4 +1,5 @@
 using System.Net;
+using Harness.Host.Agents;
 using Harness.Host.Conversations;
 using Harness.Host.Documents;
 using Harness.Host.Ipc;
@@ -11,6 +12,7 @@ using Harness.Host.Workers;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
 using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
@@ -60,6 +62,7 @@ public static class HostApplication
         builder.Services.AddSingleton<ILocalProfileStore, SqliteLocalProfileStore>();
         builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
         builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
+        builder.Services.AddSingleton<IAgentCatalogStore, SqliteAgentCatalogStore>();
         builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
         builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
         builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
@@ -117,6 +120,7 @@ public static class HostApplication
         app.MapLocalProfiles();
         app.MapOrganizations();
         app.MapProjects();
+        app.MapAgents();
         app.MapConversations();
         app.MapWorkBoard();
         app.MapWorkflowCatalog();

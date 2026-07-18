@@ -49,6 +49,19 @@ public sealed class SqliteProjectStore(SqliteWriteDispatcher dispatcher) : IProj
                 VALUES ($id,$tenant,$org,$name,$key,$description,$state,$criticality,$url,$provider,$branch,$tech,
                     $logo,$primary,$secondary,$typography,$members,$config,$chief,$mode,1,$at,$at);
                 """; Bind(q, p); Add(q, "$tenant", command.TenantId); Add(q, "$at", Store(command.OccurredAt)); await q.ExecuteNonQueryAsync(token);
+            await using var chief = c.CreateCommand(); chief.Transaction = tx; chief.CommandText = """
+                INSERT INTO agents
+                    (id,tenant_id,definition_id,project_id,name,state,lease_fencing_token,
+                     lease_expires_at,last_heartbeat_at,created_at)
+                VALUES ($id,$tenant,'01ARZ3NDEKTSV4RRFFQ69G5FAV',$project,$name,'idle',1,$lease,$at,$at);
+                """;
+            Add(chief, "$id", p.ChiefAgentId);
+            Add(chief, "$tenant", command.TenantId);
+            Add(chief, "$project", p.Id);
+            Add(chief, "$name", $"Chief — {p.Key}");
+            Add(chief, "$lease", Store(command.OccurredAt.AddMinutes(1)));
+            Add(chief, "$at", Store(command.OccurredAt));
+            await chief.ExecuteNonQueryAsync(token);
             var payload = JsonSerializer.Serialize(new { projectId = p.Id, organizationId = p.OrganizationId, name = p.Name, key = p.Key });
             var tail = await TailAsync(c, tx, command.TenantId, token); const string eventType = "project.created";
             var hash = AuditLedgerHash.Compute(tail.PreviousHash, command.TenantId, tail.Sequence, eventType, payload, command.OccurredAt);
