@@ -8,6 +8,16 @@ namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteWorkChainStore
 {
+    public Task<WorkChainMutationReceipt> AddInstructionVersionAsync(
+        WorkInstructionVersionCreateCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => AddInstructionVersionCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> StartAttemptAsync(
         WorkAttemptStartCommand command,
         CancellationToken cancellationToken = default)
@@ -36,6 +46,78 @@ public sealed partial class SqliteWorkChainStore
         return _dispatcher.ExecuteAsync(
             (connection, token) => ReviewAttemptCoreAsync(connection, command, token),
             cancellationToken);
+    }
+
+    private static async Task<WorkChainMutationReceipt> AddInstructionVersionCoreAsync(
+        SqliteConnection connection,
+        WorkInstructionVersionCreateCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId,
+            command.TaskId, attemptId: null, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, attemptId: null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, attemptId: null);
+        }
+        else if (row.TaskState != "ready" || row.LatestAttemptState != "rejected")
+        {
+            receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, attemptId: null);
+        }
+        else
+        {
+            var instructionVersion = row.LatestInstructionVersion + 1;
+            var nextTaskVersion = row.Version + 1;
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                INSERT INTO instruction_versions
+                    (id, tenant_id, project_id, task_id, version, content, content_hash,
+                     supersedes_id, created_at)
+                VALUES
+                    ($instructionId, $tenantId, $projectId, $taskId, $instructionVersion,
+                     $content, $contentHash, $supersedesId, $occurredAt);
+                UPDATE work_tasks SET version = $nextTaskVersion, updated_at = $occurredAt
+                WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedTaskVersion;
+                """;
+            Add(mutation, "$instructionId", command.InstructionVersionId);
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$projectId", row.ProjectId);
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$instructionVersion", instructionVersion);
+            Add(mutation, "$content", command.Content);
+            Add(mutation, "$contentHash", command.ContentHash);
+            Add(mutation, "$supersedesId", row.LatestInstructionId);
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$nextTaskVersion", nextTaskVersion);
+            Add(mutation, "$expectedTaskVersion", command.ExpectedTaskVersion);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, null,
+                nextTaskVersion, "ready", row.LatestAttemptState,
+                InstructionVersionId: command.InstructionVersionId,
+                InstructionVersion: instructionVersion);
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
     }
 
     private static async Task<WorkChainMutationReceipt> StartAttemptCoreAsync(
@@ -281,6 +363,7 @@ public sealed partial class SqliteWorkChainStore
             """
             SELECT t.project_id, t.version, t.state, t.risk_tier,
                    (SELECT id FROM instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
+                   (SELECT version FROM instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT COUNT(*) FROM work_attempts a WHERE a.task_id = t.id),
                    (SELECT state FROM work_attempts a WHERE a.task_id = t.id ORDER BY attempt_number DESC LIMIT 1),
                    (SELECT instruction_version_id FROM work_attempts a WHERE a.task_id = t.id ORDER BY attempt_number DESC LIMIT 1),
@@ -299,11 +382,11 @@ public sealed partial class SqliteWorkChainStore
         return await reader.ReadAsync(cancellationToken)
             ? new TaskRow(
                 reader.GetString(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3),
-                reader.GetString(4), reader.GetInt32(5),
-                reader.IsDBNull(6) ? null : reader.GetString(6),
+                reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6),
                 reader.IsDBNull(7) ? null : reader.GetString(7),
                 reader.IsDBNull(8) ? null : reader.GetString(8),
-                reader.IsDBNull(9) ? null : reader.GetString(9))
+                reader.IsDBNull(9) ? null : reader.GetString(9),
+                reader.IsDBNull(10) ? null : reader.GetString(10))
             : null;
     }
 
@@ -356,6 +439,8 @@ public sealed partial class SqliteWorkChainStore
                 attemptId = receipt.AttemptId,
                 taskState = receipt.TaskState,
                 attemptState = receipt.AttemptState,
+                instructionVersionId = receipt.InstructionVersionId,
+                instructionVersion = receipt.InstructionVersion,
                 version = receipt.TaskVersion,
             });
             var (sequence, previousHash) = await ReadLedgerTailAsync(
@@ -412,13 +497,13 @@ public sealed partial class SqliteWorkChainStore
     private static WorkChainMutationReceipt Rejected(
         WorkChainMutationStatus status,
         string taskId,
-        string attemptId) => new(status, taskId, attemptId, null, null, null);
+        string? attemptId) => new(status, taskId, attemptId, null, null, null);
 
     private static WorkChainMutationReceipt Rejected(
         WorkChainMutationStatus status,
         TaskRow row,
         string taskId,
-        string attemptId) => new(
+        string? attemptId) => new(
             status, taskId, attemptId,
             row.Version, row.TaskState, row.AttemptState);
 
@@ -428,6 +513,7 @@ public sealed partial class SqliteWorkChainStore
         string TaskState,
         string RiskTier,
         string LatestInstructionId,
+        int LatestInstructionVersion,
         int AttemptCount,
         string? LatestAttemptState,
         string? LatestAttemptInstructionId,

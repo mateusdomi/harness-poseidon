@@ -50,4 +50,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Schema EP-09b.1 | verde | 7 tabelas provider-specific, FKs compostas, checks e tentativa ativa única; migrations SQLite `4→0` / PostgreSQL `5→0`; `evidence/F1-WORK-CHAIN-SCHEMA.md` |
 | Store EP-09b.2a | verde | criação/snapshot dual-provider: 10 concorrentes = 1 aplicação/9 replays; estado+Inbox+ledger+Outbox atômicos; `evidence/F1-WORK-CHAIN-STORE.md` |
 | Store EP-09b.2b.1 | verde | start/complete/review dual-provider com optimistic concurrency, Inbox, ledger e Outbox; actor–critic médio; snapshot v4/1 attempt/1 evidência/1 review; `evidence/F1-WORK-CHAIN-MUTATIONS.md` |
-| Store EP-09b.2b.2 | próximo | nova instrução imutável após rejeição e reidratação integral de versões/attempts/evidências/reviews |
+| Store EP-09b.2b.2 | verde | correção imutável v2→v1, segunda tentativa aprovada e leitura transacional integral; final v8/2 instruções/2 attempts/2 evidências/2 reviews; `evidence/F1-WORK-CHAIN-HISTORY.md` |
+| Contrato EP-10a | próximo | WorkflowDefinition/Run, publicação versionada, fases, gates e progresso objetivo recomputável |

@@ -161,15 +161,16 @@ internal static class WorkChainStoreBehavior
         {
             ReviewId = "01ARZ3NDEKTSV4RRFFQ69G5FF9",
             ReviewerAgentId = "critic-qa",
-            Rationale = "Evidence proves the acceptance criteria.",
+            Decision = "rejected",
+            Rationale = "The first evidence exposes a failed gate.",
             IdempotencyKey = "work-chain:attempt:review:critic",
             OccurredAt = chain.OccurredAt.AddMinutes(4),
         };
         var reviewed = await store.ReviewAttemptAsync(review, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
         Assert.Equal(4, reviewed.TaskVersion);
-        Assert.Equal("completed", reviewed.TaskState);
-        Assert.Equal("approved", reviewed.AttemptState);
+        Assert.Equal("ready", reviewed.TaskState);
+        Assert.Equal("rejected", reviewed.AttemptState);
         Assert.NotNull(reviewed.OutboxMessageId);
         var reviewedReplay = await store.ReviewAttemptAsync(review, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.IdempotentReplay, reviewedReplay.Status);
@@ -180,12 +181,112 @@ internal static class WorkChainStoreBehavior
                 review with { Rationale = "Changed command under the same key." },
                 cancellationToken));
 
+        var correctionRequired = start with
+        {
+            AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FFA",
+            ExpectedTaskVersion = 4,
+            IdempotencyKey = "work-chain:attempt:start:correction-required",
+            OccurredAt = chain.OccurredAt.AddMinutes(5),
+        };
+        var withoutCorrection = await store.StartAttemptAsync(correctionRequired, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, withoutCorrection.Status);
+        Assert.Equal(4, withoutCorrection.TaskVersion);
+
+        const string correctedContent = "Correct the failed gate without mutating the original instruction.";
+        var correction = new WorkInstructionVersionCreateCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FFB",
+            correctedContent,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(correctedContent))),
+            4,
+            "work-chain:instruction:correct:first",
+            chain.OccurredAt.AddMinutes(6));
+        var corrected = await store.AddInstructionVersionAsync(correction, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, corrected.Status);
+        Assert.Equal(5, corrected.TaskVersion);
+        Assert.Equal(correction.InstructionVersionId, corrected.InstructionVersionId);
+        Assert.Equal(2, corrected.InstructionVersion);
+        var correctedReplay = await store.AddInstructionVersionAsync(correction, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, correctedReplay.Status);
+        Assert.Equal(corrected.LedgerHash, correctedReplay.LedgerHash);
+
+        var secondStart = new WorkAttemptStartCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            correction.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FFC",
+            "software-engineer",
+            5,
+            "work-chain:attempt:start:second",
+            chain.OccurredAt.AddMinutes(7));
+        var secondStarted = await store.StartAttemptAsync(secondStart, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, secondStarted.Status);
+        Assert.Equal(6, secondStarted.TaskVersion);
+
+        var secondComplete = new WorkAttemptCompleteCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            secondStart.AttemptId,
+            6,
+            [new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FFD", "tests:corrected-green")],
+            "work-chain:attempt:complete:second",
+            chain.OccurredAt.AddMinutes(8));
+        var secondCompleted = await store.CompleteAttemptAsync(secondComplete, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, secondCompleted.Status);
+        Assert.Equal(7, secondCompleted.TaskVersion);
+
+        var approval = new WorkAttemptReviewCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            secondStart.AttemptId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FFE",
+            "critic-qa",
+            "approved",
+            "The corrected evidence proves the gate.",
+            7,
+            "work-chain:attempt:review:second",
+            chain.OccurredAt.AddMinutes(9));
+        var approved = await store.ReviewAttemptAsync(approval, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, approved.Status);
+        Assert.Equal(8, approved.TaskVersion);
+        Assert.Equal("completed", approved.TaskState);
+
         var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
         Assert.NotNull(final);
         Assert.Equal("completed", final.TaskState);
-        Assert.Equal(4, final.TaskVersion);
-        Assert.Equal(1, final.AttemptCount);
-        Assert.Equal(1, final.EvidenceCount);
-        Assert.Equal(1, final.ReviewCount);
+        Assert.Equal(8, final.TaskVersion);
+        Assert.Equal(correction.InstructionVersionId, final.InstructionVersionId);
+        Assert.Equal(2, final.InstructionVersion);
+        Assert.Equal(2, final.AttemptCount);
+        Assert.Equal(2, final.EvidenceCount);
+        Assert.Equal(2, final.ReviewCount);
+
+        var aggregate = await store.ReadAggregateAsync(
+            chain.TenantId,
+            chain.SolicitationId,
+            cancellationToken);
+        Assert.NotNull(aggregate);
+        Assert.Equal(chain.UserId, aggregate.UserId);
+        var demand = Assert.Single(aggregate.Demands);
+        Assert.Equal(["State is atomic", "Audit is complete"], demand.AcceptanceCriteria);
+        var task = Assert.Single(demand.Tasks);
+        Assert.Equal(8, task.Version);
+        Assert.Equal([1, 2], task.Instructions.Select(item => item.Version));
+        Assert.Null(task.Instructions[0].SupersedesId);
+        Assert.Equal(task.Instructions[0].InstructionVersionId, task.Instructions[1].SupersedesId);
+        Assert.Equal([1, 2], task.Attempts.Select(item => item.Number));
+        Assert.Equal(["rejected", "approved"], task.Attempts.Select(item => item.State));
+        Assert.All(task.Attempts, item => Assert.Single(item.Evidence));
+        Assert.Equal("rejected", task.Attempts[0].Review?.Decision);
+        Assert.Equal("approved", task.Attempts[1].Review?.Decision);
+        Assert.Null(await store.ReadAggregateAsync(
+            chain.TenantId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FFF",
+            cancellationToken));
     }
 }

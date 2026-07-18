@@ -46,8 +46,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 10. EP-09b.1: migrations dual-provider da cadeia — verde em 2026-07-18.
 11. EP-09b.2a: criação/snapshot transacional dual-provider com Inbox, ledger e Outbox — verde em 2026-07-18.
 12. EP-09b.2b.1: mutações de attempt/evidência/review com concorrência otimista e actor–critic — verde em 2026-07-18.
-13. EP-09b.2b.2: correção por nova instrução imutável e reidratação completa — próximo incremento.
-14. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
+13. EP-09b.2b.2: correção por nova instrução imutável e reidratação completa — verde em 2026-07-18.
+14. EP-10a: contrato provider-neutral de WorkflowDefinition/Run, fases, gates e progresso objetivo — próximo incremento.
 15. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico

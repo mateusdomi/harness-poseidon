@@ -16,6 +16,15 @@ public interface IWorkChainStore
         string solicitationId,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainAggregateSnapshot?> ReadAggregateAsync(
+        string tenantId,
+        string solicitationId,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> AddInstructionVersionAsync(
+        WorkInstructionVersionCreateCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> StartAttemptAsync(
         WorkAttemptStartCommand command,
         CancellationToken cancellationToken = default);
@@ -95,7 +104,20 @@ public sealed record WorkChainMutationReceipt(
     string? AttemptState,
     long? LedgerSequence = null,
     string? LedgerHash = null,
-    string? OutboxMessageId = null);
+    string? OutboxMessageId = null,
+    string? InstructionVersionId = null,
+    int? InstructionVersion = null);
+
+public sealed record WorkInstructionVersionCreateCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string InstructionVersionId,
+    string Content,
+    string ContentHash,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
 
 public sealed record WorkAttemptStartCommand(
     string TenantId,
@@ -132,6 +154,66 @@ public sealed record WorkAttemptReviewCommand(
     long ExpectedTaskVersion,
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
+
+public sealed record WorkChainAggregateSnapshot(
+    string TenantId,
+    string ProjectId,
+    string UserId,
+    string SolicitationId,
+    string SolicitationContent,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<WorkDemandSnapshot> Demands);
+
+public sealed record WorkDemandSnapshot(
+    string DemandId,
+    string Title,
+    IReadOnlyList<string> AcceptanceCriteria,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<WorkTaskAggregateSnapshot> Tasks);
+
+public sealed record WorkTaskAggregateSnapshot(
+    string TaskId,
+    string Title,
+    string RiskTier,
+    decimal Weight,
+    string State,
+    long Version,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<WorkInstructionVersionSnapshot> Instructions,
+    IReadOnlyList<WorkAttemptSnapshot> Attempts);
+
+public sealed record WorkInstructionVersionSnapshot(
+    string InstructionVersionId,
+    int Version,
+    string Content,
+    string ContentHash,
+    string? SupersedesId,
+    DateTimeOffset CreatedAt);
+
+public sealed record WorkAttemptSnapshot(
+    string AttemptId,
+    string InstructionVersionId,
+    int Number,
+    string ProducerAgentId,
+    string State,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? CompletedAt,
+    IReadOnlyList<WorkEvidenceSnapshot> Evidence,
+    WorkReviewSnapshot? Review);
+
+public sealed record WorkEvidenceSnapshot(
+    string EvidenceId,
+    int Ordinal,
+    string Reference,
+    DateTimeOffset CreatedAt);
+
+public sealed record WorkReviewSnapshot(
+    string ReviewId,
+    string ReviewerAgentId,
+    string Decision,
+    string Rationale,
+    DateTimeOffset CreatedAt);
 
 public static class WorkChainCreateValidator
 {
@@ -213,6 +295,26 @@ public static class WorkChainCreateHash
 
 public static class WorkChainMutationValidator
 {
+    public static void Validate(WorkInstructionVersionCreateCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateUlid(command.TenantId, nameof(command));
+        ValidateUlid(command.SolicitationId, nameof(command));
+        ValidateUlid(command.TaskId, nameof(command));
+        ValidateUlid(command.InstructionVersionId, nameof(command));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ExpectedTaskVersion);
+        ValidateText(command.Content, nameof(command), 100_000);
+        ValidateText(command.IdempotencyKey, nameof(command), 200);
+        var expectedHash = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(command.Content)));
+        if (!string.Equals(expectedHash, command.ContentHash, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Instruction content hash does not match its immutable content.",
+                nameof(command));
+        }
+    }
+
     public static void Validate(WorkAttemptStartCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
