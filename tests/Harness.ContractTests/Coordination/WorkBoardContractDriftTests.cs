@@ -12,6 +12,8 @@ public sealed class WorkBoardContractDriftTests
         ["TaskInstructionContract"] = ["id", "taskId", "version", "body", "authorKind", "authorId", "createdAt"],
         ["AttemptContract"] = ["id", "taskId", "number", "state", "agentId", "startedAt", "finishedAt", "durationMs", "costUsd", "tokensInput", "tokensOutput", "commitRefs", "summary", "failureReason"],
         ["AttemptEventContract"] = ["id", "attemptId", "kind", "content", "occurredAt"],
+        ["SolicitationAnalysisItemContract"] = ["id", "text"],
+        ["SolicitationAnalysisContract"] = ["solicitationId", "requirements", "ambiguities", "contradictions", "questions", "acceptanceCriteria"],
     };
 
     [Fact]
@@ -23,6 +25,7 @@ public sealed class WorkBoardContractDriftTests
         AssertMethods(paths, "/api/v1/solicitations", "get", "post");
         AssertMethods(paths, "/api/v1/solicitations/{id}", "get");
         AssertMethods(paths, "/api/v1/solicitations/{id}/transitions", "post");
+        AssertMethods(paths, "/api/v1/solicitations/analyze", "post");
         AssertMethods(paths, "/api/v1/demands", "get", "post");
         AssertMethods(paths, "/api/v1/demands/{id}", "get");
         AssertMethods(paths, "/api/v1/tasks", "get", "post");
@@ -41,6 +44,9 @@ public sealed class WorkBoardContractDriftTests
         var core = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "core.ts"));
         AssertFrontend(core, "solicitationSchema", "Solicitation", Schemas["SolicitationContract"]);
         AssertFrontend(core, "demandSchema", "Demand", Schemas["DemandContract"]);
+        var commands = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "commands.ts"));
+        AssertFrontend(commands, "solicitationAnalysisItemSchema", "SolicitationAnalysisItem", Schemas["SolicitationAnalysisItemContract"]);
+        AssertFrontend(commands, "solicitationAnalysisSchema", "SolicitationAnalysis", Schemas["SolicitationAnalysisContract"]);
         var delivery = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "delivery.ts"));
         AssertFrontend(delivery, "taskSchema", "Task", Schemas["BoardTaskContract"]);
         AssertFrontend(delivery, "taskInstructionSchema", "TaskInstruction", Schemas["TaskInstructionContract"]);

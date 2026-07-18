@@ -31,6 +31,24 @@ public sealed record AttemptContract(
 public sealed record AttemptEventContract(
     string Id, string AttemptId, string Kind, string Content, DateTimeOffset OccurredAt);
 
+public sealed record SolicitationAnalysisItemContract(string Id, string Text);
+
+public sealed record SolicitationAnalysisContract(
+    string SolicitationId,
+    IReadOnlyList<SolicitationAnalysisItemContract> Requirements,
+    IReadOnlyList<SolicitationAnalysisItemContract> Ambiguities,
+    IReadOnlyList<SolicitationAnalysisItemContract> Contradictions,
+    IReadOnlyList<SolicitationAnalysisItemContract> Questions,
+    IReadOnlyList<SolicitationAnalysisItemContract> AcceptanceCriteria);
+
+public sealed record SolicitationAnalysisDraft(
+    SolicitationContract Solicitation,
+    IReadOnlyList<string> Requirements,
+    IReadOnlyList<string> Ambiguities,
+    IReadOnlyList<string> Contradictions,
+    IReadOnlyList<string> Questions,
+    IReadOnlyList<string> AcceptanceCriteria);
+
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateSolicitationRequest(
     string ProjectId, string Kind, string Title, string Body, string? SupersedesId = null);
@@ -59,3 +77,7 @@ public sealed record CreateTaskInstructionRequest(string TaskId, string Body);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record TransitionSolicitationRequest(string State);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AnalyzeSolicitationRequest(
+    string ProjectId, string Text, IReadOnlyList<string>? AttachmentNames = null);

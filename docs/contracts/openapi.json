@@ -5524,6 +5524,65 @@
                 }
             }
         },
+        "/api/v1/solicitations/analyze": {
+            "post": {
+                "tags": [
+                    "solicitations"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AnalyzeSolicitationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SolicitationAnalysisContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/solicitations/{id}/transitions": {
             "post": {
                 "tags": [
@@ -9196,6 +9255,31 @@
                     }
                 }
             },
+            "AnalyzeSolicitationRequest": {
+                "required": [
+                    "projectId",
+                    "text"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "attachmentNames": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "additionalProperties": false
+            },
             "AppendTaskInstructionRequest": {
                 "required": [
                     "body"
@@ -12835,6 +12919,67 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "SolicitationAnalysisContract": {
+                "required": [
+                    "solicitationId",
+                    "requirements",
+                    "ambiguities",
+                    "contradictions",
+                    "questions",
+                    "acceptanceCriteria"
+                ],
+                "type": "object",
+                "properties": {
+                    "solicitationId": {
+                        "type": "string"
+                    },
+                    "requirements": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SolicitationAnalysisItemContract"
+                        }
+                    },
+                    "ambiguities": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SolicitationAnalysisItemContract"
+                        }
+                    },
+                    "contradictions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SolicitationAnalysisItemContract"
+                        }
+                    },
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SolicitationAnalysisItemContract"
+                        }
+                    },
+                    "acceptanceCriteria": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SolicitationAnalysisItemContract"
+                        }
+                    }
+                }
+            },
+            "SolicitationAnalysisItemContract": {
+                "required": [
+                    "id",
+                    "text"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
                     }
                 }
             },
