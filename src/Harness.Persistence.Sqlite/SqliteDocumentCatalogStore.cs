@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed class SqliteDocumentCatalogStore(SqliteWriteDispatcher dispatcher) : IDocumentCatalogStore
+public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dispatcher) : IDocumentCatalogStore
 {
     private readonly SqliteWriteDispatcher _dispatcher =
         dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
@@ -75,6 +75,35 @@ public sealed class SqliteDocumentCatalogStore(SqliteWriteDispatcher dispatcher)
             return await reader.ReadAsync(token) ? ReadVersion(reader) : null;
         }, cancellationToken);
 
+    public Task<IReadOnlyList<ApprovalCatalogRecord>> ListApprovalsAsync(
+        string tenantId, string? projectId, string? afterId, int limit,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<IReadOnlyList<ApprovalCatalogRecord>>(async (connection, token) =>
+        {
+            var rows = new List<ApprovalCatalogRecord>();
+            await using var query = connection.CreateCommand();
+            query.CommandText = "SELECT * FROM (" + ApprovalSelect + ") a " +
+                "WHERE tenant_id=$tenant AND ($project IS NULL OR project_id=$project) " +
+                "AND ($after IS NULL OR id>$after) ORDER BY id LIMIT $limit;";
+            Add(query, "$tenant", tenantId); AddNullable(query, "$project", projectId);
+            AddNullable(query, "$after", afterId); Add(query, "$limit", limit);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token)) rows.Add(ReadApproval(reader));
+            return rows;
+        }, cancellationToken);
+
+    public Task<ApprovalCatalogRecord?> GetApprovalAsync(
+        string tenantId, string approvalId, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<ApprovalCatalogRecord?>(async (connection, token) =>
+        {
+            await using var query = connection.CreateCommand();
+            query.CommandText = "SELECT * FROM (" + ApprovalSelect +
+                ") a WHERE tenant_id=$tenant AND id=$id;";
+            Add(query, "$tenant", tenantId); Add(query, "$id", approvalId);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            return await reader.ReadAsync(token) ? ReadApproval(reader) : null;
+        }, cancellationToken);
+
     private static async Task<DocumentCatalogRecord?> ReadDocumentAsync(
         SqliteConnection connection, string tenantId, string documentId, CancellationToken token)
     {
@@ -119,6 +148,25 @@ public sealed class SqliteDocumentCatalogStore(SqliteWriteDispatcher dispatcher)
     private const string VersionSelect =
         "SELECT v.id,v.document_id,v.version,v.catalog_path,v.content_hash,v.author_kind," +
         "v.author_id,v.created_at FROM document_versions v";
+    private const string ApprovalSelect =
+        "SELECT tenant_id,id,project_id,NULL AS gate_id,NULL AS task_id,document_id,title," +
+        "description,priority,due_at,state,requested_by_agent_id,requested_at," +
+        "resolved_by_profile_id,resolved_at,resolution_note,version FROM document_approval_requests " +
+        "UNION ALL SELECT tenant_id,id,project_id,gate_id,task_id,NULL AS document_id,title," +
+        "description,priority,due_at,state,requested_by_agent_id,requested_at," +
+        "resolved_by_profile_id,resolved_at,resolution_note,version FROM general_approval_requests";
+
+    private static ApprovalCatalogRecord ReadApproval(SqliteDataReader reader) => new(
+        reader.GetString(1), reader.GetString(2),
+        reader.IsDBNull(3) ? null : reader.GetString(3),
+        reader.IsDBNull(4) ? null : reader.GetString(4),
+        reader.IsDBNull(5) ? null : reader.GetString(5),
+        reader.GetString(6), reader.GetString(7), reader.GetString(8),
+        reader.IsDBNull(9) ? null : Parse(reader.GetString(9)), reader.GetString(10),
+        reader.GetString(11), Parse(reader.GetString(12)),
+        reader.IsDBNull(13) ? null : reader.GetString(13),
+        reader.IsDBNull(14) ? null : Parse(reader.GetString(14)),
+        reader.IsDBNull(15) ? null : reader.GetString(15), reader.GetInt64(16));
 
     private static DateTimeOffset Parse(string value) =>
         DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);

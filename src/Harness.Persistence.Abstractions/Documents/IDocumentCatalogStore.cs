@@ -15,6 +15,19 @@ public interface IDocumentCatalogStore
 
     Task<DocumentVersionCatalogRecord?> GetVersionAsync(
         string tenantId, string versionId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ApprovalCatalogRecord>> ListApprovalsAsync(
+        string tenantId, string? projectId, string? afterId, int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<ApprovalCatalogRecord?> GetApprovalAsync(
+        string tenantId, string approvalId, CancellationToken cancellationToken = default);
+
+    Task<ApprovalCatalogRecord> CreateGeneralApprovalAsync(
+        GeneralApprovalCreateCommand command, CancellationToken cancellationToken = default);
+
+    Task<ApprovalCatalogRecord?> ResolveGeneralApprovalAsync(
+        GeneralApprovalResolveCommand command, CancellationToken cancellationToken = default);
 }
 
 public interface IDocumentContentCatalog
@@ -34,3 +47,24 @@ public sealed record DocumentCatalogRecord(
 public sealed record DocumentVersionCatalogRecord(
     string Id, string DocumentId, int Version, string CatalogPath, string ContentHash,
     string AuthorKind, string? AuthorId, DateTimeOffset CreatedAt);
+
+public sealed record ApprovalCatalogRecord(
+    string Id, string ProjectId, string? GateId, string? TaskId, string? DocumentId,
+    string Title, string Description, string Priority, DateTimeOffset? DueAt, string State,
+    string RequestedByAgentId, DateTimeOffset RequestedAt, string? ResolvedByProfileId,
+    DateTimeOffset? ResolvedAt, string? ResolutionNote, long AggregateVersion);
+
+public sealed record GeneralApprovalCreateCommand(
+    string TenantId, string Id, string ProjectId, string? GateId, string? TaskId,
+    string Title, string Description, string Priority, DateTimeOffset? DueAt,
+    string RequestedByAgentId, DateTimeOffset OccurredAt);
+
+public sealed record GeneralApprovalResolveCommand(
+    string TenantId, string Id, string Decision, string ResolvedByProfileId,
+    string? Note, DateTimeOffset OccurredAt);
+
+public sealed class ApprovalReferenceNotFoundException(string reference)
+    : Exception($"Approval reference '{reference}' does not exist.")
+{
+    public string Reference { get; } = reference;
+}

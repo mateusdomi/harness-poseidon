@@ -20,12 +20,13 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(10, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(11, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
             new PostgresFoundationTransactionStore(dataSource),
             timeout.Token);
+        await AssertAuditLedgerIsAppendOnlyAsync(dataSource, timeout.Token);
         await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
             OutboxStoreBehavior.SecondProjectCommand(),
             timeout.Token);
@@ -161,6 +162,17 @@ public sealed class PostgresSkipLockedPocTests
     {
         await using var command = dataSource.CreateCommand("TRUNCATE TABLE harness_poc.work_items;");
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task AssertAuditLedgerIsAppendOnlyAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using var command = dataSource.CreateCommand(
+            "UPDATE harness.audit_ledger SET event_type='tampered' WHERE sequence=1;");
+        var exception = await Assert.ThrowsAsync<PostgresException>(
+            () => command.ExecuteNonQueryAsync(cancellationToken));
+        Assert.Equal("P0001", exception.SqlState);
     }
 
     private static async Task ValidateFoundationSchemaAsync(

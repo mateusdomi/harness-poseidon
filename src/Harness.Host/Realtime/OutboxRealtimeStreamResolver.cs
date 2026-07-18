@@ -9,11 +9,20 @@ public sealed class OutboxRealtimeStreamResolver
     public string Resolve(OutboxLease message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        if (message.EventType is "workflow.versionPublished" or "audit.eventAppended")
+        if (message.EventType is "workflow.versionPublished" or "audit.eventAppended" or "agent.statusChanged" or "tool.statusChanged" or "quota.updated")
         {
             return "global";
         }
         using var document = JsonDocument.Parse(message.PayloadJson);
+        if (message.EventType == "notification.created" &&
+            document.RootElement.TryGetProperty("notification", out var notification) &&
+            notification.ValueKind == JsonValueKind.Object &&
+            notification.TryGetProperty("profileId", out var profileIdElement) &&
+            profileIdElement.ValueKind == JsonValueKind.String &&
+            UlidValue.TryParse(profileIdElement.GetString(), out var profileId))
+        {
+            return $"profile:{profileId}";
+        }
         if (TryResolveConversation(document.RootElement, out var conversationStream))
         {
             return conversationStream;

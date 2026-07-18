@@ -409,7 +409,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         var started = Parse(r.GetString(6));
         DateTimeOffset? finished = r.IsDBNull(7) ? null : Parse(r.GetString(7));
         var duration = r.IsDBNull(8) ? finished is null ? null : (long?)(finished.Value - started).TotalMilliseconds : r.GetInt64(8);
-        var state = r.GetString(4) switch { "running" => "running", "rejected" => "failed", _ => "completed" };
+        var state = r.GetString(15);
         return new BoardAttemptRecord(r.GetString(0), r.GetString(1), r.GetString(2), r.GetInt32(3),
             state, r.GetString(5), started, finished, duration, r.GetDecimal(9), r.GetInt64(10),
             r.GetInt64(11), JsonSerializer.Deserialize<string[]>(r.GetString(12), JsonOptions) ?? [],
@@ -495,7 +495,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         SELECT a.tenant_id,a.id,a.task_id,a.attempt_number,a.state,a.producer_agent_id,a.started_at,
                a.completed_at,a.duration_ms,a.cost_usd,a.tokens_input,a.tokens_output,
                COALESCE((SELECT json_group_array(reference) FROM work_evidence e WHERE e.attempt_id=a.id),'[]'),
-               a.summary,a.failure_reason FROM work_attempts a
+               a.summary,a.failure_reason,a.operational_state FROM work_attempts a
         """;
     private const string AttemptEventSelect =
         "SELECT tenant_id,id,attempt_id,kind,content,occurred_at FROM attempt_events";

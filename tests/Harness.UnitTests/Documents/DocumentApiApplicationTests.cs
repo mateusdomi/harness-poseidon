@@ -23,5 +23,9 @@ public sealed class DocumentApiApplicationTests
         Assert.Equal(["arquitetura", "ux"], normalized.Classifications);
         Assert.Equal("Planejamento", normalized.PhaseName);
         Assert.Equal("awaitingApproval", DocumentApiApplicationService.ToApiState("awaiting_approval"));
+        Assert.Equal(("approved", "Aceito."), DocumentApiApplicationService.Resolution(
+            new ResolveApprovalRequest("approved", " Aceito. ")));
+        Assert.Throws<ArgumentException>(() => DocumentApiApplicationService.Resolution(
+            new ResolveApprovalRequest("rejected")));
     }
 }

@@ -131,8 +131,10 @@ public sealed partial class SqliteDocumentStore
 
         var payload = JsonSerializer.Serialize(new
         {
+            projectId = row?.ProjectId,
             documentId = receipt.DocumentId,
-            state = receipt.State,
+            from = ApiState(receipt.State),
+            to = ApiState(receipt.State),
             documentVersion = receipt.DocumentVersion,
             currentVersion = receipt.CurrentVersion,
             phaseName = command.PhaseName,
@@ -247,8 +249,10 @@ public sealed partial class SqliteDocumentStore
 
         var payload = JsonSerializer.Serialize(new
         {
+            projectId = row?.ProjectId,
             documentId = receipt.DocumentId,
-            state = receipt.State,
+            from = ApiState(row?.State),
+            to = ApiState(receipt.State),
             documentVersion = receipt.DocumentVersion,
             currentVersion = receipt.CurrentVersion,
             transitionId = command.TransitionId,
@@ -351,4 +355,5 @@ public sealed partial class SqliteDocumentStore
             ("approved", "outdated" or "superseded") => true,
             _ => false,
         };
+
 }

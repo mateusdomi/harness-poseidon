@@ -7,6 +7,7 @@ using Harness.Host.Projects;
 using Harness.Host.Realtime;
 using Harness.Host.Workflows;
 using Harness.Modules.Identity.Contracts;
+using Harness.Modules.Documents.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Modules.Workflows.Contracts;
@@ -25,7 +26,7 @@ public sealed class WorkflowApiTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"workflow-api-{Guid.NewGuid():N}");
         var database = Path.Combine(root, "workflow.db"); Directory.CreateDirectory(root); var cookies = new CookieContainer();
-        string profileId; string projectId; string templateId; string workflowId; string runId;
+        string profileId; string projectId; string chiefAgentId; string templateId; string workflowId; string runId;
         try
         {
             await using (var app = CreateHost(database))
@@ -36,7 +37,7 @@ public sealed class WorkflowApiTests
                     using var handler = new HttpClientHandler { CookieContainer = cookies }; using var client = new HttpClient(handler) { BaseAddress = address };
                     using (var response = await client.PostAsJsonAsync("/api/v1/profiles", new CreateProfileRequest("Mateus", null, null, "pt-BR"), timeout.Token)) { response.EnsureSuccessStatusCode(); profileId = (await response.Content.ReadFromJsonAsync<ProfileResponse>(timeout.Token))!.Id; }
                     string organizationId; using (var response = await client.PostAsJsonAsync("/api/v1/organizations", new CreateOrganizationRequest { Name = "Poseidon", Slug = "poseidon" }, timeout.Token)) { response.EnsureSuccessStatusCode(); organizationId = (await response.Content.ReadFromJsonAsync<OrganizationResponse>(timeout.Token))!.Id; }
-                    using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon", Key = "POSEIDON", Description = "Backend" }, timeout.Token)) { response.EnsureSuccessStatusCode(); projectId = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!.Id; }
+                    using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon", Key = "POSEIDON", Description = "Backend" }, timeout.Token)) { response.EnsureSuccessStatusCode(); var project = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!; projectId = project.Id; chiefAgentId = project.ChiefAgentId; }
 
                     using (var response = await client.PostAsJsonAsync("/api/v1/workflow-templates", new CreateWorkflowTemplateRequest(
                         "Entrega padrão", "Planejar, executar e validar.", ["Planejamento", "Execução"],
@@ -89,6 +90,22 @@ public sealed class WorkflowApiTests
                     Assert.Equal(profileId, gatePayload.GetProperty("decidedByProfileId").GetString());
                     var globalEvents = await WaitForEventsAsync(client, "global", "workflow.versionPublished", 2, timeout.Token);
                     Assert.Equal([1, 2], globalEvents.Delta.Where(x => x.Type == "workflow.versionPublished").Select(x => x.Payload.GetProperty("version").GetInt32()));
+
+                    string approvalRunId; using (var response = await client.PostAsJsonAsync("/api/v1/workflow-runs", new CreateWorkflowRunRequest(workflowId), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, response.StatusCode); approvalRunId = (await response.Content.ReadFromJsonAsync<WorkflowRunContract>(timeout.Token))!.Id; }
+                    var approvalGate = Assert.Single((await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={approvalRunId}", timeout.Token))!.Items);
+                    string gateApprovalId; using (var requestApproval = await client.PostAsJsonAsync("/api/v1/approvals",
+                        new CreateApprovalRequest(projectId, "Liberar gate", "Validação central", chiefAgentId, GateId: approvalGate.Id, Priority: "critical"), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, requestApproval.StatusCode); gateApprovalId = (await requestApproval.Content.ReadFromJsonAsync<ApprovalContract>(timeout.Token))!.Id; }
+                    using (var blocked = await client.PostAsJsonAsync($"/api/v1/approvals/{gateApprovalId}/resolution", new ResolveApprovalRequest("approved"), timeout.Token)) Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+                    foreach (var state in new[] { "executed", "validated", "approved" }) using (var advance = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{approvalRunId}/objectives", new AdvanceWorkflowObjectiveRequest("phase-1", "work-1", state), timeout.Token)) Assert.Equal(HttpStatusCode.OK, advance.StatusCode);
+                    using (var complete = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{approvalRunId}/phases/phase-1/completion", new { }, timeout.Token)) Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+                    foreach (var state in new[] { "executed", "validated" }) using (var advance = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{approvalRunId}/objectives", new AdvanceWorkflowObjectiveRequest("phase-2", "work-2", state), timeout.Token)) Assert.Equal(HttpStatusCode.OK, advance.StatusCode);
+                    using (var approved = await client.PostAsJsonAsync($"/api/v1/approvals/{gateApprovalId}/resolution", new ResolveApprovalRequest("approved", "Requisitos atendidos."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+                    approvalGate = Assert.Single((await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={approvalRunId}", timeout.Token))!.Items);
+                    Assert.Equal("passed", approvalGate.State); Assert.Equal(profileId, approvalGate.DecidedByProfileId);
+                    var approvalGateEvents = await WaitForEventsAsync(client, $"project:{projectId}", "gate.changed", 3, timeout.Token);
+                    Assert.Equal("approved", approvalGateEvents.Delta.Last(x => x.Type == "gate.changed").Payload.GetProperty("to").GetString());
                 }
                 finally { await app.StopAsync(timeout.Token); }
             }

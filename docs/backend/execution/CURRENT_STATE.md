@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T21:07:00Z
+Atualizado em: 2026-07-18T22:34:06Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-DOC-1b — classificação, lifecycle e central de aprovações; catálogo/versões estão verdes.
+- Épico atual: F2-PROT-1 — prototipação, referências visuais, galerias e waivers; governança está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `cd50888` (`develop`), contendo F2-DOC-1a verde com 134/134 testes.
-- Próximo passo exato: expor classificação e transições documentais, fila consolidada de aprovações, criação/resolução com nota obrigatória e eventos canônicos.
+- Último commit remoto validado: `bcb71b9` (`develop`), contendo F2-GOV-1 verde com 156/156 testes.
+- Próximo passo exato: implementar `prototypes` e `visual-references` tenant/project-scoped, lifecycle, galeria e waiver consistente com `Project.prototyping`.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T21:07:00Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` até `0016_global_realtime_stream`; PostgreSQL possui `0010_global_realtime_stream`. Históricos são separados/idempotentes (`16→0` e `10→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` até `0023_audit_ledger_append_only`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`23→0` e `11→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -80,10 +80,18 @@ Atualizado em: 2026-07-18T21:07:00Z
 - F2 workflow catálogo/run: `IWorkflowStore` F1 está registrado como autoridade no Host; projeção SQLite expõe templates, versões, vínculos por projeto, runs, fases e gates nos contratos exatos do frontend. Criação de template expande fases/gates simples para objetivos/requisitos ricos, vínculo registra aceite de risco e run nasce `running` com uma fase ativa. OpenAPI, drift, unicidade por projeto e restart estão comprovados.
 - F2 workflow comandos/lifecycle: publicação imutável numera vN e persiste configurações, modo padrão, transições e changelog. Troca de modo exige novo aceite e audita `audit.eventAppended`; run pausa/retoma, objetivos avançam monotonicamente, gate humano falha somente com nota e pode passar depois, fases concluem até run `completed`. `workflow.versionPublished` usa stream `global`; `gate.changed`, stream de projeto e payload de decisão foram comprovados após restart.
 - F2 documentos catálogo/versões: documentos e versões expõem os campos exatos do frontend sobre a autoridade F1. Corpos UTF-8 ficam fora do banco em catálogo filesystem com path relativo e SHA-256 verificado; criação/append usam compensação em falha, versões são imutáveis e o Host recupera metadados e conteúdo após restart.
-- Migrations: SQLite `16→0` e PostgreSQL `10→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-DOC-1a: restore locked, format, build Release com zero warnings/erros e 134/134 testes verdes (`Unit 87`, `Integration 24`, `Contract 10`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- F2 documentos lifecycle/aprovação: classificação parcial preserva metadados ausentes; transições usam OCC e matriz F1. A intenção frontend de `awaitingApproval` não cria estado impossível sem request: o POST seguinte cria approval e transição atomicamente. Reprovação sem nota é recusada, reprovação válida retorna à elaboração e segunda aprovação conclui. `approval.requested`, `approval.resolved` e `document.stateChanged` têm payload frontend e stream de projeto comprovados.
+- F2 central de aprovações: a leitura unifica requests documentais F1 e decisões gerais F2. Criação aceita documento, tarefa, gate ou decisão humana, com prioridade/prazo. Resolução de gate é transacional com a approval, verifica run/fase ativos e requisitos objetivos antes de alterar gate/objetivo, portanto tentativa antecipada não burla o workflow. Eventos de approval/gate são sequenciados no projeto e estado sobrevive restart.
+- F2 catálogo de agentes: migration semeia exatamente as seis definições iniciais da missão e cria instâncias tenant/project-scoped com métricas e lease/fencing. A criação de projeto persiste o Chief correspondente na mesma transação; list/read exatos do frontend, paginação, filtro por projeto, OpenAPI/drift e recuperação após restart estão comprovados.
+- F2 comandos do Chief: pause/resume sincronizam projeto e agente; handoff aceita somente definição chief, invalida lease antigo e eleva fencing 1→2; drain devolve trabalho ativo a `ready`, cancela a projeção do attempt, cancela execução/attempt duráveis e torna agentes idle em uma transação. Ledger, Outbox global/projeto, payloads frontend e restart foram comprovados.
+- F2 ferramentas/skills/plugins/MCP: catálogo semeado e versionado expõe os quatro contratos exatos, vínculos reais das seis definições, estado/endpoint mutáveis, checksum/permissões/risk tier internos e MCP estável `2025-11-25` com RC desligado. Policy check tipado impõe enabled, allowlist por fase, teto de risco e sandbox/aceite antes de invocar executor. Eventos/auditoria e restart estão comprovados.
+- F2 providers: catálogo lazy tenant-scoped oferece providers, referências de conta sem segredo, modelos, políticas de roteamento e budgets. Sync determinístico não usa rede em teste, publica quotas por conta; PATCH de provider/model/routing/budget audita e budget publica quota. Definições usam modelos existentes, handoff valida modelo habilitado e restart preserva tudo.
+- F2 notificações/settings: settings nasce atomicamente com o perfil e permanece tenant/profile-scoped. Notificações validam enums, coalescem somente grupos unread, incrementam `dedupeCount`, aceitam read/mute em lote e publicam payload completo em `profile:<id>`. Todas as mutações gravam ledger encadeado e auditoria global; contratos, isolamento, restart e o teste de corrida do Chief estabilizado estão comprovados.
+- F2 governança/auditoria: `audit-events` projeta tanto payloads explícitos quanto eventos legados do ledger sem expor payload bruto. List/get e filtros são tenant-scoped; integridade recalcula sequência, elo e SHA-256; export JSON/CSV mascara segredos. Triggers recusam UPDATE/DELETE do ledger no SQLite e PostgreSQL, e o estado permanece verificável após restart.
+- Migrations: SQLite `23→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-GOV-1: restore locked, format, build Release com zero warnings/erros e 156/156 testes verdes (`Unit 91`, `Integration 29`, `Contract 23`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro e workflows F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é documentos/aprovações F2.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings e governança F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é prototipação.
 
 ## Sanidade antes de retomar
 

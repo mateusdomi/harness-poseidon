@@ -121,6 +121,7 @@ public sealed partial class SqliteDocumentStore
             transaction,
             command,
             hash,
+            row?.ProjectId,
             receipt,
             cancellationToken);
     }
@@ -190,6 +191,7 @@ public sealed partial class SqliteDocumentStore
         SqliteTransaction transaction,
         DocumentVersionAppendCommand command,
         string hash,
+        string? projectId,
         DocumentMutationReceipt receipt,
         CancellationToken cancellationToken)
     {
@@ -198,8 +200,10 @@ public sealed partial class SqliteDocumentStore
         {
             var payload = JsonSerializer.Serialize(new
             {
+                projectId,
                 documentId = receipt.DocumentId,
-                state = receipt.State,
+                from = ApiState(receipt.State),
+                to = ApiState(receipt.State),
                 documentVersion = receipt.DocumentVersion,
                 currentVersion = receipt.CurrentVersion,
                 documentVersionId = receipt.DocumentVersionId,
@@ -265,6 +269,15 @@ public sealed partial class SqliteDocumentStore
         await transaction.CommitAsync(cancellationToken);
         return final;
     }
+
+    private static string? ApiState(string? state) => state switch
+    {
+        "in_elaboration" => "inElaboration",
+        "in_review" => "inReview",
+        "awaiting_approval" => "awaitingApproval",
+        "not_applicable" => "notApplicable",
+        _ => state,
+    };
 
     private static DocumentMutationReceipt Rejected(
         DocumentMutationStatus status,

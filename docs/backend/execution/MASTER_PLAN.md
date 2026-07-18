@@ -79,12 +79,13 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 6. Conversas e chat streaming — verde em 2026-07-18.
 7. Solicitações, demandas, tarefas, tentativas e quadro — verde em 2026-07-18.
 8. Workflows, gates e progresso — verde em 2026-07-18.
-9. Documentos e aprovações — em execução.
-10. Orquestrador e agentes — pendente.
-11. Ferramentas, skills, plugins e MCP — pendente.
-12. Notificações — pendente.
-13. Governança e auditoria — pendente.
-14. Complementares e integração frontend/dogfood — pendente.
+9. Documentos e aprovações — verde em 2026-07-18.
+10. Orquestrador e agentes — verde em 2026-07-18.
+11. Ferramentas, skills, plugins e MCP — verde em 2026-07-18.
+12. Providers, contas, modelos, roteamento e budgets — verde em 2026-07-18.
+13. Notificações — verde em 2026-07-18.
+14. Governança e auditoria — verde em 2026-07-18.
+15. Complementares e integração frontend/dogfood — em execução.
 
 ## Backlog épico
 

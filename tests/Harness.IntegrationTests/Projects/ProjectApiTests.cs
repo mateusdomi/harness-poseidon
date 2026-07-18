@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using Harness.Host;
+using Harness.Host.Agents;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
@@ -83,6 +84,26 @@ public sealed class ProjectApiTests
                     var created = await createdResponse.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token);
                     Assert.NotNull(created);
                     projectId = created.Id;
+                    var definitions = await client.GetFromJsonAsync<AgentDefinitionPage>(
+                        "/api/v1/agent-definitions?limit=10", timeout.Token);
+                    Assert.Equal(
+                        [
+                            "Chief Orchestrator",
+                            "Product/Requirements Analyst",
+                            "Software Architect",
+                            "Software Engineer",
+                            "Critic/QA",
+                            "Technical Writer",
+                        ],
+                        definitions?.Items.Select(definition => definition.Name));
+                    var chief = await client.GetFromJsonAsync<AgentContract>(
+                        $"/api/v1/agents/{created.ChiefAgentId}", timeout.Token);
+                    Assert.Equal(created.Id, chief?.ProjectId);
+                    Assert.Equal("idle", chief?.State);
+                    Assert.Equal(1, chief?.Lease?.FencingToken);
+                    var projectAgents = await client.GetFromJsonAsync<AgentPage>(
+                        $"/api/v1/agents?projectId={created.Id}", timeout.Token);
+                    Assert.Equal(created.ChiefAgentId, Assert.Single(projectAgents!.Items).Id);
                     Assert.Equal("active", created.State);
                     Assert.Equal("manual", created.OperationMode);
                     Assert.Equal([profileId], created.MemberProfileIds);
@@ -155,6 +176,10 @@ public sealed class ProjectApiTests
                     $"/api/v1/projects/{projectId}", timeout.Token);
                 Assert.Equal("Poseidon Labs", recovered?.Name);
                 Assert.Equal(2, recovered?.ConfigVersion);
+                var recoveredChief = await client.GetFromJsonAsync<AgentContract>(
+                    $"/api/v1/agents/{recovered?.ChiefAgentId}", timeout.Token);
+                Assert.Equal(projectId, recoveredChief?.ProjectId);
+                Assert.Equal(1, recoveredChief?.Lease?.FencingToken);
 
                 using var deleted = await client.DeleteAsync($"/api/v1/projects/{projectId}", timeout.Token);
                 Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);

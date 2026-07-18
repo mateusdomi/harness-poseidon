@@ -163,10 +163,10 @@ public sealed partial class SqliteWorkChainStore
                 """
                 INSERT INTO work_attempts
                     (id, tenant_id, project_id, task_id, instruction_version_id, attempt_number,
-                     producer_agent_id, state, started_at)
+                     producer_agent_id, state, started_at, operational_state)
                 VALUES
                     ($attemptId, $tenantId, $projectId, $taskId, $instructionId, $attemptNumber,
-                     $producer, 'running', $occurredAt);
+                     $producer, 'running', $occurredAt, 'running');
                 INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
                 VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'log','Attempt started.',$occurredAt);
                 UPDATE work_tasks SET state = 'running', version = $nextVersion,
@@ -253,7 +253,8 @@ public sealed partial class SqliteWorkChainStore
             mutation.Transaction = transaction;
             mutation.CommandText =
                 """
-                UPDATE work_attempts SET state = 'awaiting_review', completed_at = $occurredAt
+                UPDATE work_attempts SET state = 'awaiting_review', completed_at = $occurredAt,
+                    operational_state = 'completed'
                 WHERE id = $attemptId AND state = 'running';
                 INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
                 VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'log','Attempt submitted for review.',$occurredAt);
@@ -332,7 +333,9 @@ public sealed partial class SqliteWorkChainStore
                     (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, created_at)
                 VALUES
                     ($reviewId, $tenantId, $projectId, $attemptId, $reviewer, $decision, $rationale, $occurredAt);
-                UPDATE work_attempts SET state = $decision WHERE id = $attemptId AND state = 'awaiting_review';
+                UPDATE work_attempts SET state = $decision,
+                    operational_state = CASE WHEN $decision='rejected' THEN 'failed' ELSE 'completed' END
+                WHERE id = $attemptId AND state = 'awaiting_review';
                 INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
                 VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'note',$rationale,$occurredAt);
                 UPDATE work_tasks SET state = $taskState, version = $nextVersion,

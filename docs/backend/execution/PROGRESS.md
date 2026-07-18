@@ -6,7 +6,7 @@
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
 | GNG-2 | recuperação abrupta com auditoria completa | verde | `SIGKILL` dual-provider retomado automaticamente pelo watchdog, 6/6 checkpoints, 2 attempts, Outbox/Inbox idempotentes e cadeia de 7 eventos íntegra; `evidence/F1-GNG2-CLOSURE.md` |
-| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit, chat, quadro e workflows verdes; documentos/aprovações é o próximo incremento |
+| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos e aprovações verdes; orquestrador/agentes é o próximo incremento |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
 | GNG-6 | hardening e DoD global | fechado | F11 não iniciada |
@@ -88,4 +88,12 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-WF-1a catálogo/run | verde | template/versão, vínculo+aceite, run iniciado, fases/gates, migration 0014, restart, OpenAPI/drift e evento de publicação canônico; gate 129/129; `evidence/F2-WORKFLOW-CATALOG.md` |
 | F2-WF-1b comandos/lifecycle | verde | publicação vN imutável, troca de modo+aceite, pausa/retomada, objetivos, gate fail/pass, conclusão, streams global/projeto e restart; gate 131/131; `evidence/F2-WORKFLOW-COMMANDS.md` |
 | F2-DOC-1a catálogo/versões | verde | documentos e versões exatos, corpo imutável no filesystem catalogado por SHA-256, restart, OpenAPI/drift; gate 134/134; `evidence/F2-DOCUMENT-CATALOG.md` |
-| F2-DOC-1b lifecycle/aprovações | próximo | classificação, estados e central de aprovações sobre a autoridade F1 |
+| F2-DOC-1b lifecycle/aprovação documental | verde | classificação, estados, request/reject/approve, nota obrigatória, eventos duplos e restart; gate 134/134; `evidence/F2-DOCUMENT-LIFECYCLE.md` |
+| F2-APP-1 central unificada | verde | documento+tarefa+gate+decisão humana, prioridade/prazo, resolução, gate sem burla, eventos e restart; gate 134/134; `evidence/F2-APPROVAL-CENTER.md` |
+| F2-ORCH-1a catálogo/instâncias | verde | seis definições canônicas, Chief atômico por projeto, métricas+lease/fencing, list/read, filtro, restart e OpenAPI/drift; gate 135/135; `evidence/F2-AGENT-CATALOG.md` |
+| F2-ORCH-1b comandos do Chief | verde | pause/resume, handoff chief-only com fencing 1→2, drain atômico de tarefa/attempt/execução/agente, streams e restart; gate 136/136; `evidence/F2-CHIEF-COMMANDS.md` |
+| F2-TOOL-1 ferramentas/skills/plugins/MCP | verde | quatro catálogos, vínculos de agentes, PATCH, MCP 2025-11-25, checksum/permissões/risk, policy/allowlist/sandbox e eventos; gate 145/145; `evidence/F2-TOOL-CATALOG-POLICY.md` |
+| F2-PROV-1 providers/contas/modelos/budgets | verde | tenant catalog, referências sem segredo, sync, routing, budgets/quota, eventos e restart; gate 151/151; `evidence/F2-PROVIDERS-ROUTING-BUDGETS.md` |
+| F2-NOTIF-1 notificações/settings | verde | perfil transacional, coalescência por `groupKey`, read/mute em lote, stream privado, ledger/auditoria, restart e contratos exatos; gate 154/154; `evidence/F2-NOTIFICATIONS-SETTINGS.md` |
+| F2-GOV-1 governança/auditoria | verde | projeção completa do ledger, filtros/get, integridade SHA-256, export JSON/CSV mascarado, append-only dual-provider e restart; gate 156/156; `evidence/F2-GOVERNANCE-AUDIT.md` |
+| F2-PROT-1 prototipação | próximo | projetos, protótipos, referências visuais, galerias e waivers |

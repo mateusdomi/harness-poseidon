@@ -110,7 +110,8 @@ public sealed partial class SqliteDocumentStore(SqliteWriteDispatcher dispatcher
         {
             documentId = value.DocumentId,
             projectId = value.ProjectId,
-            state = "in_elaboration",
+            from = "planned",
+            to = "inElaboration",
             currentVersion = 1,
             phaseName = value.PhaseName,
             inconsistent = false,

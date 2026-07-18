@@ -96,6 +96,18 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
             await profile.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        await using (var settings = connection.CreateCommand())
+        {
+            settings.Transaction = transaction;
+            settings.CommandText =
+                "INSERT INTO profile_settings (tenant_id,id,profile_id,language,updated_at) VALUES ($tenantId,$id,$id,$locale,$occurredAt);";
+            Add(settings, "$tenantId", command.TenantId);
+            Add(settings, "$id", command.ProfileId);
+            Add(settings, "$locale", command.Locale);
+            Add(settings, "$occurredAt", Store(command.OccurredAt));
+            await settings.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         await transaction.CommitAsync(cancellationToken);
         return new LocalProfileMutationResult(
             LocalProfileMutationStatus.Applied,
