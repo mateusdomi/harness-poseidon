@@ -1,0 +1,62 @@
+{
+  "settings": {
+    "preferences": {
+      "title": "Preferências",
+      "language": "Idioma",
+      "theme": "Tema",
+      "themeOptions": {
+        "dark": "Escuro",
+        "light": "Claro",
+        "system": "Seguir o sistema"
+      }
+    },
+    "workspace": {
+      "title": "Diretórios de trabalho",
+      "directory": "Diretório de trabalho",
+      "hint": "Pasta local onde os agentes leem e escrevem arquivos."
+    },
+    "sandbox": {
+      "title": "Sandbox e modo inseguro",
+      "acceptedAt": "Modo inseguro (execução sem sandbox) aceito em {{date}}.",
+      "notAccepted": "Modo inseguro não aceito — a execução exige sandbox disponível.",
+      "revoke": "Revogar aceite",
+      "revokeTitle": "Revogar aceite do modo inseguro",
+      "revokeBody": "Ao revogar, o modo inseguro volta a exigir aceite explícito no próximo onboarding ou execução fora do sandbox. Deseja continuar?",
+      "revokeConfirm": "Revogar aceite"
+    },
+    "backup": {
+      "title": "Backup e restauração",
+      "create": "Criar backup",
+      "createTitle": "Criar backup local",
+      "createBody": "Um backup local dos dados do dispositivo será criado. Deseja continuar?",
+      "createConfirm": "Criar backup",
+      "created": "Backup criado em {{date}}.",
+      "restore": "Restaurar último backup",
+      "restoreTitle": "Restaurar backup",
+      "restoreBody": "Restaurar o backup criado em {{date}}? Os dados atuais serão substituídos.",
+      "restoreConfirm": "Restaurar backup",
+      "restored": "Backup restaurado com sucesso."
+    },
+    "diagnostics": {
+      "title": "Diagnóstico",
+      "refresh": "Atualizar diagnóstico",
+      "apiMode": "Modo da API",
+      "realtime": "Tempo real",
+      "generatedAt": "Gerado em",
+      "states": {
+        "ok": "OK",
+        "warning": "Atenção",
+        "error": "Erro"
+      }
+    },
+    "license": {
+      "title": "Licença",
+      "none": "Nenhuma licença ativada.",
+      "open": "Ver detalhes da licença"
+    },
+    "about": {
+      "title": "Sobre",
+      "body": "{{name}} {{version}} (codinome {{codename}}) — console local de orquestração de agentes."
+    }
+  }
+}

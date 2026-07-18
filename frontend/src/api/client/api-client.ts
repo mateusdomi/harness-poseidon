@@ -1,13 +1,19 @@
 import type {
   Agent,
+  AnalyzeSolicitationInput,
   AppendTaskInstructionInput,
+  ActivateLicenseInput,
+  BackupHandle,
   ChatTurnHandle,
   ClassifyDocumentInput,
   CreatableResource,
   CreateInputMap,
+  Diagnostics,
   DrainChiefTasksInput,
   HandoffChiefInput,
+  License,
   ListQuery,
+  Model,
   MoveTaskInput,
   Page,
   Profile,
@@ -17,8 +23,10 @@ import type {
   ResolveApprovalInput,
   ResourceKind,
   ResourceMap,
+  RunTarget,
   SetOperationModeInput,
   SetTaskPriorityInput,
+  SolicitationAnalysis,
   StartChatTurnInput,
   Task,
   TaskInstruction,
@@ -121,4 +129,46 @@ export interface ApiClient {
    * tarefas foram drenadas.
    */
   drainChiefTasks(projectId: Ulid, input: DrainChiefTasksInput): Promise<number>;
+
+  /* ---- rodar projeto (run-targets) ---- */
+
+  /** Inicia um serviço detectado → `running`; logs chegam via `run.logAppended`. */
+  startRunTarget(runTargetId: Ulid): Promise<RunTarget>;
+  /** Para um serviço → `stopped`. */
+  stopRunTarget(runTargetId: Ulid): Promise<RunTarget>;
+  /** Reinicia um serviço (stop + start, com logs das duas fases). */
+  restartRunTarget(runTargetId: Ulid): Promise<RunTarget>;
+  /**
+   * Cleanup do ambiente do projeto: para todos os serviços e registra
+   * auditoria. Retorna quantos serviços foram parados.
+   */
+  cleanupRunEnvironment(projectId: Ulid): Promise<number>;
+
+  /* ---- providers ---- */
+
+  /**
+   * Sincroniza o catálogo de modelos do provider (somente leitura na UI)
+   * → emite `quota.updated` das contas do provider no stream global.
+   */
+  syncProviderCatalog(providerId: Ulid): Promise<Model[]>;
+
+  /* ---- PO Assistant ---- */
+
+  /**
+   * Analisa uma solicitação em texto livre: cria a solicitação (kind
+   * `request`) e devolve os painéis (requisitos, ambiguidades,
+   * contradições, perguntas, critérios de aceite) para curadoria humana.
+   */
+  analyzeSolicitation(input: AnalyzeSolicitationInput): Promise<SolicitationAnalysis>;
+
+  /* ---- licença, backup, diagnóstico ---- */
+
+  /** Ativa a licença do dispositivo por chave → `audit.eventAppended`. */
+  activateLicense(input: ActivateLicenseInput): Promise<License>;
+  /** Cria um backup local → `audit.eventAppended`. */
+  createBackup(): Promise<BackupHandle>;
+  /** Restaura um backup → `audit.eventAppended`. */
+  restoreBackup(backupId: Ulid): Promise<void>;
+  /** Diagnóstico da instalação: versões, saúde e conexões. */
+  getDiagnostics(): Promise<Diagnostics>;
 }

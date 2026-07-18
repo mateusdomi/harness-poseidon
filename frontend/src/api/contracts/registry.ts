@@ -193,8 +193,11 @@ export interface UpdateInputMap {
       | 'technologies'
       | 'brand'
       | 'memberProfileIds'
+      | 'prototyping'
     >
   >;
+  /** Renomear e arquivar/desarquivar — as únicas mutações permitidas. */
+  conversations: Partial<Pick<Conversation, 'title' | 'state'>>;
   settings: Partial<
     Pick<
       Settings,

@@ -1,0 +1,48 @@
+{
+  "poAssistant": {
+    "noProject": {
+      "body": "Select or create a project to analyze solicitations with the PO assistant."
+    },
+    "input": {
+      "label": "Free-text request",
+      "placeholder": "Describe the business need, the context and the expected outcome…",
+      "attachments": "Attachments",
+      "removeAttachment": "Remove attachment {{name}}",
+      "analyze": "Analyze request",
+      "analyzing": "Analyzing…",
+      "error": "Could not analyze the request. Please try again."
+    },
+    "panels": {
+      "requirements": "Extracted requirements",
+      "ambiguities": "Ambiguities",
+      "contradictions": "Contradictions",
+      "questions": "Generated questions",
+      "acceptanceCriteria": "Acceptance criteria"
+    },
+    "empty": {
+      "requirements": "No requirements identified.",
+      "ambiguities": "No ambiguities found.",
+      "contradictions": "No contradictions found.",
+      "questions": "No questions generated.",
+      "acceptanceCriteria": "No acceptance criteria generated."
+    },
+    "item": {
+      "resolved": "Resolved"
+    },
+    "actions": {
+      "edit": "Edit item",
+      "editText": "Item text",
+      "resolve": "Mark as resolved",
+      "discard": "Discard item"
+    },
+    "demand": {
+      "create": "Create structured demand",
+      "creating": "Creating demand…",
+      "created": "Structured demand created and sent to the project's chief.",
+      "openBoard": "View on the board",
+      "openChat": "Talk in the chat",
+      "error": "Could not create the demand. Please try again.",
+      "fallbackTitle": "Structured demand from the PO assistant"
+    }
+  }
+}

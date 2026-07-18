@@ -7,6 +7,7 @@ import {
   operationModeSchema,
   prioritySchema,
   projectStateSchema,
+  prototypingModeSchema,
   repositoryProviderSchema,
   solicitationKindSchema,
   solicitationStateSchema,
@@ -61,6 +62,23 @@ export const organizationSchema = z.object({
 });
 export type Organization = z.infer<typeof organizationSchema>;
 
+/** Waiver de prototipação: dispensa formal com motivo registrado. */
+export const prototypingWaiverSchema = z.object({
+  reason: z.string(),
+  grantedAt: isoDateTimeSchema,
+});
+export type PrototypingWaiver = z.infer<typeof prototypingWaiverSchema>;
+
+/**
+ * Cenário de prototipação do projeto. `notApplicable` exige waiver
+ * (dispensa formal — ex.: projeto sem interface visual).
+ */
+export const prototypingConfigSchema = z.object({
+  mode: prototypingModeSchema,
+  waiver: prototypingWaiverSchema.nullable(),
+});
+export type PrototypingConfig = z.infer<typeof prototypingConfigSchema>;
+
 export const projectSchema = z.object({
   id: ulidSchema,
   organizationId: ulidSchema,
@@ -87,6 +105,8 @@ export const projectSchema = z.object({
   /** Agente chefe coordenador do projeto. */
   chiefAgentId: ulidSchema,
   operationMode: operationModeSchema,
+  /** Cenário de prototipação do projeto (+ waiver quando não aplicável). */
+  prototyping: prototypingConfigSchema,
   createdAt: isoDateTimeSchema,
   lastActivityAt: isoDateTimeSchema,
 });

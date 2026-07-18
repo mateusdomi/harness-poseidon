@@ -1,1 +1,1 @@
-// Componentes da feature "run-project" — implementados em fatias futuras.
+export { RunLogPanel } from './run-log-panel';

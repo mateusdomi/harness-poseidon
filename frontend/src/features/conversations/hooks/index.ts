@@ -1,1 +1,1 @@
-// Hooks da feature "conversations" — implementados em fatias futuras.
+export { conversationKeys, useConversations, useUpdateConversation } from './use-conversations';

@@ -1,1 +1,1 @@
-// Componentes da feature "po-assistant" — implementados em fatias futuras.
+export { AnalysisPanelCard } from './analysis-panel-card';

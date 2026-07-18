@@ -1,0 +1,64 @@
+{
+  "prototypes": {
+    "noProject": {
+      "body": "Selecione ou crie um projeto para gerenciar protótipos e referências visuais."
+    },
+    "mode": {
+      "current": "Cenário de prototipação",
+      "change": "Alterar cenário",
+      "title": "Cenário de prototipação do projeto",
+      "label": "Cenário",
+      "help": {
+        "externalPrototype": "O projeto usa um protótipo hospedado externamente; as referências aqui são apenas consulta.",
+        "guidelinesOnly": "O projeto segue apenas diretrizes visuais (cores, logo, referências) — sem protótipo navegável.",
+        "autonomousGeneration": "Os agentes geram os protótipos do projeto de forma autônoma a partir dos documentos.",
+        "notApplicable": "O projeto não tem interface visual — a prototipação é dispensada formalmente (waiver)."
+      },
+      "waiverLabel": "Motivo da dispensa (waiver)",
+      "waiverRequired": "Informe o motivo da dispensa para marcar como não aplicável.",
+      "waiverInfo": "Dispensa formal: {{reason}} (concedida em {{date}}).",
+      "error": "Não foi possível salvar o cenário. Tente novamente."
+    },
+    "brand": {
+      "logoAlt": "Logo do projeto",
+      "noLogo": "Sem logo definido"
+    },
+    "sections": {
+      "prototypes": "Protótipos",
+      "references": "Referências visuais"
+    },
+    "openExternal": "Abrir protótipo externo",
+    "zipBadge": "ZIP (referência)",
+    "metadata": {
+      "briefing": "Briefing",
+      "flowMoment": "Momento do fluxo"
+    },
+    "versions": {
+      "unavailable": "Histórico de versões de protótipo não disponível no contrato atual."
+    },
+    "notApplicable": {
+      "title": "Prototipação não aplicável",
+      "body": "Este projeto foi dispensado formalmente da prototipação. Altere o cenário acima para voltar a usar protótipos e referências."
+    },
+    "empty": {
+      "prototypes": "Nenhum protótipo neste projeto ainda.",
+      "references": "Nenhuma referência visual neste projeto ainda."
+    },
+    "upload": {
+      "open": "Enviar referência",
+      "title": "Enviar referência visual",
+      "file": "Arquivo (imagem ou ZIP)",
+      "zipNotice": "Imagens e arquivos ZIP são usados apenas como referência visual. Um ZIP NUNCA é executado automaticamente.",
+      "name": "Título",
+      "tags": "Tags",
+      "tagsPlaceholder": "Separadas por vírgula (ex.: tema, dashboard)",
+      "briefing": "Briefing (opcional)",
+      "flowMoment": "Momento do fluxo (opcional)",
+      "flowMomentPlaceholder": "Ex.: onboarding, checkout, pós-venda",
+      "submit": "Enviar referência",
+      "fileRequired": "Selecione um arquivo de imagem ou ZIP.",
+      "titleRequired": "Informe um título para a referência.",
+      "error": "Não foi possível enviar a referência. Tente novamente."
+    }
+  }
+}

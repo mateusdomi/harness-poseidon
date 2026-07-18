@@ -1,0 +1,47 @@
+{
+  "conversations": {
+    "listLabel": "Histórico de conversas",
+    "filters": {
+      "project": "Projeto",
+      "all": "Todos",
+      "period": {
+        "label": "Período",
+        "options": {
+          "all": "Todo o período",
+          "today": "Hoje",
+          "7d": "Últimos 7 dias",
+          "30d": "Últimos 30 dias",
+          "custom": "Intervalo personalizado"
+        },
+        "from": "De",
+        "to": "Até"
+      },
+      "channel": "Canal",
+      "channelUnavailable": "Não disponível no contrato atual",
+      "author": "Usuário",
+      "search": "Busca",
+      "searchPlaceholder": "Buscar por título…",
+      "showArchived": "Mostrar arquivadas"
+    },
+    "item": {
+      "meta": "{{project}} · {{author}} · {{when}}",
+      "unknownAuthor": "Usuário desconhecido"
+    },
+    "actions": {
+      "open": "Abrir",
+      "rename": "Renomear",
+      "archive": "Arquivar",
+      "unarchive": "Desarquivar"
+    },
+    "rename": {
+      "title": "Renomear conversa",
+      "label": "Título da conversa",
+      "required": "Informe um título para a conversa.",
+      "error": "Não foi possível renomear. Tente novamente."
+    },
+    "empty": {
+      "title": "Nenhuma conversa encontrada",
+      "body": "Ajuste os filtros ou inicie uma nova conversa no chat com o chefe do projeto."
+    }
+  }
+}

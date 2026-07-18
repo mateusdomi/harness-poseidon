@@ -1,0 +1,67 @@
+{
+  "runProject": {
+    "noProject": {
+      "body": "Select or create a project to run its environment services."
+    },
+    "actions": {
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "startAll": "Start all",
+      "stopAll": "Stop all",
+      "cleanup": "Clean up environment"
+    },
+    "services": {
+      "title": "Detected services",
+      "empty": "No services detected in this project yet.",
+      "port": "Port",
+      "stack": "Stack",
+      "dependencies": "Dependencies",
+      "dependenciesUnavailable": "Not available in the current contract"
+    },
+    "logs": {
+      "title": "Environment logs",
+      "label": "Real-time logs",
+      "empty": "No log lines — start a service to see the streaming.",
+      "clear": "Clear",
+      "filters": {
+        "level": "Level",
+        "service": "Service",
+        "text": "Text",
+        "all": "All"
+      },
+      "levels": {
+        "info": "Info",
+        "warning": "Warning",
+        "error": "Error"
+      }
+    },
+    "credentials": {
+      "title": "Demo credentials",
+      "user": "User",
+      "password": "Password",
+      "reveal": "Reveal",
+      "hide": "Hide"
+    },
+    "demoCredentials": {
+      "poseidon": {
+        "user": "demo@poseidon.local",
+        "password": "demo123"
+      },
+      "generic": {
+        "user": "demo",
+        "password": "demo123"
+      }
+    },
+    "guideTitle": "What to test first",
+    "guide": {
+      "poseidon": "Open the frontend (dev) URL and check the console for errors\nStart the Backend API and watch the health check in the logs\nSign in with the demo credentials",
+      "generic": "Start all services and watch the logs\nOpen the main HTTP service URL\nCheck the health checks before reporting issues"
+    },
+    "cleanup": {
+      "title": "Clean up environment",
+      "body": "This stops all project services and cleans up the run environment. Continue?",
+      "confirm": "Confirm cleanup"
+    }
+  }
+}

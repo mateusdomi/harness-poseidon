@@ -1,0 +1,48 @@
+{
+  "poAssistant": {
+    "noProject": {
+      "body": "Selecione ou crie um projeto para analisar solicitações com o assistente de PO."
+    },
+    "input": {
+      "label": "Pedido em texto livre",
+      "placeholder": "Descreva a necessidade de negócio, o contexto e o que se espera como resultado…",
+      "attachments": "Anexos",
+      "removeAttachment": "Remover anexo {{name}}",
+      "analyze": "Analisar pedido",
+      "analyzing": "Analisando…",
+      "error": "Não foi possível analisar o pedido. Tente novamente."
+    },
+    "panels": {
+      "requirements": "Requisitos extraídos",
+      "ambiguities": "Ambiguidades",
+      "contradictions": "Contradições",
+      "questions": "Perguntas geradas",
+      "acceptanceCriteria": "Critérios de aceite"
+    },
+    "empty": {
+      "requirements": "Nenhum requisito identificado.",
+      "ambiguities": "Nenhuma ambiguidade encontrada.",
+      "contradictions": "Nenhuma contradição encontrada.",
+      "questions": "Nenhuma pergunta gerada.",
+      "acceptanceCriteria": "Nenhum critério de aceite gerado."
+    },
+    "item": {
+      "resolved": "Resolvido"
+    },
+    "actions": {
+      "edit": "Editar item",
+      "editText": "Texto do item",
+      "resolve": "Marcar como resolvido",
+      "discard": "Descartar item"
+    },
+    "demand": {
+      "create": "Criar demanda estruturada",
+      "creating": "Criando demanda…",
+      "created": "Demanda estruturada criada e enviada ao chefe do projeto.",
+      "openBoard": "Ver no quadro",
+      "openChat": "Conversar no chat",
+      "error": "Não foi possível criar a demanda. Tente novamente.",
+      "fallbackTitle": "Demanda estruturada pelo assistente de PO"
+    }
+  }
+}

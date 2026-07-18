@@ -1,0 +1,33 @@
+{
+  "licenses": {
+    "postExpiryNotice": "Even after the license expires, reading and exporting your data remain available.",
+    "state": {
+      "title": "License state",
+      "plan": "Plan",
+      "device": "Device",
+      "expiresAt": "Expires",
+      "noExpiry": "No expiry",
+      "gracePeriod": "Grace period until",
+      "offlineMode": "Offline mode",
+      "offlineYes": "On",
+      "offlineNo": "Off",
+      "lastValidated": "Last validated",
+      "none": "No license activated on this device. Activate below to unlock the features."
+    },
+    "activation": {
+      "title": "Activation",
+      "keyLabel": "License key",
+      "keyPlaceholder": "XXXX-XXXX-XXXX-XXXX",
+      "invalidFormat": "The key must use the XXXX-XXXX-XXXX-XXXX format.",
+      "submit": "Activate license",
+      "success": "License activated successfully.",
+      "error": "Could not activate the license. Please try again."
+    },
+    "entitlements": {
+      "title": "Entitlements",
+      "empty": "No entitlements available.",
+      "included": "Included in the plan",
+      "notIncluded": "Not included in the plan"
+    }
+  }
+}

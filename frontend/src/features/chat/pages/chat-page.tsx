@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Loader2, Plus } from 'lucide-react';
 
 import type { Ulid } from '@/api';
@@ -29,12 +29,25 @@ export default function ChatPage() {
 
   const conversationsQuery = useConversations(projectId);
   const createConversation = useCreateConversation();
-  const conversations = useMemo(
-    () => (conversationsQuery.data ?? []).filter((c) => c.state === 'active'),
-    [conversationsQuery.data],
-  );
+
+  // Deep-link do histórico: `/chat?conversation=<id>` retoma o contexto,
+  // inclusive de conversas arquivadas (entram na lista efetiva).
+  const [searchParams] = useSearchParams();
+  const requestedId = searchParams.get('conversation');
+  const allConversations = useMemo(() => conversationsQuery.data ?? [], [conversationsQuery.data]);
+  const requested = requestedId
+    ? allConversations.find((c) => c.id === requestedId)
+    : undefined;
+  const conversations = useMemo(() => {
+    const active = allConversations.filter((c) => c.state === 'active');
+    if (requested && requested.state !== 'active') return [requested, ...active];
+    return active;
+  }, [allConversations, requested]);
 
   const [selectedId, setSelectedId] = useState<Ulid | null>(null);
+  useEffect(() => {
+    if (requestedId && requested) setSelectedId(requested.id);
+  }, [requestedId, requested]);
   // Conversa efetiva: a escolhida (se ainda existe) ou a mais recente.
   const conversation = conversations.find((c) => c.id === selectedId) ?? conversations[0] ?? null;
   const conversationId = conversation?.id ?? null;

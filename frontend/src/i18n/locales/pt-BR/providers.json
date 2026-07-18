@@ -1,0 +1,49 @@
+{
+  "providers": {
+    "enabled": "Habilitado",
+    "disabled": "Desabilitado",
+    "sync": {
+      "action": "Sincronizar",
+      "feedback": "Catálogo sincronizado: {{count}} modelo(s)."
+    },
+    "accounts": {
+      "title": "Contas",
+      "empty": "Nenhuma conta neste provider.",
+      "quotaBar": "Consumo da cota da conta {{label}}",
+      "quota": "{{used}} de {{limit}} usados",
+      "quotaNoLimit": "{{used}} usados (sem limite configurado)",
+      "window": "Janela: {{period}} · próximo reset em {{reset}} (derivado do período do budget)"
+    },
+    "models": {
+      "title": "Catálogo de modelos",
+      "empty": "Nenhum modelo neste provider.",
+      "meta": "Contexto: {{context}} tokens · custo/1k: {{input}} entrada · {{output}} saída"
+    },
+    "budgets": {
+      "title": "Budgets",
+      "global": "Global",
+      "bar": "Consumo do budget {{scope}}",
+      "consumption": "{{spent}} de {{limit}} · alerta em {{threshold}}%"
+    },
+    "bars": {
+      "noLimit": "Sem limite configurado",
+      "pct": "{{pct}}% consumido"
+    },
+    "routing": {
+      "title": "Política de roteamento",
+      "active": "Ativa",
+      "inactive": "Inativa",
+      "edit": "Editar política",
+      "editTitle": "Editar política de roteamento",
+      "defaultRule": "Padrão (qualquer tipo)",
+      "preferred": "Modelo preferido",
+      "fallbacks": "Modelos de fallback",
+      "maxCost": "Custo máximo por tentativa (USD)",
+      "maxCostPlaceholder": "Sem limite",
+      "maxCostShort": "máx. {{value}}/tentativa",
+      "confirmBody": "Revise as regras antes de salvar. A política passa a valer para as próximas tentativas.",
+      "confirm": "Confirmar e salvar",
+      "error": "Não foi possível salvar a política. Tente novamente."
+    }
+  }
+}

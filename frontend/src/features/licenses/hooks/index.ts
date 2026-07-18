@@ -1,1 +1,1 @@
-// Hooks da feature "licenses" — implementados em fatias futuras.
+export { licenseKeys, useActivateLicense, useEntitlements, useLicense } from './use-licenses';

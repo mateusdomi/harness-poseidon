@@ -1,0 +1,47 @@
+{
+  "conversations": {
+    "listLabel": "Conversation history",
+    "filters": {
+      "project": "Project",
+      "all": "All",
+      "period": {
+        "label": "Period",
+        "options": {
+          "all": "All time",
+          "today": "Today",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days",
+          "custom": "Custom range"
+        },
+        "from": "From",
+        "to": "To"
+      },
+      "channel": "Channel",
+      "channelUnavailable": "Not available in the current contract",
+      "author": "User",
+      "search": "Search",
+      "searchPlaceholder": "Search by title…",
+      "showArchived": "Show archived"
+    },
+    "item": {
+      "meta": "{{project}} · {{author}} · {{when}}",
+      "unknownAuthor": "Unknown user"
+    },
+    "actions": {
+      "open": "Open",
+      "rename": "Rename",
+      "archive": "Archive",
+      "unarchive": "Unarchive"
+    },
+    "rename": {
+      "title": "Rename conversation",
+      "label": "Conversation title",
+      "required": "Enter a title for the conversation.",
+      "error": "Could not rename. Please try again."
+    },
+    "empty": {
+      "title": "No conversations found",
+      "body": "Adjust the filters or start a new conversation in the chat with the project's chief."
+    }
+  }
+}

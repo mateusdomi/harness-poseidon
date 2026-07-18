@@ -2,14 +2,20 @@ import {
   ApiError,
   problemDetailsSchema,
   type Agent,
+  type AnalyzeSolicitationInput,
   type AppendTaskInstructionInput,
+  type ActivateLicenseInput,
+  type BackupHandle,
   type ChatTurnHandle,
   type ClassifyDocumentInput,
   type CreatableResource,
   type CreateInputMap,
+  type Diagnostics,
   type DrainChiefTasksInput,
   type HandoffChiefInput,
+  type License,
   type ListQuery,
+  type Model,
   type MoveTaskInput,
   type Page,
   type Profile,
@@ -19,8 +25,10 @@ import {
   type ResolveApprovalInput,
   type ResourceKind,
   type ResourceMap,
+  type RunTarget,
   type SetOperationModeInput,
   type SetTaskPriorityInput,
+  type SolicitationAnalysis,
   type StartChatTurnInput,
   type Task,
   type TaskInstruction,
@@ -161,6 +169,46 @@ export class HttpApiClient implements ApiClient {
 
   drainChiefTasks(projectId: Ulid, input: DrainChiefTasksInput): Promise<number> {
     return this.#request('POST', `/projects/${projectId}/chief/drain`, input);
+  }
+
+  startRunTarget(runTargetId: Ulid): Promise<RunTarget> {
+    return this.#request('POST', `/run-targets/${runTargetId}/start`);
+  }
+
+  stopRunTarget(runTargetId: Ulid): Promise<RunTarget> {
+    return this.#request('POST', `/run-targets/${runTargetId}/stop`);
+  }
+
+  restartRunTarget(runTargetId: Ulid): Promise<RunTarget> {
+    return this.#request('POST', `/run-targets/${runTargetId}/restart`);
+  }
+
+  cleanupRunEnvironment(projectId: Ulid): Promise<number> {
+    return this.#request('POST', `/projects/${projectId}/run-environment/cleanup`);
+  }
+
+  syncProviderCatalog(providerId: Ulid): Promise<Model[]> {
+    return this.#request('POST', `/providers/${providerId}/sync`);
+  }
+
+  analyzeSolicitation(input: AnalyzeSolicitationInput): Promise<SolicitationAnalysis> {
+    return this.#request('POST', '/solicitations/analyze', input);
+  }
+
+  activateLicense(input: ActivateLicenseInput): Promise<License> {
+    return this.#request('POST', '/licenses/activation', input);
+  }
+
+  createBackup(): Promise<BackupHandle> {
+    return this.#request('POST', '/backups');
+  }
+
+  async restoreBackup(backupId: Ulid): Promise<void> {
+    await this.#request('POST', `/backups/${backupId}/restore`);
+  }
+
+  getDiagnostics(): Promise<Diagnostics> {
+    return this.#request('GET', '/diagnostics');
   }
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {

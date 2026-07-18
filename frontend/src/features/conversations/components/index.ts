@@ -1,1 +1,1 @@
-// Componentes da feature "conversations" — implementados em fatias futuras.
+export { RenameConversationDialog } from './rename-conversation-dialog';

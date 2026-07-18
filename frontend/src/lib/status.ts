@@ -1,18 +1,23 @@
 import type {
+  AccountState,
   AgentState,
   ApprovalState,
   AttemptState,
   AuditActorKind,
   ChiefTurnState,
   ComponentState,
+  ConversationState,
   DocumentState,
   GateState,
+  LicenseState,
   NotificationSeverity,
   NotificationStatus,
   OperationMode,
   PhaseState,
   Priority,
   ProjectState,
+  PrototypeState,
+  RunTargetState,
   TaskState,
   WorkflowRunState,
 } from '@/api';
@@ -217,4 +222,61 @@ export const NOTIFICATION_STATUS_VARIANTS: Record<NotificationStatus, BadgeProps
 
 export function notificationStatusVariant(status: NotificationStatus): BadgeProps['variant'] {
   return NOTIFICATION_STATUS_VARIANTS[status];
+}
+
+/** Serviços detectados: em execução é info, parado neutro, desconhecido atenção. */
+export const RUN_TARGET_STATE_VARIANTS: Record<RunTargetState, BadgeProps['variant']> = {
+  running: 'info',
+  stopped: 'outline',
+  unknown: 'warning',
+};
+
+export function runTargetStateVariant(state: RunTargetState): BadgeProps['variant'] {
+  return RUN_TARGET_STATE_VARIANTS[state];
+}
+
+/** Licença: ativa é sucesso; tolerância/offline atenção; expirada/sem licença erro. */
+export const LICENSE_STATE_VARIANTS: Record<LicenseState, BadgeProps['variant']> = {
+  active: 'success',
+  gracePeriod: 'warning',
+  expired: 'error',
+  offline: 'warning',
+  unlicensed: 'error',
+};
+
+export function licenseStateVariant(state: LicenseState): BadgeProps['variant'] {
+  return LICENSE_STATE_VARIANTS[state];
+}
+
+/** Conta de provider: ativa é sucesso, cota excedida é erro. */
+export const ACCOUNT_STATE_VARIANTS: Record<AccountState, BadgeProps['variant']> = {
+  active: 'success',
+  disabled: 'outline',
+  quotaExceeded: 'error',
+};
+
+export function accountStateVariant(state: AccountState): BadgeProps['variant'] {
+  return ACCOUNT_STATE_VARIANTS[state];
+}
+
+/** Protótipos: publicado é sucesso, gerando é info, rascunho neutro. */
+export const PROTOTYPE_STATE_VARIANTS: Record<PrototypeState, BadgeProps['variant']> = {
+  draft: 'outline',
+  generating: 'info',
+  ready: 'brand',
+  published: 'success',
+  archived: 'outline',
+};
+
+export function prototypeStateVariant(state: PrototypeState): BadgeProps['variant'] {
+  return PROTOTYPE_STATE_VARIANTS[state];
+}
+
+export const CONVERSATION_STATE_VARIANTS: Record<ConversationState, BadgeProps['variant']> = {
+  active: 'info',
+  archived: 'outline',
+};
+
+export function conversationStateVariant(state: ConversationState): BadgeProps['variant'] {
+  return CONVERSATION_STATE_VARIANTS[state];
 }

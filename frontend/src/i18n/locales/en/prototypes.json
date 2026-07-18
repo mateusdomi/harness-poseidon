@@ -1,0 +1,64 @@
+{
+  "prototypes": {
+    "noProject": {
+      "body": "Select or create a project to manage prototypes and visual references."
+    },
+    "mode": {
+      "current": "Prototyping scenario",
+      "change": "Change scenario",
+      "title": "Project prototyping scenario",
+      "label": "Scenario",
+      "help": {
+        "externalPrototype": "The project uses an externally hosted prototype; references here are read-only.",
+        "guidelinesOnly": "The project follows visual guidelines only (colors, logo, references) — no navigable prototype.",
+        "autonomousGeneration": "Agents autonomously generate the project's prototypes from the documents.",
+        "notApplicable": "The project has no visual interface — prototyping is formally waived."
+      },
+      "waiverLabel": "Waiver reason",
+      "waiverRequired": "Enter the waiver reason to mark as not applicable.",
+      "waiverInfo": "Formal waiver: {{reason}} (granted on {{date}}).",
+      "error": "Could not save the scenario. Please try again."
+    },
+    "brand": {
+      "logoAlt": "Project logo",
+      "noLogo": "No logo defined"
+    },
+    "sections": {
+      "prototypes": "Prototypes",
+      "references": "Visual references"
+    },
+    "openExternal": "Open external prototype",
+    "zipBadge": "ZIP (reference)",
+    "metadata": {
+      "briefing": "Briefing",
+      "flowMoment": "Flow moment"
+    },
+    "versions": {
+      "unavailable": "Prototype version history is not available in the current contract."
+    },
+    "notApplicable": {
+      "title": "Prototyping not applicable",
+      "body": "This project was formally waived from prototyping. Change the scenario above to use prototypes and references again."
+    },
+    "empty": {
+      "prototypes": "No prototypes in this project yet.",
+      "references": "No visual references in this project yet."
+    },
+    "upload": {
+      "open": "Upload reference",
+      "title": "Upload visual reference",
+      "file": "File (image or ZIP)",
+      "zipNotice": "Images and ZIP files are used as visual reference only. A ZIP is NEVER executed automatically.",
+      "name": "Title",
+      "tags": "Tags",
+      "tagsPlaceholder": "Comma separated (e.g. theme, dashboard)",
+      "briefing": "Briefing (optional)",
+      "flowMoment": "Flow moment (optional)",
+      "flowMomentPlaceholder": "E.g.: onboarding, checkout, post-sale",
+      "submit": "Upload reference",
+      "fileRequired": "Select an image or ZIP file.",
+      "titleRequired": "Enter a title for the reference.",
+      "error": "Could not upload the reference. Please try again."
+    }
+  }
+}

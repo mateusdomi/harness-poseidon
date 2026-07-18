@@ -3,4 +3,6 @@
  */
 export const product = {
   name: 'Poseidon',
+  version: '0.3.0',
+  codename: 'Harness',
 } as const;

@@ -269,6 +269,59 @@
     "agentRole": {
       "chief": "Chefe",
       "specialist": "Especialista"
+    },
+    "conversationState": {
+      "active": "Ativa",
+      "archived": "Arquivada"
+    },
+    "prototypeState": {
+      "draft": "Rascunho",
+      "generating": "Gerando",
+      "ready": "Pronto",
+      "published": "Publicado",
+      "archived": "Arquivado"
+    },
+    "visualReferenceSource": {
+      "upload": "Upload",
+      "url": "URL",
+      "generated": "Gerada"
+    },
+    "prototypingMode": {
+      "externalPrototype": "Protótipo externo",
+      "guidelinesOnly": "Apenas diretrizes",
+      "autonomousGeneration": "Geração autônoma",
+      "notApplicable": "Não aplicável"
+    },
+    "runTargetState": {
+      "running": "Em execução",
+      "stopped": "Parado",
+      "unknown": "Desconhecido"
+    },
+    "runTargetKind": {
+      "http": "HTTP",
+      "tcp": "TCP",
+      "process": "Processo"
+    },
+    "licenseState": {
+      "active": "Ativa",
+      "gracePeriod": "Período de tolerância",
+      "expired": "Expirada",
+      "offline": "Offline",
+      "unlicensed": "Sem licença"
+    },
+    "modelCapability": {
+      "chat": "Chat",
+      "code": "Código",
+      "vision": "Visão",
+      "embeddings": "Embeddings"
+    },
+    "providerKind": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "azureOpenai": "Azure OpenAI",
+      "google": "Google",
+      "ollama": "Ollama",
+      "custom": "Personalizado"
     }
   },
   "onboarding": {

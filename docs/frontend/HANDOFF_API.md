@@ -40,7 +40,7 @@ Verbos comuns: `GET /api/v1/<recurso>` (lista, cursor), `GET /api/v1/<recurso>/<
 | `profiles/current` (GET) | `Profile` | — | — | — | shell (badge), onboarding |
 | `organizations` | `Organization` | — | — | — | organizations (planejada) |
 | `projects` | `Project` | ✓ | ✓ | ✓ | projects, cockpit |
-| `conversations` | `Conversation` | ✓ | — | ✓ | conversations, chat |
+| `conversations` | `Conversation` | ✓ | ✓ | ✓ | conversations, chat |
 | `messages` | `Message` | ✓ | — | — | chat, conversations |
 | `solicitations` | `Solicitation` (imutável) | ✓ | — | — | po-assistant, cockpit (planejada) |
 | `demands` | `Demand` | ✓ | — | — | cockpit, orchestrator (planejada) |
@@ -137,6 +137,16 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | `POST /projects/<id>/chief/resume` (FE-2b) | — | `Project` (state → `active`) | `agent.statusChanged` (chefe → `idle`), `audit.eventAppended` (`chief.resumed`) | orchestrator |
 | `POST /projects/<id>/chief/handoff` (FE-2b) | `{ targetDefinitionId?, targetModelId?, note }` — **note obrigatória** | `Agent` (nova instância chefe) | `agent.statusChanged` (antigo → `idle`, novo), `audit.eventAppended` (`chief.handedOff`) | orchestrator (passagem de bastão) |
 | `POST /projects/<id>/chief/drain` (FE-2b) | `{ note? }` | `number` (tarefas drenadas) | `task.stateChanged` (em andamento → `ready`), `agent.statusChanged`, `audit.eventAppended` (`chief.tasksDrained`) | orchestrator |
+| `POST /run-targets/<id>/start` (FE-3) | — | `RunTarget` (state → `running`) | `run.logAppended` (no stream `project:<id>`, `runId`/`attemptId` nulos) | run-project |
+| `POST /run-targets/<id>/stop` (FE-3) | — | `RunTarget` (state → `stopped`) | `run.logAppended` (idem) | run-project |
+| `POST /run-targets/<id>/restart` (FE-3) | — | `RunTarget` | `run.logAppended` (parada + subida) | run-project |
+| `POST /projects/<id>/run-environment/cleanup` (FE-3) | — | `number` (artefatos removidos) | `audit.eventAppended` (`run.environmentCleaned`) | run-project |
+| `POST /providers/<id>/sync` (FE-3) | — | `Model[]` (catálogo atualizado) | `quota.updated` (stream `global`), `audit.eventAppended` (`provider.catalogSynced`) | providers |
+| `POST /solicitations/analyze` (FE-3) | `{ projectId, text, attachmentNames? }` | `SolicitationAnalysis` (5 painéis de itens `{ id, text }`) | — (a solicitação `kind: request` é criada; a demanda usa o CRUD de `demands` + `demand.created`) | po-assistant |
+| `POST /licenses/activation` (FE-3) | `{ key }` — formato `XXXX-XXXX-XXXX-XXXX` | `License` (state → `active`) | `audit.eventAppended` (`license.activated`); 400 em formato inválido | licenses, settings |
+| `POST /backups` (FE-3) | — | `BackupHandle` (`{ id, createdAt, sizeBytes }`) | `audit.eventAppended` (`backup.created`) | settings |
+| `POST /backups/<id>/restore` (FE-3) | — | — | `audit.eventAppended` (`backup.restored`) | settings |
+| `GET /diagnostics` (FE-3) | — | `Diagnostics` (versão, codename, ambiente, contadores) | — | settings |
 
 ### Campos adicionados na FE-2a
 
@@ -150,6 +160,20 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 - `Agent.modelId: Ulid | null` — override de modelo da instância (preenchido na passagem de bastão); `null` = usa `AgentDefinition.defaultModelId`. Modelo efetivo = `modelId ?? definition.defaultModelId`.
 - `Agent.lease: { fencingToken: number, expiresAt: ISO } | null` — concessão de orquestração do chefe (diagnóstico avançado). O fencing token incrementa a cada handoff e invalida escritores antigos; o mock entrega o lease à nova instância e limpa o do chefe anterior.
 - Comandos do chefe (tabela acima): pausar/retomar mapeiam em `Project.state` (`paused`/`active`) + estado do agente chefe; handoff cria NOVA instância de agente (definição/modelo opcionais, `note` auditada) e reponta `Project.chiefAgentId`; drain devolve tarefas em andamento (`development|review|corrections|testsGates`) para `ready`, cancela attempts running e põe agentes em `idle`.
+
+### Campos adicionados na FE-3
+
+- `Project.prototyping: { mode: PrototypingMode, waiver: { reason, grantedAt } | null }` — cenário de prototipação do projeto (`externalPrototype | guidelinesOnly | autonomousGeneration | notApplicable`). Waiver **obrigatório** quando `mode = notApplicable` (o schema exige `reason` + `grantedAt` nesse caso).
+- `conversations` passou a ter PATCH: `UpdateInputMap.conversations = Partial<Pick<Conversation, "title" | "state">>` — renomear e arquivar/desarquivar pela tela de conversas (o chat também lê `?conversation=<id>` e inclui conversas arquivadas).
+
+### Pendências de contrato identificadas na FE-3 (não fabricadas na UI)
+
+- `Conversation` não tem **canal** (web/WhatsApp/etc.) — o filtro por canal pedido pela missão não existe na UI; exigiria campo novo no schema (mesmo precedente da D-038).
+- `run-targets` não modela **dependências/ordem de subida** entre serviços — "Iniciar tudo" sobe na ordem da lista; o painel de logs deriva o **nível** (info/erro) do texto da linha, pois `run.logAppended` não tem campo de nível (ver pendência análoga de `AttemptEvent` na FE-2b).
+- **Credenciais demo** do ambiente de run não existem no contrato — a UI exibe valores estáticos mascarados via i18n, sem dado real.
+- Metadados de referência visual (**briefing de origem**, **momento do fluxo**) não existem em `VisualReference` — a UI usa **tags prefixadas** (`briefing:...`, `fluxo:...`) como convenção; se o backend formalizar, viram campos.
+- `Prototype` não tem **histórico de versões** — a galeria mostra só o estado atual; versionamento exigiria recurso novo (ex.: `prototype-versions`, como `document-versions`).
+- Reset de budget é **derivado do período** (`monthly` → próximo dia 1) na UI — `Budget` não tem `resetsAt`; se o backend tiver regra própria, expor o campo.
 
 ### Pendências de contrato identificadas na FE-2b (não fabricadas na UI)
 

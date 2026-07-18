@@ -1,0 +1,33 @@
+{
+  "licenses": {
+    "postExpiryNotice": "Mesmo após a expiração da licença, a leitura e a exportação dos seus dados continuam disponíveis.",
+    "state": {
+      "title": "Estado da licença",
+      "plan": "Plano",
+      "device": "Dispositivo",
+      "expiresAt": "Expiração",
+      "noExpiry": "Sem expiração",
+      "gracePeriod": "Tolerância até",
+      "offlineMode": "Modo offline",
+      "offlineYes": "Ativo",
+      "offlineNo": "Inativo",
+      "lastValidated": "Última validação",
+      "none": "Nenhuma licença ativada neste dispositivo. Ative abaixo para liberar os recursos."
+    },
+    "activation": {
+      "title": "Ativação",
+      "keyLabel": "Chave da licença",
+      "keyPlaceholder": "XXXX-XXXX-XXXX-XXXX",
+      "invalidFormat": "A chave deve ter o formato XXXX-XXXX-XXXX-XXXX.",
+      "submit": "Ativar licença",
+      "success": "Licença ativada com sucesso.",
+      "error": "Não foi possível ativar a licença. Tente novamente."
+    },
+    "entitlements": {
+      "title": "Entitlements",
+      "empty": "Nenhum entitlement disponível.",
+      "included": "Incluído no plano",
+      "notIncluded": "Não incluído no plano"
+    }
+  }
+}

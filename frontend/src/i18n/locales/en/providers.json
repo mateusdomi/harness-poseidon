@@ -1,0 +1,49 @@
+{
+  "providers": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "sync": {
+      "action": "Sync",
+      "feedback": "Catalog synced: {{count}} model(s)."
+    },
+    "accounts": {
+      "title": "Accounts",
+      "empty": "No accounts for this provider.",
+      "quotaBar": "Quota usage of account {{label}}",
+      "quota": "{{used}} of {{limit}} used",
+      "quotaNoLimit": "{{used}} used (no limit configured)",
+      "window": "Window: {{period}} · next reset on {{reset}} (derived from the budget period)"
+    },
+    "models": {
+      "title": "Model catalog",
+      "empty": "No models for this provider.",
+      "meta": "Context: {{context}} tokens · cost/1k: {{input}} input · {{output}} output"
+    },
+    "budgets": {
+      "title": "Budgets",
+      "global": "Global",
+      "bar": "Budget usage {{scope}}",
+      "consumption": "{{spent}} of {{limit}} · alert at {{threshold}}%"
+    },
+    "bars": {
+      "noLimit": "No limit configured",
+      "pct": "{{pct}}% used"
+    },
+    "routing": {
+      "title": "Routing policy",
+      "active": "Active",
+      "inactive": "Inactive",
+      "edit": "Edit policy",
+      "editTitle": "Edit routing policy",
+      "defaultRule": "Default (any kind)",
+      "preferred": "Preferred model",
+      "fallbacks": "Fallback models",
+      "maxCost": "Max cost per attempt (USD)",
+      "maxCostPlaceholder": "No limit",
+      "maxCostShort": "max {{value}}/attempt",
+      "confirmBody": "Review the rules before saving. The policy applies to the next attempts.",
+      "confirm": "Confirm and save",
+      "error": "Could not save the policy. Please try again."
+    }
+  }
+}

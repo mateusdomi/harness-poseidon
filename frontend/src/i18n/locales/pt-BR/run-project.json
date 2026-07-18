@@ -1,0 +1,67 @@
+{
+  "runProject": {
+    "noProject": {
+      "body": "Selecione ou crie um projeto para rodar os serviços do ambiente."
+    },
+    "actions": {
+      "start": "Iniciar",
+      "stop": "Parar",
+      "restart": "Reiniciar",
+      "startAll": "Iniciar tudo",
+      "stopAll": "Parar tudo",
+      "cleanup": "Limpar ambiente"
+    },
+    "services": {
+      "title": "Serviços detectados",
+      "empty": "Nenhum serviço detectado neste projeto ainda.",
+      "port": "Porta",
+      "stack": "Stack",
+      "dependencies": "Dependências",
+      "dependenciesUnavailable": "Não disponível no contrato atual"
+    },
+    "logs": {
+      "title": "Logs do ambiente",
+      "label": "Logs em tempo real",
+      "empty": "Sem linhas de log — inicie um serviço para ver o streaming.",
+      "clear": "Limpar",
+      "filters": {
+        "level": "Nível",
+        "service": "Serviço",
+        "text": "Texto",
+        "all": "Todos"
+      },
+      "levels": {
+        "info": "Info",
+        "warning": "Aviso",
+        "error": "Erro"
+      }
+    },
+    "credentials": {
+      "title": "Credenciais de demonstração",
+      "user": "Usuário",
+      "password": "Senha",
+      "reveal": "Revelar",
+      "hide": "Ocultar"
+    },
+    "demoCredentials": {
+      "poseidon": {
+        "user": "demo@poseidon.local",
+        "password": "demo123"
+      },
+      "generic": {
+        "user": "demo",
+        "password": "demo123"
+      }
+    },
+    "guideTitle": "O que testar primeiro",
+    "guide": {
+      "poseidon": "Abrir a URL do frontend (dev) e conferir o console sem erros\nIniciar o Backend API e acompanhar o health check nos logs\nValidar login com as credenciais de demonstração",
+      "generic": "Iniciar todos os serviços e acompanhar os logs\nAbrir a URL principal do serviço HTTP\nConferir os health checks antes de reportar problemas"
+    },
+    "cleanup": {
+      "title": "Limpar ambiente",
+      "body": "Isso para todos os serviços do projeto e limpa o ambiente de execução. Deseja continuar?",
+      "confirm": "Confirmar limpeza"
+    }
+  }
+}

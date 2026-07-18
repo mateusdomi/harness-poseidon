@@ -21,3 +21,6 @@ storybook-static/
 !.vscode/extensions.json
 # Logs
 *.log
+# .NET build artifacts (backend)
+[Bb]in/
+[Oo]bj/

@@ -1,5 +1,7 @@
 import {
   ApiError,
+  activateLicenseInputSchema,
+  analyzeSolicitationInputSchema,
   appendTaskInstructionInputSchema,
   classifyDocumentInputSchema,
   drainChiefTasksInputSchema,
@@ -14,18 +16,24 @@ import {
   transitionSolicitationInputSchema,
   type Agent,
   type Approval,
+  type AnalyzeSolicitationInput,
   type AppendTaskInstructionInput,
+  type ActivateLicenseInput,
   type Attempt,
+  type BackupHandle,
   type ChatTurnHandle,
   type ClassifyDocumentInput,
   type CreatableResource,
   type CreateInputMap,
   type Demand,
+  type Diagnostics,
   type Document,
   type DrainChiefTasksInput,
   type HandoffChiefInput,
+  type License,
   type ListQuery,
   type Message,
+  type Model,
   type MoveTaskInput,
   type Notification,
   type Page,
@@ -37,9 +45,11 @@ import {
   type ResolveApprovalInput,
   type ResourceKind,
   type ResourceMap,
+  type RunTarget,
   type SetOperationModeInput,
   type SetTaskPriorityInput,
   type Solicitation,
+  type SolicitationAnalysis,
   type StartChatTurnInput,
   type Task,
   type TaskInstruction,
@@ -52,6 +62,7 @@ import {
   type WorkflowVersion,
 } from '../contracts';
 import { streams } from '../contracts';
+import { product } from '@/config/product';
 import type { ApiClient } from './api-client';
 import type { FixtureData } from '../fixtures';
 import type { MockRealtimeClient } from '../realtime';
@@ -111,6 +122,20 @@ export const CHIEF_PLAN_TRIGGER = /\[plan\]/i;
 export const CHIEF_PLAN_TASK_A = 'Decompor escopo do plano';
 export const CHIEF_PLAN_TASK_B = 'Executar primeira entrega do plano';
 export const CHIEF_PLAN_APPROVAL_TITLE = 'Aprovar gate do plano simulado';
+
+/**
+ * Gatilhos determinísticos da análise do PO Assistant (mock/E2E):
+ * - perguntas/critérios fixos (seletores estáveis nos testes);
+ * - `[contradição]` no texto gera um item no painel de contradições.
+ */
+export const PO_ANALYSIS_QUESTION_DEADLINE = 'Qual é o prazo esperado para esta entrega?';
+export const PO_ANALYSIS_QUESTION_USERS = 'Quem são os usuários impactados?';
+export const PO_ANALYSIS_CRITERION_REVIEW =
+  'Critérios de aceite revisados e aprovados pelo responsável do projeto.';
+export const PO_ANALYSIS_CONTRADICTION_TRIGGER = /\[contradição\]/i;
+
+/** Intervalo entre linhas de log simuladas de um run-target (ms). */
+const RUN_LOG_STEP_MS = 400;
 
 /**
  * Cliente de API em memória (modo `VITE_API_MODE=mock`).
@@ -675,6 +700,232 @@ export class MockApiClient implements ApiClient {
     return drained;
   }
 
+  /* ---- rodar projeto (run-targets) ---- */
+
+  async startRunTarget(runTargetId: Ulid): Promise<RunTarget> {
+    await this.#simulate();
+    const target = this.#require('run-targets', runTargetId);
+    target.state = 'running';
+    target.lastCheckAt = this.#options.now();
+    const where = target.port ? ` na porta ${target.port}` : '';
+    this.#emitRunLog(target, `Iniciando "${target.name}"${where}…`);
+    setTimeout(() => {
+      const health = target.url ?? (target.port ? `porta ${target.port}` : 'processo');
+      this.#emitRunLog(target, `"${target.name}" pronto — health check OK em ${health}.`);
+    }, RUN_LOG_STEP_MS);
+    setTimeout(() => {
+      this.#emitRunLog(target, `"${target.name}" aguardando requisições.`);
+    }, RUN_LOG_STEP_MS * 2);
+    return structuredClone(target);
+  }
+
+  async stopRunTarget(runTargetId: Ulid): Promise<RunTarget> {
+    await this.#simulate();
+    const target = this.#require('run-targets', runTargetId);
+    target.state = 'stopped';
+    target.lastCheckAt = this.#options.now();
+    this.#emitRunLog(target, `Encerrando "${target.name}"…`);
+    setTimeout(() => {
+      this.#emitRunLog(target, `"${target.name}" parado.`);
+    }, RUN_LOG_STEP_MS);
+    return structuredClone(target);
+  }
+
+  async restartRunTarget(runTargetId: Ulid): Promise<RunTarget> {
+    await this.#simulate();
+    const target = this.#require('run-targets', runTargetId);
+    target.state = 'running';
+    target.lastCheckAt = this.#options.now();
+    this.#emitRunLog(target, `Reiniciando "${target.name}"…`);
+    setTimeout(() => {
+      const where = target.port ? ` na porta ${target.port}` : '';
+      this.#emitRunLog(target, `"${target.name}" pronto novamente${where} — health check OK.`);
+    }, RUN_LOG_STEP_MS);
+    return structuredClone(target);
+  }
+
+  async cleanupRunEnvironment(projectId: Ulid): Promise<number> {
+    await this.#simulate();
+    const project = this.#require('projects', projectId);
+    let stopped = 0;
+    for (const target of this.#table('run-targets').values()) {
+      if (target.projectId !== project.id || target.state === 'stopped') continue;
+      target.state = 'stopped';
+      target.lastCheckAt = this.#options.now();
+      this.#emitRunLog(target, `Cleanup: "${target.name}" parado.`);
+      stopped += 1;
+    }
+    this.#emitRunLog(
+      { projectId: project.id },
+      `Cleanup do ambiente concluído — ${stopped} serviço(s) parado(s).`,
+    );
+    this.#appendAudit('user', this.#options.currentProfileId, 'run.environmentCleaned', 'project', project.id, `Cleanup do ambiente: ${stopped} serviço(s) parado(s).`);
+    return stopped;
+  }
+
+  /* ---- providers ---- */
+
+  async syncProviderCatalog(providerId: Ulid): Promise<Model[]> {
+    await this.#simulate();
+    this.#require('providers', providerId);
+    const models = [...this.#table('models').values()].filter(
+      (model) => model.providerId === providerId,
+    );
+    // Sincronização "movimenta" as cotas: emite quota.updated por conta.
+    for (const account of this.#table('accounts').values()) {
+      if (account.providerId !== providerId) continue;
+      this.#options.realtime?.emit(streams.global(), 'quota.updated', {
+        accountId: account.id,
+        budgetId: null,
+        usedUsd: account.quotaUsedUsd,
+        limitUsd: account.quotaLimitUsd,
+      });
+    }
+    this.#appendAudit('user', this.#options.currentProfileId, 'provider.catalogSynced', 'provider', providerId, `Catálogo sincronizado: ${models.length} modelo(s).`);
+    return structuredClone(models);
+  }
+
+  /* ---- PO Assistant ---- */
+
+  async analyzeSolicitation(input: AnalyzeSolicitationInput): Promise<SolicitationAnalysis> {
+    await this.#simulate();
+    const parsed = analyzeSolicitationInputSchema.parse(input);
+    this.#require('projects', parsed.projectId);
+
+    const firstLine = parsed.text.split('\n').find((line) => line.trim() !== '') ?? parsed.text;
+    const solicitation = await this.create('solicitations', {
+      projectId: parsed.projectId,
+      kind: 'request',
+      title: firstLine.trim().slice(0, 60),
+      body:
+        parsed.attachmentNames && parsed.attachmentNames.length > 0
+          ? `${parsed.text}\n\nAnexos: ${parsed.attachmentNames.join(', ')}`
+          : parsed.text,
+    });
+
+    const item = (text: string) => ({ id: this.#options.nextId(), text });
+    const sentences = parsed.text
+      .split(/[.\n;]+/)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 3)
+      .slice(0, 5);
+
+    const ambiguities: string[] = [];
+    if (/\betc\b/i.test(parsed.text)) {
+      ambiguities.push('"etc." deixa o escopo aberto — listar os casos concretos.');
+    }
+    if (/\b(rápid[oa]|urgente|logo)\b/i.test(parsed.text)) {
+      ambiguities.push('Prazo subjetivo ("rápido/urgente") — definir uma data-alvo.');
+    }
+    const contradictions = PO_ANALYSIS_CONTRADICTION_TRIGGER.test(parsed.text)
+      ? ['O próprio pedido sinaliza uma contradição — revisar com o solicitante.']
+      : [];
+    const questions = [PO_ANALYSIS_QUESTION_DEADLINE, PO_ANALYSIS_QUESTION_USERS];
+    if (!/\d/.test(parsed.text)) {
+      questions.push('Há metas quantitativas (volume, SLA, limite) para esta entrega?');
+    }
+
+    return {
+      solicitationId: solicitation.id,
+      requirements: (sentences.length > 0 ? sentences : [parsed.text.trim()]).map(item),
+      ambiguities: ambiguities.map(item),
+      contradictions: contradictions.map(item),
+      questions: questions.map(item),
+      acceptanceCriteria: [
+        item('Entrega demonstrada e validada com o solicitante.'),
+        item(PO_ANALYSIS_CRITERION_REVIEW),
+      ],
+    };
+  }
+
+  /* ---- licença, backup, diagnóstico ---- */
+
+  async activateLicense(input: ActivateLicenseInput): Promise<License> {
+    await this.#simulate();
+    let parsed: ActivateLicenseInput;
+    try {
+      parsed = activateLicenseInputSchema.parse(input);
+    } catch {
+      throw ApiError.of(400, 'Chave inválida', 'A chave deve ter o formato XXXX-XXXX-XXXX-XXXX.', {
+        key: ['Formato esperado: XXXX-XXXX-XXXX-XXXX.'],
+      });
+    }
+    const now = this.#options.now();
+    let license = [...this.#table('licenses').values()][0];
+    if (!license) {
+      license = {
+        id: this.#options.nextId(),
+        state: 'unlicensed',
+        plan: 'Pro',
+        deviceId: 'dispositivo-local',
+        deviceName: 'Este dispositivo',
+        expiresAt: null,
+        gracePeriodEndsAt: null,
+        offlineMode: false,
+        lastValidatedAt: null,
+      };
+      this.#table('licenses').set(license.id, license);
+    }
+    license.state = 'active';
+    license.lastValidatedAt = now;
+    license.offlineMode = false;
+    if (license.expiresAt === null || Date.parse(license.expiresAt) < Date.parse(now)) {
+      const expires = new Date(Date.parse(now));
+      expires.setFullYear(expires.getFullYear() + 1);
+      license.expiresAt = expires.toISOString();
+    }
+    this.#appendAudit('user', this.#options.currentProfileId, 'license.activated', 'license', license.id, `Licença ${license.plan} ativada neste dispositivo (chave ${parsed.key.slice(0, 4)}-****-****-****).`);
+    return structuredClone(license);
+  }
+
+  async createBackup(): Promise<BackupHandle> {
+    await this.#simulate();
+    const handle: BackupHandle = { backupId: this.#options.nextId(), createdAt: this.#options.now() };
+    this.#appendAudit('user', this.#options.currentProfileId, 'backup.created', 'backup', handle.backupId, 'Backup local criado.');
+    return handle;
+  }
+
+  async restoreBackup(backupId: Ulid): Promise<void> {
+    await this.#simulate();
+    this.#appendAudit('user', this.#options.currentProfileId, 'backup.restored', 'backup', backupId, 'Backup local restaurado (mock: dados permanecem como estão).');
+  }
+
+  async getDiagnostics(): Promise<Diagnostics> {
+    await this.#simulate();
+    const now = this.#options.now();
+    const license = [...this.#table('licenses').values()][0] ?? null;
+    const settings = [...this.#table('settings').values()].find(
+      (entry) => entry.profileId === this.#options.currentProfileId,
+    );
+    const realtimeState = this.#options.realtime?.state ?? 'disconnected';
+    return {
+      product: { name: product.name, version: product.version, codename: product.codename },
+      apiMode: 'mock',
+      realtimeState,
+      checks: [
+        { key: 'api', state: 'ok', detail: 'Camada de dados em memória (mock) respondendo.' },
+        {
+          key: 'realtime',
+          state: realtimeState === 'connected' ? 'ok' : 'warning',
+          detail: `Tempo real ${realtimeState === 'connected' ? 'conectado' : 'não conectado'} (mock).`,
+        },
+        {
+          key: 'license',
+          state: license?.state === 'active' ? 'ok' : 'warning',
+          detail: license ? `Licença ${license.plan}: ${license.state}.` : 'Nenhuma licença ativada.',
+        },
+        {
+          key: 'sandbox',
+          state: settings?.unsafeModeAcceptedAt ? 'warning' : 'ok',
+          detail: settings?.unsafeModeAcceptedAt
+            ? 'Modo inseguro aceito — execução fora do sandbox.'
+            : 'Execução em sandbox (modo inseguro não aceito).',
+        },
+      ],
+      generatedAt: now,
+    };
+  }
+
   /* ---- internos ---- */
 
   /**
@@ -733,9 +984,20 @@ export class MockApiClient implements ApiClient {
     return this.#store[resource];
   }
 
+  /**
+   * Linha de log de run-target no stream do projeto (`run.logAppended`
+   * com `runId`/`attemptId` nulos — logs de serviço, não de attempt).
+   */
+  #emitRunLog(target: Pick<RunTarget, 'projectId'>, line: string): void {
+    this.#options.realtime?.emit(streams.project(target.projectId), 'run.logAppended', {
+      runId: null,
+      attemptId: null,
+      line,
+    });
+  }
+
   /** Registro de auditoria + evento realtime (ações do chefe e afins). */
-  #appendAudit(
-    actorKind: 'user' | 'chief' | 'agent' | 'system',
+  #appendAudit(    actorKind: 'user' | 'chief' | 'agent' | 'system',
     actorId: Ulid | null,
     action: string,
     targetType: string,
@@ -1053,6 +1315,7 @@ export class MockApiClient implements ApiClient {
           configVersion: 1,
           chiefAgentId: id, // placeholder: backend vincula o chefe provisionado
           operationMode: 'manual',
+          prototyping: { mode: 'autonomousGeneration', waiver: null },
           createdAt: now,
           lastActivityAt: now,
         } as unknown as ResourceMap[K];

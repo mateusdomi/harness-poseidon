@@ -1,1 +1,2 @@
-// Componentes da feature "providers" — implementados em fatias futuras.
+export { ConsumptionBar } from './consumption-bar';
+export { RoutingPolicyDialog } from './routing-policy-dialog';

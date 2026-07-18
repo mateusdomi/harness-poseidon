@@ -1,1 +1,9 @@
-// Hooks da feature "settings" — implementados em fatias futuras.
+export {
+  settingsKeys,
+  useCreateBackup,
+  useCurrentSettings,
+  useDiagnostics,
+  useLicenseSummary,
+  useRestoreBackup,
+  useUpdateSettings,
+} from './use-settings';

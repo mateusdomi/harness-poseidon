@@ -1,1 +1,2 @@
-// Componentes da feature "prototypes" — implementados em fatias futuras.
+export { PrototypingModeDialog } from './prototyping-mode-dialog';
+export { UploadReferenceDialog } from './upload-reference-dialog';

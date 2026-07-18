@@ -154,6 +154,20 @@ export type PrototypeState = z.infer<typeof prototypeStateSchema>;
 export const visualReferenceSourceSchema = z.enum(['upload', 'url', 'generated']);
 export type VisualReferenceSource = z.infer<typeof visualReferenceSourceSchema>;
 
+/**
+ * Cenário de prototipação do projeto (seleção por projeto):
+ * protótipo externo, apenas diretrizes, geração autônoma ou não aplicável
+ * (dispensa formal — exige waiver com motivo).
+ */
+export const prototypingModeSchema = z.enum([
+  'externalPrototype',
+  'guidelinesOnly',
+  'autonomousGeneration',
+  'notApplicable',
+]);
+export type PrototypingMode = z.infer<typeof prototypingModeSchema>;
+export const PROTOTYPING_MODES = prototypingModeSchema.options;
+
 /** Estado operacional de ferramentas, skills, plugins e servidores MCP. */
 export const componentStateSchema = z.enum(['enabled', 'disabled', 'error']);
 export type ComponentState = z.infer<typeof componentStateSchema>;

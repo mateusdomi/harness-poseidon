@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { documentStateSchema, operationModeSchema, prioritySchema, solicitationStateSchema, taskStateSchema } from './enums';
 import { workflowPhaseConfigSchema } from './delivery';
-import { ulidSchema } from './primitives';
+import { isoDateTimeSchema, ulidSchema } from './primitives';
 
 /**
  * Comandos de domínio (POSTs fora do CRUD) — espelhados no backend.
@@ -118,3 +118,82 @@ export const drainChiefTasksInputSchema = z.object({
   note: z.string().optional(),
 });
 export type DrainChiefTasksInput = z.infer<typeof drainChiefTasksInputSchema>;
+
+/* ---- rodar projeto (run-targets) ----
+ * start/stop/restart não têm payload — POSTs de ação sobre o recurso.
+ * O estado muda no `RunTarget` e os logs chegam por `run.logAppended`
+ * no stream do projeto.
+ */
+
+/* ---- PO Assistant ---- */
+
+/** Entrada da análise de solicitação (texto livre + anexos por nome). */
+export const analyzeSolicitationInputSchema = z.object({
+  projectId: ulidSchema,
+  text: z.string().min(1),
+  /** Nomes dos anexos (o conteúdo não sai do dispositivo no mock). */
+  attachmentNames: z.array(z.string()).optional(),
+});
+export type AnalyzeSolicitationInput = z.infer<typeof analyzeSolicitationInputSchema>;
+
+/** Item de um painel da análise (curadoria humana acontece na UI). */
+export const solicitationAnalysisItemSchema = z.object({
+  id: ulidSchema,
+  text: z.string(),
+});
+export type SolicitationAnalysisItem = z.infer<typeof solicitationAnalysisItemSchema>;
+
+/**
+ * Resultado da análise: painéis de requisitos, ambiguidades,
+ * contradições, perguntas e critérios de aceite, ligados à solicitação
+ * criada (a demanda estruturada referencia `solicitationId`).
+ */
+export const solicitationAnalysisSchema = z.object({
+  solicitationId: ulidSchema,
+  requirements: z.array(solicitationAnalysisItemSchema),
+  ambiguities: z.array(solicitationAnalysisItemSchema),
+  contradictions: z.array(solicitationAnalysisItemSchema),
+  questions: z.array(solicitationAnalysisItemSchema),
+  acceptanceCriteria: z.array(solicitationAnalysisItemSchema),
+});
+export type SolicitationAnalysis = z.infer<typeof solicitationAnalysisSchema>;
+
+/* ---- licença ---- */
+
+/** Ativação de licença por chave (formato XXXX-XXXX-XXXX-XXXX). */
+export const activateLicenseInputSchema = z.object({
+  key: z
+    .string()
+    .regex(/^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){3}$/, 'Formato esperado: XXXX-XXXX-XXXX-XXXX.'),
+});
+export type ActivateLicenseInput = z.infer<typeof activateLicenseInputSchema>;
+
+/* ---- backup/restore e diagnóstico (settings) ---- */
+
+export const backupHandleSchema = z.object({
+  backupId: ulidSchema,
+  createdAt: isoDateTimeSchema,
+});
+export type BackupHandle = z.infer<typeof backupHandleSchema>;
+
+export const diagnosticCheckSchema = z.object({
+  key: z.string(),
+  state: z.enum(['ok', 'warning', 'error']),
+  detail: z.string(),
+});
+export type DiagnosticCheck = z.infer<typeof diagnosticCheckSchema>;
+
+/** Diagnóstico da instalação: versões, saúde e conexões. */
+export const diagnosticsSchema = z.object({
+  product: z.object({
+    name: z.string(),
+    version: z.string(),
+    codename: z.string(),
+  }),
+  /** Modo da camada de dados (`mock` | `http`). */
+  apiMode: z.string(),
+  realtimeState: z.string(),
+  checks: z.array(diagnosticCheckSchema),
+  generatedAt: isoDateTimeSchema,
+});
+export type Diagnostics = z.infer<typeof diagnosticsSchema>;

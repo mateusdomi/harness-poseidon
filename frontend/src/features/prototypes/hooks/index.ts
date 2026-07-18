@@ -1,1 +1,9 @@
-// Hooks da feature "prototypes" — implementados em fatias futuras.
+export {
+  prototypeKeys,
+  useCreateVisualReference,
+  useOrganizations,
+  usePrototypes,
+  usePrototypesRealtime,
+  useUpdatePrototyping,
+  useVisualReferences,
+} from './use-prototypes';

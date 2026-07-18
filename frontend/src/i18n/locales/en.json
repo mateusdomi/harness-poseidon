@@ -269,6 +269,59 @@
     "agentRole": {
       "chief": "Chief",
       "specialist": "Specialist"
+    },
+    "conversationState": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "prototypeState": {
+      "draft": "Draft",
+      "generating": "Generating",
+      "ready": "Ready",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "visualReferenceSource": {
+      "upload": "Upload",
+      "url": "URL",
+      "generated": "Generated"
+    },
+    "prototypingMode": {
+      "externalPrototype": "External prototype",
+      "guidelinesOnly": "Guidelines only",
+      "autonomousGeneration": "Autonomous generation",
+      "notApplicable": "Not applicable"
+    },
+    "runTargetState": {
+      "running": "Running",
+      "stopped": "Stopped",
+      "unknown": "Unknown"
+    },
+    "runTargetKind": {
+      "http": "HTTP",
+      "tcp": "TCP",
+      "process": "Process"
+    },
+    "licenseState": {
+      "active": "Active",
+      "gracePeriod": "Grace period",
+      "expired": "Expired",
+      "offline": "Offline",
+      "unlicensed": "Unlicensed"
+    },
+    "modelCapability": {
+      "chat": "Chat",
+      "code": "Code",
+      "vision": "Vision",
+      "embeddings": "Embeddings"
+    },
+    "providerKind": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "azureOpenai": "Azure OpenAI",
+      "google": "Google",
+      "ollama": "Ollama",
+      "custom": "Custom"
     }
   },
   "onboarding": {

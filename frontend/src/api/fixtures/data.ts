@@ -526,6 +526,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     configVersion: 3,
     chiefAgentId: chefePoseidon.id,
     operationMode: 'manual',
+    prototyping: { mode: 'autonomousGeneration', waiver: null },
     createdAt: tick(),
     lastActivityAt: tick(),
   };
@@ -546,6 +547,13 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     configVersion: 1,
     chiefAgentId: chefePagamentos.id,
     operationMode: 'semiautonomous',
+    prototyping: {
+      mode: 'notApplicable',
+      waiver: {
+        reason: 'Serviço de backend sem interface visual — prototipação dispensada.',
+        grantedAt: tick(),
+      },
+    },
     createdAt: tick(),
     lastActivityAt: tick(),
   };
