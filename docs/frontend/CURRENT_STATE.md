@@ -4,9 +4,9 @@
 
 ## Estado atual
 
-- **Fase em andamento:** FE-3 (Complementares) — FE-0, FE-1 e FE-2 CONCLUÍDAS (gates verdes, push feito).
-- **Branch ativa:** `develop` (sincronizada com `origin/develop`; atenção: outro agente publica backend na mesma branch — sempre `git pull --no-rebase` antes de push).
-- **Último marco:** gate FE-2 verde — 239 testes, lint 0 erros, build ok, 10 E2E (fe1-flow, app-shell, fe2-flows: aprovação de documento + passagem de bastão) em mobile-360 e desktop-1440.
+- **Fase em andamento:** FE-4 (Qualidade e handoff) — FE-0 a FE-3 CONCLUÍDAS (gates verdes, push feito). Todas as 21 features estão implementadas.
+- **Branch ativa:** `develop` (sincronizada com `origin/develop`; atenção: outro agente publica backend na mesma branch — sempre `git pull --no-rebase` antes de push; `git add` apenas de `frontend/`, `docs/frontend/` e `.gitignore`, nunca `git add -A` por causa dos artefatos de build do backend).
+- **Último marco:** gate FE-3 verde — 268 testes, lint 0 erros, build ok, 14 E2E (rodar projeto + PO Assistant) em mobile-360 e desktop-1440.
 
 ## O que existe (FE-0 pronto)
 
@@ -15,18 +15,14 @@
 - `docs/frontend/HANDOFF_API.md` criado (contrato completo consumido).
 - Decisões registradas em `docs/frontend/DECISIONS.md` (D-001 a D-008).
 
-## Próximo passo exato (FE-3 Complementares)
+## Próximo passo exato (FE-4 Qualidade e handoff)
 
-Implementar as telas reais restantes (substituindo placeholders), seguindo os padrões já consolidados (hooks React Query + `api`/`realtime` do context, i18n total, estados vazio/skeleton/erro, mobile-first):
-
-1. **Histórico de conversas** (`conversations`) — filtros por projeto/período/canal/usuário, busca, renomear, arquivar (≠ excluir), abrir retomando contexto.
-2. **Prototipação** (`prototypes`) — galeria por org/projeto, upload imagem/ZIP só como referência (ZIP nunca executado), cores/logo/briefing, waiver/não aplicável, versões, 3 cenários.
-3. **Rodar projeto** (`run-project`) — serviços detectados, start/stop/restart, logs streaming com filtro/limpar, URLs/health checks, credenciais demo ocultas com revelar, guia "o que testar primeiro", cleanup.
-4. **Providers e contas** (`providers`) — catálogo de modelos (read-only + sincronizar), contas com saúde/cota/janela/reset, budgets com barras, política de roteamento com edição guardada por confirmação.
-5. **PO Assistant** (`po-assistant`) — entrada texto+anexos; painéis: requisitos, ambiguidades, contradições, perguntas, critérios de aceite; curadoria humana; "criar demanda estruturada".
-6. **Licença** (`licenses`) — ativação mock, estado, entitlements, dispositivo, expiração, grace period, modo offline; pós-expiração leitura/exportação continuam.
-7. **Configurações** (`settings`) — idioma, tema, diretórios, sandbox + aceite modo inseguro (persistido em FE-1a, exibir/revogar), backup/restore, diagnóstico, licença resumida, sobre.
-8. Gate FE-3: E2E de rodar projeto (mock) e do PO Assistant nos 2 viewports → commit + push.
+1. **Acessibilidade**: rodar axe (via `@axe-core/playwright`) em TODAS as páginas/rotas nos dois temas; corrigir violações sérias; verificar contraste AA dos tokens nos dois temas.
+2. **Estados auditados tela a tela**: vazio (com orientação), skeleton, erro com retry, banner de reconexão, permissão negada — auditar as 21 features e completar o que faltar.
+3. **Code splitting**: confirmar lazy por rota; otimizar chunk principal >500 kB (manualChunks para zod/signalr/react-markdown se simples).
+4. **Sweep i18n**: criar teste automatizado que FALHA se detectar literal de texto em JSX fora de allowlist; corrigir o que aparecer; garantir paridade de chaves pt-BR/en.
+5. **Docs finais**: completar `docs/frontend/HANDOFF_API.md` (100% do contrato consumido, telas reais que usam cada endpoint), criar `docs/frontend/SCREENS.md` (inventário de todas as telas com rota, dados consumidos, eventos assinados e estados), finalizar `frontend/README.md` (execução modo mock + integração com API real via VITE_API_MODE=http).
+6. Gate FE-4 final: `npm run check`, `npm run build`, `npm run test:e2e`, `npm run build-storybook` todos verdes → commit + push de `develop`. NÃO fazer merge em `main`.
 
 ## Regras permanentes
 
