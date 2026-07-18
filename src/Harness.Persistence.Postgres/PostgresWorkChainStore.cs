@@ -7,7 +7,7 @@ using NpgsqlTypes;
 
 namespace Harness.Persistence.Postgres;
 
-public sealed class PostgresWorkChainStore(NpgsqlDataSource dataSource) : IWorkChainStore
+public sealed partial class PostgresWorkChainStore(NpgsqlDataSource dataSource) : IWorkChainStore
 {
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
@@ -30,7 +30,7 @@ public sealed class PostgresWorkChainStore(NpgsqlDataSource dataSource) : IWorkC
         await using var command = _dataSource.CreateCommand(
             """
             SELECT s.tenant_id, s.project_id, s.id, s.content, d.id, t.id, t.state,
-                   t.risk_tier, t.weight, i.id, i.version, i.content_hash,
+                   t.version, t.risk_tier, t.weight, i.id, i.version, i.content_hash,
                    (SELECT COUNT(*) FROM harness.work_attempts a WHERE a.task_id = t.id),
                    (SELECT COUNT(*) FROM harness.work_evidence e
                     JOIN harness.work_attempts a ON a.id = e.attempt_id WHERE a.task_id = t.id),
@@ -54,9 +54,10 @@ public sealed class PostgresWorkChainStore(NpgsqlDataSource dataSource) : IWorkC
         return new WorkChainSnapshot(
             reader.GetString(0).TrimEnd(), reader.GetString(1).TrimEnd(), reader.GetString(2).TrimEnd(),
             reader.GetString(3), reader.GetString(4).TrimEnd(), reader.GetString(5).TrimEnd(),
-            reader.GetString(6), reader.GetString(7), reader.GetDecimal(8), reader.GetString(9).TrimEnd(),
-            reader.GetInt32(10), reader.GetString(11).TrimEnd(), checked((int)reader.GetInt64(12)),
-            checked((int)reader.GetInt64(13)), checked((int)reader.GetInt64(14)));
+            reader.GetString(6), reader.GetInt64(7), reader.GetString(8), reader.GetDecimal(9),
+            reader.GetString(10).TrimEnd(), reader.GetInt32(11), reader.GetString(12).TrimEnd(),
+            checked((int)reader.GetInt64(13)), checked((int)reader.GetInt64(14)),
+            checked((int)reader.GetInt64(15)));
     }
 
     private async Task<WorkChainCreateReceipt> CreateCoreAsync(

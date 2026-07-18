@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T15:10:47Z
+Atualizado em: 2026-07-18T15:21:22Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-09b — persistência da cadeia; criação transacional dual-provider está verde.
+- Épico atual: EP-09b — persistência da cadeia; criação e mutações transacionais dual-provider estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `808bc37` (`develop`); a criação EP-09b.2a está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: estender `IWorkChainStore` com comandos transacionais de iniciar tentativa, concluir com evidências e registrar review; reidratar todas as versões/attempts/reviews e aplicar optimistic concurrency, Inbox, ledger e Outbox em cada transição nos dois providers.
+- Último commit remoto validado: `21ba71f` (`develop`); as mutações EP-09b.2b.1 estão verdes e aguardando o commit que conterá este estado.
+- Próximo passo exato: adicionar ao `IWorkChainStore` a criação imutável de nova versão de instrução após review rejeitado e uma leitura de agregado que reidrate todas as versões, tentativas, evidências e reviews; executar o mesmo comportamento em SQLite/PostgreSQL e concluir EP-09b.2b.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -47,10 +47,11 @@ Atualizado em: 2026-07-18T15:10:47Z
 - Cadeia EP-09a: `WorkChainAggregate` em Coordination materializa Solicitação/Demanda/Tarefa/Instrução/Tentativa/Revisão. Solicitação e instrução são append-only; hash SHA-256 é calculado pelo domínio; somente a instrução mais recente inicia tentativa; há uma única tentativa ativa; completion exige evidência; rejeição exige nova versão; actor–critic é obrigatório a partir de risco médio. Execution permanece responsável pela tentativa técnica/lease, separada da tentativa de negócio.
 - Schema EP-09b.1: migrations SQLite `0004_work_chain` e PostgreSQL `0005_work_chain` criam Solicitação, Demanda, Tarefa, Instrução, Tentativa, Evidência e Revisão com FKs compostas por tenant/projeto, checks, versões únicas e índice parcial de tentativa ativa. Cadeia válida foi inserida e segunda tentativa `running` foi rejeitada nos dois providers.
 - Store EP-09b.2a: `IWorkChainStore` possui criação e snapshot. Validator comum exige ULIDs, critérios não vazios, risk tier, peso e hash da instrução. SQLite usa dispatcher; PostgreSQL usa advisory locks para idempotência e ledger. Estado inicial, Inbox, ledger e Outbox commitam juntos. Dez comandos concorrentes resultam 1 aplicação/9 replays; chave conflitante não altera snapshot.
+- Store EP-09b.2b.1: start/complete/review usam versão esperada e Inbox idempotente. SQLite serializa no dispatcher; PostgreSQL usa advisory lock por tarefa e `FOR UPDATE`. Estado, ledger e Outbox commitam juntos. Partida concorrente resulta 1 aplicação/1 replay; versão antiga não muta; completion persiste evidência; autoaprovação de risco médio é recusada; critic independente conclui a tarefa. Snapshot final comprova versão 4 e contagens 1/1/1.
 - Migrations: SQLite `4→0` e PostgreSQL `5→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após store EP-09b.2a: restore locked, format, build Release com zero warnings/erros e 74/74 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após mutações EP-09b.2b.1: restore locked, format, build Release com zero warnings/erros e 74/74 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta e contrato da cadeia verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para persistência EP-09, EP-10, documentos e workers.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta e criação/mutações da cadeia verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para reidratação/correção EP-09, EP-10, documentos e workers.
 
 ## Sanidade antes de retomar
 

@@ -15,6 +15,18 @@ public interface IWorkChainStore
         string tenantId,
         string solicitationId,
         CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> StartAttemptAsync(
+        WorkAttemptStartCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> CompleteAttemptAsync(
+        WorkAttemptCompleteCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> ReviewAttemptAsync(
+        WorkAttemptReviewCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkChainCreateCommand(
@@ -54,6 +66,7 @@ public sealed record WorkChainSnapshot(
     string DemandId,
     string TaskId,
     string TaskState,
+    long TaskVersion,
     string RiskTier,
     decimal Weight,
     string InstructionVersionId,
@@ -62,6 +75,63 @@ public sealed record WorkChainSnapshot(
     int AttemptCount,
     int EvidenceCount,
     int ReviewCount);
+
+public enum WorkChainMutationStatus
+{
+    Applied,
+    IdempotentReplay,
+    NotFound,
+    VersionConflict,
+    InvalidState,
+    IndependentReviewerRequired,
+}
+
+public sealed record WorkChainMutationReceipt(
+    WorkChainMutationStatus Status,
+    string TaskId,
+    string? AttemptId,
+    long? TaskVersion,
+    string? TaskState,
+    string? AttemptState,
+    long? LedgerSequence = null,
+    string? LedgerHash = null,
+    string? OutboxMessageId = null);
+
+public sealed record WorkAttemptStartCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string InstructionVersionId,
+    string AttemptId,
+    string ProducerAgentId,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkEvidenceInput(string EvidenceId, string Reference);
+
+public sealed record WorkAttemptCompleteCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string AttemptId,
+    long ExpectedTaskVersion,
+    IReadOnlyList<WorkEvidenceInput> Evidence,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkAttemptReviewCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string AttemptId,
+    string ReviewId,
+    string ReviewerAgentId,
+    string Decision,
+    string Rationale,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
 
 public static class WorkChainCreateValidator
 {
@@ -138,5 +208,107 @@ public static class WorkChainCreateHash
     {
         ArgumentNullException.ThrowIfNull(command);
         return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+    }
+}
+
+public static class WorkChainMutationValidator
+{
+    public static void Validate(WorkAttemptStartCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateUlid(command.InstructionVersionId, nameof(command));
+        ValidateText(command.ProducerAgentId, nameof(command), 200);
+    }
+
+    public static void Validate(WorkAttemptCompleteCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ArgumentNullException.ThrowIfNull(command.Evidence);
+        if (command.Evidence.Count == 0)
+        {
+            throw new ArgumentException("At least one evidence reference is required.", nameof(command));
+        }
+
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var evidence in command.Evidence)
+        {
+            ArgumentNullException.ThrowIfNull(evidence);
+            ValidateUlid(evidence.EvidenceId, nameof(command));
+            ValidateText(evidence.Reference, nameof(command), 2_000);
+            if (!identifiers.Add(evidence.EvidenceId))
+            {
+                throw new ArgumentException("Evidence identifiers must be unique.", nameof(command));
+            }
+        }
+    }
+
+    public static void Validate(WorkAttemptReviewCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateUlid(command.ReviewId, nameof(command));
+        ValidateText(command.ReviewerAgentId, nameof(command), 200);
+        ValidateText(command.Rationale, nameof(command), 10_000);
+        if (command.Decision is not ("approved" or "rejected"))
+        {
+            throw new ArgumentException("Review decision is invalid.", nameof(command));
+        }
+    }
+
+    public static string Hash<TCommand>(TCommand command)
+        where TCommand : notnull =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+
+    private static void ValidateCommon(
+        string tenantId,
+        string solicitationId,
+        string taskId,
+        string attemptId,
+        long expectedTaskVersion,
+        string idempotencyKey)
+    {
+        ValidateUlid(tenantId, nameof(tenantId));
+        ValidateUlid(solicitationId, nameof(solicitationId));
+        ValidateUlid(taskId, nameof(taskId));
+        ValidateUlid(attemptId, nameof(attemptId));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedTaskVersion);
+        ValidateText(idempotencyKey, nameof(idempotencyKey), 200);
+    }
+
+    private static void ValidateUlid(string value, string parameterName)
+    {
+        if (!UlidValue.TryParse(value, out _))
+        {
+            throw new ArgumentException("Value must be a canonical ULID.", parameterName);
+        }
+    }
+
+    private static void ValidateText(string value, string parameterName, int maximumLength)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, parameterName);
+        if (value.Length > maximumLength)
+        {
+            throw new ArgumentException($"Value exceeds {maximumLength} characters.", parameterName);
+        }
     }
 }

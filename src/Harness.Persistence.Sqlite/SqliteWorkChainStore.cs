@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed class SqliteWorkChainStore(SqliteWriteDispatcher dispatcher) : IWorkChainStore
+public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatcher) : IWorkChainStore
 {
     private readonly SqliteWriteDispatcher _dispatcher =
         dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
@@ -201,7 +201,7 @@ public sealed class SqliteWorkChainStore(SqliteWriteDispatcher dispatcher) : IWo
         query.CommandText =
             """
             SELECT s.tenant_id, s.project_id, s.id, s.content, d.id, t.id, t.state,
-                   t.risk_tier, t.weight, i.id, i.version, i.content_hash,
+                   t.version, t.risk_tier, t.weight, i.id, i.version, i.content_hash,
                    (SELECT COUNT(*) FROM work_attempts a WHERE a.task_id = t.id),
                    (SELECT COUNT(*) FROM work_evidence e JOIN work_attempts a ON a.id = e.attempt_id
                     WHERE a.task_id = t.id),
@@ -224,9 +224,9 @@ public sealed class SqliteWorkChainStore(SqliteWriteDispatcher dispatcher) : IWo
 
         return new WorkChainSnapshot(
             reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-            reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7),
-            reader.GetDecimal(8), reader.GetString(9), reader.GetInt32(10), reader.GetString(11),
-            reader.GetInt32(12), reader.GetInt32(13), reader.GetInt32(14));
+            reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetInt64(7),
+            reader.GetString(8), reader.GetDecimal(9), reader.GetString(10), reader.GetInt32(11),
+            reader.GetString(12), reader.GetInt32(13), reader.GetInt32(14), reader.GetInt32(15));
     }
 
     private static void AddStateParameters(

@@ -49,4 +49,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Contrato/agregado EP-09a | verde | cadeia de negócio append-only, evidência, tentativa única, correção e actor–critic por risco; 8/8 cenários; `evidence/F1-WORK-CHAIN-CONTRACT.md` |
 | Schema EP-09b.1 | verde | 7 tabelas provider-specific, FKs compostas, checks e tentativa ativa única; migrations SQLite `4→0` / PostgreSQL `5→0`; `evidence/F1-WORK-CHAIN-SCHEMA.md` |
 | Store EP-09b.2a | verde | criação/snapshot dual-provider: 10 concorrentes = 1 aplicação/9 replays; estado+Inbox+ledger+Outbox atômicos; `evidence/F1-WORK-CHAIN-STORE.md` |
-| Store EP-09b.2b | próximo | start/complete/review, optimistic concurrency e reidratação completa dual-provider |
+| Store EP-09b.2b.1 | verde | start/complete/review dual-provider com optimistic concurrency, Inbox, ledger e Outbox; actor–critic médio; snapshot v4/1 attempt/1 evidência/1 review; `evidence/F1-WORK-CHAIN-MUTATIONS.md` |
+| Store EP-09b.2b.2 | próximo | nova instrução imutável após rejeição e reidratação integral de versões/attempts/evidências/reviews |
