@@ -1,0 +1,50 @@
+using Harness.Host.Profiles;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Prototyping;
+using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Time;
+
+namespace Harness.Host.Prototyping;
+
+public static class PrototypeEndpoints
+{
+    public static IEndpointRouteBuilder MapPrototypes(this IEndpointRouteBuilder endpoints)
+    {
+        var prototypes = endpoints.MapGroup("/api/v1/prototypes").WithTags("prototyping");
+        prototypes.MapGet("/", ListPrototypesAsync).Produces<PrototypePage>().ProducesProblem(400).ProducesProblem(401);
+        prototypes.MapGet("/{id}", GetPrototypeAsync).Produces<PrototypeContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        prototypes.MapPost("/", CreatePrototypeAsync).Produces<PrototypeContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        prototypes.MapPost("/{id}/transitions", TransitionAsync).Produces<PrototypeContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        prototypes.MapDelete("/{id}", DeletePrototypeAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        var references = endpoints.MapGroup("/api/v1/visual-references").WithTags("prototyping");
+        references.MapGet("/", ListReferencesAsync).Produces<VisualReferencePage>().ProducesProblem(400).ProducesProblem(401);
+        references.MapGet("/{id}", GetReferenceAsync).Produces<VisualReferenceContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        references.MapPost("/", CreateReferenceAsync).Produces<VisualReferenceContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        references.MapDelete("/{id}", DeleteReferenceAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        return endpoints;
+    }
+
+    private static async Task<IResult> ListPrototypesAsync(string? projectId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, CancellationToken token) { var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); var error = ValidateQuery(projectId, cursor, limit); if (error is not null) return error; var size = limit ?? 50; var rows = await store.ListPrototypesAsync(session.TenantId, projectId, cursor, size + 1, token); var items = rows.Take(size).Select(ToContract).ToArray(); return Results.Ok(new PrototypePage(items, rows.Count > size ? items[^1].Id : null)); }
+    private static async Task<IResult> ListReferencesAsync(string? projectId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, CancellationToken token) { var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); var error = ValidateQuery(projectId, cursor, limit); if (error is not null) return error; var size = limit ?? 50; var rows = await store.ListReferencesAsync(session.TenantId, projectId, cursor, size + 1, token); var items = rows.Take(size).Select(ToContract).ToArray(); return Results.Ok(new VisualReferencePage(items, rows.Count > size ? items[^1].Id : null)); }
+    private static async Task<IResult> GetPrototypeAsync(string id, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, CancellationToken token) { if (!UlidValue.TryParse(id, out _)) return Invalid(); var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); var value = await store.GetPrototypeAsync(session.TenantId, id, token); return value is null ? Missing("prototype") : Results.Ok(ToContract(value)); }
+    private static async Task<IResult> GetReferenceAsync(string id, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, CancellationToken token) { if (!UlidValue.TryParse(id, out _)) return Invalid(); var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); var value = await store.GetReferenceAsync(session.TenantId, id, token); return value is null ? Missing("visual_reference") : Results.Ok(ToContract(value)); }
+    private static async Task<IResult> CreatePrototypeAsync(PrototypeCreateRequest input, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, IClock clock, CancellationToken token) { var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); var now = clock.UtcNow; try { var value = await store.CreatePrototypeAsync(new(session.TenantId, session.Id, UlidValue.New(now).ToString(), input.ProjectId, input.Name, input.Description, input.SourceDocumentId, now), token); return Results.Created($"/api/v1/prototypes/{value.Id}", ToContract(value)); } catch (PrototypeValidationException e) { return Problem(400, "invalid_prototype", e.Message); } catch (PrototypeNotFoundException e) { return Missing(e.Resource); } }
+    private static async Task<IResult> CreateReferenceAsync(VisualReferenceCreateRequest input, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, IClock clock, CancellationToken token) { var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); var now = clock.UtcNow; try { var value = await store.CreateReferenceAsync(new(session.TenantId, session.Id, UlidValue.New(now).ToString(), input.ProjectId, input.PrototypeId, input.Title, input.ImageUrl, input.Source, input.Tags, now), token); return Results.Created($"/api/v1/visual-references/{value.Id}", ToContract(value)); } catch (PrototypeValidationException e) { return Problem(400, "invalid_visual_reference", e.Message); } catch (PrototypeNotFoundException e) { return Missing(e.Resource); } }
+    private static async Task<IResult> TransitionAsync(string id, PrototypeTransitionRequest input, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(id, out _)) return Invalid(); var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); try { return Results.Ok(ToContract(await store.TransitionPrototypeAsync(new(session.TenantId, session.Id, id, input.State, input.Url, input.ThumbnailUrl, clock.UtcNow), token))); } catch (PrototypeValidationException e) { return Problem(400, "invalid_prototype_transition", e.Message); } catch (PrototypeNotFoundException e) { return Missing(e.Resource); } }
+    private static Task<IResult> DeletePrototypeAsync(string id, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, IClock clock, CancellationToken token) => DeleteAsync(id, true, request, profiles, store, clock, token);
+    private static Task<IResult> DeleteReferenceAsync(string id, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, IClock clock, CancellationToken token) => DeleteAsync(id, false, request, profiles, store, clock, token);
+    private static async Task<IResult> DeleteAsync(string id, bool prototype, HttpRequest request, ILocalProfileStore profiles, IPrototypeStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(id, out _)) return Invalid(); var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized(); try { var command = new PrototypeDeleteCommand(session.TenantId, session.Id, id, clock.UtcNow); if (prototype) await store.DeletePrototypeAsync(command, token); else await store.DeleteReferenceAsync(command, token); return Results.NoContent(); } catch (PrototypeNotFoundException e) { return Missing(e.Resource); } }
+    private static Task<LocalProfileRecord?> SessionAsync(HttpRequest request, ILocalProfileStore profiles, CancellationToken token) => LocalProfileSession.ResolveAsync(request, profiles, token);
+    private static IResult? ValidateQuery(string? project, string? cursor, int? limit) => project is not null && !UlidValue.TryParse(project, out _) || cursor is not null && !UlidValue.TryParse(cursor, out _) || limit is < 1 or > 200 ? Problem(400, "invalid_prototype_query", "Prototype query is invalid.") : null;
+    private static PrototypeContract ToContract(PrototypeRecord x) => new(x.Id, x.ProjectId, x.Name, x.Description, x.State, x.Url, x.ThumbnailUrl, x.SourceDocumentId, x.CreatedAt, x.UpdatedAt);
+    private static VisualReferenceContract ToContract(VisualReferenceRecord x) => new(x.Id, x.ProjectId, x.PrototypeId, x.Title, x.ImageUrl, x.Source, x.Tags, x.CreatedAt);
+    private static IResult Invalid() => Problem(400, "invalid_prototype_resource_id", "Resource ID must be a ULID."); private static IResult Unauthorized() => Problem(401, "local_session_required", "A local profile session is required."); private static IResult Missing(string resource) => Problem(404, $"{resource}_not_found", $"The {resource} does not exist."); private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
+}
+
+public sealed record PrototypeCreateRequest(string ProjectId, string Name, string? Description, string? SourceDocumentId);
+public sealed record VisualReferenceCreateRequest(string ProjectId, string Title, string ImageUrl, string Source, string? PrototypeId, IReadOnlyList<string>? Tags);
+public sealed record PrototypeTransitionRequest(string State, string? Url, string? ThumbnailUrl);
+public sealed record PrototypeContract(string Id, string ProjectId, string Name, string Description, string State, string? Url, string? ThumbnailUrl, string? SourceDocumentId, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+public sealed record VisualReferenceContract(string Id, string ProjectId, string? PrototypeId, string Title, string ImageUrl, string Source, IReadOnlyList<string> Tags, DateTimeOffset CreatedAt);
+public sealed record PrototypePage(IReadOnlyList<PrototypeContract> Items, string? NextCursor);
+public sealed record VisualReferencePage(IReadOnlyList<VisualReferenceContract> Items, string? NextCursor);

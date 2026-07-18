@@ -3,6 +3,8 @@ using Harness.SharedKernel.Identifiers;
 namespace Harness.Modules.Projects.Domain;
 
 public sealed record ProjectBrand(string? LogoUrl, string? PrimaryColor, string? SecondaryColor, string? Typography);
+public sealed record ProjectPrototypingWaiver(string Reason, DateTimeOffset GrantedAt);
+public sealed record ProjectPrototyping(string Mode, ProjectPrototypingWaiver? Waiver);
 
 public sealed record Project(
     string Id,
@@ -25,6 +27,7 @@ public sealed record Project(
     DateTimeOffset LastActivityAt,
     long Version)
 {
+    public ProjectPrototyping Prototyping { get; init; } = new("autonomousGeneration", null);
     private static readonly IReadOnlySet<string> States =
         new HashSet<string>(["active", "paused", "archived"], StringComparer.Ordinal);
     private static readonly IReadOnlySet<string> Criticalities =
@@ -80,6 +83,7 @@ public sealed record Project(
         IReadOnlyList<string> technologies,
         ProjectBrand brand,
         IReadOnlyList<string> memberProfileIds,
+        ProjectPrototyping prototyping,
         bool configurationChanged,
         DateTimeOffset occurredAt) =>
         this with
@@ -94,10 +98,24 @@ public sealed record Project(
             Technologies = NormalizeList(technologies, 50, 100, nameof(technologies)),
             Brand = NormalizeBrand(brand),
             MemberProfileIds = NormalizeIds(memberProfileIds),
+            Prototyping = NormalizePrototyping(prototyping, occurredAt),
             ConfigVersion = configurationChanged ? checked(ConfigVersion + 1) : ConfigVersion,
             LastActivityAt = RequireUtc(occurredAt),
             Version = checked(Version + 1),
         };
+
+    private static ProjectPrototyping NormalizePrototyping(ProjectPrototyping value, DateTimeOffset occurredAt)
+    {
+        ArgumentNullException.ThrowIfNull(value); var modes = new HashSet<string>(["externalPrototype", "guidelinesOnly", "autonomousGeneration", "notApplicable"], StringComparer.Ordinal);
+        var mode = Choice(value.Mode, modes, nameof(value));
+        if (mode == "notApplicable")
+        {
+            if (value.Waiver is null) throw new ArgumentException("notApplicable prototyping requires a waiver.", nameof(value));
+            return new(mode, new(Required(value.Waiver.Reason, 2_000, nameof(value)), value.Waiver.GrantedAt == default ? RequireUtc(occurredAt) : RequireUtc(value.Waiver.GrantedAt)));
+        }
+        if (value.Waiver is not null) throw new ArgumentException("A prototyping waiver is only valid for notApplicable.", nameof(value));
+        return new(mode, null);
+    }
 
     private static ProjectBrand NormalizeBrand(ProjectBrand brand)
     {

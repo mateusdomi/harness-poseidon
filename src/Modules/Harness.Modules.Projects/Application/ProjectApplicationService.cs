@@ -30,6 +30,7 @@ public static class ProjectApplicationService
             patch.TechnologiesSpecified ? patch.Technologies ?? throw new ArgumentException("Technologies cannot be null.") : current.Technologies,
             patch.BrandSpecified ? ToDomain(patch.Brand ?? throw new ArgumentException("Brand cannot be null.")) : project.Brand,
             patch.MemberProfileIdsSpecified ? patch.MemberProfileIds ?? throw new ArgumentException("Members cannot be null.") : current.MemberProfileIds,
+            patch.PrototypingSpecified ? ToDomain(patch.Prototyping ?? throw new ArgumentException("Prototyping cannot be null.")) : project.Prototyping,
             patch.ConfigurationSpecified, now));
     }
 
@@ -37,10 +38,12 @@ public static class ProjectApplicationService
         value.Id, value.OrganizationId, value.Name, value.Key, value.Description, value.State,
         value.Criticality, value.RepositoryUrl, value.RepositoryProvider, value.DefaultBranch,
         value.Technologies, ToDomain(value.Brand), value.MemberProfileIds, value.ConfigVersion,
-        value.ChiefAgentId, value.OperationMode, value.CreatedAt, value.LastActivityAt, value.Version);
+        value.ChiefAgentId, value.OperationMode, value.CreatedAt, value.LastActivityAt, value.Version)
+    { Prototyping = ToDomain(value.Prototyping) };
 
     private static ProjectBrand ToDomain(ProjectBrandContract value) =>
         new(value.LogoUrl, value.PrimaryColor, value.SecondaryColor, value.Typography);
+    private static ProjectPrototyping ToDomain(PrototypingConfigContract value) => new(value.Mode, value.Waiver is null ? null : new(value.Waiver.Reason, value.Waiver.GrantedAt));
 
     private static ProjectContract ToContract(Project value) => new(
         value.Id, value.OrganizationId, value.Name, value.Key, value.Description, value.State,
@@ -48,5 +51,6 @@ public static class ProjectApplicationService
         value.Technologies, new ProjectBrandContract(value.Brand.LogoUrl, value.Brand.PrimaryColor,
             value.Brand.SecondaryColor, value.Brand.Typography), value.MemberProfileIds,
         value.ConfigVersion, value.ChiefAgentId, value.OperationMode, value.CreatedAt,
-        value.LastActivityAt, value.Version);
+        value.LastActivityAt, value.Version)
+    { Prototyping = new(value.Prototyping.Mode, value.Prototyping.Waiver is null ? null : new(value.Prototyping.Waiver.Reason, value.Prototyping.Waiver.GrantedAt)) };
 }

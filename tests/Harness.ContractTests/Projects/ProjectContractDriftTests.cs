@@ -8,7 +8,7 @@ public sealed class ProjectContractDriftTests
     [
         "id", "organizationId", "name", "key", "description", "state", "criticality",
         "repositoryUrl", "repositoryProvider", "defaultBranch", "technologies", "brand",
-        "memberProfileIds", "configVersion", "chiefAgentId", "operationMode", "createdAt",
+        "memberProfileIds", "configVersion", "chiefAgentId", "operationMode", "prototyping", "createdAt",
         "lastActivityAt",
     ];
 
