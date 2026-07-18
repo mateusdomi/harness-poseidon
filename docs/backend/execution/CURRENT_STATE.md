@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T12:40:37Z
+Atualizado em: 2026-07-18T12:59:44Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-13 — SignalR e PoC-7; PoCs 1–6 validadas.
+- Épico atual: EP-03 — PostgreSQL e PoC-8; PoCs 1–7 validadas.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `217da00` (`develop`); a fatia PoC-6 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: implementar a PoC-7 no Host com hub único `/hubs/events`, envelope sequenciado por stream, desconexão simulada e endpoint snapshot+delta que detecte/repare lacunas.
+- Último commit remoto validado: `9d33117` (`develop`); a fatia PoC-7 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: reinventariar Docker, criar PostgreSQL gerenciado com porta host dinâmica e migrations próprias, e provar concorrência `FOR UPDATE SKIP LOCKED`/mesmas invariantes da PoC-8 antes do cleanup label-guarded.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -35,9 +35,10 @@ Atualizado em: 2026-07-18T12:40:37Z
 - Codex CLI: app-server real supervisionado com ambiente/estado isolados; heartbeat crescente, kill da árvore, retomada por `threadId` e sessão nova reidratada do commit Git, sem turno de modelo.
 - Git/claims: três fixtures criaram duas branches/worktrees de tentativa; claims disjuntos executaram em paralelo e claim ancestral bloqueou conflito; refs/worktrees oficiais ficaram idênticas antes/depois.
 - Sandbox: Docker provider validou CPU 0,5, memória 64 MiB, 64 PIDs, disk limit 8 MiB, worktree montada, proxy-only egress, rootfs read-only e cleanup label-guarded em seis execuções verdes.
-- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 43 testes verdes nas seis suítes; teste Docker PoC-6 verde em seis execuções.
+- Realtime: hub `/hubs/events`, sequência por stream, catálogo tipado, endpoint snapshot+delta e OpenAPI determinístico; lacuna 3–5 recuperada e live retomado em 6.
+- Pipeline: `tools/backend/verify.sh` verde após a PoC-7: restore locked, format, build Release com zero warnings/erros e 46/46 testes verdes; integração SignalR também ficou verde em seis execuções isoladas.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–6 verdes e catalogadas; PoCs 7–9 pendentes e GNG-1 permanece fechado (6/9).
+- Evidências: PoCs 1–7 verdes e catalogadas; PoCs 8–9 pendentes e GNG-1 permanece fechado (7/9).
 
 ## Sanidade antes de retomar
 

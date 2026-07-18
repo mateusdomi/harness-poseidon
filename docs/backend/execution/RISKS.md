@@ -9,5 +9,6 @@
 | R-005 | SDK .NET 10 ausente globalmente | bootstrap `net10.0` não compila fora do wrapper | SDK 10.0.302 local e instalador idempotente | mitigado |
 | R-006 | pushes concorrentes em `develop` | push rejeitado ou rebase conflita | fetch/rebase/teste novamente; preservar integralmente conteúdo Kimi | ativo |
 | R-007 | EF Core SQLite traz native SQLite vulnerável | restore emite `NU1903` GHSA-2m69-gcr7-jv3q | pin central `SQLitePCLRaw.lib.e_sqlite3` 3.53.3, lockfiles e audit obrigatório | mitigado |
+| R-008 | gerador OpenAPI traz parser vulnerável | restore emite `NU1903` GHSA-v5pm-xwqc-g5wc | pin central `Microsoft.OpenApi` 2.7.5, primeira versão 2.x corrigida; audit obrigatório | mitigado |
 
 Não há No-Go registrado. GNG-1 permanece fechado por trabalho ainda não executado, não por falha.

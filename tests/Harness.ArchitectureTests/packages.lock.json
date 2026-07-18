@@ -316,7 +316,8 @@
           "Harness.Persistence.Abstractions": "[1.0.0, )",
           "Harness.Persistence.Postgres": "[1.0.0, )",
           "Harness.Persistence.Sqlite": "[1.0.0, )",
-          "Harness.SharedKernel": "[1.0.0, )"
+          "Harness.SharedKernel": "[1.0.0, )",
+          "Microsoft.AspNetCore.OpenApi": "[10.0.10, )"
         }
       },
       "harness.modules.agents": {
@@ -433,6 +434,15 @@
       "harness.sharedkernel": {
         "type": "Project"
       },
+      "Microsoft.AspNetCore.OpenApi": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "d4Atx9IHq7JgX0F/h7Db+m9zAUzC+cKdI9k+OWnnyQIOUQtfvjIEuhvbjPigVMkAmPUgCbJ8Yp6M9ghUqHtJSQ==",
+        "dependencies": {
+          "Microsoft.OpenApi": "2.0.0"
+        }
+      },
       "Microsoft.EntityFrameworkCore.Sqlite": {
         "type": "CentralTransitive",
         "requested": "[10.0.10, )",
@@ -447,6 +457,12 @@
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.11",
           "SQLitePCLRaw.core": "2.1.11"
         }
+      },
+      "Microsoft.OpenApi": {
+        "type": "CentralTransitive",
+        "requested": "[2.7.5, )",
+        "resolved": "2.7.5",
+        "contentHash": "0FA67RSnRM4tcBKqiqVu/HPdZ9+QOKbmeRjxRUGTCjPU4C0bmUhd97Dso7Yild5P7nOV6GxJ2xrK0Kv/O9xp0w=="
       },
       "SQLitePCLRaw.lib.e_sqlite3": {
         "type": "CentralTransitive",

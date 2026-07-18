@@ -35,6 +35,8 @@ Capturado em 2026-07-18T12:33:08Z, antes de criar o primeiro recurso: 11 contain
 
 A imagem final da PoC foi construída de `python:3.13-alpine`, sempre taggeada `harness-sandbox-poc6:<attempt>` e labelada. A base foi obtida pelo BuildKit como dependência de build; não ficou como imagem taggeada em `docker image ls`. Depois do cleanup, as contagens preexistentes permaneceram 11 containers, 14 volumes, 7 networks e 9 imagens.
 
+Na PoC-7 foram adicionados `Microsoft.AspNetCore.SignalR.Client 10.0.10` (cliente de integração) e `Microsoft.AspNetCore.OpenApi 10.0.10` (geração canônica). O audit rejeitou a dependência transitiva vulnerável `Microsoft.OpenApi 2.0.0`; `Microsoft.OpenApi 2.7.5` foi pinado por central transitive pinning por ser a primeira versão 2.x corrigida para GHSA-v5pm-xwqc-g5wc. Nenhum warning de audit foi suprimido.
+
 ## Inventário Docker preexistente
 
 Contexto: `desktop-linux`. Foram encontrados 11 containers, todos parados, 14 volumes e 7 networks. Nenhum possui a label `com.harness.managed=true`; portanto, são propriedade de outros projetos e são intocáveis.
