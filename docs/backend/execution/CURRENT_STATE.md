@@ -1,13 +1,13 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T19:28:51Z
+Atualizado em: 2026-07-18T19:31:38Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-PRJ-1 — projetos; perfil e organizações estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `b67ba1a` (`develop`), checkpoint de F2-ID-1; F2-ORG-1 está localmente verde e aguarda publicação.
+- Último commit remoto validado: `5410851` (`develop`), contendo F2-ORG-1 verde com 112/112 testes.
 - Próximo passo exato: implementar a fatia vertical de projetos conforme `projectSchema`: configuração versionada, organização/tenant, repositório, stack, marca/membros, chefe/modo, persistência SQLite, API list/read/create/update, testes e OpenAPI, sem editar frontend.
 - Bloqueios: nenhum.
 
