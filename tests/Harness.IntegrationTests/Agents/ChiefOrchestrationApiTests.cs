@@ -1,0 +1,198 @@
+using System.Net;
+using System.Net.Http.Json;
+using Harness.Host;
+using Harness.Host.Agents;
+using Harness.Host.Organizations;
+using Harness.Host.Profiles;
+using Harness.Host.Projects;
+using Harness.Host.Realtime;
+using Harness.Modules.Coordination.Contracts;
+using Harness.Modules.Identity.Contracts;
+using Harness.Modules.Organizations.Contracts;
+using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Agents;
+using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.WorkChain;
+using Harness.Persistence.Sqlite;
+using Harness.SharedKernel.Identifiers;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Harness.IntegrationTests.Agents;
+
+public sealed class ChiefOrchestrationApiTests
+{
+    [Fact]
+    public async Task ChiefCommandsFenceHandoffAndDrainBusinessAndDurableWorkAcrossRestart()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(40));
+        var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"chief-{Guid.NewGuid():N}");
+        var database = Path.Combine(root, "chief.db");
+        Directory.CreateDirectory(root);
+        var cookies = new CookieContainer();
+        string profileId;
+        string projectId;
+        string oldChiefId;
+        string newChiefId;
+        string taskId;
+        string attemptId;
+        string executionId;
+
+        try
+        {
+            await using (var app = CreateHost(database))
+            {
+                await app.StartAsync(timeout.Token);
+                try
+                {
+                    using var handler = new HttpClientHandler { CookieContainer = cookies };
+                    using var client = new HttpClient(handler) { BaseAddress = Address(app.Services) };
+                    var profile = await CreateProfileAsync(client, timeout.Token); profileId = profile.Id;
+                    var organization = await CreateOrganizationAsync(client, timeout.Token);
+                    var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                    projectId = project.Id; oldChiefId = project.ChiefAgentId;
+
+                    using var taskResponse = await client.PostAsJsonAsync("/api/v1/tasks",
+                        new CreateTaskRequest(projectId, "Drain me", "Run under the durable authority"), timeout.Token);
+                    taskResponse.EnsureSuccessStatusCode();
+                    var task = (await taskResponse.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token))!;
+                    taskId = task.Id;
+
+                    var profileStore = app.Services.GetRequiredService<ILocalProfileStore>();
+                    var localProfile = (await profileStore.GetAsync(profileId, timeout.Token))!;
+                    var board = app.Services.GetRequiredService<IWorkBoardStore>();
+                    var chain = app.Services.GetRequiredService<IWorkChainStore>();
+                    var persistedTask = (await board.GetTaskAsync(localProfile.TenantId, taskId, timeout.Token))!;
+                    var instruction = Assert.Single(await board.ListInstructionsAsync(localProfile.TenantId, taskId, null, 10, timeout.Token));
+                    var now = DateTimeOffset.UtcNow;
+                    attemptId = UlidValue.New(now).ToString();
+                    var started = await chain.StartAttemptAsync(new(localProfile.TenantId,
+                        persistedTask.BackingSolicitationId, taskId, instruction.Id, attemptId,
+                        oldChiefId, persistedTask.Version, $"chief-test:{attemptId}", now), timeout.Token);
+                    Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+
+                    executionId = UlidValue.New(now.AddMilliseconds(1)).ToString();
+                    var engine = app.Services.GetRequiredService<IDurableExecutionEngine>();
+                    var durableStarted = await engine.StartAsync(new(localProfile.TenantId, projectId,
+                        executionId, "{\"kind\":\"chief-test\"}",
+                        new DurableRetryPolicy(2, TimeSpan.Zero, 1m, TimeSpan.Zero), now,
+                        $"chief-test:durable:{executionId}"), now, timeout.Token);
+                    Assert.Equal(DurableCommandStatus.Applied, durableStarted.Status);
+                    Assert.NotNull(await engine.TryAcquireNextAsync(localProfile.TenantId, "chief-test-owner",
+                        now.AddMilliseconds(2), TimeSpan.FromMinutes(1), timeout.Token));
+
+                    using (var pause = await client.PostAsync($"/api/v1/projects/{projectId}/chief/pause", null, timeout.Token))
+                    {
+                        var paused = await pause.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token);
+                        Assert.Equal(HttpStatusCode.OK, pause.StatusCode); Assert.Equal("paused", paused?.State);
+                    }
+                    Assert.Equal("waiting", (await client.GetFromJsonAsync<AgentContract>($"/api/v1/agents/{oldChiefId}", timeout.Token))?.State);
+                    using (var resume = await client.PostAsync($"/api/v1/projects/{projectId}/chief/resume", null, timeout.Token))
+                    {
+                        var resumed = await resume.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token);
+                        Assert.Equal(HttpStatusCode.OK, resume.StatusCode); Assert.Equal("active", resumed?.State);
+                    }
+
+                    var definitions = (await client.GetFromJsonAsync<AgentDefinitionPage>("/api/v1/agent-definitions?limit=10", timeout.Token))!;
+                    var specialist = definitions.Items.Single(x => x.Name == "Software Engineer");
+                    using (var invalid = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/chief/handoff",
+                        new HandoffChiefRequest(specialist.Id, null, "Specialist cannot own the Chief lease."), timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, invalid.StatusCode);
+
+                    using (var handoff = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/chief/handoff",
+                        new HandoffChiefRequest(null, null, "Rotate the orchestration lease."), timeout.Token))
+                    {
+                        handoff.EnsureSuccessStatusCode();
+                        var next = (await handoff.Content.ReadFromJsonAsync<AgentContract>(timeout.Token))!;
+                        newChiefId = next.Id; Assert.Equal(2, next.Lease?.FencingToken); Assert.Equal(projectId, next.ProjectId);
+                    }
+                    Assert.Null((await client.GetFromJsonAsync<AgentContract>($"/api/v1/agents/{oldChiefId}", timeout.Token))?.Lease);
+
+                    await app.Services.GetRequiredService<SqliteWriteDispatcher>().ExecuteAsync(async (connection, token) =>
+                    {
+                        await using var command = connection.CreateCommand();
+                        command.CommandText = "UPDATE agents SET state='working',current_task_id=$task WHERE id=$agent;";
+                        command.Parameters.AddWithValue("$task", taskId); command.Parameters.AddWithValue("$agent", newChiefId);
+                        await command.ExecuteNonQueryAsync(token);
+                    }, timeout.Token);
+
+                    using (var drain = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/chief/drain",
+                        new DrainChiefRequest("Operator requested a safe drain."), timeout.Token))
+                    {
+                        drain.EnsureSuccessStatusCode(); Assert.Equal(1, await drain.Content.ReadFromJsonAsync<int>(timeout.Token));
+                    }
+                    Assert.Equal("ready", (await client.GetFromJsonAsync<BoardTaskContract>($"/api/v1/tasks/{taskId}", timeout.Token))?.State);
+                    Assert.Equal("cancelled", (await client.GetFromJsonAsync<AttemptContract>($"/api/v1/attempts/{attemptId}", timeout.Token))?.State);
+                    Assert.Equal("idle", (await client.GetFromJsonAsync<AgentContract>($"/api/v1/agents/{newChiefId}", timeout.Token))?.State);
+                    Assert.Equal(DurableExecutionState.Cancelled, (await engine.GetAsync(localProfile.TenantId, executionId, timeout.Token))?.State);
+
+                    var projectEvents = await WaitForEventAsync(client, $"project:{projectId}", "task.stateChanged", timeout.Token);
+                    var drained = projectEvents.Delta.Last(x => x.Type == "task.stateChanged").Payload;
+                    Assert.Equal("chief", drained.GetProperty("changedByKind").GetString());
+                    var globalEvents = await WaitForEventAsync(client, "global", "audit.eventAppended", timeout.Token);
+                    Assert.Contains(globalEvents.Delta, x => x.Type == "agent.statusChanged");
+                    Assert.Contains(globalEvents.Delta, x => x.Type == "audit.eventAppended" &&
+                        x.Payload.GetProperty("auditEvent").GetProperty("action").GetString() == "chief.tasksDrained");
+                }
+                finally { await app.StopAsync(timeout.Token); }
+            }
+
+            await using var restarted = CreateHost(database); await restarted.StartAsync(timeout.Token);
+            try
+            {
+                using var client = new HttpClient { BaseAddress = Address(restarted.Services) };
+                client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
+                var project = await client.GetFromJsonAsync<ProjectResponse>($"/api/v1/projects/{projectId}", timeout.Token);
+                Assert.Equal(newChiefId, project?.ChiefAgentId);
+                Assert.Equal("cancelled", (await client.GetFromJsonAsync<AttemptContract>($"/api/v1/attempts/{attemptId}", timeout.Token))?.State);
+                Assert.Equal("ready", (await client.GetFromJsonAsync<BoardTaskContract>($"/api/v1/tasks/{taskId}", timeout.Token))?.State);
+            }
+            finally { await restarted.StopAsync(timeout.Token); }
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static async Task<EventStreamSnapshot> WaitForEventAsync(HttpClient client, string stream, string type, CancellationToken token)
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>(
+                $"/api/v1/event-streams/snapshot?stream={Uri.EscapeDataString(stream)}", token);
+            if (snapshot is not null && snapshot.Delta.Any(x => x.Type == type)) return snapshot;
+            await Task.Delay(25, token);
+        }
+        throw new TimeoutException($"Event {type} was not dispatched to {stream}.");
+    }
+
+    private static async Task<ProfileResponse> CreateProfileAsync(HttpClient client, CancellationToken token)
+    {
+        using var response = await client.PostAsJsonAsync("/api/v1/profiles", new CreateProfileRequest("Mateus", null, null, "pt-BR"), token);
+        response.EnsureSuccessStatusCode(); return (await response.Content.ReadFromJsonAsync<ProfileResponse>(token))!;
+    }
+
+    private static async Task<OrganizationResponse> CreateOrganizationAsync(HttpClient client, CancellationToken token)
+    {
+        using var response = await client.PostAsJsonAsync("/api/v1/organizations", new CreateOrganizationRequest { Name = "Poseidon", Slug = "poseidon" }, token);
+        response.EnsureSuccessStatusCode(); return (await response.Content.ReadFromJsonAsync<OrganizationResponse>(token))!;
+    }
+
+    private static async Task<ProjectResponse> CreateProjectAsync(HttpClient client, string organizationId, CancellationToken token)
+    {
+        using var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest
+        { OrganizationId = organizationId, Name = "Poseidon", Key = "POSEIDON", Description = "Backend" }, token);
+        response.EnsureSuccessStatusCode(); return (await response.Content.ReadFromJsonAsync<ProjectResponse>(token))!;
+    }
+
+    private static WebApplication CreateHost(string database) => HostApplication.Build(
+        ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
+
+    private static Uri Address(IServiceProvider services)
+    {
+        var addresses = services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses
+            ?? throw new InvalidOperationException("No address.");
+        return new Uri(addresses.Single(x => x.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)));
+    }
+}

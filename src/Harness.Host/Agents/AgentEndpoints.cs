@@ -1,7 +1,9 @@
 using Harness.Host.Profiles;
+using Harness.Host.Projects;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Agents;
 
@@ -16,7 +18,76 @@ public static class AgentEndpoints
         var agents = endpoints.MapGroup("/api/v1/agents").WithTags("agents");
         agents.MapGet("/", ListAgentsAsync).Produces<AgentPage>().ProducesProblem(400).ProducesProblem(401);
         agents.MapGet("/{agentId}", GetAgentAsync).Produces<AgentContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+
+        var chief = endpoints.MapGroup("/api/v1/projects/{projectId}/chief").WithTags("agents");
+        chief.MapPost("/pause", PauseChiefAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        chief.MapPost("/resume", ResumeChiefAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        chief.MapPost("/handoff", HandoffChiefAsync).Produces<AgentContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        chief.MapPost("/drain", DrainChiefAsync).Produces<int>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         return endpoints;
+    }
+
+    private static Task<IResult> PauseChiefAsync(string projectId, HttpRequest request,
+        ILocalProfileStore profiles, IChiefOrchestratorStore store, IClock clock, CancellationToken token) =>
+        SetChiefPauseAsync(projectId, true, request, profiles, store, clock, token);
+
+    private static Task<IResult> ResumeChiefAsync(string projectId, HttpRequest request,
+        ILocalProfileStore profiles, IChiefOrchestratorStore store, IClock clock, CancellationToken token) =>
+        SetChiefPauseAsync(projectId, false, request, profiles, store, clock, token);
+
+    private static async Task<IResult> SetChiefPauseAsync(string projectId, bool pause, HttpRequest request,
+        ILocalProfileStore profiles, IChiefOrchestratorStore store, IClock clock, CancellationToken token)
+    {
+        if (!UlidValue.TryParse(projectId, out _)) return InvalidId("project");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var command = new ChiefProjectCommand(profile.TenantId, projectId, profile.Id, clock.UtcNow);
+            var project = pause ? await store.PauseAsync(command, token) : await store.ResumeAsync(command, token);
+            return Results.Ok(ProjectEndpoints.ToResponse(project));
+        }
+        catch (ChiefResourceNotFoundException e) { return NotFound(e.Resource); }
+        catch (ChiefStateConflictException e) { return Problem(409, "chief_state_conflict", e.Message); }
+    }
+
+    private static async Task<IResult> HandoffChiefAsync(string projectId, HandoffChiefRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IChiefOrchestratorStore store,
+        IClock clock, CancellationToken token)
+    {
+        if (!UlidValue.TryParse(projectId, out _)) return InvalidId("project");
+        if (input.TargetDefinitionId is not null && !UlidValue.TryParse(input.TargetDefinitionId, out _)) return InvalidId("definition");
+        if (input.TargetModelId is not null && !UlidValue.TryParse(input.TargetModelId, out _)) return InvalidId("model");
+        if (string.IsNullOrWhiteSpace(input.Note)) return Problem(400, "invalid_handoff", "Handoff note is required.");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var now = clock.UtcNow;
+            var agent = await store.HandoffAsync(new(profile.TenantId, projectId,
+                UlidValue.New(now).ToString(), profile.Id, input.TargetDefinitionId,
+                input.TargetModelId, input.Note.Trim(), now), token);
+            return Results.Ok(ToContract(agent));
+        }
+        catch (ChiefResourceNotFoundException e) { return NotFound(e.Resource); }
+        catch (ChiefStateConflictException e) { return Problem(409, "chief_state_conflict", e.Message); }
+    }
+
+    private static async Task<IResult> DrainChiefAsync(string projectId, DrainChiefRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IChiefOrchestratorStore store,
+        IClock clock, CancellationToken token)
+    {
+        if (!UlidValue.TryParse(projectId, out _)) return InvalidId("project");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var count = await store.DrainAsync(new(profile.TenantId, projectId, profile.Id,
+                input.Note, clock.UtcNow), token);
+            return Results.Ok(count);
+        }
+        catch (ChiefResourceNotFoundException e) { return NotFound(e.Resource); }
+        catch (ChiefStateConflictException e) { return Problem(409, "chief_state_conflict", e.Message); }
     }
 
     private static async Task<IResult> ListDefinitionsAsync(
@@ -102,3 +173,5 @@ public sealed record AgentContract(
     string? CurrentTaskId, string? ModelId, AgentLeaseContract? Lease,
     AgentMetricsContract Metrics, DateTimeOffset? LastHeartbeatAt);
 public sealed record AgentPage(IReadOnlyList<AgentContract> Items, string? NextCursor);
+public sealed record HandoffChiefRequest(string? TargetDefinitionId, string? TargetModelId, string Note);
+public sealed record DrainChiefRequest(string? Note);

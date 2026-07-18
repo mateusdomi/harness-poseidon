@@ -63,6 +63,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
         builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
         builder.Services.AddSingleton<IAgentCatalogStore, SqliteAgentCatalogStore>();
+        builder.Services.AddSingleton<IChiefOrchestratorStore, SqliteChiefOrchestratorStore>();
         builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
         builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
         builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();

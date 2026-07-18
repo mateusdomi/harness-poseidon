@@ -26,6 +26,10 @@ public sealed class AgentContractDriftTests
         Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents/{agentId}").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/pause").TryGetProperty("post", out _));
+        Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/resume").TryGetProperty("post", out _));
+        Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/handoff").TryGetProperty("post", out _));
+        Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/drain").TryGetProperty("post", out _));
 
         AssertFields(openApi, "AgentDefinitionContract", DefinitionFields);
         AssertFields(openApi, "AgentContract", AgentFields);
