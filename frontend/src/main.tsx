@@ -17,10 +17,20 @@ import '@/i18n';
 import { AppProviders } from '@/app/providers';
 import { router } from '@/app/router';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AppProviders>
-      <RouterProvider router={router} />
-    </AppProviders>
-  </StrictMode>,
-);
+async function bootstrap() {
+  // msw opcional em dev (VITE_MSW=on): serve as fixtures via HTTP /api/v1.
+  if (import.meta.env.DEV && import.meta.env.VITE_MSW === 'on') {
+    const { worker } = await import('@/api/mocks/browser');
+    await worker.start({ onUnhandledRequest: 'bypass' });
+  }
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>
+    </StrictMode>,
+  );
+}
+
+void bootstrap();

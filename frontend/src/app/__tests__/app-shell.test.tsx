@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 import '@/i18n';
 import { AppShell } from '@/app/app-shell';
+import { AppProviders } from '@/app/providers';
 
 function renderShell(initialPath = '/') {
   const router = createMemoryRouter(
@@ -19,7 +20,11 @@ function renderShell(initialPath = '/') {
     ],
     { initialEntries: [initialPath] },
   );
-  return render(<RouterProvider router={router} />);
+  return render(
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>,
+  );
 }
 
 describe('AppShell', () => {

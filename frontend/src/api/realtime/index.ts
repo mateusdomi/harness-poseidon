@@ -1,2 +1,3 @@
-// Cliente realtime (@microsoft/signalr) — fatia FE-0 B.
-export {};
+export * from './realtime-client';
+export * from './mock-client';
+export * from './signalr-client';

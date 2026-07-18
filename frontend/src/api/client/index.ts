@@ -1,2 +1,3 @@
-// Cliente HTTP (fetch wrapper + react-query hooks) — fatia FE-0 B.
-export {};
+export * from './api-client';
+export * from './http-client';
+export * from './mock-client';
