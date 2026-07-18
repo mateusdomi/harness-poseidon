@@ -15,13 +15,14 @@ import { RouteSkeleton } from '@/app/components/route-skeleton';
 import { ThemeToggle } from '@/app/components/theme-toggle';
 import { ReconnectionBanner } from '@/features/shared/components/reconnection-banner';
 import logoUrl from '@/assets/logo.png';
+import logoIconUrl from '@/assets/logo-icon.png';
 
-function BrandMark() {
+function BrandMark({ className }: { className?: string }) {
   return (
     <img
       src={logoUrl}
       alt={product.name}
-      className="h-8 w-auto object-contain"
+      className={cn('h-10 w-auto object-contain', className)}
     />
   );
 }
@@ -38,15 +39,15 @@ function Sidebar() {
         collapsed ? 'w-16' : 'w-64',
       )}
     >
-      <div className={cn('flex h-16 items-center border-b border-border px-4', collapsed && 'justify-center px-0')}>
+      <div className={cn('flex h-20 items-center border-b border-border px-4', collapsed && 'justify-center px-0')}>
         {collapsed ? (
           <img
-            src={logoUrl}
+            src={logoIconUrl}
             alt={product.name}
-            className="h-8 w-auto object-contain"
+            className="h-10 w-auto object-contain"
           />
         ) : (
-          <BrandMark />
+          <BrandMark className="h-12" />
         )}
       </div>
       <nav aria-label={t('shell.primaryNav')} className="flex-1 overflow-y-auto p-2">
