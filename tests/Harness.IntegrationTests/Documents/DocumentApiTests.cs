@@ -6,6 +6,7 @@ using Harness.Host.Organizations;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Host.Realtime;
+using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Documents.Contracts;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
@@ -26,7 +27,7 @@ public sealed class DocumentApiTests
         var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"document-api-{Guid.NewGuid():N}");
         var database = Path.Combine(root, "document.db"); var catalog = Path.Combine(root, "catalog");
         Directory.CreateDirectory(root); var cookies = new CookieContainer();
-        string profileId; string projectId; string chiefAgentId; string documentId; string firstVersionId; string secondVersionId; string approvedApprovalId;
+        string profileId; string projectId; string chiefAgentId; string documentId; string firstVersionId; string secondVersionId; string approvedApprovalId; string humanApprovalId;
         try
         {
             await using (var app = CreateHost(database, catalog))
@@ -118,6 +119,28 @@ public sealed class DocumentApiTests
                     var documentEvents = await WaitForEventsAsync(client, $"project:{projectId}", "document.stateChanged", 9, timeout.Token);
                     var stateChanged = documentEvents.Delta.Last(value => value.Type == "document.stateChanged").Payload;
                     Assert.Equal(documentId, stateChanged.GetProperty("documentId").GetString()); Assert.Equal("awaitingApproval", stateChanged.GetProperty("from").GetString()); Assert.Equal("approved", stateChanged.GetProperty("to").GetString());
+
+                    string taskId;
+                    using (var createTask = await client.PostAsJsonAsync("/api/v1/tasks",
+                        new CreateTaskRequest(projectId, "Revisar entrega", "Valide as evidências."), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, createTask.StatusCode); taskId = (await createTask.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token))!.Id; }
+                    string taskApprovalId;
+                    using (var requestTask = await client.PostAsJsonAsync("/api/v1/approvals",
+                        new CreateApprovalRequest(projectId, "Aceitar tarefa", "Validação humana", chiefAgentId,
+                            TaskId: taskId, Priority: "critical"), timeout.Token))
+                    { Assert.True(requestTask.StatusCode == HttpStatusCode.Created, await requestTask.Content.ReadAsStringAsync(timeout.Token)); var approval = (await requestTask.Content.ReadFromJsonAsync<ApprovalContract>(timeout.Token))!; taskApprovalId = approval.Id; Assert.Equal(taskId, approval.TaskId); }
+                    using (var approveTask = await client.PostAsJsonAsync($"/api/v1/approvals/{taskApprovalId}/resolution",
+                        new ResolveApprovalRequest("approved"), timeout.Token)) Assert.Equal(HttpStatusCode.OK, approveTask.StatusCode);
+                    using (var requestHuman = await client.PostAsJsonAsync("/api/v1/approvals",
+                        new CreateApprovalRequest(projectId, "Decisão de produto", "Escolher estratégia", chiefAgentId,
+                            DueAt: DateTimeOffset.UtcNow.AddDays(1)), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, requestHuman.StatusCode); var approval = (await requestHuman.Content.ReadFromJsonAsync<ApprovalContract>(timeout.Token))!; humanApprovalId = approval.Id; Assert.Null(approval.TaskId); Assert.Null(approval.GateId); Assert.Null(approval.DocumentId); }
+                    using (var rejectHuman = await client.PostAsJsonAsync($"/api/v1/approvals/{humanApprovalId}/resolution",
+                        new ResolveApprovalRequest("rejected", "Estratégia recusada."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, rejectHuman.StatusCode);
+                    approvals = await client.GetFromJsonAsync<ApprovalPage>($"/api/v1/approvals?projectId={projectId}", timeout.Token);
+                    Assert.Equal(4, approvals!.Items.Count); Assert.Equal("critical", approvals.Items.Single(value => value.Id == taskApprovalId).Priority);
+                    var allResolved = await WaitForEventsAsync(client, $"project:{projectId}", "approval.resolved", 4, timeout.Token);
+                    Assert.Equal(humanApprovalId, allResolved.Delta.Last(value => value.Type == "approval.resolved").Payload.GetProperty("approvalId").GetString());
                 }
                 finally { await app.StopAsync(timeout.Token); }
             }
@@ -132,6 +155,7 @@ public sealed class DocumentApiTests
                 var document = await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token);
                 Assert.Equal(2, document!.CurrentVersion); Assert.Equal("approved", document.State);
                 Assert.Equal("approved", (await client.GetFromJsonAsync<ApprovalContract>($"/api/v1/approvals/{approvedApprovalId}", timeout.Token))!.State);
+                Assert.Equal("rejected", (await client.GetFromJsonAsync<ApprovalContract>($"/api/v1/approvals/{humanApprovalId}", timeout.Token))!.State);
             }
             finally { await restarted.StopAsync(timeout.Token); }
         }

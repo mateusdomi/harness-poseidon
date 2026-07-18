@@ -71,8 +71,8 @@ public static class DocumentApiApplicationService
         CreateApprovalRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.DocumentId is null || request.GateId is not null || request.TaskId is not null)
-            throw new ArgumentException("This increment accepts document approvals only.", nameof(request));
+        if (new[] { request.DocumentId, request.GateId, request.TaskId }.Count(value => value is not null) > 1)
+            throw new ArgumentException("Approval can reference at most one target.", nameof(request));
         var priority = request.Priority ?? "medium";
         if (priority is not ("low" or "medium" or "high" or "critical"))
             throw new ArgumentException("Approval priority is invalid.", nameof(request));

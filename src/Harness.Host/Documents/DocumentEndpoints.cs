@@ -236,23 +236,36 @@ public static class DocumentEndpoints
         try
         {
             var value = DocumentApiApplicationService.Approval(input);
-            if (!Valid(input.ProjectId) || !Valid(input.RequestedByAgentId) || !Valid(input.DocumentId!))
+            if (!Valid(input.ProjectId) || !Valid(input.RequestedByAgentId) ||
+                new[] { input.DocumentId, input.GateId, input.TaskId }
+                    .Any(value => value is not null && !Valid(value)))
                 return Problem(400, "invalid_approval", "Approval references must be ULIDs.");
-            var document = await authority.ReadAsync(profile.TenantId, input.DocumentId!, token);
-            if (document is null) return NotFound("document");
-            if (document.ProjectId != input.ProjectId)
-                return Problem(400, "invalid_approval", "Document does not belong to the project.");
             var now = clock.UtcNow; var approvalId = UlidValue.New(now).ToString();
-            var receipt = await authority.RequestApprovalAsync(new(profile.TenantId, input.DocumentId!,
-                approvalId, UlidValue.New(now.AddTicks(1)).ToString(), value.Title, value.Description,
-                value.Priority, input.DueAt, input.RequestedByAgentId, document.Version,
-                $"api:approval:{approvalId}", now), token);
-            if (receipt.Status is not (DocumentMutationStatus.Applied or DocumentMutationStatus.IdempotentReplay))
-                return MutationProblem(receipt.Status);
-            var row = await store.GetApprovalAsync(profile.TenantId, approvalId, token)
-                ?? throw new InvalidOperationException("Created approval was not readable.");
+            ApprovalCatalogRecord row;
+            if (input.DocumentId is not null)
+            {
+                var document = await authority.ReadAsync(profile.TenantId, input.DocumentId, token);
+                if (document is null) return NotFound("document");
+                if (document.ProjectId != input.ProjectId)
+                    return Problem(400, "invalid_approval", "Document does not belong to the project.");
+                var receipt = await authority.RequestApprovalAsync(new(profile.TenantId, input.DocumentId,
+                    approvalId, UlidValue.New(now.AddTicks(1)).ToString(), value.Title, value.Description,
+                    value.Priority, input.DueAt, input.RequestedByAgentId, document.Version,
+                    $"api:approval:{approvalId}", now), token);
+                if (receipt.Status is not (DocumentMutationStatus.Applied or DocumentMutationStatus.IdempotentReplay))
+                    return MutationProblem(receipt.Status);
+                row = await store.GetApprovalAsync(profile.TenantId, approvalId, token)
+                    ?? throw new InvalidOperationException("Created approval was not readable.");
+            }
+            else
+            {
+                row = await store.CreateGeneralApprovalAsync(new(profile.TenantId, approvalId,
+                    input.ProjectId, input.GateId, input.TaskId, value.Title, value.Description,
+                    value.Priority, input.DueAt, input.RequestedByAgentId, now), token);
+            }
             return Results.Created($"/api/v1/approvals/{approvalId}", ToContract(row));
         }
+        catch (ApprovalReferenceNotFoundException exception) { return NotFound(exception.Reference); }
         catch (ArgumentException exception) { return Problem(400, "invalid_approval", exception.Message); }
     }
 
@@ -266,19 +279,29 @@ public static class DocumentEndpoints
         try
         {
             var value = DocumentApiApplicationService.Resolution(input);
-            var document = await authority.ReadAsync(profile.TenantId, approval.DocumentId!, token);
-            if (document is null) return NotFound("document");
-            var now = clock.UtcNow; var receipt = await authority.ResolveApprovalAsync(new(
-                profile.TenantId, document.DocumentId, id, UlidValue.New(now).ToString(),
-                value.Decision, profile.Id, value.Note, document.Version,
-                $"api:approval-resolution:{UlidValue.New(now.AddTicks(1))}", now), token);
-            if (receipt.Status is not (DocumentMutationStatus.Applied or DocumentMutationStatus.IdempotentReplay))
-                return MutationProblem(receipt.Status);
-            var row = await store.GetApprovalAsync(profile.TenantId, id, token)
-                ?? throw new InvalidOperationException("Resolved approval was not readable.");
-            return Results.Ok(ToContract(row));
+            var now = clock.UtcNow; ApprovalCatalogRecord? row;
+            if (approval.DocumentId is not null)
+            {
+                var document = await authority.ReadAsync(profile.TenantId, approval.DocumentId, token);
+                if (document is null) return NotFound("document");
+                var receipt = await authority.ResolveApprovalAsync(new(
+                    profile.TenantId, document.DocumentId, id, UlidValue.New(now).ToString(),
+                    value.Decision, profile.Id, value.Note, document.Version,
+                    $"api:approval-resolution:{UlidValue.New(now.AddTicks(1))}", now), token);
+                if (receipt.Status is not (DocumentMutationStatus.Applied or DocumentMutationStatus.IdempotentReplay))
+                    return MutationProblem(receipt.Status);
+                row = await store.GetApprovalAsync(profile.TenantId, id, token);
+            }
+            else
+            {
+                row = await store.ResolveGeneralApprovalAsync(new(profile.TenantId, id,
+                    value.Decision, profile.Id, value.Note, now), token);
+            }
+            var resolved = row ?? throw new InvalidOperationException("Resolved approval was not readable.");
+            return Results.Ok(ToContract(resolved));
         }
         catch (ArgumentException exception) { return Problem(400, "invalid_approval_resolution", exception.Message); }
+        catch (InvalidOperationException exception) { return Problem(409, "approval_resolution_conflict", exception.Message); }
     }
 
     private static DocumentContract ToContract(DocumentCatalogRecord value) => new(
