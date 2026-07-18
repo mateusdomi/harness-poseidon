@@ -26,8 +26,8 @@ public sealed class PostgresMigrationRunner
             connection,
             transaction,
             """
-            CREATE SCHEMA IF NOT EXISTS harness_poc;
-            CREATE TABLE IF NOT EXISTS harness_poc.schema_migrations
+            CREATE SCHEMA IF NOT EXISTS harness;
+            CREATE TABLE IF NOT EXISTS harness.schema_migrations
             (
                 migration_name text PRIMARY KEY,
                 applied_at timestamptz NOT NULL
@@ -48,7 +48,7 @@ public sealed class PostgresMigrationRunner
                 connection,
                 transaction,
                 """
-                INSERT INTO harness_poc.schema_migrations (migration_name, applied_at)
+                INSERT INTO harness.schema_migrations (migration_name, applied_at)
                 VALUES ($1, $2);
                 """,
                 cancellationToken,
@@ -70,7 +70,7 @@ public sealed class PostgresMigrationRunner
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText =
-            "SELECT EXISTS (SELECT 1 FROM harness_poc.schema_migrations WHERE migration_name = $1);";
+            "SELECT EXISTS (SELECT 1 FROM harness.schema_migrations WHERE migration_name = $1);";
         command.Parameters.Add(new NpgsqlParameter<string> { TypedValue = migrationName });
         return (bool)(await command.ExecuteScalarAsync(cancellationToken)
             ?? throw new InvalidOperationException("PostgreSQL did not return migration state."));

@@ -34,12 +34,13 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 
 ## Fase 1 — fatias retomáveis
 
-1. EP-03/EP-04: modelo relacional de produção, migrations dual-provider, Inbox/Outbox e ledger encadeado — próximo incremento.
-2. EP-05: leases, heartbeats, fencing, checkpoints e `IDurableExecutionEngine` completo.
-3. EP-06/EP-09: Tenant, Organização, Projeto, Usuário local e cadeia Solicitação→Tentativa.
-4. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
-5. Documentos/versionamento/aprovações, workers e SignalR persistido.
-6. Prova GNG-2 com encerramento abrupto e auditoria completa nos dois providers.
+1. EP-03: esquema relacional de produção e migrations dual-provider — verde em 2026-07-18.
+2. EP-04: processamento transacional de Inbox/Outbox e ledger encadeado — próximo incremento.
+3. EP-05: leases, heartbeats, fencing, checkpoints e `IDurableExecutionEngine` completo.
+4. EP-06/EP-09: Tenant, Organização, Projeto, Usuário local e cadeia Solicitação→Tentativa.
+5. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
+6. Documentos/versionamento/aprovações, workers e SignalR persistido.
+7. Prova GNG-2 com encerramento abrupto e auditoria completa nos dois providers.
 
 ## Backlog épico
 

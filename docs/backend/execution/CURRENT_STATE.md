@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T13:29:41Z
+Atualizado em: 2026-07-18T13:37:34Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-03/EP-04 — modelo relacional dual, Inbox/Outbox e ledger.
+- Épico atual: EP-04 — processamento transacional de Inbox/Outbox e ledger; esquema EP-03 verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `7504e11` (`develop`); a fatia PoC-9/GNG-1 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: definir o modelo conceitual mínimo de Tenant/Organização/Projeto/usuário local, Inbox, Outbox e ledger; implementar migrations separadas SQLite/PostgreSQL e testes de comportamento idêntico antes de mover o store IPC in-memory para a autoridade relacional.
+- Último commit remoto validado: `ac76408` (`develop`); a fatia de schema F1 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: criar contratos de comando/receipt em Persistence.Abstractions e implementar uma transação idempotente comum que grava Inbox, mutação de estado, ledger hash-encadeado e Outbox nos dois providers; testar replay/conflito/rollback antes de mover o store IPC in-memory.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -21,7 +21,7 @@ Atualizado em: 2026-07-18T13:29:41Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: PostgreSQL possui migration própria embarcada `0001_poc_work_queue.sql`, idempotente e registrada sob advisory lock; SQLite de produção ainda não possui migration. Há 28 lockfiles NuGet, um por projeto.
+- Migrations: SQLite possui `0001_foundation.sql` sob dispatcher único; PostgreSQL possui `0001_poc_work_queue.sql` e `0002_foundation.sql` sob advisory lock. Históricos são separados e idempotentes; não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -38,9 +38,10 @@ Atualizado em: 2026-07-18T13:29:41Z
 - Realtime: hub `/hubs/events`, sequência por stream, catálogo tipado, endpoint snapshot+delta e OpenAPI determinístico; lacuna 3–5 recuperada e live retomado em 6.
 - PostgreSQL: Npgsql/EF provider 10.0.3; 80 itens adquiridos uma vez por 12 workers, linha bloqueada pulada sem espera, token antigo rejeitado após lease expirada e migrations `1` depois `0`; imagem final Alpine/PostgreSQL 18.4 passou Scout com 0 crítica/alta/média e residual 2 baixas + 1 não classificada sem correção disponível.
 - IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; replay integral não duplica, gap/token inválido não criam estado e assembly Runner não referencia banco. Store da PoC é in-memory e será persistido na primeira fatia F1.
-- Pipeline: `tools/backend/verify.sh` verde após a PoC-9: restore locked, format, build Release com zero warnings/erros e 49/49 testes verdes; teste IPC final também ficou verde em seis execuções isoladas.
+- Fundação F1: sete tabelas conceituais (Tenant, Organização, Projeto, usuário local, Inbox, Outbox, ledger) existem nos dois providers; migrations repetidas são no-op e FKs órfãs são rejeitadas.
+- Pipeline: `tools/backend/verify.sh` verde após o schema F1: restore locked, format, build Release com zero warnings/erros e 50/50 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9 verdes e catalogadas; GNG-1 verde. GNG-2 permanece fechado até a recuperação F1 com auditoria completa.
+- Evidências: PoCs 1–9 e schema dual F1 verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até a recuperação F1 com auditoria completa.
 
 ## Sanidade antes de retomar
 

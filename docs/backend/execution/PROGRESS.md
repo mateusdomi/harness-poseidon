@@ -32,3 +32,11 @@
 | PoC-9 IPC | verde | Runner real, loopback+token, heartbeat/checkpoint/completion, replay 3/3, gap e token inválido rejeitados; `evidence/F0-POC-9.md` |
 
 Conclusão só será registrada após execução. Arquivo existente ou teste apenas escrito não conta como evidência.
+
+## Fase 1
+
+| Incremento | Estado | Última evidência |
+|---|---|---|
+| Esquema relacional dual-provider | verde | migrations próprias SQLite/PostgreSQL `1→0` e `2→0`; sete tabelas conceituais, FKs e índices; gate 50/50; `evidence/F1-FOUNDATION-SCHEMA.md` |
+| Inbox/Outbox/ledger transacionais | em andamento | esquema materializado; application services e comportamento dual ainda pendentes |
+| Motor durável e GNG-2 | pendente | — |

@@ -18,8 +18,9 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(1, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(2, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
+        await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
 
         var createdAt = DateTimeOffset.Parse(
             "2026-07-18T13:00:00Z",
@@ -126,6 +127,48 @@ public sealed class PostgresSkipLockedPocTests
     {
         await using var command = dataSource.CreateCommand("TRUNCATE TABLE harness_poc.work_items;");
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task ValidateFoundationSchemaAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using (var countCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = 'harness'
+              AND table_name IN ('tenants', 'organizations', 'projects', 'local_users',
+                                 'inbox_messages', 'outbox_messages', 'audit_ledger');
+            """))
+        {
+            Assert.Equal(7L, await countCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        await using (var insertCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.tenants (id, name, created_at)
+            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FAV', 'Tenant', '2026-07-18T13:30:00Z');
+            INSERT INTO harness.organizations (id, tenant_id, name, created_at)
+            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FAW', '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'Organization', '2026-07-18T13:30:00Z');
+            INSERT INTO harness.projects (id, tenant_id, organization_id, name, created_at)
+            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FAV', '01ARZ3NDEKTSV4RRFFQ69G5FAW', 'Project', '2026-07-18T13:30:00Z');
+            INSERT INTO harness.local_users (id, tenant_id, display_name, created_at)
+            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FAY', '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'Local User', '2026-07-18T13:30:00Z');
+            """))
+        {
+            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var invalidCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.projects (id, tenant_id, organization_id, name, created_at)
+            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FAZ', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                    '01ARZ3NDEKTSV4RRFFQ69G5FB0', 'Invalid', '2026-07-18T13:30:00Z');
+            """);
+        var exception = await Assert.ThrowsAsync<PostgresException>(
+            () => invalidCommand.ExecuteNonQueryAsync(cancellationToken));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, exception.SqlState);
     }
 
     private sealed class ManagedPostgresFixture : IAsyncDisposable
