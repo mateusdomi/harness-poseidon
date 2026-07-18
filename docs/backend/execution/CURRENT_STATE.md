@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T22:43:48Z
+Atualizado em: 2026-07-19T02:20:00Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-RUN-1 — detecção e lifecycle mínimo de run targets .NET/Node; prototipação está verde.
+- Épico atual: F2-PO-1 — análise de solicitação para o PO Assistant; run targets estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `2e47ea3` (`develop`), contendo F2-PROT-1 verde com 159/159 testes após rebase concorrente.
-- Próximo passo exato: implementar `run-targets` para detecção e start/stop/restart de aplicações .NET/Node, streaming de logs e cleanup seguro.
+- Último commit remoto validado: `4df5854` (`develop`), contendo F2-RUN-1 verde com 161/161 testes após rebase concorrente.
+- Próximo passo exato: implementar análise determinística e persistida de solicitações, reconciliada com o contrato existente do frontend e pronta para evolução do PO Assistant.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T22:43:48Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` até `0024_prototyping`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`24→0` e `11→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` até `0025_run_targets`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`25→0` e `11→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -89,10 +89,11 @@ Atualizado em: 2026-07-18T22:43:48Z
 - F2 notificações/settings: settings nasce atomicamente com o perfil e permanece tenant/profile-scoped. Notificações validam enums, coalescem somente grupos unread, incrementam `dedupeCount`, aceitam read/mute em lote e publicam payload completo em `profile:<id>`. Todas as mutações gravam ledger encadeado e auditoria global; contratos, isolamento, restart e o teste de corrida do Chief estabilizado estão comprovados.
 - F2 governança/auditoria: `audit-events` projeta tanto payloads explícitos quanto eventos legados do ledger sem expor payload bruto. List/get e filtros são tenant-scoped; integridade recalcula sequência, elo e SHA-256; export JSON/CSV mascara segredos. Triggers recusam UPDATE/DELETE do ledger no SQLite e PostgreSQL, e o estado permanece verificável após restart.
 - F2 prototipação: projeto expõe cenário `externalPrototype|guidelinesOnly|autonomousGeneration|notApplicable`; dispensa exige waiver formal e impede criação de galeria. Protótipos/referências são tenant/project-scoped, tags são normalizadas, vínculo documental/protótipo é validado, lifecycle publica eventos e soft-delete/restart estão comprovados.
-- Migrations: SQLite `24→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-PROT-1, inclusive depois do rebase sobre o merge remoto `9bf6ffe`: restore locked, format, build Release com zero warnings/erros e 159/159 testes verdes (`Unit 91`, `Integration 30`, `Contract 25`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- F2 run targets: detector read-only e limitado encontra projetos .NET e Node sob o diretório autorizado. O supervisor inicia processos reais sem shell, captura stdout/stderr, mata somente árvores gerenciadas e implementa start/stop/restart/cleanup. Estado e identidade sobrevivem restart; processos órfãos são reconciliados para `unknown`; logs seguem o stream do projeto e auditoria o stream global.
+- Migrations: SQLite `25→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-RUN-1, inclusive depois do rebase sobre o merge remoto `00783f8`: restore locked, format, build Release com zero warnings/erros e 161/161 testes verdes (`Unit 91`, `Integration 31`, `Contract 26`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança e prototipação F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é run targets.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança, prototipação e run targets F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é análise de solicitação.
 
 ## Sanidade antes de retomar
 

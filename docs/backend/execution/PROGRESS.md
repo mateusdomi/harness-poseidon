@@ -97,4 +97,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-NOTIF-1 notificações/settings | verde | perfil transacional, coalescência por `groupKey`, read/mute em lote, stream privado, ledger/auditoria, restart e contratos exatos; gate 154/154; `evidence/F2-NOTIFICATIONS-SETTINGS.md` |
 | F2-GOV-1 governança/auditoria | verde | projeção completa do ledger, filtros/get, integridade SHA-256, export JSON/CSV mascarado, append-only dual-provider e restart; gate 156/156; `evidence/F2-GOVERNANCE-AUDIT.md` |
 | F2-PROT-1 prototipação | verde | `Project.prototyping`+waiver, galeria/lifecycle, referências, soft-delete, eventos, restart e contratos exatos; gate 159/159; `evidence/F2-PROTOTYPING.md` |
-| F2-RUN-1 rodar projeto | próximo | detecção e lifecycle mínimo de targets .NET/Node com logs e cleanup |
+| F2-RUN-1 rodar projeto | verde | detecção read-only, processos .NET/Node reais supervisionados, start/stop/restart, logs sequenciados, cleanup e restart persistente; gate 161/161; `evidence/F2-RUN-TARGETS.md` |
+| F2-PO-1 análise de solicitação | próximo | análise determinística e auditável de solicitações, pronta para o PO Assistant |
