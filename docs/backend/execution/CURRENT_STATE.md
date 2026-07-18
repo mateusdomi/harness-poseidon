@@ -7,7 +7,7 @@ Atualizado em: 2026-07-18T21:35:00Z
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-WF-1 — API de workflows, gates e progresso sobre a autoridade F1; cadeia/quadro está integralmente verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `9eb8fad` (`develop`), checkpoint de F2-WORK-1a; F2-WORK-1b está localmente verde e aguarda o push desta fatia.
+- Último commit remoto validado: `f861e09` (`develop`), contendo F2-WORK-1b verde com 126/126 testes e o checkpoint FE-3 preservado.
 - Próximo passo exato: reconciliar os contratos frontend de workflows/gates/progresso e expor uma primeira vertical read/create/lifecycle sobre `IWorkflowStore`, sem duplicar a autoridade F1.
 - Bloqueios: nenhum.
 
