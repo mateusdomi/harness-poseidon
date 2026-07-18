@@ -5,6 +5,7 @@ using Harness.Host.Documents;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
+using Harness.Host.Realtime;
 using Harness.Modules.Documents.Contracts;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
@@ -25,7 +26,7 @@ public sealed class DocumentApiTests
         var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"document-api-{Guid.NewGuid():N}");
         var database = Path.Combine(root, "document.db"); var catalog = Path.Combine(root, "catalog");
         Directory.CreateDirectory(root); var cookies = new CookieContainer();
-        string profileId; string projectId; string documentId; string firstVersionId; string secondVersionId;
+        string profileId; string projectId; string chiefAgentId; string documentId; string firstVersionId; string secondVersionId; string approvedApprovalId;
         try
         {
             await using (var app = CreateHost(database, catalog))
@@ -48,7 +49,7 @@ public sealed class DocumentApiTests
                     { response.EnsureSuccessStatusCode(); organizationId = (await response.Content.ReadFromJsonAsync<OrganizationResponse>(timeout.Token))!.Id; }
                     using (var response = await client.PostAsJsonAsync("/api/v1/projects",
                         new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon", Key = "POSEIDON", Description = "Backend" }, timeout.Token))
-                    { response.EnsureSuccessStatusCode(); projectId = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!.Id; }
+                    { response.EnsureSuccessStatusCode(); var project = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!; projectId = project.Id; chiefAgentId = project.ChiefAgentId; }
 
                     using (var response = await client.PostAsJsonAsync("/api/v1/documents",
                         new CreateDocumentRequest(projectId, "ADR 001", "spec", "# v1", ["ux", "arquitetura"], null), timeout.Token))
@@ -75,6 +76,48 @@ public sealed class DocumentApiTests
                     versions = await client.GetFromJsonAsync<DocumentVersionPage>($"/api/v1/document-versions?documentId={documentId}", timeout.Token);
                     Assert.Equal(["# v1", "# v2\n\nCorrigido."], versions!.Items.OrderBy(value => value.Version).Select(value => value.Body));
                     Assert.Equal(2, (await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token))!.CurrentVersion);
+
+                    using (var classify = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/classification",
+                        new ClassifyDocumentRequest(["normativo", "arquitetura"], "Revisão"), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.OK, classify.StatusCode); var changed = await classify.Content.ReadFromJsonAsync<DocumentContract>(timeout.Token); Assert.Equal(["arquitetura", "normativo"], changed?.Classifications); Assert.Equal("Revisão", changed?.PhaseName); }
+                    using (var review = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/transitions",
+                        new TransitionDocumentRequest("inReview"), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.OK, review.StatusCode); Assert.Equal("inReview", (await review.Content.ReadFromJsonAsync<DocumentContract>(timeout.Token))?.State); }
+                    using (var intent = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/transitions",
+                        new TransitionDocumentRequest("awaitingApproval"), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.OK, intent.StatusCode); Assert.Equal("inReview", (await intent.Content.ReadFromJsonAsync<DocumentContract>(timeout.Token))?.State); }
+                    string rejectedApprovalId;
+                    using (var requestApproval = await client.PostAsJsonAsync("/api/v1/approvals",
+                        new CreateApprovalRequest(projectId, "Aprovar ADR", "Revisão humana", chiefAgentId,
+                            DocumentId: documentId), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, requestApproval.StatusCode); var approval = await requestApproval.Content.ReadFromJsonAsync<ApprovalContract>(timeout.Token); Assert.NotNull(approval); rejectedApprovalId = approval.Id; Assert.Equal("pending", approval.State); Assert.Equal("medium", approval.Priority); }
+                    Assert.Equal("awaitingApproval", (await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token))!.State);
+                    using (var missingNote = await client.PostAsJsonAsync($"/api/v1/approvals/{rejectedApprovalId}/resolution",
+                        new ResolveApprovalRequest("rejected"), timeout.Token)) Assert.Equal(HttpStatusCode.BadRequest, missingNote.StatusCode);
+                    using (var reject = await client.PostAsJsonAsync($"/api/v1/approvals/{rejectedApprovalId}/resolution",
+                        new ResolveApprovalRequest("rejected", "Ajustar decisão."), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.OK, reject.StatusCode); var approval = await reject.Content.ReadFromJsonAsync<ApprovalContract>(timeout.Token); Assert.Equal("rejected", approval?.State); Assert.Equal(profileId, approval?.ResolvedByProfileId); }
+                    Assert.Equal("inElaboration", (await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token))!.State);
+                    using (var review = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/transitions",
+                        new TransitionDocumentRequest("inReview", "Correção revisada."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, review.StatusCode);
+                    using (var requestApproval = await client.PostAsJsonAsync("/api/v1/approvals",
+                        new CreateApprovalRequest(projectId, "Aprovar ADR corrigido", "Segunda revisão", chiefAgentId,
+                            DocumentId: documentId, Priority: "high"), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, requestApproval.StatusCode); approvedApprovalId = (await requestApproval.Content.ReadFromJsonAsync<ApprovalContract>(timeout.Token))!.Id; }
+                    using (var approve = await client.PostAsJsonAsync($"/api/v1/approvals/{approvedApprovalId}/resolution",
+                        new ResolveApprovalRequest("approved", "Aceito."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, approve.StatusCode);
+                    var approvals = await client.GetFromJsonAsync<ApprovalPage>($"/api/v1/approvals?projectId={projectId}", timeout.Token);
+                    Assert.Equal(["rejected", "approved"], approvals!.Items.OrderBy(value => value.RequestedAt).Select(value => value.State));
+                    Assert.Equal("approved", (await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token))!.State);
+                    var requestedEvents = await WaitForEventsAsync(client, $"project:{projectId}", "approval.requested", 2, timeout.Token);
+                    var requested = requestedEvents.Delta.Last(value => value.Type == "approval.requested").Payload.GetProperty("approval");
+                    Assert.Equal(approvedApprovalId, requested.GetProperty("id").GetString()); Assert.Equal(documentId, requested.GetProperty("documentId").GetString());
+                    var resolvedEvents = await WaitForEventsAsync(client, $"project:{projectId}", "approval.resolved", 2, timeout.Token);
+                    var resolved = resolvedEvents.Delta.Last(value => value.Type == "approval.resolved").Payload;
+                    Assert.Equal(approvedApprovalId, resolved.GetProperty("approvalId").GetString()); Assert.Equal("approved", resolved.GetProperty("state").GetString()); Assert.Equal(profileId, resolved.GetProperty("resolvedByProfileId").GetString());
+                    var documentEvents = await WaitForEventsAsync(client, $"project:{projectId}", "document.stateChanged", 9, timeout.Token);
+                    var stateChanged = documentEvents.Delta.Last(value => value.Type == "document.stateChanged").Payload;
+                    Assert.Equal(documentId, stateChanged.GetProperty("documentId").GetString()); Assert.Equal("awaitingApproval", stateChanged.GetProperty("from").GetString()); Assert.Equal("approved", stateChanged.GetProperty("to").GetString());
                 }
                 finally { await app.StopAsync(timeout.Token); }
             }
@@ -86,7 +129,9 @@ public sealed class DocumentApiTests
                 client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
                 Assert.Equal("# v1", (await client.GetFromJsonAsync<DocumentVersionContract>($"/api/v1/document-versions/{firstVersionId}", timeout.Token))!.Body);
                 Assert.Equal("# v2\n\nCorrigido.", (await client.GetFromJsonAsync<DocumentVersionContract>($"/api/v1/document-versions/{secondVersionId}", timeout.Token))!.Body);
-                Assert.Equal(2, (await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token))!.CurrentVersion);
+                var document = await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token);
+                Assert.Equal(2, document!.CurrentVersion); Assert.Equal("approved", document.State);
+                Assert.Equal("approved", (await client.GetFromJsonAsync<ApprovalContract>($"/api/v1/approvals/{approvedApprovalId}", timeout.Token))!.State);
             }
             finally { await restarted.StopAsync(timeout.Token); }
         }
@@ -96,6 +141,18 @@ public sealed class DocumentApiTests
     private static WebApplication CreateHost(string database, string catalog) => HostApplication.Build(
         ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database,
          "--Harness:DocumentCatalogPath", catalog]);
+    private static async Task<EventStreamSnapshot> WaitForEventsAsync(
+        HttpClient client, string stream, string type, int count, CancellationToken token)
+    {
+        for (var attempt = 0; attempt < 200; attempt++)
+        {
+            var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>(
+                $"/api/v1/event-streams/snapshot?stream={Uri.EscapeDataString(stream)}", token);
+            if (snapshot is not null && snapshot.Delta.Count(value => value.Type == type) >= count) return snapshot;
+            await Task.Delay(25, token);
+        }
+        throw new TimeoutException($"Events {type} were not dispatched.");
+    }
     private static Uri Address(IServiceProvider services)
     {
         var addresses = services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses

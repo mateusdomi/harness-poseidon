@@ -43,6 +43,53 @@ public static class DocumentApiApplicationService
         _ => state,
     };
 
+    public static string ToStoreState(string state) => state switch
+    {
+        "inElaboration" => "in_elaboration",
+        "inReview" => "in_review",
+        "awaitingApproval" => "awaiting_approval",
+        "notApplicable" => "not_applicable",
+        "planned" or "approved" or "outdated" or "superseded" => state,
+        _ => throw new ArgumentException("Document state is invalid.", nameof(state)),
+    };
+
+    public static (IReadOnlyList<string> Classifications, string? PhaseName) Classify(
+        ClassifyDocumentRequest request, IReadOnlyList<string> currentClassifications,
+        string? currentPhaseName)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var classifications = (request.Classifications ?? currentClassifications)
+            .Select(value => Text(value, 100)).Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal).ToArray();
+        if (classifications.Length > 50)
+            throw new ArgumentException("At most 50 classifications are allowed.", nameof(request));
+        var phase = request.PhaseName is null ? currentPhaseName : Text(request.PhaseName, 200);
+        return (classifications, phase);
+    }
+
+    public static (string Title, string Description, string Priority) Approval(
+        CreateApprovalRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.DocumentId is null || request.GateId is not null || request.TaskId is not null)
+            throw new ArgumentException("This increment accepts document approvals only.", nameof(request));
+        var priority = request.Priority ?? "medium";
+        if (priority is not ("low" or "medium" or "high" or "critical"))
+            throw new ArgumentException("Approval priority is invalid.", nameof(request));
+        return (Text(request.Title, 500), Text(request.Description, 10_000), priority);
+    }
+
+    public static (string Decision, string? Note) Resolution(ResolveApprovalRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Decision is not ("approved" or "rejected"))
+            throw new ArgumentException("Approval decision is invalid.", nameof(request));
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : Text(request.Note, 10_000);
+        if (request.Decision == "rejected" && note is null)
+            throw new ArgumentException("A rejected approval requires a note.", nameof(request));
+        return (request.Decision, note);
+    }
+
     private static string Text(string value, int maximum)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);

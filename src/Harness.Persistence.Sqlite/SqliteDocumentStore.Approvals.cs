@@ -156,6 +156,35 @@ public sealed partial class SqliteDocumentStore
                 ApprovalState: "pending");
         }
 
+        var eventPayload = JsonSerializer.Serialize(new
+        {
+            projectId = row?.ProjectId,
+            approval = new
+            {
+                id = command.ApprovalRequestId,
+                projectId = row?.ProjectId,
+                gateId = (string?)null,
+                taskId = (string?)null,
+                documentId = command.DocumentId,
+                title = command.Title,
+                description = command.Description,
+                priority = command.Priority,
+                dueAt = command.DueAt,
+                state = "pending",
+                requestedByAgentId = command.RequestedByAgentId,
+                requestedAt = command.OccurredAt,
+                resolvedByProfileId = (string?)null,
+                resolvedAt = (DateTimeOffset?)null,
+                resolutionNote = (string?)null,
+            },
+        });
+        var documentEventPayload = JsonSerializer.Serialize(new
+        {
+            projectId = row?.ProjectId,
+            documentId = command.DocumentId,
+            from = "inReview",
+            to = "awaitingApproval",
+        });
         return await FinalizeApprovalMutationAsync(
             connection,
             transaction,
@@ -164,6 +193,8 @@ public sealed partial class SqliteDocumentStore
             hash,
             command.OccurredAt,
             "approval.requested",
+            eventPayload,
+            documentEventPayload,
             receipt,
             cancellationToken);
     }
@@ -305,6 +336,21 @@ public sealed partial class SqliteDocumentStore
                 ApprovalState: command.Decision);
         }
 
+        var eventPayload = JsonSerializer.Serialize(new
+        {
+            projectId = row?.ProjectId,
+            approvalId = command.ApprovalRequestId,
+            state = command.Decision,
+            resolvedByProfileId = command.ResolvedByProfileId,
+            note = command.Note,
+        });
+        var documentEventPayload = JsonSerializer.Serialize(new
+        {
+            projectId = row?.ProjectId,
+            documentId = command.DocumentId,
+            from = "awaitingApproval",
+            to = command.Decision == "approved" ? "approved" : "inElaboration",
+        });
         return await FinalizeApprovalMutationAsync(
             connection,
             transaction,
@@ -313,6 +359,8 @@ public sealed partial class SqliteDocumentStore
             hash,
             command.OccurredAt,
             "approval.resolved",
+            eventPayload,
+            documentEventPayload,
             receipt,
             cancellationToken);
     }
@@ -443,6 +491,21 @@ public sealed partial class SqliteDocumentStore
                 ApprovalState: "cancelled");
         }
 
+        var eventPayload = JsonSerializer.Serialize(new
+        {
+            projectId = row?.ProjectId,
+            approvalId = command.ApprovalRequestId,
+            state = "cancelled",
+            resolvedByProfileId = command.ActorId,
+            note = command.Reason,
+        });
+        var documentEventPayload = JsonSerializer.Serialize(new
+        {
+            projectId = row?.ProjectId,
+            documentId = command.DocumentId,
+            from = "awaitingApproval",
+            to = "inReview",
+        });
         return await FinalizeApprovalMutationAsync(
             connection,
             transaction,
@@ -451,6 +514,8 @@ public sealed partial class SqliteDocumentStore
             hash,
             command.OccurredAt,
             "approval.resolved",
+            eventPayload,
+            documentEventPayload,
             receipt,
             cancellationToken);
     }
@@ -498,21 +563,14 @@ public sealed partial class SqliteDocumentStore
         string hash,
         DateTimeOffset occurredAt,
         string eventType,
+        string payload,
+        string documentEventPayload,
         DocumentMutationReceipt receipt,
         CancellationToken cancellationToken)
     {
         var final = receipt;
         if (receipt.Status == DocumentMutationStatus.Applied)
         {
-            var payload = JsonSerializer.Serialize(new
-            {
-                documentId = receipt.DocumentId,
-                documentVersion = receipt.DocumentVersion,
-                currentVersion = receipt.CurrentVersion,
-                state = receipt.State,
-                approvalRequestId = receipt.ApprovalRequestId,
-                approvalState = receipt.ApprovalState,
-            });
             var (sequence, previousHash) = await ReadLedgerTailAsync(
                 connection,
                 transaction,
@@ -553,6 +611,16 @@ public sealed partial class SqliteDocumentStore
                 ("$payload", payload),
                 ("$occurredAt", Store(occurredAt)),
                 ("$outboxId", outboxId));
+            await ExecuteAsync(
+                connection,
+                transaction,
+                "INSERT INTO outbox_messages (id,tenant_id,event_type,payload_json,occurred_at) " +
+                "VALUES ($id,$tenantId,'document.stateChanged',$payload,$occurredAt);",
+                cancellationToken,
+                ("$id", UlidValue.New(occurredAt.AddTicks(1)).ToString()),
+                ("$tenantId", tenantId),
+                ("$payload", documentEventPayload),
+                ("$occurredAt", Store(occurredAt)));
         }
 
         await ExecuteAsync(

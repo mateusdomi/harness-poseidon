@@ -15,6 +15,13 @@ public interface IDocumentCatalogStore
 
     Task<DocumentVersionCatalogRecord?> GetVersionAsync(
         string tenantId, string versionId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ApprovalCatalogRecord>> ListApprovalsAsync(
+        string tenantId, string? projectId, string? afterId, int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<ApprovalCatalogRecord?> GetApprovalAsync(
+        string tenantId, string approvalId, CancellationToken cancellationToken = default);
 }
 
 public interface IDocumentContentCatalog
@@ -34,3 +41,9 @@ public sealed record DocumentCatalogRecord(
 public sealed record DocumentVersionCatalogRecord(
     string Id, string DocumentId, int Version, string CatalogPath, string ContentHash,
     string AuthorKind, string? AuthorId, DateTimeOffset CreatedAt);
+
+public sealed record ApprovalCatalogRecord(
+    string Id, string ProjectId, string? GateId, string? TaskId, string? DocumentId,
+    string Title, string Description, string Priority, DateTimeOffset? DueAt, string State,
+    string RequestedByAgentId, DateTimeOffset RequestedAt, string? ResolvedByProfileId,
+    DateTimeOffset? ResolvedAt, string? ResolutionNote, long AggregateVersion);

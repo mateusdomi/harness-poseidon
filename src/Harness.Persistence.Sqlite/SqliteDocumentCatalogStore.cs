@@ -75,6 +75,34 @@ public sealed class SqliteDocumentCatalogStore(SqliteWriteDispatcher dispatcher)
             return await reader.ReadAsync(token) ? ReadVersion(reader) : null;
         }, cancellationToken);
 
+    public Task<IReadOnlyList<ApprovalCatalogRecord>> ListApprovalsAsync(
+        string tenantId, string? projectId, string? afterId, int limit,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<IReadOnlyList<ApprovalCatalogRecord>>(async (connection, token) =>
+        {
+            var rows = new List<ApprovalCatalogRecord>();
+            await using var query = connection.CreateCommand();
+            query.CommandText = ApprovalSelect +
+                " WHERE tenant_id=$tenant AND ($project IS NULL OR project_id=$project) " +
+                "AND ($after IS NULL OR id>$after) ORDER BY id LIMIT $limit;";
+            Add(query, "$tenant", tenantId); AddNullable(query, "$project", projectId);
+            AddNullable(query, "$after", afterId); Add(query, "$limit", limit);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token)) rows.Add(ReadApproval(reader));
+            return rows;
+        }, cancellationToken);
+
+    public Task<ApprovalCatalogRecord?> GetApprovalAsync(
+        string tenantId, string approvalId, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<ApprovalCatalogRecord?>(async (connection, token) =>
+        {
+            await using var query = connection.CreateCommand();
+            query.CommandText = ApprovalSelect + " WHERE tenant_id=$tenant AND id=$id;";
+            Add(query, "$tenant", tenantId); Add(query, "$id", approvalId);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            return await reader.ReadAsync(token) ? ReadApproval(reader) : null;
+        }, cancellationToken);
+
     private static async Task<DocumentCatalogRecord?> ReadDocumentAsync(
         SqliteConnection connection, string tenantId, string documentId, CancellationToken token)
     {
@@ -119,6 +147,19 @@ public sealed class SqliteDocumentCatalogStore(SqliteWriteDispatcher dispatcher)
     private const string VersionSelect =
         "SELECT v.id,v.document_id,v.version,v.catalog_path,v.content_hash,v.author_kind," +
         "v.author_id,v.created_at FROM document_versions v";
+    private const string ApprovalSelect =
+        "SELECT id,project_id,document_id,title,description,priority,due_at,state," +
+        "requested_by_agent_id,requested_at,resolved_by_profile_id,resolved_at,resolution_note,version " +
+        "FROM document_approval_requests";
+
+    private static ApprovalCatalogRecord ReadApproval(SqliteDataReader reader) => new(
+        reader.GetString(0), reader.GetString(1), null, null, reader.GetString(2),
+        reader.GetString(3), reader.GetString(4), reader.GetString(5),
+        reader.IsDBNull(6) ? null : Parse(reader.GetString(6)), reader.GetString(7),
+        reader.GetString(8), Parse(reader.GetString(9)),
+        reader.IsDBNull(10) ? null : reader.GetString(10),
+        reader.IsDBNull(11) ? null : Parse(reader.GetString(11)),
+        reader.IsDBNull(12) ? null : reader.GetString(12), reader.GetInt64(13));
 
     private static DateTimeOffset Parse(string value) =>
         DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
