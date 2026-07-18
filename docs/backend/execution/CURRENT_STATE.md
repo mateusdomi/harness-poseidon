@@ -5,10 +5,10 @@ Atualizado em: 2026-07-19T02:20:00Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-LIC-1 — licenças individuais e entitlements; análise de solicitação está verde.
+- Épico atual: F2-OPS-1 — backup/restore e diagnóstico local; licenças/entitlements estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `9f865e9` (`develop`), contendo F2-PO-1 verde com 163/163 testes.
-- Próximo passo exato: implementar recursos `licenses`/`entitlements` e ativação local conforme o contrato FE-3, mantendo acesso de leitura aos dados em qualquer estado de licença.
+- Último commit remoto validado: `c831161` (`develop`), contendo F2-LIC-1 verde com 166/166 testes.
+- Próximo passo exato: implementar `POST /backups`, restore identificado e `GET /diagnostics`, com operações locais seguras, auditoria e contratos FE-3.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-19T02:20:00Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` até `0025_run_targets`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`25→0` e `11→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` até `0026_licensing`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`26→0` e `11→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -91,10 +91,11 @@ Atualizado em: 2026-07-19T02:20:00Z
 - F2 prototipação: projeto expõe cenário `externalPrototype|guidelinesOnly|autonomousGeneration|notApplicable`; dispensa exige waiver formal e impede criação de galeria. Protótipos/referências são tenant/project-scoped, tags são normalizadas, vínculo documental/protótipo é validado, lifecycle publica eventos e soft-delete/restart estão comprovados.
 - F2 run targets: detector read-only e limitado encontra projetos .NET e Node sob o diretório autorizado. O supervisor inicia processos reais sem shell, captura stdout/stderr, mata somente árvores gerenciadas e implementa start/stop/restart/cleanup. Estado e identidade sobrevivem restart; processos órfãos são reconciliados para `unknown`; logs seguem o stream do projeto e auditoria o stream global.
 - F2 análise de solicitação: `POST /solicitations/analyze` valida texto e nomes de anexos sem aceitar paths, cria uma solicitação `request` imutável e devolve requisitos, ambiguidades, contradições, perguntas e critérios de aceite com IDs canônicos. A extração local é determinística e não usa rede/cota; a solicitação sobrevive restart.
-- Migrations: SQLite `25→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-PO-1: restore locked, format, build Release com zero warnings/erros e 163/163 testes verdes (`Unit 92`, `Integration 32`, `Contract 26`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- F2 licenciamento: uma licença por tenant/dispositivo nasce `unlicensed`; ativação de chave formatada armazena somente SHA-256, mascara o valor na auditoria, concede cinco entitlements e define validade anual+grace. Estado público é derivado como active/offline/gracePeriod/expired; expiração simulada não bloqueou leitura de projeto nem entitlements após restart.
+- Migrations: SQLite `26→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-LIC-1: restore locked, format, build Release com zero warnings/erros e 166/166 testes verdes (`Unit 93`, `Integration 33`, `Contract 27`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança, prototipação, run targets e análise de solicitação F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é licenciamento.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança, prototipação, run targets, análise de solicitação e licenciamento F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é backup/diagnóstico.
 
 ## Sanidade antes de retomar
 
