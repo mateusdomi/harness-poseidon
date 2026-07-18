@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T17:13:04Z
+Atualizado em: 2026-07-18T17:20:37Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-WRK-1b — store transacional da Outbox; contrato/schema de dispatch estão verdes.
+- Épico atual: F1-WRK-1c — `BackgroundService` de dispatch da Outbox; store dual-provider está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `2c15787` (`develop`); F1-WRK-1a está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: implementar `SqliteOutboxStore` e `PostgresOutboxStore` para claim expirável com fencing, `FOR UPDATE SKIP LOCKED` no servidor, completion fenced, retry/backoff, dead-letter e liberação de claims expirados; executar comportamento comum concorrente e de recuperação nos dois providers.
+- Último commit remoto validado: `35226ae` (`develop`); F1-WRK-1b está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: criar `IOutboxMessageSink` e `OutboxDispatcherBackgroundService` no Host, com loop cancelável, batch/poll configurável, dispatch → completion fenced e exceção → failure/retry; validar com sink fake, desligamento gracioso e restart sobre o store real antes de ligar o sink SignalR persistido.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -62,8 +62,9 @@ Atualizado em: 2026-07-18T17:13:04Z
 - Document lifecycle F1-DOC-1c.3: atualização de metadados substitui classificações, fase e flag de inconsistência com OCC sem fabricar histórico; assim um documento órfão foi adotado pela fase `Review`. Transição valida a matriz fechada, grava estado + `document_state_transitions` append-only + Inbox/ledger/Outbox atomicamente e registra ator/nota/versão. Dez concorrentes produzem 1 aplicação/9 replays; salto `in_review→approved` é rejeitado e idempotente sem auditoria falsa.
 - Document approvals F1-DOC-1c.4: request/resolve/cancel usam OCC e vinculam cada request à versão corrente imutável. Request pending único muda `in_review→awaiting_approval`; cancel retorna a review; rejeição exige nota e retorna a elaboração; aprovação fecha em approved. Estado, request versionado, histórico, Inbox, ledger e Outbox `approval.requested/resolved` commitam juntos. Cenário dual-provider final: agregado v12, conteúdo v3, 3 requests (`cancelled/rejected/approved`) e 8 transições; concorrência 1 aplicação/9 replays.
 - Outbox contract/schema F1-WRK-1a: `IOutboxStore` define claim expirável, fencing, completion, retry/dead-letter, recuperação e snapshot. Backoff decimal é determinístico/capado. Migrations adicionam agenda/owner/token/expiração/erro/dead-letter às mensagens e histórico de falhas append-only, preservando inserts existentes por `COALESCE(available_at,occurred_at)`; índices provider-specific cobrem dispatch e claims expirados.
+- Outbox stores F1-WRK-1b: SQLite serializa no dispatcher e PostgreSQL adquire por `FOR UPDATE SKIP LOCKED`. Claims expiráveis incrementam fencing; completion/failure recusam owner/token antigo; retry agenda backoff e dead-letter preserva histórico. Dez aquisições concorrentes consumiram exatamente 2 mensagens, recovery elevou tokens 1→2, retry elevou 2→3 e snapshot final comprovou 1 dispatched/1 dead-letter/2 failures/0 pendentes.
 - Migrations: SQLite `7→0` e PostgreSQL `8→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1a: restore locked, format, build Release com zero warnings/erros e 94/94 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1b: restore locked, format, build Release com zero warnings/erros e 94/94 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso e documentos/versionamento/aprovações verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para workers persistidos.
 

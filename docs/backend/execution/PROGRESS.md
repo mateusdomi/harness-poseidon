@@ -64,4 +64,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F1-DOC-1c.3 | verde | órfão adotado por fase sem histórico falso; lifecycle com matriz fechada, ator/nota, OCC e transição append-only; 10 concorrentes=1/9; `evidence/F1-DOCUMENT-LIFECYCLE.md` |
 | F1-DOC-1c.4 | verde | request/cancel/reject/correct/reapprove dual-provider; pendência única, nota obrigatória, v12/3 versões/3 approvals/8 transições; `evidence/F1-DOCUMENT-APPROVALS.md` |
 | F1-WRK-1a | verde | contrato de claim/fencing/retry/dead-letter; migrations SQLite `7→0`/PostgreSQL `8→0`, histórico append-only e backoff 2/2; `evidence/F1-OUTBOX-DISPATCH-SCHEMA.md` |
-| F1-WRK-1b | próximo | stores SQLite/PostgreSQL com claim concorrente, `SKIP LOCKED`, completion fenced, retry e recuperação |
+| F1-WRK-1b | verde | 10 workers→2 claims únicos; expiry/fencing 1→2, retry token 3, stale recusado, 1 dispatch/1 dead-letter/2 falhas nos dois providers; `evidence/F1-OUTBOX-STORES.md` |
+| F1-WRK-1c | próximo | `OutboxDispatcherBackgroundService` com sink fake, retry, cancellation e restart |

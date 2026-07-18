@@ -19,8 +19,14 @@ public sealed class SqliteWorkflowStoreTests
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(
                 Path.Combine(artifactRoot, "workflow.db"), timeout.Token);
             await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
-            await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
+            var foundationStore = new SqliteFoundationTransactionStore(dispatcher);
+            await foundationStore.ProvisionProjectAsync(
                 FoundationTransactionBehavior.Command(), timeout.Token);
+            await foundationStore.ProvisionProjectAsync(
+                OutboxStoreBehavior.SecondProjectCommand(), timeout.Token);
+            await OutboxStoreBehavior.AssertAsync(
+                new SqliteOutboxStore(dispatcher),
+                timeout.Token);
             await WorkflowStoreBehavior.AssertAsync(new SqliteWorkflowStore(dispatcher), timeout.Token);
             await DocumentStoreBehavior.AssertAsync(new SqliteDocumentStore(dispatcher), timeout.Token);
         }

@@ -25,6 +25,12 @@ public sealed class PostgresSkipLockedPocTests
         await FoundationTransactionBehavior.AssertAsync(
             new PostgresFoundationTransactionStore(dataSource),
             timeout.Token);
+        await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
+            OutboxStoreBehavior.SecondProjectCommand(),
+            timeout.Token);
+        await OutboxStoreBehavior.AssertAsync(
+            new PostgresOutboxStore(dataSource),
+            timeout.Token);
         await ValidateDurableSchemaAsync(dataSource, timeout.Token);
         await ValidateWorkChainSchemaAsync(dataSource, timeout.Token);
         await WorkChainStoreBehavior.AssertAsync(
