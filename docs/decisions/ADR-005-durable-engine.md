@@ -10,3 +10,5 @@
 ## Consequências
 
 Não se cria um framework genérico concorrente. Temporal pode ser backend enterprise futuro da mesma interface, após medição e ADR.
+
+O contrato F1 explicita estados `Ready`, `Running`, `Paused`, `WaitingForRetry`, `WaitingForSignal`, `Completed`, `Cancelled` e `DeadLetter`, com terminais sem transição de saída. Operações esperadas retornam status tipado em vez de exceção: start/pause/resume/cancel, aquisição/renovação/heartbeat com fencing, checkpoint, conclusão/falha, sinal, timer, reconciliação e consulta. Retry usa política decimal determinística, limitada por `MaximumDelay`; a implementação nunca pede ao LLM para decidir backoff ou validade de transição.

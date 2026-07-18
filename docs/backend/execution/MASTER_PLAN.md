@@ -37,11 +37,12 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 1. EP-03: esquema relacional de produção e migrations dual-provider — verde em 2026-07-18.
 2. EP-04: processamento transacional de Inbox/Outbox e primeiro elo do ledger — verde em 2026-07-18.
 3. EP-04/EP-07: mover IPC Host–Runner para a autoridade relacional e persistir sequências — verde em 2026-07-18.
-4. EP-05: leases, heartbeats, fencing, checkpoints e `IDurableExecutionEngine` completo — próximo incremento.
-5. EP-06/EP-09: Tenant, Organização, Projeto, Usuário local e cadeia Solicitação→Tentativa.
-6. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
-7. Documentos/versionamento/aprovações, workers e SignalR persistido.
-8. Prova GNG-2 com encerramento abrupto e auditoria completa nos dois providers.
+4. EP-05a: contrato completo, máquina de estados e retry determinístico — verde em 2026-07-18.
+5. EP-05b: migrations e stores dual-provider para leases, heartbeats, fencing, checkpoints, timers e dead-letter — próximo incremento.
+6. EP-06/EP-09: Tenant, Organização, Projeto, Usuário local e cadeia Solicitação→Tentativa.
+7. EP-10: WorkflowDefinition/Run, fases, gates e progresso objetivo.
+8. Documentos/versionamento/aprovações, workers e SignalR persistido.
+9. Prova GNG-2 com encerramento abrupto e auditoria completa nos dois providers.
 
 ## Backlog épico
 

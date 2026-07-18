@@ -40,4 +40,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Esquema relacional dual-provider | verde | migrations atuais SQLite/PostgreSQL `2→0` e `3→0`; fundação e IPC com FKs/índices provider-specific; `evidence/F1-FOUNDATION-SCHEMA.md` e `evidence/F1-RUNNER-IPC-PERSISTENCE.md` |
 | Inbox/Outbox/ledger transacionais | verde | 10 comandos concorrentes = 1 aplicação/9 replays; conflito e rollback sem efeitos; ledger/outbox/inbox atômicos nos dois providers; `evidence/F1-TRANSACTIONAL-FOUNDATION.md` |
 | IPC sobre autoridade relacional | verde | comportamento comum dual-provider, Runner real, Host reiniciado, replay 3/3 sem duplicar Inbox/Outbox; gate 52/52; `evidence/F1-RUNNER-IPC-PERSISTENCE.md` |
-| Motor durável e GNG-2 | pendente | — |
+| Contrato do motor durável | verde | interface completa, matriz exaustiva de transições e backoff determinístico/capado; gate 58/58; `evidence/F1-DURABLE-ENGINE-CONTRACT.md` |
+| Persistência do motor e GNG-2 | em andamento | migrations e comportamento dual-provider são o próximo incremento |
