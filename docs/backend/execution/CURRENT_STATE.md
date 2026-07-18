@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T14:48:40Z
+Atualizado em: 2026-07-18T14:55:39Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-06/EP-09 — agregados determinísticos; o motor durável e a prova abrupta dual-provider estão verdes.
+- Épico atual: EP-06/EP-09 — cadeia determinística; contrato/agregado provider-neutral está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `67cf5b6` (`develop`); a prova EP-05d está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: definir contratos e invariantes imutáveis da cadeia Solicitação → Demanda → Tarefa → Versão de instrução → Tentativa, ligados aos Tenant/Organização/Projeto/Usuário já provisionados; começar pelo modelo provider-neutral e testes unitários antes das migrations dual-provider.
+- Último commit remoto validado: `cfb0e12` (`develop`); o contrato de cadeia EP-09a está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: criar migrations provider-specific para Solicitação, Demanda, Tarefa, Versão de instrução, Tentativa, Evidência e Revisão; depois implementar um store transacional dual-provider que reidrate o agregado e anexe Inbox, ledger e Outbox.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -44,9 +44,10 @@ Atualizado em: 2026-07-18T14:48:40Z
 - Motor durável: contrato/schema/borda comuns e adapters completos verdes. `SqliteDurableExecutionEngine` usa o dispatcher único; `PostgresDurableExecutionEngine` usa locks de linha/transacionais e `FOR UPDATE SKIP LOCKED`. O mesmo cenário provider-neutral comprovou Inbox, lifecycle, aquisição concorrente, fencing, checkpoint, retry, timer/sinal e reconciliação nos dois providers.
 - Recuperação GNG-2: subprocessos reais SQLite e PostgreSQL receberam `SIGKILL` após 3/6 checkpoints; restart/reconciliação abandonou attempt 1, criou attempt 2 com fencing maior, retomou do checkpoint 3 e concluiu 6/6. Cada provider comprovou 2 attempts, 6 checkpoints, 8 receipts de Inbox, 6 transições/Outbox e ledger encadeado de 7 eventos. O critério técnico está verde; a saída formal da Fase 1 aguarda o restante do escopo funcional.
 - Auditoria: toda transição do motor agora anexa o ledger global na mesma transação. O hash canonicaliza objetos JSON recursivamente para permanecer verificável após normalização `jsonb`; PostgreSQL serializa a cadeia por tenant.
-- Pipeline: `tools/backend/verify.sh` verde após EP-05d: restore locked, format, build Release com zero warnings/erros e 65/65 testes verdes.
+- Cadeia EP-09a: `WorkChainAggregate` em Coordination materializa Solicitação/Demanda/Tarefa/Instrução/Tentativa/Revisão. Solicitação e instrução são append-only; hash SHA-256 é calculado pelo domínio; somente a instrução mais recente inicia tentativa; há uma única tentativa ativa; completion exige evidência; rejeição exige nova versão; actor–critic é obrigatório a partir de risco médio. Execution permanece responsável pela tentativa técnica/lease, separada da tentativa de negócio.
+- Pipeline: `tools/backend/verify.sh` verde após o refino final de ULID/hash: restore locked, format, build Release com zero warnings/erros e 73/73 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável e prova abrupta dual-provider verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para EP-06/09/10, documentos e workers.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta e contrato da cadeia verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para persistência EP-09, EP-10, documentos e workers.
 
 ## Sanidade antes de retomar
 
