@@ -5,10 +5,10 @@ Atualizado em: 2026-07-18T23:26:53Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-DOGFOOD-1c — reconciliar turnos do Chief após lease expirar; mailbox/lease/sessão estão verdes.
+- Épico atual: F2-DOGFOOD-1d — compor claims, worktree, sandbox e executor Codex; reconciliação do Chief está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `f1d09f6` (`develop`), contendo F2-DOGFOOD-1b com 173 testes backend e 270 testes frontend verdes.
-- Próximo passo exato: adicionar reconciliação automática para mailbox pendente/processing com lease expirado e comprovar rejeição de fencing antigo; depois compor worktree/claims e sandbox Docker.
+- Último commit remoto validado: `56abba2` (`develop`), contendo F2-DOGFOOD-1c com 174 testes backend e 270 testes frontend verdes.
+- Próximo passo exato: compor uma tentativa de projeto externo com claim de escopo, worktree exclusiva, sandbox Docker e `CodexCliAgentExecutor`, mantendo smoke real opt-in.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -96,8 +96,9 @@ Atualizado em: 2026-07-18T23:26:53Z
 - F2 frontend integrado: `build-frontend.sh` copia a árvore protegida para `.artifacts`, executa `npm ci`, lint, typecheck, 270 testes e build HTTP same-origin, e publica 127 arquivos em `Harness.Host/wwwroot`. O Host serve arquivos estáticos e fallback SPA sem mascarar 404 de API/hub; o publish Release contém o bundle. O proxy dev também usa cópia isolada. Smoke HTTP real está verde; a sessão não expôs navegador, portanto a homologação visual/humana continua pendente e GNG-3 não foi promovido.
 - F2 executor de agentes: `IAgentExecutor` possui Fake determinístico e `CodexCliAgentExecutor`. A implementação Codex segue o protocolo app-server V2 da CLI 0.144.5, processa deltas/conclusão, impõe JSON Schema do Chief, valida propriedades e bounds e tenta um repair único. O construtor falha fechado sem prova completa de sandbox externo; por isso o Host usa Fake em testes/execução padrão até a composição Docker. O endpoint de turnos já reconstrói `StatusDigest` e passa pela interface, sem chamada de modelo nos testes.
 - F2 pipeline durável do Chief: migration 0027 adiciona estado por tenant/projeto e mailbox. O endpoint persiste Inbox, mensagem humana e item pendente antes do executor; a aquisição serializa o projeto com lease/fencing e marca agente working. A conclusão só aceita owner/token não expirado, grava mensagem/resposta/eventos, sessão e digest, libera lease e retorna o agente a idle. Restart preservou mailbox completed, sessão, digest, Inbox e fencing.
+- F2 reconciliação do Chief: o endpoint apenas enfileira e retorna 202. `ChiefTurnBackgroundService` drena pendências, isola falhas, limita retries e reaquece `processing` após lease expirar. Um cenário deixou owner/token 1 morrer, reiniciou o Host, concluiu automaticamente com token 2 e recusou o lease antigo.
 - Migrations: SQLite `27→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-DOGFOOD-1a: frontend com lint/typecheck/build e 270/270 testes; backend com restore locked, format, build Release com zero warnings/erros e 173/173 testes verdes (`Unit 96`, `Integration 36`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- Pipeline: `tools/backend/verify.sh` verde após F2-DOGFOOD-1c: frontend com lint/typecheck/build e 270/270 testes; backend com restore locked, format, build Release com zero warnings/erros e 174/174 testes verdes (`Unit 96`, `Integration 37`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 
