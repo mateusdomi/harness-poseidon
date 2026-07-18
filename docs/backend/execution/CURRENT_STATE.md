@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T11:57:38Z
+Atualizado em: 2026-07-18T12:04:03Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-05 — recuperação durável sintética e PoC-2; PoC-1 validada.
+- Épico atual: EP-05 — lease/fencing e PoC-3; PoCs 1–2 validadas.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `c9e97c9` (`develop`); a fatia PoC-1 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: modelar tarefa durável sintética, checkpoint e estado de reconciliação em SQLite; criar processo fixture encerrável por `kill -9` e provar retomada sem perda/duplicação na PoC-2.
+- Último commit remoto validado: `a3e6bc2` (`develop` após rebase com FE-1); a fatia PoC-2 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: adicionar lease expirável com fencing token crescente ao fixture durável, forçar dois owners e provar que o token antigo não consegue persistir após a nova aquisição na PoC-3.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -20,7 +20,7 @@ Atualizado em: 2026-07-18T11:57:38Z
 
 ## Estado persistido e operacional
 
-- Banco de dados: nenhum persistente no workspace; banco temporário da PoC-1 foi removido com WAL/SHM após os testes.
+- Banco de dados: nenhum persistente no workspace; bancos temporários das PoCs 1–2 foram removidos com WAL/SHM após os testes.
 - Migrations SQLite/PostgreSQL: inexistentes; 28 lockfiles NuGet foram materializados, um por projeto.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
@@ -30,9 +30,10 @@ Atualizado em: 2026-07-18T11:57:38Z
 - Solução: 22 projetos de produção (Host, Runner, Launcher, SharedKernel, persistência e 15 módulos) e 6 projetos de teste em `Harness.sln`.
 - SharedKernel: ULID canônico, `EntityId<TTag>`, `IClock`, `SystemClock`, `ErrorDescriptor` e `Result`/`Result<T>` implementados.
 - SQLite: EF Core SQLite 10.0.10; native SQLite pinado em 3.53.3 por segurança; dispatcher único validado em WAL.
-- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 33 testes verdes nas seis suítes.
+- Recuperação: processo fixture sofreu SIGKILL real após 3/6 checkpoints; nova instância reconciliou e concluiu com 6 checkpoints únicos.
+- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 34 testes verdes nas seis suítes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoC-1 verde e catalogada em `evidence/F0-POC-1.md`; PoCs 2–9 pendentes e GNG-1 permanece fechado (1/9).
+- Evidências: PoCs 1–2 verdes e catalogadas; PoCs 3–9 pendentes e GNG-1 permanece fechado (2/9).
 
 ## Sanidade antes de retomar
 

@@ -22,8 +22,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 2. EP-02: SharedKernel e contratos primitivos.
 3. Testes de arquitetura e ADR-001 a ADR-014.
 4. PoC-1: SQLite WAL + dispatcher único — verde em 2026-07-18.
-5. PoC-2: kill abrupto + reconciliação — próximo incremento.
-6. PoC-3: lease + fencing.
+5. PoC-2: kill abrupto + reconciliação — verde em 2026-07-18.
+6. PoC-3: lease + fencing — próximo incremento.
 7. PoC-4: Codex CLI subprocesso/checkpoint/reidratação.
 8. PoC-5: Git fixtures, branches/worktrees e claims.
 9. PoC-6: sandbox Docker com limites, proxy/egress e cleanup.
