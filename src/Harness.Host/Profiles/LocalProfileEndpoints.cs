@@ -8,8 +8,6 @@ namespace Harness.Host.Profiles;
 
 public static class LocalProfileEndpoints
 {
-    private const string SessionCookie = "harness.profile";
-
     public static IEndpointRouteBuilder MapLocalProfiles(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
@@ -27,7 +25,7 @@ public static class LocalProfileEndpoints
         ILocalProfileStore store,
         CancellationToken cancellationToken)
     {
-        if (!request.Cookies.TryGetValue(SessionCookie, out var profileId) ||
+        if (!request.Cookies.TryGetValue(LocalProfileSession.CookieName, out var profileId) ||
             !UlidValue.TryParse(profileId, out _))
         {
             return Problem(404, "profile_not_found", "No local profile session exists.");
@@ -109,7 +107,7 @@ public static class LocalProfileEndpoints
             return Problem(400, "invalid_profile_id", "Profile ID must be a ULID.");
         }
 
-        if (!request.Cookies.TryGetValue(SessionCookie, out var currentId) ||
+        if (!request.Cookies.TryGetValue(LocalProfileSession.CookieName, out var currentId) ||
             !string.Equals(currentId, profileId, StringComparison.Ordinal))
         {
             return Problem(403, "profile_forbidden", "The local session cannot update this profile.");
@@ -157,7 +155,7 @@ public static class LocalProfileEndpoints
 
     private static void SetSessionCookie(HttpResponse response, string profileId) =>
         response.Cookies.Append(
-            SessionCookie,
+            LocalProfileSession.CookieName,
             profileId,
             new CookieOptions
             {

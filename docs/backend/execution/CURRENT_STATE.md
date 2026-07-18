@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T18:59:52Z
+Atualizado em: 2026-07-18T19:28:51Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-ORG-1 — organizações; perfil local está verde.
+- Épico atual: F2-PRJ-1 — projetos; perfil e organizações estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `5a762a3` (`develop`), contendo F2-ID-1 verde com 108/108 testes.
-- Próximo passo exato: implementar a fatia vertical de organizações conforme `organizationSchema`: domínio, marca/policies/templates herdáveis, persistência SQLite, API list/read/create/update, testes e OpenAPI, sem editar frontend.
+- Último commit remoto validado: `b67ba1a` (`develop`), checkpoint de F2-ID-1; F2-ORG-1 está localmente verde e aguarda publicação.
+- Próximo passo exato: implementar a fatia vertical de projetos conforme `projectSchema`: configuração versionada, organização/tenant, repositório, stack, marca/membros, chefe/modo, persistência SQLite, API list/read/create/update, testes e OpenAPI, sem editar frontend.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T18:59:52Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`9→0` e `9→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` e `0010_organizations`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`10→0` e `9→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -71,10 +71,11 @@ Atualizado em: 2026-07-18T18:59:52Z
 - Watchdog F1-WRK-2: tenants ativos são descobertos nos dois providers; dez ciclos concorrentes produzem uma reconciliação, fencing antigo é recusado, checkpoint sobrevive, retry/backoff reativa sem LLM e o limite produz dead-letter único. Novo worker sobre o mesmo estado é no-op, e o BackgroundService encerra por cancellation.
 - GNG-2: formalmente verde. Os testes de `SIGKILL` SQLite/PostgreSQL usam agora o watchdog após restart e preservam 6/6 checkpoints, 2 attempts, 8 Inbox, 6 transições/Outbox e ledger de 7 elos íntegros.
 - F2 perfil local: domínio e aplicação no módulo Identity, store SQLite no dispatcher único, sessão por cookie HttpOnly, current/list/create/patch com cursor e Problem Details. Restart do Host preservou perfil e update; segunda criação foi recusada. OpenAPI/drift batem com os sete campos do contrato TypeScript.
-- Migrations: SQLite `9→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-ID-1: restore locked, format, build Release com zero warnings/erros e 108/108 testes verdes.
+- F2 organizações: agregado no módulo Organizations, marca/policies/templates herdáveis, store tenant-scoped no dispatcher, sessão local, cursor, list/read/create/patch, slug único e OCC interno. Restart preservou organização e marca; OpenAPI/drift batem com os nove campos TypeScript.
+- Migrations: SQLite `10→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-ORG-1: restore locked, format, build Release com zero warnings/erros e 112/112 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido e watchdog verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo caminho crítico é F2.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil e organizações verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é projetos F2.
 
 ## Sanidade antes de retomar
 

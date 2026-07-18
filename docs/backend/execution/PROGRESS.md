@@ -79,4 +79,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 |---|---|---|
 | F2-PREP-1 | verde | fetch/rebase e leitura integral de estado, handoff e 13 contratos TypeScript; drift registrado sem editar frontend |
 | F2-ID-1 perfil local | verde | domínio/aplicação, migration/store SQLite, cookie local, API current/list/create/patch, restart, Problem Details, OpenAPI e drift; gate 108/108; `evidence/F2-LOCAL-PROFILE.md` |
-| F2-ORG-1 organizações | próximo | domínio, persistência pessoal, API, contratos e testes |
+| F2-ORG-1 organizações | verde | agregado/marca/templates/policies, migration/store tenant-scoped, sessão, API list/read/create/patch, unicidade, restart, OpenAPI e drift; gate 112/112; `evidence/F2-ORGANIZATIONS.md` |
+| F2-PRJ-1 projetos | próximo | configuração versionada, organização, repositório/stack, marca/membros/chefe/modo, persistência, API e contratos |

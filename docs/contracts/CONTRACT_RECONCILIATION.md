@@ -56,3 +56,11 @@ Todos os 13 arquivos em `frontend/src/api/contracts/**`, `docs/frontend/CURRENT_
 A primeira fatia vertical materializou o schema `Profile` exatamente com `id`, `displayName`, `email`, `avatarUrl`, `locale`, `createdAt` e `lastActiveAt`; a versão OCC permanece interna e não vaza na resposta. `profiles/current`, paginação, POST de onboarding e PATCH foram publicados no OpenAPI.
 
 O quadro do handoff marca criação de `profiles` como indisponível, mas `CreateInputMap` — fonte tipada declarada pelo próprio frontend — inclui criação e a UI de onboarding depende dela. O backend implementou o POST e registrou o desvio documental, sem alterar arquivos da Kimi. Não foi inventado evento `profile.updated`, pois ele não existe nem no catálogo normativo v1.3 nem no catálogo TypeScript; auditoria/evento público será ligado à fatia de governança sem criar drift.
+
+## Organizações pessoais — 2026-07-18
+
+`Organization` foi materializada com os nove campos exatos do schema TypeScript: identidade, slug/plano, marca, templates de workflow/documento, policies e criação. A versão de concorrência permanece interna. Os campos de marca `null` mantêm a semântica declarada de herdar o padrão do produto.
+
+O handoff ainda marca criação como indisponível, porém `CreateInputMap.organizations` e `UpdateInputMap.organizations` declaram explicitamente create/update. A borda implementa os dois comandos tipados, lista/leitura e cursor, sem alterar o contrato provisório. Policies e templates são projetados desde a primeira versão e persistidos como coleções vazias; seus comandos administrativos entrarão na fatia de settings/governança para não ampliar silenciosamente o input map atual.
+
+Não foi inventado evento público de organização: o catálogo normativo e o TypeScript não declaram um. A auditoria transacional será ligada quando a API pessoal for incorporada ao ledger na fatia de governança.

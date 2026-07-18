@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(9, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(10, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -204,6 +204,22 @@ public sealed class SqliteFoundationMigrationsTests
                 },
                 timeout.Token);
             Assert.Equal(10, workflowTableCount);
+
+            var organizationColumnCount = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT COUNT(*) FROM pragma_table_info('organizations') WHERE name IN
+                            ('slug','plan','logo_url','primary_color','secondary_color','typography',
+                             'default_workflow_template_ids_json','template_keys_json','policies_json');
+                        """;
+                    return Convert.ToInt32(
+                        await command.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+                },
+                timeout.Token);
+            Assert.Equal(9, organizationColumnCount);
 
             await dispatcher.ExecuteAsync(
                 async (connection, token) =>

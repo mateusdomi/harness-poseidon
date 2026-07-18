@@ -73,8 +73,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 
 1. Sincronizar `origin/develop`, reler estado/contratos atuais do frontend e registrar drift sem editar sua área — verde em 2026-07-18.
 2. Fatia vertical de perfil local: domínio, aplicação, persistência, API, eventos aplicáveis, testes e OpenAPI — verde em 2026-07-18.
-3. Organizações — próximo incremento.
-4. Projetos.
+3. Organizações — verde em 2026-07-18.
+4. Projetos — próximo incremento.
 5. Cockpit/digest e demais fatias na ordem definida pelo handoff.
 
 ## Backlog épico
