@@ -41,6 +41,7 @@ using Harness.Persistence.Abstractions.Workflows;
 using Harness.Persistence.Abstractions.Tools;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Time;
+using Microsoft.Extensions.FileProviders;
 
 namespace Harness.Host;
 
@@ -52,6 +53,9 @@ public static class HostApplication
     {
         ArgumentNullException.ThrowIfNull(args);
         var builder = WebApplication.CreateBuilder(args);
+
+        var frontendPath = ResolveFrontendPath(builder.Environment.ContentRootPath,
+            builder.Configuration["Harness:FrontendPath"]);
 
         if (string.IsNullOrWhiteSpace(builder.Configuration["urls"]))
         {
@@ -140,6 +144,12 @@ public static class HostApplication
                 }));
 
         var app = builder.Build();
+        if (frontendPath is not null)
+        {
+            var frontendFiles = new PhysicalFileProvider(frontendPath);
+            app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = frontendFiles });
+            app.UseStaticFiles(new StaticFileOptions { FileProvider = frontendFiles });
+        }
         app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy")))
             .WithTags("system");
         app.MapOpenApi("/openapi/{documentName}.json");
@@ -196,7 +206,48 @@ public static class HostApplication
             .Produces<EventStreamSnapshot>()
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
+        app.MapFallback((HttpContext context) =>
+        {
+            var path = context.Request.Path.Value ?? string.Empty;
+            if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/hubs/", StringComparison.OrdinalIgnoreCase) ||
+                frontendPath is null)
+            {
+                return Results.NotFound();
+            }
+            var indexPath = Path.Combine(frontendPath, "index.html");
+            return File.Exists(indexPath)
+                ? Results.File(indexPath, "text/html; charset=utf-8")
+                : Results.NotFound();
+        }).ExcludeFromDescription();
+
         return app;
+    }
+
+    private static string? ResolveFrontendPath(string contentRoot, string? configured)
+    {
+        var candidates = new List<string?>
+        {
+            configured,
+            Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+            Path.Combine(contentRoot, "src", "Harness.Host", "wwwroot"),
+            Path.Combine(contentRoot, "wwwroot"),
+        };
+        AddAncestorCandidates(candidates, contentRoot);
+        AddAncestorCandidates(candidates, AppContext.BaseDirectory);
+        return candidates.Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => Path.GetFullPath(value!))
+            .FirstOrDefault(value => File.Exists(Path.Combine(value, "index.html")));
+    }
+
+    private static void AddAncestorCandidates(List<string?> candidates, string start)
+    {
+        for (var directory = new DirectoryInfo(Path.GetFullPath(start)); directory is not null;
+             directory = directory.Parent)
+        {
+            candidates.Add(Path.Combine(directory.FullName, "src", "Harness.Host", "wwwroot"));
+            candidates.Add(Path.Combine(directory.FullName, "wwwroot"));
+        }
     }
 
     private sealed record HealthResponse(string Status);
