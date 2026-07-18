@@ -14,6 +14,11 @@ public static class DurableExecutionContractValidator
         ValidateJson(request.PayloadJson, nameof(request));
         ValidateIdempotencyKey(request.IdempotencyKey, nameof(request));
         ArgumentNullException.ThrowIfNull(request.RetryPolicy);
+        if (request.RetryPolicy.InitialDelay.Ticks % TimeSpan.TicksPerMillisecond != 0 ||
+            request.RetryPolicy.MaximumDelay.Ticks % TimeSpan.TicksPerMillisecond != 0)
+        {
+            throw new ArgumentException("Retry delays must use whole milliseconds.", nameof(request));
+        }
     }
 
     public static void Validate(DurableLeaseCommand command)
@@ -75,6 +80,8 @@ public static class DurableExecutionContractValidator
 
     public static void ValidateTenantAndExecution(string tenantId, string executionId) =>
         ValidateUlids(tenantId, executionId);
+
+    public static void ValidateTenant(string tenantId) => ValidateUlids(tenantId);
 
     public static void ValidateOwner(string owner) => ValidateBounded(owner, "owner", nameof(owner));
 

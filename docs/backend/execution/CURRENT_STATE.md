@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T14:13:19Z
+Atualizado em: 2026-07-18T14:24:12Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
 - Épico atual: EP-05 — motor durável; IPC sobre autoridade relacional está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `c1fb600` (`develop`); a borda comum de validação EP-05c está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: implementar Start/TryAcquire/Renew/Heartbeat/Checkpoint primeiro em `SqliteDurableExecutionEngine`, usando o dispatcher e Inbox/transição/Outbox na mesma transação; extrair o teste comportamental e repetir em PostgreSQL com `FOR UPDATE SKIP LOCKED`.
+- Último commit remoto validado: `459cc17` (`develop`); o adapter SQLite EP-05c está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: extrair o cenário `SqliteDurableExecutionEngineTests` para comportamento provider-neutral e implementar `PostgresDurableExecutionEngine`, usando `FOR UPDATE SKIP LOCKED` na aquisição e locks transacionais nas demais escritas; o mesmo cenário completo deve passar sem reduzir asserts.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -41,10 +41,10 @@ Atualizado em: 2026-07-18T14:13:19Z
 - IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; o Host persiste tentativa, versão, sequência, checkpoints, Inbox e Outbox via `IRunnerMessageStore`. Replay integral depois de reiniciar o Host não duplica estado/eventos; gap, owner conflitante, chave conflitante, tentativa concluída e token inválido são rejeitados. O assembly Runner continua sem referência a persistência.
 - Fundação F1: sete tabelas conceituais (Tenant, Organização, Projeto, usuário local, Inbox, Outbox, ledger) existem nos dois providers; migrations repetidas são no-op e FKs órfãs são rejeitadas.
 - Transação F1: contratos comuns provisionam Tenant→Projeto e gravam Inbox, ledger SHA-256 e Outbox atomicamente; 10 concorrentes resultam 1 aplicação/9 replays em ambos providers, conflito de hash e colisão Outbox não deixam efeitos.
-- Motor durável: `IDurableExecutionEngine` cobre lifecycle, sinal, timer, lease/fencing, heartbeat, checkpoint, retry, dead-letter, reconciliação e consulta; matriz de transições e backoff determinístico/capado estão verdes. Nove tabelas duráveis existem nos dois providers. Codec de estados, validação ULID/JSON/bounds/lease e hash SHA-256 são compartilhados; implementação de comandos ainda pendente.
-- Pipeline: `tools/backend/verify.sh` verde após a borda EP-05c: restore locked, format, build Release com zero warnings/erros e 61/61 testes verdes.
+- Motor durável: contrato/schema/borda comuns verdes. `SqliteDurableExecutionEngine` implementa todo o lifecycle pelo dispatcher, com Inbox, histórico e Outbox transacionais; aquisição concorrente, fencing, checkpoint, retry, timer/sinal e reconciliação passaram. Adapter PostgreSQL ainda pendente.
+- Pipeline: `tools/backend/verify.sh` verde após o adapter SQLite EP-05c: restore locked, format, build Release com zero warnings/erros e 62/62 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, contrato e schema do motor durável verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até as implementações do motor e a recuperação F1 com auditoria completa.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, contrato/schema/borda e adapter SQLite do motor durável verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até paridade PostgreSQL e recuperação F1 com auditoria completa.
 
 ## Sanidade antes de retomar
 

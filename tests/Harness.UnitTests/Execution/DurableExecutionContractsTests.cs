@@ -113,6 +113,15 @@ public sealed class DurableExecutionContractsTests
             DurableExecutionContractValidator.Validate(request with { PayloadJson = "{broken}" }));
         Assert.Throws<ArgumentException>(() =>
             DurableExecutionContractValidator.Validate(request with { ExecutionId = "not-ulid" }));
+        Assert.Throws<ArgumentException>(() =>
+            DurableExecutionContractValidator.Validate(request with
+            {
+                RetryPolicy = new DurableRetryPolicy(
+                    3,
+                    TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond + 1),
+                    2m,
+                    TimeSpan.FromSeconds(30)),
+            }));
     }
 
     [Fact]

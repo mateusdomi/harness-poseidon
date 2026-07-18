@@ -43,4 +43,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Contrato do motor durável | verde | interface completa, matriz exaustiva de transições e backoff determinístico/capado; gate 58/58; `evidence/F1-DURABLE-ENGINE-CONTRACT.md` |
 | Schema do motor durável | verde | nove tabelas em migrations próprias `SQLite 3→0` / `PostgreSQL 4→0`, constraints de provider validadas; `evidence/F1-DURABLE-ENGINE-SCHEMA.md` |
 | Borda comum do motor | verde | codecs exaustivos, validação canônica ULID/JSON/bounds/lease e fingerprint SHA-256; gate 61/61; `evidence/F1-DURABLE-ENGINE-BOUNDARY.md` |
-| Comandos do motor e GNG-2 | em andamento | comportamento Start/Acquire/lease/checkpoint dual-provider é o próximo incremento |
+| Motor durável SQLite | verde | contrato completo executado: lifecycle, Inbox, aquisição concorrente, fencing, checkpoint, retry/dead-letter, timer/sinal e reconciliação; gate 62/62; `evidence/F1-DURABLE-ENGINE-SQLITE.md` |
+| Motor durável PostgreSQL e GNG-2 | em andamento | portar o mesmo comportamento com `SKIP LOCKED`, depois prova abrupta dual-provider |
