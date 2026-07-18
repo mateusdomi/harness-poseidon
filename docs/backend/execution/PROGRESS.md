@@ -6,7 +6,7 @@
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
 | GNG-2 | recuperação abrupta com auditoria completa | verde | `SIGKILL` dual-provider retomado automaticamente pelo watchdog, 6/6 checkpoints, 2 attempts, Outbox/Inbox idempotentes e cadeia de 7 eventos íntegra; `evidence/F1-GNG2-CLOSURE.md` |
-| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit, chat/conversas e cadeia/quadro verdes; workflows/gates/progresso é o próximo incremento |
+| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit, chat, quadro e workflows verdes; documentos/aprovações é o próximo incremento |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
 | GNG-6 | hardening e DoD global | fechado | F11 não iniciada |
@@ -86,4 +86,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-WORK-1a cadeia/quadro read/create | verde | projeção na autoridade F1, APIs de seis recursos, elos internos ocultos para origens nulas, cockpit 8 colunas, ledger/Outbox e payloads tipados; restart/OpenAPI/drift; gate 125/125; `evidence/F2-WORK-BOARD-READ-CREATE.md` |
 | F2-WORK-1b comandos/lifecycle | verde | triagem, movimento/prioridade, correção imutável após rejeição, actor–critic, duas tentativas até `done`, eventos canônicos, restart e OpenAPI; gate 126/126; `evidence/F2-WORK-BOARD-COMMANDS.md` |
 | F2-WF-1a catálogo/run | verde | template/versão, vínculo+aceite, run iniciado, fases/gates, migration 0014, restart, OpenAPI/drift e evento de publicação canônico; gate 129/129; `evidence/F2-WORKFLOW-CATALOG.md` |
-| F2-WF-1b comandos/lifecycle | próximo | publicação vN, troca de modo, run/objetivo/gate/fase e eventos canônicos |
+| F2-WF-1b comandos/lifecycle | verde | publicação vN imutável, troca de modo+aceite, pausa/retomada, objetivos, gate fail/pass, conclusão, streams global/projeto e restart; gate 131/131; `evidence/F2-WORKFLOW-COMMANDS.md` |
+| F2-DOC-1 documentos/aprovações | próximo | projeção/API sobre autoridade documental F1, conteúdo catalogado, lifecycle e aprovações |
