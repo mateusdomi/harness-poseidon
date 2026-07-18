@@ -55,7 +55,8 @@ public sealed record WorkflowDefinitionCreateCommand(
     string ContentHash,
     IReadOnlyList<WorkflowPhaseCreateInput> Phases,
     string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string Description = "");
 
 public sealed record WorkflowPhaseCreateInput(
     string PhaseDefinitionId,
@@ -108,7 +109,8 @@ public sealed record WorkflowRunCreateCommand(
     string DefinitionVersionId,
     string RunId,
     string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string? WorkflowId = null);
 
 public sealed record WorkflowRunCreateReceipt(
     string RunId,
@@ -269,6 +271,10 @@ public static class WorkflowDefinitionCreateValidator
         ValidateId(command.DefinitionId, nameof(command));
         ValidateId(command.DefinitionVersionId, nameof(command));
         ValidateText(command.Name, 200, nameof(command));
+        if (command.Description.Length > 20_000)
+        {
+            throw new ArgumentException("Description exceeds 20000 characters.", nameof(command));
+        }
         ValidateText(command.IdempotencyKey, 200, nameof(command));
         if (command.Version != 1 || !string.Equals(
             command.ContentHash,
@@ -418,6 +424,10 @@ public static class WorkflowRunCreateValidator
         ValidateId(command.ProjectId, nameof(command));
         ValidateId(command.DefinitionVersionId, nameof(command));
         ValidateId(command.RunId, nameof(command));
+        if (command.WorkflowId is not null)
+        {
+            ValidateId(command.WorkflowId, nameof(command));
+        }
         ArgumentException.ThrowIfNullOrWhiteSpace(command.IdempotencyKey, nameof(command));
         if (command.IdempotencyKey.Length > 200)
         {

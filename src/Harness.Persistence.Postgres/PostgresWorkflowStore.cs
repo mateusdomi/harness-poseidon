@@ -149,13 +149,13 @@ public sealed partial class PostgresWorkflowStore(NpgsqlDataSource dataSource) :
             cancellationToken, Text($"audit-ledger:{value.TenantId}"));
         var payload = JsonSerializer.Serialize(new
         {
-            definitionId = value.DefinitionId,
-            definitionVersionId = value.DefinitionVersionId,
+            templateId = value.DefinitionId,
+            versionId = value.DefinitionVersionId,
             version = value.Version,
         });
         var (sequence, previousHash) = await ReadLedgerTailAsync(
             connection, transaction, value.TenantId, cancellationToken);
-        const string eventType = "workflow.definitionPublished";
+        const string eventType = "workflow.versionPublished";
         var ledgerHash = AuditLedgerHash.Compute(
             previousHash, value.TenantId, sequence, eventType, payload, value.OccurredAt);
         var outboxId = UlidValue.New(value.OccurredAt).ToString();

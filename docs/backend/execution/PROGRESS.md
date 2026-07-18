@@ -85,4 +85,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-CHAT-1 conversas/chat | verde | conversa/mensagem persistidas, CRUD tenant-scoped, turno Fake determinístico transacional, ledger/Outbox e sete eventos sequenciados; restart, OpenAPI e drift; gate 121/121; `evidence/F2-CONVERSATIONS-CHAT.md` |
 | F2-WORK-1a cadeia/quadro read/create | verde | projeção na autoridade F1, APIs de seis recursos, elos internos ocultos para origens nulas, cockpit 8 colunas, ledger/Outbox e payloads tipados; restart/OpenAPI/drift; gate 125/125; `evidence/F2-WORK-BOARD-READ-CREATE.md` |
 | F2-WORK-1b comandos/lifecycle | verde | triagem, movimento/prioridade, correção imutável após rejeição, actor–critic, duas tentativas até `done`, eventos canônicos, restart e OpenAPI; gate 126/126; `evidence/F2-WORK-BOARD-COMMANDS.md` |
-| F2-WF-1 workflows/gates/progresso | próximo | reconciliar contratos frontend e expor vertical sobre a autoridade F1 sem duplicar estado |
+| F2-WF-1a catálogo/run | verde | template/versão, vínculo+aceite, run iniciado, fases/gates, migration 0014, restart, OpenAPI/drift e evento de publicação canônico; gate 129/129; `evidence/F2-WORKFLOW-CATALOG.md` |
+| F2-WF-1b comandos/lifecycle | próximo | publicação vN, troca de modo, run/objetivo/gate/fase e eventos canônicos |

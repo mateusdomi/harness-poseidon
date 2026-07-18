@@ -1,0 +1,65 @@
+using System.Net;
+using System.Net.Http.Json;
+using Harness.Host;
+using Harness.Host.Organizations;
+using Harness.Host.Profiles;
+using Harness.Host.Projects;
+using Harness.Host.Workflows;
+using Harness.Modules.Identity.Contracts;
+using Harness.Modules.Organizations.Contracts;
+using Harness.Modules.Projects.Contracts;
+using Harness.Modules.Workflows.Contracts;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Harness.IntegrationTests.Workflows;
+
+public sealed class WorkflowApiTests
+{
+    [Fact]
+    public async Task TemplateBindingAndRunningProjectionSurviveRestart()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"workflow-api-{Guid.NewGuid():N}");
+        var database = Path.Combine(root, "workflow.db"); Directory.CreateDirectory(root); var cookies = new CookieContainer();
+        string profileId; string projectId; string templateId; string workflowId; string runId;
+        try
+        {
+            await using (var app = CreateHost(database))
+            {
+                await app.StartAsync(timeout.Token); try
+                {
+                    var address = Address(app.Services); using (var anonymous = new HttpClient { BaseAddress = address }) using (var denied = await anonymous.GetAsync("/api/v1/workflows", timeout.Token)) Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
+                    using var handler = new HttpClientHandler { CookieContainer = cookies }; using var client = new HttpClient(handler) { BaseAddress = address };
+                    using (var response = await client.PostAsJsonAsync("/api/v1/profiles", new CreateProfileRequest("Mateus", null, null, "pt-BR"), timeout.Token)) { response.EnsureSuccessStatusCode(); profileId = (await response.Content.ReadFromJsonAsync<ProfileResponse>(timeout.Token))!.Id; }
+                    string organizationId; using (var response = await client.PostAsJsonAsync("/api/v1/organizations", new CreateOrganizationRequest { Name = "Poseidon", Slug = "poseidon" }, timeout.Token)) { response.EnsureSuccessStatusCode(); organizationId = (await response.Content.ReadFromJsonAsync<OrganizationResponse>(timeout.Token))!.Id; }
+                    using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon", Key = "POSEIDON", Description = "Backend" }, timeout.Token)) { response.EnsureSuccessStatusCode(); projectId = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!.Id; }
+
+                    using (var response = await client.PostAsJsonAsync("/api/v1/workflow-templates", new CreateWorkflowTemplateRequest(
+                        "Entrega padrão", "Planejar, executar e validar.", ["Planejamento", "Execução"],
+                        new Dictionary<string, IReadOnlyList<string>> { { "Execução", ["Qualidade"] } }, "v1"), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, response.StatusCode); var template = await response.Content.ReadFromJsonAsync<WorkflowTemplateContract>(timeout.Token); Assert.NotNull(template); templateId = template.Id; Assert.NotNull(template.CurrentVersionId); }
+                    var versions = await client.GetFromJsonAsync<WorkflowVersionPage>($"/api/v1/workflow-versions?templateId={templateId}", timeout.Token);
+                    var version = Assert.Single(versions!.Items); Assert.Equal(["Planejamento", "Execução"], version.Phases); Assert.Equal(["Qualidade"], version.GatesByPhase["Execução"]);
+                    using (var response = await client.PostAsJsonAsync("/api/v1/workflows", new CreateWorkflowRequest(projectId, templateId, version.Id, "manual", null, "Aprovação humana em cada gate."), timeout.Token))
+                    { Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync(timeout.Token)); var workflow = await response.Content.ReadFromJsonAsync<WorkflowContract>(timeout.Token); Assert.NotNull(workflow); workflowId = workflow.Id; Assert.Equal(profileId, Assert.Single(workflow.RiskAcceptances).AcceptedByProfileId); }
+                    using (var duplicate = await client.PostAsJsonAsync("/api/v1/workflows", new CreateWorkflowRequest(projectId, templateId, version.Id, "manual", null, "duplicado"), timeout.Token)) Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+                    using (var response = await client.PostAsJsonAsync("/api/v1/workflow-runs", new CreateWorkflowRunRequest(workflowId), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, response.StatusCode); var run = await response.Content.ReadFromJsonAsync<WorkflowRunContract>(timeout.Token); Assert.NotNull(run); runId = run.Id; Assert.Equal("running", run.State); Assert.Null(run.FinishedAt); }
+                    var phases = await client.GetFromJsonAsync<PhasePage>($"/api/v1/phases?runId={runId}", timeout.Token); Assert.Equal(2, phases!.Items.Count); Assert.Single(phases.Items, x => x.State == "active");
+                    var gates = await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={runId}", timeout.Token); var gate = Assert.Single(gates!.Items); Assert.Equal("Qualidade", gate.Name); Assert.True(gate.RequiresApproval); Assert.Null(gate.DecidedAt);
+                }
+                finally { await app.StopAsync(timeout.Token); }
+            }
+            await using var restarted = CreateHost(database); await restarted.StartAsync(timeout.Token); try
+            { using var client = new HttpClient { BaseAddress = Address(restarted.Services) }; client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}"); var workflow = await client.GetFromJsonAsync<WorkflowContract>($"/api/v1/workflows/{workflowId}", timeout.Token); Assert.Equal(projectId, workflow?.ProjectId); var run = await client.GetFromJsonAsync<WorkflowRunContract>($"/api/v1/workflow-runs/{runId}", timeout.Token); Assert.Equal("running", run?.State); }
+            finally { await restarted.StopAsync(timeout.Token); }
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static WebApplication CreateHost(string database) => HostApplication.Build(["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
+    private static Uri Address(IServiceProvider services) { var addresses = services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses ?? throw new InvalidOperationException("No address."); return new Uri(addresses.Single(x => x.StartsWith("http://127.0.0.1:", StringComparison.Ordinal))); }
+}

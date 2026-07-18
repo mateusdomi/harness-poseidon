@@ -9,6 +9,10 @@ public sealed class OutboxRealtimeStreamResolver
     public string Resolve(OutboxLease message)
     {
         ArgumentNullException.ThrowIfNull(message);
+        if (string.Equals(message.EventType, "workflow.versionPublished", StringComparison.Ordinal))
+        {
+            return "global";
+        }
         using var document = JsonDocument.Parse(message.PayloadJson);
         if (TryResolveConversation(document.RootElement, out var conversationStream))
         {
