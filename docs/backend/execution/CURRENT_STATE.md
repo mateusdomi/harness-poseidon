@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T14:24:12Z
+Atualizado em: 2026-07-18T14:37:36Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-05 — motor durável; IPC sobre autoridade relacional está verde.
+- Épico atual: EP-05 — motor durável; adapters completos SQLite e PostgreSQL estão verdes pelo mesmo comportamento.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `459cc17` (`develop`); o adapter SQLite EP-05c está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: extrair o cenário `SqliteDurableExecutionEngineTests` para comportamento provider-neutral e implementar `PostgresDurableExecutionEngine`, usando `FOR UPDATE SKIP LOCKED` na aquisição e locks transacionais nas demais escritas; o mesmo cenário completo deve passar sem reduzir asserts.
+- Último commit remoto validado: `ab8d2be` (`develop`); o adapter PostgreSQL EP-05c.2 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: implementar a prova GNG-2 sobre o motor de produção: encerrar abruptamente um worker fixture durante uma tentativa, reiniciar, reconciliar pelo heartbeat/lease e concluir sem perda ou duplicação; verificar Inbox, transições, Outbox e ledger nos dois providers.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -41,10 +41,10 @@ Atualizado em: 2026-07-18T14:24:12Z
 - IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; o Host persiste tentativa, versão, sequência, checkpoints, Inbox e Outbox via `IRunnerMessageStore`. Replay integral depois de reiniciar o Host não duplica estado/eventos; gap, owner conflitante, chave conflitante, tentativa concluída e token inválido são rejeitados. O assembly Runner continua sem referência a persistência.
 - Fundação F1: sete tabelas conceituais (Tenant, Organização, Projeto, usuário local, Inbox, Outbox, ledger) existem nos dois providers; migrations repetidas são no-op e FKs órfãs são rejeitadas.
 - Transação F1: contratos comuns provisionam Tenant→Projeto e gravam Inbox, ledger SHA-256 e Outbox atomicamente; 10 concorrentes resultam 1 aplicação/9 replays em ambos providers, conflito de hash e colisão Outbox não deixam efeitos.
-- Motor durável: contrato/schema/borda comuns verdes. `SqliteDurableExecutionEngine` implementa todo o lifecycle pelo dispatcher, com Inbox, histórico e Outbox transacionais; aquisição concorrente, fencing, checkpoint, retry, timer/sinal e reconciliação passaram. Adapter PostgreSQL ainda pendente.
-- Pipeline: `tools/backend/verify.sh` verde após o adapter SQLite EP-05c: restore locked, format, build Release com zero warnings/erros e 62/62 testes verdes.
+- Motor durável: contrato/schema/borda comuns e adapters completos verdes. `SqliteDurableExecutionEngine` usa o dispatcher único; `PostgresDurableExecutionEngine` usa locks de linha/transacionais e `FOR UPDATE SKIP LOCKED`. O mesmo cenário provider-neutral comprovou Inbox, lifecycle, aquisição concorrente, fencing, checkpoint, retry, timer/sinal e reconciliação nos dois providers.
+- Pipeline: `tools/backend/verify.sh` verde após o adapter PostgreSQL EP-05c.2: restore locked, format, build Release com zero warnings/erros e 62/62 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, contrato/schema/borda e adapter SQLite do motor durável verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até paridade PostgreSQL e recuperação F1 com auditoria completa.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional e motor durável completo dual-provider verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até a prova abrupta F1 com auditoria completa.
 
 ## Sanidade antes de retomar
 
@@ -62,4 +62,4 @@ docker network ls --filter label=com.harness.managed=true
 tools/backend/dotnet.sh --info
 ```
 
-O SDK local esperado é 10.0.302. Se estiver ausente, executar `tools/backend/install-dotnet.sh`; se estiver válido, executar `tools/backend/verify.sh` e retomar pelo EP-05 descrito no próximo passo.
+O SDK local esperado é 10.0.302. Se estiver ausente, executar `tools/backend/install-dotnet.sh`; se estiver válido, executar `tools/backend/verify.sh` e retomar pela prova GNG-2 descrita no próximo passo.

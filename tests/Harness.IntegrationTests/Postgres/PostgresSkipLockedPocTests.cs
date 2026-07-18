@@ -26,6 +26,9 @@ public sealed class PostgresSkipLockedPocTests
             new PostgresFoundationTransactionStore(dataSource),
             timeout.Token);
         await ValidateDurableSchemaAsync(dataSource, timeout.Token);
+        await DurableExecutionEngineBehavior.AssertAsync(
+            new PostgresDurableExecutionEngine(dataSource),
+            timeout.Token);
         await RunnerMessageStoreBehavior.AssertAsync(
             new PostgresRunnerMessageStore(dataSource),
             "attempt-dual-postgres",
@@ -208,7 +211,7 @@ public sealed class PostgresSkipLockedPocTests
                  retry_initial_ms, retry_multiplier, retry_maximum_ms, available_at,
                  created_at, updated_at)
             VALUES
-                ('01ARZ3NDEKTSV4RRFFQ69G5FB6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                ('01ARZ3NDEKTSV4RRFFQ69G5FB9', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
                  '01ARZ3NDEKTSV4RRFFQ69G5FAX', 'ready', '{}', 3,
                  1000, 2.0, 30000, '2026-07-18T14:10:00Z',
                  '2026-07-18T14:10:00Z', '2026-07-18T14:10:00Z');
@@ -224,7 +227,7 @@ public sealed class PostgresSkipLockedPocTests
                  retry_initial_ms, retry_multiplier, retry_maximum_ms, available_at,
                  created_at, updated_at)
             VALUES
-                ('01ARZ3NDEKTSV4RRFFQ69G5FB7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                ('01ARZ3NDEKTSV4RRFFQ69G5FBA', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
                  '01ARZ3NDEKTSV4RRFFQ69G5FAX', 'unknown', '{}', 3,
                  1000, 2.0, 30000, '2026-07-18T14:10:00Z',
                  '2026-07-18T14:10:00Z', '2026-07-18T14:10:00Z');
@@ -232,6 +235,10 @@ public sealed class PostgresSkipLockedPocTests
         var exception = await Assert.ThrowsAsync<PostgresException>(
             () => invalidCommand.ExecuteNonQueryAsync(cancellationToken));
         Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
+
+        await using var cleanupCommand = dataSource.CreateCommand(
+            "DELETE FROM harness.durable_executions WHERE id = '01ARZ3NDEKTSV4RRFFQ69G5FB9';");
+        await cleanupCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private sealed class ManagedPostgresFixture : IAsyncDisposable

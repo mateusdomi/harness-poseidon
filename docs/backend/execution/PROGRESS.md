@@ -5,7 +5,7 @@
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
-| GNG-2 | recuperação abrupta com auditoria completa | fechado | autoridade relacional verde; motor durável EP-05 pendente |
+| GNG-2 | recuperação abrupta com auditoria completa | fechado | motor durável dual-provider verde; prova abrupta F1 pendente |
 | GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
@@ -44,4 +44,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Schema do motor durável | verde | nove tabelas em migrations próprias `SQLite 3→0` / `PostgreSQL 4→0`, constraints de provider validadas; `evidence/F1-DURABLE-ENGINE-SCHEMA.md` |
 | Borda comum do motor | verde | codecs exaustivos, validação canônica ULID/JSON/bounds/lease e fingerprint SHA-256; gate 61/61; `evidence/F1-DURABLE-ENGINE-BOUNDARY.md` |
 | Motor durável SQLite | verde | contrato completo executado: lifecycle, Inbox, aquisição concorrente, fencing, checkpoint, retry/dead-letter, timer/sinal e reconciliação; gate 62/62; `evidence/F1-DURABLE-ENGINE-SQLITE.md` |
-| Motor durável PostgreSQL e GNG-2 | em andamento | portar o mesmo comportamento com `SKIP LOCKED`, depois prova abrupta dual-provider |
+| Motor durável PostgreSQL | verde | mesmo comportamento completo do SQLite com locks transacionais e aquisição `FOR UPDATE SKIP LOCKED`; gate 62/62; `evidence/F1-DURABLE-ENGINE-POSTGRES.md` |
+| Recuperação abrupta GNG-2 | em andamento | executar kill/restart sobre o motor de produção e provar Inbox, transições, Outbox e ledger nos dois providers |
