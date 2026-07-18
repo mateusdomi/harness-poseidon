@@ -77,6 +77,18 @@ public sealed class SqliteChiefOrchestratorStore(SqliteWriteDispatcher dispatche
             if (role is null) throw new ChiefResourceNotFoundException("agent_definition");
             if (role != "chief") throw new ChiefStateConflictException("The target definition must have the chief role.");
         }
+        if (command.TargetModelId is not null)
+        {
+            await using var model = connection.CreateCommand();
+            model.Transaction = tx;
+            model.CommandText = "SELECT enabled FROM provider_models WHERE tenant_id=$tenant AND id=$id;";
+            Add(model, "$tenant", command.TenantId);
+            Add(model, "$id", command.TargetModelId);
+            var enabled = await model.ExecuteScalarAsync(token);
+            if (enabled is null) throw new ChiefResourceNotFoundException("model");
+            if (Convert.ToInt32(enabled, CultureInfo.InvariantCulture) != 1)
+                throw new ChiefStateConflictException("The target model is disabled.");
+        }
 
         long fencing;
         await using (var query = connection.CreateCommand())
