@@ -1,6 +1,6 @@
-namespace Harness.Host.Ipc;
+namespace Harness.Persistence.Abstractions.RunnerIpc;
 
-public sealed record RunnerAttemptSnapshot(
+public sealed record RunnerAttemptState(
     string RunnerId,
     string AttemptId,
     long LastSequence,

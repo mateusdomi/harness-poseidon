@@ -7,6 +7,43 @@ namespace Harness.IntegrationTests.Persistence;
 public sealed class SqliteFoundationMigrationsTests
 {
     [Fact]
+    public async Task RunnerMessageStoreMatchesDualProviderBehavior()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "poc-artifacts",
+            "f1-runner-store-sqlite",
+            Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
+        var databasePath = Path.Combine(artifactRoot, "runner.db");
+        Directory.CreateDirectory(artifactRoot);
+        try
+        {
+            await using (var store = new SqliteRunnerMessageStore(databasePath))
+            {
+                await RunnerMessageStoreBehavior.AssertAsync(
+                    store,
+                    "attempt-dual-sqlite",
+                    timeout.Token);
+            }
+
+            await using var restartedStore = new SqliteRunnerMessageStore(databasePath);
+            var recovered = await restartedStore.ReadAttemptAsync("attempt-dual-sqlite", timeout.Token);
+            Assert.NotNull(recovered);
+            Assert.Equal(3, recovered.LastSequence);
+            Assert.Equal(3, recovered.InboxCount);
+            Assert.Equal(3, recovered.OutboxCount);
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task FoundationTransactionIsAtomicIdempotentAndAudited()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
@@ -50,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(1, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(2, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(

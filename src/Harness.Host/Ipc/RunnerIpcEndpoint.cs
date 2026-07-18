@@ -9,15 +9,16 @@ public static class RunnerIpcEndpoint
     {
         endpoints.MapPost(
                 "/api/v1/internal/runner/messages",
-                (HttpContext context,
+                async (HttpContext context,
                     RunnerMessageEnvelope message,
                     RunnerIpcToken token,
-                    RunnerIpcMessageProcessor processor) => Process(context, message, token, processor))
+                    RunnerIpcMessageProcessor processor) =>
+                    await ProcessAsync(context, message, token, processor))
             .ExcludeFromDescription();
         return endpoints;
     }
 
-    private static IResult Process(
+    private static async Task<IResult> ProcessAsync(
         HttpContext context,
         RunnerMessageEnvelope message,
         RunnerIpcToken token,
@@ -43,7 +44,7 @@ public static class RunnerIpcEndpoint
                 detail: "Runner IPC authentication failed.");
         }
 
-        var result = processor.Process(message);
+        var result = await processor.ProcessAsync(message, context.RequestAborted);
         if (result.Failure is not null)
         {
             return Results.Problem(

@@ -1,13 +1,18 @@
 using System.Net;
 using Harness.Host.Ipc;
 using Harness.Host.Realtime;
+using Harness.Persistence.Abstractions.RunnerIpc;
+using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Time;
 
 namespace Harness.Host;
 
 public static class HostApplication
 {
-    public static WebApplication Build(string[] args, RunnerIpcToken? runnerIpcToken = null)
+    public static WebApplication Build(
+        string[] args,
+        RunnerIpcToken? runnerIpcToken = null,
+        IRunnerMessageStore? runnerMessageStore = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +26,22 @@ public static class HostApplication
         builder.Services.AddSingleton<EventStreamStore>();
         builder.Services.AddSingleton<EventPublisher>();
         builder.Services.AddSingleton(runnerIpcToken ?? RunnerIpcToken.Create());
+        if (runnerMessageStore is null)
+        {
+            var databasePath = builder.Configuration["Harness:DatabasePath"];
+            if (string.IsNullOrWhiteSpace(databasePath))
+            {
+                databasePath = Path.Combine(AppContext.BaseDirectory, "data", "harness.db");
+            }
+
+            builder.Services.AddSingleton<IRunnerMessageStore>(
+                _ => new SqliteRunnerMessageStore(databasePath));
+        }
+        else
+        {
+            builder.Services.AddSingleton(runnerMessageStore);
+        }
+
         builder.Services.AddSingleton<RunnerIpcMessageProcessor>();
         builder.Services.AddSignalR(options => options.EnableDetailedErrors = builder.Environment.IsDevelopment());
         builder.Services.AddOpenApi(options =>
