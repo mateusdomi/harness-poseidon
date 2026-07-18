@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T14:05:56Z
+Atualizado em: 2026-07-18T14:10:01Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
 - Épico atual: EP-05 — motor durável; IPC sobre autoridade relacional está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `ca7bdc7` (`develop`); o contrato EP-05 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: criar `0003_durable_execution.sql` no SQLite e `0004_durable_execution.sql` no PostgreSQL para execution, attempt, checkpoint, timer, signal, transition e dead-letter; então implementar Start/TryAcquire/Renew/Heartbeat/Checkpoint com o mesmo teste comportamental nos dois providers.
+- Último commit remoto validado: `c9b579a` (`develop`); o schema durável EP-05b está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: implementar Start/TryAcquire/Renew/Heartbeat/Checkpoint primeiro em `SqliteDurableExecutionEngine`, usando o dispatcher e Inbox/transição/Outbox na mesma transação; extrair o teste comportamental e repetir em PostgreSQL com `FOR UPDATE SKIP LOCKED`.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T14:05:56Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui `0001_foundation.sql` e `0002_runner_ipc.sql` sob dispatcher único; PostgreSQL possui `0001_poc_work_queue.sql`, `0002_foundation.sql` e `0003_runner_ipc.sql` sob advisory lock. Históricos são separados e idempotentes; não há migration parcialmente aplicada.
+- Migrations: SQLite possui fundação, Runner IPC e `0003_durable_execution.sql`; PostgreSQL possui PoC queue, fundação, Runner IPC e `0004_durable_execution.sql`. Históricos são separados/idempotentes (`3→0` e `4→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -41,10 +41,10 @@ Atualizado em: 2026-07-18T14:05:56Z
 - IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; o Host persiste tentativa, versão, sequência, checkpoints, Inbox e Outbox via `IRunnerMessageStore`. Replay integral depois de reiniciar o Host não duplica estado/eventos; gap, owner conflitante, chave conflitante, tentativa concluída e token inválido são rejeitados. O assembly Runner continua sem referência a persistência.
 - Fundação F1: sete tabelas conceituais (Tenant, Organização, Projeto, usuário local, Inbox, Outbox, ledger) existem nos dois providers; migrations repetidas são no-op e FKs órfãs são rejeitadas.
 - Transação F1: contratos comuns provisionam Tenant→Projeto e gravam Inbox, ledger SHA-256 e Outbox atomicamente; 10 concorrentes resultam 1 aplicação/9 replays em ambos providers, conflito de hash e colisão Outbox não deixam efeitos.
-- Motor durável: `IDurableExecutionEngine` cobre lifecycle, sinal, timer, lease/fencing, heartbeat, checkpoint, retry, dead-letter, reconciliação e consulta; matriz de transições e backoff determinístico/capado estão verdes. Implementações relacionais ainda pendentes.
+- Motor durável: `IDurableExecutionEngine` cobre lifecycle, sinal, timer, lease/fencing, heartbeat, checkpoint, retry, dead-letter, reconciliação e consulta; matriz de transições e backoff determinístico/capado estão verdes. Nove tabelas duráveis existem nos dois providers com estados/FKs/índices equivalentes; implementação de comandos ainda pendente.
 - Pipeline: `tools/backend/verify.sh` verde após o contrato EP-05: restore locked, format, build Release com zero warnings/erros e 58/58 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, schema dual, transação F1, IPC relacional e contrato do motor durável verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até as implementações do motor e a recuperação F1 com auditoria completa.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, contrato e schema do motor durável verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até as implementações do motor e a recuperação F1 com auditoria completa.
 
 ## Sanidade antes de retomar
 

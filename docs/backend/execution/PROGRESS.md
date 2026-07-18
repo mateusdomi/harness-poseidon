@@ -41,4 +41,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Inbox/Outbox/ledger transacionais | verde | 10 comandos concorrentes = 1 aplicação/9 replays; conflito e rollback sem efeitos; ledger/outbox/inbox atômicos nos dois providers; `evidence/F1-TRANSACTIONAL-FOUNDATION.md` |
 | IPC sobre autoridade relacional | verde | comportamento comum dual-provider, Runner real, Host reiniciado, replay 3/3 sem duplicar Inbox/Outbox; gate 52/52; `evidence/F1-RUNNER-IPC-PERSISTENCE.md` |
 | Contrato do motor durável | verde | interface completa, matriz exaustiva de transições e backoff determinístico/capado; gate 58/58; `evidence/F1-DURABLE-ENGINE-CONTRACT.md` |
-| Persistência do motor e GNG-2 | em andamento | migrations e comportamento dual-provider são o próximo incremento |
+| Schema do motor durável | verde | nove tabelas em migrations próprias `SQLite 3→0` / `PostgreSQL 4→0`, constraints de provider validadas; `evidence/F1-DURABLE-ENGINE-SCHEMA.md` |
+| Comandos do motor e GNG-2 | em andamento | comportamento Start/Acquire/lease/checkpoint dual-provider é o próximo incremento |

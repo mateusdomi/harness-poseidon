@@ -19,12 +19,13 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(3, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(4, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
             new PostgresFoundationTransactionStore(dataSource),
             timeout.Token);
+        await ValidateDurableSchemaAsync(dataSource, timeout.Token);
         await RunnerMessageStoreBehavior.AssertAsync(
             new PostgresRunnerMessageStore(dataSource),
             "attempt-dual-postgres",
@@ -180,6 +181,57 @@ public sealed class PostgresSkipLockedPocTests
 
         await using var cleanupCommand = dataSource.CreateCommand("TRUNCATE TABLE harness.tenants CASCADE;");
         await cleanupCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task ValidateDurableSchemaAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        await using (var countCommand = dataSource.CreateCommand(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = 'harness'
+              AND table_name IN ('durable_executions', 'durable_attempts', 'durable_checkpoints',
+                                 'durable_timers', 'durable_signals', 'durable_transitions',
+                                 'durable_dead_letters', 'durable_command_inbox',
+                                 'durable_execution_outbox');
+            """))
+        {
+            Assert.Equal(9L, await countCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        await using (var insertCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.durable_executions
+                (id, tenant_id, project_id, state, payload_json, max_attempts,
+                 retry_initial_ms, retry_multiplier, retry_maximum_ms, available_at,
+                 created_at, updated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FB6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX', 'ready', '{}', 3,
+                 1000, 2.0, 30000, '2026-07-18T14:10:00Z',
+                 '2026-07-18T14:10:00Z', '2026-07-18T14:10:00Z');
+            """))
+        {
+            await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var invalidCommand = dataSource.CreateCommand(
+            """
+            INSERT INTO harness.durable_executions
+                (id, tenant_id, project_id, state, payload_json, max_attempts,
+                 retry_initial_ms, retry_multiplier, retry_maximum_ms, available_at,
+                 created_at, updated_at)
+            VALUES
+                ('01ARZ3NDEKTSV4RRFFQ69G5FB7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                 '01ARZ3NDEKTSV4RRFFQ69G5FAX', 'unknown', '{}', 3,
+                 1000, 2.0, 30000, '2026-07-18T14:10:00Z',
+                 '2026-07-18T14:10:00Z', '2026-07-18T14:10:00Z');
+            """);
+        var exception = await Assert.ThrowsAsync<PostgresException>(
+            () => invalidCommand.ExecuteNonQueryAsync(cancellationToken));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
     }
 
     private sealed class ManagedPostgresFixture : IAsyncDisposable

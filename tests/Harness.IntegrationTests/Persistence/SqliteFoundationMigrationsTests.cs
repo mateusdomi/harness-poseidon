@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(2, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(3, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -106,6 +106,27 @@ public sealed class SqliteFoundationMigrationsTests
                 },
                 timeout.Token);
             Assert.Equal(7, tableCount);
+
+            var durableTableCount = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT COUNT(*)
+                        FROM sqlite_master
+                        WHERE type = 'table'
+                          AND name IN ('durable_executions', 'durable_attempts', 'durable_checkpoints',
+                                       'durable_timers', 'durable_signals', 'durable_transitions',
+                                       'durable_dead_letters', 'durable_command_inbox',
+                                       'durable_execution_outbox');
+                        """;
+                    return Convert.ToInt32(
+                        await command.ExecuteScalarAsync(token),
+                        CultureInfo.InvariantCulture);
+                },
+                timeout.Token);
+            Assert.Equal(9, durableTableCount);
 
             await dispatcher.ExecuteAsync(
                 async (connection, token) =>
@@ -141,6 +162,48 @@ public sealed class SqliteFoundationMigrationsTests
                     },
                     timeout.Token));
             Assert.Equal(19, exception.SqliteErrorCode);
+
+            await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        INSERT INTO durable_executions
+                            (id, tenant_id, project_id, state, payload_json, max_attempts,
+                             retry_initial_ms, retry_multiplier, retry_maximum_ms, available_at,
+                             created_at, updated_at)
+                        VALUES
+                            ('01ARZ3NDEKTSV4RRFFQ69G5FB6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                             '01ARZ3NDEKTSV4RRFFQ69G5FAX', 'ready', '{}', 3,
+                             1000, '2.0', 30000, '2026-07-18T14:10:00.0000000+00:00',
+                             '2026-07-18T14:10:00.0000000+00:00', '2026-07-18T14:10:00.0000000+00:00');
+                        """;
+                    await command.ExecuteNonQueryAsync(token);
+                },
+                timeout.Token);
+
+            var invalidState = await Assert.ThrowsAsync<SqliteException>(() =>
+                dispatcher.ExecuteAsync(
+                    async (connection, token) =>
+                    {
+                        await using var command = connection.CreateCommand();
+                        command.CommandText =
+                            """
+                            INSERT INTO durable_executions
+                                (id, tenant_id, project_id, state, payload_json, max_attempts,
+                                 retry_initial_ms, retry_multiplier, retry_maximum_ms, available_at,
+                                 created_at, updated_at)
+                            VALUES
+                                ('01ARZ3NDEKTSV4RRFFQ69G5FB7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                                 '01ARZ3NDEKTSV4RRFFQ69G5FAX', 'unknown', '{}', 3,
+                                 1000, '2.0', 30000, '2026-07-18T14:10:00.0000000+00:00',
+                                 '2026-07-18T14:10:00.0000000+00:00', '2026-07-18T14:10:00.0000000+00:00');
+                            """;
+                        await command.ExecuteNonQueryAsync(token);
+                    },
+                    timeout.Token));
+            Assert.Equal(19, invalidState.SqliteErrorCode);
         }
         finally
         {
