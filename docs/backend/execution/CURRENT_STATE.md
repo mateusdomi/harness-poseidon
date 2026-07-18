@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T12:59:44Z
+Atualizado em: 2026-07-18T13:18:20Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-03 — PostgreSQL e PoC-8; PoCs 1–7 validadas.
+- Épico atual: EP-07/EP-04 — IPC Host–Runner e PoC-9; PoCs 1–8 validadas.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `9d33117` (`develop`); a fatia PoC-7 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: reinventariar Docker, criar PostgreSQL gerenciado com porta host dinâmica e migrations próprias, e provar concorrência `FOR UPDATE SKIP LOCKED`/mesmas invariantes da PoC-8 antes do cleanup label-guarded.
+- Último commit remoto validado: `d2c0faa` (`develop`); a fatia PoC-8 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: definir contratos tipados Runner→Host (`runnerId`, `attemptId`, `sequence`, `idempotencyKey`), autenticar token efêmero em loopback e provar heartbeat/checkpoint/conclusão, replay idempotente e rejeição/reconciliação fora de sequência na PoC-9 sem acesso do Runner ao banco.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -20,8 +20,8 @@ Atualizado em: 2026-07-18T12:59:44Z
 
 ## Estado persistido e operacional
 
-- Banco de dados: nenhum persistente no workspace; bancos temporários das PoCs 1–3 foram removidos com WAL/SHM após os testes.
-- Migrations SQLite/PostgreSQL: inexistentes; 28 lockfiles NuGet foram materializados, um por projeto.
+- Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
+- Migrations: PostgreSQL possui migration própria embarcada `0001_poc_work_queue.sql`, idempotente e registrada sob advisory lock; SQLite de produção ainda não possui migration. Há 28 lockfiles NuGet, um por projeto.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -36,9 +36,10 @@ Atualizado em: 2026-07-18T12:59:44Z
 - Git/claims: três fixtures criaram duas branches/worktrees de tentativa; claims disjuntos executaram em paralelo e claim ancestral bloqueou conflito; refs/worktrees oficiais ficaram idênticas antes/depois.
 - Sandbox: Docker provider validou CPU 0,5, memória 64 MiB, 64 PIDs, disk limit 8 MiB, worktree montada, proxy-only egress, rootfs read-only e cleanup label-guarded em seis execuções verdes.
 - Realtime: hub `/hubs/events`, sequência por stream, catálogo tipado, endpoint snapshot+delta e OpenAPI determinístico; lacuna 3–5 recuperada e live retomado em 6.
-- Pipeline: `tools/backend/verify.sh` verde após a PoC-7: restore locked, format, build Release com zero warnings/erros e 46/46 testes verdes; integração SignalR também ficou verde em seis execuções isoladas.
+- PostgreSQL: Npgsql/EF provider 10.0.3; 80 itens adquiridos uma vez por 12 workers, linha bloqueada pulada sem espera, token antigo rejeitado após lease expirada e migrations `1` depois `0`; imagem final Alpine/PostgreSQL 18.4 passou Scout com 0 crítica/alta/média e residual 2 baixas + 1 não classificada sem correção disponível.
+- Pipeline: `tools/backend/verify.sh` verde após a PoC-8: restore locked, format, build Release com zero warnings/erros e 47/47 testes verdes; teste PostgreSQL final também ficou verde em seis execuções isoladas.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–7 verdes e catalogadas; PoCs 8–9 pendentes e GNG-1 permanece fechado (7/9).
+- Evidências: PoCs 1–8 verdes e catalogadas; PoC-9 pendente e GNG-1 permanece fechado (8/9).
 
 ## Sanidade antes de retomar
 

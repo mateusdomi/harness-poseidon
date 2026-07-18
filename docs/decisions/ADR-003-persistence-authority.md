@@ -10,3 +10,7 @@ SQLite atende o modo pessoal e PostgreSQL o modo servidor, com migrations, SQL, 
 ## Consequências
 
 Modelo conceitual e invariantes são comuns, mas nenhuma query específica de provider é presumida portável. Concorrência usa `version` crescente gerenciada pela aplicação.
+
+Na PoC-8, migrations PostgreSQL são recursos SQL embarcados e registrados em `harness_poc.schema_migrations` sob advisory lock transacional. A aquisição concorrente usa uma CTE com `FOR UPDATE SKIP LOCKED`; lease expirada pode ser readquirida com `lease_token` e `version` crescentes, e qualquer conclusão com token anterior é rejeitada pelo predicado transacional. Esse SQL permanece exclusivo do provider PostgreSQL e não é reutilizado pelo SQLite.
+
+O PostgreSQL de integração publica porta dinâmica apenas em `127.0.0.1`, usa senha aleatória por arquivo efêmero, SCRAM-SHA-256, limites de CPU/memória/PIDs e recursos Docker com prefixo/label. A bridge gerenciada não é `--internal`, pois Docker Desktop 29.5.2 descartou o port binding nessa combinação; o banco não inicia conexões externas e a exposição host continua restrita ao loopback. Sandboxes de agentes preservam a topologia proxy/default-deny da ADR-011.

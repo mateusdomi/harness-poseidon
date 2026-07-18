@@ -37,6 +37,16 @@ A imagem final da PoC foi construída de `python:3.13-alpine`, sempre taggeada `
 
 Na PoC-7 foram adicionados `Microsoft.AspNetCore.SignalR.Client 10.0.10` (cliente de integração) e `Microsoft.AspNetCore.OpenApi 10.0.10` (geração canônica). O audit rejeitou a dependência transitiva vulnerável `Microsoft.OpenApi 2.0.0`; `Microsoft.OpenApi 2.7.5` foi pinado por central transitive pinning por ser a primeira versão 2.x corrigida para GHSA-v5pm-xwqc-g5wc. Nenhum warning de audit foi suprimido.
 
+## Re-inventário Docker antes da PoC-8
+
+Capturado em 2026-07-18T13:01:18Z, antes de criar PostgreSQL: contexto `desktop-linux`, 11 containers parados, 14 volumes e 7 networks, todos preexistentes e sem `com.harness.managed=true`; nenhum recurso Harness estava presente. As portas TCP em escuta eram `5000`, `7000`, `50942`, `59869`, `127.0.0.1:53517`, `127.0.0.1:53518` e `[::1]:5173`. A PoC-8 deve publicar PostgreSQL somente em loopback e porta dinâmica, sem reutilizar nenhuma dessas portas.
+
+A listagem de imagens com uma expressão de label não suportada pela versão atual do formatter terminou com erro antes de imprimir a relação. Foi uma consulta somente leitura; nenhuma imagem ou outro recurso foi alterado. A contagem previamente validada continua sendo 9 imagens preexistentes, e qualquer imagem criada pela PoC será identificada por prefixo e label antes do cleanup.
+
+A PoC-8 adicionou Npgsql e `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, compatíveis com .NET 10 e verificados pelo audit NuGet sem warnings. O container executou PostgreSQL 18.4 dos pacotes Alpine 3.24 em imagem própria `harness-postgres-poc8:*`, com 0,5 CPU, 256 MiB, 128 PIDs, volume/rede/container/imagem labelados e porta efêmera somente em `127.0.0.1`. O secret foi montado por arquivo `0600`, copiado para tmpfs/runtime com ownership `postgres` e nunca enviado a logs ou variáveis com o valor.
+
+O Docker Scout 1.20.4 encontrou uma vulnerabilidade crítica (`CVE-2025-68121`, stdlib Go do `gosu`) na imagem oficial `postgres:18.4-alpine3.24`. A base foi rejeitada. A imagem final passou a usar `alpine:3.24` + pacotes `postgresql18`, `postgresql18-contrib` e `su-exec`; o scan completo do digest local `11ef52b98c8d` indexou 52 pacotes e reportou `0C/0H/0M/2L/1?`. As duas baixas e a não classificada pertencem a `libxml2 2.13.9-r2` e ainda não têm versão corrigida no Alpine; ficam monitoradas. Após seis execuções da versão final e o pipeline completo, as contagens retornaram a 11 containers, 14 volumes, 7 networks e 9 imagens; filtros `com.harness.managed=true` ficaram vazios.
+
 ## Inventário Docker preexistente
 
 Contexto: `desktop-linux`. Foram encontrados 11 containers, todos parados, 14 volumes e 7 networks. Nenhum possui a label `com.harness.managed=true`; portanto, são propriedade de outros projetos e são intocáveis.

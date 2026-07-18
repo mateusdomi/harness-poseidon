@@ -28,8 +28,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 8. PoC-5: Git fixtures, branches/worktrees e claims — verde em 2026-07-18.
 9. PoC-6: sandbox Docker com limites, proxy/egress e cleanup — verde em 2026-07-18.
 10. PoC-7: SignalR com sequência e re-sync — verde em 2026-07-18.
-11. PoC-8: PostgreSQL gerenciado e `SKIP LOCKED` — próximo incremento.
-12. PoC-9: IPC loopback autenticado e idempotente.
+11. PoC-8: PostgreSQL gerenciado e `SKIP LOCKED` — verde em 2026-07-18.
+12. PoC-9: IPC loopback autenticado e idempotente — próximo incremento.
 13. Executar suíte completa, catalogar evidências e avaliar GNG-1.
 
 ## Backlog épico
