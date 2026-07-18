@@ -7,6 +7,35 @@ namespace Harness.IntegrationTests.Persistence;
 public sealed class SqliteFoundationMigrationsTests
 {
     [Fact]
+    public async Task FoundationTransactionIsAtomicIdempotentAndAudited()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "poc-artifacts",
+            "f1-foundation-transaction-sqlite",
+            Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
+        Directory.CreateDirectory(artifactRoot);
+        try
+        {
+            await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(
+                Path.Combine(artifactRoot, "foundation.db"),
+                timeout.Token);
+            await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
+            await FoundationTransactionBehavior.AssertAsync(
+                new SqliteFoundationTransactionStore(dispatcher),
+                timeout.Token);
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task FoundationMigrationIsIdempotentAndEnforcesTenantRelationships()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));

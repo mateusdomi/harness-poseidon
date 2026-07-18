@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using Harness.Modules.Execution.Infrastructure.Sandbox;
+using Harness.IntegrationTests.Persistence;
 using Harness.Persistence.Postgres;
 using Npgsql;
 
@@ -21,6 +22,9 @@ public sealed class PostgresSkipLockedPocTests
         Assert.Equal(2, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
+        await FoundationTransactionBehavior.AssertAsync(
+            new PostgresFoundationTransactionStore(dataSource),
+            timeout.Token);
 
         var createdAt = DateTimeOffset.Parse(
             "2026-07-18T13:00:00Z",
@@ -169,6 +173,9 @@ public sealed class PostgresSkipLockedPocTests
         var exception = await Assert.ThrowsAsync<PostgresException>(
             () => invalidCommand.ExecuteNonQueryAsync(cancellationToken));
         Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, exception.SqlState);
+
+        await using var cleanupCommand = dataSource.CreateCommand("TRUNCATE TABLE harness.tenants CASCADE;");
+        await cleanupCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private sealed class ManagedPostgresFixture : IAsyncDisposable

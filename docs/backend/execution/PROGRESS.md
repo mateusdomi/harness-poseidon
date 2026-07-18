@@ -38,5 +38,6 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Incremento | Estado | Última evidência |
 |---|---|---|
 | Esquema relacional dual-provider | verde | migrations próprias SQLite/PostgreSQL `1→0` e `2→0`; sete tabelas conceituais, FKs e índices; gate 50/50; `evidence/F1-FOUNDATION-SCHEMA.md` |
-| Inbox/Outbox/ledger transacionais | em andamento | esquema materializado; application services e comportamento dual ainda pendentes |
+| Inbox/Outbox/ledger transacionais | verde | 10 comandos concorrentes = 1 aplicação/9 replays; conflito e rollback sem efeitos; ledger/outbox/inbox atômicos nos dois providers; `evidence/F1-TRANSACTIONAL-FOUNDATION.md` |
+| IPC sobre autoridade relacional | próximo | store in-memory da PoC-9 ainda será substituído pelo contrato persistente |
 | Motor durável e GNG-2 | pendente | — |

@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T13:37:34Z
+Atualizado em: 2026-07-18T13:49:28Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-04 — processamento transacional de Inbox/Outbox e ledger; esquema EP-03 verde.
+- Épico atual: EP-04/EP-07 — integrar IPC à autoridade relacional; transação de fundação EP-04 verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `ac76408` (`develop`); a fatia de schema F1 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: criar contratos de comando/receipt em Persistence.Abstractions e implementar uma transação idempotente comum que grava Inbox, mutação de estado, ledger hash-encadeado e Outbox nos dois providers; testar replay/conflito/rollback antes de mover o store IPC in-memory.
+- Último commit remoto validado: `785a292` (`develop`); a fatia transacional F1 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: adicionar tabelas/contrato persistente de tentativa Runner, adaptar `RunnerIpcMessageProcessor` para uma application service assíncrona sobre SQLite/PostgreSQL e repetir a PoC-9 contra restart do Host, preservando sequência, Inbox e Outbox.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -39,9 +39,10 @@ Atualizado em: 2026-07-18T13:37:34Z
 - PostgreSQL: Npgsql/EF provider 10.0.3; 80 itens adquiridos uma vez por 12 workers, linha bloqueada pulada sem espera, token antigo rejeitado após lease expirada e migrations `1` depois `0`; imagem final Alpine/PostgreSQL 18.4 passou Scout com 0 crítica/alta/média e residual 2 baixas + 1 não classificada sem correção disponível.
 - IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; replay integral não duplica, gap/token inválido não criam estado e assembly Runner não referencia banco. Store da PoC é in-memory e será persistido na primeira fatia F1.
 - Fundação F1: sete tabelas conceituais (Tenant, Organização, Projeto, usuário local, Inbox, Outbox, ledger) existem nos dois providers; migrations repetidas são no-op e FKs órfãs são rejeitadas.
-- Pipeline: `tools/backend/verify.sh` verde após o schema F1: restore locked, format, build Release com zero warnings/erros e 50/50 testes verdes.
+- Transação F1: contratos comuns provisionam Tenant→Projeto e gravam Inbox, ledger SHA-256 e Outbox atomicamente; 10 concorrentes resultam 1 aplicação/9 replays em ambos providers, conflito de hash e colisão Outbox não deixam efeitos.
+- Pipeline: `tools/backend/verify.sh` verde após a transação F1: restore locked, format, build Release com zero warnings/erros e 51/51 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9 e schema dual F1 verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até a recuperação F1 com auditoria completa.
+- Evidências: PoCs 1–9, schema dual e transação F1 verdes/catalogados; GNG-1 verde. GNG-2 permanece fechado até a recuperação F1 com auditoria completa.
 
 ## Sanidade antes de retomar
 
