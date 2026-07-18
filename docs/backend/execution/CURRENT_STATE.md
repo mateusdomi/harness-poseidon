@@ -5,10 +5,10 @@ Atualizado em: 2026-07-19T02:20:00Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-OPS-1 — backup/restore e diagnóstico local; licenças/entitlements estão verdes.
+- Épico atual: F2-FE-1 — integração e build do frontend preservado; backup/restore/diagnóstico estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `c831161` (`develop`), contendo F2-LIC-1 verde com 166/166 testes.
-- Próximo passo exato: implementar `POST /backups`, restore identificado e `GET /diagnostics`, com operações locais seguras, auditoria e contratos FE-3.
+- Último commit remoto validado: `b1edd80` (`develop`), contendo F2-OPS-1 verde com 168/168 testes.
+- Próximo passo exato: executar o build reproduzível existente em `frontend/`, integrar seus assets ao `Harness.Host` sem editar a árvore protegida e preparar smoke/E2E contra a API real.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -92,10 +92,11 @@ Atualizado em: 2026-07-19T02:20:00Z
 - F2 run targets: detector read-only e limitado encontra projetos .NET e Node sob o diretório autorizado. O supervisor inicia processos reais sem shell, captura stdout/stderr, mata somente árvores gerenciadas e implementa start/stop/restart/cleanup. Estado e identidade sobrevivem restart; processos órfãos são reconciliados para `unknown`; logs seguem o stream do projeto e auditoria o stream global.
 - F2 análise de solicitação: `POST /solicitations/analyze` valida texto e nomes de anexos sem aceitar paths, cria uma solicitação `request` imutável e devolve requisitos, ambiguidades, contradições, perguntas e critérios de aceite com IDs canônicos. A extração local é determinística e não usa rede/cota; a solicitação sobrevive restart.
 - F2 licenciamento: uma licença por tenant/dispositivo nasce `unlicensed`; ativação de chave formatada armazena somente SHA-256, mascara o valor na auditoria, concede cinco entitlements e define validade anual+grace. Estado público é derivado como active/offline/gracePeriod/expired; expiração simulada não bloqueou leitura de projeto nem entitlements após restart.
+- F2 operações locais: backup usa a API online do SQLite dentro do dispatcher e copia o catálogo sem seguir symlinks para uma raiz confinada por ULID. Restore mantém cópias de rollback do banco e catálogo, reaplica auditoria global e foi comprovado removendo estado criado após o snapshot. Diagnóstico retorna metadados do produto, `quick_check`, catálogo, backups e realtime.
 - Migrations: SQLite `26→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-LIC-1: restore locked, format, build Release com zero warnings/erros e 166/166 testes verdes (`Unit 93`, `Integration 33`, `Contract 27`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- Pipeline: `tools/backend/verify.sh` verde após F2-OPS-1: restore locked, format, build Release com zero warnings/erros e 168/168 testes verdes (`Unit 93`, `Integration 34`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança, prototipação, run targets, análise de solicitação e licenciamento F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é backup/diagnóstico.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança, prototipação, run targets, análise de solicitação, licenciamento e operações locais F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é integração frontend.
 
 ## Sanidade antes de retomar
 
