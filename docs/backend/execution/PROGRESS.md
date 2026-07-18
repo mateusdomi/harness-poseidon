@@ -88,4 +88,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-WF-1a catálogo/run | verde | template/versão, vínculo+aceite, run iniciado, fases/gates, migration 0014, restart, OpenAPI/drift e evento de publicação canônico; gate 129/129; `evidence/F2-WORKFLOW-CATALOG.md` |
 | F2-WF-1b comandos/lifecycle | verde | publicação vN imutável, troca de modo+aceite, pausa/retomada, objetivos, gate fail/pass, conclusão, streams global/projeto e restart; gate 131/131; `evidence/F2-WORKFLOW-COMMANDS.md` |
 | F2-DOC-1a catálogo/versões | verde | documentos e versões exatos, corpo imutável no filesystem catalogado por SHA-256, restart, OpenAPI/drift; gate 134/134; `evidence/F2-DOCUMENT-CATALOG.md` |
-| F2-DOC-1b lifecycle/aprovações | próximo | classificação, estados e central de aprovações sobre a autoridade F1 |
+| F2-DOC-1b lifecycle/aprovação documental | verde | classificação, estados, request/reject/approve, nota obrigatória, eventos duplos e restart; gate 134/134; `evidence/F2-DOCUMENT-LIFECYCLE.md` |
+| F2-APP-1 central unificada | próximo | aprovações de gate, tarefa e decisão humana além das documentais |
