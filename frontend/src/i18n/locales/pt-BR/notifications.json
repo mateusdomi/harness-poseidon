@@ -1,0 +1,43 @@
+{
+  "notifications": {
+    "center": {
+      "label": "Central de notificações",
+      "count": "{{count}} notificação(ões)"
+    },
+    "filters": {
+      "status": "Status",
+      "category": "Categoria",
+      "statusAll": "Todas",
+      "statusUnread": "Não lidas",
+      "statusMuted": "Silenciadas",
+      "allCategories": "Todas as categorias"
+    },
+    "item": {
+      "openLink": "Abrir contexto",
+      "markRead": "Marcar como lida",
+      "mute": "Silenciar",
+      "receivedAt": "Recebida {{when}}"
+    },
+    "group": {
+      "dedupe": "{{count}} ocorrências",
+      "dedupe_one": "{{count}} ocorrência",
+      "showItems": "Ver itens do grupo",
+      "hideItems": "Ocultar itens do grupo",
+      "markRead": "Marcar grupo como lido",
+      "mute": "Silenciar grupo"
+    },
+    "actions": {
+      "markAllRead": "Marcar todas como lidas"
+    },
+    "empty": {
+      "title": "Nenhuma notificação",
+      "body": "Quando algo precisar da sua atenção, aparecerá aqui."
+    },
+    "prefs": {
+      "title": "Preferências de notificação",
+      "enabled": "Notificações ativadas",
+      "categoriesLabel": "Silenciar por categoria",
+      "categoriesHint": "Novas notificações de categorias silenciadas aparecem como silenciadas."
+    }
+  }
+}

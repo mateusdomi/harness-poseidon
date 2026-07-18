@@ -1,0 +1,56 @@
+{
+  "agents": {
+    "count": "{{count}} agente(s) na equipe",
+    "groups": {
+      "chief": "Chefe",
+      "specialists": "Especialistas"
+    },
+    "tree": {
+      "label": "Organograma da equipe do projeto"
+    },
+    "noProject": {
+      "body": "Selecione ou crie um projeto para ver a equipe de agentes.",
+      "cta": "Ver projetos"
+    },
+    "empty": {
+      "title": "Nenhum agente alocado",
+      "body": "Este projeto ainda não tem agentes alocados. Fale com o chefe no chat para montar a equipe."
+    },
+    "card": {
+      "capabilities": "Capacidades",
+      "details": "Ver detalhes"
+    },
+    "metrics": {
+      "tasksCompleted": {
+        "label": "Tarefas concluídas",
+        "help": "Total acumulado de tarefas concluídas pelo agente (metrics.tasksCompleted)."
+      },
+      "approvedInReview": {
+        "label": "Aprovadas em revisão",
+        "help": "Tarefas atribuídas ao agente que estão atualmente na coluna Concluído."
+      },
+      "rework": {
+        "label": "Retrabalho",
+        "help": "Tarefas do agente na coluna Correções somadas às tentativas (attempts) com falha."
+      }
+    },
+    "detail": {
+      "description": "Descrição",
+      "lastHeartbeat": "Último heartbeat {{time}}",
+      "heartbeatNever": "Sem heartbeat registrado",
+      "skills": "Skills",
+      "skillsEmpty": "Nenhuma skill associada à definição.",
+      "tools": "Ferramentas permitidas",
+      "toolsEmpty": "Nenhuma ferramenta permitida na definição.",
+      "models": "Modelos compatíveis",
+      "modelsEmpty": "Nenhum modelo habilitado.",
+      "modelDefault": "Padrão",
+      "modelOverride": "Em uso (override)",
+      "modelContext": "Contexto de {{total}} tokens",
+      "history": "Histórico recente",
+      "historyEmpty": "Nenhum evento de auditoria ou tentativa recente.",
+      "attempt": "Tentativa nº {{number}}",
+      "version": "v{{version}}"
+    }
+  }
+}

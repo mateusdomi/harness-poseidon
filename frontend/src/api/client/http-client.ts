@@ -1,15 +1,19 @@
 import {
   ApiError,
   problemDetailsSchema,
+  type Agent,
   type AppendTaskInstructionInput,
   type ChatTurnHandle,
   type ClassifyDocumentInput,
   type CreatableResource,
   type CreateInputMap,
+  type DrainChiefTasksInput,
+  type HandoffChiefInput,
   type ListQuery,
   type MoveTaskInput,
   type Page,
   type Profile,
+  type Project,
   type PublishWorkflowVersionInput,
   type RemovableResource,
   type ResolveApprovalInput,
@@ -141,6 +145,22 @@ export class HttpApiClient implements ApiClient {
 
   startChatTurn(conversationId: Ulid, input: StartChatTurnInput): Promise<ChatTurnHandle> {
     return this.#request('POST', `/conversations/${conversationId}/turns`, input);
+  }
+
+  pauseChief(projectId: Ulid): Promise<Project> {
+    return this.#request('POST', `/projects/${projectId}/chief/pause`);
+  }
+
+  resumeChief(projectId: Ulid): Promise<Project> {
+    return this.#request('POST', `/projects/${projectId}/chief/resume`);
+  }
+
+  handoffChief(projectId: Ulid, input: HandoffChiefInput): Promise<Agent> {
+    return this.#request('POST', `/projects/${projectId}/chief/handoff`, input);
+  }
+
+  drainChiefTasks(projectId: Ulid, input: DrainChiefTasksInput): Promise<number> {
+    return this.#request('POST', `/projects/${projectId}/chief/drain`, input);
   }
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {

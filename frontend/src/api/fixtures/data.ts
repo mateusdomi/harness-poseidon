@@ -429,6 +429,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Chefe — Poseidon Frontend',
     state: 'waiting',
     currentTaskId: null,
+    modelId: null,
+    lease: { fencingToken: 3, expiresAt: tick() },
     metrics: metrics(),
     lastHeartbeatAt: tick(),
   };
@@ -439,6 +441,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Chefe — API de Pagamentos',
     state: 'idle',
     currentTaskId: null,
+    modelId: null,
+    lease: { fencingToken: 1, expiresAt: tick() },
     metrics: metrics(),
     lastHeartbeatAt: tick(),
   };
@@ -449,6 +453,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Iara (Backend)',
     state: 'working',
     currentTaskId: null, // preenchido após criar as tarefas
+    modelId: null,
+    lease: null,
     metrics: metrics(),
     lastHeartbeatAt: tick(),
   };
@@ -459,6 +465,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Otávio (Frontend)',
     state: 'idle',
     currentTaskId: null,
+    modelId: null,
+    lease: null,
     metrics: metrics(),
     lastHeartbeatAt: tick(),
   };
@@ -469,6 +477,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Rui (Revisor)',
     state: 'waiting',
     currentTaskId: null,
+    modelId: null,
+    lease: null,
     metrics: metrics(),
     lastHeartbeatAt: tick(),
   };
@@ -479,6 +489,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Lia (Testes)',
     state: 'error',
     currentTaskId: null,
+    modelId: null,
+    lease: null,
     metrics: metrics(),
     lastHeartbeatAt: tick(),
   };
@@ -489,6 +501,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Nina (Protótipos)',
     state: 'outOfQuota',
     currentTaskId: null,
+    modelId: null,
+    lease: null,
     metrics: metrics(),
     lastHeartbeatAt: tick(),
   };
@@ -993,7 +1007,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     ['# PRD\n\nVisão do console web do Harness Poseidon.', '# PRD v2\n\nInclui cockpit e quadro.'],
   );
   const docSpecApi = addDocument(
-    { title: 'Spec da API v1', kind: 'spec', state: 'inReview', classifications: ['arquitetura'], phaseName: 'Planejamento' },
+    { title: 'Spec da API v1', kind: 'spec', state: 'awaitingApproval', classifications: ['arquitetura'], phaseName: 'Planejamento' },
     ['# Spec API v1\n\nContratos REST e eventos realtime.'],
   );
   addDocument(

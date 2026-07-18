@@ -1,0 +1,55 @@
+{
+  "governance": {
+    "title": "Governança e auditoria",
+    "timeline": {
+      "label": "Linha do tempo de auditoria",
+      "count": "{{count}} evento(s)"
+    },
+    "empty": {
+      "title": "Nenhum evento encontrado",
+      "body": "Ajuste a busca ou os filtros para ver eventos da trilha de auditoria."
+    },
+    "filters": {
+      "search": "Buscar",
+      "searchPlaceholder": "Buscar por ação ou detalhe",
+      "actorKind": "Tipo de ator",
+      "actor": "Ator",
+      "project": "Projeto",
+      "task": "Tarefa",
+      "attempt": "Tentativa",
+      "model": "Modelo",
+      "tool": "Ferramenta",
+      "dateFrom": "De",
+      "dateTo": "Até",
+      "all": "Todos",
+      "allFem": "Todas",
+      "profilesGroup": "Perfis",
+      "agentsGroup": "Agentes",
+      "attemptOption": "Tentativa #{{number}} — {{task}}"
+    },
+    "event": {
+      "expand": "Ver detalhes e correlação",
+      "collapse": "Ocultar detalhes",
+      "detail": "Detalhe",
+      "noDetail": "Sem detalhe registrado.",
+      "unknownTarget": "Alvo não identificado"
+    },
+    "correlation": {
+      "title": "Correlação",
+      "attempt": "Tentativa",
+      "attemptValue": "#{{number}}",
+      "approval": "Aprovação",
+      "task": "Tarefa",
+      "state": "Estado",
+      "cost": "Custo",
+      "tokens": "Tokens (entrada/saída)",
+      "duration": "Duração",
+      "resolution": "Resolução",
+      "resolvedAt": "Resolvida em"
+    },
+    "export": {
+      "json": "Exportar JSON",
+      "csv": "Exportar CSV"
+    }
+  }
+}

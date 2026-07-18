@@ -1,13 +1,17 @@
 import type {
+  Agent,
   AppendTaskInstructionInput,
   ChatTurnHandle,
   ClassifyDocumentInput,
   CreatableResource,
   CreateInputMap,
+  DrainChiefTasksInput,
+  HandoffChiefInput,
   ListQuery,
   MoveTaskInput,
   Page,
   Profile,
+  Project,
   PublishWorkflowVersionInput,
   RemovableResource,
   ResolveApprovalInput,
@@ -97,4 +101,24 @@ export interface ApiClient {
    * `chat.turnStarted` → `chat.turnChunk`* → `chat.turnCompleted` + `message.appended`.
    */
   startChatTurn(conversationId: Ulid, input: StartChatTurnInput): Promise<ChatTurnHandle>;
+
+  /**
+   * Pausa a orquestração do chefe (projeto → `paused`, chefe → `waiting`)
+   * → emite `agent.statusChanged` + `audit.eventAppended`.
+   */
+  pauseChief(projectId: Ulid): Promise<Project>;
+  /** Retoma a orquestração (projeto → `active`, chefe → `idle`). */
+  resumeChief(projectId: Ulid): Promise<Project>;
+  /**
+   * Passagem de bastão: nova instância assume a orquestração (opcionalmente
+   * com outra definição/modelo), fencing token incrementado → emite
+   * `agent.statusChanged` (antigo e novo) + `audit.eventAppended`.
+   */
+  handoffChief(projectId: Ulid, input: HandoffChiefInput): Promise<Agent>;
+  /**
+   * Drena as tarefas em andamento do projeto (volta para `ready`,
+   * attempts running → `cancelled`, agentes → `idle`). Retorna quantas
+   * tarefas foram drenadas.
+   */
+  drainChiefTasks(projectId: Ulid, input: DrainChiefTasksInput): Promise<number>;
 }

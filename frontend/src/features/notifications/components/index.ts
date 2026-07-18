@@ -1,1 +1,3 @@
-// Componentes da feature "notifications" — implementados em fatias futuras.
+export { NotificationItem } from './notification-item';
+export { NotificationGroup } from './notification-group';
+export { NotificationPreferences } from './notification-preferences';

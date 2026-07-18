@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { documentStateSchema, operationModeSchema, prioritySchema, solicitationStateSchema, taskStateSchema } from './enums';
 import { workflowPhaseConfigSchema } from './delivery';
+import { ulidSchema } from './primitives';
 
 /**
  * Comandos de domínio (POSTs fora do CRUD) — espelhados no backend.
@@ -99,3 +100,21 @@ export const chatTurnHandleSchema = z.object({
   conversationId: z.string(),
 });
 export type ChatTurnHandle = z.infer<typeof chatTurnHandleSchema>;
+
+/**
+ * Passagem de bastão do chefe (handoff): outra instância assume a
+ * orquestração do projeto, opcionalmente com outra definição/modelo.
+ * `note` (motivo) é obrigatória — vira registro de auditoria.
+ */
+export const handoffChiefInputSchema = z.object({
+  targetDefinitionId: ulidSchema.nullable().optional(),
+  targetModelId: ulidSchema.nullable().optional(),
+  note: z.string().min(1),
+});
+export type HandoffChiefInput = z.infer<typeof handoffChiefInputSchema>;
+
+/** Drenar tarefas do projeto: devolve tarefas em andamento para `ready`. */
+export const drainChiefTasksInputSchema = z.object({
+  note: z.string().optional(),
+});
+export type DrainChiefTasksInput = z.infer<typeof drainChiefTasksInputSchema>;

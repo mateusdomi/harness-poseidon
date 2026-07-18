@@ -1,1 +1,1 @@
-// Hooks da feature "agents" — implementados em fatias futuras.
+export { agentKeys, useAgentsData, useAgentsRealtime } from './use-agents';

@@ -1,0 +1,86 @@
+{
+  "orchestrator": {
+    "chief": {
+      "title": "Project chief",
+      "turnState": "Turn state",
+      "health": "Health",
+      "operationMode": "Operation mode",
+      "model": "Model in use",
+      "noModel": "No model set",
+      "account": "Account in use",
+      "noAccount": "No account for the provider",
+      "quota": "Quota",
+      "quotaUsage": "{{used}} of {{limit}}",
+      "noBudget": "No limit configured",
+      "lastActivity": "Last activity {{time}}",
+      "diagnostics": {
+        "toggle": "Advanced diagnostics",
+        "fencingToken": "Fencing token",
+        "leaseExpiresAt": "Lease expires at",
+        "noLease": "No active lease"
+      }
+    },
+    "health": {
+      "ok": "Healthy",
+      "attention": "Attention",
+      "error": "Error"
+    },
+    "agents": {
+      "title": "Project agents",
+      "empty": "No agents allocated to this project.",
+      "currentTask": "Current task",
+      "noTask": "No current task",
+      "runningFor": "Running for {{duration}}",
+      "attempts_one": "{{count}} attempt",
+      "attempts_other": "{{count}} attempts",
+      "cost": "Accumulated cost",
+      "open": "Open",
+      "noAttempts": "No attempts"
+    },
+    "attempt": {
+      "title": "Attempt #{{number}}",
+      "timeline": "Timeline",
+      "log": "Structured log",
+      "filterKind": "Event type",
+      "allKinds": "All types",
+      "searchLabel": "Search the log",
+      "searchPlaceholder": "Filter by text…",
+      "empty": "No events recorded for this attempt.",
+      "noResults": "No events match the filters."
+    },
+    "actions": {
+      "pause": "Pause",
+      "resume": "Resume",
+      "drain": "Drain tasks",
+      "handoff": "Hand off"
+    },
+    "drain": {
+      "title": "Drain tasks",
+      "description": "In-progress tasks return to the Ready column, running attempts are cancelled and agents become idle.",
+      "noteLabel": "Note (optional)",
+      "confirm": "Drain tasks",
+      "success_one": "{{count}} task drained.",
+      "success_other": "{{count}} tasks drained."
+    },
+    "handoff": {
+      "title": "Chief handoff",
+      "stepChoice": "Step 1 of 2 — choose the new chief",
+      "stepConfirm": "Step 2 of 2 — confirmation",
+      "modelLabel": "New chief's model",
+      "keepCurrentModel": "Keep current model",
+      "reasonLabel": "Reason",
+      "reasonRequired": "Enter the reason for the handoff.",
+      "summaryModel": "Model",
+      "summaryReason": "Reason",
+      "confirm": "Confirm chief handoff"
+    },
+    "mutation": {
+      "error": "The action could not be completed. Try again."
+    },
+    "empty": {
+      "title": "No project selected",
+      "body": "Select a project to follow the orchestration.",
+      "cta": "View projects"
+    }
+  }
+}

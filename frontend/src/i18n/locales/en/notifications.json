@@ -1,0 +1,43 @@
+{
+  "notifications": {
+    "center": {
+      "label": "Notification center",
+      "count": "{{count}} notification(s)"
+    },
+    "filters": {
+      "status": "Status",
+      "category": "Category",
+      "statusAll": "All",
+      "statusUnread": "Unread",
+      "statusMuted": "Muted",
+      "allCategories": "All categories"
+    },
+    "item": {
+      "openLink": "Open context",
+      "markRead": "Mark as read",
+      "mute": "Mute",
+      "receivedAt": "Received {{when}}"
+    },
+    "group": {
+      "dedupe": "{{count}} occurrences",
+      "dedupe_one": "{{count}} occurrence",
+      "showItems": "Show group items",
+      "hideItems": "Hide group items",
+      "markRead": "Mark group as read",
+      "mute": "Mute group"
+    },
+    "actions": {
+      "markAllRead": "Mark all as read"
+    },
+    "empty": {
+      "title": "No notifications",
+      "body": "When something needs your attention, it will show up here."
+    },
+    "prefs": {
+      "title": "Notification preferences",
+      "enabled": "Notifications enabled",
+      "categoriesLabel": "Mute by category",
+      "categoriesHint": "New notifications from muted categories are shown as muted."
+    }
+  }
+}

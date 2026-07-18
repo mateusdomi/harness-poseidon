@@ -1,0 +1,56 @@
+{
+  "agents": {
+    "count": "{{count}} agent(s) on the team",
+    "groups": {
+      "chief": "Chief",
+      "specialists": "Specialists"
+    },
+    "tree": {
+      "label": "Project team org chart"
+    },
+    "noProject": {
+      "body": "Select or create a project to see the agent team.",
+      "cta": "View projects"
+    },
+    "empty": {
+      "title": "No agents allocated",
+      "body": "This project has no agents allocated yet. Talk to the chief in the chat to build the team."
+    },
+    "card": {
+      "capabilities": "Capabilities",
+      "details": "View details"
+    },
+    "metrics": {
+      "tasksCompleted": {
+        "label": "Tasks completed",
+        "help": "Accumulated total of tasks completed by the agent (metrics.tasksCompleted)."
+      },
+      "approvedInReview": {
+        "label": "Approved in review",
+        "help": "Tasks assigned to the agent that are currently in the Done column."
+      },
+      "rework": {
+        "label": "Rework",
+        "help": "Agent tasks in the Corrections column plus failed attempts."
+      }
+    },
+    "detail": {
+      "description": "Description",
+      "lastHeartbeat": "Last heartbeat {{time}}",
+      "heartbeatNever": "No heartbeat recorded",
+      "skills": "Skills",
+      "skillsEmpty": "No skills associated with the definition.",
+      "tools": "Allowed tools",
+      "toolsEmpty": "No tools allowed in the definition.",
+      "models": "Compatible models",
+      "modelsEmpty": "No enabled models.",
+      "modelDefault": "Default",
+      "modelOverride": "In use (override)",
+      "modelContext": "{{total}} token context",
+      "history": "Recent history",
+      "historyEmpty": "No recent audit events or attempts.",
+      "attempt": "Attempt #{{number}}",
+      "version": "v{{version}}"
+    }
+  }
+}

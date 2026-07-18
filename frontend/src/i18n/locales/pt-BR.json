@@ -101,6 +101,9 @@
         "secondaryColor": "Cor secundária",
         "typography": "Tipografia"
       }
+    },
+    "secrets": {
+      "maskedNote": "Revelado no backend somente com permissão."
     }
   },
   "status": {
@@ -210,6 +213,62 @@
       "completed": "Concluída",
       "failed": "Falhou",
       "cancelled": "Cancelada"
+    },
+    "chiefTurnState": {
+      "thinking": "Pensando",
+      "delegating": "Delegando",
+      "waitingApproval": "Aguardando aprovação",
+      "streaming": "Respondendo",
+      "idle": "Parado"
+    },
+    "componentState": {
+      "enabled": "Habilitado",
+      "disabled": "Desabilitado",
+      "error": "Com erro"
+    },
+    "toolKind": {
+      "builtin": "Interna",
+      "mcp": "MCP",
+      "plugin": "Plugin"
+    },
+    "mcpTransport": {
+      "stdio": "stdio",
+      "http": "HTTP"
+    },
+    "notificationSeverity": {
+      "info": "Informação",
+      "warning": "Atenção",
+      "error": "Erro",
+      "critical": "Crítica"
+    },
+    "notificationCategory": {
+      "system": "Sistema",
+      "task": "Tarefa",
+      "approval": "Aprovação",
+      "quota": "Cota",
+      "license": "Licença",
+      "chat": "Chat",
+      "workflow": "Workflow"
+    },
+    "notificationStatus": {
+      "unread": "Não lida",
+      "read": "Lida",
+      "muted": "Silenciada"
+    },
+    "attemptEventKind": {
+      "log": "Log",
+      "toolCall": "Chamada de ferramenta",
+      "note": "Nota",
+      "diff": "Diff"
+    },
+    "accountState": {
+      "active": "Ativa",
+      "disabled": "Desabilitada",
+      "quotaExceeded": "Cota excedida"
+    },
+    "agentRole": {
+      "chief": "Chefe",
+      "specialist": "Especialista"
     }
   },
   "onboarding": {

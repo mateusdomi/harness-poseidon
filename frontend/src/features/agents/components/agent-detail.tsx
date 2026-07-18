@@ -1,0 +1,214 @@
+import { useTranslation } from 'react-i18next';
+
+import type {
+  Agent,
+  AgentDefinition,
+  Attempt,
+  AuditEvent,
+  Model,
+  Skill,
+  Task,
+  Tool,
+} from '@/api';
+import { Badge } from '@/design-system';
+import {
+  agentHistory,
+  agentSkills,
+  agentTools,
+  compatibleModels,
+} from '@/features/agents/lib/agents-derive';
+import { ModalDialog } from '@/features/shared/components/modal-dialog';
+import {
+  formatCurrencyUSD,
+  formatDurationMs,
+  formatNumber,
+  formatRelativeTime,
+} from '@/lib/format';
+import { agentStateVariant, attemptStateVariant, componentStateVariant } from '@/lib/status';
+
+export interface AgentDetailProps {
+  agent: Agent;
+  definition: AgentDefinition | null;
+  skills: Skill[];
+  tools: Tool[];
+  models: Model[];
+  tasks: Task[];
+  attempts: Attempt[];
+  auditEvents: AuditEvent[];
+  now: Date;
+  onClose: () => void;
+}
+
+function SectionTitle({ title }: { title: string }) {
+  return <h3 className="text-sm font-semibold">{title}</h3>;
+}
+
+/**
+ * Detalhe do agente (modal): definição/persona (descrição atual — o
+ * contrato NÃO versiona persona/instruções), skills, ferramentas
+ * permitidas, modelos compatíveis e histórico (auditoria + attempts).
+ */
+export function AgentDetail({
+  agent,
+  definition,
+  skills,
+  tools,
+  models,
+  tasks,
+  attempts,
+  auditEvents,
+  now,
+  onClose,
+}: AgentDetailProps) {
+  const { t } = useTranslation();
+
+  const resolvedSkills = agentSkills(definition, skills);
+  const resolvedTools = agentTools(definition, tools);
+  const enabledModels = compatibleModels(models);
+  const history = agentHistory(agent.id, auditEvents, attempts);
+
+  function taskTitle(taskId: string): string {
+    return tasks.find((task) => task.id === taskId)?.title ?? '';
+  }
+
+  return (
+    <ModalDialog label={agent.name} onClose={onClose} className="max-w-2xl">
+      <div className="flex flex-col gap-1 pr-10">
+        <h2 className="font-heading text-xl font-semibold">{agent.name}</h2>
+        <p className="text-sm text-foreground-muted">
+          {definition?.name}
+          {definition?.specialty ? ` · ${definition.specialty}` : ''}
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <Badge variant={agentStateVariant(agent.state)}>
+            {t(`status.agentState.${agent.state}`)}
+          </Badge>
+          <span className="text-xs text-foreground-muted">
+            {agent.lastHeartbeatAt
+              ? t('agents.detail.lastHeartbeat', {
+                  time: formatRelativeTime(agent.lastHeartbeatAt, 'pt-BR', now),
+                })
+              : t('agents.detail.heartbeatNever')}
+          </span>
+        </div>
+      </div>
+
+      {definition && (
+        <section className="flex flex-col gap-1">
+          <SectionTitle title={t('agents.detail.description')} />
+          <p className="text-sm text-foreground-muted">{definition.description}</p>
+        </section>
+      )}
+
+      <section className="flex flex-col gap-2">
+        <SectionTitle title={t('agents.detail.skills')} />
+        {resolvedSkills.length === 0 ? (
+          <p className="text-sm text-foreground-muted">{t('agents.detail.skillsEmpty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {resolvedSkills.map((skill) => (
+              <li key={skill.id} className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{skill.name}</span>
+                <Badge variant="outline">{t('agents.detail.version', { version: skill.version })}</Badge>
+                <Badge variant={componentStateVariant(skill.state)}>
+                  {t(`status.componentState.${skill.state}`)}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <SectionTitle title={t('agents.detail.tools')} />
+        {resolvedTools.length === 0 ? (
+          <p className="text-sm text-foreground-muted">{t('agents.detail.toolsEmpty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {resolvedTools.map((tool) => (
+              <li key={tool.id} className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{tool.name}</span>
+                <Badge variant="outline">{t(`status.toolKind.${tool.kind}`)}</Badge>
+                <Badge variant={componentStateVariant(tool.state)}>
+                  {t(`status.componentState.${tool.state}`)}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <SectionTitle title={t('agents.detail.models')} />
+        {enabledModels.length === 0 ? (
+          <p className="text-sm text-foreground-muted">{t('agents.detail.modelsEmpty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {enabledModels.map((model) => (
+              <li key={model.id} className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{model.displayName}</span>
+                <span className="text-xs text-foreground-muted">
+                  {t('agents.detail.modelContext', {
+                    total: formatNumber(model.contextWindow),
+                  })}
+                </span>
+                {model.id === definition?.defaultModelId && (
+                  <Badge variant="brand">{t('agents.detail.modelDefault')}</Badge>
+                )}
+                {model.id === agent.modelId && (
+                  <Badge variant="warning">{t('agents.detail.modelOverride')}</Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <SectionTitle title={t('agents.detail.history')} />
+        {history.length === 0 ? (
+          <p className="text-sm text-foreground-muted">{t('agents.detail.historyEmpty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {history.map((entry) =>
+              entry.kind === 'audit' ? (
+                <li key={entry.event.id} className="flex flex-col gap-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{entry.event.action}</span>
+                    <span className="text-xs text-foreground-muted">
+                      {formatRelativeTime(entry.event.occurredAt, 'pt-BR', now)}
+                    </span>
+                  </div>
+                  {entry.event.detail && (
+                    <p className="text-xs text-foreground-muted">{entry.event.detail}</p>
+                  )}
+                </li>
+              ) : (
+                <li key={entry.attempt.id} className="flex flex-col gap-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {t('agents.detail.attempt', { number: entry.attempt.number })}
+                      {taskTitle(entry.attempt.taskId) ? ` — ${taskTitle(entry.attempt.taskId)}` : ''}
+                    </span>
+                    <Badge variant={attemptStateVariant(entry.attempt.state)}>
+                      {t(`status.attemptState.${entry.attempt.state}`)}
+                    </Badge>
+                    <span className="text-xs text-foreground-muted">
+                      {formatRelativeTime(entry.attempt.startedAt, 'pt-BR', now)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-foreground-muted">
+                    {formatCurrencyUSD(entry.attempt.costUsd)}
+                    {entry.attempt.durationMs !== null
+                      ? ` · ${formatDurationMs(entry.attempt.durationMs)}`
+                      : ''}
+                  </p>
+                </li>
+              ),
+            )}
+          </ul>
+        )}
+      </section>
+    </ModalDialog>
+  );
+}

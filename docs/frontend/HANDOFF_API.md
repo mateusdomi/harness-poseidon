@@ -133,6 +133,10 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | `POST /notifications/read` | `{ ids: Ulid[] }` | `number` (alteradas) | — | notifications |
 | `POST /notifications/mute` | `{ ids: Ulid[] }` | `number` | — | notifications |
 | `POST /conversations/<id>/turns` | `{ content }` | `{ turnId, conversationId }` | `message.appended`, `chat.turnStarted/Chunk/Completed` | chat, po-assistant |
+| `POST /projects/<id>/chief/pause` (FE-2b) | — | `Project` (state → `paused`) | `agent.statusChanged` (chefe → `waiting`), `audit.eventAppended` (`chief.paused`) | orchestrator |
+| `POST /projects/<id>/chief/resume` (FE-2b) | — | `Project` (state → `active`) | `agent.statusChanged` (chefe → `idle`), `audit.eventAppended` (`chief.resumed`) | orchestrator |
+| `POST /projects/<id>/chief/handoff` (FE-2b) | `{ targetDefinitionId?, targetModelId?, note }` — **note obrigatória** | `Agent` (nova instância chefe) | `agent.statusChanged` (antigo → `idle`, novo), `audit.eventAppended` (`chief.handedOff`) | orchestrator (passagem de bastão) |
+| `POST /projects/<id>/chief/drain` (FE-2b) | `{ note? }` | `number` (tarefas drenadas) | `task.stateChanged` (em andamento → `ready`), `agent.statusChanged`, `audit.eventAppended` (`chief.tasksDrained`) | orchestrator |
 
 ### Campos adicionados na FE-2a
 
@@ -140,6 +144,21 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 - `Document.phaseName: string | null` — vínculo do documento com a fase do workflow (nome da fase do template). `null` = documento **órfão** (a UI oferece a ação de classificar).
 - `WorkflowVersion.phaseConfigs?` (`fase → { documentKinds, progressWeight (0–100), allowedAgentDefinitionIds }`), `WorkflowVersion.defaultOperationMode?`, `WorkflowVersion.transitions?` (`fase → próximas fases permitidas`) — configuração da versão na criação/publicação.
 - Resolver aprovação com `documentId` também transiciona o documento (`awaitingApproval` → `approved` | `inElaboration`) e emite `document.stateChanged` (mock já implementa; backend deve espelhar).
+
+### Campos adicionados na FE-2b
+
+- `Agent.modelId: Ulid | null` — override de modelo da instância (preenchido na passagem de bastão); `null` = usa `AgentDefinition.defaultModelId`. Modelo efetivo = `modelId ?? definition.defaultModelId`.
+- `Agent.lease: { fencingToken: number, expiresAt: ISO } | null` — concessão de orquestração do chefe (diagnóstico avançado). O fencing token incrementa a cada handoff e invalida escritores antigos; o mock entrega o lease à nova instância e limpa o do chefe anterior.
+- Comandos do chefe (tabela acima): pausar/retomar mapeiam em `Project.state` (`paused`/`active`) + estado do agente chefe; handoff cria NOVA instância de agente (definição/modelo opcionais, `note` auditada) e reponta `Project.chiefAgentId`; drain devolve tarefas em andamento (`development|review|corrections|testsGates`) para `ready`, cancela attempts running e põe agentes em `idle`.
+
+### Pendências de contrato identificadas na FE-2b (não fabricadas na UI)
+
+- `AttemptEvent` não tem campo de **nível/severidade** — o log da tentativa filtra por tipo (`kind`) + busca textual. Se a UX exigir filtro por nível, adicionar `level` a `attemptEventSchema`.
+- `AgentDefinition` não versiona **persona/instruções** — a tela de agentes exibe só a `description` atual. Versionamento de persona exigiria recurso novo (ex.: `agent-definition-versions`).
+- Ferramentas/skills/plugins/MCP não têm **checksum, permissões, risk tier nem projetos autorizados**; `toolSchema` (kind `mcp`) não referencia o servidor MCP de origem (sugestão: `mcpServerId`). A UI mostra "não disponível no contrato atual".
+- Eventos realtime só existem para `tool.statusChanged` — skills/plugins/MCP atualizam por invalidação pós-mutation. Se o backend emitir `skill/plugin/mcpServer.statusChanged`, basta assinar.
+- `AuditEvent` não vincula eventos a modelo/ferramenta por outro caminho que não `targetType`/`targetId` — filtros de governança por modelo/ferramenta/tentativa casam apenas quando o `targetType` corresponde.
+- Preferências de notificação usam `Settings.notificationsEnabled` + `Settings.mutedCategories` (PATCH `/settings/<id>`) — nenhum recurso novo necessário; não há comando de "desilenciar" item individual.
 
 ## 5. Tempo real — hub `/hubs/events`
 

@@ -2,8 +2,13 @@ import type {
   AgentState,
   ApprovalState,
   AttemptState,
+  AuditActorKind,
+  ChiefTurnState,
+  ComponentState,
   DocumentState,
   GateState,
+  NotificationSeverity,
+  NotificationStatus,
   OperationMode,
   PhaseState,
   Priority,
@@ -151,4 +156,65 @@ export const WORKFLOW_RUN_STATE_VARIANTS: Record<WorkflowRunState, BadgeProps['v
 
 export function workflowRunStateVariant(state: WorkflowRunState): BadgeProps['variant'] {
   return WORKFLOW_RUN_STATE_VARIANTS[state];
+}
+
+/** Estado do turno do chefe: atenção só quando aguarda aprovação humana. */
+export const CHIEF_TURN_STATE_VARIANTS: Record<ChiefTurnState, BadgeProps['variant']> = {
+  thinking: 'info',
+  delegating: 'info',
+  waitingApproval: 'warning',
+  streaming: 'brand',
+  idle: 'outline',
+};
+
+export function chiefTurnStateVariant(state: ChiefTurnState): BadgeProps['variant'] {
+  return CHIEF_TURN_STATE_VARIANTS[state];
+}
+
+/** Ferramentas, skills, plugins e MCP: habilitado é sucesso, erro é erro. */
+export const COMPONENT_STATE_VARIANTS: Record<ComponentState, BadgeProps['variant']> = {
+  enabled: 'success',
+  disabled: 'outline',
+  error: 'error',
+};
+
+export function componentStateVariant(state: ComponentState): BadgeProps['variant'] {
+  return COMPONENT_STATE_VARIANTS[state];
+}
+
+/** Atores de auditoria: humano em destaque, sistema neutro. */
+export const AUDIT_ACTOR_KIND_VARIANTS: Record<AuditActorKind, BadgeProps['variant']> = {
+  user: 'brand',
+  chief: 'info',
+  agent: 'default',
+  system: 'outline',
+};
+
+export function auditActorKindVariant(kind: AuditActorKind): BadgeProps['variant'] {
+  return AUDIT_ACTOR_KIND_VARIANTS[kind];
+}
+
+/** Severidade de notificação: critical usa a variante de erro (mais grave). */
+export const NOTIFICATION_SEVERITY_VARIANTS: Record<NotificationSeverity, BadgeProps['variant']> = {
+  info: 'info',
+  warning: 'warning',
+  error: 'error',
+  critical: 'error',
+};
+
+export function notificationSeverityVariant(
+  severity: NotificationSeverity,
+): BadgeProps['variant'] {
+  return NOTIFICATION_SEVERITY_VARIANTS[severity];
+}
+
+/** Status de notificação: não lida chama atenção (brand), silenciada é atenção. */
+export const NOTIFICATION_STATUS_VARIANTS: Record<NotificationStatus, BadgeProps['variant']> = {
+  unread: 'brand',
+  read: 'outline',
+  muted: 'warning',
+};
+
+export function notificationStatusVariant(status: NotificationStatus): BadgeProps['variant'] {
+  return NOTIFICATION_STATUS_VARIANTS[status];
 }

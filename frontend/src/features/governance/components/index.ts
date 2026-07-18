@@ -1,1 +1,2 @@
-// Componentes da feature "governance" — implementados em fatias futuras.
+export { AuditEventItem } from './audit-event-item';
+export { AuditFiltersBar } from './audit-filters-bar';

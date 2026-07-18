@@ -1,0 +1,55 @@
+{
+  "governance": {
+    "title": "Governance and audit",
+    "timeline": {
+      "label": "Audit timeline",
+      "count": "{{count}} event(s)"
+    },
+    "empty": {
+      "title": "No events found",
+      "body": "Adjust the search or the filters to see audit trail events."
+    },
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Search by action or detail",
+      "actorKind": "Actor kind",
+      "actor": "Actor",
+      "project": "Project",
+      "task": "Task",
+      "attempt": "Attempt",
+      "model": "Model",
+      "tool": "Tool",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "all": "All",
+      "allFem": "All",
+      "profilesGroup": "Profiles",
+      "agentsGroup": "Agents",
+      "attemptOption": "Attempt #{{number}} — {{task}}"
+    },
+    "event": {
+      "expand": "View details and correlation",
+      "collapse": "Hide details",
+      "detail": "Detail",
+      "noDetail": "No detail recorded.",
+      "unknownTarget": "Unidentified target"
+    },
+    "correlation": {
+      "title": "Correlation",
+      "attempt": "Attempt",
+      "attemptValue": "#{{number}}",
+      "approval": "Approval",
+      "task": "Task",
+      "state": "State",
+      "cost": "Cost",
+      "tokens": "Tokens (input/output)",
+      "duration": "Duration",
+      "resolution": "Resolution",
+      "resolvedAt": "Resolved at"
+    },
+    "export": {
+      "json": "Export JSON",
+      "csv": "Export CSV"
+    }
+  }
+}

@@ -1,1 +1,1 @@
-// Hooks da feature "tools" — implementados em fatias futuras.
+export * from './use-tools';

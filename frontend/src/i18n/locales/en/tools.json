@@ -1,0 +1,49 @@
+{
+  "tools": {
+    "tabs": {
+      "label": "Catalog categories",
+      "tools": "Tools",
+      "skills": "Skills",
+      "plugins": "Plugins",
+      "mcp": "MCP servers"
+    },
+    "list": {
+      "tools": "Tool list",
+      "skills": "Skill list",
+      "plugins": "Plugin list",
+      "mcp": "MCP server list"
+    },
+    "origin": {
+      "label": "Origin",
+      "builtin": "Built-in",
+      "plugin": "Plugin {{name}}",
+      "mcp": "MCP server"
+    },
+    "unavailable": "Not available in the current contract.",
+    "fields": {
+      "version": "Version {{version}}",
+      "transport": "Transport",
+      "endpoint": "Endpoint",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools",
+      "provides": "Provided tools",
+      "providesEmpty": "No tools provided"
+    },
+    "actions": {
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "dialog": {
+      "enableTitle": "Enable {{name}}",
+      "disableTitle": "Disable {{name}}",
+      "enableBody": "The item will become available to agents again.",
+      "disableBody": "The item will remain unavailable to agents until it is enabled again.",
+      "errorWarning": "This item is in an error state. Changing its state does not fix the cause of the error.",
+      "mutationError": "Could not change the state. Please try again."
+    },
+    "empty": {
+      "title": "No items in this category",
+      "body": "Once items are registered, they will show up here."
+    }
+  }
+}

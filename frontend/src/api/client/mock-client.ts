@@ -2,6 +2,8 @@ import {
   ApiError,
   appendTaskInstructionInputSchema,
   classifyDocumentInputSchema,
+  drainChiefTasksInputSchema,
+  handoffChiefInputSchema,
   moveTaskInputSchema,
   publishWorkflowVersionInputSchema,
   resolveApprovalInputSchema,
@@ -20,6 +22,8 @@ import {
   type CreateInputMap,
   type Demand,
   type Document,
+  type DrainChiefTasksInput,
+  type HandoffChiefInput,
   type ListQuery,
   type Message,
   type MoveTaskInput,
@@ -536,6 +540,141 @@ export class MockApiClient implements ApiClient {
     return { turnId, conversationId: conversation.id };
   }
 
+  /* ---- comandos do chefe (orquestração) ---- */
+
+  async pauseChief(projectId: Ulid): Promise<Project> {
+    await this.#simulate();
+    const project = this.#require('projects', projectId);
+    project.state = 'paused';
+    project.lastActivityAt = this.#options.now();
+    const chief = this.#table('agents').get(project.chiefAgentId);
+    if (chief && chief.state !== 'waiting') {
+      const from = chief.state;
+      chief.state = 'waiting';
+      this.#options.realtime?.emit(streams.global(), 'agent.statusChanged', {
+        agentId: chief.id,
+        from,
+        to: 'waiting',
+        currentTaskId: chief.currentTaskId,
+      });
+    }
+    this.#appendAudit('user', this.#options.currentProfileId, 'chief.paused', 'project', project.id, `Orquestração do projeto ${project.key} pausada.`);
+    return structuredClone(project);
+  }
+
+  async resumeChief(projectId: Ulid): Promise<Project> {
+    await this.#simulate();
+    const project = this.#require('projects', projectId);
+    project.state = 'active';
+    project.lastActivityAt = this.#options.now();
+    const chief = this.#table('agents').get(project.chiefAgentId);
+    if (chief && chief.state === 'waiting') {
+      chief.state = 'idle';
+      this.#options.realtime?.emit(streams.global(), 'agent.statusChanged', {
+        agentId: chief.id,
+        from: 'waiting',
+        to: 'idle',
+        currentTaskId: chief.currentTaskId,
+      });
+    }
+    this.#appendAudit('user', this.#options.currentProfileId, 'chief.resumed', 'project', project.id, `Orquestração do projeto ${project.key} retomada.`);
+    return structuredClone(project);
+  }
+
+  async handoffChief(projectId: Ulid, input: HandoffChiefInput): Promise<Agent> {
+    await this.#simulate();
+    const parsed = handoffChiefInputSchema.parse(input);
+    const project = this.#require('projects', projectId);
+    const oldChief = this.#require('agents', project.chiefAgentId);
+    const definitionId = parsed.targetDefinitionId ?? oldChief.definitionId;
+    this.#require('agent-definitions', definitionId);
+    if (parsed.targetModelId) this.#require('models', parsed.targetModelId);
+
+    const now = this.#options.now();
+    const nextFencing = (oldChief.lease?.fencingToken ?? 0) + 1;
+    if (oldChief.lease) oldChief.lease = null;
+    if (oldChief.state !== 'idle') {
+      const from = oldChief.state;
+      oldChief.state = 'idle';
+      oldChief.currentTaskId = null;
+      this.#options.realtime?.emit(streams.global(), 'agent.statusChanged', {
+        agentId: oldChief.id,
+        from,
+        to: 'idle',
+        currentTaskId: null,
+      });
+    }
+
+    const newChief: Agent = {
+      id: this.#options.nextId(),
+      definitionId,
+      projectId: project.id,
+      name: oldChief.name,
+      state: 'idle',
+      currentTaskId: null,
+      modelId: parsed.targetModelId ?? null,
+      lease: { fencingToken: nextFencing, expiresAt: new Date(Date.parse(now) + 60_000).toISOString() },
+      metrics: { tasksCompleted: 0, tokensInput: 0, tokensOutput: 0, costUsd: 0, uptimeMs: 0 },
+      lastHeartbeatAt: now,
+    };
+    this.#table('agents').set(newChief.id, newChief);
+    project.chiefAgentId = newChief.id;
+    project.lastActivityAt = now;
+    this.#options.realtime?.emit(streams.global(), 'agent.statusChanged', {
+      agentId: newChief.id,
+      from: 'idle',
+      to: 'idle',
+      currentTaskId: null,
+    });
+    this.#appendAudit('user', this.#options.currentProfileId, 'chief.handedOff', 'project', project.id, `Bastão passado para nova instância (fencing ${nextFencing}). Motivo: ${parsed.note}`);
+    return structuredClone(newChief);
+  }
+
+  async drainChiefTasks(projectId: Ulid, input: DrainChiefTasksInput): Promise<number> {
+    await this.#simulate();
+    const parsed = drainChiefTasksInputSchema.parse(input);
+    const project = this.#require('projects', projectId);
+    const note = parsed.note ?? null;
+    let drained = 0;
+    const activeStates = new Set(['development', 'review', 'corrections', 'testsGates']);
+    for (const task of this.#table('tasks').values()) {
+      if (task.projectId !== project.id || !activeStates.has(task.state)) continue;
+      const from = task.state;
+      task.state = 'ready';
+      task.updatedAt = this.#options.now();
+      this.#options.realtime?.emit(streams.project(project.id), 'task.stateChanged', {
+        taskId: task.id,
+        from,
+        to: 'ready',
+        changedByKind: 'user',
+        note,
+      });
+      drained += 1;
+    }
+    for (const attempt of this.#table('attempts').values()) {
+      if (attempt.state !== 'running') continue;
+      const task = this.#table('tasks').get(attempt.taskId);
+      if (task?.projectId !== project.id) continue;
+      attempt.state = 'cancelled';
+      attempt.finishedAt = this.#options.now();
+      attempt.durationMs = Date.parse(attempt.finishedAt) - Date.parse(attempt.startedAt);
+    }
+    for (const agent of this.#table('agents').values()) {
+      if (agent.projectId !== project.id || !['working', 'waiting'].includes(agent.state)) continue;
+      const from = agent.state;
+      agent.state = 'idle';
+      agent.currentTaskId = null;
+      this.#options.realtime?.emit(streams.global(), 'agent.statusChanged', {
+        agentId: agent.id,
+        from,
+        to: 'idle',
+        currentTaskId: null,
+      });
+    }
+    this.#appendAudit('user', this.#options.currentProfileId, 'chief.tasksDrained', 'project', project.id, `${drained} tarefa(s) drenadas para "ready".${note ? ` Nota: ${note}` : ''}`);
+    return drained;
+  }
+
   /* ---- internos ---- */
 
   /**
@@ -592,6 +731,29 @@ export class MockApiClient implements ApiClient {
 
   #table<K extends ResourceKind>(resource: K): Map<string, ResourceMap[K]> {
     return this.#store[resource];
+  }
+
+  /** Registro de auditoria + evento realtime (ações do chefe e afins). */
+  #appendAudit(
+    actorKind: 'user' | 'chief' | 'agent' | 'system',
+    actorId: Ulid | null,
+    action: string,
+    targetType: string,
+    targetId: Ulid | null,
+    detail: string,
+  ): void {
+    const auditEvent = {
+      id: this.#options.nextId(),
+      actorKind,
+      actorId,
+      action,
+      targetType,
+      targetId,
+      detail,
+      occurredAt: this.#options.now(),
+    };
+    this.#table('audit-events').set(auditEvent.id, auditEvent);
+    this.#options.realtime?.emit(streams.global(), 'audit.eventAppended', { auditEvent });
   }
 
   #require<K extends ResourceKind>(resource: K, id: Ulid): ResourceMap[K] {

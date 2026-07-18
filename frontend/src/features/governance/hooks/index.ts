@@ -1,1 +1,1 @@
-// Hooks da feature "governance" — implementados em fatias futuras.
+export * from './use-governance';

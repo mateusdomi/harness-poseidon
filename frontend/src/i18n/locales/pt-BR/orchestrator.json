@@ -1,0 +1,86 @@
+{
+  "orchestrator": {
+    "chief": {
+      "title": "Chefe do projeto",
+      "turnState": "Estado do turno",
+      "health": "Saúde",
+      "operationMode": "Modo de operação",
+      "model": "Modelo em uso",
+      "noModel": "Sem modelo definido",
+      "account": "Conta em uso",
+      "noAccount": "Nenhuma conta do provedor",
+      "quota": "Cota",
+      "quotaUsage": "{{used}} de {{limit}}",
+      "noBudget": "Sem limite configurado",
+      "lastActivity": "Última atividade {{time}}",
+      "diagnostics": {
+        "toggle": "Diagnóstico avançado",
+        "fencingToken": "Fencing token",
+        "leaseExpiresAt": "Lease expira em",
+        "noLease": "Sem lease ativo"
+      }
+    },
+    "health": {
+      "ok": "Saudável",
+      "attention": "Atenção",
+      "error": "Em erro"
+    },
+    "agents": {
+      "title": "Agentes do projeto",
+      "empty": "Nenhum agente alocado neste projeto.",
+      "currentTask": "Tarefa atual",
+      "noTask": "Sem tarefa atual",
+      "runningFor": "Em execução há {{duration}}",
+      "attempts_one": "{{count}} tentativa",
+      "attempts_other": "{{count}} tentativas",
+      "cost": "Custo acumulado",
+      "open": "Abrir",
+      "noAttempts": "Sem tentativas"
+    },
+    "attempt": {
+      "title": "Tentativa nº {{number}}",
+      "timeline": "Linha do tempo",
+      "log": "Log estruturado",
+      "filterKind": "Tipo de evento",
+      "allKinds": "Todos os tipos",
+      "searchLabel": "Buscar no log",
+      "searchPlaceholder": "Filtrar por texto…",
+      "empty": "Nenhum evento registrado nesta tentativa.",
+      "noResults": "Nenhum evento corresponde aos filtros."
+    },
+    "actions": {
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "drain": "Drenar tarefas",
+      "handoff": "Passar bastão"
+    },
+    "drain": {
+      "title": "Drenar tarefas",
+      "description": "As tarefas em andamento voltam para a coluna Pronta, as tentativas em execução são canceladas e os agentes ficam ociosos.",
+      "noteLabel": "Observação (opcional)",
+      "confirm": "Drenar tarefas",
+      "success_one": "{{count}} tarefa drenada.",
+      "success_other": "{{count}} tarefas drenadas."
+    },
+    "handoff": {
+      "title": "Passagem de bastão",
+      "stepChoice": "Etapa 1 de 2 — escolha do novo chefe",
+      "stepConfirm": "Etapa 2 de 2 — confirmação",
+      "modelLabel": "Modelo do novo chefe",
+      "keepCurrentModel": "Manter modelo atual",
+      "reasonLabel": "Motivo",
+      "reasonRequired": "Informe o motivo da passagem de bastão.",
+      "summaryModel": "Modelo",
+      "summaryReason": "Motivo",
+      "confirm": "Confirmar passagem de bastão"
+    },
+    "mutation": {
+      "error": "Não foi possível concluir a ação. Tente novamente."
+    },
+    "empty": {
+      "title": "Nenhum projeto selecionado",
+      "body": "Selecione um projeto para acompanhar a orquestração.",
+      "cta": "Ver projetos"
+    }
+  }
+}

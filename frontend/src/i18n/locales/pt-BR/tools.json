@@ -1,0 +1,49 @@
+{
+  "tools": {
+    "tabs": {
+      "label": "Categorias do catálogo",
+      "tools": "Ferramentas",
+      "skills": "Skills",
+      "plugins": "Plugins",
+      "mcp": "Servidores MCP"
+    },
+    "list": {
+      "tools": "Lista de ferramentas",
+      "skills": "Lista de skills",
+      "plugins": "Lista de plugins",
+      "mcp": "Lista de servidores MCP"
+    },
+    "origin": {
+      "label": "Origem",
+      "builtin": "Interna",
+      "plugin": "Plugin {{name}}",
+      "mcp": "Servidor MCP"
+    },
+    "unavailable": "Não disponível no contrato atual.",
+    "fields": {
+      "version": "Versão {{version}}",
+      "transport": "Transporte",
+      "endpoint": "Endpoint",
+      "toolCount_one": "{{count}} ferramenta",
+      "toolCount_other": "{{count}} ferramentas",
+      "provides": "Ferramentas providas",
+      "providesEmpty": "Nenhuma ferramenta provida"
+    },
+    "actions": {
+      "enable": "Habilitar",
+      "disable": "Desabilitar"
+    },
+    "dialog": {
+      "enableTitle": "Habilitar {{name}}",
+      "disableTitle": "Desabilitar {{name}}",
+      "enableBody": "O item voltará a ficar disponível para os agentes.",
+      "disableBody": "O item ficará indisponível para os agentes até ser habilitado novamente.",
+      "errorWarning": "Este item está em estado de erro. Alterar o estado não resolve a causa do erro.",
+      "mutationError": "Não foi possível alterar o estado. Tente novamente."
+    },
+    "empty": {
+      "title": "Nenhum item nesta categoria",
+      "body": "Quando houver itens cadastrados, eles aparecerão aqui."
+    }
+  }
+}

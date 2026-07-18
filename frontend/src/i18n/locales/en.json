@@ -101,6 +101,9 @@
         "secondaryColor": "Secondary color",
         "typography": "Typography"
       }
+    },
+    "secrets": {
+      "maskedNote": "Revealed in the backend only with permission."
     }
   },
   "status": {
@@ -210,6 +213,62 @@
       "completed": "Completed",
       "failed": "Failed",
       "cancelled": "Cancelled"
+    },
+    "chiefTurnState": {
+      "thinking": "Thinking",
+      "delegating": "Delegating",
+      "waitingApproval": "Waiting for approval",
+      "streaming": "Streaming",
+      "idle": "Idle"
+    },
+    "componentState": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "error": "Error"
+    },
+    "toolKind": {
+      "builtin": "Built-in",
+      "mcp": "MCP",
+      "plugin": "Plugin"
+    },
+    "mcpTransport": {
+      "stdio": "stdio",
+      "http": "HTTP"
+    },
+    "notificationSeverity": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "critical": "Critical"
+    },
+    "notificationCategory": {
+      "system": "System",
+      "task": "Task",
+      "approval": "Approval",
+      "quota": "Quota",
+      "license": "License",
+      "chat": "Chat",
+      "workflow": "Workflow"
+    },
+    "notificationStatus": {
+      "unread": "Unread",
+      "read": "Read",
+      "muted": "Muted"
+    },
+    "attemptEventKind": {
+      "log": "Log",
+      "toolCall": "Tool call",
+      "note": "Note",
+      "diff": "Diff"
+    },
+    "accountState": {
+      "active": "Active",
+      "disabled": "Disabled",
+      "quotaExceeded": "Quota exceeded"
+    },
+    "agentRole": {
+      "chief": "Chief",
+      "specialist": "Specialist"
     }
   },
   "onboarding": {

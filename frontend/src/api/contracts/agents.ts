@@ -33,6 +33,17 @@ export const agentMetricsSchema = z.object({
 });
 export type AgentMetrics = z.infer<typeof agentMetricsSchema>;
 
+/**
+ * Concessão de orquestração (diagnóstico avançado): quem detém o lease
+ * é o orquestrador vigente; `fencingToken` cresce a cada passagem de
+ * bastão e invalida escritores antigos.
+ */
+export const agentLeaseSchema = z.object({
+  fencingToken: z.number().int().nonnegative(),
+  expiresAt: isoDateTimeSchema,
+});
+export type AgentLease = z.infer<typeof agentLeaseSchema>;
+
 /** Instância de agente em execução (o que aparece na UI de agentes). */
 export const agentSchema = z.object({
   id: ulidSchema,
@@ -42,6 +53,10 @@ export const agentSchema = z.object({
   name: z.string(),
   state: agentStateSchema,
   currentTaskId: ulidSchema.nullable(),
+  /** Override de modelo (passagem de bastão); nulo = `defaultModelId` da definição. */
+  modelId: ulidSchema.nullable(),
+  /** Lease/fencing do orquestrador (só chefes; diagnóstico avançado). */
+  lease: agentLeaseSchema.nullable(),
   metrics: agentMetricsSchema,
   lastHeartbeatAt: isoDateTimeSchema.nullable(),
 });
