@@ -1,0 +1,189 @@
+{
+    "openapi": "3.1.1",
+    "info": {
+        "title": "Harness API",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "tags": [
+                    "system"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/event-streams/snapshot": {
+            "get": {
+                "tags": [
+                    "events"
+                ],
+                "parameters": [
+                    {
+                        "name": "stream",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "afterSequence",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventStreamSnapshot"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "EventStreamSnapshot": {
+                "required": [
+                    "stream",
+                    "sequence",
+                    "latestByType",
+                    "delta"
+                ],
+                "type": "object",
+                "properties": {
+                    "stream": {
+                        "type": "string"
+                    },
+                    "sequence": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "latestByType": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/RealtimeEventEnvelope"
+                        }
+                    },
+                    "delta": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RealtimeEventEnvelope"
+                        }
+                    }
+                }
+            },
+            "JsonElement": {},
+            "ProblemDetails": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "title": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "status": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "detail": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "instance": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "RealtimeEventEnvelope": {
+                "required": [
+                    "stream",
+                    "sequence",
+                    "type",
+                    "occurredAt",
+                    "payload"
+                ],
+                "type": "object",
+                "properties": {
+                    "stream": {
+                        "type": "string"
+                    },
+                    "sequence": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "occurredAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "payload": {
+                        "$ref": "#/components/schemas/JsonElement"
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "system"
+        },
+        {
+            "name": "events"
+        }
+    ]
+}

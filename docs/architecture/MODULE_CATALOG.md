@@ -6,9 +6,9 @@
 | Organizations | tenant, identidade visual e políticas herdáveis |
 | Projects | projetos, repositórios e contexto de operação |
 | Conversations | conversas, mensagens e turnos streaming |
-| Coordination | chefe, mailbox, digest, demandas e decisões |
+| Coordination | chefe, mailbox, digest e cadeia de negócio Solicitação→Demanda→Tarefa→Instrução→Tentativa→Revisão |
 | Workflows | definições, versões, runs, fases, gates e progresso |
-| Execution | tarefas, instruções, tentativas, leases, checkpoints e motor durável |
+| Execution | execução técnica das tentativas, leases, checkpoints, sandbox e motor durável |
 | Agents | definições, versões, instâncias e executores |
 | Providers | contas, modelos, routing, budgets e quotas |
 | Documents | documentos, versões, aprovações, catálogo e busca |

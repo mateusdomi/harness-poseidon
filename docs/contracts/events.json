@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "hub": "/hubs/events",
+  "clientMethod": "event",
+  "snapshotEndpoint": "/api/v1/event-streams/snapshot?stream={stream}&afterSequence={sequence}",
+  "envelope": {
+    "required": ["stream", "sequence", "type", "occurredAt", "payload"],
+    "properties": {
+      "stream": { "type": "string" },
+      "sequence": { "type": "integer", "minimum": 1 },
+      "type": { "type": "string" },
+      "occurredAt": { "type": "string", "format": "date-time" },
+      "payload": { "type": "object" }
+    }
+  },
+  "events": [
+    "agent.statusChanged",
+    "approval.requested",
+    "approval.resolved",
+    "attempt.completed",
+    "attempt.failed",
+    "attempt.heartbeat",
+    "attempt.started",
+    "audit.eventAppended",
+    "chat.turnChunk",
+    "chat.turnCompleted",
+    "chat.turnStarted",
+    "chief.turnStateChanged",
+    "decision.requested",
+    "decision.resolved",
+    "demand.created",
+    "document.stateChanged",
+    "gate.changed",
+    "message.appended",
+    "notification.created",
+    "progress.updated",
+    "prototype.created",
+    "prototype.stateChanged",
+    "quota.updated",
+    "run.logAppended",
+    "task.created",
+    "task.stateChanged",
+    "tool.catalogChanged",
+    "workflow.definitionPublished"
+  ]
+}

@@ -93,6 +93,32 @@ public sealed class SolutionStructureTests
         }
     }
 
+    [Fact]
+    public void RunnerHasNoPersistenceOrDatabaseDependency()
+    {
+        var root = FindRepositoryRoot();
+        var runnerAssemblyPath = Path.Combine(
+            root,
+            "src",
+            "Harness.Runner",
+            "bin",
+            new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
+                ?? throw new DirectoryNotFoundException("Test build configuration was not found."),
+            "net10.0",
+            "Harness.Runner.dll");
+        var referencedAssemblies = System.Reflection.Assembly
+            .LoadFile(runnerAssemblyPath)
+            .GetReferencedAssemblies()
+            .Select(reference => reference.Name ?? string.Empty)
+            .ToArray();
+
+        Assert.DoesNotContain(referencedAssemblies, name =>
+            name.Contains("Persistence", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("EntityFramework", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Sqlite", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

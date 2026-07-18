@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <StartupObject>Harness.RecoveryTests.RecoveryFixtureProgram</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
