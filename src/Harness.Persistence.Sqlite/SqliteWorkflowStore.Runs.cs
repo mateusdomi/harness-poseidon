@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Abstractions.Workflows;
@@ -223,7 +224,9 @@ public sealed partial class SqliteWorkflowStore
         query.CommandText =
             """
             SELECT r.tenant_id,r.project_id,r.definition_version_id,r.id,r.state,r.version,
+                   r.created_at,r.started_at,r.completed_at,
                    (SELECT COUNT(*) FROM workflow_phase_runs p WHERE p.workflow_run_id=r.id),
+                   (SELECT COUNT(*) FROM workflow_phase_runs p WHERE p.workflow_run_id=r.id AND p.state='active'),
                    (SELECT COUNT(*) FROM workflow_objective_runs o JOIN workflow_phase_runs p ON p.id=o.phase_run_id WHERE p.workflow_run_id=r.id),
                    (SELECT COUNT(*) FROM workflow_gate_runs g JOIN workflow_phase_runs p ON p.id=g.phase_run_id WHERE p.workflow_run_id=r.id),
                    COALESCE((SELECT ROUND(100.0*SUM(CASE WHEN o.state IN ('executed','validated','approved') THEN d.weight ELSE 0 END)/SUM(d.weight),2) FROM workflow_objective_runs o JOIN workflow_objective_definitions d ON d.id=o.objective_definition_id JOIN workflow_phase_runs p ON p.id=o.phase_run_id WHERE p.workflow_run_id=r.id),0),
@@ -237,10 +240,16 @@ public sealed partial class SqliteWorkflowStore
         return await reader.ReadAsync(cancellationToken)
             ? new WorkflowRunStoreSnapshot(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                reader.GetString(4), reader.GetInt64(5), reader.GetInt32(6), reader.GetInt32(7),
-                reader.GetInt32(8), reader.GetDecimal(9), reader.GetDecimal(10), reader.GetDecimal(11))
+                reader.GetString(4), reader.GetInt64(5), ParseRunTimestamp(reader.GetString(6)),
+                reader.IsDBNull(7) ? null : ParseRunTimestamp(reader.GetString(7)),
+                reader.IsDBNull(8) ? null : ParseRunTimestamp(reader.GetString(8)),
+                reader.GetInt32(9), reader.GetInt32(10), reader.GetInt32(11),
+                reader.GetInt32(12), reader.GetDecimal(13), reader.GetDecimal(14), reader.GetDecimal(15))
             : null;
     }
+
+    private static DateTimeOffset ParseRunTimestamp(string value) =>
+        DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
 
     private sealed record PhaseProjection(
         string Id, int Order, IReadOnlyList<string> ObjectiveIds, IReadOnlyList<string> GateIds);

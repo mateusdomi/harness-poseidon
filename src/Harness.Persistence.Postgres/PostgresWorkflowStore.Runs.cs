@@ -26,7 +26,9 @@ public sealed partial class PostgresWorkflowStore
         await using var query = _dataSource.CreateCommand(
             """
             SELECT r.tenant_id,r.project_id,r.definition_version_id,r.id,r.state,r.version,
+                   r.created_at,r.started_at,r.completed_at,
                    (SELECT COUNT(*) FROM harness.workflow_phase_runs p WHERE p.workflow_run_id=r.id),
+                   (SELECT COUNT(*) FROM harness.workflow_phase_runs p WHERE p.workflow_run_id=r.id AND p.state='active'),
                    (SELECT COUNT(*) FROM harness.workflow_objective_runs o JOIN harness.workflow_phase_runs p ON p.id=o.phase_run_id WHERE p.workflow_run_id=r.id),
                    (SELECT COUNT(*) FROM harness.workflow_gate_runs g JOIN harness.workflow_phase_runs p ON p.id=g.phase_run_id WHERE p.workflow_run_id=r.id),
                    COALESCE((SELECT ROUND(100.0*SUM(CASE WHEN o.state IN ('executed','validated','approved') THEN d.weight ELSE 0 END)/SUM(d.weight),2) FROM harness.workflow_objective_runs o JOIN harness.workflow_objective_definitions d ON d.id=o.objective_definition_id JOIN harness.workflow_phase_runs p ON p.id=o.phase_run_id WHERE p.workflow_run_id=r.id),0),
@@ -41,9 +43,12 @@ public sealed partial class PostgresWorkflowStore
             ? new WorkflowRunStoreSnapshot(
                 Trim(reader.GetString(0)), Trim(reader.GetString(1)), Trim(reader.GetString(2)),
                 Trim(reader.GetString(3)), reader.GetString(4), reader.GetInt64(5),
-                checked((int)reader.GetInt64(6)), checked((int)reader.GetInt64(7)),
-                checked((int)reader.GetInt64(8)), reader.GetDecimal(9),
-                reader.GetDecimal(10), reader.GetDecimal(11))
+                reader.GetFieldValue<DateTimeOffset>(6),
+                reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7),
+                reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8),
+                checked((int)reader.GetInt64(9)), checked((int)reader.GetInt64(10)),
+                checked((int)reader.GetInt64(11)), checked((int)reader.GetInt64(12)),
+                reader.GetDecimal(13), reader.GetDecimal(14), reader.GetDecimal(15))
             : null;
     }
 

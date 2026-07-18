@@ -51,8 +51,9 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 15. EP-10b.1: schema dual-provider de definições e runs — verde em 2026-07-18.
 16. EP-10b.2a: criação/publicação transacional de definição — verde em 2026-07-18.
 17. EP-10b.2b.1: inicialização transacional de run e projeções objetivas — verde em 2026-07-18.
-18. EP-10b.2b.2: lifecycle/reidratação/progresso de run dual-provider — próximo incremento.
-19. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
+18. EP-10b.2b.2: start/pause/resume/cancel transacionais com optimistic concurrency — verde em 2026-07-18.
+19. EP-10b.2b.3: objetivos/gates/fases, reidratação e progresso dual-provider — próximo incremento.
+20. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 

@@ -23,6 +23,10 @@ public interface IWorkflowStore
         string tenantId,
         string runId,
         CancellationToken cancellationToken = default);
+
+    Task<WorkflowRunMutationReceipt> TransitionRunAsync(
+        WorkflowRunTransitionCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkflowDefinitionCreateCommand(
@@ -104,12 +108,50 @@ public sealed record WorkflowRunStoreSnapshot(
     string RunId,
     string State,
     long Version,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt,
     int PhaseCount,
+    int ActivePhaseCount,
     int ObjectiveCount,
     int GateCount,
     decimal Executed,
     decimal Validated,
     decimal Approved);
+
+public enum WorkflowRunTransition
+{
+    Start,
+    Pause,
+    Resume,
+    Cancel,
+}
+
+public enum WorkflowRunMutationStatus
+{
+    Applied,
+    IdempotentReplay,
+    NotFound,
+    VersionConflict,
+    InvalidState,
+}
+
+public sealed record WorkflowRunTransitionCommand(
+    string TenantId,
+    string RunId,
+    WorkflowRunTransition Transition,
+    long ExpectedRunVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkflowRunMutationReceipt(
+    WorkflowRunMutationStatus Status,
+    string RunId,
+    long? RunVersion,
+    string? RunState,
+    long? LedgerSequence = null,
+    string? LedgerHash = null,
+    string? OutboxMessageId = null);
 
 public static class WorkflowDefinitionCreateValidator
 {
@@ -294,4 +336,40 @@ public static class WorkflowRunCreateHash
 {
     public static string Compute(WorkflowRunCreateCommand command) =>
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+}
+
+public static class WorkflowRunMutationValidator
+{
+    public static void Validate(WorkflowRunTransitionCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateId(command.TenantId, nameof(command.TenantId));
+        ValidateId(command.RunId, nameof(command.RunId));
+        if (!Enum.IsDefined(command.Transition))
+        {
+            throw new ArgumentOutOfRangeException(nameof(command), "Transition is invalid.");
+        }
+
+        if (command.ExpectedRunVersion <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(command), "Expected version must be positive.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.IdempotencyKey, nameof(command));
+        if (command.IdempotencyKey.Length > 200)
+        {
+            throw new ArgumentException("Idempotency key exceeds 200 characters.", nameof(command));
+        }
+    }
+
+    public static string Hash(WorkflowRunTransitionCommand command) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+
+    private static void ValidateId(string value, string parameterName)
+    {
+        if (!UlidValue.TryParse(value, out _))
+        {
+            throw new ArgumentException("Value must be a canonical ULID.", parameterName);
+        }
+    }
 }
