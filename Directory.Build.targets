@@ -1,0 +1,39 @@
+<Project>
+  <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectName)').StartsWith('Harness.Modules.'))">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.SharedKernel/Harness.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Harness.Persistence.Abstractions'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.SharedKernel/Harness.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Harness.Persistence.Sqlite' Or '$(MSBuildProjectName)' == 'Harness.Persistence.Postgres'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.SharedKernel/Harness.SharedKernel.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Persistence.Abstractions/Harness.Persistence.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Harness.Host'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.SharedKernel/Harness.SharedKernel.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Persistence.Abstractions/Harness.Persistence.Abstractions.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Persistence.Sqlite/Harness.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Persistence.Postgres/Harness.Persistence.Postgres.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Modules/*/*.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Harness.Runner' Or '$(MSBuildProjectName)' == 'Harness.Launcher'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.SharedKernel/Harness.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectName)').EndsWith('Tests'))">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.SharedKernel/Harness.SharedKernel.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Persistence.Abstractions/Harness.Persistence.Abstractions.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Modules/*/*.csproj" />
+    <Compile Include="$(MSBuildThisFileDirectory)tests/Shared/SuiteBootstrapTests.cs" Link="SuiteBootstrapTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Harness.ArchitectureTests' Or '$(MSBuildProjectName)' == 'Harness.IntegrationTests' Or '$(MSBuildProjectName)' == 'Harness.ContractTests' Or '$(MSBuildProjectName)' == 'Harness.RecoveryTests' Or '$(MSBuildProjectName)' == 'Harness.ConcurrencyTests'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Host/Harness.Host.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Persistence.Sqlite/Harness.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Harness.Persistence.Postgres/Harness.Persistence.Postgres.csproj" />
+  </ItemGroup>
+</Project>
