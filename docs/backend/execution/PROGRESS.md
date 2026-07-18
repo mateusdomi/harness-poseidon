@@ -53,4 +53,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Store EP-09b.2b.2 | verde | correção imutável v2→v1, segunda tentativa aprovada e leitura transacional integral; final v8/2 instruções/2 attempts/2 evidências/2 reviews; `evidence/F1-WORK-CHAIN-HISTORY.md` |
 | Contrato EP-10a | verde | 9 cenários: versão/publicação, lifecycle, fases, gates, pausa e progresso ponderado recomputável até 100/100/100; `evidence/F1-WORKFLOW-CONTRACT.md` |
 | Schema EP-10b.1 | verde | 10 tabelas, FKs/checks/índice de fase ativa, migrations idempotentes SQLite `5→0` e PostgreSQL `6→0`; `evidence/F1-WORKFLOW-SCHEMA.md` |
-| Store EP-10b.2 | próximo | criação/publicação/run transacionais, Inbox/ledger/Outbox, optimistic concurrency e reidratação dual-provider |
+| Store EP-10b.2a | verde | definição inicial publicada atomicamente: 10 concorrentes=1 aplicação/9 replays, snapshot hierárquico e Inbox/ledger/Outbox dual-provider; `evidence/F1-WORKFLOW-STORE.md` |
+| Store EP-10b.2b | próximo | lifecycle completo de run, optimistic concurrency, reidratação e progresso calculado do banco |

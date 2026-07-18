@@ -49,8 +49,9 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 13. EP-09b.2b.2: correção por nova instrução imutável e reidratação completa — verde em 2026-07-18.
 14. EP-10a: contrato provider-neutral de WorkflowDefinition/Run, fases, gates e progresso objetivo — verde em 2026-07-18.
 15. EP-10b.1: schema dual-provider de definições e runs — verde em 2026-07-18.
-16. EP-10b.2: store transacional dual-provider de workflow — próximo incremento.
-17. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
+16. EP-10b.2a: criação/publicação transacional de definição — verde em 2026-07-18.
+17. EP-10b.2b: lifecycle/reidratação/progresso de run dual-provider — próximo incremento.
+18. Documentos/versionamento/aprovações, workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 
