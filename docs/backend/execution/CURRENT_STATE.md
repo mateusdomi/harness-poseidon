@@ -7,7 +7,7 @@ Atualizado em: 2026-07-18T20:25:00Z
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-WORK-1 — Solicitação→Demanda→Tarefa→Tentativa e quadro; chat/conversas está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `5cee958` (`develop`), contendo F2-CPK-1 verde com 117/117 testes.
+- Último commit remoto validado: `70bd594` (`develop`), contendo F2-CHAT-1 verde com 121/121 testes.
 - Próximo passo exato: reconciliar os contratos de solicitações, demandas, tarefas, instruções, tentativas e quadro; projetar a cadeia F1 existente em APIs tenant-scoped e eventos canônicos, sem editar frontend.
 - Bloqueios: nenhum.
 
