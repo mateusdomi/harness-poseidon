@@ -9,7 +9,7 @@ public sealed class OutboxRealtimeStreamResolver
     public string Resolve(OutboxLease message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        if (message.EventType is "workflow.versionPublished" or "audit.eventAppended" or "agent.statusChanged")
+        if (message.EventType is "workflow.versionPublished" or "audit.eventAppended" or "agent.statusChanged" or "tool.statusChanged")
         {
             return "global";
         }

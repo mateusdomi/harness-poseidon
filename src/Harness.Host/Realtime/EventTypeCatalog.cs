@@ -31,7 +31,7 @@ public static class EventTypeCatalog
         "run.logAppended",
         "task.created",
         "task.stateChanged",
-        "tool.catalogChanged",
+        "tool.statusChanged",
         "workflow.versionPublished",
     };
 }

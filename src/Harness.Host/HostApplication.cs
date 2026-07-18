@@ -11,6 +11,7 @@ using Harness.Host.Realtime;
 using Harness.Host.Workers;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
+using Harness.Host.Tools;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Documents;
@@ -24,6 +25,7 @@ using Harness.Persistence.Abstractions.Realtime;
 using Harness.Persistence.Abstractions.RunnerIpc;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
+using Harness.Persistence.Abstractions.Tools;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Time;
 
@@ -64,6 +66,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
         builder.Services.AddSingleton<IAgentCatalogStore, SqliteAgentCatalogStore>();
         builder.Services.AddSingleton<IChiefOrchestratorStore, SqliteChiefOrchestratorStore>();
+        builder.Services.AddSingleton<IToolCatalogStore, SqliteToolCatalogStore>();
         builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
         builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
         builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
@@ -122,6 +125,7 @@ public static class HostApplication
         app.MapOrganizations();
         app.MapProjects();
         app.MapAgents();
+        app.MapToolCatalog();
         app.MapConversations();
         app.MapWorkBoard();
         app.MapWorkflowCatalog();
