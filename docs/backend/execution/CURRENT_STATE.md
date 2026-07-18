@@ -5,10 +5,10 @@ Atualizado em: 2026-07-18T21:07:00Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-DOC-1 — documentos e aprovações sobre a autoridade F1; workflows/gates/progresso estão verdes.
+- Épico atual: F2-DOC-1b — classificação, lifecycle e central de aprovações; catálogo/versões estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `6078ec7` (`develop`), contendo F2-WF-1b verde com 131/131 testes e FE-4/logo preservados após rebase.
-- Próximo passo exato: projetar documentos/aprovações F1 nos contratos F2, expor leitura/criação/versionamento/lifecycle/aprovação e comprovar restart, eventos e OpenAPI.
+- Último commit remoto validado: `cd50888` (`develop`), contendo F2-DOC-1a verde com 134/134 testes.
+- Próximo passo exato: expor classificação e transições documentais, fila consolidada de aprovações, criação/resolução com nota obrigatória e eventos canônicos.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -79,8 +79,9 @@ Atualizado em: 2026-07-18T21:07:00Z
 - F2 cadeia/quadro comandos/lifecycle: APIs canônicas fazem triagem de solicitação, movimento/prioridade de tarefa e append imutável de instrução somente após rejeição. O Host registra a autoridade `IWorkChainStore`; start/complete/review projetam quadro, tentativas e eventos `log/note`. O cenário real percorre bloqueio→retomada→rejeição→v2→aprovação→`done`, impõe actor–critic crítico e recupera o estado após restart.
 - F2 workflow catálogo/run: `IWorkflowStore` F1 está registrado como autoridade no Host; projeção SQLite expõe templates, versões, vínculos por projeto, runs, fases e gates nos contratos exatos do frontend. Criação de template expande fases/gates simples para objetivos/requisitos ricos, vínculo registra aceite de risco e run nasce `running` com uma fase ativa. OpenAPI, drift, unicidade por projeto e restart estão comprovados.
 - F2 workflow comandos/lifecycle: publicação imutável numera vN e persiste configurações, modo padrão, transições e changelog. Troca de modo exige novo aceite e audita `audit.eventAppended`; run pausa/retoma, objetivos avançam monotonicamente, gate humano falha somente com nota e pode passar depois, fases concluem até run `completed`. `workflow.versionPublished` usa stream `global`; `gate.changed`, stream de projeto e payload de decisão foram comprovados após restart.
+- F2 documentos catálogo/versões: documentos e versões expõem os campos exatos do frontend sobre a autoridade F1. Corpos UTF-8 ficam fora do banco em catálogo filesystem com path relativo e SHA-256 verificado; criação/append usam compensação em falha, versões são imutáveis e o Host recupera metadados e conteúdo após restart.
 - Migrations: SQLite `16→0` e PostgreSQL `10→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-WF-1b: restore locked, format, build Release com zero warnings/erros e 131/131 testes verdes (`Unit 86`, `Integration 23`, `Contract 9`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- Pipeline: `tools/backend/verify.sh` verde após F2-DOC-1a: restore locked, format, build Release com zero warnings/erros e 134/134 testes verdes (`Unit 87`, `Integration 24`, `Contract 10`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro e workflows F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é documentos/aprovações F2.
 

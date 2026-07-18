@@ -87,4 +87,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-WORK-1b comandos/lifecycle | verde | triagem, movimento/prioridade, correção imutável após rejeição, actor–critic, duas tentativas até `done`, eventos canônicos, restart e OpenAPI; gate 126/126; `evidence/F2-WORK-BOARD-COMMANDS.md` |
 | F2-WF-1a catálogo/run | verde | template/versão, vínculo+aceite, run iniciado, fases/gates, migration 0014, restart, OpenAPI/drift e evento de publicação canônico; gate 129/129; `evidence/F2-WORKFLOW-CATALOG.md` |
 | F2-WF-1b comandos/lifecycle | verde | publicação vN imutável, troca de modo+aceite, pausa/retomada, objetivos, gate fail/pass, conclusão, streams global/projeto e restart; gate 131/131; `evidence/F2-WORKFLOW-COMMANDS.md` |
-| F2-DOC-1 documentos/aprovações | próximo | projeção/API sobre autoridade documental F1, conteúdo catalogado, lifecycle e aprovações |
+| F2-DOC-1a catálogo/versões | verde | documentos e versões exatos, corpo imutável no filesystem catalogado por SHA-256, restart, OpenAPI/drift; gate 134/134; `evidence/F2-DOCUMENT-CATALOG.md` |
+| F2-DOC-1b lifecycle/aprovações | próximo | classificação, estados e central de aprovações sobre a autoridade F1 |
