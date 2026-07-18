@@ -6,7 +6,7 @@
 |---|---|---|---|
 | GNG-1 | nove PoCs verdes | verde | PoCs 1–9 executadas e comprovadas; pipeline 49/49 |
 | GNG-2 | recuperação abrupta com auditoria completa | verde | `SIGKILL` dual-provider retomado automaticamente pelo watchdog, 6/6 checkpoints, 2 attempts, Outbox/Inbox idempotentes e cadeia de 7 eventos íntegra; `evidence/F1-GNG2-CLOSURE.md` |
-| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit, chat, quadro e workflows verdes; documentos/aprovações é o próximo incremento |
+| GNG-3 | dogfood integrado com validação humana | em execução | perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos e aprovações verdes; orquestrador/agentes é o próximo incremento |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
 | GNG-5 | carga, isolamento e failover | fechado | F10 não iniciada |
 | GNG-6 | hardening e DoD global | fechado | F11 não iniciada |
@@ -89,4 +89,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-WF-1b comandos/lifecycle | verde | publicação vN imutável, troca de modo+aceite, pausa/retomada, objetivos, gate fail/pass, conclusão, streams global/projeto e restart; gate 131/131; `evidence/F2-WORKFLOW-COMMANDS.md` |
 | F2-DOC-1a catálogo/versões | verde | documentos e versões exatos, corpo imutável no filesystem catalogado por SHA-256, restart, OpenAPI/drift; gate 134/134; `evidence/F2-DOCUMENT-CATALOG.md` |
 | F2-DOC-1b lifecycle/aprovação documental | verde | classificação, estados, request/reject/approve, nota obrigatória, eventos duplos e restart; gate 134/134; `evidence/F2-DOCUMENT-LIFECYCLE.md` |
-| F2-APP-1 central unificada | próximo | aprovações de gate, tarefa e decisão humana além das documentais |
+| F2-APP-1 central unificada | verde | documento+tarefa+gate+decisão humana, prioridade/prazo, resolução, gate sem burla, eventos e restart; gate 134/134; `evidence/F2-APPROVAL-CENTER.md` |
+| F2-ORCH-1 orquestrador/agentes | próximo | definições/instâncias, equipe, comandos do chief e integração com execução durável |
