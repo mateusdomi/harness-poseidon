@@ -77,8 +77,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 4. Projetos — verde em 2026-07-18.
 5. Cockpit/digest — verde em 2026-07-18.
 6. Conversas e chat streaming — verde em 2026-07-18.
-7. Solicitações, demandas, tarefas, tentativas e quadro — criação/leitura verde; comandos/lifecycle em execução.
-8. Workflows, gates e progresso — pendente.
+7. Solicitações, demandas, tarefas, tentativas e quadro — verde em 2026-07-18.
+8. Workflows, gates e progresso — em execução.
 9. Documentos e aprovações — pendente.
 10. Orquestrador e agentes — pendente.
 11. Ferramentas, skills, plugins e MCP — pendente.

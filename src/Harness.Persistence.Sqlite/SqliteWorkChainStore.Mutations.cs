@@ -167,11 +167,14 @@ public sealed partial class SqliteWorkChainStore
                 VALUES
                     ($attemptId, $tenantId, $projectId, $taskId, $instructionId, $attemptNumber,
                      $producer, 'running', $occurredAt);
+                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
+                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'log','Attempt started.',$occurredAt);
                 UPDATE work_tasks SET state = 'running', version = $nextVersion,
                     updated_at = $occurredAt,board_state='development',blocked_reason=NULL
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
                 """;
             Add(mutation, "$attemptId", command.AttemptId);
+            Add(mutation, "$attemptEventId", UlidValue.New(command.OccurredAt).ToString());
             Add(mutation, "$tenantId", command.TenantId);
             Add(mutation, "$projectId", row.ProjectId);
             Add(mutation, "$taskId", command.TaskId);
@@ -252,12 +255,16 @@ public sealed partial class SqliteWorkChainStore
                 """
                 UPDATE work_attempts SET state = 'awaiting_review', completed_at = $occurredAt
                 WHERE id = $attemptId AND state = 'running';
+                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
+                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'log','Attempt submitted for review.',$occurredAt);
                 UPDATE work_tasks SET state = 'awaiting_review', version = $nextVersion,
                     updated_at = $occurredAt,board_state='review',blocked_reason=NULL
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
                 """;
             Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
             Add(mutation, "$attemptId", command.AttemptId);
+            Add(mutation, "$attemptEventId", UlidValue.New(command.OccurredAt).ToString());
+            Add(mutation, "$projectId", row.ProjectId);
             Add(mutation, "$nextVersion", nextVersion);
             Add(mutation, "$taskId", command.TaskId);
             Add(mutation, "$tenantId", command.TenantId);
@@ -326,6 +333,8 @@ public sealed partial class SqliteWorkChainStore
                 VALUES
                     ($reviewId, $tenantId, $projectId, $attemptId, $reviewer, $decision, $rationale, $occurredAt);
                 UPDATE work_attempts SET state = $decision WHERE id = $attemptId AND state = 'awaiting_review';
+                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
+                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'note',$rationale,$occurredAt);
                 UPDATE work_tasks SET state = $taskState, version = $nextVersion,
                     updated_at = $occurredAt,
                     board_state=CASE WHEN $taskState='completed' THEN 'done' ELSE 'corrections' END,
@@ -333,6 +342,7 @@ public sealed partial class SqliteWorkChainStore
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
                 """;
             Add(mutation, "$reviewId", command.ReviewId);
+            Add(mutation, "$attemptEventId", UlidValue.New(command.OccurredAt).ToString());
             Add(mutation, "$tenantId", command.TenantId);
             Add(mutation, "$projectId", row.ProjectId);
             Add(mutation, "$attemptId", command.AttemptId);

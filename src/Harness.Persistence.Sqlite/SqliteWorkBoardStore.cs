@@ -9,7 +9,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed class SqliteWorkBoardStore(SqliteWriteDispatcher dispatcher) : IWorkBoardStore
+public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatcher) : IWorkBoardStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SqliteWriteDispatcher _dispatcher =
@@ -72,7 +72,7 @@ public sealed class SqliteWorkBoardStore(SqliteWriteDispatcher dispatcher) : IWo
 
     public Task<BoardTaskRecord?> GetTaskAsync(
         string tenantId, string taskId, CancellationToken cancellationToken = default) =>
-        _dispatcher.ExecuteAsync((c, t) => ReadTaskAsync(c, tenantId, taskId, t), cancellationToken);
+        _dispatcher.ExecuteAsync((c, t) => ReadTaskAsync(c, null, tenantId, taskId, t), cancellationToken);
 
     public Task<IReadOnlyList<BoardTaskRecord>> ListTasksAsync(
         string tenantId, string? projectId, string? demandId, string? afterId, int limit,
@@ -368,10 +368,10 @@ public sealed class SqliteWorkBoardStore(SqliteWriteDispatcher dispatcher) : IWo
         return await r.ReadAsync(token) ? ReadDemand(r) : null;
     }
 
-    private static async Task<BoardTaskRecord?> ReadTaskAsync(SqliteConnection c, string tenant,
-        string id, CancellationToken token)
+    private static async Task<BoardTaskRecord?> ReadTaskAsync(SqliteConnection c,
+        SqliteTransaction? tx, string tenant, string id, CancellationToken token)
     {
-        await using var q = c.CreateCommand(); q.CommandText =
+        await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText =
             $"{TaskSelect} WHERE t.tenant_id=$tenant AND t.id=$id;";
         Add(q, "$tenant", tenant); Add(q, "$id", id); await using var r = await q.ExecuteReaderAsync(token);
         return await r.ReadAsync(token) ? ReadTask(r) : null;

@@ -10,6 +10,9 @@ using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.WorkChain;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -97,6 +100,110 @@ public sealed class WorkBoardApiTests
                     var createdTask = snapshot.Delta.Last(x => x.Type == "task.created").Payload.GetProperty("task");
                     Assert.Equal("backlog", createdTask.GetProperty("state").GetString());
                     Assert.Equal(projectId, createdTask.GetProperty("projectId").GetString());
+
+                    using (var prematureInstruction = await client.PostAsJsonAsync(
+                        $"/api/v1/tasks/{taskId}/instructions",
+                        new AppendTaskInstructionRequest("Ainda não houve reprovação."), timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, prematureInstruction.StatusCode);
+                    using (var blockedResponse = await client.PostAsJsonAsync($"/api/v1/tasks/{taskId}/moves",
+                        new MoveTaskRequest("blocked", "Aguardando credencial"), timeout.Token))
+                    {
+                        var blocked = await blockedResponse.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token);
+                        Assert.Equal(HttpStatusCode.OK, blockedResponse.StatusCode);
+                        Assert.Equal("Aguardando credencial", blocked?.BlockedReason);
+                    }
+                    using (var resumedResponse = await client.PostAsJsonAsync($"/api/v1/tasks/{taskId}/moves",
+                        new MoveTaskRequest("backlog"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.OK, resumedResponse.StatusCode);
+                    using (var impossibleDone = await client.PostAsJsonAsync($"/api/v1/tasks/{taskId}/moves",
+                        new MoveTaskRequest("done"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, impossibleDone.StatusCode);
+                    using (var priorityResponse = await client.PostAsJsonAsync($"/api/v1/tasks/{taskId}/priority",
+                        new SetTaskPriorityRequest("critical"), timeout.Token))
+                    {
+                        var prioritized = await priorityResponse.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token);
+                        Assert.Equal(HttpStatusCode.OK, priorityResponse.StatusCode);
+                        Assert.Equal("critical", prioritized?.Priority);
+                    }
+                    using (var analysisResponse = await client.PostAsJsonAsync(
+                        $"/api/v1/solicitations/{solicitation.Id}/transitions",
+                        new TransitionSolicitationRequest("inAnalysis"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.OK, analysisResponse.StatusCode);
+                    using (var convertedResponse = await client.PostAsJsonAsync(
+                        $"/api/v1/solicitations/{solicitation.Id}/transitions",
+                        new TransitionSolicitationRequest("converted"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.OK, convertedResponse.StatusCode);
+                    using (var invalidTransition = await client.PostAsJsonAsync(
+                        $"/api/v1/solicitations/{solicitation.Id}/transitions",
+                        new TransitionSolicitationRequest("open"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, invalidTransition.StatusCode);
+
+                    var profileStore = app.Services.GetRequiredService<ILocalProfileStore>();
+                    var boardStore = app.Services.GetRequiredService<IWorkBoardStore>();
+                    var chainStore = app.Services.GetRequiredService<IWorkChainStore>();
+                    var localProfile = await profileStore.GetAsync(profileId, timeout.Token);
+                    var persistedTask = await boardStore.GetTaskAsync(localProfile!.TenantId, taskId, timeout.Token);
+                    var initialInstruction = Assert.Single(await boardStore.ListInstructionsAsync(
+                        localProfile.TenantId, taskId, null, 10, timeout.Token));
+                    var at = DateTimeOffset.UtcNow;
+                    var firstAttemptId = UlidValue.New(at).ToString();
+                    var started = await chainStore.StartAttemptAsync(new(
+                        localProfile.TenantId, persistedTask!.BackingSolicitationId, taskId,
+                        initialInstruction.Id, firstAttemptId, "producer-agent", persistedTask.Version,
+                        $"api-test:start:{firstAttemptId}", at), timeout.Token);
+                    Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+                    var completed = await chainStore.CompleteAttemptAsync(new(
+                        localProfile.TenantId, persistedTask.BackingSolicitationId, taskId,
+                        firstAttemptId, started.TaskVersion!.Value,
+                        [new(UlidValue.New(at.AddMilliseconds(1)).ToString(), "tests:first-green")],
+                        $"api-test:complete:{firstAttemptId}", at.AddSeconds(1)), timeout.Token);
+                    Assert.Equal(WorkChainMutationStatus.Applied, completed.Status);
+                    var rejected = await chainStore.ReviewAttemptAsync(new(
+                        localProfile.TenantId, persistedTask.BackingSolicitationId, taskId,
+                        firstAttemptId, UlidValue.New(at.AddMilliseconds(2)).ToString(), "reviewer-agent",
+                        "rejected", "Gate funcional falhou.", completed.TaskVersion!.Value,
+                        $"api-test:review:{firstAttemptId}", at.AddSeconds(2)), timeout.Token);
+                    Assert.Equal(WorkChainMutationStatus.Applied, rejected.Status);
+
+                    TaskInstructionContract correction;
+                    using (var correctionResponse = await client.PostAsJsonAsync(
+                        $"/api/v1/tasks/{taskId}/instructions",
+                        new AppendTaskInstructionRequest("Corrija o gate funcional e repita a evidência."), timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.Created, correctionResponse.StatusCode);
+                        correction = (await correctionResponse.Content.ReadFromJsonAsync<TaskInstructionContract>(timeout.Token))!;
+                        Assert.Equal(2, correction.Version); Assert.Equal("user", correction.AuthorKind);
+                        Assert.Equal(profileId, correction.AuthorId);
+                    }
+                    persistedTask = await boardStore.GetTaskAsync(localProfile.TenantId, taskId, timeout.Token);
+                    var secondAttemptId = UlidValue.New(at.AddMilliseconds(3)).ToString();
+                    var secondStarted = await chainStore.StartAttemptAsync(new(
+                        localProfile.TenantId, persistedTask!.BackingSolicitationId, taskId,
+                        correction.Id, secondAttemptId, "producer-agent", persistedTask.Version,
+                        $"api-test:start:{secondAttemptId}", at.AddSeconds(3)), timeout.Token);
+                    var secondCompleted = await chainStore.CompleteAttemptAsync(new(
+                        localProfile.TenantId, persistedTask.BackingSolicitationId, taskId,
+                        secondAttemptId, secondStarted.TaskVersion!.Value,
+                        [new(UlidValue.New(at.AddMilliseconds(4)).ToString(), "tests:corrected-green")],
+                        $"api-test:complete:{secondAttemptId}", at.AddSeconds(4)), timeout.Token);
+                    var approved = await chainStore.ReviewAttemptAsync(new(
+                        localProfile.TenantId, persistedTask.BackingSolicitationId, taskId,
+                        secondAttemptId, UlidValue.New(at.AddMilliseconds(5)).ToString(), "reviewer-agent",
+                        "approved", "Evidência corrigida aprovada.", secondCompleted.TaskVersion!.Value,
+                        $"api-test:review:{secondAttemptId}", at.AddSeconds(5)), timeout.Token);
+                    Assert.Equal(WorkChainMutationStatus.Applied, approved.Status);
+
+                    var finalTask = await client.GetFromJsonAsync<BoardTaskContract>(
+                        $"/api/v1/tasks/{taskId}", timeout.Token);
+                    Assert.Equal("done", finalTask?.State);
+                    Assert.Equal((100m, 100m, 100m),
+                        (finalTask!.Progress.Executed, finalTask.Progress.Validated, finalTask.Progress.Approved));
+                    var finalAttempts = await client.GetFromJsonAsync<AttemptPage>(
+                        $"/api/v1/attempts?taskId={taskId}", timeout.Token);
+                    Assert.Equal(["failed", "completed"], finalAttempts?.Items.Select(x => x.State));
+                    var attemptEvents = await client.GetFromJsonAsync<AttemptEventPage>(
+                        $"/api/v1/attempt-events?attemptId={firstAttemptId}", timeout.Token);
+                    Assert.Equal(["log", "log", "note"], attemptEvents?.Items.Select(x => x.Kind));
                 }
                 finally { await app.StopAsync(timeout.Token); }
             }
@@ -107,7 +214,8 @@ public sealed class WorkBoardApiTests
                 using var client = new HttpClient { BaseAddress = Address(restarted.Services) };
                 client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
                 var recovered = await client.GetFromJsonAsync<BoardTaskContract>($"/api/v1/tasks/{taskId}", timeout.Token);
-                Assert.Equal("backlog", recovered?.State); Assert.Equal(projectId, recovered?.ProjectId);
+                Assert.Equal("done", recovered?.State); Assert.Equal(projectId, recovered?.ProjectId);
+                Assert.Equal(2, recovered?.InstructionVersion);
                 var page = await client.GetFromJsonAsync<TaskPage>($"/api/v1/tasks?projectId={projectId}", timeout.Token);
                 Assert.Equal(2, page?.Items.Count);
             }

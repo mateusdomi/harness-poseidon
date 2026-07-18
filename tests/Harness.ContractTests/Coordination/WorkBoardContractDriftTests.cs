@@ -22,11 +22,15 @@ public sealed class WorkBoardContractDriftTests
         var openApi = document.RootElement; var paths = openApi.GetProperty("paths");
         AssertMethods(paths, "/api/v1/solicitations", "get", "post");
         AssertMethods(paths, "/api/v1/solicitations/{id}", "get");
+        AssertMethods(paths, "/api/v1/solicitations/{id}/transitions", "post");
         AssertMethods(paths, "/api/v1/demands", "get", "post");
         AssertMethods(paths, "/api/v1/demands/{id}", "get");
         AssertMethods(paths, "/api/v1/tasks", "get", "post");
         AssertMethods(paths, "/api/v1/tasks/{id}", "get");
-        AssertMethods(paths, "/api/v1/task-instructions", "get");
+        AssertMethods(paths, "/api/v1/tasks/{id}/moves", "post");
+        AssertMethods(paths, "/api/v1/tasks/{id}/priority", "post");
+        AssertMethods(paths, "/api/v1/tasks/{id}/instructions", "post");
+        AssertMethods(paths, "/api/v1/task-instructions", "get", "post");
         AssertMethods(paths, "/api/v1/task-instructions/{id}", "get");
         AssertMethods(paths, "/api/v1/attempts", "get");
         AssertMethods(paths, "/api/v1/attempts/{id}", "get");

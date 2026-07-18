@@ -9,6 +9,10 @@ public static class WorkBoardApplicationService
         new(["low", "medium", "high", "critical"], StringComparer.Ordinal);
     private static readonly HashSet<string> SolicitationKinds =
         new(["request", "intervention"], StringComparer.Ordinal);
+    private static readonly HashSet<string> TaskStates =
+        new(["backlog", "ready", "development", "review", "corrections", "testsGates", "blocked", "done"], StringComparer.Ordinal);
+    private static readonly HashSet<string> SolicitationStates =
+        new(["open", "inAnalysis", "converted", "answered", "closed"], StringComparer.Ordinal);
 
     public static SolicitationContract CreateSolicitation(
         string id, string profileId, CreateSolicitationRequest request, DateTimeOffset now)
@@ -50,6 +54,37 @@ public static class WorkBoardApplicationService
         var instruction = new TaskInstructionContract(
             Id(instructionId), task.Id, 1, Text(request.Instruction, 100_000), "chief", null, now);
         return (task, instruction);
+    }
+
+    public static (string State, string? Note) MoveTask(MoveTaskRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : Text(request.Note, 10_000);
+        return (Choice(request.ToState, TaskStates), note);
+    }
+
+    public static string SetTaskPriority(SetTaskPriorityRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Choice(request.Priority, Priorities);
+    }
+
+    public static string AppendInstruction(AppendTaskInstructionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Text(request.Body, 100_000);
+    }
+
+    public static (string TaskId, string Body) CreateInstruction(CreateTaskInstructionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return (Id(request.TaskId), Text(request.Body, 100_000));
+    }
+
+    public static string TransitionSolicitation(TransitionSolicitationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Choice(request.State, SolicitationStates);
     }
 
     private static string Id(string value) =>

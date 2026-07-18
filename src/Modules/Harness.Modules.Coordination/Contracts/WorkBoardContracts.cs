@@ -44,3 +44,18 @@ public sealed record CreateDemandRequest(
 public sealed record CreateTaskRequest(
     string ProjectId, string Title, string Instruction, string? DemandId = null,
     string? Priority = null, string? AssigneeAgentId = null, DateTimeOffset? DueAt = null);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record MoveTaskRequest(string ToState, string? Note = null);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record SetTaskPriorityRequest(string Priority);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AppendTaskInstructionRequest(string Body);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CreateTaskInstructionRequest(string TaskId, string Body);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record TransitionSolicitationRequest(string State);

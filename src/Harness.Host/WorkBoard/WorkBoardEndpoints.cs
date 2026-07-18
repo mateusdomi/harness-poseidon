@@ -16,6 +16,7 @@ public static class WorkBoardEndpoints
         solicitations.MapGet("/", ListSolicitationsAsync).Produces<SolicitationPage>().ProducesProblem(400).ProducesProblem(401);
         solicitations.MapGet("/{id}", GetSolicitationAsync).Produces<SolicitationContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         solicitations.MapPost("/", CreateSolicitationAsync).Produces<SolicitationContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        solicitations.MapPost("/{id}/transitions", TransitionSolicitationAsync).Produces<SolicitationContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
 
         var demands = endpoints.MapGroup("/api/v1/demands").WithTags("demands");
         demands.MapGet("/", ListDemandsAsync).Produces<DemandPage>().ProducesProblem(400).ProducesProblem(401);
@@ -26,10 +27,14 @@ public static class WorkBoardEndpoints
         tasks.MapGet("/", ListTasksAsync).Produces<TaskPage>().ProducesProblem(400).ProducesProblem(401);
         tasks.MapGet("/{id}", GetTaskAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         tasks.MapPost("/", CreateTaskAsync).Produces<BoardTaskContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        tasks.MapPost("/{id}/moves", MoveTaskAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        tasks.MapPost("/{id}/priority", SetTaskPriorityAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        tasks.MapPost("/{id}/instructions", AppendTaskInstructionAsync).Produces<TaskInstructionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
 
         var instructions = endpoints.MapGroup("/api/v1/task-instructions").WithTags("task-instructions");
         instructions.MapGet("/", ListInstructionsAsync).Produces<InstructionPage>().ProducesProblem(400).ProducesProblem(401);
         instructions.MapGet("/{id}", GetInstructionAsync).Produces<TaskInstructionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        instructions.MapPost("/", CreateTaskInstructionAsync).Produces<TaskInstructionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
 
         var attempts = endpoints.MapGroup("/api/v1/attempts").WithTags("attempts");
         attempts.MapGet("/", ListAttemptsAsync).Produces<AttemptPage>().ProducesProblem(400).ProducesProblem(401);
@@ -71,6 +76,25 @@ public static class WorkBoardEndpoints
             return Results.Created($"/api/v1/solicitations/{value.Id}", ToContract(row));
         }
         catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
+        catch (ArgumentException e) { return Invalid("solicitation", e.Message); }
+    }
+
+    private static async Task<IResult> TransitionSolicitationAsync(string id,
+        TransitionSolicitationRequest input, HttpRequest request, ILocalProfileStore profiles,
+        IWorkBoardStore store, IClock clock, CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId("solicitation");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var state = WorkBoardApplicationService.TransitionSolicitation(input);
+            var row = await store.TransitionSolicitationAsync(
+                new(profile.TenantId, id, state, clock.UtcNow), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
+        catch (WorkBoardInvalidStateException e) { return Conflict("solicitation_state_conflict", e.Message); }
         catch (ArgumentException e) { return Invalid("solicitation", e.Message); }
     }
 
@@ -143,6 +167,84 @@ public static class WorkBoardEndpoints
         }
         catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
         catch (ArgumentException e) { return Invalid("task", e.Message); }
+    }
+
+    private static async Task<IResult> MoveTaskAsync(string id, MoveTaskRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId("task");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var value = WorkBoardApplicationService.MoveTask(input);
+            var row = await store.MoveTaskAsync(new(profile.TenantId, id, value.State, value.Note,
+                "user", clock.UtcNow), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
+        catch (WorkBoardInvalidStateException e) { return Conflict("task_state_conflict", e.Message); }
+        catch (ArgumentException e) { return Invalid("task", e.Message); }
+    }
+
+    private static async Task<IResult> SetTaskPriorityAsync(string id, SetTaskPriorityRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId("task");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var priority = WorkBoardApplicationService.SetTaskPriority(input);
+            var row = await store.SetTaskPriorityAsync(
+                new(profile.TenantId, id, priority, clock.UtcNow), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
+        catch (ArgumentException e) { return Invalid("task", e.Message); }
+    }
+
+    private static async Task<IResult> AppendTaskInstructionAsync(string id,
+        AppendTaskInstructionRequest input, HttpRequest request, ILocalProfileStore profiles,
+        IWorkBoardStore store, IClock clock, CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId("task");
+        string body;
+        try { body = WorkBoardApplicationService.AppendInstruction(input); }
+        catch (ArgumentException e) { return Invalid("instruction", e.Message); }
+        return await AppendInstructionCoreAsync(id, body, request, profiles, store, clock, token);
+    }
+
+    private static async Task<IResult> CreateTaskInstructionAsync(CreateTaskInstructionRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token)
+    {
+        try
+        {
+            var value = WorkBoardApplicationService.CreateInstruction(input);
+            return await AppendInstructionCoreAsync(
+                value.TaskId, value.Body, request, profiles, store, clock, token);
+        }
+        catch (ArgumentException e) { return Invalid("instruction", e.Message); }
+    }
+
+    private static async Task<IResult> AppendInstructionCoreAsync(string taskId, string body,
+        HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token)
+    {
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var now = clock.UtcNow; var instructionId = UlidValue.New(now).ToString();
+            var row = await store.AppendInstructionAsync(new(profile.TenantId, taskId,
+                instructionId, body, "user", profile.Id, now), token);
+            return Results.Created($"/api/v1/task-instructions/{instructionId}", ToContract(row));
+        }
+        catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
+        catch (WorkBoardInvalidStateException e) { return Conflict("instruction_state_conflict", e.Message); }
     }
 
     private static async Task<IResult> ListInstructionsAsync(string? taskId, string? cursor, int? limit,
@@ -218,6 +320,7 @@ public static class WorkBoardEndpoints
     private static IResult Invalid(string resource, string detail) => Problem(400, $"invalid_{resource}", detail);
     private static IResult NotFound(string resource) => Problem(404, $"{resource}_not_found", "The resource does not exist.");
     private static IResult ReferenceNotFound(string reference) => Problem(404, $"{reference}_not_found", "The referenced resource does not exist.");
+    private static IResult Conflict(string title, string detail) => Problem(409, title, detail);
     private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
 }
 

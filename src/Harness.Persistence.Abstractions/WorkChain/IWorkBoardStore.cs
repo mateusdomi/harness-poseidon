@@ -9,6 +9,8 @@ public interface IWorkBoardStore
         CancellationToken cancellationToken = default);
     Task<BoardSolicitationRecord> CreateSolicitationAsync(
         BoardSolicitationCreateCommand command, CancellationToken cancellationToken = default);
+    Task<BoardSolicitationRecord> TransitionSolicitationAsync(
+        BoardSolicitationTransitionCommand command, CancellationToken cancellationToken = default);
 
     Task<BoardDemandRecord?> GetDemandAsync(
         string tenantId, string demandId, CancellationToken cancellationToken = default);
@@ -25,12 +27,18 @@ public interface IWorkBoardStore
         CancellationToken cancellationToken = default);
     Task<BoardTaskCreateResult> CreateTaskAsync(
         BoardTaskCreateCommand command, CancellationToken cancellationToken = default);
+    Task<BoardTaskRecord> MoveTaskAsync(
+        BoardTaskMoveCommand command, CancellationToken cancellationToken = default);
+    Task<BoardTaskRecord> SetTaskPriorityAsync(
+        BoardTaskPriorityCommand command, CancellationToken cancellationToken = default);
 
     Task<BoardInstructionRecord?> GetInstructionAsync(
         string tenantId, string instructionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<BoardInstructionRecord>> ListInstructionsAsync(
         string tenantId, string? taskId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
+    Task<BoardInstructionRecord> AppendInstructionAsync(
+        BoardInstructionAppendCommand command, CancellationToken cancellationToken = default);
 
     Task<BoardAttemptRecord?> GetAttemptAsync(
         string tenantId, string attemptId, CancellationToken cancellationToken = default);
@@ -93,7 +101,23 @@ public sealed record BoardTaskCreateCommand(
 
 public sealed record BoardTaskCreateResult(BoardTaskRecord Task, BoardInstructionRecord Instruction);
 
+public sealed record BoardSolicitationTransitionCommand(
+    string TenantId, string SolicitationId, string State, DateTimeOffset OccurredAt);
+
+public sealed record BoardTaskMoveCommand(
+    string TenantId, string TaskId, string ToState, string? Note, string ChangedByKind,
+    DateTimeOffset OccurredAt);
+
+public sealed record BoardTaskPriorityCommand(
+    string TenantId, string TaskId, string Priority, DateTimeOffset OccurredAt);
+
+public sealed record BoardInstructionAppendCommand(
+    string TenantId, string TaskId, string InstructionId, string Body, string AuthorKind,
+    string? AuthorId, DateTimeOffset OccurredAt);
+
 public sealed class WorkBoardReferenceNotFoundException(string reference) : Exception(reference)
 {
     public string Reference { get; } = reference;
 }
+
+public sealed class WorkBoardInvalidStateException(string detail) : Exception(detail);

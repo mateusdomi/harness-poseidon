@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T21:20:00Z
+Atualizado em: 2026-07-18T21:35:00Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-WORK-1b — comandos/lifecycle de Solicitação→Tentativa e quadro; criação/leitura está verde.
+- Épico atual: F2-WF-1 — API de workflows, gates e progresso sobre a autoridade F1; cadeia/quadro está integralmente verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `c43f35c` (`develop`), contendo F2-WORK-1a verde com 125/125 testes e o checkpoint FE-3 preservado.
-- Próximo passo exato: implementar transição de solicitação, movimento e prioridade de tarefa, append de instrução sob a regra imutável e projeção do lifecycle de tentativas, com eventos canônicos e sem editar frontend.
+- Último commit remoto validado: `9eb8fad` (`develop`), checkpoint de F2-WORK-1a; F2-WORK-1b está localmente verde e aguarda o push desta fatia.
+- Próximo passo exato: reconciliar os contratos frontend de workflows/gates/progresso e expor uma primeira vertical read/create/lifecycle sobre `IWorkflowStore`, sem duplicar a autoridade F1.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -76,10 +76,11 @@ Atualizado em: 2026-07-18T21:20:00Z
 - F2 cockpit/digest: projeção tenant/project-scoped recompõe progresso ponderado em três trilhas, tarefas, approvals, workflow/fase/gates e ledger; próxima ação/fingerprint são determinísticos. Sinais de agentes/budgets ainda indisponíveis ficam explícitos. `task.created` foi reconciliado nos stores SQLite/PostgreSQL e roteado pelo Outbox.
 - F2 chat/conversas: conversas/mensagens persistidas e turnos Fake determinísticos. Estado, ledger e Outbox commitam juntos; o dispatcher entrega mensagem humana, início, chunks, resposta e conclusão em `conversation:<id>`, com restart e soft-delete comprovados.
 - F2 cadeia/quadro read/create: as tabelas F1 ganharam projeção das oito colunas e campos completos; seis recursos têm list/read, três têm create, elos internos preservam a cadeia quando a origem pública é nula, e eventos de criação carregam payloads completos.
+- F2 cadeia/quadro comandos/lifecycle: APIs canônicas fazem triagem de solicitação, movimento/prioridade de tarefa e append imutável de instrução somente após rejeição. O Host registra a autoridade `IWorkChainStore`; start/complete/review projetam quadro, tentativas e eventos `log/note`. O cenário real percorre bloqueio→retomada→rejeição→v2→aprovação→`done`, impõe actor–critic crítico e recupera o estado após restart.
 - Migrations: SQLite `13→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-WORK-1a: restore locked, format, build Release com zero warnings/erros e 125/125 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após F2-WORK-1b: restore locked, format, build Release com zero warnings/erros e 126/126 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil, organizações, projetos, cockpit e chat verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é cadeia/quadro F2.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat e quadro verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é workflows/gates/progresso F2.
 
 ## Sanidade antes de retomar
 

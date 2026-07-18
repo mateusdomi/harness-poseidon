@@ -44,4 +44,22 @@ public sealed class WorkBoardApplicationTests
             new CreateTaskRequest("01ARZ3NDEKTSV4RRFFQ69G5FAX", "Implementar", "Instrução",
                 DueAt: new DateTimeOffset(2026, 7, 18, 19, 0, 0, TimeSpan.FromHours(-3))), Now));
     }
+
+    [Fact]
+    public void BoardCommandsNormalizePublishedEnumsAndImmutableInstructionBody()
+    {
+        var move = WorkBoardApplicationService.MoveTask(
+            new MoveTaskRequest("blocked", "  aguardando token  "));
+        Assert.Equal(("blocked", "aguardando token"), move);
+        Assert.Equal("critical", WorkBoardApplicationService.SetTaskPriority(
+            new SetTaskPriorityRequest("critical")));
+        Assert.Equal("correção", WorkBoardApplicationService.AppendInstruction(
+            new AppendTaskInstructionRequest("  correção  ")));
+        Assert.Equal("inAnalysis", WorkBoardApplicationService.TransitionSolicitation(
+            new TransitionSolicitationRequest("inAnalysis")));
+        Assert.Throws<ArgumentException>(() => WorkBoardApplicationService.MoveTask(
+            new MoveTaskRequest("doing")));
+        Assert.Throws<ArgumentException>(() => WorkBoardApplicationService.TransitionSolicitation(
+            new TransitionSolicitationRequest("pending")));
+    }
 }

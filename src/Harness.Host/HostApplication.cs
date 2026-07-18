@@ -58,6 +58,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
         builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
         builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
+        builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
         builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
