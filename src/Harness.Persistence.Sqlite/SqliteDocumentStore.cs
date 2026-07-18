@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed class SqliteDocumentStore(SqliteWriteDispatcher dispatcher) : IDocumentStore
+public sealed partial class SqliteDocumentStore(SqliteWriteDispatcher dispatcher) : IDocumentStore
 {
     private readonly SqliteWriteDispatcher _dispatcher =
         dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));

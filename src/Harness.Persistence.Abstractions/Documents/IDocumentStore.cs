@@ -14,6 +14,10 @@ public interface IDocumentStore
         string tenantId,
         string documentId,
         CancellationToken cancellationToken = default);
+
+    Task<DocumentMutationReceipt> AppendVersionAsync(
+        DocumentVersionAppendCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record DocumentCreateCommand(

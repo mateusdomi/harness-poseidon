@@ -27,6 +27,7 @@ internal static class DocumentStoreBehavior
         Assert.Single(concurrentResults.Select(receipt => receipt.LedgerSequence).Distinct());
         Assert.Single(concurrentResults.Select(receipt => receipt.LedgerHash).Distinct());
         Assert.Single(concurrentResults.Select(receipt => receipt.OutboxMessageId).Distinct());
+        var createReceipt = Assert.Single(concurrentResults, receipt => !receipt.Replay);
 
         var snapshot = await store.ReadAsync(
             command.TenantId,
@@ -71,6 +72,96 @@ internal static class DocumentStoreBehavior
         Assert.Equal(snapshot.Versions, unchanged.Versions);
         Assert.Equal(snapshot.Classifications, unchanged.Classifications);
 
+        var append = AppendCommand();
+        var appendResults = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ =>
+                store.AppendVersionAsync(append, cancellationToken)));
+        var appliedAppend = Assert.Single(
+            appendResults,
+            receipt => receipt.Status == DocumentMutationStatus.Applied);
+        Assert.Equal(
+            9,
+            appendResults.Count(receipt =>
+                receipt.Status == DocumentMutationStatus.IdempotentReplay));
+        Assert.All(appendResults, receipt =>
+        {
+            Assert.Equal(command.DocumentId, receipt.DocumentId);
+            Assert.Equal(2, receipt.DocumentVersion);
+            Assert.Equal("in_elaboration", receipt.State);
+            Assert.Equal(2, receipt.CurrentVersion);
+            Assert.Equal(append.DocumentVersionId, receipt.DocumentVersionId);
+            Assert.NotNull(receipt.LedgerSequence);
+            Assert.Equal(64, receipt.LedgerHash?.Length);
+            Assert.Equal(26, receipt.OutboxMessageId?.Length);
+        });
+        Assert.True(appliedAppend.LedgerSequence > createReceipt.LedgerSequence);
+        Assert.Single(appendResults.Select(receipt => receipt.LedgerSequence).Distinct());
+        Assert.Single(appendResults.Select(receipt => receipt.LedgerHash).Distinct());
+        Assert.Single(appendResults.Select(receipt => receipt.OutboxMessageId).Distinct());
+
+        var versioned = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(versioned);
+        Assert.Equal(2, versioned.Version);
+        Assert.Equal(2, versioned.CurrentVersion);
+        Assert.Equal(2, versioned.Versions.Count);
+        var secondVersion = versioned.Versions[1];
+        Assert.Equal(append.DocumentVersionId, secondVersion.DocumentVersionId);
+        Assert.Equal(2, secondVersion.Version);
+        Assert.Equal(append.CatalogPath, secondVersion.CatalogPath);
+        Assert.Equal(append.ContentHash, secondVersion.ContentHash);
+        Assert.Equal(command.DocumentVersionId, secondVersion.SupersedesId);
+        Assert.Equal(append.AuthorKind, secondVersion.AuthorKind);
+        Assert.Equal(append.AuthorId, secondVersion.AuthorId);
+        Assert.Equal(append.OccurredAt, secondVersion.CreatedAt);
+
+        var stale = append with
+        {
+            DocumentVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FZS",
+            CatalogPath = "docs/architecture/context-map-v3.md",
+            ContentHash = new string('F', 64),
+            IdempotencyKey = "document:append:stale",
+            OccurredAt = append.OccurredAt.AddMinutes(1),
+        };
+        var staleResult = await store.AppendVersionAsync(stale, cancellationToken);
+        Assert.Equal(DocumentMutationStatus.VersionConflict, staleResult.Status);
+        Assert.Equal(2, staleResult.DocumentVersion);
+        Assert.Equal(2, staleResult.CurrentVersion);
+        Assert.Null(staleResult.LedgerSequence);
+        Assert.Null(staleResult.LedgerHash);
+        Assert.Null(staleResult.OutboxMessageId);
+        Assert.Equal(
+            DocumentMutationStatus.IdempotentReplay,
+            (await store.AppendVersionAsync(stale, cancellationToken)).Status);
+        await Assert.ThrowsAsync<IdempotencyConflictException>(() =>
+            store.AppendVersionAsync(
+                stale with { CatalogPath = "docs/architecture/different.md" },
+                cancellationToken));
+        var afterStale = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(afterStale);
+        Assert.Equal(2, afterStale.Version);
+        Assert.Equal(2, afterStale.Versions.Count);
+
+        var missing = append with
+        {
+            DocumentId = "01ARZ3NDEKTSV4RRFFQ69G5FZN",
+            DocumentVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FZM",
+            IdempotencyKey = "document:append:missing",
+            OccurredAt = append.OccurredAt.AddMinutes(2),
+        };
+        var missingResult = await store.AppendVersionAsync(missing, cancellationToken);
+        Assert.Equal(DocumentMutationStatus.NotFound, missingResult.Status);
+        Assert.Null(missingResult.LedgerSequence);
+        Assert.Null(missingResult.OutboxMessageId);
+        Assert.Equal(
+            DocumentMutationStatus.IdempotentReplay,
+            (await store.AppendVersionAsync(missing, cancellationToken)).Status);
+
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FZZ",
@@ -102,4 +193,16 @@ internal static class DocumentStoreBehavior
         "01ARZ3NDEKTSV4RRFFQ69G5FZT",
         "document:create:architecture-decision",
         new DateTimeOffset(2026, 7, 18, 17, 0, 0, TimeSpan.Zero));
+
+    private static DocumentVersionAppendCommand AppendCommand() => new(
+        FoundationTransactionBehavior.TenantId,
+        "01ARZ3NDEKTSV4RRFFQ69G5FZW",
+        "01ARZ3NDEKTSV4RRFFQ69G5FZR",
+        "docs/architecture/context-map-v2.md",
+        new string('E', 64),
+        "chief",
+        "01ARZ3NDEKTSV4RRFFQ69G5FZP",
+        1,
+        "document:append:context-map-v2",
+        new DateTimeOffset(2026, 7, 18, 17, 5, 0, TimeSpan.Zero));
 }

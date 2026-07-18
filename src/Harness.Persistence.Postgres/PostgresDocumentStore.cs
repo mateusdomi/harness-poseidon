@@ -7,7 +7,7 @@ using NpgsqlTypes;
 
 namespace Harness.Persistence.Postgres;
 
-public sealed class PostgresDocumentStore(NpgsqlDataSource dataSource) : IDocumentStore
+public sealed partial class PostgresDocumentStore(NpgsqlDataSource dataSource) : IDocumentStore
 {
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
