@@ -4,7 +4,7 @@
 
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
-| GNG-1 | nove PoCs verdes | fechado | PoCs 1–2 verdes; 2/9 comprovadas |
+| GNG-1 | nove PoCs verdes | fechado | PoCs 1–3 verdes; 3/9 comprovadas |
 | GNG-2 | recuperação abrupta com auditoria completa | fechado | F1 não iniciada |
 | GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
@@ -23,7 +23,7 @@
 | SharedKernel/contratos primitivos | executado e validado | 23 testes unitários; suíte completa com 32 testes, build 0 warnings/0 errors em 2026-07-18 |
 | PoC-1 SQLite/dispatcher | verde | 960 writes, 24 produtores, single reader, WAL/FK/5 s busy timeout, 5 repetições; `evidence/F0-POC-1.md` |
 | PoC-2 retomada | verde | SIGKILL após 3/6 checkpoints; restart, 1 reconciliação, 2 tentativas, 6 checkpoints únicos; `evidence/F0-POC-2.md` |
-| PoC-3 lease/fencing | pendente | — |
+| PoC-3 lease/fencing | verde | owner A token 1 expirado, owner B token 2; write/renew antigos rejeitados; `evidence/F0-POC-3.md` |
 | PoC-4 Codex CLI | pendente | — |
 | PoC-5 Git fixtures/claims | pendente | — |
 | PoC-6 sandbox | pendente | — |

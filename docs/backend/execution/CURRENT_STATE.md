@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T12:04:03Z
+Atualizado em: 2026-07-18T12:08:18Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 0 — Bootstrap e PoCs.
-- Épico atual: EP-05 — lease/fencing e PoC-3; PoCs 1–2 validadas.
+- Épico atual: EP-11 — subprocesso Codex CLI e PoC-4; PoCs 1–3 validadas.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `a3e6bc2` (`develop` após rebase com FE-1); a fatia PoC-2 está verde e aguardando o commit que conterá este estado.
-- Próximo passo exato: adicionar lease expirável com fencing token crescente ao fixture durável, forçar dois owners e provar que o token antigo não consegue persistir após a nova aquisição na PoC-3.
+- Último commit remoto validado: `db5aa9a` (`develop`); a fatia PoC-3 está verde e aguardando o commit que conterá este estado.
+- Próximo passo exato: inspecionar as capacidades locais do Codex CLI sem usar credenciais, implementar wrapper de subprocesso/heartbeat/interrupção/checkpoint e executar a parte não autenticada da PoC-4; smoke real permanece opt-in por `HARNESS_RUN_REAL_AGENT_TESTS=true` e configuração explícita.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -20,7 +20,7 @@ Atualizado em: 2026-07-18T12:04:03Z
 
 ## Estado persistido e operacional
 
-- Banco de dados: nenhum persistente no workspace; bancos temporários das PoCs 1–2 foram removidos com WAL/SHM após os testes.
+- Banco de dados: nenhum persistente no workspace; bancos temporários das PoCs 1–3 foram removidos com WAL/SHM após os testes.
 - Migrations SQLite/PostgreSQL: inexistentes; 28 lockfiles NuGet foram materializados, um por projeto.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
@@ -31,9 +31,10 @@ Atualizado em: 2026-07-18T12:04:03Z
 - SharedKernel: ULID canônico, `EntityId<TTag>`, `IClock`, `SystemClock`, `ErrorDescriptor` e `Result`/`Result<T>` implementados.
 - SQLite: EF Core SQLite 10.0.10; native SQLite pinado em 3.53.3 por segurança; dispatcher único validado em WAL.
 - Recuperação: processo fixture sofreu SIGKILL real após 3/6 checkpoints; nova instância reconciliou e concluiu com 6 checkpoints únicos.
-- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 34 testes verdes nas seis suítes.
+- Fencing: token antigo não gravou nem renovou após aquisição do token crescente pelo novo owner.
+- Pipeline: `tools/backend/verify.sh` verde em Release, zero warnings/erros, 35 testes verdes nas seis suítes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–2 verdes e catalogadas; PoCs 3–9 pendentes e GNG-1 permanece fechado (2/9).
+- Evidências: PoCs 1–3 verdes e catalogadas; PoCs 4–9 pendentes e GNG-1 permanece fechado (3/9).
 
 ## Sanidade antes de retomar
 
