@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T17:20:37Z
+Atualizado em: 2026-07-18T17:26:51Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: F1-WRK-1c — `BackgroundService` de dispatch da Outbox; store dual-provider está verde.
+- Épico atual: F1-WRK-1d — persistência dual-provider do stream SignalR e sink durável Outbox→realtime; o worker está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `35226ae` (`develop`); F1-WRK-1b está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: criar `IOutboxMessageSink` e `OutboxDispatcherBackgroundService` no Host, com loop cancelável, batch/poll configurável, dispatch → completion fenced e exceção → failure/retry; validar com sink fake, desligamento gracioso e restart sobre o store real antes de ligar o sink SignalR persistido.
+- Último commit remoto validado: `e5de085` (`develop`); F1-WRK-1c está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: criar contrato/schema/store dual-provider para eventos sequenciados por stream, substituir `EventStreamStore` em memória no snapshot/delta e implementar `IOutboxMessageSink` que persiste o envelope antes de publicar no hub; provar dedupe por message ID, sequência sem lacuna e resync após restart.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -63,10 +63,11 @@ Atualizado em: 2026-07-18T17:20:37Z
 - Document approvals F1-DOC-1c.4: request/resolve/cancel usam OCC e vinculam cada request à versão corrente imutável. Request pending único muda `in_review→awaiting_approval`; cancel retorna a review; rejeição exige nota e retorna a elaboração; aprovação fecha em approved. Estado, request versionado, histórico, Inbox, ledger e Outbox `approval.requested/resolved` commitam juntos. Cenário dual-provider final: agregado v12, conteúdo v3, 3 requests (`cancelled/rejected/approved`) e 8 transições; concorrência 1 aplicação/9 replays.
 - Outbox contract/schema F1-WRK-1a: `IOutboxStore` define claim expirável, fencing, completion, retry/dead-letter, recuperação e snapshot. Backoff decimal é determinístico/capado. Migrations adicionam agenda/owner/token/expiração/erro/dead-letter às mensagens e histórico de falhas append-only, preservando inserts existentes por `COALESCE(available_at,occurred_at)`; índices provider-specific cobrem dispatch e claims expirados.
 - Outbox stores F1-WRK-1b: SQLite serializa no dispatcher e PostgreSQL adquire por `FOR UPDATE SKIP LOCKED`. Claims expiráveis incrementam fencing; completion/failure recusam owner/token antigo; retry agenda backoff e dead-letter preserva histórico. Dez aquisições concorrentes consumiram exatamente 2 mensagens, recovery elevou tokens 1→2, retry elevou 2→3 e snapshot final comprovou 1 dispatched/1 dead-letter/2 failures/0 pendentes.
+- Outbox worker F1-WRK-1c: `OutboxDispatcherBackgroundService` executa batch/poll cancelável sobre `IOutboxStore`, despacha por sink tipado e finaliza com fencing; exceções registram somente seu tipo. Restart após falha concluiu a pendência sem duplicar a mensagem já finalizada; cancelamento dentro do sink preservou a claim e outra instância a recuperou após expiração.
 - Migrations: SQLite `7→0` e PostgreSQL `8→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1b: restore locked, format, build Release com zero warnings/erros e 94/94 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após F1-WRK-1c: restore locked, format, build Release com zero warnings/erros e 96/96 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso e documentos/versionamento/aprovações verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para workers persistidos.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações e worker Outbox verdes e catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para realtime persistido e watchdog/reconciliador.
 
 ## Sanidade antes de retomar
 
