@@ -65,8 +65,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 29. F1-WRK-1d.1: contrato/schema append-only do stream realtime — verde em 2026-07-18.
 30. F1-WRK-1d.2: stores sequenciados dual-provider — verde em 2026-07-18.
 31. F1-WRK-1d.3a: sink persistido da Outbox e replay sem retransmissão — verde em 2026-07-18.
-32. F1-WRK-1d.3b: wiring do Host, snapshot SignalR persistido e resync após restart — próximo incremento.
-33. Watchdog/reconciliador; então fechar formalmente a Fase 1/GNG-2.
+32. F1-WRK-1d.3b: wiring do Host, snapshot SignalR persistido e resync após restart — verde em 2026-07-18.
+33. F1-WRK-2: watchdog/reconciliador dual-provider; então fechar formalmente a Fase 1/GNG-2 — próximo incremento.
 
 ## Backlog épico
 

@@ -4,7 +4,6 @@ using System.Net;
 using System.Security.Cryptography;
 using Harness.Host;
 using Harness.Host.Ipc;
-using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.RunnerIpc;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -37,11 +36,12 @@ public sealed class RunnerHostIpcPocTests
         try
         {
             RunnerAttemptSnapshot afterFirstRun;
-            await using (var firstStore = new SqliteRunnerMessageStore(databasePath))
             await using (var firstApp = HostApplication.Build(
-                ["--urls", "http://127.0.0.1:0"],
-                new RunnerIpcToken(tokenValue),
-                firstStore))
+                [
+                    "--urls", "http://127.0.0.1:0",
+                    "--Harness:DatabasePath", databasePath,
+                ],
+                new RunnerIpcToken(tokenValue)))
             {
                 await firstApp.StartAsync(timeout.Token);
                 try
@@ -77,11 +77,12 @@ public sealed class RunnerHostIpcPocTests
                 }
             }
 
-            await using var restartedStore = new SqliteRunnerMessageStore(databasePath);
             await using var restartedApp = HostApplication.Build(
-                ["--urls", "http://127.0.0.1:0"],
-                new RunnerIpcToken(tokenValue),
-                restartedStore);
+                [
+                    "--urls", "http://127.0.0.1:0",
+                    "--Harness:DatabasePath", databasePath,
+                ],
+                new RunnerIpcToken(tokenValue));
             await restartedApp.StartAsync(timeout.Token);
             try
             {

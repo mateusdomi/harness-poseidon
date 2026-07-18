@@ -69,4 +69,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F1-WRK-1d.1 | verde | contrato append/replay/snapshot+delta; schema stream head + eventos append-only, migrations SQLite `8→0`/PostgreSQL `9→0`; gate 102/102; `evidence/F1-REALTIME-EVENT-SCHEMA.md` |
 | F1-WRK-1d.2 | verde | 10 appends concorrentes→sequências 1–10; replay/conflito sem avanço e snapshot delta 8–11 equivalente nos dois providers; `evidence/F1-REALTIME-EVENT-STORES.md` |
 | F1-WRK-1d.3a | verde | append antes de broadcast; replay após restart preserva uma row/sequence e zero retransmissão; fallback tenant; `evidence/F1-REALTIME-OUTBOX-SINK.md` |
-| F1-WRK-1d.3b | próximo | wiring do Host, snapshot persistido e resync HTTP/SignalR após restart |
+| F1-WRK-1d.3b | verde | dispatcher/migrations/stores/worker compartilhados no Host; shutdown+restart, snapshot HTTP/SignalR `[2,3]`, replay sem broadcast e sequência final `[1,2,3,4]`; gate 104/104; `evidence/F1-HOST-PERSISTED-REALTIME.md` |
+| F1-WRK-2 | próximo | watchdog/reconciliador dual-provider para leases, heartbeats, timers/sinais, retry/dead-letter e reativação idempotente |

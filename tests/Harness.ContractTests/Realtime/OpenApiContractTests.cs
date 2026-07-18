@@ -12,7 +12,16 @@ public sealed class OpenApiContractTests
     public async Task PublishedOpenApiMatchesRunningHost()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var app = HostApplication.Build(["--urls", "http://127.0.0.1:0"]);
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "contract-artifacts",
+            $"openapi-{Guid.NewGuid():N}");
+        var databasePath = Path.Combine(artifactRoot, "openapi.db");
+        await using var app = HostApplication.Build(
+            [
+                "--urls", "http://127.0.0.1:0",
+                "--Harness:DatabasePath", databasePath,
+            ]);
         await app.StartAsync(timeout.Token);
 
         try
@@ -37,6 +46,10 @@ public sealed class OpenApiContractTests
         finally
         {
             await app.StopAsync(timeout.Token);
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
         }
     }
 

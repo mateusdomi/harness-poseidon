@@ -9,6 +9,7 @@ namespace Harness.Persistence.Sqlite;
 public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDisposable
 {
     private readonly Lazy<Task<SqliteWriteDispatcher>> _dispatcher;
+    private readonly bool _ownsDispatcher;
     private int _disposed;
 
     public SqliteRunnerMessageStore(string databasePath)
@@ -16,6 +17,15 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         _dispatcher = new Lazy<Task<SqliteWriteDispatcher>>(
             () => OpenAsync(databasePath),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        _ownsDispatcher = true;
+    }
+
+    public SqliteRunnerMessageStore(SqliteWriteDispatcher dispatcher)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        _dispatcher = new Lazy<Task<SqliteWriteDispatcher>>(
+            () => Task.FromResult(dispatcher),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -46,7 +56,9 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0 || !_dispatcher.IsValueCreated)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0 ||
+            !_ownsDispatcher ||
+            !_dispatcher.IsValueCreated)
         {
             return;
         }
