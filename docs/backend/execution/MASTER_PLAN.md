@@ -58,8 +58,9 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 22. F1-DOC-1c.1: criação/leitura transacional e idempotente dual-provider — verde em 2026-07-18.
 23. F1-DOC-1c.2: append de versão com OCC, supersession e auditoria dual-provider — verde em 2026-07-18.
 24. F1-DOC-1c.3: classificação/fase e lifecycle com OCC/histórico — verde em 2026-07-18.
-25. F1-DOC-1c.4: aprovações documentais com pendência única e eventos — próximo incremento.
-26. Workers e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
+25. F1-DOC-1c.4: aprovações documentais com pendência única e eventos — verde em 2026-07-18.
+26. F1-WRK-1: Outbox dispatcher persistido dual-provider com retry/dead-letter — próximo incremento.
+27. Watchdog/reconciliador e SignalR persistido; então fechar formalmente a Fase 1/GNG-2.
 
 ## Backlog épico
 

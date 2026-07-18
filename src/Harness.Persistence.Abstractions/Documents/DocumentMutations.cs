@@ -11,6 +11,10 @@ public enum DocumentMutationStatus
     NotFound,
     VersionConflict,
     InvalidState,
+    ApprovalAlreadyPending,
+    ApprovalNotFound,
+    ApprovalAlreadyResolved,
+    RejectionNoteRequired,
 }
 
 public sealed record DocumentVersionAppendCommand(
@@ -32,6 +36,8 @@ public sealed record DocumentMutationReceipt(
     string? State,
     int? CurrentVersion,
     string? DocumentVersionId = null,
+    string? ApprovalRequestId = null,
+    string? ApprovalState = null,
     long? LedgerSequence = null,
     string? LedgerHash = null,
     string? OutboxMessageId = null);

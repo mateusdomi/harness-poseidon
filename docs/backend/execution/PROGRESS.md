@@ -62,4 +62,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F1-DOC-1c.1 | verde | criação/leitura dual-provider: 10 concorrentes=1 aplicação/9 replays; catálogo+Inbox+ledger+Outbox atômicos e snapshot integral; `evidence/F1-DOCUMENT-STORE-CREATION.md` |
 | F1-DOC-1c.2 | verde | append v2→v1 com OCC e `FOR UPDATE`/dispatcher; 10 concorrentes=1 aplicação/9 replays; stale/ausente sem auditoria falsa; `evidence/F1-DOCUMENT-VERSIONING.md` |
 | F1-DOC-1c.3 | verde | órfão adotado por fase sem histórico falso; lifecycle com matriz fechada, ator/nota, OCC e transição append-only; 10 concorrentes=1/9; `evidence/F1-DOCUMENT-LIFECYCLE.md` |
-| F1-DOC-1c.4 | próximo | request/resolve/cancel de aprovação com pendência única, OCC, Inbox, ledger e Outbox `approval.*` |
+| F1-DOC-1c.4 | verde | request/cancel/reject/correct/reapprove dual-provider; pendência única, nota obrigatória, v12/3 versões/3 approvals/8 transições; `evidence/F1-DOCUMENT-APPROVALS.md` |
+| F1-WRK-1 | próximo | Outbox dispatcher persistido com claim/retry/dead-letter e comportamento dual-provider |

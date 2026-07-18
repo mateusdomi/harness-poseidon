@@ -26,6 +26,18 @@ public interface IDocumentStore
     Task<DocumentMutationReceipt> TransitionAsync(
         DocumentTransitionCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<DocumentMutationReceipt> RequestApprovalAsync(
+        DocumentApprovalRequestCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<DocumentMutationReceipt> ResolveApprovalAsync(
+        DocumentApprovalResolveCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<DocumentMutationReceipt> CancelApprovalAsync(
+        DocumentApprovalCancelCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record DocumentCreateCommand(

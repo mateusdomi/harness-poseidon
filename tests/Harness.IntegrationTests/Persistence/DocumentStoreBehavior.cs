@@ -271,6 +271,245 @@ internal static class DocumentStoreBehavior
         Assert.Equal(4, afterInvalidTransition.Version);
         Assert.Single(afterInvalidTransition.StateTransitions);
 
+        var firstApproval = new DocumentApprovalRequestCommand(
+            command.TenantId,
+            command.DocumentId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FZG",
+            "01ARZ3NDEKTSV4RRFFQ69G5FZF",
+            "Approve architecture decision",
+            "Critic must review the current immutable document version.",
+            "high",
+            append.OccurredAt.AddDays(1),
+            "01ARZ3NDEKTSV4RRFFQ69G5FZJ",
+            ExpectedDocumentVersion: 4,
+            "document:approval:first-request",
+            append.OccurredAt.AddMinutes(6));
+        var firstApprovalResults = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ =>
+                store.RequestApprovalAsync(firstApproval, cancellationToken)));
+        Assert.Single(
+            firstApprovalResults,
+            receipt => receipt.Status == DocumentMutationStatus.Applied);
+        Assert.Equal(
+            9,
+            firstApprovalResults.Count(receipt =>
+                receipt.Status == DocumentMutationStatus.IdempotentReplay));
+        Assert.All(firstApprovalResults, receipt =>
+        {
+            Assert.Equal(5, receipt.DocumentVersion);
+            Assert.Equal("awaiting_approval", receipt.State);
+            Assert.Equal(firstApproval.ApprovalRequestId, receipt.ApprovalRequestId);
+            Assert.Equal("pending", receipt.ApprovalState);
+            Assert.NotNull(receipt.LedgerSequence);
+            Assert.NotNull(receipt.OutboxMessageId);
+        });
+        var pendingSnapshot = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(pendingSnapshot);
+        Assert.Equal(5, pendingSnapshot.Version);
+        Assert.Equal("awaiting_approval", pendingSnapshot.State);
+        var pending = Assert.Single(pendingSnapshot.ApprovalRequests);
+        Assert.Equal(firstApproval.ApprovalRequestId, pending.ApprovalRequestId);
+        Assert.Equal(append.DocumentVersionId, pending.DocumentVersionId);
+        Assert.Equal("pending", pending.State);
+        Assert.Equal(1, pending.Version);
+        Assert.Equal(2, pendingSnapshot.StateTransitions.Count);
+
+        var duplicatePending = firstApproval with
+        {
+            ApprovalRequestId = "01ARZ3NDEKTSV4RRFFQ69G5FZE",
+            TransitionId = "01ARZ3NDEKTSV4RRFFQ69G5FZD",
+            ExpectedDocumentVersion = 5,
+            IdempotencyKey = "document:approval:duplicate-pending",
+            OccurredAt = append.OccurredAt.AddMinutes(7),
+        };
+        var duplicatePendingResult = await store.RequestApprovalAsync(
+            duplicatePending,
+            cancellationToken);
+        Assert.Equal(
+            DocumentMutationStatus.ApprovalAlreadyPending,
+            duplicatePendingResult.Status);
+        Assert.Null(duplicatePendingResult.LedgerSequence);
+        Assert.Null(duplicatePendingResult.OutboxMessageId);
+
+        var cancel = new DocumentApprovalCancelCommand(
+            command.TenantId,
+            command.DocumentId,
+            firstApproval.ApprovalRequestId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FZC",
+            "Scope changed before review",
+            "system",
+            ActorId: null,
+            ExpectedDocumentVersion: 5,
+            "document:approval:first-cancel",
+            append.OccurredAt.AddMinutes(8));
+        var cancelResult = await store.CancelApprovalAsync(cancel, cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, cancelResult.Status);
+        Assert.Equal(6, cancelResult.DocumentVersion);
+        Assert.Equal("in_review", cancelResult.State);
+        Assert.Equal("cancelled", cancelResult.ApprovalState);
+        Assert.NotNull(cancelResult.LedgerSequence);
+        var cancelledSnapshot = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(cancelledSnapshot);
+        Assert.Equal("cancelled", Assert.Single(cancelledSnapshot.ApprovalRequests).State);
+        Assert.Equal(3, cancelledSnapshot.StateTransitions.Count);
+
+        var secondApproval = firstApproval with
+        {
+            ApprovalRequestId = "01ARZ3NDEKTSV4RRFFQ69G5FZB",
+            TransitionId = "01ARZ3NDEKTSV4RRFFQ69G5FZA",
+            ExpectedDocumentVersion = 6,
+            IdempotencyKey = "document:approval:second-request",
+            OccurredAt = append.OccurredAt.AddMinutes(9),
+        };
+        var secondRequestResult = await store.RequestApprovalAsync(
+            secondApproval,
+            cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, secondRequestResult.Status);
+        Assert.Equal(7, secondRequestResult.DocumentVersion);
+
+        var missingNote = new DocumentApprovalResolveCommand(
+            command.TenantId,
+            command.DocumentId,
+            secondApproval.ApprovalRequestId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FYZ",
+            "rejected",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+            Note: null,
+            ExpectedDocumentVersion: 7,
+            "document:approval:reject-missing-note",
+            append.OccurredAt.AddMinutes(10));
+        var missingNoteResult = await store.ResolveApprovalAsync(
+            missingNote,
+            cancellationToken);
+        Assert.Equal(
+            DocumentMutationStatus.RejectionNoteRequired,
+            missingNoteResult.Status);
+        Assert.Null(missingNoteResult.LedgerSequence);
+        Assert.Null(missingNoteResult.OutboxMessageId);
+        Assert.Equal(
+            DocumentMutationStatus.IdempotentReplay,
+            (await store.ResolveApprovalAsync(missingNote, cancellationToken)).Status);
+
+        var rejection = missingNote with
+        {
+            TransitionId = "01ARZ3NDEKTSV4RRFFQ69G5FYY",
+            Note = "Evidence does not cover the failure mode.",
+            IdempotencyKey = "document:approval:reject-with-note",
+            OccurredAt = append.OccurredAt.AddMinutes(11),
+        };
+        var rejectionResult = await store.ResolveApprovalAsync(rejection, cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, rejectionResult.Status);
+        Assert.Equal(8, rejectionResult.DocumentVersion);
+        Assert.Equal("in_elaboration", rejectionResult.State);
+        Assert.Equal("rejected", rejectionResult.ApprovalState);
+
+        var correctedVersion = append with
+        {
+            DocumentVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FYX",
+            CatalogPath = "docs/architecture/context-map-v3.md",
+            ContentHash = new string('F', 64),
+            ExpectedDocumentVersion = 8,
+            IdempotencyKey = "document:append:context-map-v3",
+            OccurredAt = append.OccurredAt.AddMinutes(12),
+        };
+        var correctionResult = await store.AppendVersionAsync(
+            correctedVersion,
+            cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, correctionResult.Status);
+        Assert.Equal(9, correctionResult.DocumentVersion);
+        Assert.Equal(3, correctionResult.CurrentVersion);
+
+        var correctedReview = transition with
+        {
+            TransitionId = "01ARZ3NDEKTSV4RRFFQ69G5FYW",
+            ExpectedDocumentVersion = 9,
+            IdempotencyKey = "document:transition:corrected-review",
+            OccurredAt = append.OccurredAt.AddMinutes(13),
+        };
+        var correctedReviewResult = await store.TransitionAsync(
+            correctedReview,
+            cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, correctedReviewResult.Status);
+        Assert.Equal(10, correctedReviewResult.DocumentVersion);
+
+        var finalApproval = firstApproval with
+        {
+            ApprovalRequestId = "01ARZ3NDEKTSV4RRFFQ69G5FYV",
+            TransitionId = "01ARZ3NDEKTSV4RRFFQ69G5FYT",
+            ExpectedDocumentVersion = 10,
+            IdempotencyKey = "document:approval:final-request",
+            OccurredAt = append.OccurredAt.AddMinutes(14),
+        };
+        var finalRequestResult = await store.RequestApprovalAsync(
+            finalApproval,
+            cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, finalRequestResult.Status);
+        Assert.Equal(11, finalRequestResult.DocumentVersion);
+
+        var approval = new DocumentApprovalResolveCommand(
+            command.TenantId,
+            command.DocumentId,
+            finalApproval.ApprovalRequestId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FYS",
+            "approved",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+            "Reviewed against the current evidence.",
+            ExpectedDocumentVersion: 11,
+            "document:approval:final-approve",
+            append.OccurredAt.AddMinutes(15));
+        var approvalResults = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ =>
+                store.ResolveApprovalAsync(approval, cancellationToken)));
+        Assert.Single(
+            approvalResults,
+            receipt => receipt.Status == DocumentMutationStatus.Applied);
+        Assert.Equal(
+            9,
+            approvalResults.Count(receipt =>
+                receipt.Status == DocumentMutationStatus.IdempotentReplay));
+        Assert.All(approvalResults, receipt =>
+        {
+            Assert.Equal(12, receipt.DocumentVersion);
+            Assert.Equal("approved", receipt.State);
+            Assert.Equal("approved", receipt.ApprovalState);
+            Assert.NotNull(receipt.LedgerSequence);
+            Assert.NotNull(receipt.OutboxMessageId);
+        });
+
+        var approved = await store.ReadAsync(
+            command.TenantId,
+            command.DocumentId,
+            cancellationToken);
+        Assert.NotNull(approved);
+        Assert.Equal(12, approved.Version);
+        Assert.Equal("approved", approved.State);
+        Assert.Equal(3, approved.CurrentVersion);
+        Assert.Equal(3, approved.Versions.Count);
+        Assert.Equal(3, approved.ApprovalRequests.Count);
+        Assert.Equal(
+            ["cancelled", "rejected", "approved"],
+            approved.ApprovalRequests.Select(item => item.State));
+        Assert.All(approved.ApprovalRequests, item => Assert.Equal(2, item.Version));
+        Assert.Equal(8, approved.StateTransitions.Count);
+        Assert.Equal(
+            [
+                "in_review",
+                "awaiting_approval",
+                "in_review",
+                "awaiting_approval",
+                "in_elaboration",
+                "in_review",
+                "awaiting_approval",
+                "approved",
+            ],
+            approved.StateTransitions.Select(item => item.ToState));
+
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FZZ",
