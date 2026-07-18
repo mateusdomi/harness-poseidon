@@ -168,6 +168,13 @@
       "weekly": "Semanal",
       "monthly": "Mensal"
     },
+    "attemptState": {
+      "queued": "Na fila",
+      "running": "Em execução",
+      "completed": "Concluída",
+      "failed": "Falhou",
+      "cancelled": "Cancelada"
+    },
     "auditActorKind": {
       "user": "Você",
       "chief": "Chefe",
@@ -411,6 +418,91 @@
     "activity": {
       "title": "Atividade recente",
       "empty": "Nenhum evento de auditoria ainda."
+    }
+  },
+  "board": {
+    "hint": "Tarefas técnicas não são criadas nem editadas por humanos: elas nascem da cadeia solicitação → demanda → tarefa, conduzida pelo chefe. Para pedir algo novo, crie uma solicitação no chat.",
+    "hintCta": "Abrir o chat",
+    "noProject": {
+      "body": "O quadro mostra as tarefas de um projeto. Crie o primeiro projeto para começar.",
+      "cta": "Criar projeto"
+    },
+    "empty": {
+      "title": "Nenhuma tarefa neste projeto",
+      "body": "O chefe ainda não decompôs demandas em tarefas. Converse com o chefe no chat: crie uma solicitação e acompanhe a cadeia solicitação → demanda → tarefa.",
+      "cta": "Criar solicitação no chat"
+    },
+    "column": {
+      "empty": "Sem tarefas nesta coluna."
+    },
+    "card": {
+      "open": "Abrir detalhes da tarefa {{title}}",
+      "unassigned": "Sem responsável",
+      "blocked": "Bloqueada: {{reason}}",
+      "blockedUnknown": "motivo não informado",
+      "updated": "Atualizada {{time}}"
+    },
+    "detail": {
+      "back": "Voltar ao quadro",
+      "close": "Fechar detalhes da tarefa",
+      "dialogLabel": "Detalhes da tarefa",
+      "assignee": "Responsável",
+      "updated": "Última atividade",
+      "progressTitle": "Progresso",
+      "instruction": {
+        "title": "Instrução enviada ao agente",
+        "immutable": "Instruções são imutáveis: uma correção gera uma nova versão, sem editar a anterior.",
+        "versionLabel": "Versão da instrução",
+        "version": "Versão {{version}}",
+        "author": {
+          "chief": "Chefe",
+          "user": "Você"
+        }
+      },
+      "attempts": {
+        "title": "Tentativas e evidências",
+        "empty": "Nenhuma tentativa de execução ainda.",
+        "attempt": "Tentativa {{number}}",
+        "duration": "Duração",
+        "cost": "Custo",
+        "tokens": "Tokens (entrada/saída)",
+        "commits": "Commits/diffs",
+        "running": "Em andamento"
+      },
+      "eventKinds": {
+        "log": "Log",
+        "toolCall": "Ferramenta",
+        "note": "Nota",
+        "diff": "Diff"
+      },
+      "demand": {
+        "title": "Demanda de origem",
+        "none": "Tarefa sem demanda vinculada."
+      },
+      "approvals": {
+        "title": "Gates e aprovações",
+        "empty": "Nenhuma aprovação ligada a esta tarefa.",
+        "approve": "Aprovar",
+        "reject": "Reprovar",
+        "rejectConfirm": "Confirmar reprovação",
+        "noteLabel": "Observação",
+        "noteRequired": "A observação é obrigatória para reprovar.",
+        "notePlaceholder": "Explique o motivo da reprovação…",
+        "resolutionNote": "Observação: {{note}}"
+      },
+      "actions": {
+        "title": "Ações humanas",
+        "explain": "Você não cria nem edita tarefas técnicas — elas seguem a cadeia solicitação → demanda → tarefa, conduzida pelo chefe. Aqui você pode repriorizar, pausar, cancelar, pedir revisão e decidir gates. Para pedir algo novo, use o chat.",
+        "chatCta": "Criar solicitação no chat",
+        "priorityLabel": "Alterar prioridade",
+        "pause": "Pausar",
+        "cancel": "Cancelar",
+        "requestReview": "Solicitar revisão",
+        "pauseNote": "Pausada pelo usuário no quadro.",
+        "cancelNote": "Cancelada pelo usuário no quadro; volta ao backlog para o chefe replanejar.",
+        "reviewNote": "Revisão solicitada pelo usuário no quadro.",
+        "error": "Não foi possível concluir a ação. Tente novamente."
+      }
     }
   },
   "chat": {

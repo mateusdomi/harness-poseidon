@@ -77,3 +77,31 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 ## D-019 — Banner de reconexão global no AppShell (não por tela)
 - **Decisão:** `ReconnectionBanner` (`src/features/shared/components/`) é renderizado uma única vez no AppShell, logo abaixo do header — cobre todas as telas. Lê `realtime.state` via `useConnectionState` (reativo a `onStateChange`); some sozinho ao voltar para `connected` (não dismissível). `role="status"` com tom `warning` (reconectando) ou `error` (desconectado).
 - **Justificativa:** a forma mais limpa pedida pela missão: um único ponto, sem duplicar em cada página; o componente segue reutilizável/testável isoladamente.
+
+## D-020 — Comando `setTaskPriority`: prioridade muda por comando, não por PATCH
+- **Decisão:** a ação humana "alterar prioridade" virou um comando de domínio novo — `setTaskPriorityInputSchema` em `contracts/commands.ts`, `POST /tasks/<id>/priority` no `ApiClient` (mock + http). Tarefa continua fora do `UpdateInputMap` (imutabilidade de conteúdo preservada). Não há evento `task.priorityChanged` no catálogo: a UI invalida as queries do quadro no sucesso da mutation; quando o backend modelar o evento, basta incluí-lo nos tipos assinados.
+- **Justificativa:** a missão exige a ação e o contrato não a cobria; comando explícito segue o padrão já estabelecido (D-005) em vez de abrir PATCH em tarefa.
+
+## D-021 — Pausar/cancelar/solicitar revisão mapeados em `moveTask` (sem novos estados)
+- **Decisão:** o enum de colunas tem 8 estados e nenhum deles é "pausada"/"cancelada". O mapeamento adotado no detalhe da tarefa: **pausar** → `moveTask('blocked')` com nota de pausa (bloqueio manual com motivo visível no card e no cockpit); **cancelar** → `moveTask('backlog')` com nota de cancelamento (sai do fluxo ativo; o chefe replaneja); **solicitar revisão** → `moveTask('review')` com nota. As notas são o rastro de auditoria da intenção. Se o backend criar estados/comandos próprios (`paused`, `cancelled`), só o `TaskActions` muda.
+- **Justificativa:** zero mudança de máquina de estados nesta fatia (adicionar estados quebraria cockpit, fixtures e o contrato das 8 colunas); o comportamento é honesto — pausa aparece como bloqueio, que é exatamente o efeito operacional de pausar.
+
+## D-022 — Detalhe da tarefa: drawer (lg+) vs página dedicada (mobile) via matchMedia
+- **Decisão:** `?task=<id>` controla a abertura (deep-linkável). A escolha drawer × página é por `useMediaQuery('(min-width: 1024px)')` (hook novo em `features/board/hooks`), não por CSS `hidden lg:block` — assim só UMA instância do detalhe existe no DOM (sem duplicação de regiões/heading para leitores de tela). O drawer é `role="dialog"` modal com foco preso (Tab faz loop), Esc fecha, backdrop fecha e o foco retorna a quem abriu. Em jsdom (sem matchMedia) o padrão é mobile; testes do drawer stubam `window.matchMedia`.
+- **Justificativa:** a11y real (foco preso + Esc) exigida pela missão; matchMedia evita dois dialogs no accessibility tree.
+
+## D-023 — Movimento em tempo real: atualização otimista do cache + destaque discreto
+- **Decisão:** `useBoardRealtime` assina `project:<id>`. Em `task.stateChanged`, aplica `setQueryData` na lista do quadro (movimento imediato) e marca o card em `recentlyMoved` (1,5 s) — o card recebe um flash de `ring-info` com transição de 200 ms via `motion-safe:` (desligado com `prefers-reduced-motion`). Todos os eventos do quadro também invalidam o prefixo `['board']` (re-sync autoritativo); o detalhe aberto assina `task:<id>` com a mesma invalidação. Tempos relativos ("há 2 min") usam um `useNow` único por página (intervalo de 30 s) passado aos cards.
+- **Justificativa:** `setQueryData` dá o movimento instantâneo pedido; a invalidação por prefixo cobre criação de tarefas, progresso e aprovações sem lógica por evento. Um timer global evita 40 intervals (um por card).
+
+## D-024 — Objetivo/critérios de aceite: contrato atual não modela; detalhe usa demanda + instrução + trilhas
+- **Decisão:** `Task` não tem campos de objetivo nem critérios de aceite. O detalhe mostra, com dados reais do contrato: **demanda de origem** (`demandId` → título/descrição da demanda), **instrução ao agente** (imutável, com seletor de versões anteriores, somente leitura) e **progresso nas 3 trilhas** (o modelo de aceite do domínio). Tentativas exibem timeline de eventos, custo, tokens, duração, commits/diffs e motivo de falha. Campos dedicados de objetivo/critérios ficam como pendência de contrato para o backend (FE-2).
+- **Justificativa:** regra inegociável de zero texto/dado inventado — melhor omitir a seção do que simular conteúdo que o contrato não tem.
+
+## D-025 — Gatilho determinístico `[plan]` no MockApiClient para o gate E2E
+- **Decisão:** mensagem de chat contendo `[plan]` (constantes exportadas: `CHIEF_PLAN_TRIGGER`, `CHIEF_PLAN_TASK_A/B`, `CHIEF_PLAN_APPROVAL_TITLE`) faz o mock simular o planejamento do chefe após o turno: cria demanda + 2 tarefas (títulos fixos), move a tarefa A backlog → ready → development (intervalos fixos de 700 ms, eventos `task.stateChanged` reais no stream do projeto) e abre uma aprovação de gate pendente ligada à tarefa. Reusa os métodos públicos (`create`/`moveTask`) — nenhum caminho especial de dados, os eventos são os mesmos das mutações normais. Não há UI para o gatilho; só o E2E o usa.
+- **Justificativa:** o gate FE-1 precisa de "chefe cria demanda/tarefas (simulado)" determinístico e dirigível pela UI (o chat já é a porta de entrada do domínio). Um comando novo de API seria contrato falso; um token de mensagem é cenário de mock puro.
+
+## D-026 — Gate E2E contra `vite preview` do build (webServer: `build && preview`)
+- **Decisão:** o Playwright sobe `npm run build && npm run preview` (porta 4173, `reuseExistingServer` fora de CI) — já era a configuração existente e se mostrou estável; mantida. Specs: `e2e/fe1-flow.spec.ts` (fluxo completo do gate) e `e2e/app-shell.spec.ts` (smoke, ajustado para completar o onboarding pela UI — o guard `RequireProfile` redireciona sem perfil). Sem sleeps soltos: apenas expects com auto-retry (timeouts de 10–20 s nas etapas do plano simulado).
+- **Justificativa:** preview do build é mais estável que o dev server para CI (sem HMR, sem dependência de watch); o build também valida `tsc -b` antes dos testes.

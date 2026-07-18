@@ -14,6 +14,7 @@ import {
   type ResourceKind,
   type ResourceMap,
   type SetOperationModeInput,
+  type SetTaskPriorityInput,
   type StartChatTurnInput,
   type Task,
   type TaskInstruction,
@@ -90,6 +91,10 @@ export class HttpApiClient implements ApiClient {
 
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task> {
     return this.#request('POST', `/tasks/${taskId}/moves`, input);
+  }
+
+  setTaskPriority(taskId: Ulid, input: SetTaskPriorityInput): Promise<Task> {
+    return this.#request('POST', `/tasks/${taskId}/priority`, input);
   }
 
   appendTaskInstruction(taskId: Ulid, input: AppendTaskInstructionInput): Promise<TaskInstruction> {

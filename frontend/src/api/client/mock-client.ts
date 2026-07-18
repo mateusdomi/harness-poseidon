@@ -4,6 +4,7 @@ import {
   moveTaskInputSchema,
   resolveApprovalInputSchema,
   setOperationModeInputSchema,
+  setTaskPriorityInputSchema,
   startChatTurnInputSchema,
   transitionDocumentInputSchema,
   transitionSolicitationInputSchema,
@@ -23,11 +24,13 @@ import {
   type Page,
   type ProblemDetails,
   type Profile,
+  type Project,
   type RemovableResource,
   type ResolveApprovalInput,
   type ResourceKind,
   type ResourceMap,
   type SetOperationModeInput,
+  type SetTaskPriorityInput,
   type Solicitation,
   type StartChatTurnInput,
   type Task,
@@ -88,6 +91,17 @@ const CHAT_REPLY_CHUNKS = [
   'Vou quebrar isso em tarefas e delegar aos especialistas. ',
   'Assim que houver evidências nas tentativas, te atualizo por aqui.',
 ];
+
+/**
+ * Gatilho determinístico (mock/E2E): mensagem contendo `[plan]` faz o chefe
+ * "planejar" de verdade — cria demanda + 2 tarefas, move uma tarefa pelas
+ * colunas (eventos `task.stateChanged`) e abre uma aprovação de gate.
+ * Títulos fixos para seletores estáveis nos testes E2E.
+ */
+export const CHIEF_PLAN_TRIGGER = /\[plan\]/i;
+export const CHIEF_PLAN_TASK_A = 'Decompor escopo do plano';
+export const CHIEF_PLAN_TASK_B = 'Executar primeira entrega do plano';
+export const CHIEF_PLAN_APPROVAL_TITLE = 'Aprovar gate do plano simulado';
 
 /**
  * Cliente de API em memória (modo `VITE_API_MODE=mock`).
@@ -232,6 +246,15 @@ export class MockApiClient implements ApiClient {
       changedByKind: 'user',
       note: parsed.note ?? null,
     });
+    return structuredClone(task);
+  }
+
+  async setTaskPriority(taskId: Ulid, input: SetTaskPriorityInput): Promise<Task> {
+    await this.#simulate();
+    const parsed = setTaskPriorityInputSchema.parse(input);
+    const task = this.#require('tasks', taskId);
+    task.priority = parsed.priority;
+    task.updatedAt = this.#options.now();
     return structuredClone(task);
   }
 
@@ -438,10 +461,66 @@ export class MockApiClient implements ApiClient {
       },
     });
 
+    if (CHIEF_PLAN_TRIGGER.test(parsed.content)) {
+      this.#scheduleChiefPlan(project, parsed.content);
+    }
+
     return { turnId, conversationId: conversation.id };
   }
 
   /* ---- internos ---- */
+
+  /**
+   * Simulação do "chefe planeja" (gatilho `[plan]`, ver CHIEF_PLAN_TRIGGER):
+   * após o turno, cria demanda + 2 tarefas, move a tarefa A por
+   * backlog → ready → development (eventos reais no stream do projeto) e
+   * abre uma aprovação de gate pendente ligada a ela. Determinístico:
+   * títulos fixos, intervalos fixos, sem aleatoriedade.
+   */
+  #scheduleChiefPlan(project: Project, content: string): void {
+    const baseDelayMs = this.#options.chatChunkDelayMs * (CHAT_REPLY_CHUNKS.length + 2);
+    const objective = content.replace(CHIEF_PLAN_TRIGGER, '').trim() || content;
+    const stepMs = 700;
+
+    setTimeout(() => {
+      void (async () => {
+        const demand = await this.create('demands', {
+          projectId: project.id,
+          title: `Plano: ${objective}`,
+          description: `Demanda criada pelo chefe a partir da conversa: "${objective}".`,
+          priority: 'high',
+        });
+        const taskA = await this.create('tasks', {
+          projectId: project.id,
+          demandId: demand.id,
+          title: CHIEF_PLAN_TASK_A,
+          priority: 'high',
+          instruction: `Detalhar o escopo de "${objective}" em entregáveis verificáveis, com critérios de aceite por item.`,
+        });
+        await this.create('tasks', {
+          projectId: project.id,
+          demandId: demand.id,
+          title: CHIEF_PLAN_TASK_B,
+          priority: 'medium',
+          instruction: `Executar a primeira entrega do plano "${objective}" seguindo os critérios de aceite da tarefa anterior.`,
+        });
+
+        setTimeout(() => void this.moveTask(taskA.id, { toState: 'ready' }), stepMs);
+        setTimeout(() => void this.moveTask(taskA.id, { toState: 'development' }), stepMs * 2);
+        setTimeout(
+          () =>
+            void this.create('approvals', {
+              projectId: project.id,
+              taskId: taskA.id,
+              title: CHIEF_PLAN_APPROVAL_TITLE,
+              description: 'Escopo decomposto; aprovar o gate para liberar a execução.',
+              requestedByAgentId: project.chiefAgentId,
+            }),
+          stepMs * 3,
+        );
+      })();
+    }, baseDelayMs);
+  }
 
   #table<K extends ResourceKind>(resource: K): Map<string, ResourceMap[K]> {
     return this.#store[resource];

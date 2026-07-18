@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { documentStateSchema, operationModeSchema, solicitationStateSchema, taskStateSchema } from './enums';
+import { documentStateSchema, operationModeSchema, prioritySchema, solicitationStateSchema, taskStateSchema } from './enums';
 
 /**
  * Comandos de domínio (POSTs fora do CRUD) — espelhados no backend.
@@ -14,6 +14,12 @@ export const moveTaskInputSchema = z.object({
   note: z.string().optional(),
 });
 export type MoveTaskInput = z.infer<typeof moveTaskInputSchema>;
+
+/** Altera a prioridade da tarefa (ação humana permitida — não é edição de conteúdo). */
+export const setTaskPriorityInputSchema = z.object({
+  priority: prioritySchema,
+});
+export type SetTaskPriorityInput = z.infer<typeof setTaskPriorityInputSchema>;
 
 /** Nova versão de instrução de tarefa (correção — nunca edita a anterior). */
 export const appendTaskInstructionInputSchema = z.object({

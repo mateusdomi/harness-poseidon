@@ -1,6 +1,7 @@
 import type {
   AgentState,
   ApprovalState,
+  AttemptState,
   GateState,
   PhaseState,
   Priority,
@@ -62,6 +63,19 @@ export const AGENT_STATE_VARIANTS: Record<AgentState, BadgeProps['variant']> = {
 
 export function agentStateVariant(state: AgentState): BadgeProps['variant'] {
   return AGENT_STATE_VARIANTS[state];
+}
+
+/** Tentativas: running é info, completed sucesso, failed erro. */
+export const ATTEMPT_STATE_VARIANTS: Record<AttemptState, BadgeProps['variant']> = {
+  queued: 'outline',
+  running: 'info',
+  completed: 'success',
+  failed: 'error',
+  cancelled: 'outline',
+};
+
+export function attemptStateVariant(state: AttemptState): BadgeProps['variant'] {
+  return ATTEMPT_STATE_VARIANTS[state];
 }
 
 export const APPROVAL_STATE_VARIANTS: Record<ApprovalState, BadgeProps['variant']> = {

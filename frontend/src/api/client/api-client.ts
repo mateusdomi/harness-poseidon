@@ -12,6 +12,7 @@ import type {
   ResourceKind,
   ResourceMap,
   SetOperationModeInput,
+  SetTaskPriorityInput,
   StartChatTurnInput,
   Task,
   TaskInstruction,
@@ -54,6 +55,8 @@ export interface ApiClient {
 
   /** Move tarefa entre colunas do quadro → emite `task.stateChanged`. */
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task>;
+  /** Altera a prioridade da tarefa (ação humana; conteúdo permanece imutável). */
+  setTaskPriority(taskId: Ulid, input: SetTaskPriorityInput): Promise<Task>;
   /** Nova versão de instrução (correção) — incrementa `instructionVersion`. */
   appendTaskInstruction(taskId: Ulid, input: AppendTaskInstructionInput): Promise<TaskInstruction>;
   /** Triagem de solicitação (apenas estado; conteúdo imutável). */

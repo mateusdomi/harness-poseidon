@@ -122,6 +122,7 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | Método/Rota | Request | Response | Evento(s) | Tela |
 |---|---|---|---|---|
 | `POST /tasks/<id>/moves` | `{ toState: TaskState, note? }` | `Task` | `task.stateChanged` | board (drag-and-drop) |
+| `POST /tasks/<id>/priority` | `{ priority: Priority }` | `Task` | — | board (alterar prioridade — ação humana) |
 | `POST /tasks/<id>/instructions` | `{ body }` | `TaskInstruction` (v+1) | — | board (correção de instrução) |
 | `POST /solicitations/<id>/transitions` | `{ state }` | `Solicitation` | — | po-assistant (triagem) |
 | `POST /approvals/<id>/resolution` | `{ decision: "approved"\|"rejected", note? }` — **note obrigatória ao reprovar** | `Approval` | `approval.resolved` (+ `gate.changed` se houver gate) | approvals, governance |
@@ -199,3 +200,4 @@ Métodos do hub SignalR (backend): cliente chama `SubscribeToStreams(string[])`,
 - `MockRealtimeClient` (`realtime/mock-client.ts`): sequences por stream, múltiplos subscribers, log por stream para snapshot, heartbeat de attempts em andamento, chat por chunks, `replay()`/`emitOutOfOrder()` para exercitar dedupe e lacuna.
 - Fixtures determinísticas (seed 42, mulberry32 + ULID determinístico) em `fixtures/`: 1 perfil, 2 organizações, 2 projetos, 40 tarefas nas 8 colunas, attempts com evidências, conversas/mensagens, documentos em 8 estados (+ versões e waiver), workflow template/versão/run com fases e gates, 5 aprovações, 7 agentes, skills/tools/plugins/MCP, providers/contas/modelos/budgets/roteamento, 10 notificações, auditoria, run-targets, settings, licença/entitlements, protótipos e referências visuais.
 - **msw**: `src/api/mocks/` (handlers + worker). Em dev, `VITE_MSW=on` serve as fixtures via HTTP `/api/v1` para inspeção no navegador. Testes não usam rede.
+- **Gatilho de cenário `[plan]`** (mock, E2E): mensagem de chat contendo `[plan]` faz o `MockApiClient` simular o planejamento do chefe após o turno — cria demanda + 2 tarefas (títulos fixos), move uma tarefa backlog → ready → development via eventos `task.stateChanged` reais e abre uma aprovação de gate pendente. Usado pelo gate E2E da FE-1; não é contrato de backend.

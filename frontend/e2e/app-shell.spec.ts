@@ -25,6 +25,9 @@ async function navTo(page: Page, name: string) {
 test.describe('AppShell smoke', () => {
   test('abre / e navega para 2 rotas', async ({ page }) => {
     await page.goto('/');
+    // Sem perfil na sessão, o guard RequireProfile leva ao onboarding.
+    await expect(page).toHaveURL(/\/onboarding$/);
+    await page.getByRole('button', { name: /Mateus/ }).click();
     await expect(page).toHaveURL(/\/cockpit$/);
     await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
 

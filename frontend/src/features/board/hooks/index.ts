@@ -1,1 +1,13 @@
-// Hooks da feature "board" — implementados em fatias futuras.
+export {
+  boardKeys,
+  useBoardAgents,
+  useBoardRealtime,
+  useBoardTasks,
+  useMoveTask,
+  useNow,
+  useResolveTaskApproval,
+  useSetTaskPriority,
+  useTaskDetail,
+  useTaskRealtime,
+} from './use-board';
+export { useMediaQuery } from './use-media-query';

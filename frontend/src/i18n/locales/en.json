@@ -168,6 +168,13 @@
       "weekly": "Weekly",
       "monthly": "Monthly"
     },
+    "attemptState": {
+      "queued": "Queued",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
     "auditActorKind": {
       "user": "You",
       "chief": "Chief",
@@ -411,6 +418,91 @@
     "activity": {
       "title": "Recent activity",
       "empty": "No audit events yet."
+    }
+  },
+  "board": {
+    "hint": "Technical tasks are never created or edited by humans: they follow the solicitation → demand → task chain, driven by the chief. To ask for something new, create a solicitation in the chat.",
+    "hintCta": "Open the chat",
+    "noProject": {
+      "body": "The board shows a project's tasks. Create your first project to get started.",
+      "cta": "Create project"
+    },
+    "empty": {
+      "title": "No tasks in this project",
+      "body": "The chief hasn't broken demands down into tasks yet. Talk to the chief in the chat: create a solicitation and follow the solicitation → demand → task chain.",
+      "cta": "Create solicitation in the chat"
+    },
+    "column": {
+      "empty": "No tasks in this column."
+    },
+    "card": {
+      "open": "Open details of task {{title}}",
+      "unassigned": "Unassigned",
+      "blocked": "Blocked: {{reason}}",
+      "blockedUnknown": "no reason given",
+      "updated": "Updated {{time}}"
+    },
+    "detail": {
+      "back": "Back to the board",
+      "close": "Close task details",
+      "dialogLabel": "Task details",
+      "assignee": "Assignee",
+      "updated": "Last activity",
+      "progressTitle": "Progress",
+      "instruction": {
+        "title": "Instruction sent to the agent",
+        "immutable": "Instructions are immutable: a correction creates a new version instead of editing the previous one.",
+        "versionLabel": "Instruction version",
+        "version": "Version {{version}}",
+        "author": {
+          "chief": "Chief",
+          "user": "You"
+        }
+      },
+      "attempts": {
+        "title": "Attempts and evidence",
+        "empty": "No execution attempts yet.",
+        "attempt": "Attempt {{number}}",
+        "duration": "Duration",
+        "cost": "Cost",
+        "tokens": "Tokens (input/output)",
+        "commits": "Commits/diffs",
+        "running": "In progress"
+      },
+      "eventKinds": {
+        "log": "Log",
+        "toolCall": "Tool",
+        "note": "Note",
+        "diff": "Diff"
+      },
+      "demand": {
+        "title": "Origin demand",
+        "none": "Task without a linked demand."
+      },
+      "approvals": {
+        "title": "Gates and approvals",
+        "empty": "No approvals linked to this task.",
+        "approve": "Approve",
+        "reject": "Reject",
+        "rejectConfirm": "Confirm rejection",
+        "noteLabel": "Note",
+        "noteRequired": "A note is required to reject.",
+        "notePlaceholder": "Explain the reason for the rejection…",
+        "resolutionNote": "Note: {{note}}"
+      },
+      "actions": {
+        "title": "Human actions",
+        "explain": "You don't create or edit technical tasks — they follow the solicitation → demand → task chain, driven by the chief. Here you can reprioritize, pause, cancel, request review and decide gates. To ask for something new, use the chat.",
+        "chatCta": "Create solicitation in the chat",
+        "priorityLabel": "Change priority",
+        "pause": "Pause",
+        "cancel": "Cancel",
+        "requestReview": "Request review",
+        "pauseNote": "Paused by the user on the board.",
+        "cancelNote": "Cancelled by the user on the board; back to the backlog for the chief to re-plan.",
+        "reviewNote": "Review requested by the user on the board.",
+        "error": "Could not complete the action. Please try again."
+      }
     }
   },
   "chat": {

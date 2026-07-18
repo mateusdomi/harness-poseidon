@@ -1,0 +1,143 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import type { Approval } from '@/api';
+import { Badge, Button, Field, Textarea } from '@/design-system';
+import { formatDateTime } from '@/lib/format';
+import { approvalStateVariant } from '@/lib/status';
+import { useResolveTaskApproval } from '@/features/board/hooks/use-board';
+
+export interface TaskApprovalsProps {
+  approvals: Approval[];
+}
+
+/**
+ * Gates/aprovações ligadas à tarefa. Aprovar é um clique; reprovar abre
+ * formulário inline com observação OBRIGATÓRIA (regra do contrato
+ * `resolveApprovalInputSchema`).
+ */
+export function TaskApprovals({ approvals }: TaskApprovalsProps) {
+  const { t, i18n } = useTranslation();
+  const resolveApproval = useResolveTaskApproval();
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [noteError, setNoteError] = useState<string | null>(null);
+
+  function startReject(approvalId: string) {
+    setRejectingId(approvalId);
+    setNote('');
+    setNoteError(null);
+  }
+
+  function confirmReject(approvalId: string) {
+    if (note.trim().length === 0) {
+      setNoteError(t('board.detail.approvals.noteRequired'));
+      return;
+    }
+    resolveApproval.mutate(
+      { approvalId, input: { decision: 'rejected', note: note.trim() } },
+      { onSuccess: () => setRejectingId(null) },
+    );
+  }
+
+  if (approvals.length === 0) {
+    return <p className="text-sm text-foreground-muted">{t('board.detail.approvals.empty')}</p>;
+  }
+
+  return (
+    <ul className="flex flex-col gap-3">
+      {approvals.map((approval) => (
+        <li
+          key={approval.id}
+          className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium">{approval.title}</span>
+            <Badge variant={approvalStateVariant(approval.state)}>
+              {t(`status.approvalState.${approval.state}`)}
+            </Badge>
+          </div>
+          <p className="text-xs text-foreground-muted">{approval.description}</p>
+          {approval.resolutionNote && (
+            <p className="text-xs text-foreground-muted">
+              {t('board.detail.approvals.resolutionNote', { note: approval.resolutionNote })}
+            </p>
+          )}
+          {approval.resolvedAt && (
+            <p className="text-xs text-foreground-muted">
+              {formatDateTime(approval.resolvedAt, i18n.language)}
+            </p>
+          )}
+
+          {approval.state === 'pending' && (
+            <>
+              {rejectingId === approval.id ? (
+                <div className="flex flex-col gap-2">
+                  <Field
+                    htmlFor={`reject-note-${approval.id}`}
+                    label={t('board.detail.approvals.noteLabel')}
+                    required
+                    requiredLabel={t('common.requiredMark')}
+                    error={noteError ?? undefined}
+                  >
+                    <Textarea
+                      id={`reject-note-${approval.id}`}
+                      value={note}
+                      aria-invalid={noteError !== null}
+                      placeholder={t('board.detail.approvals.notePlaceholder')}
+                      onChange={(event) => {
+                        setNote(event.target.value);
+                        if (noteError) setNoteError(null);
+                      }}
+                    />
+                  </Field>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={resolveApproval.isPending}
+                      onClick={() => confirmReject(approval.id)}
+                    >
+                      {t('board.detail.approvals.rejectConfirm')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRejectingId(null)}
+                    >
+                      {t('common.actions.cancel')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={resolveApproval.isPending}
+                    onClick={() =>
+                      resolveApproval.mutate({ approvalId: approval.id, input: { decision: 'approved' } })
+                    }
+                  >
+                    {t('board.detail.approvals.approve')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={resolveApproval.isPending}
+                    onClick={() => startReject(approval.id)}
+                  >
+                    {t('board.detail.approvals.reject')}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}

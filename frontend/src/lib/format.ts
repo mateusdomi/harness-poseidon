@@ -53,3 +53,15 @@ export function formatRelativeTime(
   if (abs < 86400) return rtf.format(Math.round(diffSeconds / 3600), 'hour');
   return rtf.format(Math.round(diffSeconds / 86400), 'day');
 }
+
+/** Duração curta legível (attempts, runs): "45 s", "3 min 20 s", "1 h 5 min". */
+export function formatDurationMs(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds} s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return seconds > 0 ? `${minutes} min ${seconds} s` : `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes > 0 ? `${hours} h ${restMinutes} min` : `${hours} h`;
+}
