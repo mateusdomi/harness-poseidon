@@ -97,7 +97,9 @@ public static class HostApplication
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();
         builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<RunTargetProcessSupervisor>());
         builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
-        builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
+        builder.Services.AddSingleton<SqliteConversationStore>();
+        builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<SqliteConversationStore>());
+        builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<SqliteConversationStore>());
         builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
         builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
         builder.Services.AddSingleton<IWorkflowStore, SqliteWorkflowStore>();

@@ -1,13 +1,14 @@
 using System.Globalization;
 using System.Text.Json;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed class SqliteConversationStore(SqliteWriteDispatcher dispatcher) : IConversationStore
+public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispatcher) : IConversationStore, IChiefTurnStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SqliteWriteDispatcher _dispatcher =

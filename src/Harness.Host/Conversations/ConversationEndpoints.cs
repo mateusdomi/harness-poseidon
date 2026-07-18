@@ -5,6 +5,7 @@ using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Cockpit;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.SharedKernel.Identifiers;
@@ -223,6 +224,7 @@ public static class ConversationEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         IConversationStore conversations,
+        IChiefTurnStore chiefTurns,
         IProjectStore projects,
         ICockpitDigestStore digests,
         IAgentExecutor executor,
@@ -238,6 +240,7 @@ public static class ConversationEndpoints
         var project = await projects.GetAsync(
             profile.TenantId, conversation.ProjectId, cancellationToken);
         if (project is null) return ProjectNotFound();
+        ChiefTurnLease? lease = null;
         try
         {
             var now = clock.UtcNow;
@@ -247,8 +250,28 @@ public static class ConversationEndpoints
             var user = ConversationApplicationService.CreateUserMessage(
                 UlidValue.New(userAt).ToString(), profile.Id,
                 new CreateMessageRequest(conversationId, input.Content), userAt);
+            await chiefTurns.EnqueueAsync(
+                new ChiefTurnEnqueueCommand(
+                    profile.TenantId,
+                    project.Id,
+                    conversationId,
+                    turnId,
+                    project.ChiefAgentId,
+                    ToRecord(profile.TenantId, conversation.ProjectId, user),
+                    $"chief-turn:{turnId}",
+                    now),
+                cancellationToken);
+            lease = await chiefTurns.AcquireAsync(
+                new ChiefTurnAcquireCommand(
+                    profile.TenantId,
+                    turnId,
+                    $"host:{Environment.ProcessId}:{Guid.NewGuid():N}",
+                    now,
+                    TimeSpan.FromMinutes(2)),
+                cancellationToken);
             var digest = await digests.ReadAsync(
                 profile.TenantId, project.Id, activityLimit: 20, cancellationToken);
+            var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
             var execution = await executor.ExecuteAsync(
                 new AgentExecutionRequest(
                     profile.TenantId,
@@ -256,8 +279,9 @@ public static class ConversationEndpoints
                     conversationId,
                     project.ChiefAgentId,
                     input.Content,
-                    JsonSerializer.Serialize(digest, JsonOptions),
-                    AppContext.BaseDirectory),
+                    digestJson,
+                    AppContext.BaseDirectory,
+                    lease.SessionId),
                 cancellationToken);
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
             var chunks = execution.Chunks.Count == 0
@@ -266,28 +290,16 @@ public static class ConversationEndpoints
             var chief = ConversationApplicationService.CreateChiefMessage(
                 UlidValue.New(chiefAt).ToString(), conversationId, project.ChiefAgentId,
                 output.Response, chiefAt);
-            var result = await conversations.StartTurnAsync(
-                new ChatTurnCommand(
-                    profile.TenantId,
-                    conversationId,
-                    turnId,
-                    ToRecord(profile.TenantId, conversation.ProjectId, user),
+            await chiefTurns.CompleteAsync(
+                new ChiefTurnCompleteCommand(
+                    lease,
                     ToRecord(profile.TenantId, conversation.ProjectId, chief),
                     chunks,
-                    now),
+                    execution.SessionId,
+                    digestJson,
+                    chiefAt.AddMilliseconds(1)),
                 cancellationToken);
-            return result.Status switch
-            {
-                MessageMutationStatus.Applied => Results.Accepted(
-                    value: new ChatTurnHandle(result.TurnId, result.ConversationId)),
-                MessageMutationStatus.ConversationNotFound => ConversationNotFound(),
-                MessageMutationStatus.ConversationInactive => Problem(
-                    409, "conversation_inactive", "The conversation is not active."),
-                MessageMutationStatus.AlreadyExists => Problem(
-                    409, "chat_turn_already_exists", "The chat turn already exists."),
-                _ => throw new InvalidOperationException(
-                    $"Unexpected chat turn status {result.Status}."),
-            };
+            return Results.Accepted(value: new ChatTurnHandle(turnId, conversationId));
         }
         catch (ArgumentException exception)
         {
@@ -295,7 +307,17 @@ public static class ConversationEndpoints
         }
         catch (AgentOutputValidationException exception)
         {
+            if (lease is not null)
+            {
+                await chiefTurns.FailAsync(
+                    new ChiefTurnFailCommand(lease, "agent_output_invalid", clock.UtcNow, false),
+                    cancellationToken);
+            }
             return Problem(502, "agent_output_invalid", exception.Message);
+        }
+        catch (ChiefTurnConflictException exception)
+        {
+            return Problem(409, "chief_turn_conflict", exception.Message);
         }
     }
 

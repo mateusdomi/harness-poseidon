@@ -124,6 +124,17 @@ public sealed class ConversationApiTests
                     var auditCounts = await ReadChatAuditCountsAsync(
                         app.Services, timeout.Token);
                     Assert.Equal((3L, 1L), auditCounts);
+                    var pipeline = await ReadChiefPipelineAsync(
+                        app.Services, handle.TurnId, timeout.Token);
+                    Assert.Equal("completed", pipeline.MailboxState);
+                    Assert.Equal(1, pipeline.AttemptCount);
+                    Assert.NotNull(pipeline.ResponseMessageId);
+                    Assert.Equal($"fake:{project.Id}", pipeline.SessionId);
+                    Assert.Equal("idle", pipeline.ChiefState);
+                    Assert.Null(pipeline.LeaseOwner);
+                    Assert.Equal(1, pipeline.FencingToken);
+                    Assert.True(pipeline.HasDigest);
+                    Assert.Equal(1, pipeline.InboxCount);
 
                     var page = await client.GetFromJsonAsync<ConversationPage>(
                         $"/api/v1/conversations?projectId={project.Id}", timeout.Token);
@@ -155,6 +166,10 @@ public sealed class ConversationApiTests
                 var recoveredMessages = await client.GetFromJsonAsync<MessagePage>(
                     $"/api/v1/messages?conversationId={conversationId}", timeout.Token);
                 Assert.Equal(3, recoveredMessages?.Items.Count);
+                var recoveredPipeline = await ReadChiefPipelineAsync(
+                    restarted.Services, null, timeout.Token);
+                Assert.Equal("completed", recoveredPipeline.MailboxState);
+                Assert.Equal(1, recoveredPipeline.FencingToken);
 
                 using var deleted = await client.DeleteAsync(
                     $"/api/v1/conversations/{conversationId}", timeout.Token);
@@ -265,6 +280,39 @@ public sealed class ConversationApiTests
             },
             cancellationToken);
 
+    private static Task<ChiefPipelineSnapshot> ReadChiefPipelineAsync(
+        IServiceProvider services,
+        string? turnId,
+        CancellationToken cancellationToken) =>
+        services.GetRequiredService<SqliteWriteDispatcher>().ExecuteAsync(
+            async (connection, token) =>
+            {
+                await using var query = connection.CreateCommand();
+                query.CommandText =
+                    """
+                    SELECT m.state,m.attempt_count,m.response_message_id,m.session_id,
+                           s.state,s.lease_owner_id,s.lease_fencing_token,
+                           s.last_digest_json IS NOT NULL,
+                           (SELECT COUNT(*) FROM inbox_messages i
+                            WHERE i.tenant_id=m.tenant_id
+                              AND i.idempotency_key='chief-turn:' || m.id)
+                    FROM chief_turn_mailbox m
+                    JOIN chief_states s ON s.tenant_id=m.tenant_id AND s.project_id=m.project_id
+                    WHERE ($turn IS NULL OR m.id=$turn)
+                    ORDER BY m.id DESC LIMIT 1;
+                    """;
+                query.Parameters.AddWithValue("$turn", turnId ?? (object)DBNull.Value);
+                await using var reader = await query.ExecuteReaderAsync(token);
+                Assert.True(await reader.ReadAsync(token));
+                return new ChiefPipelineSnapshot(
+                    reader.GetString(0), reader.GetInt32(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.GetInt64(6), reader.GetBoolean(7), reader.GetInt32(8));
+            },
+            cancellationToken);
+
     private static WebApplication CreateHost(string databasePath) =>
         HostApplication.Build(
             ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", databasePath]);
@@ -277,4 +325,15 @@ public sealed class ConversationApiTests
         return new Uri(addresses.Single(item =>
             item.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)));
     }
+
+    private sealed record ChiefPipelineSnapshot(
+        string MailboxState,
+        int AttemptCount,
+        string? ResponseMessageId,
+        string? SessionId,
+        string ChiefState,
+        string? LeaseOwner,
+        long FencingToken,
+        bool HasDigest,
+        int InboxCount);
 }
