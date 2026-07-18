@@ -1,13 +1,13 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T19:49:25Z
+Atualizado em: 2026-07-18T19:51:09Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-CHAT-1 — conversas/chat streaming; cockpit/digest está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `433187f` (`develop`), checkpoint de F2-PRJ-1; F2-CPK-1 está localmente verde e aguarda publicação.
+- Último commit remoto validado: `5cee958` (`develop`), contendo F2-CPK-1 verde com 117/117 testes.
 - Próximo passo exato: implementar conversas e mensagens persistidas, list/read/create/delete conforme contrato, e turnos de chat com eventos sequenciados `chat.turnStarted/Chunk/Completed` e `message.appended`, sem editar frontend.
 - Bloqueios: nenhum.
 
