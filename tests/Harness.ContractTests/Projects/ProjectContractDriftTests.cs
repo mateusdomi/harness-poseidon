@@ -12,6 +12,12 @@ public sealed class ProjectContractDriftTests
         "lastActivityAt",
     ];
 
+    private static readonly string[] DigestFields =
+    [
+        "projectId", "asOf", "progress", "taskCounts", "attention", "workflow",
+        "nextAction", "recentActivity", "unavailableSignals", "fingerprint",
+    ];
+
     [Fact]
     public void OpenApiProjectMatchesFrontendSchemaAndCrudRoutes()
     {
@@ -26,11 +32,18 @@ public sealed class ProjectContractDriftTests
         Assert.True(item.TryGetProperty("get", out _));
         Assert.True(item.TryGetProperty("patch", out _));
         Assert.True(item.TryGetProperty("delete", out _));
+        Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/status-digest")
+            .TryGetProperty("get", out _));
 
         var properties = openApi.GetProperty("components").GetProperty("schemas")
             .GetProperty("ProjectResponse").GetProperty("properties")
             .EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(ProjectFields.Order(StringComparer.Ordinal), properties);
+
+        var digestProperties = openApi.GetProperty("components").GetProperty("schemas")
+            .GetProperty("ProjectStatusDigestContract").GetProperty("properties")
+            .EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(DigestFields.Order(StringComparer.Ordinal), digestProperties);
 
         var frontend = File.ReadAllText(
             Path.Combine(root, "frontend", "src", "api", "contracts", "core.ts"));

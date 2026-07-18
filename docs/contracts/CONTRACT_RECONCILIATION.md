@@ -70,3 +70,9 @@ Não foi inventado evento público de organização: o catálogo normativo e o T
 `ProjectResponse` contém exatamente os 18 campos de `projectSchema`. O create aceita somente os campos de `CreateInputMap.projects`; chefe lógico, modo, estado, versões e timestamps são definidos pelo backend. O PATCH aceita somente `UpdateInputMap.projects`, portanto não permite trocar organização, chave, chefe, modo ou versões. DELETE usa tombstone, mantendo referências duráveis e auditoráveis sem devolver o recurso nas projeções.
 
 `configVersion` incrementa exclusivamente quando repositório URL/provider, branch, tecnologias ou marca mudam, conforme o comentário normativo do schema. A versão OCC do agregado permanece interna. `project.created` é o evento canônico da missão v1.3; seu payload mínimo contém `projectId` para roteamento persistido ao stream do projeto. Não foram fabricados eventos de update/delete ausentes nos catálogos.
+
+## Cockpit e StatusDigest — 2026-07-18
+
+O frontend compõe o cockpit por listagens dos recursos canônicos; essas rotas serão abertas nas respectivas fatias de tarefas, approvals, agentes, providers e workflows. O backend acrescenta, sem substituir essas listagens, `GET /projects/{id}/status-digest`, necessário pelo pipeline normativo do chefe e útil como snapshot coerente do cockpit.
+
+O contrato explicita sinais ainda indisponíveis para impedir zeros enganosos de agentes/budgets. O evento interno `workChain.created` foi reconciliado nos dois providers para `task.created` e ganhou `projectId`; o nome anterior não existia em nenhum catálogo público e seria rejeitado pelo sink do Host. A mudança elimina o drift sem editar a Kimi.

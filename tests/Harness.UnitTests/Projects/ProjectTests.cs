@@ -78,4 +78,29 @@ public sealed class ProjectTests
             new UpdateProjectRequest { State = "unknown" },
             Initial.AddMinutes(1)));
     }
+
+    [Fact]
+    public void StatusDigestIsDeterministicAndKeepsProgressTracksSeparate()
+    {
+        var source = new ProjectStatusDigestSource(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            Initial,
+            new ProjectProgressContract(75m, 50m, 25m),
+            new ProjectTaskCountsContract(0, 2, 1, 1, 0, 0, 0, 3, 7),
+            PendingApprovals: 1,
+            new ProjectWorkflowDigestContract(
+                "01ARZ3NDEKTSV4RRFFQ69G5FAW", "running", "Review", "active", 1),
+            [new ProjectActivityContract(
+                "01ARZ3NDEKTSV4RRFFQ69G5FAX", "task.created", "{}", Initial)]);
+
+        var first = ProjectStatusDigestService.Create(source);
+        var replay = ProjectStatusDigestService.Create(source);
+
+        Assert.Equal("resolveApprovals", first.NextAction);
+        Assert.Equal((75m, 50m, 25m),
+            (first.Progress.Executed, first.Progress.Validated, first.Progress.Approved));
+        Assert.Equal(first.Fingerprint, replay.Fingerprint);
+        Assert.Equal(64, first.Fingerprint.Length);
+        Assert.Equal(["agents", "budgets"], first.UnavailableSignals);
+    }
 }

@@ -75,7 +75,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 2. Fatia vertical de perfil local: domínio, aplicação, persistência, API, eventos aplicáveis, testes e OpenAPI — verde em 2026-07-18.
 3. Organizações — verde em 2026-07-18.
 4. Projetos — verde em 2026-07-18.
-5. Cockpit/digest — próximo incremento; depois seguir as demais fatias na ordem definida pelo handoff.
+5. Cockpit/digest — verde em 2026-07-18.
+6. Conversas e chat streaming — próximo incremento; depois seguir as demais fatias na ordem definida pelo handoff.
 
 ## Backlog épico
 

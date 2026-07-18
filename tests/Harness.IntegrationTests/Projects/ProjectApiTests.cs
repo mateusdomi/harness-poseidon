@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text;
 using Harness.Host;
 using Harness.Host.Organizations;
@@ -9,6 +10,10 @@ using Harness.Host.Realtime;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.WorkChain;
+using Harness.Persistence.Sqlite;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -83,6 +88,12 @@ public sealed class ProjectApiTests
                     Assert.Equal([profileId], created.MemberProfileIds);
                     Assert.Equal(1, created.ConfigVersion);
 
+                    await SeedReadyTaskAsync(
+                        app.Services,
+                        profileId,
+                        projectId,
+                        timeout.Token);
+
                     using var duplicate = await client.PostAsJsonAsync(
                         "/api/v1/projects",
                         Request(organization.Id, "poseidon"),
@@ -106,12 +117,27 @@ public sealed class ProjectApiTests
                     Assert.Equal(2, configured?.ConfigVersion);
                     Assert.Equal([".NET", "React"], configured?.Technologies);
 
+                    var digest = await client.GetFromJsonAsync<ProjectStatusDigestContract>(
+                        $"/api/v1/projects/{projectId}/status-digest",
+                        timeout.Token);
+                    var digestReplay = await client.GetFromJsonAsync<ProjectStatusDigestContract>(
+                        $"/api/v1/projects/{projectId}/status-digest",
+                        timeout.Token);
+                    Assert.NotNull(digest);
+                    Assert.Equal(1, digest.TaskCounts.Ready);
+                    Assert.Equal(1, digest.TaskCounts.Total);
+                    Assert.Equal((0m, 0m, 0m),
+                        (digest.Progress.Executed, digest.Progress.Validated, digest.Progress.Approved));
+                    Assert.Equal("reviewPhase", digest.NextAction);
+                    Assert.Contains(digest.RecentActivity, activity => activity.Action == "task.created");
+                    Assert.Equal(digest.Fingerprint, digestReplay?.Fingerprint);
+
                     var page = await client.GetFromJsonAsync<ProjectPage>(
                         "/api/v1/projects?limit=1", timeout.Token);
                     Assert.Single(page?.Items ?? []);
 
                     var snapshot = await WaitForCreatedEventAsync(client, projectId, timeout.Token);
-                    Assert.Equal("project.created", Assert.Single(snapshot.Delta).Type);
+                    Assert.Contains(snapshot.Delta, item => item.Type == "project.created");
                 }
                 finally
                 {
@@ -171,7 +197,7 @@ public sealed class ProjectApiTests
             var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>(
                 $"/api/v1/event-streams/snapshot?stream=project:{projectId}",
                 cancellationToken);
-            if (snapshot is { Delta.Count: > 0 })
+            if (snapshot is not null && snapshot.Delta.Any(item => item.Type == "project.created"))
             {
                 return snapshot;
             }
@@ -180,6 +206,47 @@ public sealed class ProjectApiTests
         }
 
         throw new TimeoutException("project.created was not dispatched.");
+    }
+
+    private static async Task SeedReadyTaskAsync(
+        IServiceProvider services,
+        string profileId,
+        string projectId,
+        CancellationToken cancellationToken)
+    {
+        var profile = await services.GetRequiredService<ILocalProfileStore>()
+            .GetAsync(profileId, cancellationToken)
+            ?? throw new InvalidOperationException("Created profile was not persisted.");
+        var now = DateTimeOffset.UtcNow;
+        var solicitationId = UlidValue.New(now).ToString();
+        var demandId = UlidValue.New(now.AddTicks(1)).ToString();
+        var taskId = UlidValue.New(now.AddTicks(2)).ToString();
+        var instructionId = UlidValue.New(now.AddTicks(3)).ToString();
+        const string instruction = "Implement the cockpit digest.";
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instruction)));
+        var store = new SqliteWorkChainStore(
+            services.GetRequiredService<SqliteWriteDispatcher>());
+        var receipt = await store.CreateAsync(
+            new WorkChainCreateCommand(
+                profile.TenantId,
+                projectId,
+                profileId,
+                solicitationId,
+                "Expose a deterministic cockpit digest.",
+                demandId,
+                "Cockpit digest",
+                "[\"Digest is deterministic\"]",
+                taskId,
+                "Implement digest",
+                "medium",
+                1m,
+                instructionId,
+                instruction,
+                hash,
+                $"cockpit-seed-{taskId}",
+                now),
+            cancellationToken);
+        Assert.False(receipt.Replay);
     }
 
     private static WebApplication CreateHost(string databasePath) =>

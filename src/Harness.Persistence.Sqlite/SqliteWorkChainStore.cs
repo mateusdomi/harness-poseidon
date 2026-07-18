@@ -79,6 +79,7 @@ public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatche
 
         var payload = JsonSerializer.Serialize(new
         {
+            projectId = command.ProjectId,
             solicitationId = command.SolicitationId,
             demandId = command.DemandId,
             taskId = command.TaskId,
@@ -89,7 +90,7 @@ public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatche
             transaction,
             command.TenantId,
             cancellationToken);
-        const string eventType = "workChain.created";
+        const string eventType = "task.created";
         var ledgerHash = AuditLedgerHash.Compute(
             previousHash,
             command.TenantId,

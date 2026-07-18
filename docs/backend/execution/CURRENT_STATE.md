@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T19:42:04Z
+Atualizado em: 2026-07-18T19:49:25Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-CPK-1 — cockpit/digest; perfil, organizações e projetos estão verdes.
+- Épico atual: F2-CHAT-1 — conversas/chat streaming; cockpit/digest está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `e85af33` (`develop`), contendo F2-PRJ-1 verde com 116/116 testes.
-- Próximo passo exato: implementar cockpit/digest como projeção tenant/project-scoped sobre progresso, tarefas, approvals, agentes, custos e atividade, seguindo as telas e contratos existentes sem editar frontend.
+- Último commit remoto validado: `433187f` (`develop`), checkpoint de F2-PRJ-1; F2-CPK-1 está localmente verde e aguarda publicação.
+- Próximo passo exato: implementar conversas e mensagens persistidas, list/read/create/delete conforme contrato, e turnos de chat com eventos sequenciados `chat.turnStarted/Chunk/Completed` e `message.appended`, sem editar frontend.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -73,8 +73,9 @@ Atualizado em: 2026-07-18T19:42:04Z
 - F2 perfil local: domínio e aplicação no módulo Identity, store SQLite no dispatcher único, sessão por cookie HttpOnly, current/list/create/patch com cursor e Problem Details. Restart do Host preservou perfil e update; segunda criação foi recusada. OpenAPI/drift batem com os sete campos do contrato TypeScript.
 - F2 organizações: agregado no módulo Organizations, marca/policies/templates herdáveis, store tenant-scoped no dispatcher, sessão local, cursor, list/read/create/patch, slug único e OCC interno. Restart preservou organização e marca; OpenAPI/drift batem com os nove campos TypeScript.
 - F2 projetos: domínio/contrato completo, configVersion seletiva, store tenant-scoped com organização, OCC, tombstone, ledger+Outbox atômicos e API CRUD. Restart preservou configuração; `project.created` chegou ao stream persistido; OpenAPI/drift batem com os 18 campos TypeScript.
+- F2 cockpit/digest: projeção tenant/project-scoped recompõe progresso ponderado em três trilhas, tarefas, approvals, workflow/fase/gates e ledger; próxima ação/fingerprint são determinísticos. Sinais de agentes/budgets ainda indisponíveis ficam explícitos. `task.created` foi reconciliado nos stores SQLite/PostgreSQL e roteado pelo Outbox.
 - Migrations: SQLite `11→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-PRJ-1: restore locked, format, build Release com zero warnings/erros e 116/116 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após F2-CPK-1: restore locked, format, build Release com zero warnings/erros e 117/117 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil e organizações verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é projetos F2.
 

@@ -847,6 +847,77 @@
                     }
                 }
             }
+        },
+        "/api/v1/projects/{projectId}/status-digest": {
+            "get": {
+                "tags": [
+                    "projects"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "activityLimit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectStatusDigestContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -1253,6 +1324,73 @@
                     }
                 }
             },
+            "ProjectActivityContract": {
+                "required": [
+                    "id",
+                    "action",
+                    "detail",
+                    "occurredAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "action": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "occurredAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ProjectAttentionContract": {
+                "required": [
+                    "blockedTasks",
+                    "pendingApprovals",
+                    "errorAgents",
+                    "criticalBudgets"
+                ],
+                "type": "object",
+                "properties": {
+                    "blockedTasks": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "pendingApprovals": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "errorAgents": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "criticalBudgets": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
             "ProjectBrandContract": {
                 "required": [
                     "logoUrl",
@@ -1306,6 +1444,40 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "ProjectProgressContract": {
+                "required": [
+                    "executed",
+                    "validated",
+                    "approved"
+                ],
+                "type": "object",
+                "properties": {
+                    "executed": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "validated": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "approved": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
                     }
                 }
             },
@@ -1401,6 +1573,193 @@
                     "lastActivityAt": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "ProjectStatusDigestContract": {
+                "required": [
+                    "projectId",
+                    "asOf",
+                    "progress",
+                    "taskCounts",
+                    "attention",
+                    "workflow",
+                    "nextAction",
+                    "recentActivity",
+                    "unavailableSignals",
+                    "fingerprint"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "asOf": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "progress": {
+                        "$ref": "#/components/schemas/ProjectProgressContract"
+                    },
+                    "taskCounts": {
+                        "$ref": "#/components/schemas/ProjectTaskCountsContract"
+                    },
+                    "attention": {
+                        "$ref": "#/components/schemas/ProjectAttentionContract"
+                    },
+                    "workflow": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ProjectWorkflowDigestContract"
+                            }
+                        ]
+                    },
+                    "nextAction": {
+                        "type": "string"
+                    },
+                    "recentActivity": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProjectActivityContract"
+                        }
+                    },
+                    "unavailableSignals": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "fingerprint": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ProjectTaskCountsContract": {
+                "required": [
+                    "backlog",
+                    "ready",
+                    "development",
+                    "review",
+                    "corrections",
+                    "testsGates",
+                    "blocked",
+                    "done",
+                    "total"
+                ],
+                "type": "object",
+                "properties": {
+                    "backlog": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "ready": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "development": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "review": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "corrections": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "testsGates": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blocked": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "done": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "ProjectWorkflowDigestContract": {
+                "required": [
+                    "runId",
+                    "state",
+                    "phaseName",
+                    "phaseState",
+                    "pendingGates"
+                ],
+                "type": "object",
+                "properties": {
+                    "runId": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "phaseName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "phaseState": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "pendingGates": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     }
                 }
             },
