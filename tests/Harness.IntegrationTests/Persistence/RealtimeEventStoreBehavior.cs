@@ -60,6 +60,16 @@ internal static class RealtimeEventStoreBehavior
         var complete = await store.ReadSnapshotAsync(Stream, 0, cancellationToken);
         Assert.Equal(11, complete.Delta.Count);
         Assert.Equal(11, complete.Delta.Select(item => item.MessageId).Distinct().Count());
+
+        var globalReceipt = await store.AppendAsync(
+            Command(11, "workflow.versionPublished") with { Stream = "global" },
+            cancellationToken);
+        Assert.Equal(1, globalReceipt.Sequence);
+        Assert.False(globalReceipt.Replay);
+
+        var global = await store.ReadSnapshotAsync("global", 0, cancellationToken);
+        Assert.Equal(1, global.Sequence);
+        Assert.Equal("workflow.versionPublished", Assert.Single(global.Delta).EventType);
     }
 
     private static RealtimeEventAppendCommand Command(int index, string eventType) =>

@@ -19,9 +19,15 @@ public sealed class WorkflowContractDriftTests
     {
         var root = Root(); using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "contracts", "openapi.json"))); var api = document.RootElement; var paths = api.GetProperty("paths");
         Methods(paths, "/api/v1/workflow-templates", "get", "post"); Methods(paths, "/api/v1/workflow-templates/{id}", "get");
+        Methods(paths, "/api/v1/workflow-templates/{id}/versions", "post");
         Methods(paths, "/api/v1/workflow-versions", "get"); Methods(paths, "/api/v1/workflow-versions/{id}", "get");
         Methods(paths, "/api/v1/workflows", "get", "post"); Methods(paths, "/api/v1/workflows/{id}", "get");
+        Methods(paths, "/api/v1/workflows/{id}/operation-mode", "post");
         Methods(paths, "/api/v1/workflow-runs", "get", "post"); Methods(paths, "/api/v1/workflow-runs/{id}", "get");
+        Methods(paths, "/api/v1/workflow-runs/{id}/transitions", "post");
+        Methods(paths, "/api/v1/workflow-runs/{id}/objectives", "post");
+        Methods(paths, "/api/v1/workflow-runs/{id}/gates", "post");
+        Methods(paths, "/api/v1/workflow-runs/{id}/phases/{phaseKey}/completion", "post");
         Methods(paths, "/api/v1/phases", "get"); Methods(paths, "/api/v1/phases/{id}", "get"); Methods(paths, "/api/v1/gates", "get"); Methods(paths, "/api/v1/gates/{id}", "get");
         foreach (var schema in Schemas) Schema(api, schema.Key, schema.Value);
         var frontend = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "delivery.ts"));

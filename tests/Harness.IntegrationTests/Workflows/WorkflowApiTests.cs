@@ -4,6 +4,7 @@ using Harness.Host;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
+using Harness.Host.Realtime;
 using Harness.Host.Workflows;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
@@ -43,23 +44,71 @@ public sealed class WorkflowApiTests
                     { Assert.Equal(HttpStatusCode.Created, response.StatusCode); var template = await response.Content.ReadFromJsonAsync<WorkflowTemplateContract>(timeout.Token); Assert.NotNull(template); templateId = template.Id; Assert.NotNull(template.CurrentVersionId); }
                     var versions = await client.GetFromJsonAsync<WorkflowVersionPage>($"/api/v1/workflow-versions?templateId={templateId}", timeout.Token);
                     var version = Assert.Single(versions!.Items); Assert.Equal(["Planejamento", "Execução"], version.Phases); Assert.Equal(["Qualidade"], version.GatesByPhase["Execução"]);
+                    using (var publish = await client.PostAsJsonAsync($"/api/v1/workflow-templates/{templateId}/versions",
+                        new PublishWorkflowVersionRequest(["Planejamento", "Execução", "Publicação"],
+                            new Dictionary<string, IReadOnlyList<string>> { ["Execução"] = ["Qualidade"], ["Publicação"] = ["Release"] },
+                            new Dictionary<string, WorkflowPhaseConfigContract> { ["Execução"] = new(["technical"], 50m, []) },
+                            "semiautonomous", new Dictionary<string, IReadOnlyList<string>> { ["Planejamento"] = ["Execução"], ["Execução"] = ["Publicação"] }, "v2"), timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.Created, publish.StatusCode);
+                        var v2 = await publish.Content.ReadFromJsonAsync<WorkflowVersionContract>(timeout.Token);
+                        Assert.Equal(2, v2?.Version); Assert.Equal("semiautonomous", v2?.DefaultOperationMode);
+                        Assert.Equal(50m, v2?.PhaseConfigs["Execução"].ProgressWeight); Assert.Equal("v2", v2?.Changelog);
+                    }
                     using (var response = await client.PostAsJsonAsync("/api/v1/workflows", new CreateWorkflowRequest(projectId, templateId, version.Id, "manual", null, "Aprovação humana em cada gate."), timeout.Token))
                     { Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync(timeout.Token)); var workflow = await response.Content.ReadFromJsonAsync<WorkflowContract>(timeout.Token); Assert.NotNull(workflow); workflowId = workflow.Id; Assert.Equal(profileId, Assert.Single(workflow.RiskAcceptances).AcceptedByProfileId); }
                     using (var duplicate = await client.PostAsJsonAsync("/api/v1/workflows", new CreateWorkflowRequest(projectId, templateId, version.Id, "manual", null, "duplicado"), timeout.Token)) Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+                    using (var mode = await client.PostAsJsonAsync($"/api/v1/workflows/{workflowId}/operation-mode",
+                        new SetWorkflowOperationModeRequest("semiautonomous", ["Qualidade"], "Pausar no gate crítico."), timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.OK, mode.StatusCode); var changed = await mode.Content.ReadFromJsonAsync<WorkflowContract>(timeout.Token);
+                        Assert.Equal("semiautonomous", changed?.OperationMode); Assert.Equal(2, changed?.RiskAcceptances.Count);
+                    }
                     using (var response = await client.PostAsJsonAsync("/api/v1/workflow-runs", new CreateWorkflowRunRequest(workflowId), timeout.Token))
                     { Assert.Equal(HttpStatusCode.Created, response.StatusCode); var run = await response.Content.ReadFromJsonAsync<WorkflowRunContract>(timeout.Token); Assert.NotNull(run); runId = run.Id; Assert.Equal("running", run.State); Assert.Null(run.FinishedAt); }
                     var phases = await client.GetFromJsonAsync<PhasePage>($"/api/v1/phases?runId={runId}", timeout.Token); Assert.Equal(2, phases!.Items.Count); Assert.Single(phases.Items, x => x.State == "active");
                     var gates = await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={runId}", timeout.Token); var gate = Assert.Single(gates!.Items); Assert.Equal("Qualidade", gate.Name); Assert.True(gate.RequiresApproval); Assert.Null(gate.DecidedAt);
+                    using (var pause = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/transitions", new TransitionWorkflowRunRequest("pause"), timeout.Token)) Assert.Equal(HttpStatusCode.OK, pause.StatusCode);
+                    using (var resume = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/transitions", new TransitionWorkflowRunRequest("resume"), timeout.Token)) Assert.Equal(HttpStatusCode.OK, resume.StatusCode);
+                    foreach (var state in new[] { "executed", "validated", "approved" })
+                        using (var advance = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/objectives", new AdvanceWorkflowObjectiveRequest("phase-1", "work-1", state), timeout.Token)) Assert.Equal(HttpStatusCode.OK, advance.StatusCode);
+                    using (var complete = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/phases/phase-1/completion", new { }, timeout.Token)) Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+                    foreach (var state in new[] { "executed", "validated" })
+                        using (var advance = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/objectives", new AdvanceWorkflowObjectiveRequest("phase-2", "work-2", state), timeout.Token)) Assert.Equal(HttpStatusCode.OK, advance.StatusCode);
+                    using (var missingNote = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/gates", new EvaluateWorkflowGateRequest("phase-2", "gate-1", false), timeout.Token)) Assert.Equal(HttpStatusCode.BadRequest, missingNote.StatusCode);
+                    using (var failed = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/gates", new EvaluateWorkflowGateRequest("phase-2", "gate-1", false, "Evidência insuficiente."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, failed.StatusCode);
+                    using (var passed = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/gates", new EvaluateWorkflowGateRequest("phase-2", "gate-1", true, "Evidência revisada."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, passed.StatusCode);
+                    using (var complete = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/phases/phase-2/completion", new { }, timeout.Token))
+                    { Assert.Equal(HttpStatusCode.OK, complete.StatusCode); var finished = await complete.Content.ReadFromJsonAsync<WorkflowRunContract>(timeout.Token); Assert.Equal("completed", finished?.State); Assert.NotNull(finished?.FinishedAt); }
+                    gate = (await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={runId}", timeout.Token))!.Items.Single();
+                    Assert.Equal("passed", gate.State); Assert.Equal(profileId, gate.DecidedByProfileId); Assert.Equal("Evidência revisada.", gate.Note);
+                    var projectEvents = await WaitForEventsAsync(client, $"project:{projectId}", "gate.changed", 2, timeout.Token);
+                    var gatePayload = projectEvents.Delta.Last(x => x.Type == "gate.changed").Payload;
+                    Assert.Equal(gate.Id, gatePayload.GetProperty("gateId").GetString()); Assert.Equal(runId, gatePayload.GetProperty("runId").GetString());
+                    Assert.Equal("failed", gatePayload.GetProperty("from").GetString()); Assert.Equal("passed", gatePayload.GetProperty("to").GetString());
+                    Assert.Equal(profileId, gatePayload.GetProperty("decidedByProfileId").GetString());
+                    var globalEvents = await WaitForEventsAsync(client, "global", "workflow.versionPublished", 2, timeout.Token);
+                    Assert.Equal([1, 2], globalEvents.Delta.Where(x => x.Type == "workflow.versionPublished").Select(x => x.Payload.GetProperty("version").GetInt32()));
                 }
                 finally { await app.StopAsync(timeout.Token); }
             }
             await using var restarted = CreateHost(database); await restarted.StartAsync(timeout.Token); try
-            { using var client = new HttpClient { BaseAddress = Address(restarted.Services) }; client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}"); var workflow = await client.GetFromJsonAsync<WorkflowContract>($"/api/v1/workflows/{workflowId}", timeout.Token); Assert.Equal(projectId, workflow?.ProjectId); var run = await client.GetFromJsonAsync<WorkflowRunContract>($"/api/v1/workflow-runs/{runId}", timeout.Token); Assert.Equal("running", run?.State); }
+            { using var client = new HttpClient { BaseAddress = Address(restarted.Services) }; client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}"); var workflow = await client.GetFromJsonAsync<WorkflowContract>($"/api/v1/workflows/{workflowId}", timeout.Token); Assert.Equal(projectId, workflow?.ProjectId); var run = await client.GetFromJsonAsync<WorkflowRunContract>($"/api/v1/workflow-runs/{runId}", timeout.Token); Assert.Equal("completed", run?.State); }
             finally { await restarted.StopAsync(timeout.Token); }
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     private static WebApplication CreateHost(string database) => HostApplication.Build(["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
+    private static async Task<EventStreamSnapshot> WaitForEventsAsync(HttpClient client, string stream, string type, int count, CancellationToken token)
+    {
+        for (var index = 0; index < 200; index++)
+        {
+            var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>($"/api/v1/event-streams/snapshot?stream={Uri.EscapeDataString(stream)}", token);
+            if (snapshot is not null && snapshot.Delta.Count(x => x.Type == type) >= count) return snapshot;
+            await Task.Delay(25, token);
+        }
+        throw new TimeoutException($"Events {type} were not dispatched to {stream}.");
+    }
     private static Uri Address(IServiceProvider services) { var addresses = services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses ?? throw new InvalidOperationException("No address."); return new Uri(addresses.Single(x => x.StartsWith("http://127.0.0.1:", StringComparison.Ordinal))); }
 }

@@ -197,7 +197,9 @@ public sealed record WorkflowGateEvaluateCommand(
     bool Passed,
     long ExpectedRunVersion,
     string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string? DecidedByProfileId = null,
+    string? Note = null);
 
 public sealed record WorkflowPhaseCompleteCommand(
     string TenantId,
@@ -505,6 +507,15 @@ public static class WorkflowRunMutationValidator
             command);
         ValidateText(command.PhaseKey, nameof(command.PhaseKey));
         ValidateText(command.GateKey, nameof(command.GateKey));
+        if (command.DecidedByProfileId is not null)
+        {
+            ValidateId(command.DecidedByProfileId, nameof(command.DecidedByProfileId));
+        }
+        if (!command.Passed && command.DecidedByProfileId is not null &&
+            string.IsNullOrWhiteSpace(command.Note))
+        {
+            throw new ArgumentException("A failed human gate requires a note.", nameof(command));
+        }
     }
 
     public static void Validate(WorkflowPhaseCompleteCommand command)

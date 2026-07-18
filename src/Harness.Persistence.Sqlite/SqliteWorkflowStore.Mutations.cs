@@ -105,12 +105,12 @@ public sealed partial class SqliteWorkflowStore
         await using var query = connection.CreateCommand();
         query.Transaction = transaction;
         query.CommandText =
-            "SELECT version,state FROM workflow_runs WHERE tenant_id=$tenantId AND id=$runId;";
+            "SELECT version,state,project_id FROM workflow_runs WHERE tenant_id=$tenantId AND id=$runId;";
         Add(query, "$tenantId", tenantId);
         Add(query, "$runId", runId);
         await using var reader = await query.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken)
-            ? new RunMutationRow(reader.GetInt64(0), reader.GetString(1))
+            ? new RunMutationRow(reader.GetInt64(0), reader.GetString(1), reader.GetString(2))
             : null;
     }
 
@@ -306,5 +306,5 @@ public sealed partial class SqliteWorkflowStore
         long? version = null,
         string? state = null) => new(status, runId, version, state);
 
-    private sealed record RunMutationRow(long Version, string State);
+    private sealed record RunMutationRow(long Version, string State, string ProjectId);
 }

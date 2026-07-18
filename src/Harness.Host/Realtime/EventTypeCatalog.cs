@@ -32,6 +32,6 @@ public static class EventTypeCatalog
         "task.created",
         "task.stateChanged",
         "tool.catalogChanged",
-        "workflow.definitionPublished",
+        "workflow.versionPublished",
     };
 }
