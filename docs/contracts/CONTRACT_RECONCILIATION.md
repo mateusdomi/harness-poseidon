@@ -64,3 +64,9 @@ O quadro do handoff marca criação de `profiles` como indisponível, mas `Creat
 O handoff ainda marca criação como indisponível, porém `CreateInputMap.organizations` e `UpdateInputMap.organizations` declaram explicitamente create/update. A borda implementa os dois comandos tipados, lista/leitura e cursor, sem alterar o contrato provisório. Policies e templates são projetados desde a primeira versão e persistidos como coleções vazias; seus comandos administrativos entrarão na fatia de settings/governança para não ampliar silenciosamente o input map atual.
 
 Não foi inventado evento público de organização: o catálogo normativo e o TypeScript não declaram um. A auditoria transacional será ligada quando a API pessoal for incorporada ao ledger na fatia de governança.
+
+## Projetos pessoais — 2026-07-18
+
+`ProjectResponse` contém exatamente os 18 campos de `projectSchema`. O create aceita somente os campos de `CreateInputMap.projects`; chefe lógico, modo, estado, versões e timestamps são definidos pelo backend. O PATCH aceita somente `UpdateInputMap.projects`, portanto não permite trocar organização, chave, chefe, modo ou versões. DELETE usa tombstone, mantendo referências duráveis e auditoráveis sem devolver o recurso nas projeções.
+
+`configVersion` incrementa exclusivamente quando repositório URL/provider, branch, tecnologias ou marca mudam, conforme o comentário normativo do schema. A versão OCC do agregado permanece interna. `project.created` é o evento canônico da missão v1.3; seu payload mínimo contém `projectId` para roteamento persistido ao stream do projeto. Não foram fabricados eventos de update/delete ausentes nos catálogos.

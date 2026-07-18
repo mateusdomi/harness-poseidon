@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T19:31:38Z
+Atualizado em: 2026-07-18T19:40:09Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-PRJ-1 — projetos; perfil e organizações estão verdes.
+- Épico atual: F2-CPK-1 — cockpit/digest; perfil, organizações e projetos estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `5410851` (`develop`), contendo F2-ORG-1 verde com 112/112 testes.
-- Próximo passo exato: implementar a fatia vertical de projetos conforme `projectSchema`: configuração versionada, organização/tenant, repositório, stack, marca/membros, chefe/modo, persistência SQLite, API list/read/create/update, testes e OpenAPI, sem editar frontend.
+- Último commit remoto validado: `391f4c1` (`develop`), checkpoint de F2-ORG-1; F2-PRJ-1 está localmente verde e aguarda publicação.
+- Próximo passo exato: implementar cockpit/digest como projeção tenant/project-scoped sobre progresso, tarefas, approvals, agentes, custos e atividade, seguindo as telas e contratos existentes sem editar frontend.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T19:31:38Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` e `0010_organizations`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`10→0` e `9→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles`, `0010_organizations` e `0011_projects`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`11→0` e `9→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -72,8 +72,9 @@ Atualizado em: 2026-07-18T19:31:38Z
 - GNG-2: formalmente verde. Os testes de `SIGKILL` SQLite/PostgreSQL usam agora o watchdog após restart e preservam 6/6 checkpoints, 2 attempts, 8 Inbox, 6 transições/Outbox e ledger de 7 elos íntegros.
 - F2 perfil local: domínio e aplicação no módulo Identity, store SQLite no dispatcher único, sessão por cookie HttpOnly, current/list/create/patch com cursor e Problem Details. Restart do Host preservou perfil e update; segunda criação foi recusada. OpenAPI/drift batem com os sete campos do contrato TypeScript.
 - F2 organizações: agregado no módulo Organizations, marca/policies/templates herdáveis, store tenant-scoped no dispatcher, sessão local, cursor, list/read/create/patch, slug único e OCC interno. Restart preservou organização e marca; OpenAPI/drift batem com os nove campos TypeScript.
-- Migrations: SQLite `10→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-ORG-1: restore locked, format, build Release com zero warnings/erros e 112/112 testes verdes.
+- F2 projetos: domínio/contrato completo, configVersion seletiva, store tenant-scoped com organização, OCC, tombstone, ledger+Outbox atômicos e API CRUD. Restart preservou configuração; `project.created` chegou ao stream persistido; OpenAPI/drift batem com os 18 campos TypeScript.
+- Migrations: SQLite `11→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-PRJ-1: restore locked, format, build Release com zero warnings/erros e 116/116 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil e organizações verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é projetos F2.
 

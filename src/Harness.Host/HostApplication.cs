@@ -3,12 +3,14 @@ using Harness.Host.Ipc;
 using Harness.Host.Organizations;
 using Harness.Host.Persistence;
 using Harness.Host.Profiles;
+using Harness.Host.Projects;
 using Harness.Host.Realtime;
 using Harness.Host.Workers;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Messaging;
 using Harness.Persistence.Abstractions.Organizations;
+using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Realtime;
 using Harness.Persistence.Abstractions.RunnerIpc;
 using Harness.Persistence.Sqlite;
@@ -48,6 +50,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IDurableExecutionEngine, SqliteDurableExecutionEngine>();
         builder.Services.AddSingleton<ILocalProfileStore, SqliteLocalProfileStore>();
         builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
+        builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
@@ -88,6 +91,7 @@ public static class HostApplication
         app.MapRunnerIpc();
         app.MapLocalProfiles();
         app.MapOrganizations();
+        app.MapProjects();
         app.MapGet(
             "/api/v1/event-streams/snapshot",
             async Task<IResult> (

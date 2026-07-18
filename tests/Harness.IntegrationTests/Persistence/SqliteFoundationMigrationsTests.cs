@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(10, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(11, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -220,6 +220,24 @@ public sealed class SqliteFoundationMigrationsTests
                 },
                 timeout.Token);
             Assert.Equal(9, organizationColumnCount);
+
+            var projectColumnCount = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT COUNT(*) FROM pragma_table_info('projects') WHERE name IN
+                            ('project_key','description','state','criticality','repository_url',
+                             'repository_provider','default_branch','technologies_json','logo_url',
+                             'primary_color','secondary_color','typography','member_profile_ids_json',
+                             'config_version','chief_agent_id','operation_mode','last_activity_at','deleted_at');
+                        """;
+                    return Convert.ToInt32(
+                        await command.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+                },
+                timeout.Token);
+            Assert.Equal(18, projectColumnCount);
 
             await dispatcher.ExecuteAsync(
                 async (connection, token) =>
