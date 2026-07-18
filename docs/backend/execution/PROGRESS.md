@@ -51,4 +51,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | Store EP-09b.2a | verde | criação/snapshot dual-provider: 10 concorrentes = 1 aplicação/9 replays; estado+Inbox+ledger+Outbox atômicos; `evidence/F1-WORK-CHAIN-STORE.md` |
 | Store EP-09b.2b.1 | verde | start/complete/review dual-provider com optimistic concurrency, Inbox, ledger e Outbox; actor–critic médio; snapshot v4/1 attempt/1 evidência/1 review; `evidence/F1-WORK-CHAIN-MUTATIONS.md` |
 | Store EP-09b.2b.2 | verde | correção imutável v2→v1, segunda tentativa aprovada e leitura transacional integral; final v8/2 instruções/2 attempts/2 evidências/2 reviews; `evidence/F1-WORK-CHAIN-HISTORY.md` |
-| Contrato EP-10a | próximo | WorkflowDefinition/Run, publicação versionada, fases, gates e progresso objetivo recomputável |
+| Contrato EP-10a | verde | 9 cenários: versão/publicação, lifecycle, fases, gates, pausa e progresso ponderado recomputável até 100/100/100; `evidence/F1-WORKFLOW-CONTRACT.md` |
+| Schema EP-10b | próximo | migrations separadas de definições/versões/fases/itens/gates/runs nos dois providers |

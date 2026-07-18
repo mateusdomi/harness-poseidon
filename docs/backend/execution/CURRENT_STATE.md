@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T15:30:25Z
+Atualizado em: 2026-07-18T15:37:49Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 1 — Fundação determinística; GNG-1 verde com 9/9 PoCs.
-- Épico atual: EP-10 — iniciar contratos provider-neutral de workflow, gates e progresso objetivo; EP-09 está verde.
+- Épico atual: EP-10b — persistência dual-provider de workflow; contrato/agregados EP-10a estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `a2cf740` (`develop`); correção/reidratação EP-09b.2b.2 está verde e aguarda o commit que conterá este estado.
-- Próximo passo exato: definir em `Harness.Modules.Workflows` os agregados e contratos tipados de `WorkflowDefinition` versionada, publicação imutável, `WorkflowRun`, fases, gates e pesos objetivos; provar máquina de estados e cálculo recomputável antes de criar migrations dual-provider.
+- Último commit remoto validado: `cab549e` (`develop`); contrato EP-10a está verde e aguarda o commit que conterá este estado.
+- Próximo passo exato: criar migrations SQLite `0005_workflows.sql` e PostgreSQL `0006_workflows.sql` para definições/versões/fases/itens/gates/runs e seus estados; provar FKs/checks/versionamento/imutabilidade e aplicação idempotente antes do store transacional.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -49,10 +49,11 @@ Atualizado em: 2026-07-18T15:30:25Z
 - Store EP-09b.2a: `IWorkChainStore` possui criação e snapshot. Validator comum exige ULIDs, critérios não vazios, risk tier, peso e hash da instrução. SQLite usa dispatcher; PostgreSQL usa advisory locks para idempotência e ledger. Estado inicial, Inbox, ledger e Outbox commitam juntos. Dez comandos concorrentes resultam 1 aplicação/9 replays; chave conflitante não altera snapshot.
 - Store EP-09b.2b.1: start/complete/review usam versão esperada e Inbox idempotente. SQLite serializa no dispatcher; PostgreSQL usa advisory lock por tarefa e `FOR UPDATE`. Estado, ledger e Outbox commitam juntos. Partida concorrente resulta 1 aplicação/1 replay; versão antiga não muta; completion persiste evidência; autoaprovação de risco médio é recusada; critic independente conclui a tarefa. Snapshot final comprova versão 4 e contagens 1/1/1.
 - Store EP-09b.2b.2: review rejeitado exige nova instrução. Correção imutável cria v2 com `supersedesId=v1`, versão otimista, Inbox, ledger e Outbox; tentativa 2 conclui e é aprovada. Leitura transacional completa reidrata Solicitação→Demandas→Tarefas→todas as instruções/tentativas/evidências/reviews. Comportamento final nos dois providers: tarefa v8, 2 instruções, 2 tentativas, 2 evidências e 2 reviews.
+- Workflow EP-10a: definições tipadas possuem versões imutáveis/hash/publicação; runs aceitam somente versão publicada, mantêm uma fase ativa, itens monotônicos e gates não contornáveis. Progresso executado/validado/aprovado é recomputado dos pesos e estados; 9 cenários cobrem validação, lifecycle, gate/retry, pausa e conclusão 100/100/100.
 - Migrations: SQLite `4→0` e PostgreSQL `5→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após conclusão de EP-09b.2b: restore locked, format, build Release com zero warnings/erros e 74/74 testes verdes.
+- Pipeline: `tools/backend/verify.sh` verde após contrato EP-10a: restore locked, format, build Release com zero warnings/erros e 83/83 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta e cadeia Solicitação→Revisão completa verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para EP-10, documentos e workers.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão e contrato de workflow verdes/catalogados; GNG-1 verde. O critério de recuperação do GNG-2 está comprovado, mas a Fase 1 permanece aberta para persistência EP-10, documentos e workers.
 
 ## Sanidade antes de retomar
 
