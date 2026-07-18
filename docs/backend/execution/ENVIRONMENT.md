@@ -29,6 +29,12 @@ Instalação concluída em 2026-07-18 pelo script oficial `dotnet-install.sh`, c
 
 Na PoC-4, schemas e manual oficial da versão instalada do Codex foram consultados em cache efêmero sob `tools/backend/.tooling/`, já ignorado localmente. O subprocesso de teste usou estado Codex exclusivo dentro de seus artefatos e não leu configuração, sessões ou credenciais do estado pessoal. Nenhum modelo foi invocado e nenhuma tecnologia adicional foi instalada.
 
+## Re-inventário Docker antes da PoC-6
+
+Capturado em 2026-07-18T12:33:08Z, antes de criar o primeiro recurso: 11 containers parados, 14 volumes, 7 networks e 9 imagens; zero recursos com `com.harness.managed=true`. O driver reportado foi `overlayfs` com seccomp/cgroup namespace. Portas adicionais em uso desde o inventário inicial: `127.0.0.1:53517`, `127.0.0.1:53518` e `[::1]:5173`; nenhuma foi usada pelo Harness.
+
+A imagem final da PoC foi construída de `python:3.13-alpine`, sempre taggeada `harness-sandbox-poc6:<attempt>` e labelada. A base foi obtida pelo BuildKit como dependência de build; não ficou como imagem taggeada em `docker image ls`. Depois do cleanup, as contagens preexistentes permaneceram 11 containers, 14 volumes, 7 networks e 9 imagens.
+
 ## Inventário Docker preexistente
 
 Contexto: `desktop-linux`. Foram encontrados 11 containers, todos parados, 14 volumes e 7 networks. Nenhum possui a label `com.harness.managed=true`; portanto, são propriedade de outros projetos e são intocáveis.

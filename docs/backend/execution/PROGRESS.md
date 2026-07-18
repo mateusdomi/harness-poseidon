@@ -4,7 +4,7 @@
 
 | Gate | Critério resumido | Estado | Evidência |
 |---|---|---|---|
-| GNG-1 | nove PoCs verdes | fechado | PoCs 1–5 verdes; 5/9 comprovadas |
+| GNG-1 | nove PoCs verdes | fechado | PoCs 1–6 verdes; 6/9 comprovadas |
 | GNG-2 | recuperação abrupta com auditoria completa | fechado | F1 não iniciada |
 | GNG-3 | dogfood integrado com validação humana | fechado | F2 não iniciada |
 | GNG-4 | instalação limpa e licença offline | fechado | F7/F8 não iniciadas |
@@ -26,7 +26,7 @@
 | PoC-3 lease/fencing | verde | owner A token 1 expirado, owner B token 2; write/renew antigos rejeitados; `evidence/F0-POC-3.md` |
 | PoC-4 Codex CLI | verde | subprocesso real, heartbeat, kill da árvore, retomada por `threadId` e reidratação Git; `evidence/F0-POC-4.md` |
 | PoC-5 Git fixtures/claims | verde | três fixtures, branches/worktrees paralelas, claims com/sem interseção, Harness intacto; `evidence/F0-POC-5.md` |
-| PoC-6 sandbox | pendente | — |
+| PoC-6 sandbox | verde | limites CPU/memória/PIDs/disco, worktree, proxy-only egress, cleanup label-guarded; `evidence/F0-POC-6.md` |
 | PoC-7 SignalR | pendente | — |
 | PoC-8 PostgreSQL | pendente | — |
 | PoC-9 IPC | pendente | — |
