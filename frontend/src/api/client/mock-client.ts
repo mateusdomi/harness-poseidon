@@ -177,6 +177,20 @@ export class MockApiClient implements ApiClient {
     const current = table.get(id);
     if (!current) throw this.#notFound(resource, id);
     const next = { ...current, ...(input as Record<string, unknown>) };
+    if (resource === 'projects') {
+      // Campos versionados (repositório, tecnologias, marca) incrementam configVersion.
+      const versioned = [
+        'repositoryUrl',
+        'repositoryProvider',
+        'defaultBranch',
+        'technologies',
+        'brand',
+      ] as const;
+      if (versioned.some((field) => field in (input as Record<string, unknown>))) {
+        next.configVersion = ((current.configVersion as number) ?? 0) + 1;
+      }
+      next.lastActivityAt = this.#options.now();
+    }
     if ('updatedAt' in next) next.updatedAt = this.#options.now();
     table.set(id, next);
     return structuredClone(next) as ResourceMap[K];
@@ -667,6 +681,47 @@ export class MockApiClient implements ApiClient {
           createdAt: now,
         } as unknown as ResourceMap[K];
       }
+      case 'profiles': {
+        const i = input as CreateInputMap['profiles'];
+        const profile: Profile = {
+          id,
+          displayName: i.displayName,
+          email: i.email ?? null,
+          avatarUrl: i.avatarUrl ?? null,
+          locale: i.locale,
+          createdAt: now,
+          lastActiveAt: now,
+        };
+        // Todo perfil local nasce com settings padrão (tema/idioma do wizard
+        // são aplicados em seguida via update de settings).
+        const settingsId = this.#options.nextId();
+        this.#table('settings').set(settingsId, {
+          id: settingsId,
+          profileId: profile.id,
+          theme: 'system',
+          language: i.locale,
+          notificationsEnabled: true,
+          mutedCategories: [],
+          workingDirectory: null,
+          unsafeModeAcceptedAt: null,
+          updatedAt: now,
+        });
+        return profile as unknown as ResourceMap[K];
+      }
+      case 'organizations': {
+        const i = input as CreateInputMap['organizations'];
+        return {
+          id,
+          name: i.name,
+          slug: i.slug,
+          plan: i.plan ?? 'free',
+          brand: i.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+          defaultWorkflowTemplateIds: [],
+          templateKeys: [],
+          policies: [],
+          createdAt: now,
+        } as unknown as ResourceMap[K];
+      }
       case 'projects': {
         const i = input as CreateInputMap['projects'];
         return {
@@ -675,10 +730,19 @@ export class MockApiClient implements ApiClient {
           name: i.name,
           key: i.key,
           description: i.description,
+          state: 'active',
+          criticality: i.criticality ?? 'medium',
           repositoryUrl: i.repositoryUrl ?? null,
+          repositoryProvider: i.repositoryProvider ?? 'other',
+          defaultBranch: i.defaultBranch ?? 'main',
+          technologies: i.technologies ?? [],
+          brand: i.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+          memberProfileIds: i.memberProfileIds ?? [this.#options.currentProfileId],
+          configVersion: 1,
           chiefAgentId: id, // placeholder: backend vincula o chefe provisionado
           operationMode: 'manual',
           createdAt: now,
+          lastActivityAt: now,
         } as unknown as ResourceMap[K];
       }
       default:

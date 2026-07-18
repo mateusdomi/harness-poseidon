@@ -57,9 +57,228 @@
       "ready": "Pronto"
     }
   },
+  "common": {
+    "requiredMark": "(obrigatório)",
+    "actions": {
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "back": "Voltar",
+      "next": "Avançar",
+      "previous": "Voltar etapa",
+      "retry": "Tentar novamente",
+      "add": "Adicionar",
+      "finish": "Concluir"
+    },
+    "states": {
+      "loading": "Carregando…",
+      "errorBody": "Não foi possível carregar os dados. Tente novamente."
+    },
+    "validation": {
+      "required": "Campo obrigatório",
+      "min2": "Use pelo menos 2 caracteres",
+      "email": "E-mail inválido",
+      "slug": "Use apenas letras minúsculas, números e hífens",
+      "key": "Use de 2 a 12 letras maiúsculas ou números",
+      "url": "URL inválida",
+      "color": "Use o formato hexadecimal #RRGGBB"
+    },
+    "inheritance": {
+      "inheritedFromOrg": "Herdado da organização",
+      "inheritedFromDefault": "Padrão do produto",
+      "overridden": "Personalizado"
+    },
+    "versioned": {
+      "badge": "Versionado",
+      "tooltip": "Campo versionado: alterações incrementam a versão de configuração do projeto."
+    },
+    "brand": {
+      "hintOrg": "Deixe em branco para herdar a marca da organização.",
+      "hintDefault": "Deixe em branco para usar o padrão do produto.",
+      "emptyPlaceholder": "Não definido",
+      "fields": {
+        "logoUrl": "URL do logo",
+        "primaryColor": "Cor primária",
+        "secondaryColor": "Cor secundária",
+        "typography": "Tipografia"
+      }
+    }
+  },
+  "status": {
+    "projectState": {
+      "active": "Ativo",
+      "paused": "Pausado",
+      "archived": "Arquivado"
+    },
+    "priority": {
+      "low": "Baixa",
+      "medium": "Média",
+      "high": "Alta",
+      "critical": "Crítica"
+    },
+    "repositoryProvider": {
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "bitbucket": "Bitbucket",
+      "local": "Local",
+      "other": "Outro"
+    }
+  },
+  "onboarding": {
+    "selectProfile": {
+      "title": "Quem está usando o Poseidon?",
+      "description": "Escolha um perfil local para continuar ou crie um novo.",
+      "createNew": "Criar novo perfil",
+      "lastActive": "Último acesso {{time}}",
+      "use": "Entrar"
+    },
+    "wizard": {
+      "title": "Configuração inicial",
+      "stepsLabel": "Etapas da configuração",
+      "step": "Etapa {{current}} de {{total}}",
+      "steps": {
+        "profile": "Perfil",
+        "preferences": "Preferências",
+        "workspace": "Diretório",
+        "safety": "Segurança"
+      },
+      "profile": {
+        "name": "Nome de exibição",
+        "email": "E-mail (opcional)"
+      },
+      "preferences": {
+        "language": "Idioma",
+        "theme": {
+          "label": "Tema",
+          "options": {
+            "dark": "Escuro",
+            "light": "Claro",
+            "system": "Seguir o sistema"
+          }
+        }
+      },
+      "workspace": {
+        "directory": "Diretório de trabalho",
+        "hint": "Pasta local onde os agentes leem e escrevem arquivos. Deixe em branco para definir depois."
+      },
+      "safety": {
+        "title": "Modo inseguro",
+        "warning": "O sandbox de execução não está disponível neste ambiente. Os agentes executarão comandos diretamente na sua máquina, sem isolamento. Prossiga somente se você confia no conteúdo executado.",
+        "accept": "Entendo os riscos e aceito executar em modo inseguro",
+        "required": "O aceite explícito do modo inseguro é obrigatório para concluir."
+      }
+    }
+  },
+  "organizations": {
+    "search": "Buscar organizações…",
+    "create": "Nova organização",
+    "empty": {
+      "title": "Nenhuma organização ainda",
+      "body": "Organizações agrupam projetos, marca, políticas e workflows padrão. Crie a primeira para começar.",
+      "cta": "Criar organização"
+    },
+    "emptySearch": "Nenhuma organização encontrada para \"{{query}}\".",
+    "projectsCount_zero": "Nenhum projeto",
+    "projectsCount_one": "{{count}} projeto",
+    "projectsCount_other": "{{count}} projetos",
+    "plans": {
+      "free": "Free",
+      "pro": "Pro",
+      "enterprise": "Enterprise"
+    },
+    "templateKeys": {
+      "prd": "PRD",
+      "spec": "Especificação",
+      "runbook": "Runbook",
+      "note": "Nota"
+    },
+    "form": {
+      "createTitle": "Nova organização",
+      "editTitle": "Editar organização",
+      "name": "Nome",
+      "slug": "Slug",
+      "slugHint": "Identificador curto em URLs, ex.: poseidon-labs.",
+      "plan": "Plano",
+      "brandTitle": "Marca",
+      "create": "Criar organização"
+    },
+    "detail": {
+      "edit": "Editar organização",
+      "brand": "Marca",
+      "workflows": "Workflows padrão",
+      "noWorkflows": "Nenhum workflow padrão configurado.",
+      "templates": "Templates",
+      "noTemplates": "Nenhum template disponível.",
+      "policies": "Políticas",
+      "noPolicies": "Nenhuma política configurada.",
+      "policyEnabled": "Ativa",
+      "policyDisabled": "Inativa",
+      "projects": "Projetos associados",
+      "noProjects": "Nenhum projeto nesta organização ainda."
+    }
+  },
+  "projects": {
+    "search": "Buscar projetos…",
+    "create": "Novo projeto",
+    "filters": {
+      "organization": "Organização",
+      "allOrganizations": "Todas as organizações",
+      "criticality": "Criticidade",
+      "allCriticalities": "Todas as criticidades",
+      "state": "Estado",
+      "allStates": "Todos os estados"
+    },
+    "empty": {
+      "title": "Nenhum projeto ainda",
+      "body": "Projetos são onde os agentes trabalham: código, documentos e entregas. Crie o primeiro para começar.",
+      "cta": "Criar projeto"
+    },
+    "emptySearch": "Nenhum projeto encontrado com os filtros atuais.",
+    "card": {
+      "lastActivity": "Última atividade {{time}}"
+    },
+    "form": {
+      "createTitle": "Novo projeto",
+      "editTitle": "Editar projeto",
+      "tabsLabel": "Seções do projeto",
+      "tabs": {
+        "identification": "Identificação",
+        "repository": "Repositório",
+        "technologies": "Tecnologias",
+        "brand": "Marca",
+        "people": "Pessoas"
+      },
+      "errorsSummary": "Revise os campos destacados antes de salvar.",
+      "identification": {
+        "organization": "Organização",
+        "name": "Título",
+        "key": "Slug (sigla)",
+        "keyHint": "Sigla curta em maiúsculas usada em prefixos, ex.: POSEIDON.",
+        "criticality": "Criticidade",
+        "description": "Descrição",
+        "state": "Estado"
+      },
+      "repository": {
+        "provider": "Provedor",
+        "url": "URL ou caminho local",
+        "urlHint": "Deixe em branco se o projeto ainda não tem repositório.",
+        "branch": "Branch padrão"
+      },
+      "technologies": {
+        "placeholder": "Ex.: React",
+        "empty": "Nenhuma tecnologia adicionada.",
+        "remove": "Remover {{tech}}"
+      },
+      "people": {
+        "label": "Pessoas com acesso",
+        "empty": "Nenhum perfil local disponível.",
+        "required": "Selecione pelo menos uma pessoa."
+      },
+      "create": "Criar projeto"
+    }
+  },
   "features": {
     "onboarding": { "title": "Onboarding", "description": "Primeiros passos e configuração inicial da conta." },
-    "organizations": { "title": "Organizações", "description": "Gerencie organizações, membros e permissões." },
+    "organizations": { "title": "Organizações", "description": "Gerencie organizações, marca, políticas e projetos associados." },
     "projects": { "title": "Projetos", "description": "Lista e detalhes dos projetos desenvolvidos pelos agentes." },
     "cockpit": { "title": "Cockpit", "description": "Visão geral da operação: status dos agentes e projetos ativos." },
     "chat": { "title": "Chat", "description": "Converse com o agente chefe e a equipe de IA." },

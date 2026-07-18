@@ -6,6 +6,8 @@ import {
   messageAuthorRoleSchema,
   operationModeSchema,
   prioritySchema,
+  projectStateSchema,
+  repositoryProviderSchema,
   solicitationKindSchema,
   solicitationStateSchema,
 } from './enums';
@@ -23,11 +25,38 @@ export const profileSchema = z.object({
 });
 export type Profile = z.infer<typeof profileSchema>;
 
+/**
+ * Marca visual (organização ou projeto). Campos `null` significam
+ * "herdar" — da organização (projeto) ou do padrão do produto (organização).
+ */
+export const brandSchema = z.object({
+  logoUrl: z.string().nullable(),
+  primaryColor: z.string().nullable(),
+  secondaryColor: z.string().nullable(),
+  typography: z.string().nullable(),
+});
+export type Brand = z.infer<typeof brandSchema>;
+
+/** Política de governança configurada na organização. */
+export const organizationPolicySchema = z.object({
+  key: z.string(),
+  description: z.string(),
+  enabled: z.boolean(),
+});
+export type OrganizationPolicy = z.infer<typeof organizationPolicySchema>;
+
 export const organizationSchema = z.object({
   id: ulidSchema,
   name: z.string(),
   slug: z.string(),
   plan: z.string(),
+  /** Marca da organização — padrão herdável pelos projetos. */
+  brand: brandSchema,
+  /** Templates de workflow padrão aplicados a novos projetos. */
+  defaultWorkflowTemplateIds: z.array(ulidSchema),
+  /** Chaves de templates de documento/artefato disponíveis. */
+  templateKeys: z.array(z.string()),
+  policies: z.array(organizationPolicySchema),
   createdAt: isoDateTimeSchema,
 });
 export type Organization = z.infer<typeof organizationSchema>;
@@ -39,11 +68,27 @@ export const projectSchema = z.object({
   /** Sigla curta usada em prefixos (ex.: "POSEIDON"). */
   key: z.string(),
   description: z.string(),
+  state: projectStateSchema,
+  criticality: prioritySchema,
   repositoryUrl: z.string().nullable(),
+  repositoryProvider: repositoryProviderSchema,
+  defaultBranch: z.string(),
+  /** Stack principal (tags livres, ex.: "React", ".NET"). */
+  technologies: z.array(z.string()),
+  /** Marca do projeto; campos `null` herdam da organização. */
+  brand: brandSchema,
+  /** Perfis com acesso ao projeto. */
+  memberProfileIds: z.array(ulidSchema),
+  /**
+   * Versão da configuração versionada (repositório, tecnologias, marca).
+   * Incrementada a cada update que toca esses campos.
+   */
+  configVersion: z.number().int().positive(),
   /** Agente chefe coordenador do projeto. */
   chiefAgentId: ulidSchema,
   operationMode: operationModeSchema,
   createdAt: isoDateTimeSchema,
+  lastActivityAt: isoDateTimeSchema,
 });
 export type Project = z.infer<typeof projectSchema>;
 

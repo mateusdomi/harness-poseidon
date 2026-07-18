@@ -128,8 +128,23 @@ export const RESOURCE_KINDS: ResourceKind[] = [
 
 /** Entradas de criação por recurso (recursos fora da lista são read-only via API). */
 export interface CreateInputMap {
+  profiles: Pick<Profile, 'displayName' | 'locale'> &
+    Partial<Pick<Profile, 'email' | 'avatarUrl'>>;
+  organizations: Pick<Organization, 'name' | 'slug'> &
+    Partial<Pick<Organization, 'plan' | 'brand'>>;
   projects: Pick<Project, 'organizationId' | 'name' | 'key' | 'description'> &
-    Partial<Pick<Project, 'repositoryUrl'>>;
+    Partial<
+      Pick<
+        Project,
+        | 'criticality'
+        | 'repositoryUrl'
+        | 'repositoryProvider'
+        | 'defaultBranch'
+        | 'technologies'
+        | 'brand'
+        | 'memberProfileIds'
+      >
+    >;
   conversations: Pick<Conversation, 'projectId' | 'title'>;
   messages: Pick<Message, 'conversationId' | 'content'>;
   solicitations: Pick<Solicitation, 'projectId' | 'kind' | 'title' | 'body'> &
@@ -163,8 +178,33 @@ export type CreatableResource = keyof CreateInputMap;
  */
 export interface UpdateInputMap {
   profiles: Partial<Pick<Profile, 'displayName' | 'email' | 'avatarUrl' | 'locale'>>;
-  projects: Partial<Pick<Project, 'name' | 'description' | 'repositoryUrl'>>;
-  settings: Partial<Pick<Settings, 'theme' | 'language' | 'notificationsEnabled' | 'mutedCategories'>>;
+  organizations: Partial<Pick<Organization, 'name' | 'slug' | 'plan' | 'brand'>>;
+  projects: Partial<
+    Pick<
+      Project,
+      | 'name'
+      | 'description'
+      | 'state'
+      | 'criticality'
+      | 'repositoryUrl'
+      | 'repositoryProvider'
+      | 'defaultBranch'
+      | 'technologies'
+      | 'brand'
+      | 'memberProfileIds'
+    >
+  >;
+  settings: Partial<
+    Pick<
+      Settings,
+      | 'theme'
+      | 'language'
+      | 'notificationsEnabled'
+      | 'mutedCategories'
+      | 'workingDirectory'
+      | 'unsafeModeAcceptedAt'
+    >
+  >;
   budgets: Partial<Pick<Budget, 'limitUsd' | 'alertThresholdPct'>>;
   'routing-policies': Partial<Pick<RoutingPolicy, 'name' | 'rules' | 'active'>>;
   providers: Partial<Pick<Provider, 'name' | 'baseUrl' | 'enabled'>>;

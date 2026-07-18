@@ -67,6 +67,13 @@ export const settingsSchema = z.object({
   language: z.string(),
   notificationsEnabled: z.boolean(),
   mutedCategories: z.array(notificationCategorySchema),
+  /** Diretório de trabalho local onde os agentes operam. */
+  workingDirectory: z.string().nullable(),
+  /**
+   * Aceite explícito do "modo inseguro" (execução sem sandbox).
+   * `null` = ainda não aceito; quando preenchido, fica visível na UI.
+   */
+  unsafeModeAcceptedAt: isoDateTimeSchema.nullable(),
   updatedAt: isoDateTimeSchema,
 });
 export type Settings = z.infer<typeof settingsSchema>;

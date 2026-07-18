@@ -1,1 +1,1 @@
-// Hooks da feature "projects" — implementados em fatias futuras.
+export { projectKeys, useCreateProject, useProjects, useUpdateProject } from './use-projects';

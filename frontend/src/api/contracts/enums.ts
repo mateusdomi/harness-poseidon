@@ -22,6 +22,17 @@ export const TASK_STATES = taskStateSchema.options;
 
 export const prioritySchema = z.enum(['low', 'medium', 'high', 'critical']);
 export type Priority = z.infer<typeof prioritySchema>;
+export const PRIORITIES = prioritySchema.options;
+
+/** Ciclo de vida de um projeto. */
+export const projectStateSchema = z.enum(['active', 'paused', 'archived']);
+export type ProjectState = z.infer<typeof projectStateSchema>;
+export const PROJECT_STATES = projectStateSchema.options;
+
+/** Provedor de repositório do projeto (URL remota ou caminho local). */
+export const repositoryProviderSchema = z.enum(['github', 'gitlab', 'bitbucket', 'local', 'other']);
+export type RepositoryProvider = z.infer<typeof repositoryProviderSchema>;
+export const REPOSITORY_PROVIDERS = repositoryProviderSchema.options;
 
 /** Estado de uma tentativa (attempt) de execução de tarefa. */
 export const attemptStateSchema = z.enum(['queued', 'running', 'completed', 'failed', 'cancelled']);

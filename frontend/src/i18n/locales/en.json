@@ -48,7 +48,7 @@
   },
   "placeholder": {
     "badge": "Coming soon",
-    "description": "This screen is under construction. It will be implemented in an upcoming slice.",
+    "description": "This screen is under construction. The implementation lands in an upcoming slice.",
     "statesTitle": "Planned states",
     "states": {
       "loading": "Loading",
@@ -57,12 +57,231 @@
       "ready": "Ready"
     }
   },
+  "common": {
+    "requiredMark": "(required)",
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "back": "Back",
+      "next": "Next",
+      "previous": "Previous step",
+      "retry": "Try again",
+      "add": "Add",
+      "finish": "Finish"
+    },
+    "states": {
+      "loading": "Loading…",
+      "errorBody": "Could not load the data. Please try again."
+    },
+    "validation": {
+      "required": "Required field",
+      "min2": "Use at least 2 characters",
+      "email": "Invalid email",
+      "slug": "Use only lowercase letters, numbers and hyphens",
+      "key": "Use 2 to 12 uppercase letters or numbers",
+      "url": "Invalid URL",
+      "color": "Use the hexadecimal format #RRGGBB"
+    },
+    "inheritance": {
+      "inheritedFromOrg": "Inherited from organization",
+      "inheritedFromDefault": "Product default",
+      "overridden": "Customized"
+    },
+    "versioned": {
+      "badge": "Versioned",
+      "tooltip": "Versioned field: changes bump the project configuration version."
+    },
+    "brand": {
+      "hintOrg": "Leave blank to inherit the organization's brand.",
+      "hintDefault": "Leave blank to use the product default.",
+      "emptyPlaceholder": "Not set",
+      "fields": {
+        "logoUrl": "Logo URL",
+        "primaryColor": "Primary color",
+        "secondaryColor": "Secondary color",
+        "typography": "Typography"
+      }
+    }
+  },
+  "status": {
+    "projectState": {
+      "active": "Active",
+      "paused": "Paused",
+      "archived": "Archived"
+    },
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "repositoryProvider": {
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "bitbucket": "Bitbucket",
+      "local": "Local",
+      "other": "Other"
+    }
+  },
+  "onboarding": {
+    "selectProfile": {
+      "title": "Who is using Poseidon?",
+      "description": "Pick a local profile to continue or create a new one.",
+      "createNew": "Create new profile",
+      "lastActive": "Last active {{time}}",
+      "use": "Sign in"
+    },
+    "wizard": {
+      "title": "Initial setup",
+      "stepsLabel": "Setup steps",
+      "step": "Step {{current}} of {{total}}",
+      "steps": {
+        "profile": "Profile",
+        "preferences": "Preferences",
+        "workspace": "Directory",
+        "safety": "Safety"
+      },
+      "profile": {
+        "name": "Display name",
+        "email": "Email (optional)"
+      },
+      "preferences": {
+        "language": "Language",
+        "theme": {
+          "label": "Theme",
+          "options": {
+            "dark": "Dark",
+            "light": "Light",
+            "system": "Follow system"
+          }
+        }
+      },
+      "workspace": {
+        "directory": "Working directory",
+        "hint": "Local folder where agents read and write files. Leave blank to set it later."
+      },
+      "safety": {
+        "title": "Unsafe mode",
+        "warning": "The execution sandbox is not available in this environment. Agents will run commands directly on your machine, without isolation. Proceed only if you trust the executed content.",
+        "accept": "I understand the risks and accept running in unsafe mode",
+        "required": "Explicit acceptance of unsafe mode is required to finish."
+      }
+    }
+  },
+  "organizations": {
+    "search": "Search organizations…",
+    "create": "New organization",
+    "empty": {
+      "title": "No organizations yet",
+      "body": "Organizations group projects, brand, policies and default workflows. Create the first one to get started.",
+      "cta": "Create organization"
+    },
+    "emptySearch": "No organizations found for \"{{query}}\".",
+    "projectsCount_zero": "No projects",
+    "projectsCount_one": "{{count}} project",
+    "projectsCount_other": "{{count}} projects",
+    "plans": {
+      "free": "Free",
+      "pro": "Pro",
+      "enterprise": "Enterprise"
+    },
+    "templateKeys": {
+      "prd": "PRD",
+      "spec": "Specification",
+      "runbook": "Runbook",
+      "note": "Note"
+    },
+    "form": {
+      "createTitle": "New organization",
+      "editTitle": "Edit organization",
+      "name": "Name",
+      "slug": "Slug",
+      "slugHint": "Short identifier used in URLs, e.g. poseidon-labs.",
+      "plan": "Plan",
+      "brandTitle": "Brand",
+      "create": "Create organization"
+    },
+    "detail": {
+      "edit": "Edit organization",
+      "brand": "Brand",
+      "workflows": "Default workflows",
+      "noWorkflows": "No default workflow configured.",
+      "templates": "Templates",
+      "noTemplates": "No templates available.",
+      "policies": "Policies",
+      "noPolicies": "No policies configured.",
+      "policyEnabled": "Enabled",
+      "policyDisabled": "Disabled",
+      "projects": "Associated projects",
+      "noProjects": "No projects in this organization yet."
+    }
+  },
+  "projects": {
+    "search": "Search projects…",
+    "create": "New project",
+    "filters": {
+      "organization": "Organization",
+      "allOrganizations": "All organizations",
+      "criticality": "Criticality",
+      "allCriticalities": "All criticalities",
+      "state": "State",
+      "allStates": "All states"
+    },
+    "empty": {
+      "title": "No projects yet",
+      "body": "Projects are where agents work: code, documents and deliveries. Create the first one to get started.",
+      "cta": "Create project"
+    },
+    "emptySearch": "No projects found with the current filters.",
+    "card": {
+      "lastActivity": "Last activity {{time}}"
+    },
+    "form": {
+      "createTitle": "New project",
+      "editTitle": "Edit project",
+      "tabsLabel": "Project sections",
+      "tabs": {
+        "identification": "Identification",
+        "repository": "Repository",
+        "technologies": "Technologies",
+        "brand": "Brand",
+        "people": "People"
+      },
+      "errorsSummary": "Review the highlighted fields before saving.",
+      "identification": {
+        "organization": "Organization",
+        "name": "Title",
+        "key": "Slug (short code)",
+        "keyHint": "Short uppercase code used in prefixes, e.g. POSEIDON.",
+        "criticality": "Criticality",
+        "description": "Description",
+        "state": "State"
+      },
+      "repository": {
+        "provider": "Provider",
+        "url": "URL or local path",
+        "urlHint": "Leave blank if the project has no repository yet.",
+        "branch": "Default branch"
+      },
+      "technologies": {
+        "placeholder": "E.g. React",
+        "empty": "No technologies added.",
+        "remove": "Remove {{tech}}"
+      },
+      "people": {
+        "label": "People with access",
+        "empty": "No local profiles available.",
+        "required": "Select at least one person."
+      },
+      "create": "Create project"
+    }
+  },
   "features": {
     "onboarding": { "title": "Onboarding", "description": "First steps and initial account setup." },
-    "organizations": { "title": "Organizations", "description": "Manage organizations, members and permissions." },
+    "organizations": { "title": "Organizations", "description": "Manage organizations, brand, policies and associated projects." },
     "projects": { "title": "Projects", "description": "List and details of projects built by the agents." },
-    "cockpit": { "title": "Cockpit", "description": "Operations overview: agent status and active projects." },
-    "chat": { "title": "Chat", "description": "Chat with the chief agent and the AI team." },
+    "cockpit": { "title": "Cockpit", "description": "Operation overview: agent status and active projects." },
+    "chat": { "title": "Chat", "description": "Talk to the chief agent and the AI team." },
     "conversations": { "title": "Conversations", "description": "Conversation history with the agents." },
     "workflows": { "title": "Workflows", "description": "Project pipelines and automations." },
     "board": { "title": "Board", "description": "Project task board." },
@@ -72,11 +291,11 @@
     "orchestrator": { "title": "Orchestrator", "description": "Chief agent coordination over the other agents." },
     "agents": { "title": "Agents", "description": "Catalog and status of AI agents." },
     "tools": { "title": "Tools", "description": "Tools available to the agents." },
-    "run-project": { "title": "Run project", "description": "Start a new project run." },
+    "run-project": { "title": "Run project", "description": "Trigger a new project run." },
     "notifications": { "title": "Notifications", "description": "Notification center." },
     "providers": { "title": "Providers", "description": "Model providers and integrations." },
-    "po-assistant": { "title": "PO Assistant", "description": "Product Owner assistant for requirements refinement." },
-    "governance": { "title": "Governance", "description": "Policies, limits and audit." },
+    "po-assistant": { "title": "PO Assistant", "description": "Product Owner assistant for requirement refinement." },
+    "governance": { "title": "Governance", "description": "Policies, limits and auditing." },
     "licenses": { "title": "Licenses", "description": "Licenses and usage plan." },
     "settings": { "title": "Settings", "description": "Application preferences." }
   }

@@ -87,12 +87,34 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     createdAt: tick(),
     lastActiveAt: tick(),
   };
+  const profileAna: Profile = {
+    id: id(),
+    displayName: 'Ana Souza',
+    email: 'ana@poseidon.local',
+    avatarUrl: null,
+    locale: 'pt-BR',
+    createdAt: tick(),
+    lastActiveAt: tick(),
+  };
 
   const orgPoseidon: Organization = {
     id: id(),
     name: 'Poseidon Labs',
     slug: 'poseidon-labs',
     plan: 'pro',
+    brand: {
+      logoUrl: null,
+      primaryColor: '#7C5CFC',
+      secondaryColor: '#EC4899',
+      typography: 'Space Grotesk',
+    },
+    defaultWorkflowTemplateIds: [], // preenchido após criar o template
+    templateKeys: ['prd', 'spec', 'runbook'],
+    policies: [
+      { key: 'review.required', description: 'Toda tarefa passa por revisão antes de done.', enabled: true },
+      { key: 'deploy.manual', description: 'Deploy em produção exige aprovação humana.', enabled: true },
+      { key: 'quota.alert', description: 'Alertar ao atingir 80% da cota mensal.', enabled: false },
+    ],
     createdAt: tick(),
   };
   const orgPessoal: Organization = {
@@ -100,6 +122,12 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Laboratório Pessoal',
     slug: 'lab-pessoal',
     plan: 'free',
+    brand: { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+    defaultWorkflowTemplateIds: [],
+    templateKeys: ['note'],
+    policies: [
+      { key: 'review.required', description: 'Toda tarefa passa por revisão antes de done.', enabled: false },
+    ],
     createdAt: tick(),
   };
 
@@ -473,10 +501,19 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Poseidon Frontend',
     key: 'POSEIDON',
     description: 'Console web do Harness Poseidon (React + Vite).',
+    state: 'active',
+    criticality: 'high',
     repositoryUrl: 'https://github.com/poseidon-labs/harness-poseidon',
+    repositoryProvider: 'github',
+    defaultBranch: 'develop',
+    technologies: ['React', 'TypeScript', 'Vite', 'Tailwind'],
+    brand: { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+    memberProfileIds: [profile.id, profileAna.id],
+    configVersion: 3,
     chiefAgentId: chefePoseidon.id,
     operationMode: 'manual',
     createdAt: tick(),
+    lastActivityAt: tick(),
   };
   const projetoPagamentos: Project = {
     id: id(),
@@ -484,10 +521,19 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'API de Pagamentos',
     key: 'PAG',
     description: 'Serviço de cobranças e conciliação.',
+    state: 'paused',
+    criticality: 'critical',
     repositoryUrl: null,
+    repositoryProvider: 'local',
+    defaultBranch: 'main',
+    technologies: ['.NET', 'PostgreSQL'],
+    brand: { logoUrl: null, primaryColor: '#0EA5E9', secondaryColor: null, typography: null },
+    memberProfileIds: [profile.id],
+    configVersion: 1,
     chiefAgentId: chefePagamentos.id,
     operationMode: 'semiautonomous',
     createdAt: tick(),
+    lastActivityAt: tick(),
   };
   chefePoseidon.projectId = projetoPoseidon.id;
   chefePagamentos.projectId = projetoPagamentos.id;
@@ -1093,6 +1139,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     publishedAt: tick(),
   };
   template.currentVersionId = versao1.id;
+  orgPoseidon.defaultWorkflowTemplateIds = [template.id];
 
   const workflowPoseidon: Workflow = {
     id: id(),
@@ -1309,6 +1356,19 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     language: 'pt-BR',
     notificationsEnabled: true,
     mutedCategories: [],
+    workingDirectory: '~/poseidon',
+    unsafeModeAcceptedAt: tick(),
+    updatedAt: tick(),
+  };
+  const settingsAna: Settings = {
+    id: id(),
+    profileId: profileAna.id,
+    theme: 'system',
+    language: 'pt-BR',
+    notificationsEnabled: true,
+    mutedCategories: [],
+    workingDirectory: null,
+    unsafeModeAcceptedAt: null,
     updatedAt: tick(),
   };
 
@@ -1357,7 +1417,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
   /* ---- montagem ---- */
 
   const data: FixtureData['data'] = {
-    profiles: [profile],
+    profiles: [profile, profileAna],
     organizations: [orgPoseidon, orgPessoal],
     projects: [projetoPoseidon, projetoPagamentos],
     conversations: [conversaSprint, conversaGate, conversaPagamentos],
@@ -1393,7 +1453,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     notifications,
     'audit-events': auditEvents,
     'run-targets': runTargets,
-    settings: [settings],
+    settings: [settings, settingsAna],
     licenses: [license],
     entitlements,
   };
