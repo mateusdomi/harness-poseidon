@@ -1,7 +1,10 @@
+using System.Text.Json;
 using Harness.Host.Profiles;
+using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.SharedKernel.Identifiers;
@@ -221,6 +224,8 @@ public static class ConversationEndpoints
         ILocalProfileStore profiles,
         IConversationStore conversations,
         IProjectStore projects,
+        ICockpitDigestStore digests,
+        IAgentExecutor executor,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -242,10 +247,25 @@ public static class ConversationEndpoints
             var user = ConversationApplicationService.CreateUserMessage(
                 UlidValue.New(userAt).ToString(), profile.Id,
                 new CreateMessageRequest(conversationId, input.Content), userAt);
-            var chunks = ConversationApplicationService.ComposeDeterministicReply(input.Content);
+            var digest = await digests.ReadAsync(
+                profile.TenantId, project.Id, activityLimit: 20, cancellationToken);
+            var execution = await executor.ExecuteAsync(
+                new AgentExecutionRequest(
+                    profile.TenantId,
+                    project.Id,
+                    conversationId,
+                    project.ChiefAgentId,
+                    input.Content,
+                    JsonSerializer.Serialize(digest, JsonOptions),
+                    AppContext.BaseDirectory),
+                cancellationToken);
+            var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
+            var chunks = execution.Chunks.Count == 0
+                ? new[] { output.Response }
+                : execution.Chunks.ToArray();
             var chief = ConversationApplicationService.CreateChiefMessage(
                 UlidValue.New(chiefAt).ToString(), conversationId, project.ChiefAgentId,
-                string.Concat(chunks), chiefAt);
+                output.Response, chiefAt);
             var result = await conversations.StartTurnAsync(
                 new ChatTurnCommand(
                     profile.TenantId,
@@ -272,6 +292,10 @@ public static class ConversationEndpoints
         catch (ArgumentException exception)
         {
             return Problem(400, "invalid_chat_turn", exception.Message);
+        }
+        catch (AgentOutputValidationException exception)
+        {
+            return Problem(502, "agent_output_invalid", exception.Message);
         }
     }
 
@@ -320,6 +344,8 @@ public static class ConversationEndpoints
         Problem(404, "project_not_found", "The project does not exist.");
     private static IResult Problem(int status, string title, string detail) =>
         Results.Problem(statusCode: status, title: title, detail: detail);
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 }
 
 public sealed record ConversationResponse(
