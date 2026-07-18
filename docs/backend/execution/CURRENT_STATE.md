@@ -7,7 +7,7 @@ Atualizado em: 2026-07-18T21:20:00Z
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-WORK-1b — comandos/lifecycle de Solicitação→Tentativa e quadro; criação/leitura está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `70bd594` (`develop`), contendo F2-CHAT-1 verde com 121/121 testes.
+- Último commit remoto validado: `c43f35c` (`develop`), contendo F2-WORK-1a verde com 125/125 testes e o checkpoint FE-3 preservado.
 - Próximo passo exato: implementar transição de solicitação, movimento e prioridade de tarefa, append de instrução sob a regra imutável e projeção do lifecycle de tentativas, com eventos canônicos e sem editar frontend.
 - Bloqueios: nenhum.
 
