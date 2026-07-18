@@ -80,8 +80,8 @@ Fonte de verdade: missão v1.3 fornecida pelo usuário. Este arquivo acompanha e
 7. Solicitações, demandas, tarefas, tentativas e quadro — verde em 2026-07-18.
 8. Workflows, gates e progresso — verde em 2026-07-18.
 9. Documentos e aprovações — verde em 2026-07-18.
-10. Orquestrador e agentes — catálogo/instâncias verde; comandos do Chief em execução.
-11. Ferramentas, skills, plugins e MCP — pendente.
+10. Orquestrador e agentes — verde em 2026-07-18.
+11. Ferramentas, skills, plugins e MCP — em execução.
 12. Notificações — pendente.
 13. Governança e auditoria — pendente.
 14. Complementares e integração frontend/dogfood — pendente.
