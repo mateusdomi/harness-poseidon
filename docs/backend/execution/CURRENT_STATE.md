@@ -1,13 +1,13 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T19:40:09Z
+Atualizado em: 2026-07-18T19:42:04Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F2-CPK-1 — cockpit/digest; perfil, organizações e projetos estão verdes.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `391f4c1` (`develop`), checkpoint de F2-ORG-1; F2-PRJ-1 está localmente verde e aguarda publicação.
+- Último commit remoto validado: `e85af33` (`develop`), contendo F2-PRJ-1 verde com 116/116 testes.
 - Próximo passo exato: implementar cockpit/digest como projeção tenant/project-scoped sobre progresso, tarefas, approvals, agentes, custos e atividade, seguindo as telas e contratos existentes sem editar frontend.
 - Bloqueios: nenhum.
 
