@@ -78,7 +78,7 @@ export default function OnboardingPage() {
       <img
         src={logoUrl}
         alt={product.name}
-        className="h-16 w-auto object-contain md:h-20"
+        className="h-auto w-60 object-contain dark:brightness-125 md:w-80"
       />
       {content}
     </main>

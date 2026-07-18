@@ -22,7 +22,7 @@ function BrandMark({ className }: { className?: string }) {
     <img
       src={logoUrl}
       alt={product.name}
-      className={cn('h-10 w-auto object-contain', className)}
+      className={cn('h-12 w-auto object-contain dark:brightness-125', className)}
     />
   );
 }
@@ -39,15 +39,15 @@ function Sidebar() {
         collapsed ? 'w-16' : 'w-64',
       )}
     >
-      <div className={cn('flex h-20 items-center border-b border-border px-4', collapsed && 'justify-center px-0')}>
+      <div className={cn('flex items-center border-b border-border px-4', collapsed ? 'h-20 justify-center px-0' : 'h-28')}>
         {collapsed ? (
           <img
             src={logoIconUrl}
             alt={product.name}
-            className="h-10 w-auto object-contain"
+            className="h-12 w-auto object-contain dark:brightness-125"
           />
         ) : (
-          <BrandMark className="h-12" />
+          <BrandMark className="h-auto w-48" />
         )}
       </div>
       <nav aria-label={t('shell.primaryNav')} className="flex-1 overflow-y-auto p-2">
@@ -91,8 +91,8 @@ function MobileDrawer() {
         onClick={() => setOpen(false)}
       />
       <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-surface shadow-xl">
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <BrandMark />
+        <div className="flex h-24 items-center justify-between border-b border-border px-4">
+          <BrandMark className="h-auto w-40" />
           <Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label={t('shell.closeMenu')}>
             <X aria-hidden="true" />
           </Button>
