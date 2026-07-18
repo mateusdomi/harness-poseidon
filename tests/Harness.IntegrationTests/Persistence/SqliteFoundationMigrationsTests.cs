@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(12, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(14, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -205,6 +205,27 @@ public sealed class SqliteFoundationMigrationsTests
                 timeout.Token);
             Assert.Equal(10, workflowTableCount);
 
+            var workflowCatalogProjection = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT
+                            (SELECT COUNT(*) FROM sqlite_master WHERE type='table'
+                             AND name IN ('workflow_bindings','workflow_risk_acceptances')),
+                            (SELECT COUNT(*) FROM pragma_table_info('workflow_runs')
+                             WHERE name='workflow_id'),
+                            (SELECT COUNT(*) FROM pragma_table_info('workflow_gate_runs')
+                             WHERE name IN ('decided_by_profile_id','decision_note'));
+                        """;
+                    await using var reader = await command.ExecuteReaderAsync(token);
+                    Assert.True(await reader.ReadAsync(token));
+                    return (reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2));
+                },
+                timeout.Token);
+            Assert.Equal((2, 1, 2), workflowCatalogProjection);
+
             var organizationColumnCount = await dispatcher.ExecuteAsync(
                 async (connection, token) =>
                 {
@@ -254,6 +275,30 @@ public sealed class SqliteFoundationMigrationsTests
                 },
                 timeout.Token);
             Assert.Equal(3, conversationTableCount);
+
+            var boardProjectionCount = await dispatcher.ExecuteAsync(
+                async (connection, token) =>
+                {
+                    await using var command = connection.CreateCommand();
+                    command.CommandText =
+                        """
+                        SELECT
+                            (SELECT COUNT(*) FROM pragma_table_info('solicitations')
+                             WHERE name IN ('kind','title','state','supersedes_id','is_internal')),
+                            (SELECT COUNT(*) FROM pragma_table_info('demands')
+                             WHERE name IN ('description','state','priority','source_solicitation_id','is_internal')),
+                            (SELECT COUNT(*) FROM pragma_table_info('work_tasks')
+                             WHERE name IN ('source_demand_id','board_state','priority','assignee_agent_id',
+                                            'blocked_reason','due_at')),
+                            (SELECT COUNT(*) FROM sqlite_master
+                             WHERE type='table' AND name='attempt_events');
+                        """;
+                    await using var reader = await command.ExecuteReaderAsync(token);
+                    Assert.True(await reader.ReadAsync(token));
+                    return (reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2), reader.GetInt32(3));
+                },
+                timeout.Token);
+            Assert.Equal((5, 5, 6, 1), boardProjectionCount);
 
             await dispatcher.ExecuteAsync(
                 async (connection, token) =>

@@ -114,14 +114,14 @@ public sealed class SqliteCockpitDigestStore(SqliteWriteDispatcher dispatcher) :
         query.CommandText =
             """
             SELECT
-                0,
-                COALESCE(SUM(CASE WHEN state='ready' THEN 1 ELSE 0 END),0),
-                COALESCE(SUM(CASE WHEN state='running' THEN 1 ELSE 0 END),0),
-                COALESCE(SUM(CASE WHEN state='awaiting_review' THEN 1 ELSE 0 END),0),
-                0,
-                0,
-                0,
-                COALESCE(SUM(CASE WHEN state='completed' THEN 1 ELSE 0 END),0)
+                COALESCE(SUM(CASE WHEN board_state='backlog' THEN 1 ELSE 0 END),0),
+                COALESCE(SUM(CASE WHEN board_state='ready' THEN 1 ELSE 0 END),0),
+                COALESCE(SUM(CASE WHEN board_state='development' THEN 1 ELSE 0 END),0),
+                COALESCE(SUM(CASE WHEN board_state='review' THEN 1 ELSE 0 END),0),
+                COALESCE(SUM(CASE WHEN board_state='corrections' THEN 1 ELSE 0 END),0),
+                COALESCE(SUM(CASE WHEN board_state='testsGates' THEN 1 ELSE 0 END),0),
+                COALESCE(SUM(CASE WHEN board_state='blocked' THEN 1 ELSE 0 END),0),
+                COALESCE(SUM(CASE WHEN board_state='done' THEN 1 ELSE 0 END),0)
             FROM work_tasks WHERE tenant_id=$tenantId AND project_id=$projectId;
             """;
         BindScope(query, tenantId, projectId);

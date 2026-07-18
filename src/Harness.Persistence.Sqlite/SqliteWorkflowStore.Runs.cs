@@ -58,12 +58,13 @@ public sealed partial class SqliteWorkflowStore
             connection, transaction,
             """
             INSERT INTO workflow_runs
-                (id,tenant_id,project_id,definition_version_id,state,version,created_at)
-            VALUES ($runId,$tenantId,$projectId,$versionId,'pending',1,$occurredAt);
+                (id,tenant_id,project_id,definition_version_id,state,version,created_at,workflow_id)
+            VALUES ($runId,$tenantId,$projectId,$versionId,'pending',1,$occurredAt,$workflowId);
             """,
             cancellationToken,
             ("$runId", value.RunId), ("$tenantId", value.TenantId),
             ("$projectId", value.ProjectId), ("$versionId", value.DefinitionVersionId),
+            ("$workflowId", (object?)value.WorkflowId ?? DBNull.Value),
             ("$occurredAt", occurredAt));
         foreach (var phase in phases)
         {

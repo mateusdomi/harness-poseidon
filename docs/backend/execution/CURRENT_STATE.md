@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T20:25:00Z
+Atualizado em: 2026-07-18T21:35:00Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-WORK-1 — Solicitação→Demanda→Tarefa→Tentativa e quadro; chat/conversas está verde.
+- Épico atual: F2-WF-1b — comandos de versão, modo, lifecycle, gates e progresso; catálogo/run inicial está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `70bd594` (`develop`), contendo F2-CHAT-1 verde com 121/121 testes.
-- Próximo passo exato: reconciliar os contratos de solicitações, demandas, tarefas, instruções, tentativas e quadro; projetar a cadeia F1 existente em APIs tenant-scoped e eventos canônicos, sem editar frontend.
+- Último commit remoto validado: `805a8c1` (`develop`), contendo F2-WF-1a verde com 129/129 testes e o checkpoint FE-3 preservado.
+- Próximo passo exato: implementar publicação imutável de vN, troca de modo com aceite, comandos de run/objetivo/gate/fase e eventos canônicos sobre a projeção F2-WF-1a.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T20:25:00Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles`, `0010_organizations`, `0011_projects` e `0012_conversations`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`12→0` e `9→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles`, `0010_organizations`, `0011_projects`, `0012_conversations`, `0013_work_board_projection` e `0014_workflow_catalog_projection`; PostgreSQL permanece nas nove migrations F1. Históricos são separados/idempotentes (`14→0` e `9→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -75,10 +75,13 @@ Atualizado em: 2026-07-18T20:25:00Z
 - F2 projetos: domínio/contrato completo, configVersion seletiva, store tenant-scoped com organização, OCC, tombstone, ledger+Outbox atômicos e API CRUD. Restart preservou configuração; `project.created` chegou ao stream persistido; OpenAPI/drift batem com os 18 campos TypeScript.
 - F2 cockpit/digest: projeção tenant/project-scoped recompõe progresso ponderado em três trilhas, tarefas, approvals, workflow/fase/gates e ledger; próxima ação/fingerprint são determinísticos. Sinais de agentes/budgets ainda indisponíveis ficam explícitos. `task.created` foi reconciliado nos stores SQLite/PostgreSQL e roteado pelo Outbox.
 - F2 chat/conversas: conversas/mensagens persistidas e turnos Fake determinísticos. Estado, ledger e Outbox commitam juntos; o dispatcher entrega mensagem humana, início, chunks, resposta e conclusão em `conversation:<id>`, com restart e soft-delete comprovados.
-- Migrations: SQLite `12→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-CHAT-1: restore locked, format, build Release com zero warnings/erros e 121/121 testes verdes.
+- F2 cadeia/quadro read/create: as tabelas F1 ganharam projeção das oito colunas e campos completos; seis recursos têm list/read, três têm create, elos internos preservam a cadeia quando a origem pública é nula, e eventos de criação carregam payloads completos.
+- F2 cadeia/quadro comandos/lifecycle: APIs canônicas fazem triagem de solicitação, movimento/prioridade de tarefa e append imutável de instrução somente após rejeição. O Host registra a autoridade `IWorkChainStore`; start/complete/review projetam quadro, tentativas e eventos `log/note`. O cenário real percorre bloqueio→retomada→rejeição→v2→aprovação→`done`, impõe actor–critic crítico e recupera o estado após restart.
+- F2 workflow catálogo/run: `IWorkflowStore` F1 está registrado como autoridade no Host; projeção SQLite expõe templates, versões, vínculos por projeto, runs, fases e gates nos contratos exatos do frontend. Criação de template expande fases/gates simples para objetivos/requisitos ricos, vínculo registra aceite de risco e run nasce `running` com uma fase ativa. OpenAPI, drift, unicidade por projeto e restart estão comprovados.
+- Migrations: SQLite `13→0` e PostgreSQL `9→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-WF-1a: restore locked, format, build Release com zero warnings/erros e 129/129 testes verdes.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil, organizações, projetos, cockpit e chat verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é cadeia/quadro F2.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat e quadro verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é workflows/gates/progresso F2.
 
 ## Sanidade antes de retomar
 

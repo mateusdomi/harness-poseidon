@@ -53,8 +53,8 @@ public sealed partial class SqliteWorkflowStore(SqliteWriteDispatcher dispatcher
         await ExecuteAsync(
             connection, transaction,
             """
-            INSERT INTO workflow_definitions (id, tenant_id, name, created_at)
-            VALUES ($definitionId, $tenantId, $name, $occurredAt);
+            INSERT INTO workflow_definitions (id, tenant_id, name, created_at, description)
+            VALUES ($definitionId, $tenantId, $name, $occurredAt, $description);
             INSERT INTO workflow_definition_versions
                 (id, tenant_id, definition_id, version, status, content_hash, created_at, published_at)
             VALUES ($versionId, $tenantId, $definitionId, $version, 'published',
@@ -63,6 +63,7 @@ public sealed partial class SqliteWorkflowStore(SqliteWriteDispatcher dispatcher
             cancellationToken,
             ("$definitionId", value.DefinitionId), ("$tenantId", value.TenantId),
             ("$name", value.Name), ("$occurredAt", occurredAt),
+            ("$description", value.Description),
             ("$versionId", value.DefinitionVersionId), ("$version", value.Version),
             ("$contentHash", value.ContentHash));
 
@@ -129,13 +130,13 @@ public sealed partial class SqliteWorkflowStore(SqliteWriteDispatcher dispatcher
 
         var payload = JsonSerializer.Serialize(new
         {
-            definitionId = value.DefinitionId,
-            definitionVersionId = value.DefinitionVersionId,
+            templateId = value.DefinitionId,
+            versionId = value.DefinitionVersionId,
             version = value.Version,
         });
         var (sequence, previousHash) = await ReadLedgerTailAsync(
             connection, transaction, value.TenantId, cancellationToken);
-        const string eventType = "workflow.definitionPublished";
+        const string eventType = "workflow.versionPublished";
         var ledgerHash = AuditLedgerHash.Compute(
             previousHash, value.TenantId, sequence, eventType, payload, value.OccurredAt);
         var outboxId = UlidValue.New(value.OccurredAt).ToString();
