@@ -24,7 +24,8 @@ public sealed record LocalProfileRecord(
     string Locale,
     DateTimeOffset CreatedAt,
     DateTimeOffset LastActiveAt,
-    long Version);
+    long Version,
+    LocalProfileRole Role);
 
 public sealed record LocalProfileCreateCommand(
     string TenantId,
@@ -57,3 +58,26 @@ public enum LocalProfileMutationStatus
 public sealed record LocalProfileMutationResult(
     LocalProfileMutationStatus Status,
     LocalProfileRecord? Profile = null);
+
+public enum LocalProfileRole
+{
+    Admin,
+    Member,
+}
+
+public static class LocalProfileRoleCodec
+{
+    public static string ToStorage(LocalProfileRole role) => role switch
+    {
+        LocalProfileRole.Admin => "admin",
+        LocalProfileRole.Member => "member",
+        _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown local profile role."),
+    };
+
+    public static LocalProfileRole Parse(string value) => value switch
+    {
+        "admin" => LocalProfileRole.Admin,
+        "member" => LocalProfileRole.Member,
+        _ => throw new ArgumentException("Unknown local profile role value.", nameof(value)),
+    };
+}

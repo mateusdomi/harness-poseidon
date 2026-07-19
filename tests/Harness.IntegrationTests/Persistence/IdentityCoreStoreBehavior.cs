@@ -53,6 +53,23 @@ public static class IdentityCoreStoreBehavior
         var profileId = profile.Id;
         var fetched = await profiles.GetAsync(profileId, cancellationToken);
         Assert.NotNull(fetched);
+        Assert.Equal(LocalProfileRole.Admin, fetched!.Role);
+
+        // Multiusuário: adesão a tenant existente nasce member; tenant inexistente é NotFound.
+        var member = await profiles.CreateAsync(
+            new LocalProfileCreateCommand(
+                tenantId, "Personal", UlidValue.New(now.AddMilliseconds(2)).ToString(),
+                "Membro", null, null, "pt-BR", now, JoinExistingTenant: true),
+            cancellationToken);
+        Assert.Equal(LocalProfileMutationStatus.Applied, member.Status);
+        Assert.Equal(LocalProfileRole.Member, member.Profile!.Role);
+        var ghostTenant = await profiles.CreateAsync(
+            new LocalProfileCreateCommand(
+                UlidValue.New(now.AddMilliseconds(3)).ToString(), "Personal",
+                UlidValue.New(now.AddMilliseconds(3)).ToString(),
+                "Fantasma", null, null, "pt-BR", now, JoinExistingTenant: true),
+            cancellationToken);
+        Assert.Equal(LocalProfileMutationStatus.NotFound, ghostTenant.Status);
         var updated = await profiles.UpdateAsync(
             new LocalProfileUpdateCommand(
                 profileId, "Mateus Arquiteto", "m@example.com", null, "pt-BR",

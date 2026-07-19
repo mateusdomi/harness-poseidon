@@ -103,11 +103,13 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
             profile.CommandText =
                 """
                 INSERT INTO local_users
-                    (id,tenant_id,display_name,email,avatar_url,locale,last_active_at,version,created_at)
-                VALUES ($id,$tenantId,$displayName,$email,$avatarUrl,$locale,$occurredAt,1,$occurredAt);
+                    (id,tenant_id,display_name,email,avatar_url,locale,last_active_at,version,created_at,role)
+                VALUES ($id,$tenantId,$displayName,$email,$avatarUrl,$locale,$occurredAt,1,$occurredAt,$role);
                 """;
             Bind(profile, command.ProfileId, command.TenantId, command.DisplayName, command.Email,
                 command.AvatarUrl, command.Locale, command.OccurredAt);
+            Add(profile, "$role", LocalProfileRoleCodec.ToStorage(
+                command.JoinExistingTenant ? LocalProfileRole.Member : LocalProfileRole.Admin));
             await profile.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -184,7 +186,8 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
             reader.GetString(5),
             DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
             DateTimeOffset.Parse(reader.GetString(7), CultureInfo.InvariantCulture),
-            reader.GetInt64(8));
+            reader.GetInt64(8),
+            LocalProfileRoleCodec.Parse(reader.GetString(9)));
 
     private static void Bind(
         SqliteCommand command,
@@ -206,7 +209,7 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
     }
 
     private const string SelectSql =
-        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version FROM local_users";
+        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version,role FROM local_users";
 
     private static string Store(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);

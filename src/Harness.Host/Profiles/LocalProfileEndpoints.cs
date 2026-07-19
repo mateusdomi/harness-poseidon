@@ -141,9 +141,20 @@ public static class LocalProfileEndpoints
         }
 
         if (!request.Cookies.TryGetValue(LocalProfileSession.CookieName, out var currentId) ||
-            !string.Equals(currentId, profileId, StringComparison.Ordinal))
+            !UlidValue.TryParse(currentId, out _))
         {
             return Problem(403, "profile_forbidden", "The local session cannot update this profile.");
+        }
+
+        if (!string.Equals(currentId, profileId, StringComparison.Ordinal))
+        {
+            // ABAC: o dono sempre pode editar o próprio perfil; RBAC: admin do
+            // tenant pode editar qualquer perfil (modo servidor multiusuário).
+            var session = await store.GetAsync(currentId, cancellationToken);
+            if (session is null || session.Role != LocalProfileRole.Admin)
+            {
+                return Problem(403, "profile_forbidden", "The local session cannot update this profile.");
+            }
         }
 
         var current = await store.GetAsync(profileId, cancellationToken);

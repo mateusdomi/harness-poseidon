@@ -7,7 +7,7 @@ namespace Harness.Persistence.Postgres;
 public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILocalProfileStore
 {
     private const string SelectSql =
-        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version FROM harness.local_users";
+        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version,role FROM harness.local_users";
 
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
@@ -105,8 +105,8 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             transaction,
             """
             INSERT INTO harness.local_users
-                (id, tenant_id, display_name, email, avatar_url, locale, last_active_at, version, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $7);
+                (id, tenant_id, display_name, email, avatar_url, locale, last_active_at, version, created_at, role)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $7, $8);
             """,
             cancellationToken,
             Text(command.ProfileId),
@@ -115,7 +115,9 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             NullableText(command.Email),
             NullableText(command.AvatarUrl),
             Text(command.Locale),
-            Timestamp(command.OccurredAt));
+            Timestamp(command.OccurredAt),
+            Text(LocalProfileRoleCodec.ToStorage(
+                command.JoinExistingTenant ? LocalProfileRole.Member : LocalProfileRole.Admin)));
         await ExecuteAsync(
             connection,
             transaction,
@@ -185,7 +187,8 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             reader.GetString(5),
             reader.GetFieldValue<DateTimeOffset>(6),
             reader.GetFieldValue<DateTimeOffset>(7),
-            reader.GetInt64(8));
+            reader.GetInt64(8),
+            LocalProfileRoleCodec.Parse(reader.GetString(9)));
 
     private static async Task ExecuteAsync(
         NpgsqlConnection connection,

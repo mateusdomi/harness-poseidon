@@ -18,7 +18,7 @@ public static class ProjectEndpoints
         group.MapGet("/{projectId}", GetAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         group.MapPost("/", CreateAsync).Produces<ProjectResponse>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         group.MapPatch("/{projectId}", PatchAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
-        group.MapDelete("/{projectId}", DeleteAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        group.MapDelete("/{projectId}", DeleteAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{projectId}/status-digest", GetStatusDigestAsync)
             .Produces<ProjectStatusDigestContract>()
             .ProducesProblem(400)
@@ -49,7 +49,7 @@ public static class ProjectEndpoints
     }
     private static async Task<IResult> DeleteAsync(string projectId, HttpRequest request, ILocalProfileStore profiles, IProjectStore store, IClock clock, CancellationToken token)
     {
-        if (!UlidValue.TryParse(projectId, out _)) return InvalidId(); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var current = await store.GetAsync(profile.TenantId, projectId, token); if (current is null) return NotFound(); var result = await store.DeleteAsync(profile.TenantId, projectId, current.Version, clock.UtcNow, token); return result.Status switch { ProjectMutationStatus.Applied => Results.NoContent(), ProjectMutationStatus.NotFound => NotFound(), ProjectMutationStatus.VersionConflict => Problem(409, "project_version_conflict", "The project changed concurrently."), _ => throw new InvalidOperationException($"Unexpected project delete status {result.Status}.") };
+        if (!UlidValue.TryParse(projectId, out _)) return InvalidId(); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); if (profile.Role != LocalProfileRole.Admin) return Problem(403, "admin_required", "Only a tenant admin can delete projects."); var current = await store.GetAsync(profile.TenantId, projectId, token); if (current is null) return NotFound(); var result = await store.DeleteAsync(profile.TenantId, projectId, current.Version, clock.UtcNow, token); return result.Status switch { ProjectMutationStatus.Applied => Results.NoContent(), ProjectMutationStatus.NotFound => NotFound(), ProjectMutationStatus.VersionConflict => Problem(409, "project_version_conflict", "The project changed concurrently."), _ => throw new InvalidOperationException($"Unexpected project delete status {result.Status}.") };
     }
 
     private static async Task<IResult> GetStatusDigestAsync(

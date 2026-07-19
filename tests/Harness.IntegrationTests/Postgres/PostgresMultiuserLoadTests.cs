@@ -56,8 +56,9 @@ public sealed class PostgresMultiuserLoadTests
                 Assert.Equal(UserCount, users.Select(user => user.Profile.Id).Distinct().Count());
 
                 await AssertSingleTenantAsync(fixture.ConnectionString, timeout.Token);
-                await CreateWorkspacesConcurrentlyAsync(users, timeout.Token);
+                var projects = await CreateWorkspacesConcurrentlyAsync(users, timeout.Token);
                 await AssertAdversarialIsolationAsync(address, users, timeout.Token);
+                await AssertRoleBasedAccessAsync(fixture.ConnectionString, users, projects, timeout.Token);
                 await AssertRateLimiterKicksInAsync(address, timeout.Token);
             }
             finally
@@ -125,15 +126,22 @@ public sealed class PostgresMultiuserLoadTests
             Assert.Equal(1L, await tenants.ExecuteScalarAsync(token));
         }
 
-        await using var profiles = dataSource.CreateCommand("SELECT COUNT(*) FROM harness.local_users;");
-        Assert.Equal((long)UserCount, await profiles.ExecuteScalarAsync(token));
+        await using (var profiles = dataSource.CreateCommand("SELECT COUNT(*) FROM harness.local_users;"))
+        {
+            Assert.Equal((long)UserCount, await profiles.ExecuteScalarAsync(token));
+        }
+
+        // RBAC: exatamente 1 admin (o vencedor do bootstrap); os 29 restantes são members.
+        await using var admins = dataSource.CreateCommand(
+            "SELECT COUNT(*) FROM harness.local_users WHERE role='admin';");
+        Assert.Equal(1L, await admins.ExecuteScalarAsync(token));
     }
 
-    private static async Task CreateWorkspacesConcurrentlyAsync(
+    private static async Task<IReadOnlyList<string>> CreateWorkspacesConcurrentlyAsync(
         IReadOnlyList<UserSession> users,
         CancellationToken token)
     {
-        await Task.WhenAll(users.Select(async (user, index) =>
+        return await Task.WhenAll(users.Select(async (user, index) =>
         {
             using var organizationResponse = await user.Client.PostAsJsonAsync(
                 "/api/v1/organizations",
@@ -153,7 +161,48 @@ public sealed class PostgresMultiuserLoadTests
                 },
                 token);
             Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+            return (await projectResponse.Content.ReadFromJsonAsync<ProjectResponse>(token))!.Id;
         }));
+    }
+
+    private static async Task AssertRoleBasedAccessAsync(
+        string connectionString,
+        IReadOnlyList<UserSession> users,
+        IReadOnlyList<string> projects,
+        CancellationToken token)
+    {
+        string adminProfileId;
+        await using (var dataSource = NpgsqlDataSource.Create(connectionString))
+        await using (var admin = dataSource.CreateCommand(
+            "SELECT id FROM harness.local_users WHERE role='admin';"))
+        {
+            adminProfileId = (string)(await admin.ExecuteScalarAsync(token))!;
+        }
+
+        var adminIndex = Enumerable.Range(0, users.Count)
+            .Single(index => users[index].Profile.Id == adminProfileId.TrimEnd());
+        var memberIndex = adminIndex == 0 ? 1 : 0;
+
+        // RBAC: member não deleta projeto algum (nem o próprio); admin deleta.
+        using (var memberDelete = await users[memberIndex].Client.DeleteAsync(
+            new Uri($"/api/v1/projects/{projects[memberIndex]}", UriKind.Relative), token))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, memberDelete.StatusCode);
+        }
+
+        using (var adminDelete = await users[adminIndex].Client.DeleteAsync(
+            new Uri($"/api/v1/projects/{projects[memberIndex]}", UriKind.Relative), token))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, adminDelete.StatusCode);
+        }
+
+        // ABAC + RBAC: admin pode editar o perfil de um member; member já provou
+        // no probe adversarial que não edita perfil alheio.
+        using var adminPatch = await users[adminIndex].Client.PatchAsJsonAsync(
+            $"/api/v1/profiles/{users[memberIndex].Profile.Id}",
+            new Dictionary<string, string> { ["displayName"] = "Renomeado pelo admin" },
+            token);
+        Assert.Equal(HttpStatusCode.OK, adminPatch.StatusCode);
     }
 
     private static async Task AssertAdversarialIsolationAsync(
@@ -164,7 +213,7 @@ public sealed class PostgresMultiuserLoadTests
         // Sessão B não pode mutar o perfil de A, mesmo autenticada.
         using (var hijack = await users[1].Client.PatchAsJsonAsync(
             $"/api/v1/profiles/{users[0].Profile.Id}",
-            new UpdateProfileRequest { DisplayName = "Invasor" },
+            new Dictionary<string, string> { ["displayName"] = "Invasor" },
             token))
         {
             Assert.Equal(HttpStatusCode.Forbidden, hijack.StatusCode);
