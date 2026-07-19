@@ -46,7 +46,7 @@ Total: **100**.
 | F6 | 70 | 70 | 70 | 0 | Saída mínima (3 stacks .NET/Node/Python start/stop/health/logs via API) verde. **Faltam** camadas de detecção Docker/Compose/Java e fallback por agente (escopo documentado da fase). |
 | F7 | 85 | 85 | 85 | 0 | Launcher + publish self-contained com frontend embarcado + smoke do binário sem IDE verdes. Backup/restore existe (F2-OPS). **Parciais**: atualização e desinstalação segura. |
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
-| F9 | 70 | 70 | 65 | 0 | Gateway (terminal) + adaptador Telegram (long polling, dedupe, linking, resposta na origem) verdes com Telegram fake. **Faltam** Teams (ordem terminal→Telegram→Teams) e o smoke real do bot (depende de token). |
+| F9 | 72 | 72 | 75 | 0 | Gateway (terminal) + adaptador Telegram (long polling, dedupe, linking, resposta na origem) verdes com fake **e smoke real do bot `@SystemPoseidon_bot`** (getMe ok, link `5774120296`, sendMessage entregue). **Falta** Teams (ordem terminal→Telegram→Teams). |
 | F10 | 100 | 97 | 95 | 0 | Paridade PG completa (31 stores duais, 34 migrations), modo servidor, multiusuário, rate limit, carga 30 usuários, RBAC/ABAC e maquinaria OIDC com IdP fake. **Lacuna**: smoke OIDC com Entra ID **real** (externo, não validável sem credenciais). |
 | F11 | 38 | 38 | 38 | 0 | F11-1 (threat model STRIDE, SBOM 28/77, upgrade de migrations, flake fix) + F11-2 (security headers/CSP/cookie Secure/CORS default-deny) + F11-3 (scanning de segredos: gate contínuo + script) verdes. Dependências auditadas via `NuGetAudit=all`. **Faltam**: migração de dados SQLite→PostgreSQL, testes formais de isolamento/recuperação/backup-restore/carga, runbooks e docs de instalação/operação, a11y/E2E, DoD global. |
 
@@ -55,14 +55,14 @@ Total: **100**.
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.70)+(7·0.85)+(6·1.00)+(5·0.70)+(8·1.00)+(5·0.38)`
-`= 5+12+25+8+6+5+5.60+5.95+6+3.50+8+1.90 = 91.95` → **92.0% (num 91.95 / den 100)**
+`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.70)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.38)`
+`= 5+12+25+8+6+5+5.60+5.95+6+3.60+8+1.90 = 92.05` → **92.1% (num 92.05 / den 100)**
 
 ### Validado
-`5+12+25+8+6+5+5.60+5.95+6+3.50+(8·0.97=7.76)+1.90 = 91.71` → **91.7% (num 91.71 / den 100)**
+`5+12+25+8+6+5+5.60+5.95+6+3.60+(8·0.97=7.76)+1.90 = 91.81` → **91.8% (num 91.81 / den 100)**
 
 ### Integrado
-`5+12+(25·0.88=22.00)+8+6+5+5.60+5.95+6+(5·0.65=3.25)+(8·0.95=7.60)+1.90 = 88.30` → **88.3% (num 88.30 / den 100)**
+`5+12+(25·0.88=22.00)+8+6+5+5.60+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+1.90 = 88.80` → **88.8% (num 88.80 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,8 +70,8 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·91.71 + 0.30·88.30 + 0.20·0 = 45.855 + 26.49 + 0.00 = 72.345`
-→ **≈ 72.3%**
+`= 0.50·91.81 + 0.30·88.80 + 0.20·0 = 45.905 + 26.64 + 0.00 = 72.545`
+→ **≈ 72.5%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
@@ -82,7 +82,7 @@ Independentes (trabalho técnico que prossegue sem terceiros):
    instalação/operação, DoD global. (Headers/cookies/CORS, scanning de segredos e auditoria de
    dependências via NuGetAudit já verdes.)
 2. **F6**: detecção Docker/Compose/Java e fallback por agente.
-3. **F9**: adaptador Teams + testes fake.
+3. **F9**: adaptador Teams + testes fake (Telegram real já validado).
 4. **F7**: fluxo de atualização e desinstalação segura.
 5. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
    `page/pageSize`, arquivar/CSV do quadro, workflows por projeto, CRUD de definições de agentes,
@@ -93,7 +93,7 @@ Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 6. **Homologação humana GNG-3** (visual, em navegador) — desbloqueia os 20% de Homologado do F2 e
    dependentes.
 7. **Smoke OIDC com Entra ID real** — Tenant ID + Client ID da app registration.
-8. **Smoke real do bot Telegram** — token do BotFather (env var).
+8. ~~Smoke real do bot Telegram~~ — **feito** (`@SystemPoseidon_bot`, F9-3); só o Host precisa estar no ar com o token em env var.
 9. **Smoke de agente real que consuma cota**, se exigido na homologação.
 
 ## 6. Backlog de refinamentos desta rodada (separado do roadmap base)
