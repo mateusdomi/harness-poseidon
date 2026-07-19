@@ -109,6 +109,10 @@ internal static class DocumentStoreBehavior
         Assert.Equal(2, versioned.Version);
         Assert.Equal(2, versioned.CurrentVersion);
         Assert.Equal(2, versioned.Versions.Count);
+        var versionPage = await catalog.PageVersionsAsync(
+            command.TenantId, command.DocumentId, 0, 1, cancellationToken);
+        Assert.Single(versionPage.Items); Assert.Equal(2, versionPage.Total);
+        Assert.Equal(append.DocumentVersionId, versionPage.Items[0].Id);
         var secondVersion = versioned.Versions[1];
         Assert.Equal(append.DocumentVersionId, secondVersion.DocumentVersionId);
         Assert.Equal(2, secondVersion.Version);
@@ -323,6 +327,11 @@ internal static class DocumentStoreBehavior
         Assert.Equal("pending", pending.State);
         Assert.Equal(1, pending.Version);
         Assert.Equal(2, pendingSnapshot.StateTransitions.Count);
+        var approvalPage = await catalog.PageApprovalsAsync(command.TenantId, new(
+            command.ProjectId, "pending", "high", "week", append.OccurredAt, 0, 1),
+            cancellationToken);
+        Assert.Single(approvalPage.Items); Assert.True(approvalPage.Total >= 1);
+        Assert.Equal(firstApproval.ApprovalRequestId, approvalPage.Items[0].Id);
 
         var duplicatePending = firstApproval with
         {

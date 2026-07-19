@@ -13,6 +13,12 @@ public static class DocumentEndpoints
 {
     private static readonly HashSet<string> DocumentKinds = new(
         ["prd", "spec", "design", "runbook", "note", "report"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ApprovalStates = new(
+        ["pending", "approved", "rejected", "cancelled"], StringComparer.Ordinal);
+    private static readonly HashSet<string> Priorities = new(
+        ["low", "medium", "high", "critical"], StringComparer.Ordinal);
+    private static readonly HashSet<string> DueFilters = new(
+        ["all", "overdue", "week", "none"], StringComparer.Ordinal);
 
     public static IEndpointRouteBuilder MapDocumentCatalog(this IEndpointRouteBuilder endpoints)
     {
@@ -117,18 +123,30 @@ public static class DocumentEndpoints
     }
 
     private static async Task<IResult> ListVersionsAsync(
-        string? documentId, string? cursor, int? limit, HttpRequest request,
+        string? documentId, int? page, int? pageSize, string? cursor, int? limit, HttpRequest request,
         ILocalProfileStore profiles, IDocumentCatalogStore store, IDocumentContentCatalog content,
         CancellationToken token)
     {
-        var invalid = Page(cursor, limit, documentId); if (invalid is not null) return invalid;
+        var invalid = StandardPageValidation(documentId, page, pageSize, cursor, limit, "version");
+        if (invalid is not null) return invalid;
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
-        var size = limit ?? 100;
-        var rows = await store.ListVersionsAsync(profile.TenantId, documentId, cursor, size + 1, token);
-        var more = rows.Count > size; var selected = rows.Take(size).ToArray();
+        if (cursor is not null || limit is not null)
+        {
+            var size = limit ?? 100;
+            var rows = await store.ListVersionsAsync(profile.TenantId, documentId, cursor, size + 1, token);
+            var more = rows.Count > size; var selected = rows.Take(size).ToArray();
+            var legacyContracts = new List<DocumentVersionContract>();
+            foreach (var row in selected) legacyContracts.Add(await ToContractAsync(row, content, token));
+            return Results.Ok(new DocumentVersionPage(legacyContracts,
+                more ? selected[^1].Id : null, selected.Length, 1, size));
+        }
+        var requestedPage = page ?? 1; var requestedSize = pageSize ?? 15;
+        var result = await store.PageVersionsAsync(profile.TenantId, documentId,
+            checked((requestedPage - 1) * requestedSize), requestedSize, token);
         var contracts = new List<DocumentVersionContract>();
-        foreach (var row in selected) contracts.Add(await ToContractAsync(row, content, token));
-        return Results.Ok(new DocumentVersionPage(contracts, more ? selected[^1].Id : null));
+        foreach (var row in result.Items) contracts.Add(await ToContractAsync(row, content, token));
+        return Results.Ok(new DocumentVersionPage(
+            contracts, null, result.Total, requestedPage, requestedSize));
     }
 
     private static async Task<IResult> GetVersionAsync(
@@ -247,15 +265,30 @@ public static class DocumentEndpoints
     }
 
     private static async Task<IResult> ListApprovalsAsync(
-        string? projectId, string? cursor, int? limit, HttpRequest request,
-        ILocalProfileStore profiles, IDocumentCatalogStore store, CancellationToken token)
+        string? projectId, string? state, string? priority, string? due,
+        int? page, int? pageSize, string? cursor, int? limit, HttpRequest request,
+        ILocalProfileStore profiles, IDocumentCatalogStore store, IClock clock,
+        CancellationToken token)
     {
-        var invalid = Page(cursor, limit, projectId); if (invalid is not null) return invalid;
+        var invalid = ApprovalPageValidation(
+            projectId, state, priority, due, page, pageSize, cursor, limit);
+        if (invalid is not null) return invalid;
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
-        var size = limit ?? 100;
-        var rows = await store.ListApprovalsAsync(profile.TenantId, projectId, cursor, size + 1, token);
-        var more = rows.Count > size; var selected = rows.Take(size).ToArray();
-        return Results.Ok(new ApprovalPage(selected.Select(ToContract).ToArray(), more ? selected[^1].Id : null));
+        if (cursor is not null || limit is not null)
+        {
+            var size = limit ?? 100;
+            var rows = await store.ListApprovalsAsync(
+                profile.TenantId, projectId, cursor, size + 1, token);
+            var more = rows.Count > size; var selected = rows.Take(size).ToArray();
+            return Results.Ok(new ApprovalPage(selected.Select(ToContract).ToArray(),
+                more ? selected[^1].Id : null, selected.Length, 1, size));
+        }
+        var requestedPage = page ?? 1; var requestedSize = pageSize ?? 15;
+        var result = await store.PageApprovalsAsync(profile.TenantId, new(
+            projectId, state, priority, due ?? "all", clock.UtcNow,
+            checked((requestedPage - 1) * requestedSize), requestedSize), token);
+        return Results.Ok(new ApprovalPage(result.Items.Select(ToContract).ToArray(), null,
+            result.Total, requestedPage, requestedSize));
     }
 
     private static async Task<IResult> GetApprovalAsync(
@@ -394,6 +427,39 @@ public static class DocumentEndpoints
         .Replace("\\", "\\\\", StringComparison.Ordinal)
         .Replace("%", "\\%", StringComparison.Ordinal)
         .Replace("_", "\\_", StringComparison.Ordinal);
+    private static IResult? ApprovalPageValidation(
+        string? projectId, string? state, string? priority, string? due,
+        int? page, int? pageSize, string? cursor, int? limit)
+    {
+        if (projectId is not null && !Valid(projectId) ||
+            state is not null && !ApprovalStates.Contains(state) ||
+            priority is not null && !Priorities.Contains(priority) ||
+            due is not null && !DueFilters.Contains(due) ||
+            page is < 1 or > 100_000 || pageSize is < 1 or > 200)
+            return Problem(400, "invalid_approval_page", "Approval filters or pagination bounds are invalid.");
+        if (cursor is not null || limit is not null)
+        {
+            if (page is not null || pageSize is not null || state is not null ||
+                priority is not null || due is not null)
+                return Problem(400, "mixed_approval_pagination", "Cursor and page pagination cannot be combined.");
+            return Page(cursor, limit, projectId);
+        }
+        return null;
+    }
+    private static IResult? StandardPageValidation(
+        string? filterId, int? page, int? pageSize, string? cursor, int? limit, string resource)
+    {
+        if (filterId is not null && !Valid(filterId) || page is < 1 or > 100_000 ||
+            pageSize is < 1 or > 200)
+            return Problem(400, $"invalid_{resource}_page", "Filter or pagination bounds are invalid.");
+        if (cursor is not null || limit is not null)
+        {
+            if (page is not null || pageSize is not null)
+                return Problem(400, $"mixed_{resource}_pagination", "Cursor and page pagination cannot be combined.");
+            return Page(cursor, limit, filterId);
+        }
+        return null;
+    }
     private static IResult MutationProblem(DocumentMutationStatus status) => status switch
     {
         DocumentMutationStatus.NotFound => NotFound("document"),
@@ -412,5 +478,9 @@ public static class DocumentEndpoints
 public sealed record DocumentPage(
     IReadOnlyList<DocumentContract> Items, string? NextCursor, int Total = 0,
     int Page = 1, int PageSize = 15);
-public sealed record DocumentVersionPage(IReadOnlyList<DocumentVersionContract> Items, string? NextCursor);
-public sealed record ApprovalPage(IReadOnlyList<ApprovalContract> Items, string? NextCursor);
+public sealed record DocumentVersionPage(
+    IReadOnlyList<DocumentVersionContract> Items, string? NextCursor, int Total = 0,
+    int Page = 1, int PageSize = 15);
+public sealed record ApprovalPage(
+    IReadOnlyList<ApprovalContract> Items, string? NextCursor, int Total = 0,
+    int Page = 1, int PageSize = 15);

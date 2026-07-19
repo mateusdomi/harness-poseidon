@@ -127,6 +127,32 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         return rows;
     }
 
+    public async Task<DocumentVersionCatalogPageRecord> PageVersionsAsync(
+        string tenantId, string? documentId, int offset, int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, cancellationToken);
+        await using var count = connection.CreateCommand(); count.Transaction = transaction;
+        count.CommandText = "SELECT COUNT(*) FROM harness.document_versions v WHERE v.tenant_id=$1 " +
+            "AND ($2 IS NULL OR v.document_id=$2);";
+        count.Parameters.Add(Text(tenantId)); count.Parameters.Add(NullableText(documentId));
+        var total = Convert.ToInt32(
+            await count.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        var rows = new List<DocumentVersionCatalogRecord>();
+        await using var page = connection.CreateCommand(); page.Transaction = transaction;
+        page.CommandText = $"{VersionSelect} WHERE v.tenant_id=$1 " +
+            "AND ($2 IS NULL OR v.document_id=$2) " +
+            "ORDER BY v.created_at DESC,v.id DESC LIMIT $3 OFFSET $4;";
+        page.Parameters.Add(Text(tenantId)); page.Parameters.Add(NullableText(documentId));
+        page.Parameters.Add(Integer(limit)); page.Parameters.Add(Integer(offset));
+        await using var reader = await page.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) rows.Add(ReadVersion(reader));
+        await reader.DisposeAsync(); await transaction.CommitAsync(cancellationToken);
+        return new DocumentVersionCatalogPageRecord(rows, total);
+    }
+
     public async Task<DocumentVersionCatalogRecord?> GetVersionAsync(
         string tenantId, string versionId, CancellationToken cancellationToken = default)
     {
@@ -158,6 +184,38 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         }
 
         return rows;
+    }
+
+    public async Task<ApprovalCatalogPageRecord> PageApprovalsAsync(
+        string tenantId, ApprovalCatalogPageQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        const string filters =
+            "tenant_id=$1 AND ($2 IS NULL OR project_id=$2) " +
+            "AND ($3 IS NULL OR state=$3) AND ($4 IS NULL OR priority=$4) " +
+            "AND ($5='all' OR ($5='overdue' AND due_at IS NOT NULL AND due_at<$6) " +
+            "OR ($5='week' AND due_at IS NOT NULL AND due_at<=$7) " +
+            "OR ($5='none' AND due_at IS NULL))";
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, cancellationToken);
+        await using var count = connection.CreateCommand(); count.Transaction = transaction;
+        count.CommandText = "SELECT COUNT(*) FROM (" + ApprovalSelect + $") a WHERE {filters};";
+        AddApprovalPageParameters(count, tenantId, query);
+        var total = Convert.ToInt32(
+            await count.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        var rows = new List<ApprovalCatalogRecord>();
+        await using var page = connection.CreateCommand(); page.Transaction = transaction;
+        page.CommandText = "SELECT * FROM (" + ApprovalSelect + $") a WHERE {filters} " +
+            "ORDER BY CASE WHEN due_at IS NULL THEN 1 ELSE 0 END,due_at," +
+            "CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END," +
+            "requested_at,id LIMIT $8 OFFSET $9;";
+        AddApprovalPageParameters(page, tenantId, query);
+        page.Parameters.Add(Integer(query.Limit)); page.Parameters.Add(Integer(query.Offset));
+        await using var reader = await page.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) rows.Add(ReadApproval(reader));
+        await reader.DisposeAsync(); await transaction.CommitAsync(cancellationToken);
+        return new ApprovalCatalogPageRecord(rows, total);
     }
 
     public async Task<ApprovalCatalogRecord?> GetApprovalAsync(
@@ -278,6 +336,14 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         command.Parameters.Add(NullableText(query.State)); command.Parameters.Add(NullableText(query.PhaseName));
         command.Parameters.Add(Boolean(query.OrphanOnly)); command.Parameters.Add(NullableBoolean(query.Inconsistent));
         command.Parameters.Add(NullableText(query.Classification));
+    }
+    private static void AddApprovalPageParameters(
+        NpgsqlCommand command, string tenantId, ApprovalCatalogPageQuery query)
+    {
+        command.Parameters.Add(Text(tenantId)); command.Parameters.Add(NullableText(query.ProjectId));
+        command.Parameters.Add(NullableText(query.State)); command.Parameters.Add(NullableText(query.Priority));
+        command.Parameters.Add(Text(query.Due)); command.Parameters.Add(Timestamp(query.Now));
+        command.Parameters.Add(Timestamp(query.Now.AddDays(7)));
     }
 
     private sealed record DocumentHeader(

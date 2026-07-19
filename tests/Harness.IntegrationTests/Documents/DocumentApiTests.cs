@@ -78,6 +78,7 @@ public sealed class DocumentApiTests
                         Assert.Equal(HttpStatusCode.BadRequest, mixedPage.StatusCode);
                     var versions = await client.GetFromJsonAsync<DocumentVersionPage>($"/api/v1/document-versions?documentId={documentId}", timeout.Token);
                     var first = Assert.Single(versions!.Items); firstVersionId = first.Id;
+                    Assert.Equal(1, versions.Total); Assert.Equal(15, versions.PageSize);
                     Assert.Equal("# v1", first.Body); Assert.Equal("user", first.AuthorKind); Assert.Equal(profileId, first.AuthorId);
 
                     using (var response = await client.PostAsJsonAsync("/api/v1/document-versions",
@@ -89,6 +90,10 @@ public sealed class DocumentApiTests
                     }
                     versions = await client.GetFromJsonAsync<DocumentVersionPage>($"/api/v1/document-versions?documentId={documentId}", timeout.Token);
                     Assert.Equal(["# v1", "# v2\n\nCorrigido."], versions!.Items.OrderBy(value => value.Version).Select(value => value.Body));
+                    Assert.Equal(2, versions.Total);
+                    var secondVersionPage = await client.GetFromJsonAsync<DocumentVersionPage>(
+                        $"/api/v1/document-versions?documentId={documentId}&page=2&pageSize=1", timeout.Token);
+                    Assert.Single(secondVersionPage!.Items); Assert.Equal(2, secondVersionPage.Total);
                     Assert.Equal(2, (await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token))!.CurrentVersion);
 
                     using (var classify = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/classification",
@@ -143,6 +148,13 @@ public sealed class DocumentApiTests
                         new ResolveApprovalRequest("approved", "Aceito."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, approve.StatusCode);
                     var approvals = await client.GetFromJsonAsync<ApprovalPage>($"/api/v1/approvals?projectId={projectId}", timeout.Token);
                     Assert.Equal(["rejected", "approved"], approvals!.Items.OrderBy(value => value.RequestedAt).Select(value => value.State));
+                    Assert.Equal(2, approvals.Total); Assert.Equal(1, approvals.Page);
+                    Assert.Equal(15, approvals.PageSize); Assert.Null(approvals.NextCursor);
+                    var approvedQueue = await client.GetFromJsonAsync<ApprovalPage>(
+                        $"/api/v1/approvals?projectId={projectId}&state=approved&priority=high&due=none&pageSize=1",
+                        timeout.Token);
+                    Assert.Equal(approvedApprovalId, Assert.Single(approvedQueue!.Items).Id);
+                    Assert.Equal(1, approvedQueue.Total);
                     Assert.Equal("approved", (await client.GetFromJsonAsync<DocumentContract>($"/api/v1/documents/{documentId}", timeout.Token))!.State);
                     using (var editApproved = await client.PostAsJsonAsync(
                         $"/api/v1/documents/{documentId}/versions",

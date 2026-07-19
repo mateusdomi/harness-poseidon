@@ -103,6 +103,29 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
             return rows;
         }, cancellationToken);
 
+    public Task<DocumentVersionCatalogPageRecord> PageVersionsAsync(
+        string tenantId, string? documentId, int offset, int limit,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            await using var count = connection.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM document_versions v WHERE v.tenant_id=$tenant " +
+                "AND ($document IS NULL OR v.document_id=$document);";
+            Add(count, "$tenant", tenantId); AddNullable(count, "$document", documentId);
+            var total = Convert.ToInt32(
+                await count.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+            var rows = new List<DocumentVersionCatalogRecord>();
+            await using var page = connection.CreateCommand();
+            page.CommandText = VersionSelect +
+                " WHERE v.tenant_id=$tenant AND ($document IS NULL OR v.document_id=$document) " +
+                "ORDER BY v.created_at DESC,v.id DESC LIMIT $limit OFFSET $offset;";
+            Add(page, "$tenant", tenantId); AddNullable(page, "$document", documentId);
+            Add(page, "$limit", limit); Add(page, "$offset", offset);
+            await using var reader = await page.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token)) rows.Add(ReadVersion(reader));
+            return new DocumentVersionCatalogPageRecord(rows, total);
+        }, cancellationToken);
+
     public Task<DocumentVersionCatalogRecord?> GetVersionAsync(
         string tenantId, string versionId, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<DocumentVersionCatalogRecord?>(async (connection, token) =>
@@ -130,6 +153,35 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
             await using var reader = await query.ExecuteReaderAsync(token);
             while (await reader.ReadAsync(token)) rows.Add(ReadApproval(reader));
             return rows;
+        }, cancellationToken);
+
+    public Task<ApprovalCatalogPageRecord> PageApprovalsAsync(
+        string tenantId, ApprovalCatalogPageQuery query,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            const string filters =
+                "tenant_id=$tenant AND ($project IS NULL OR project_id=$project) " +
+                "AND ($state IS NULL OR state=$state) AND ($priority IS NULL OR priority=$priority) " +
+                "AND ($due='all' OR ($due='overdue' AND due_at IS NOT NULL AND due_at<$now) " +
+                "OR ($due='week' AND due_at IS NOT NULL AND due_at<=$week) " +
+                "OR ($due='none' AND due_at IS NULL))";
+            await using var count = connection.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM (" + ApprovalSelect + $") a WHERE {filters};";
+            AddApprovalPageParameters(count, tenantId, query);
+            var total = Convert.ToInt32(
+                await count.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+            var rows = new List<ApprovalCatalogRecord>();
+            await using var page = connection.CreateCommand();
+            page.CommandText = "SELECT * FROM (" + ApprovalSelect + $") a WHERE {filters} " +
+                "ORDER BY CASE WHEN due_at IS NULL THEN 1 ELSE 0 END,due_at," +
+                "CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END," +
+                "requested_at,id LIMIT $limit OFFSET $offset;";
+            AddApprovalPageParameters(page, tenantId, query);
+            Add(page, "$limit", query.Limit); Add(page, "$offset", query.Offset);
+            await using var reader = await page.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token)) rows.Add(ReadApproval(reader));
+            return new ApprovalCatalogPageRecord(rows, total);
         }, cancellationToken);
 
     public Task<ApprovalCatalogRecord?> GetApprovalAsync(
@@ -218,6 +270,14 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
         AddNullable(command, "$state", query.State); AddNullable(command, "$phase", query.PhaseName);
         Add(command, "$orphan", query.OrphanOnly); AddNullable(command, "$inconsistent", query.Inconsistent);
         AddNullable(command, "$classification", query.Classification);
+    }
+    private static void AddApprovalPageParameters(
+        SqliteCommand command, string tenantId, ApprovalCatalogPageQuery query)
+    {
+        Add(command, "$tenant", tenantId); AddNullable(command, "$project", query.ProjectId);
+        AddNullable(command, "$state", query.State); AddNullable(command, "$priority", query.Priority);
+        Add(command, "$due", query.Due); Add(command, "$now", query.Now.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+        Add(command, "$week", query.Now.AddDays(7).ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
     }
     private static void Add(SqliteCommand command, string name, object value) =>
         command.Parameters.AddWithValue(name, value);
