@@ -1,3 +1,5 @@
+using System.Data;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -144,6 +146,47 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         }
 
         return values;
+    }
+
+    public async Task<BoardTaskPageRecord> PageTasksAsync(
+        string tenantId, BoardTaskPageQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        const string filters =
+            "t.tenant_id=$1 " +
+            "AND ($2 IS NULL OR t.project_id=$2) " +
+            "AND ($3 IS NULL OR t.source_demand_id=$3) " +
+            "AND ($4 IS NULL OR t.title ILIKE $4 ESCAPE '\\' OR t.id ILIKE $4 ESCAPE '\\') " +
+            "AND ($5 IS NULL OR t.board_state=$5) " +
+            "AND ($6 IS NULL OR t.priority=$6) " +
+            "AND ($7 IS NULL OR t.assignee_agent_id=$7) " +
+            "AND ($8='all' OR ($8='active' AND t.archived_at IS NULL) " +
+            "OR ($8='archived' AND t.archived_at IS NOT NULL)) " +
+            "AND ($9 IS NULL OR t.updated_at >= $9)";
+
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, cancellationToken);
+        await using var count = connection.CreateCommand();
+        count.Transaction = transaction;
+        count.CommandText = $"SELECT COUNT(*) FROM harness.work_tasks t WHERE {filters};";
+        AddTaskPageParameters(count, tenantId, query);
+        var total = Convert.ToInt32(
+            await count.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+
+        var values = new List<BoardTaskRecord>();
+        await using var pageCommand = connection.CreateCommand();
+        pageCommand.Transaction = transaction;
+        pageCommand.CommandText = $"{TaskSelect} WHERE {filters} " +
+            "ORDER BY t.updated_at DESC,t.id DESC LIMIT $10 OFFSET $11;";
+        AddTaskPageParameters(pageCommand, tenantId, query);
+        pageCommand.Parameters.Add(Integer(query.Limit));
+        pageCommand.Parameters.Add(Integer(query.Offset));
+        await using var reader = await pageCommand.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) values.Add(ReadTask(reader));
+        await reader.DisposeAsync();
+        await transaction.CommitAsync(cancellationToken);
+        return new BoardTaskPageRecord(values, total);
     }
 
     public Task<BoardTaskCreateResult> CreateTaskAsync(
@@ -728,4 +771,14 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         NpgsqlDbType = NpgsqlDbType.Jsonb,
         TypedValue = value,
     };
+
+    private static void AddTaskPageParameters(
+        NpgsqlCommand command, string tenantId, BoardTaskPageQuery query)
+    {
+        command.Parameters.Add(Text(tenantId)); command.Parameters.Add(NullableText(query.ProjectId));
+        command.Parameters.Add(NullableText(query.DemandId)); command.Parameters.Add(NullableText(query.Search));
+        command.Parameters.Add(NullableText(query.State)); command.Parameters.Add(NullableText(query.Priority));
+        command.Parameters.Add(NullableText(query.AssigneeAgentId)); command.Parameters.Add(Text(query.Archive));
+        command.Parameters.Add(NullableTimestamp(query.UpdatedSince));
+    }
 }

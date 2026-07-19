@@ -83,6 +83,22 @@ public sealed class WorkBoardApiTests
                     var tasks = await client.GetFromJsonAsync<TaskPage>(
                         $"/api/v1/tasks?projectId={projectId}", timeout.Token);
                     Assert.Equal(2, tasks?.Items.Count);
+                    Assert.Equal(2, tasks?.Total); Assert.Equal(1, tasks?.Page);
+                    Assert.Equal(15, tasks?.PageSize); Assert.Null(tasks?.NextCursor);
+                    var secondTaskPage = await client.GetFromJsonAsync<TaskPage>(
+                        $"/api/v1/tasks?projectId={projectId}&page=2&pageSize=1", timeout.Token);
+                    Assert.Single(secondTaskPage?.Items ?? []); Assert.Equal(2, secondTaskPage?.Total);
+                    var searchedTasks = await client.GetFromJsonAsync<TaskPage>(
+                        $"/api/v1/tasks?projectId={projectId}&q=avulsa&state=backlog&priority=medium",
+                        timeout.Token);
+                    Assert.Single(searchedTasks?.Items ?? []);
+                    Assert.Equal(independentTask?.Id, searchedTasks?.Items[0].Id);
+                    using (var invalidPage = await client.GetAsync(
+                        $"/api/v1/tasks?projectId={projectId}&page=0", timeout.Token))
+                        Assert.Equal(HttpStatusCode.BadRequest, invalidPage.StatusCode);
+                    using (var mixedPagination = await client.GetAsync(
+                        $"/api/v1/tasks?projectId={projectId}&page=1&cursor={taskId}", timeout.Token))
+                        Assert.Equal(HttpStatusCode.BadRequest, mixedPagination.StatusCode);
                     var instructions = await client.GetFromJsonAsync<InstructionPage>(
                         $"/api/v1/task-instructions?taskId={taskId}", timeout.Token);
                     Assert.Single(instructions?.Items ?? []); Assert.Equal("chief", instructions?.Items[0].AuthorKind);
@@ -253,8 +269,15 @@ public sealed class WorkBoardApiTests
                 Assert.Equal("done", recovered?.State); Assert.Equal(projectId, recovered?.ProjectId);
                 Assert.NotNull(recovered?.ArchivedAt);
                 Assert.Equal(2, recovered?.InstructionVersion);
-                var page = await client.GetFromJsonAsync<TaskPage>($"/api/v1/tasks?projectId={projectId}", timeout.Token);
-                Assert.Equal(2, page?.Items.Count);
+                var activePage = await client.GetFromJsonAsync<TaskPage>(
+                    $"/api/v1/tasks?projectId={projectId}", timeout.Token);
+                Assert.Single(activePage?.Items ?? []); Assert.Equal(1, activePage?.Total);
+                var archivedPage = await client.GetFromJsonAsync<TaskPage>(
+                    $"/api/v1/tasks?projectId={projectId}&archive=archived", timeout.Token);
+                Assert.Single(archivedPage?.Items ?? []); Assert.Equal(taskId, archivedPage?.Items[0].Id);
+                var allPage = await client.GetFromJsonAsync<TaskPage>(
+                    $"/api/v1/tasks?projectId={projectId}&archive=all", timeout.Token);
+                Assert.Equal(2, allPage?.Items.Count); Assert.Equal(2, allPage?.Total);
             }
             finally { await restarted.StopAsync(timeout.Token); }
         }

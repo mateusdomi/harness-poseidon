@@ -25,6 +25,9 @@ public interface IWorkBoardStore
     Task<IReadOnlyList<BoardTaskRecord>> ListTasksAsync(
         string tenantId, string? projectId, string? demandId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
+    Task<BoardTaskPageRecord> PageTasksAsync(
+        string tenantId, BoardTaskPageQuery query,
+        CancellationToken cancellationToken = default);
     Task<BoardTaskCreateResult> CreateTaskAsync(
         BoardTaskCreateCommand command, CancellationToken cancellationToken = default);
     Task<BoardTaskRecord> MoveTaskAsync(
@@ -71,6 +74,13 @@ public sealed record BoardTaskRecord(
     BoardProgressRecord Progress, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
     DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt, long Version, string InternalState,
     string BackingSolicitationId, string BackingDemandId);
+
+public sealed record BoardTaskPageQuery(
+    string? ProjectId, string? DemandId, string? Search, string? State, string? Priority,
+    string? AssigneeAgentId, string Archive, DateTimeOffset? UpdatedSince, int Offset, int Limit);
+
+public sealed record BoardTaskPageRecord(
+    IReadOnlyList<BoardTaskRecord> Items, int Total);
 
 public sealed record BoardInstructionRecord(
     string TenantId, string Id, string TaskId, int Version, string Body, string AuthorKind,

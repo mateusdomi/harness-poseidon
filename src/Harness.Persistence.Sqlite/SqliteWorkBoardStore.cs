@@ -90,6 +90,39 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             while (await r.ReadAsync(t)) values.Add(ReadTask(r)); return values;
         }, cancellationToken);
 
+    public Task<BoardTaskPageRecord> PageTasksAsync(
+        string tenantId, BoardTaskPageQuery query,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (c, t) =>
+        {
+            const string filters =
+                "t.tenant_id=$tenant " +
+                "AND ($project IS NULL OR t.project_id=$project) " +
+                "AND ($demand IS NULL OR t.source_demand_id=$demand) " +
+                "AND ($search IS NULL OR lower(t.title) LIKE $search ESCAPE '\\' OR lower(t.id) LIKE $search ESCAPE '\\') " +
+                "AND ($state IS NULL OR t.board_state=$state) " +
+                "AND ($priority IS NULL OR t.priority=$priority) " +
+                "AND ($agent IS NULL OR t.assignee_agent_id=$agent) " +
+                "AND ($archive='all' OR ($archive='active' AND t.archived_at IS NULL) " +
+                "OR ($archive='archived' AND t.archived_at IS NOT NULL)) " +
+                "AND ($since IS NULL OR t.updated_at >= $since)";
+
+            await using var count = c.CreateCommand();
+            count.CommandText = $"SELECT COUNT(*) FROM work_tasks t WHERE {filters};";
+            AddTaskPageParameters(count, tenantId, query);
+            var total = Convert.ToInt32(await count.ExecuteScalarAsync(t), CultureInfo.InvariantCulture);
+
+            var values = new List<BoardTaskRecord>();
+            await using var page = c.CreateCommand();
+            page.CommandText = $"{TaskSelect} WHERE {filters} " +
+                "ORDER BY t.updated_at DESC,t.id DESC LIMIT $limit OFFSET $offset;";
+            AddTaskPageParameters(page, tenantId, query);
+            Add(page, "$limit", query.Limit); Add(page, "$offset", query.Offset);
+            await using var reader = await page.ExecuteReaderAsync(t);
+            while (await reader.ReadAsync(t)) values.Add(ReadTask(reader));
+            return new BoardTaskPageRecord(values, total);
+        }, cancellationToken);
+
     public Task<BoardTaskCreateResult> CreateTaskAsync(
         BoardTaskCreateCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => CreateTaskCoreAsync(c, command, t), cancellationToken);
@@ -504,6 +537,16 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         "SELECT tenant_id,id,attempt_id,kind,content,occurred_at FROM attempt_events";
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture);
     private static string Store(DateTimeOffset value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+
+    private static void AddTaskPageParameters(
+        SqliteCommand command, string tenantId, BoardTaskPageQuery query)
+    {
+        Add(command, "$tenant", tenantId); AddNullable(command, "$project", query.ProjectId);
+        AddNullable(command, "$demand", query.DemandId); AddNullable(command, "$search", query.Search);
+        AddNullable(command, "$state", query.State); AddNullable(command, "$priority", query.Priority);
+        AddNullable(command, "$agent", query.AssigneeAgentId); Add(command, "$archive", query.Archive);
+        AddNullable(command, "$since", query.UpdatedSince is null ? null : Store(query.UpdatedSince.Value));
+    }
     private static void Add(SqliteCommand q, string name, object value) => q.Parameters.AddWithValue(name, value);
     private static void AddNullable(SqliteCommand q, string name, object? value) => q.Parameters.AddWithValue(name, value ?? DBNull.Value);
 }

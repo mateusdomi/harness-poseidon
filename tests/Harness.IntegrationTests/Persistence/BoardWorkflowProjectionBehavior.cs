@@ -62,6 +62,11 @@ public static class BoardWorkflowProjectionBehavior
         Assert.Equal("ready", moved.State);
         Assert.Single(await board.ListInstructionsAsync(
             tenantId, taskId, null, 10, cancellationToken));
+        var pagedTasks = await board.PageTasksAsync(tenantId, new BoardTaskPageQuery(
+            projectId, demandId, "%tarefa%", "ready", "medium", null, "active",
+            now.AddDays(-1), 0, 15), cancellationToken);
+        Assert.Single(pagedTasks.Items); Assert.Equal(1, pagedTasks.Total);
+        Assert.Equal(taskId, pagedTasks.Items[0].Id);
 
         // Catálogo de workflows: definição publicada pela autoridade projeta como template;
         // binding registra aceite; troca de modo grava nova aceitação.

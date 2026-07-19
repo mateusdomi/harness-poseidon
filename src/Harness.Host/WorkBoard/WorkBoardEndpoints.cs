@@ -10,6 +10,16 @@ namespace Harness.Host.WorkBoard;
 
 public static class WorkBoardEndpoints
 {
+    private static readonly HashSet<string> TaskStates = new(
+        ["backlog", "ready", "development", "review", "corrections", "testsGates", "blocked", "done"],
+        StringComparer.Ordinal);
+    private static readonly HashSet<string> Priorities = new(
+        ["low", "medium", "high", "critical"], StringComparer.Ordinal);
+    private static readonly HashSet<string> Periods = new(
+        ["today", "7d", "30d", "all"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ArchiveFilters = new(
+        ["active", "archived", "all"], StringComparer.Ordinal);
+
     public static IEndpointRouteBuilder MapWorkBoard(this IEndpointRouteBuilder endpoints)
     {
         var solicitations = endpoints.MapGroup("/api/v1/solicitations").WithTags("solicitations");
@@ -163,14 +173,46 @@ public static class WorkBoardEndpoints
         catch (ArgumentException e) { return Invalid("demand", e.Message); }
     }
 
-    private static async Task<IResult> ListTasksAsync(string? projectId, string? demandId, string? cursor,
-        int? limit, HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, CancellationToken token)
+    private static async Task<IResult> ListTasksAsync(
+        string? projectId, string? demandId, string? q, string? state, string? priority,
+        string? agent, string? period, string? archive, int? page, int? pageSize,
+        string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles,
+        IWorkBoardStore store, IClock clock, CancellationToken token)
     {
-        var invalid = ValidatePage(cursor, limit, projectId, demandId); if (invalid is not null) return invalid;
+        var invalid = ValidateTaskPage(projectId, demandId, q, state, priority, agent, period,
+            archive, page, pageSize, cursor, limit);
+        if (invalid is not null) return invalid;
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired();
-        var size = limit ?? 100; var rows = await store.ListTasksAsync(profile.TenantId, projectId, demandId, cursor, size + 1, token);
-        var more = rows.Count > size; var items = rows.Take(size).Select(ToContract).ToArray();
-        return Results.Ok(new TaskPage(items, more ? items[^1].Id : null));
+
+        // Cursor/limit remains available for existing integrations. New collection consumers use
+        // deterministic page/pageSize pagination and receive total metadata.
+        if (cursor is not null || limit is not null)
+        {
+            var size = limit ?? 100;
+            var rows = await store.ListTasksAsync(
+                profile.TenantId, projectId, demandId, cursor, size + 1, token);
+            var more = rows.Count > size; var items = rows.Take(size).Select(ToContract).ToArray();
+            return Results.Ok(new TaskPage(items, more ? items[^1].Id : null,
+                items.Length, 1, size));
+        }
+
+        var requestedPage = page ?? 1; var requestedSize = pageSize ?? 15;
+        var selectedPeriod = period ?? "all"; var now = clock.UtcNow;
+        var updatedSince = selectedPeriod switch
+        {
+            "today" => new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero),
+            "7d" => now.AddDays(-7),
+            "30d" => now.AddDays(-30),
+            _ => (DateTimeOffset?)null,
+        };
+        var search = string.IsNullOrWhiteSpace(q)
+            ? null
+            : $"%{EscapeLike(q.Trim().ToLowerInvariant())}%";
+        var result = await store.PageTasksAsync(profile.TenantId, new(
+            projectId, demandId, search, state, priority, agent, archive ?? "active",
+            updatedSince, checked((requestedPage - 1) * requestedSize), requestedSize), token);
+        return Results.Ok(new TaskPage(result.Items.Select(ToContract).ToArray(), null,
+            result.Total, requestedPage, requestedSize));
     }
 
     private static async Task<IResult> GetTaskAsync(string id, HttpRequest request,
@@ -369,6 +411,36 @@ public static class WorkBoardEndpoints
         return null;
     }
 
+    private static IResult? ValidateTaskPage(
+        string? projectId, string? demandId, string? query, string? state, string? priority,
+        string? agent, string? period, string? archive, int? page, int? pageSize,
+        string? cursor, int? limit)
+    {
+        if (new[] { projectId, demandId, agent }.Any(id => id is not null && !Valid(id)) ||
+            (query?.Length ?? 0) > 200 ||
+            (state is not null && !TaskStates.Contains(state)) ||
+            (priority is not null && !Priorities.Contains(priority)) ||
+            (period is not null && !Periods.Contains(period)) ||
+            (archive is not null && !ArchiveFilters.Contains(archive)) ||
+            page is < 1 or > 100_000 || pageSize is < 1 or > 200)
+            return Problem(400, "invalid_task_page", "Task filters or pagination bounds are invalid.");
+
+        if (cursor is not null || limit is not null)
+        {
+            if (page is not null || pageSize is not null || query is not null || state is not null ||
+                priority is not null || agent is not null || period is not null || archive is not null)
+                return Problem(400, "mixed_task_pagination", "Cursor and page pagination cannot be combined.");
+            return ValidatePage(cursor, limit, projectId, demandId);
+        }
+
+        return null;
+    }
+
+    private static string EscapeLike(string value) => value
+        .Replace("\\", "\\\\", StringComparison.Ordinal)
+        .Replace("%", "\\%", StringComparison.Ordinal)
+        .Replace("_", "\\_", StringComparison.Ordinal);
+
     private static SolicitationContract ToContract(BoardSolicitationRecord x) => new(x.Id, x.ProjectId, x.AuthorProfileId, x.Kind, x.Title, x.Body, x.State, x.SupersedesId, x.CreatedAt);
     private static DemandContract ToContract(BoardDemandRecord x) => new(x.Id, x.ProjectId, x.SolicitationId, x.Title, x.Description, x.State, x.Priority, x.CreatedAt);
     private static BoardTaskContract ToContract(BoardTaskRecord x) => new(x.Id, x.ProjectId, x.DemandId, x.Title, x.State, x.Priority, x.AssigneeAgentId, x.BlockedReason, x.InstructionVersion, new(x.Progress.Executed, x.Progress.Validated, x.Progress.Approved), x.CreatedAt, x.UpdatedAt, x.DueAt, x.ArchivedAt);
@@ -387,7 +459,9 @@ public static class WorkBoardEndpoints
 
 public sealed record SolicitationPage(IReadOnlyList<SolicitationContract> Items, string? NextCursor);
 public sealed record DemandPage(IReadOnlyList<DemandContract> Items, string? NextCursor);
-public sealed record TaskPage(IReadOnlyList<BoardTaskContract> Items, string? NextCursor);
+public sealed record TaskPage(
+    IReadOnlyList<BoardTaskContract> Items, string? NextCursor, int Total = 0,
+    int Page = 1, int PageSize = 15);
 public sealed record InstructionPage(IReadOnlyList<TaskInstructionContract> Items, string? NextCursor);
 public sealed record AttemptPage(IReadOnlyList<AttemptContract> Items, string? NextCursor);
 public sealed record AttemptEventPage(IReadOnlyList<AttemptEventContract> Items, string? NextCursor);
