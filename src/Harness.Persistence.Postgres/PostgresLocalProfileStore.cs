@@ -98,6 +98,15 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             NullableText(command.AvatarUrl),
             Text(command.Locale),
             Timestamp(command.OccurredAt));
+        await ExecuteAsync(
+            connection,
+            transaction,
+            "INSERT INTO harness.profile_settings (tenant_id, id, profile_id, language, updated_at) VALUES ($1, $2, $2, $3, $4);",
+            cancellationToken,
+            Text(command.TenantId),
+            Text(command.ProfileId),
+            Text(command.Locale),
+            Timestamp(command.OccurredAt));
         await transaction.CommitAsync(cancellationToken);
         return new LocalProfileMutationResult(
             LocalProfileMutationStatus.Applied,

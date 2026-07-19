@@ -20,7 +20,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(23, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(32, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -677,7 +677,7 @@ public sealed class PostgresSkipLockedPocTests
                 'approved', 'Evidence reviewed.', '2026-07-18T16:00:00Z');
         """;
 
-    private sealed class ManagedPostgresFixture : IAsyncDisposable
+    internal sealed class ManagedPostgresFixture : IAsyncDisposable
     {
         private readonly string _artifactRoot;
         private int _disposed;

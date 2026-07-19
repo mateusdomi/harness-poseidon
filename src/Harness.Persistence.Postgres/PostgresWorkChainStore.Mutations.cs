@@ -91,7 +91,8 @@ public sealed partial class PostgresWorkChainStore
             await ExecuteAsync(
                 connection, transaction,
                 """
-                UPDATE harness.work_tasks SET version = $1, updated_at = $2
+                UPDATE harness.work_tasks SET version = $1, updated_at = $2,
+                    board_state = 'ready', blocked_reason = NULL
                 WHERE id = $3 AND tenant_id = $4 AND version = $5;
                 """,
                 cancellationToken,
@@ -149,18 +150,28 @@ public sealed partial class PostgresWorkChainStore
                 """
                 INSERT INTO harness.work_attempts
                     (id, tenant_id, project_id, task_id, instruction_version_id, attempt_number,
-                     producer_agent_id, state, started_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, 'running', $8);
+                     producer_agent_id, state, started_at, operational_state)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'running', $8, 'running');
                 """,
                 cancellationToken,
                 Text(command.AttemptId), Text(command.TenantId), Text(row.ProjectId), Text(command.TaskId),
                 Text(command.InstructionVersionId), Integer(row.AttemptCount + 1),
                 Text(command.ProducerAgentId), Timestamp(command.OccurredAt));
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at)
+                VALUES ($1, $2, $3, $4, 'log', 'Attempt started.', $5);
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
+                Text(row.ProjectId), Text(command.AttemptId), Timestamp(command.OccurredAt));
             var nextVersion = row.Version + 1;
             await ExecuteAsync(
                 connection, transaction,
                 """
-                UPDATE harness.work_tasks SET state = 'running', version = $1, updated_at = $2
+                UPDATE harness.work_tasks SET state = 'running', version = $1, updated_at = $2,
+                    board_state = 'development', blocked_reason = NULL
                 WHERE id = $3 AND tenant_id = $4 AND version = $5;
                 """,
                 cancellationToken,
@@ -227,14 +238,24 @@ public sealed partial class PostgresWorkChainStore
 
             await ExecuteAsync(
                 connection, transaction,
-                "UPDATE harness.work_attempts SET state = 'awaiting_review', completed_at = $1 WHERE id = $2 AND state = 'running';",
+                "UPDATE harness.work_attempts SET state = 'awaiting_review', completed_at = $1, operational_state = 'completed' WHERE id = $2 AND state = 'running';",
                 cancellationToken,
                 Timestamp(command.OccurredAt), Text(command.AttemptId));
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at)
+                VALUES ($1, $2, $3, $4, 'log', 'Attempt submitted for review.', $5);
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
+                Text(row.ProjectId), Text(command.AttemptId), Timestamp(command.OccurredAt));
             var nextVersion = row.Version + 1;
             await ExecuteAsync(
                 connection, transaction,
                 """
-                UPDATE harness.work_tasks SET state = 'awaiting_review', version = $1, updated_at = $2
+                UPDATE harness.work_tasks SET state = 'awaiting_review', version = $1, updated_at = $2,
+                    board_state = 'review', blocked_reason = NULL
                 WHERE id = $3 AND tenant_id = $4 AND version = $5;
                 """,
                 cancellationToken,
@@ -306,15 +327,31 @@ public sealed partial class PostgresWorkChainStore
                 Timestamp(command.OccurredAt));
             await ExecuteAsync(
                 connection, transaction,
-                "UPDATE harness.work_attempts SET state = $1 WHERE id = $2 AND state = 'awaiting_review';",
+                """
+                UPDATE harness.work_attempts SET state = $1,
+                    operational_state = CASE WHEN $1 = 'rejected' THEN 'failed' ELSE 'completed' END
+                WHERE id = $2 AND state = 'awaiting_review';
+                """,
                 cancellationToken,
                 Text(command.Decision), Text(command.AttemptId));
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at)
+                VALUES ($1, $2, $3, $4, 'note', $5, $6);
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
+                Text(row.ProjectId), Text(command.AttemptId), Text(command.Rationale),
+                Timestamp(command.OccurredAt));
             var taskState = command.Decision == "approved" ? "completed" : "ready";
             var nextVersion = row.Version + 1;
             await ExecuteAsync(
                 connection, transaction,
                 """
-                UPDATE harness.work_tasks SET state = $1, version = $2, updated_at = $3
+                UPDATE harness.work_tasks SET state = $1, version = $2, updated_at = $3,
+                    board_state = CASE WHEN $1 = 'completed' THEN 'done' ELSE 'corrections' END,
+                    blocked_reason = NULL
                 WHERE id = $4 AND tenant_id = $5 AND version = $6;
                 """,
                 cancellationToken,

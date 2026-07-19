@@ -46,9 +46,11 @@ using Harness.Persistence.Abstractions.RunTargets;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.Persistence.Abstractions.Tools;
+using Harness.Persistence.Postgres;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Time;
 using Microsoft.Extensions.FileProviders;
+using Npgsql;
 
 namespace Harness.Host;
 
@@ -77,32 +79,74 @@ public static class HostApplication
             databasePath = Path.Combine(AppContext.BaseDirectory, "data", "harness.db");
         }
 
-        builder.Services.AddSingleton(
-            _ => SqliteWriteDispatcher.CreateAsync(databasePath).GetAwaiter().GetResult());
-        builder.Services.AddSingleton<IHostedService, SqliteMigrationHostedService>();
+        var databaseProvider = (builder.Configuration["Harness:Database:Provider"] ?? "sqlite")
+            .ToLowerInvariant();
+        var serverMode = databaseProvider == "postgres";
+        if (serverMode)
+        {
+            var connectionString = builder.Configuration["Harness:Database:ConnectionString"];
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "Harness:Database:ConnectionString é obrigatório quando Harness:Database:Provider=postgres.");
+            }
+
+            builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
+            builder.Services.AddSingleton<IHostedService, PostgresMigrationHostedService>();
+        }
+        else
+        {
+            builder.Services.AddSingleton(
+                _ => SqliteWriteDispatcher.CreateAsync(databasePath).GetAwaiter().GetResult());
+            builder.Services.AddSingleton<IHostedService, SqliteMigrationHostedService>();
+        }
         builder.Services.AddSingleton<WorkflowTemplateSeeder>();
         builder.Services.AddSingleton<IHostedService, WorkflowTemplateSeedHostedService>();
         builder.Services.AddSingleton<IWorkflowConsistencyReviewer, DeterministicWorkflowConsistencyReviewer>();
-        builder.Services.AddSingleton<IRunnerMessageStore>(services =>
-            new SqliteRunnerMessageStore(services.GetRequiredService<SqliteWriteDispatcher>()));
-        builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
-        builder.Services.AddSingleton<IRealtimeEventStore, SqliteRealtimeEventStore>();
-        builder.Services.AddSingleton<IDurableExecutionEngine, SqliteDurableExecutionEngine>();
-        builder.Services.AddSingleton<ILocalProfileStore, SqliteLocalProfileStore>();
-        builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
-        builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
-        builder.Services.AddSingleton<IAgentCatalogStore, SqliteAgentCatalogStore>();
-        builder.Services.AddSingleton<IChiefOrchestratorStore, SqliteChiefOrchestratorStore>();
         builder.Services.AddSingleton<IAgentExecutor, FakeAgentExecutor>();
-        builder.Services.AddSingleton<IToolCatalogStore, SqliteToolCatalogStore>();
-        builder.Services.AddSingleton<IProviderCatalogStore, SqliteProviderCatalogStore>();
-        builder.Services.AddSingleton<INotificationStore, SqliteNotificationStore>();
-        builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
-        builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
-        builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
-        builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
-        builder.Services.AddSingleton<ISignedLicenseStore, SqliteSignedLicenseStore>();
-        builder.Services.AddSingleton<IChannelLinkStore, SqliteChannelLinkStore>();
+        if (serverMode)
+        {
+            builder.Services.AddSingleton<IRunnerMessageStore, PostgresRunnerMessageStore>();
+            builder.Services.AddSingleton<IOutboxStore, PostgresOutboxStore>();
+            builder.Services.AddSingleton<IRealtimeEventStore, PostgresRealtimeEventStore>();
+            builder.Services.AddSingleton<IDurableExecutionEngine, PostgresDurableExecutionEngine>();
+            builder.Services.AddSingleton<ILocalProfileStore, PostgresLocalProfileStore>();
+            builder.Services.AddSingleton<IOrganizationStore, PostgresOrganizationStore>();
+            builder.Services.AddSingleton<IProjectStore, PostgresProjectStore>();
+            builder.Services.AddSingleton<IAgentCatalogStore, PostgresAgentCatalogStore>();
+            builder.Services.AddSingleton<IChiefOrchestratorStore, PostgresChiefOrchestratorStore>();
+            builder.Services.AddSingleton<IToolCatalogStore, PostgresToolCatalogStore>();
+            builder.Services.AddSingleton<IProviderCatalogStore, PostgresProviderCatalogStore>();
+            builder.Services.AddSingleton<INotificationStore, PostgresNotificationStore>();
+            builder.Services.AddSingleton<IAuditEventStore, PostgresAuditEventStore>();
+            builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
+            builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
+            builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
+            builder.Services.AddSingleton<ISignedLicenseStore, PostgresSignedLicenseStore>();
+            builder.Services.AddSingleton<IChannelLinkStore, PostgresChannelLinkStore>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<IRunnerMessageStore>(services =>
+                new SqliteRunnerMessageStore(services.GetRequiredService<SqliteWriteDispatcher>()));
+            builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
+            builder.Services.AddSingleton<IRealtimeEventStore, SqliteRealtimeEventStore>();
+            builder.Services.AddSingleton<IDurableExecutionEngine, SqliteDurableExecutionEngine>();
+            builder.Services.AddSingleton<ILocalProfileStore, SqliteLocalProfileStore>();
+            builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
+            builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
+            builder.Services.AddSingleton<IAgentCatalogStore, SqliteAgentCatalogStore>();
+            builder.Services.AddSingleton<IChiefOrchestratorStore, SqliteChiefOrchestratorStore>();
+            builder.Services.AddSingleton<IToolCatalogStore, SqliteToolCatalogStore>();
+            builder.Services.AddSingleton<IProviderCatalogStore, SqliteProviderCatalogStore>();
+            builder.Services.AddSingleton<INotificationStore, SqliteNotificationStore>();
+            builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
+            builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
+            builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
+            builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
+            builder.Services.AddSingleton<ISignedLicenseStore, SqliteSignedLicenseStore>();
+            builder.Services.AddSingleton<IChannelLinkStore, SqliteChannelLinkStore>();
+        }
         builder.Services.AddSingleton(builder.Configuration
             .GetSection("Harness:Channels:Telegram")
             .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());
@@ -110,13 +154,26 @@ public static class HostApplication
         builder.Services.AddSingleton<RunTargetDetector>();
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();
         builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<RunTargetProcessSupervisor>());
-        builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
-        builder.Services.AddSingleton<SqliteConversationStore>();
-        builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<SqliteConversationStore>());
-        builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<SqliteConversationStore>());
-        builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
-        builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
-        builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
+        if (serverMode)
+        {
+            builder.Services.AddSingleton<ICockpitDigestStore, PostgresCockpitDigestStore>();
+            builder.Services.AddSingleton<PostgresConversationStore>();
+            builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<PostgresConversationStore>());
+            builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<PostgresConversationStore>());
+            builder.Services.AddSingleton<IWorkChainStore, PostgresWorkChainStore>();
+            builder.Services.AddSingleton<IWorkBoardStore, PostgresWorkBoardStore>();
+            builder.Services.AddSingleton<IAttemptWorkspaceStore, PostgresAttemptWorkspaceStore>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<ICockpitDigestStore, SqliteCockpitDigestStore>();
+            builder.Services.AddSingleton<SqliteConversationStore>();
+            builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<SqliteConversationStore>());
+            builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<SqliteConversationStore>());
+            builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
+            builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
+            builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
+        }
         var isolatedSettings = builder.Configuration
             .GetSection("Harness:IsolatedExecution")
             .Get<IsolatedExecutionSettings>() ?? new IsolatedExecutionSettings();
@@ -145,10 +202,20 @@ public static class HostApplication
                 services.GetRequiredService<IsolatedExecutionOptions>()));
         }
 
-        builder.Services.AddSingleton<IWorkflowStore, SqliteWorkflowStore>();
-        builder.Services.AddSingleton<IWorkflowCatalogStore, SqliteWorkflowCatalogStore>();
-        builder.Services.AddSingleton<IDocumentStore, SqliteDocumentStore>();
-        builder.Services.AddSingleton<IDocumentCatalogStore, SqliteDocumentCatalogStore>();
+        if (serverMode)
+        {
+            builder.Services.AddSingleton<IWorkflowStore, PostgresWorkflowStore>();
+            builder.Services.AddSingleton<IWorkflowCatalogStore, PostgresWorkflowCatalogStore>();
+            builder.Services.AddSingleton<IDocumentStore, PostgresDocumentStore>();
+            builder.Services.AddSingleton<IDocumentCatalogStore, PostgresDocumentCatalogStore>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<IWorkflowStore, SqliteWorkflowStore>();
+            builder.Services.AddSingleton<IWorkflowCatalogStore, SqliteWorkflowCatalogStore>();
+            builder.Services.AddSingleton<IDocumentStore, SqliteDocumentStore>();
+            builder.Services.AddSingleton<IDocumentCatalogStore, SqliteDocumentCatalogStore>();
+        }
         var documentCatalogPath = builder.Configuration["Harness:DocumentCatalogPath"];
         if (string.IsNullOrWhiteSpace(documentCatalogPath))
         {
@@ -159,10 +226,18 @@ public static class HostApplication
             new FileSystemDocumentContentCatalog(documentCatalogPath));
         builder.Services.AddSingleton(new SolicitationAttachmentStorage(
             Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "attachments")));
-        builder.Services.AddSingleton<ISolicitationAttachmentStore, SqliteSolicitationAttachmentStore>();
-        builder.Services.AddSingleton<IVisualReferenceAssetStore, SqliteVisualReferenceAssetStore>();
-        builder.Services.AddSingleton(services => new LocalOperationsService(
-            services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));
+        if (serverMode)
+        {
+            builder.Services.AddSingleton<ISolicitationAttachmentStore, PostgresSolicitationAttachmentStore>();
+            builder.Services.AddSingleton<IVisualReferenceAssetStore, PostgresVisualReferenceAssetStore>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<ISolicitationAttachmentStore, SqliteSolicitationAttachmentStore>();
+            builder.Services.AddSingleton<IVisualReferenceAssetStore, SqliteVisualReferenceAssetStore>();
+            builder.Services.AddSingleton(services => new LocalOperationsService(
+                services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));
+        }
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
@@ -233,7 +308,14 @@ public static class HostApplication
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
         app.MapDocumentCatalog();
-        app.MapLocalOperations();
+        if (serverMode)
+        {
+            app.MapServerOperationsUnavailable();
+        }
+        else
+        {
+            app.MapLocalOperations();
+        }
         app.MapGet(
             "/api/v1/event-streams/snapshot",
             async Task<IResult> (
