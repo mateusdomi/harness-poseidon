@@ -1,5 +1,8 @@
 export { AgentGrid } from './agent-grid';
 export { AttemptDialog } from './attempt-dialog';
 export { ChiefCard } from './chief-card';
+export { DefinitionDetailsDialog } from './definition-details';
+export { DefinitionFormDialog } from './definition-form';
+export { DefinitionsTab } from './definitions-tab';
 export { DrainDialog } from './drain-dialog';
 export { HandoffWizard } from './handoff-wizard';

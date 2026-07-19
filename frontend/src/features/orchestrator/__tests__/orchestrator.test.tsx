@@ -298,8 +298,12 @@ describe('OrchestratorPage', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Drenar tarefas' })).not.toBeInTheDocument(),
     );
-    const drained = (await bundle.api.list('tasks', { filter: { projectId: project.id } })).items
-      .filter((task) => activeStates.has(task.state)).length;
+    let drained = -1;
+    await act(async () => {
+      drained = (await bundle.api.list('tasks', { filter: { projectId: project.id } })).items.filter(
+        (task) => activeStates.has(task.state),
+      ).length;
+    });
     expect(drained).toBe(0);
     expect(expected).toBeGreaterThan(0);
   });

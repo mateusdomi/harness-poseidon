@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Play, RotateCcw, Square, Trash2 } from 'lucide-react';
 
 import { streams, type Ulid } from '@/api';
@@ -16,12 +17,15 @@ import {
 import type { RunLogEntry } from '@/features/run-project/lib/run-project-derive';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
+import { useCurrentSettings } from '@/features/settings/hooks/use-settings';
 
 /**
  * Rodar projeto: serviços detectados (stack, portas, URLs/health), ações
  * start/stop/restart por serviço e gerais, logs em streaming
  * (`run.logAppended` no stream do projeto), credenciais demo mascaradas,
- * guia "o que testar primeiro" e cleanup do ambiente com confirmação.
+ * guia "o que testar primeiro", card informativo do modo local (fluxo do
+ * Launcher, estado do ambiente, diretório de dados e link de diagnóstico)
+ * e cleanup do ambiente com confirmação.
  */
 export default function UrunProjectPage() {
   const { t, i18n } = useTranslation();
@@ -32,6 +36,9 @@ export default function UrunProjectPage() {
   const targetsQuery = useRunTargets(projectId);
   const runAction = useRunTargetAction();
   const cleanup = useCleanupRunEnvironment();
+  // Diretório de dados do modo local: mesma query da tela de preferências
+  // (settings do perfil da sessão).
+  const settingsQuery = useCurrentSettings();
 
   const [logEntries, setLogEntries] = useState<RunLogEntry[]>([]);
   const [confirmCleanup, setConfirmCleanup] = useState(false);
@@ -50,6 +57,7 @@ export default function UrunProjectPage() {
   });
 
   const targets = targetsQuery.data ?? [];
+  const runningCount = targets.filter((target) => target.state === 'running').length;
 
   async function runOnAll(action: 'start' | 'stop') {
     for (const target of targets) {
@@ -328,6 +336,43 @@ export default function UrunProjectPage() {
                     <li key={step}>{step}</li>
                   ))}
                 </ol>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('runProject.localMode.title')}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                <p className="text-foreground-muted">{t('runProject.localMode.body')}</p>
+                <dl className="grid gap-1">
+                  <div className="flex flex-wrap gap-2">
+                    <dt className="font-medium">{t('runProject.localMode.environmentLabel')}</dt>
+                    <dd className="text-foreground-muted">
+                      {t('runProject.localMode.environment', {
+                        running: runningCount,
+                        total: targets.length,
+                      })}
+                    </dd>
+                  </div>
+                  {!settingsQuery.isPending && (
+                    <div className="flex flex-wrap gap-2">
+                      <dt className="font-medium">{t('runProject.localMode.workingDirectoryLabel')}</dt>
+                      <dd className="text-foreground-muted">
+                        {settingsQuery.data?.workingDirectory ??
+                          t('runProject.localMode.workingDirectoryEmpty')}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                <p className="text-foreground-muted">{t('runProject.localMode.actionsNote')}</p>
+                <p className="text-foreground-muted">{t('runProject.localMode.shortcut')}</p>
+                <Link
+                  to="/settings"
+                  className="inline-flex min-h-11 items-center self-start text-brand underline-offset-4 hover:underline"
+                >
+                  {t('runProject.localMode.diagnostics')}
+                </Link>
               </CardContent>
             </Card>
           </div>

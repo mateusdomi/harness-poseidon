@@ -84,7 +84,8 @@ export function useOrchestratorData(projectId: Ulid | null) {
 
   const definitionsQuery = useQuery({
     queryKey: orchestratorKeys.definitions,
-    queryFn: async (): Promise<AgentDefinition[]> => (await api.list('agent-definitions')).items,
+    queryFn: async (): Promise<AgentDefinition[]> =>
+      (await api.list('agent-definitions', { filter: { includeArchived: true } })).items,
   });
 
   const modelsQuery = useQuery({

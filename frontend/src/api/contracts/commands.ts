@@ -1,6 +1,22 @@
 import { z } from 'zod';
 
-import { documentStateSchema, operationModeSchema, prioritySchema, solicitationStateSchema, taskStateSchema } from './enums';
+import {
+  accountAuthenticationSchema,
+  accountCapabilitySchema,
+  accountHealthSchema,
+  accountPlanSchema,
+  accountQuotaWindowSchema,
+  accountStateSchema,
+  actorCriticSchema,
+  agentRoleSchema,
+  documentStateSchema,
+  effortLevelSchema,
+  operationModeSchema,
+  prioritySchema,
+  riskLevelSchema,
+  solicitationStateSchema,
+  taskStateSchema,
+} from './enums';
 import { workflowPhaseConfigSchema } from './delivery';
 import { isoDateTimeSchema, ulidSchema } from './primitives';
 
@@ -203,8 +219,89 @@ export const solicitationAnalysisSchema = z.object({
 });
 export type SolicitationAnalysis = z.infer<typeof solicitationAnalysisSchema>;
 
-/* ---- licença ---- */
+/* ---- definições de agente (FR-5) ----
+ * CRUD de definições: create/update via comandos dedicados (versionamento
+ * + histórico no servidor), duplicate/enable/disable/archive/delete como
+ * POSTs de ação. Excluir só é permitido se a definição nunca foi utilizada
+ * (sem instâncias) — 409 caso contrário (usar archive).
+ */
 
+/** Criação de definição de agente — nasce habilitada, `version: 1`. */
+export const createAgentDefinitionInputSchema = z.object({
+  key: z.string().min(1),
+  name: z.string().min(1),
+  role: agentRoleSchema,
+  specialty: z.string().nullable().optional(),
+  description: z.string().default(''),
+  defaultModelId: ulidSchema.nullable().optional(),
+  skillIds: z.array(ulidSchema).default([]),
+  toolIds: z.array(ulidSchema).default([]),
+  persona: z.string().nullable().optional(),
+  mission: z.string().nullable().optional(),
+  responsibilities: z.string().nullable().optional(),
+  instructions: z.string().nullable().optional(),
+  restrictions: z.string().nullable().optional(),
+  bestPractices: z.string().nullable().optional(),
+  stacks: z.array(z.string()).default([]),
+  defaultEffort: effortLevelSchema.nullable().optional(),
+  preferredAccountId: ulidSchema.nullable().optional(),
+  fallbackModelIds: z.array(ulidSchema).default([]),
+  team: z.string().nullable().optional(),
+  actorCritic: actorCriticSchema.nullable().optional(),
+  risk: riskLevelSchema.nullable().optional(),
+});
+export type CreateAgentDefinitionInput = z.infer<typeof createAgentDefinitionInputSchema>;
+
+/** Edição de definição — incrementa `version` e registra o histórico. */
+export const updateAgentDefinitionInputSchema = createAgentDefinitionInputSchema.partial().extend({
+  /** Concorrência otimista do backend real; 0 permite criação/compatibilidade mock. */
+  expectedVersion: z.number().int().nonnegative().optional(),
+});
+export type UpdateAgentDefinitionInput = z.infer<typeof updateAgentDefinitionInputSchema>;
+
+export const duplicateAgentDefinitionInputSchema = z.object({
+  key: z.string().min(1),
+  name: z.string().min(1),
+});
+export type DuplicateAgentDefinitionInput = z.infer<typeof duplicateAgentDefinitionInputSchema>;
+
+/* ---- contas de provider (FR-5) ----
+ * Criar/editar/habilitar/desabilitar/remover. Remoção é bloqueada (409)
+ * quando há budget ou definição de agente referenciando a conta.
+ */
+
+export const createAccountInputSchema = z.object({
+  providerId: ulidSchema,
+  label: z.string().min(1),
+  /** Referência no secret store; o backend nunca devolve este valor. */
+  credentialReference: z
+    .string()
+    .regex(/^(keychain|dpapi|secret):\/\/.+$/),
+  quotaLimitUsd: z.number().nonnegative().nullable().optional(),
+  identity: z.string().nullable().optional(),
+  plan: accountPlanSchema.default('unknown'),
+  authentication: accountAuthenticationSchema.default('apiKey'),
+  quotaWindow: accountQuotaWindowSchema.default('monthly'),
+  quotaResetsAt: isoDateTimeSchema.nullable().optional(),
+  capabilities: z.array(accountCapabilitySchema).default([]),
+});
+export type CreateAccountInput = z.infer<typeof createAccountInputSchema>;
+
+export const updateAccountInputSchema = z.object({
+  label: z.string().min(1).optional(),
+  state: accountStateSchema.optional(),
+  quotaLimitUsd: z.number().nonnegative().nullable().optional(),
+  identity: z.string().nullable().optional(),
+  plan: accountPlanSchema.optional(),
+  authentication: accountAuthenticationSchema.optional(),
+  health: accountHealthSchema.optional(),
+  quotaWindow: accountQuotaWindowSchema.optional(),
+  quotaResetsAt: isoDateTimeSchema.nullable().optional(),
+  capabilities: z.array(accountCapabilitySchema).optional(),
+});
+export type UpdateAccountInput = z.infer<typeof updateAccountInputSchema>;
+
+/* ---- licença ---- */
 /** Ativação de licença por chave (formato XXXX-XXXX-XXXX-XXXX). */
 export const activateLicenseInputSchema = z.object({
   key: z

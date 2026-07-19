@@ -127,7 +127,9 @@ describe('AgentsPage', () => {
       .toBeInTheDocument();
     expect(within(dialog).getByText('Testes')).toBeInTheDocument();
     expect(within(dialog).getByText('Terminal')).toBeInTheDocument();
-    expect(within(dialog).getByText('GPT-4o mini')).toBeInTheDocument();
+    // 'GPT-4o mini' aparece na lista de modelos compatíveis E na seção
+    // "Modelo e rota" (modelo em uso da instância).
+    expect(within(dialog).getAllByText('GPT-4o mini').length).toBeGreaterThanOrEqual(2);
     expect(within(dialog).getByText('Padrão')).toBeInTheDocument();
     // Histórico: auditoria em que Lia é ator/alvo.
     expect(within(dialog).getByText('agent.error')).toBeInTheDocument();

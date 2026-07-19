@@ -12,7 +12,7 @@ import {
 } from '../contracts';
 import { fixtures } from '../fixtures';
 
-/** Envelope de exemplo válido para cada um dos 25 tipos de evento. */
+/** Envelope de exemplo válido para cada um dos 29 tipos de evento. */
 function sampleEnvelopes(): Record<EventType, EventEnvelope> {
   const d = fixtures.data;
   const task = d.tasks[0];
@@ -50,6 +50,10 @@ function sampleEnvelopes(): Record<EventType, EventEnvelope> {
     'progress.updated': { ...base, type: 'progress.updated', payload: { taskId: task.id, track: 'executed', value: 55, progress: { executed: 55, validated: 0, approved: 0 } } },
     'quota.updated': { ...base, type: 'quota.updated', payload: { accountId: d.accounts[0].id, budgetId: null, usedUsd: 88.1, limitUsd: 150 } },
     'chief.turnStateChanged': { ...base, stream: streams.conversation(conversation.id), type: 'chief.turnStateChanged', payload: { conversationId: conversation.id, turnId: task.id, state: 'delegating' } },
+    'decision.requested': { ...base, type: 'decision.requested', payload: { decisionId: approval.id, projectId: project.id, title: 'Trocar modelo do revisor?', reason: 'quota', requestedByAgentId: project.chiefAgentId } },
+    'decision.resolved': { ...base, type: 'decision.resolved', payload: { decisionId: approval.id, outcome: 'approved', resolvedByProfileId: d.profiles[0].id, note: null } },
+    'project.created': { ...base, stream: streams.global(), type: 'project.created', payload: { project } },
+    'prototype.created': { ...base, type: 'prototype.created', payload: { prototype: d.prototypes[0] } },
   };
 }
 
@@ -72,8 +76,8 @@ describe('contracts: fixtures × schemas Zod', () => {
 });
 
 describe('contracts: envelope de evento', () => {
-  it('catálogo tem exatamente os 25 tipos de evento', () => {
-    expect(EVENT_TYPES).toHaveLength(25);
+  it('catálogo tem exatamente os 29 tipos de evento', () => {
+    expect(EVENT_TYPES).toHaveLength(29);
   });
 
   it.each(EVENT_TYPES)('envelope "%s" faz round-trip JSON → parse', (type) => {

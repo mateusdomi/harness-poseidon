@@ -63,6 +63,17 @@
       "title": "Limpar ambiente",
       "body": "Isso para todos os serviços do projeto e limpa o ambiente de execução. Deseja continuar?",
       "confirm": "Confirmar limpeza"
+    },
+    "localMode": {
+      "title": "Modo local",
+      "body": "No modo local tudo roda neste computador: você inicia o Launcher pelo atalho, ele sobe o Host/Runner local, escolhe a porta e abre o navegador — sem precisar de IDE.",
+      "environmentLabel": "Estado do ambiente",
+      "environment": "{{running}} de {{total}} serviço(s) em execução",
+      "workingDirectoryLabel": "Diretório de dados",
+      "workingDirectoryEmpty": "não configurado nas preferências",
+      "actionsNote": "Para gerenciar o ambiente, use as ações Reiniciar e Parar disponíveis acima, em cada serviço.",
+      "shortcut": "Instrução: para abrir este ambiente fora do app, use o atalho \"Harness Poseidon Launcher\" no menu de aplicativos do sistema.",
+      "diagnostics": "Diagnóstico"
     }
   }
 }

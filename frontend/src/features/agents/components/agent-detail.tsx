@@ -13,6 +13,7 @@ import type {
 import { Badge } from '@/design-system';
 import {
   agentHistory,
+  agentModelRoute,
   agentSkills,
   agentTools,
   compatibleModels,
@@ -46,7 +47,9 @@ function SectionTitle({ title }: { title: string }) {
 /**
  * Detalhe do agente (modal): definição/persona (descrição atual — o
  * contrato NÃO versiona persona/instruções), skills, ferramentas
- * permitidas, modelos compatíveis e histórico (auditoria + attempts).
+ * permitidas, modelos compatíveis, modelo/rota em uso (override humano
+ * vs. padrão da definição), esforço tipado/mapeado pelo provider, impacto
+ * estimado pelas tarifas do catálogo e histórico (auditoria + attempts).
  */
 export function AgentDetail({
   agent,
@@ -65,6 +68,11 @@ export function AgentDetail({
   const resolvedSkills = agentSkills(definition, skills);
   const resolvedTools = agentTools(definition, tools);
   const enabledModels = compatibleModels(models);
+  const modelRoute = agentModelRoute(agent, definition, models);
+  const effort = agent.effort ?? definition?.defaultEffort ?? null;
+  const effortMapping = modelRoute.current?.effortMappings.find(
+    (mapping) => mapping.effort === effort,
+  );
   const history = agentHistory(agent.id, auditEvents, attempts);
 
   function taskTitle(taskId: string): string {
@@ -162,6 +170,108 @@ export function AgentDetail({
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <SectionTitle title={t('agents.detail.route.title')} />
+        <dl className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('agents.detail.route.current')}
+            </dt>
+            <dd className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">
+                {modelRoute.current?.displayName ?? t('agents.detail.route.unresolved')}
+              </span>
+              {modelRoute.source === 'override' ? (
+                <Badge variant="warning">{t('agents.detail.route.sourceOverride')}</Badge>
+              ) : (
+                <Badge variant="outline">{t('agents.detail.route.sourceDefault')}</Badge>
+              )}
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-start gap-2">
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('agents.detail.route.reason')}
+            </dt>
+            <dd className="text-sm text-foreground-muted">
+              {agent.selectionReason ??
+                t(
+                  modelRoute.source === 'override'
+                    ? 'agents.detail.route.reasonOverride'
+                    : 'agents.detail.route.reasonDefault',
+                )}
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('agents.detail.route.effort')}
+            </dt>
+            <dd className="flex flex-wrap items-center gap-2 text-sm">
+              {effort ? (
+                <>
+                  <Badge variant="outline">{t(`agents.detail.route.effortLevel.${effort}`)}</Badge>
+                  <span className="text-foreground-muted">
+                    {agent.providerEffortValue
+                      ? t('agents.detail.route.providerEffort', {
+                          value: agent.providerEffortValue,
+                        })
+                      : effortMapping
+                      ? t('agents.detail.route.providerEffort', {
+                          value: effortMapping.providerValue,
+                        })
+                      : t('agents.detail.route.effortUnavailable')}
+                  </span>
+                </>
+              ) : (
+                <span className="text-foreground-muted">
+                  {t('agents.detail.route.effortAutomatic')}
+                </span>
+              )}
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-start gap-2">
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('agents.detail.route.estimatedImpact')}
+            </dt>
+            <dd className="text-sm text-foreground-muted">
+              {modelRoute.current?.costPer1kInputUsd === null ||
+              modelRoute.current?.costPer1kInputUsd === undefined ||
+              modelRoute.current.costPer1kOutputUsd === null
+                ? t('agents.detail.route.estimatedImpactLocal')
+                : t('agents.detail.route.estimatedImpactCost', {
+                    input: formatCurrencyUSD(modelRoute.current.costPer1kInputUsd),
+                    output: formatCurrencyUSD(modelRoute.current.costPer1kOutputUsd),
+                  })}
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('agents.detail.route.defaultModel')}
+            </dt>
+            <dd className="text-sm">
+              {modelRoute.defaultModel?.displayName ?? t('agents.detail.route.unresolved')}
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('agents.detail.route.fallbacks')}
+            </dt>
+            <dd className="flex flex-wrap items-center gap-1">
+              {modelRoute.fallbacks.length === 0 ? (
+                <span className="text-sm text-foreground-muted">
+                  {t('agents.detail.route.fallbacksEmpty')}
+                </span>
+              ) : (
+                modelRoute.fallbacks.map((model) => (
+                  <Badge key={model.id} variant="outline">
+                    {model.displayName}
+                  </Badge>
+                ))
+              )}
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <section className="flex flex-col gap-2">

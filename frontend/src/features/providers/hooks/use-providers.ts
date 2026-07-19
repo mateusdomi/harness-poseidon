@@ -4,10 +4,12 @@ import {
   streams,
   type Account,
   type Budget,
+  type CreateAccountInput,
   type Model,
   type Provider,
   type RoutingPolicy,
   type Ulid,
+  type UpdateAccountInput,
 } from '@/api';
 import { useApi } from '@/app/api-context';
 import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
@@ -70,6 +72,60 @@ export function useSyncProviderCatalog() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (providerId: Ulid) => api.syncProviderCatalog(providerId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+  });
+}
+
+/** Cria uma conta de provider (nasce `active`). */
+export function useCreateAccount() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAccountInput) => api.createAccount(input),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+  });
+}
+
+/** Edita apelido/e-mail/plano da conta. */
+export function useUpdateAccount() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: Ulid; input: UpdateAccountInput }) =>
+      api.updateAccount(id, input),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+  });
+}
+
+/** Habilita a conta (`state: active`). */
+export function useEnableAccount() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: Ulid) => api.enableAccount(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+  });
+}
+
+/** Desabilita a conta (`state: disabled`). */
+export function useDisableAccount() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: Ulid) => api.disableAccount(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+  });
+}
+
+/**
+ * Remove a conta — a API responde 409 quando há budget ou definição de
+ * agente referenciando-a; a UI exibe o detalhe do problema (ApiError).
+ */
+export function useDeleteAccount() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: Ulid) => api.deleteAccount(id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
   });
 }

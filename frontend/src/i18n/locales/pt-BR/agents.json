@@ -2,8 +2,24 @@
   "agents": {
     "count": "{{count}} agente(s) na equipe",
     "groups": {
-      "chief": "Chefe",
-      "specialists": "Especialistas"
+      "chief": "Chefe"
+    },
+    "teams": {
+      "general": "Geral"
+    },
+    "filters": {
+      "state": {
+        "label": "Estado",
+        "all": "Todos os estados"
+      },
+      "team": {
+        "label": "Time",
+        "all": "Todos os times"
+      }
+    },
+    "filteredEmpty": {
+      "title": "Nenhum especialista encontrado",
+      "body": "Nenhum especialista corresponde aos filtros selecionados. Ajuste o estado ou o time."
     },
     "tree": {
       "label": "Organograma da equipe do projeto"
@@ -18,7 +34,8 @@
     },
     "card": {
       "capabilities": "Capacidades",
-      "details": "Ver detalhes"
+      "details": "Ver detalhes",
+      "configureDefinition": "Configurar definição"
     },
     "metrics": {
       "tasksCompleted": {
@@ -47,6 +64,31 @@
       "modelDefault": "Padrão",
       "modelOverride": "Em uso (override)",
       "modelContext": "Contexto de {{total}} tokens",
+      "route": {
+        "title": "Modelo e rota",
+        "current": "Modelo em uso",
+        "sourceOverride": "Override humano",
+        "sourceDefault": "Padrão da definição (roteamento automático)",
+        "reason": "Motivo",
+        "reasonOverride": "O modelo foi selecionado por um override humano registrado na instância.",
+        "reasonDefault": "O roteamento aplicou automaticamente o modelo padrão da definição.",
+        "effort": "Esforço",
+        "effortLevel": {
+          "low": "Baixo",
+          "medium": "Médio",
+          "high": "Alto"
+        },
+        "providerEffort": "valor enviado ao provider: {{value}}",
+        "effortUnavailable": "o modelo não publica um mapeamento compatível",
+        "effortAutomatic": "Automático conforme política e capacidade",
+        "estimatedImpact": "Impacto estimado",
+        "estimatedImpactCost": "Tarifa-base por 1k tokens: {{input}} de entrada e {{output}} de saída; o custo final depende do uso real.",
+        "estimatedImpactLocal": "Sem tarifa monetária publicada; latência e capacidade dependem do ambiente local/provider.",
+        "defaultModel": "Modelo padrão da definição",
+        "fallbacks": "Fallbacks configurados",
+        "fallbacksEmpty": "Nenhum fallback configurado.",
+        "unresolved": "Modelo não encontrado no catálogo"
+      },
       "history": "Histórico recente",
       "historyEmpty": "Nenhum evento de auditoria ou tentativa recente.",
       "attempt": "Tentativa nº {{number}}",

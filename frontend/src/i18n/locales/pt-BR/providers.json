@@ -2,6 +2,7 @@
   "providers": {
     "enabled": "Habilitado",
     "disabled": "Desabilitado",
+    "local": "Local",
     "empty": "Nenhum provider configurado. Os providers aparecem aqui quando o catálogo é sincronizado pela API.",
     "sync": {
       "action": "Sincronizar",
@@ -10,15 +11,93 @@
     "accounts": {
       "title": "Contas",
       "empty": "Nenhuma conta neste provider.",
+      "new": "Nova conta",
+      "meta": "Identidade: {{identity}} · plano: {{plan}} · autenticação: {{authentication}}",
+      "notProvided": "não informado",
+      "health": {
+        "unknown": "Saúde desconhecida",
+        "healthy": "Saudável",
+        "degraded": "Degradada",
+        "unavailable": "Indisponível"
+      },
+      "plan": {
+        "unknown": "Não informado",
+        "free": "Gratuito",
+        "pro": "Pro",
+        "team": "Equipe",
+        "enterprise": "Enterprise",
+        "payAsYouGo": "Pagamento por uso",
+        "local": "Local (sem custo)"
+      },
+      "authentication": {
+        "apiKey": "Chave de API",
+        "oauth": "OAuth",
+        "local": "Local"
+      },
+      "quotaWindow": {
+        "daily": "Diária",
+        "weekly": "Semanal",
+        "monthly": "Mensal",
+        "none": "Sem janela"
+      },
+      "capability": {
+        "audio": "Áudio",
+        "chat": "Chat",
+        "code": "Código",
+        "embeddings": "Embeddings",
+        "reasoning": "Raciocínio",
+        "tools": "Ferramentas",
+        "vision": "Visão"
+      },
       "quotaBar": "Consumo da cota da conta {{label}}",
       "quota": "{{used}} de {{limit}} usados",
       "quotaNoLimit": "{{used}} usados (sem limite configurado)",
-      "window": "Janela: {{period}} · próximo reset em {{reset}} (derivado do período do budget)"
+      "window": "Janela: {{period}} · próximo reset: {{reset}}",
+      "noReset": "não programado",
+      "budgetReset": "Referência do budget: próximo período em {{reset}}.",
+      "actions": {
+        "edit": "Editar",
+        "enable": "Habilitar",
+        "disable": "Desabilitar",
+        "remove": "Remover"
+      },
+      "form": {
+        "createTitle": "Nova conta",
+        "editTitle": "Editar conta",
+        "provider": "Provider",
+        "label": "Apelido",
+        "labelRequired": "Informe um apelido para a conta.",
+        "credentialReference": "Referência da credencial",
+        "credentialHint": "Use uma referência segura keychain://, dpapi:// ou secret://. O valor não será exibido novamente.",
+        "credentialRequired": "Informe a referência segura da credencial.",
+        "credentialInvalid": "Use uma referência keychain://, dpapi:// ou secret:// válida.",
+        "identity": "E-mail/identidade (opcional)",
+        "plan": "Plano",
+        "authentication": "Autenticação",
+        "quotaWindow": "Janela da cota",
+        "quotaLimit": "Limite da cota (USD)",
+        "capabilities": "Capacidades autorizadas",
+        "error": "Não foi possível salvar a conta. Tente novamente."
+      },
+  "delete": {
+    "title": "Remover conta",
+    "body": "Remover a conta \"{{label}}\"? Esta ação não pode ser desfeita.",
+    "disableFirst": "Desabilite a conta antes de removê-la.",
+    "confirm": "Remover conta",
+        "error": "Não foi possível remover a conta. Tente novamente."
+      }
     },
     "models": {
       "title": "Catálogo de modelos",
       "empty": "Nenhum modelo neste provider.",
-      "meta": "Contexto: {{context}} tokens · custo/1k: {{input}} entrada · {{output}} saída"
+      "meta": "Contexto: {{context}} tokens · custo/1k: {{input}} entrada · {{output}} saída",
+      "effortMappings": "Esforço suportado",
+      "effort": {
+        "low": "Baixo → {{value}}",
+        "medium": "Médio → {{value}}",
+        "high": "Alto → {{value}}",
+        "max": "Máximo → {{value}}"
+      }
     },
     "budgets": {
       "title": "Budgets",

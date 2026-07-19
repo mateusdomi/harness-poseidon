@@ -25,8 +25,11 @@ export interface RealtimeClient {
   /** Assina um ou mais streams; devolve handle para cancelar. */
   subscribe(streams: string | readonly string[], handler: EventHandler): Subscription;
   onStateChange(handler: ConnectionStateHandler): () => void;
-  /** Snapshot completo do stream (eventos recentes com sequence). */
-  getSnapshot(stream: string): Promise<EventEnvelope[]>;
+  /**
+   * Snapshot do stream (eventos recentes com sequence). `afterSequence`
+   * restringe aos eventos posteriores à sequence informada (re-sync).
+   */
+  getSnapshot(stream: string, afterSequence?: number): Promise<EventEnvelope[]>;
 }
 
 /** Resultado da verificação de sequência de um envelope. */

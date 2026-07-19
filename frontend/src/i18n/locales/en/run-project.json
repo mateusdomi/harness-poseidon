@@ -63,6 +63,17 @@
       "title": "Clean up environment",
       "body": "This stops all project services and cleans up the run environment. Continue?",
       "confirm": "Confirm cleanup"
+    },
+    "localMode": {
+      "title": "Local mode",
+      "body": "In local mode everything runs on this computer: you start the Launcher from the shortcut, it brings up the local Host/Runner, picks a port and opens the browser — no IDE required.",
+      "environmentLabel": "Environment state",
+      "environment": "{{running}} of {{total}} service(s) running",
+      "workingDirectoryLabel": "Data directory",
+      "workingDirectoryEmpty": "not configured in preferences",
+      "actionsNote": "To manage the environment, use the Restart and Stop actions available above, on each service.",
+      "shortcut": "Instruction: to open this environment outside the app, use the \"Harness Poseidon Launcher\" shortcut in the system applications menu.",
+      "diagnostics": "Diagnostics"
     }
   }
 }

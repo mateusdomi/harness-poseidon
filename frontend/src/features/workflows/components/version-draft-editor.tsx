@@ -52,7 +52,7 @@ const phaseEditorSchema = z.object({
   transitions: z.array(z.string()),
 });
 
-export const versionEditorSchema = z.object({
+const versionEditorSchema = z.object({
   phases: z.array(phaseEditorSchema).min(1, 'workflows.templates.validation.phasesRequired'),
   defaultMode: z.union([operationModeSchema, z.literal('')]),
   changelog: z.string(),
@@ -79,7 +79,7 @@ function commaToList(value: string): string[] {
 }
 
 /** Converte o rascunho do contrato em valores do formulário. */
-export function draftToEditorValues(draft: WorkflowVersion): VersionEditorValues {
+function draftToEditorValues(draft: WorkflowVersion): VersionEditorValues {
   return {
     phases: draft.phases.map((name) => {
       const config = draft.phaseConfigs?.[name];
@@ -106,7 +106,7 @@ export function draftToEditorValues(draft: WorkflowVersion): VersionEditorValues
 }
 
 /** Converte os valores do formulário no payload de publicação/rascunho. */
-export function editorValuesToInput(values: VersionEditorValues): PublishWorkflowVersionInput {
+function editorValuesToInput(values: VersionEditorValues): PublishWorkflowVersionInput {
   const gatesByPhase: Record<string, string[]> = {};
   const phaseConfigs: Record<string, WorkflowPhaseConfig> = {};
   const transitions: Record<string, string[]> = {};

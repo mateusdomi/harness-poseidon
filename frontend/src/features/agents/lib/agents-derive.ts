@@ -45,6 +45,116 @@ export function definitionOf(
   return definitions.find((definition) => definition.id === agent.definitionId) ?? null;
 }
 
+/** Grupo de especialistas por time da definição (`team: null` = grupo "geral"). */
+export interface SpecialistTeamGroup {
+  /** Nome do time; `null` quando a definição não tem time (grupo "geral"). */
+  team: string | null;
+  agents: Agent[];
+}
+
+/**
+ * Agrupa especialistas pelo `team` da definição correspondente. Ordem
+ * estável: times em ordem alfabética, grupo "geral" (sem time) por último.
+ * Dentro do grupo, preserva a ordem recebida (já ordenada por nome em
+ * {@link teamOfProject}). Definição ausente conta como "sem time".
+ */
+export function groupSpecialistsByTeam(
+  specialists: Agent[],
+  definitions: AgentDefinition[],
+): SpecialistTeamGroup[] {
+  const groups = new Map<string | null, Agent[]>();
+  for (const agent of specialists) {
+    const team = definitionOf(agent, definitions)?.team ?? null;
+    const bucket = groups.get(team);
+    if (bucket) bucket.push(agent);
+    else groups.set(team, [agent]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return a.localeCompare(b);
+    })
+    .map(([team, agents]) => ({ team, agents }));
+}
+
+/** Valor do filtro de time: `all` (todos), `none` (sem time → "geral") ou um nome de time. */
+export type TeamFilter = 'all' | 'none' | (string & {});
+
+/**
+ * Times distintos presentes entre os especialistas (para as opções do
+ * filtro): nomes em ordem alfabética + `hasGeneral` se algum não tem time.
+ */
+export function distinctTeams(
+  specialists: Agent[],
+  definitions: AgentDefinition[],
+): { teams: string[]; hasGeneral: boolean } {
+  const teams = new Set<string>();
+  let hasGeneral = false;
+  for (const agent of specialists) {
+    const team = definitionOf(agent, definitions)?.team ?? null;
+    if (team === null) hasGeneral = true;
+    else teams.add(team);
+  }
+  return { teams: [...teams].sort((a, b) => a.localeCompare(b)), hasGeneral };
+}
+
+/**
+ * Filtra especialistas por estado da instância e/ou time da definição.
+ * `state: 'all'` e `team: 'all'` não restringem; `team: 'none'` filtra o
+ * grupo "geral" (definição sem time ou ausente).
+ */
+export function filterSpecialists(
+  specialists: Agent[],
+  definitions: AgentDefinition[],
+  state: Agent['state'] | 'all',
+  team: TeamFilter,
+): Agent[] {
+  return specialists.filter((agent) => {
+    if (state !== 'all' && agent.state !== state) return false;
+    if (team !== 'all') {
+      const agentTeam = definitionOf(agent, definitions)?.team ?? null;
+      if (team === 'none' ? agentTeam !== null : agentTeam !== team) return false;
+    }
+    return true;
+  });
+}
+
+/** Rota de modelo da instância, resolvida no catálogo de modelos. */
+export interface AgentModelRoute {
+  /** Modelo efetivamente em uso (`null` se não resolvido no catálogo). */
+  current: Model | null;
+  /** Origem da decisão: override humano (`agent.modelId`) ou padrão da definição. */
+  source: 'override' | 'default';
+  /** Modelo padrão da definição (`null` se não resolvido no catálogo). */
+  defaultModel: Model | null;
+  /** Fallbacks da definição, resolvidos na ordem declarada (ids sem cadastro são ignorados). */
+  fallbacks: Model[];
+}
+
+/**
+ * Modelo/rota da instância: modelo em uso ({@link effectiveModelId}),
+ * origem da decisão, padrão da definição e fallbacks — tudo resolvido no
+ * catálogo completo (o override pode apontar para modelo desabilitado).
+ * O contrato NÃO registra o motivo do roteamento — nada é inventado aqui.
+ */
+export function agentModelRoute(
+  agent: Agent,
+  definition: AgentDefinition | null,
+  models: Model[],
+): AgentModelRoute {
+  const byId = (id: Ulid | null | undefined): Model | null =>
+    models.find((model) => model.id === id) ?? null;
+  return {
+    current: byId(effectiveModelId(agent, definition)),
+    source: agent.modelId !== null ? 'override' : 'default',
+    defaultModel: byId(definition?.defaultModelId),
+    fallbacks: (agent.fallbackModelIds ?? definition?.fallbackModelIds ?? [])
+      .map((id) => byId(id))
+      .filter((model): model is Model => model !== null),
+  };
+}
+
 /** Métricas objetivas exibidas no card do agente. */
 export interface DerivedAgentMetrics {
   /** Total acumulado de tarefas concluídas (`agent.metrics.tasksCompleted`). */

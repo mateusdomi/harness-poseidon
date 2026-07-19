@@ -1,5 +1,6 @@
 import type {
   AccountState,
+  AccountHealth,
   AgentState,
   ApprovalState,
   AttemptState,
@@ -266,6 +267,17 @@ export const ACCOUNT_STATE_VARIANTS: Record<AccountState, BadgeProps['variant']>
   disabled: 'outline',
   quotaExceeded: 'error',
 };
+
+export const ACCOUNT_HEALTH_VARIANTS: Record<AccountHealth, BadgeProps['variant']> = {
+  unknown: 'outline',
+  healthy: 'success',
+  degraded: 'warning',
+  unavailable: 'error',
+};
+
+export function accountHealthVariant(health: AccountHealth): BadgeProps['variant'] {
+  return ACCOUNT_HEALTH_VARIANTS[health];
+}
 
 export function accountStateVariant(state: AccountState): BadgeProps['variant'] {
   return ACCOUNT_STATE_VARIANTS[state];

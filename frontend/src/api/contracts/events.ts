@@ -11,7 +11,8 @@ import {
   taskStateSchema,
 } from './enums';
 import { auditEventSchema, notificationSchema } from './system';
-import { demandSchema, messageSchema } from './core';
+import { demandSchema, messageSchema, projectSchema } from './core';
+import { prototypeSchema } from './content';
 import { isoDateTimeSchema, progressSchema, progressTrackSchema, ulidSchema } from './primitives';
 import { approvalSchema, attemptSchema, taskSchema } from './delivery';
 
@@ -147,6 +148,30 @@ export const chiefTurnStateChangedPayloadSchema = z.object({
   state: chiefTurnStateSchema,
 });
 
+/* ---- eventos do catálogo canônico docs/contracts/events.json (FR-5) ----
+ * Nomes publicados pelo backend; payloads propostos pelo frontend seguindo
+ * o padrão dos demais (documentado no HANDOFF_API.md).
+ */
+
+/** Decisão de roteamento/orquestração solicitada ao usuário. */
+export const decisionRequestedPayloadSchema = z.object({
+  decisionId: ulidSchema,
+  projectId: ulidSchema,
+  title: z.string(),
+  /** Contexto da decisão (ex.: política, cota, capacidade), quando houver. */
+  reason: z.string().nullable(),
+  requestedByAgentId: ulidSchema.nullable(),
+});
+/** Decisão resolvida (por humano ou automaticamente). */
+export const decisionResolvedPayloadSchema = z.object({
+  decisionId: ulidSchema,
+  outcome: z.enum(['approved', 'rejected', 'cancelled']),
+  resolvedByProfileId: ulidSchema.nullable(),
+  note: z.string().nullable(),
+});
+export const projectCreatedPayloadSchema = z.object({ project: projectSchema });
+export const prototypeCreatedPayloadSchema = z.object({ prototype: prototypeSchema });
+
 /* ---- mapa tipo → schema de payload ---- */
 
 export const EVENT_PAYLOAD_SCHEMAS = {
@@ -175,6 +200,10 @@ export const EVENT_PAYLOAD_SCHEMAS = {
   'progress.updated': progressUpdatedPayloadSchema,
   'quota.updated': quotaUpdatedPayloadSchema,
   'chief.turnStateChanged': chiefTurnStateChangedPayloadSchema,
+  'decision.requested': decisionRequestedPayloadSchema,
+  'decision.resolved': decisionResolvedPayloadSchema,
+  'project.created': projectCreatedPayloadSchema,
+  'prototype.created': prototypeCreatedPayloadSchema,
 } as const;
 
 export type EventType = keyof typeof EVENT_PAYLOAD_SCHEMAS;
@@ -223,7 +252,20 @@ export const eventEnvelopeSchema = z.discriminatedUnion('type', [
   z.object({ ...envelopeBase, type: z.literal('progress.updated'), payload: progressUpdatedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('quota.updated'), payload: quotaUpdatedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('chief.turnStateChanged'), payload: chiefTurnStateChangedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('decision.requested'), payload: decisionRequestedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('decision.resolved'), payload: decisionResolvedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('project.created'), payload: projectCreatedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('prototype.created'), payload: prototypeCreatedPayloadSchema }),
 ]);
+
+/** Snapshot canônico retornado pelo hub e pelo fallback HTTP de re-sync. */
+export const eventStreamSnapshotSchema = z.object({
+  stream: z.string(),
+  sequence: z.coerce.number().int().nonnegative(),
+  latestByType: z.record(eventEnvelopeSchema),
+  delta: z.array(eventEnvelopeSchema),
+});
+export type EventStreamSnapshot = z.infer<typeof eventStreamSnapshotSchema>;
 
 /** Valida um envelope desconhecido vindo do hub. */
 export function parseEventEnvelope(raw: unknown): EventEnvelope {

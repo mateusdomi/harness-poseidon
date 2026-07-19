@@ -6,6 +6,7 @@ import {
   agentSkills,
   definitionOf,
   deriveAgentMetrics,
+  groupSpecialistsByTeam,
   type AgentTeam,
 } from '@/features/agents/lib/agents-derive';
 import { useMediaQuery } from '@/features/board/hooks/use-media-query';
@@ -22,12 +23,15 @@ export interface AgentOrgChartProps {
 /**
  * Organograma da equipe do projeto ativo.
  *
+ * Especialistas são agrupados pelo `team` da definição (ordem alfabética;
+ * definições sem time formam o grupo "geral", por último).
+ *
  * Responsividade (D-022): UMA árvore no DOM por breakpoint, escolhida via
  * `useMediaQuery` (matchMedia) — nunca duas regiões escondidas por CSS,
  * para não duplicar headings/cards na árvore de acessibilidade.
  * - Desktop (lg+): hierarquia visual — chefe centrado no topo, conector
- *   (CSS puro, `aria-hidden`) e especialistas em grade abaixo;
- * - Mobile (<lg): lista agrupada com grupos "Chefe" e "Especialistas".
+ *   (CSS puro, `aria-hidden`) e grupos de especialistas em grade abaixo;
+ * - Mobile (<lg): lista agrupada com grupos "Chefe" e um por time.
  */
 export function AgentOrgChart({
   team,
@@ -39,6 +43,8 @@ export function AgentOrgChart({
 }: AgentOrgChartProps) {
   const { t } = useTranslation();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+
+  const groups = groupSpecialistsByTeam(team.specialists, definitions);
 
   function renderCard(agent: Agent) {
     const definition = definitionOf(agent, definitions);
@@ -53,6 +59,10 @@ export function AgentOrgChart({
     );
   }
 
+  function groupTitle(groupTeam: string | null): string {
+    return groupTeam ?? t('agents.teams.general');
+  }
+
   if (isDesktop) {
     return (
       <div role="group" aria-label={t('agents.tree.label')} className="flex flex-col">
@@ -61,7 +71,7 @@ export function AgentOrgChart({
             <div className="flex justify-center">
               <div className="w-full max-w-sm">{renderCard(team.chief)}</div>
             </div>
-            {team.specialists.length > 0 && (
+            {groups.length > 0 && (
               <>
                 {/* Conector visual: tronco vertical + barra horizontal + galhos. */}
                 <div aria-hidden="true" className="mx-auto h-6 w-px bg-border-strong" />
@@ -75,13 +85,16 @@ export function AgentOrgChart({
             )}
           </>
         )}
-        {team.specialists.length > 0 && (
-          <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {team.specialists.map((agent) => (
-              <li key={agent.id}>{renderCard(agent)}</li>
-            ))}
-          </ul>
-        )}
+        {groups.map((group) => (
+          <section key={group.team ?? 'general'} className="flex flex-col gap-3 pb-6">
+            <h2 className="font-heading text-lg font-semibold">{groupTitle(group.team)}</h2>
+            <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {group.agents.map((agent) => (
+                <li key={agent.id}>{renderCard(agent)}</li>
+              ))}
+            </ul>
+          </section>
+        ))}
       </div>
     );
   }
@@ -94,18 +107,16 @@ export function AgentOrgChart({
           {renderCard(team.chief)}
         </section>
       )}
-      {team.specialists.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-heading text-lg font-semibold">
-            {t('agents.groups.specialists')}
-          </h2>
+      {groups.map((group) => (
+        <section key={group.team ?? 'general'} className="flex flex-col gap-3">
+          <h2 className="font-heading text-lg font-semibold">{groupTitle(group.team)}</h2>
           <ul className="flex flex-col gap-3">
-            {team.specialists.map((agent) => (
+            {group.agents.map((agent) => (
               <li key={agent.id}>{renderCard(agent)}</li>
             ))}
           </ul>
         </section>
-      )}
+      ))}
     </div>
   );
 }

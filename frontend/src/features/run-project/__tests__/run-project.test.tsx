@@ -95,4 +95,18 @@ describe('RunProjectPage', () => {
     await user.click(screen.getByRole('button', { name: 'Ocultar' }));
     expect(screen.queryByText('demo@poseidon.local')).not.toBeInTheDocument();
   });
+
+  it('card de modo local exibe estado do ambiente, diretório de dados e link de diagnóstico', async () => {
+    renderPage();
+
+    expect(await screen.findByText('Modo local')).toBeInTheDocument();
+    // Fixture: Frontend Vite (running) + Backend API (stopped).
+    expect(screen.getByText('1 de 2 serviço(s) em execução')).toBeInTheDocument();
+    // Diretório de dados vem das settings do perfil da sessão.
+    expect(screen.getByText('~/poseidon')).toBeInTheDocument();
+    // Sem âncora na seção de diagnóstico de /settings: link simples para a página.
+    expect(screen.getByRole('link', { name: 'Diagnóstico' })).toHaveAttribute('href', '/settings');
+    // Instrução estática de atalho — texto informativo, sem botão.
+    expect(screen.getByText(/Instrução: para abrir este ambiente fora do app/)).toBeInTheDocument();
+  });
 });

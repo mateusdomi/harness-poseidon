@@ -4,32 +4,38 @@
 
 ## Estado atual
 
-- **Fase em andamento:** NENHUMA — FE-0 a FE-4 CONCLUÍDAS (DoD do frontend atendido). Todas as 21 features implementadas e os 4 comandos do gate verdes.
-- **Branch ativa:** `develop` (sincronizada com `origin/develop`; atenção: outro agente publica backend na mesma branch — sempre `git pull --no-rebase` antes de push; `git add` apenas de `frontend/`, `docs/frontend/` e `.gitignore`, nunca `git add -A` por causa dos artefatos de build do backend).
-- **Último marco:** gate FE-4 verde (2026-07-18) — `npm run check` (lint 0 erros/0 warnings, typecheck, 270 testes), `npm run build` (chunk principal 223 kB após manualChunks), `npm run test:e2e` (56: 14 fluxos + 42 a11y axe em 21 rotas × 2 viewports × 2 temas), `npm run build-storybook`. Novidades FE-4: `e2e/a11y.spec.ts` + script `test:a11y`, skeletons com `role="status"`, estados vazios de providers + retry de templates em organizations, sweep i18n estático + paridade pt-BR/en (`src/i18n/__tests__/i18n-hygiene.test.ts`), `docs/frontend/SCREENS.md` criado, HANDOFF_API/README atualizados, decisões D-049 a D-052.
+- **Fase:** refinamento funcional FR-1 a FR-5 concluído no frontend em 2026-07-19; a evidência detalhada está em `REFINEMENT_AUDIT.md`.
+- **Branch:** somente `develop`. Nunca fazer merge em `main` sem autorização explícita.
+- **Escopo de autoria:** somente `frontend/**` e `docs/frontend/**`. Há trabalho de backend em paralelo; antes de publicar, buscar `origin/develop`, incorporar apenas o avanço remoto e adicionar ao commit somente esses dois diretórios.
+- **Design:** o design system, tokens, temas, logo, cores, tipografia e padrões responsivos existentes foram preservados. O trabalho foi incremental.
+- **Integração:** contas/providers/modelos e o lifecycle V3 de `agent-definitions` estão reconciliados com `docs/contracts/openapi.json`; o catálogo de eventos e o snapshot realtime têm validação de contrato. Alguns metadados complementares do refinamento (time, stacks, effort/account/fallback padrão, actor/critic, risco e histórico legível) ainda são mock-only e estão registrados em `HANDOFF_API.md`.
 
-## O que existe (FE-0 pronto)
+## Refinamentos entregues
 
-- `frontend/`: Vite 5 + React 18 + TS strict, Tailwind 3.4, design system com tokens dark/light (dark padrão, `#0A0A0F`, violeta `#7C5CFC` → magenta `#EC4899`, CTA verde-limão `#B6FF3C`), shadcn manual (button/card/badge/input/skeleton + stories), i18n pt-BR (+en esqueleto), AppShell (sidebar colapsável lg+, barra inferior + drawer mobile), 21 features com rotas lazy placeholder.
-- `src/api/` completa: 39 recursos com schemas Zod, 25 eventos tipados, 22 enums centrais, `ApiClient` (mock/http), `RealtimeClient` (mock/signalr) com dedupe + re-sync por sequence, fixtures determinísticas pt-BR (seed 42: 2 projetos, 40 tarefas, documentos, agentes, notificações etc.), factory `createApi()` por `VITE_API_MODE`, `ApiProvider` em `src/app/providers.tsx`, badge de notificações real.
-- `docs/frontend/HANDOFF_API.md` criado (contrato completo consumido).
-- Decisões registradas em `docs/frontend/DECISIONS.md` (D-001 a D-008).
-
-## Próximo passo exato
-
-FE-4 concluída — todos os itens (axe, estados, code splitting, i18n sweep, docs, gate) entregues e verdes. Resta apenas **commit + push de `develop`** (a sessão FE-4 não commitou por instrução explícita). Depois disso o frontend está pronto para integração com o backend real (`VITE_API_MODE=http` + `VITE_API_BASE_URL`), cujo contrato esperado está em `HANDOFF_API.md`. NÃO fazer merge em `main`.
+- FR-1: paginação 15/30/50, command palette, ordem do menu, assets locais e flags do React Router.
+- FR-2: período 24h/3d/7d no Cockpit e painel de workflow no Chat, responsivo e com deep-links.
+- FR-3: revisão manual/versionada de documentos; busca, filtros, arquivamento, CSV e explicação de fluxo no Quadro.
+- FR-4: ciclo completo de templates/versões de workflow e impacto/versionamento de projetos.
+- FR-5: CRUD de definições no Orquestrador, organograma operacional em Agentes, explicação do modo local em Executar projeto e gestão de múltiplas contas/metadados/effort mapping em Provedores.
 
 ## Regras permanentes
 
-- Estados obrigatórios em toda tela: vazio (com orientação), skeleton, erro com retry, banner de reconexão, permissão negada.
-- Zero string/cor/status hardcoded (tokens + i18n + enums). Testes de componente para componente com lógica.
-- Commits pequenos em `develop`; push após gate verde; NUNCA merge em `main` sem autorização explícita.
+- Não recriar o frontend nem alterar o backend durante refinamentos de UI.
+- Não inventar silenciosamente contrato ausente: Zod + mock + teste + `HANDOFF_API.md`.
+- Segredos são recebidos apenas como referência segura (`keychain://`, `dpapi://` ou `secret://`) e nunca retornados/exibidos.
+- Estados de coleção: vazio orientado, skeleton, erro com retry e reconexão global; 401/403 ainda dependem do contrato de autorização.
+- Zero string visível fora do i18n, zero cor fora dos tokens e zero status sem enum/mapeamento.
 
 ## Como validar
 
 ```bash
 cd frontend
-npm install && npm run check   # lint + type + test
-npm run dev                    # modo mock
-npm run test:e2e               # Playwright
+npm ci
+npm run check
+npm run build
+npm run build-storybook
+npm run test:e2e
+npm run test:a11y
 ```
+
+O modo de integração usa `VITE_API_MODE=http` e `VITE_API_BASE_URL`; o modo padrão continua sendo o mock determinístico.

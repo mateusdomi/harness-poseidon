@@ -1,9 +1,15 @@
 import { z } from 'zod';
 
 import {
+  accountAuthenticationSchema,
+  accountCapabilitySchema,
+  accountHealthSchema,
+  accountPlanSchema,
+  accountQuotaWindowSchema,
   accountStateSchema,
   budgetPeriodSchema,
   budgetScopeSchema,
+  effortLevelSchema,
   modelCapabilitySchema,
   providerKindSchema,
 } from './enums';
@@ -26,8 +32,24 @@ export const accountSchema = z.object({
   state: accountStateSchema,
   quotaLimitUsd: z.number().nonnegative().nullable(),
   quotaUsedUsd: z.number().nonnegative(),
+  /* ---- FR-5 (aditivos) ---- */
+  /** Identidade/e-mail da conta; nunca contém o segredo. */
+  identity: z.string().nullable(),
+  plan: accountPlanSchema,
+  authentication: accountAuthenticationSchema,
+  health: accountHealthSchema,
+  quotaWindow: accountQuotaWindowSchema,
+  quotaResetsAt: z.string().datetime({ offset: true }).nullable(),
+  capabilities: z.array(accountCapabilitySchema),
 });
 export type Account = z.infer<typeof accountSchema>;
+
+/** Valor fechado enviado ao provider para um esforço canônico do Harness. */
+export const effortMappingSchema = z.object({
+  effort: z.union([effortLevelSchema, z.literal('max')]),
+  providerValue: z.string().min(1),
+});
+export type EffortMapping = z.infer<typeof effortMappingSchema>;
 
 export const modelSchema = z.object({
   id: ulidSchema,
@@ -40,6 +62,7 @@ export const modelSchema = z.object({
   costPer1kInputUsd: z.number().nonnegative().nullable(),
   costPer1kOutputUsd: z.number().nonnegative().nullable(),
   enabled: z.boolean(),
+  effortMappings: z.array(effortMappingSchema),
 });
 export type Model = z.infer<typeof modelSchema>;
 

@@ -4,6 +4,8 @@ import {
   analyzeSolicitationInputSchema,
   appendTaskInstructionInputSchema,
   classifyDocumentInputSchema,
+  createAccountInputSchema,
+  createAgentDefinitionInputSchema,
   createWorkflowTemplateInputSchema,
   drainChiefTasksInputSchema,
   handoffChiefInputSchema,
@@ -18,9 +20,13 @@ import {
   startChatTurnInputSchema,
   transitionDocumentInputSchema,
   transitionSolicitationInputSchema,
+  updateAccountInputSchema,
+  updateAgentDefinitionInputSchema,
   validateWorkflowVersionContent,
   workflowDraftInputSchema,
+  type Account,
   type Agent,
+  type AgentDefinition,
   type Approval,
   type AnalyzeSolicitationInput,
   type AppendTaskInstructionInput,
@@ -30,6 +36,9 @@ import {
   type ChatTurnHandle,
   type ClassifyDocumentInput,
   type CreatableResource,
+  type CreateAccountInput,
+  type CreateAgentDefinitionInput,
+  type DuplicateAgentDefinitionInput,
   type CreateInputMap,
   type CreateWorkflowTemplateInput,
   type Demand,
@@ -49,6 +58,7 @@ import {
   type ProblemDetails,
   type Profile,
   type Project,
+  type Prototype,
   type PublishWorkflowDraftInput,
   type PublishWorkflowVersionInput,
   type RemovableResource,
@@ -68,6 +78,8 @@ import {
   type TransitionSolicitationInput,
   type Ulid,
   type UpdatableResource,
+  type UpdateAccountInput,
+  type UpdateAgentDefinitionInput,
   type UpdateInputMap,
   type Workflow,
   type WorkflowDraftInput,
@@ -198,6 +210,17 @@ export class MockApiClient implements ApiClient {
     const filter = query?.filter ?? {};
     for (const [key, value] of Object.entries(filter)) {
       if (value === undefined) continue;
+      // Parâmetro de consulta do endpoint V3, não campo da entidade.
+      if (resource === 'agent-definitions' && key === 'includeArchived') {
+        if (value !== true) {
+          items = items.filter(
+            (item) =>
+              (item as AgentDefinition).state !== 'archived' &&
+              !(item as AgentDefinition).archivedAt,
+          );
+        }
+        continue;
+      }
       items = items.filter((item) => (item as Record<string, unknown>)[key] === value);
     }
     const offset = query?.cursor ? Number.parseInt(query.cursor, 10) : 0;
@@ -1141,6 +1164,239 @@ export class MockApiClient implements ApiClient {
     return structuredClone(models);
   }
 
+  /* ---- contas de provider (FR-5) ---- */
+
+  async createAccount(input: CreateAccountInput): Promise<Account> {
+    await this.#simulate();
+    const parsed = createAccountInputSchema.parse(input);
+    this.#require('providers', parsed.providerId);
+    const account: Account = {
+      id: this.#options.nextId(),
+      providerId: parsed.providerId,
+      label: parsed.label,
+      state: 'disabled',
+      quotaLimitUsd: parsed.quotaLimitUsd ?? null,
+      quotaUsedUsd: 0,
+      identity: parsed.identity ?? null,
+      plan: parsed.plan,
+      authentication: parsed.authentication,
+      health: 'unknown',
+      quotaWindow: parsed.quotaWindow,
+      quotaResetsAt: parsed.quotaResetsAt ?? null,
+      capabilities: parsed.capabilities,
+    };
+    this.#table('accounts').set(account.id, account);
+    this.#appendAudit('user', this.#options.currentProfileId, 'account.created', 'account', account.id, `Conta "${account.label}" criada.`);
+    return structuredClone(account);
+  }
+
+  async updateAccount(id: Ulid, input: UpdateAccountInput): Promise<Account> {
+    await this.#simulate();
+    const parsed = updateAccountInputSchema.parse(input);
+    const account = this.#require('accounts', id);
+    if (parsed.label !== undefined) account.label = parsed.label;
+    if (parsed.state !== undefined) account.state = parsed.state;
+    if (parsed.quotaLimitUsd !== undefined) account.quotaLimitUsd = parsed.quotaLimitUsd;
+    if (parsed.identity !== undefined) account.identity = parsed.identity;
+    if (parsed.plan !== undefined) account.plan = parsed.plan;
+    if (parsed.authentication !== undefined) account.authentication = parsed.authentication;
+    if (parsed.health !== undefined) account.health = parsed.health;
+    if (parsed.quotaWindow !== undefined) account.quotaWindow = parsed.quotaWindow;
+    if (parsed.quotaResetsAt !== undefined) account.quotaResetsAt = parsed.quotaResetsAt;
+    if (parsed.capabilities !== undefined) account.capabilities = parsed.capabilities;
+    this.#appendAudit('user', this.#options.currentProfileId, 'account.updated', 'account', account.id, `Conta "${account.label}" atualizada.`);
+    return structuredClone(account);
+  }
+
+  async enableAccount(id: Ulid): Promise<Account> {
+    await this.#simulate();
+    const account = this.#require('accounts', id);
+    account.state = 'active';
+    return structuredClone(account);
+  }
+
+  async disableAccount(id: Ulid): Promise<Account> {
+    await this.#simulate();
+    const account = this.#require('accounts', id);
+    account.state = 'disabled';
+    return structuredClone(account);
+  }
+
+  async deleteAccount(id: Ulid): Promise<void> {
+    await this.#simulate();
+    const account = this.#require('accounts', id);
+    if (account.state !== 'disabled') {
+      throw ApiError.of(
+        409,
+        'Conta ativa',
+        'Somente uma conta desabilitada pode ser removida.',
+      );
+    }
+    const blockingBudget = [...this.#table('budgets').values()].find(
+      (budget) => budget.scope === 'account' && budget.scopeId === id,
+    );
+    if (blockingBudget) {
+      throw ApiError.of(
+        409,
+        'Conta em uso',
+        'A conta possui budget vinculado — remova o budget antes de excluir a conta.',
+      );
+    }
+    const blockingDefinition = [...this.#table('agent-definitions').values()].find(
+      (definition) => definition.preferredAccountId === id,
+    );
+    if (blockingDefinition) {
+      throw ApiError.of(
+        409,
+        'Conta em uso',
+        `A conta é a preferencial da definição "${blockingDefinition.name}" — remova a referência antes de excluir.`,
+      );
+    }
+    // Nota: políticas de roteamento referenciam MODELOS (não contas) — não há
+    // vínculo direto conta↔roteamento no contrato atual (documentado no HANDOFF).
+    this.#table('accounts').delete(id);
+    this.#appendAudit('user', this.#options.currentProfileId, 'account.deleted', 'account', id, `Conta "${account.label}" removida.`);
+  }
+
+  /* ---- definições de agente (FR-5) ---- */
+
+  async createAgentDefinition(input: CreateAgentDefinitionInput): Promise<AgentDefinition> {
+    await this.#simulate();
+    const parsed = createAgentDefinitionInputSchema.parse(input);
+    const definition: AgentDefinition = {
+      id: this.#options.nextId(),
+      key: parsed.key,
+      name: parsed.name,
+      role: parsed.role,
+      specialty: parsed.specialty ?? null,
+      description: parsed.description,
+      defaultModelId: parsed.defaultModelId ?? null,
+      skillIds: parsed.skillIds,
+      toolIds: parsed.toolIds,
+      state: 'enabled',
+      persona: parsed.persona ?? null,
+      mission: parsed.mission ?? null,
+      responsibilities: parsed.responsibilities ?? null,
+      instructions: parsed.instructions ?? null,
+      restrictions: parsed.restrictions ?? null,
+      bestPractices: parsed.bestPractices ?? null,
+      stacks: parsed.stacks,
+      defaultEffort: parsed.defaultEffort ?? null,
+      preferredAccountId: parsed.preferredAccountId ?? null,
+      fallbackModelIds: parsed.fallbackModelIds,
+      team: parsed.team ?? null,
+      actorCritic: parsed.actorCritic ?? null,
+      risk: parsed.risk ?? null,
+      version: 1,
+      history: [],
+    };
+    this.#table('agent-definitions').set(definition.id, definition);
+    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.created', 'agent-definition', definition.id, `Definição "${definition.name}" criada (v1).`);
+    return structuredClone(definition);
+  }
+
+  async updateAgentDefinition(
+    id: Ulid,
+    input: UpdateAgentDefinitionInput,
+  ): Promise<AgentDefinition> {
+    await this.#simulate();
+    const parsed = updateAgentDefinitionInputSchema.parse(input);
+    const definition = this.#require('agent-definitions', id);
+    if (definition.state === 'archived') {
+      throw ApiError.of(409, 'Definição arquivada', 'Definições arquivadas não podem ser editadas.');
+    }
+    if (
+      parsed.expectedVersion !== undefined &&
+      parsed.expectedVersion !== 0 &&
+      parsed.expectedVersion !== (definition.version ?? 1)
+    ) {
+      throw ApiError.of(409, 'Versão desatualizada', 'A definição foi alterada por outra sessão.');
+    }
+    const record = definition as unknown as Record<string, unknown>;
+    const changedFields = (Object.keys(parsed) as (keyof UpdateAgentDefinitionInput)[]).filter(
+      (field) =>
+        field !== 'expectedVersion' &&
+        parsed[field] !== undefined &&
+        JSON.stringify(parsed[field]) !== JSON.stringify(record[field]),
+    );
+    for (const field of changedFields) {
+      record[field] = parsed[field];
+    }
+    if (changedFields.length > 0) {
+      // Versionamento como os demais recursos: version incrementa a cada
+      // edição real e o histórico registra os campos alterados.
+      definition.version = (definition.version ?? 1) + 1;
+      definition.history = [
+        ...(definition.history ?? []),
+        {
+          version: definition.version,
+          changedAt: this.#options.now(),
+          changedFields: [...changedFields],
+          summary: `Campos alterados: ${changedFields.join(', ')}.`,
+        },
+      ];
+    }
+    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.updated', 'agent-definition', definition.id, `Definição "${definition.name}" atualizada (v${definition.version ?? 1}).`);
+    return structuredClone(definition);
+  }
+
+  async duplicateAgentDefinition(
+    id: Ulid,
+    input?: DuplicateAgentDefinitionInput,
+  ): Promise<AgentDefinition> {
+    await this.#simulate();
+    const source = this.#require('agent-definitions', id);
+    const copy: AgentDefinition = {
+      ...structuredClone(source),
+      id: this.#options.nextId(),
+      key: input?.key ?? `${source.key}-copia`,
+      name: input?.name ?? `${source.name} (cópia)`,
+      state: 'enabled',
+      version: 1,
+      history: [],
+    };
+    this.#table('agent-definitions').set(copy.id, copy);
+    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.duplicated', 'agent-definition', copy.id, `Definição "${source.name}" duplicada como "${copy.name}".`);
+    return structuredClone(copy);
+  }
+
+  async enableAgentDefinition(id: Ulid): Promise<AgentDefinition> {
+    await this.#simulate();
+    const definition = this.#require('agent-definitions', id);
+    definition.state = 'enabled';
+    return structuredClone(definition);
+  }
+
+  async disableAgentDefinition(id: Ulid): Promise<AgentDefinition> {
+    await this.#simulate();
+    const definition = this.#require('agent-definitions', id);
+    definition.state = 'disabled';
+    return structuredClone(definition);
+  }
+
+  async archiveAgentDefinition(id: Ulid): Promise<AgentDefinition> {
+    await this.#simulate();
+    const definition = this.#require('agent-definitions', id);
+    definition.state = 'archived';
+    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.archived', 'agent-definition', definition.id, `Definição "${definition.name}" arquivada.`);
+    return structuredClone(definition);
+  }
+
+  async deleteAgentDefinition(id: Ulid): Promise<void> {
+    await this.#simulate();
+    const definition = this.#require('agent-definitions', id);
+    const used = [...this.#table('agents').values()].some((agent) => agent.definitionId === id);
+    if (used) {
+      throw ApiError.of(
+        409,
+        'Definição em uso',
+        'A definição já possui instâncias de agente — apenas arquivamento é permitido.',
+      );
+    }
+    this.#table('agent-definitions').delete(id);
+    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.deleted', 'agent-definition', id, `Definição "${definition.name}" excluída (nunca utilizada).`);
+  }
+
   /* ---- PO Assistant ---- */
 
   async analyzeSolicitation(input: AnalyzeSolicitationInput): Promise<SolicitationAnalysis> {
@@ -1751,6 +2007,16 @@ export class MockApiClient implements ApiClient {
       case 'approvals': {
         const approval = entity as Approval;
         realtime.emit(streams.project(approval.projectId), 'approval.requested', { approval });
+        break;
+      }
+      case 'projects': {
+        const project = entity as Project;
+        realtime.emit(streams.global(), 'project.created', { project });
+        break;
+      }
+      case 'prototypes': {
+        const prototype = entity as Prototype;
+        realtime.emit(streams.project(prototype.projectId), 'prototype.created', { prototype });
         break;
       }
       default:

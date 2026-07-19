@@ -335,3 +335,28 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 ## D-082 — Projetos: painel de impacto, `configHistory` e `configVersion` só em mudança real
 - **Decisão:** `Project` ganha `configHistory: { version, changedAt, changedFields[], summary }[]` (aditivo; fixtures ganham 2 entradas no Poseidon). O mock passa a incrementar `configVersion` SOMENTE quando um campo versionado (repositoryUrl/repositoryProvider/defaultBranch/technologies/brand) muda DE FATO (deep-compare) — antes incrementava por presença no payload, ou seja, qualquer save gerava versão espúria; a mudança de comportamento é registrada aqui e no HANDOFF. "Projeto iniciado" = existe `workflow-runs` para o workflow do projeto (hook `useProjectStarted`). Na edição de projeto iniciado, alterar campo operacional/versionado abre o painel de IMPACTO (ModalDialog) antes de salvar: lista os campos que mudam, explica que a execução ativa permanece na configuração anterior e que a nova vale para novas execuções, com confirmação reforçada por CHECKBOX (botão desabilitado até marcar); metadados seguros (título, descrição) e demais campos seguem fluxo normal. A edição exibe a versão atual (`Configuração v{{n}}`), badge de alterações pendentes (campos sujos do RHF) e a seção "Histórico de configuração" (mais recente primeiro). Lista de projetos ganha filtro de arquivamento (ativos/arquivados/todos, padrão todos) ao lado do filtro de estado existente; arquivar preserva histórico (nenhum dado é removido). Tombstone real (DELETE de projeto) NÃO implementado — `projects` tem DELETE genérico no contrato, mas a UI não oferece exclusão; lacuna documentada no HANDOFF.
 - **Justificativa:** a cerimônia só onde há risco operacional mantém metadados leves; `configVersion` por mudança real torna o histórico honesto (uma entrada por versão); checkbox (não digitação) é o nível de fricção proporcional — o aceite pesado já existe no modo de operação.
+
+## D-083 — Definição lógica de agente tem lifecycle próprio; conta continua sendo credencial
+
+- **Decisão:** a aba `?tab=definitions` do Orquestrador gerencia definições lógicas, não contas: formulário com identidade/comportamento/execução, filtros por time, stack, papel, provider, modelo, skill e status, detalhe versionado e ações criar/editar/duplicar/habilitar/desabilitar/arquivar/excluir. Exclusão física é bloqueada quando existe instância; arquivamento preserva histórico. O frontend/mock usa campos aditivos opcionais em `AgentDefinition`, permitindo consumir o payload mínimo atual do backend sem quebrar.
+- **Justificativa:** configuração reutilizável de agente e credencial de provider têm ciclos de vida e riscos diferentes. Campos opcionais preservam compatibilidade de leitura enquanto o backend não publica a ampliação e suas mutações.
+
+## D-084 — Lifecycle V3 de `agent-definitions` integrado por adapter explícito
+
+- **Decisão:** após o backend paralelo publicar o lifecycle em `origin/develop`, o `HttpApiClient` foi alinhado às rotas reais. O write contract completo exige arrays semânticos e `expectedVersion`; o frontend converte os campos editoriais correspondentes, envia chave/nome na duplicação e lista com `includeArchived=true`. Campos do refinamento ainda ausentes no V3 continuam mock-only e documentados.
+- **Justificativa:** o adapter entrega integração real sem rebaixar a UX nem enviar propriedades fictícias ao backend; o versionamento esperado previne sobrescrita concorrente.
+
+## D-085 — Lifecycle de contas segue PATCH real e segredo é write-only
+
+- **Decisão:** habilitar/desabilitar chama `PATCH /accounts/<id>` com `state`; criação recebe apenas referência segura (`keychain://`, `dpapi://` ou `secret://`), que não entra em fixture, cache ou resposta. Conta nova nasce `disabled`; remoção só habilita na UI após desabilitar e o mock também devolve 409 para conta ativa, além das proteções de budget/definição.
+- **Justificativa:** reproduz o OpenAPI e a regra das stores SQLite/PostgreSQL, elimina rotas de ação inexistentes e impede exposição acidental de segredo.
+
+## D-086 — Esforço é mapeado pelo provider e custo exibido é estimativa
+
+- **Decisão:** `Model.effortMappings` representa o valor provider-specific para `low|medium|high|max`. A definição escolhe o nível sem hardcode de parâmetros de fornecedor; o detalhe operacional resolve modelo padrão/override, mapeamento e fallbacks. O impacto mostrado usa os preços por 1k tokens do modelo e é rotulado como estimativa; modelo local/sem preço recebe explicação própria.
+- **Justificativa:** separa intenção de esforço da implementação de cada provider e evita prometer um custo exato que o contrato não mede por invocação futura.
+
+## D-087 — Percentuais do refinamento usam matriz fechada de 13 blocos
+
+- **Decisão:** a auditoria usa os 13 blocos funcionais do prompt, com `existente=1`, `parcial=0,5`, `ausente=0`. Integração real usa apenas os 11 blocos dependentes de backend; os dois puramente locais/transversais ficam fora do denominador. A matriz inicial e a final, com evidências, estão em `REFINEMENT_AUDIT.md`.
+- **Justificativa:** denominador e pesos explícitos tornam os percentuais reproduzíveis e impedem números subjetivos.

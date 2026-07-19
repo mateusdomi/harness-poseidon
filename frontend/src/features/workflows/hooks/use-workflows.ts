@@ -140,7 +140,8 @@ export function useAgentDefinitions() {
   const api = useApi();
   return useQuery({
     queryKey: workflowKeys.agentDefinitions(),
-    queryFn: async (): Promise<AgentDefinition[]> => (await api.list('agent-definitions')).items,
+    queryFn: async (): Promise<AgentDefinition[]> =>
+      (await api.list('agent-definitions', { filter: { includeArchived: true } })).items,
   });
 }
 

@@ -1,7 +1,9 @@
 import {
   ApiError,
   problemDetailsSchema,
+  type Account,
   type Agent,
+  type AgentDefinition,
   type AnalyzeSolicitationInput,
   type AppendTaskInstructionInput,
   type ActivateLicenseInput,
@@ -9,6 +11,9 @@ import {
   type ChatTurnHandle,
   type ClassifyDocumentInput,
   type CreatableResource,
+  type CreateAccountInput,
+  type CreateAgentDefinitionInput,
+  type DuplicateAgentDefinitionInput,
   type CreateInputMap,
   type CreateWorkflowTemplateInput,
   type Diagnostics,
@@ -41,6 +46,8 @@ import {
   type TransitionSolicitationInput,
   type Ulid,
   type UpdatableResource,
+  type UpdateAccountInput,
+  type UpdateAgentDefinitionInput,
   type UpdateInputMap,
   type Workflow,
   type WorkflowDraftInput,
@@ -257,6 +264,99 @@ export class HttpApiClient implements ApiClient {
 
   syncProviderCatalog(providerId: Ulid): Promise<Model[]> {
     return this.#request('POST', `/providers/${providerId}/sync`);
+  }
+
+  /* ---- contas de provider (FR-5) ---- */
+
+  createAccount(input: CreateAccountInput): Promise<Account> {
+    return this.#request('POST', '/accounts', input);
+  }
+
+  updateAccount(id: Ulid, input: UpdateAccountInput): Promise<Account> {
+    return this.#request('PATCH', `/accounts/${id}`, input);
+  }
+
+  enableAccount(id: Ulid): Promise<Account> {
+    return this.#request('PATCH', `/accounts/${id}`, { state: 'active' });
+  }
+
+  disableAccount(id: Ulid): Promise<Account> {
+    return this.#request('PATCH', `/accounts/${id}`, { state: 'disabled' });
+  }
+
+  async deleteAccount(id: Ulid): Promise<void> {
+    await this.#request('DELETE', `/accounts/${id}`);
+  }
+
+  /* ---- definições de agente (FR-5) ----
+   * O adapter converte os campos editoriais do refinamento para o contrato
+   * V3 publicado pelo backend (arrays semânticos + expectedVersion).
+   */
+
+  createAgentDefinition(input: CreateAgentDefinitionInput): Promise<AgentDefinition> {
+    return this.#request('POST', '/agent-definitions', this.#agentDefinitionWriteBody(input));
+  }
+
+  updateAgentDefinition(id: Ulid, input: UpdateAgentDefinitionInput): Promise<AgentDefinition> {
+    return this.#request(
+      'PATCH',
+      `/agent-definitions/${id}`,
+      this.#agentDefinitionWriteBody(input),
+    );
+  }
+
+  duplicateAgentDefinition(
+    id: Ulid,
+    input?: DuplicateAgentDefinitionInput,
+  ): Promise<AgentDefinition> {
+    if (!input) {
+      return Promise.reject(
+        ApiError.of(400, 'Dados da cópia ausentes', 'Informe chave e nome para duplicar.'),
+      );
+    }
+    return this.#request('POST', `/agent-definitions/${id}/duplicate`, input);
+  }
+
+  enableAgentDefinition(id: Ulid): Promise<AgentDefinition> {
+    return this.#request('POST', `/agent-definitions/${id}/enable`);
+  }
+
+  disableAgentDefinition(id: Ulid): Promise<AgentDefinition> {
+    return this.#request('POST', `/agent-definitions/${id}/disable`);
+  }
+
+  archiveAgentDefinition(id: Ulid): Promise<AgentDefinition> {
+    return this.#request('POST', `/agent-definitions/${id}/archive`);
+  }
+
+  async deleteAgentDefinition(id: Ulid): Promise<void> {
+    await this.#request('DELETE', `/agent-definitions/${id}`);
+  }
+
+  #agentDefinitionWriteBody(input: UpdateAgentDefinitionInput) {
+    const lines = (value: string | null | undefined): string[] =>
+      (value ?? '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+    return {
+      key: input.key ?? '',
+      name: input.name ?? '',
+      role: input.role ?? 'specialist',
+      specialty: input.specialty ?? null,
+      description: input.description ?? '',
+      defaultModelId: input.defaultModelId ?? null,
+      skillIds: input.skillIds ?? [],
+      toolIds: input.toolIds ?? [],
+      persona: input.persona ?? null,
+      mission: input.mission ?? null,
+      operatingPrinciples: lines(input.instructions),
+      deliverables: lines(input.responsibilities),
+      qualityCriteria: lines(input.bestPractices),
+      communicationStyle: null,
+      limitations: lines(input.restrictions),
+      expectedVersion: input.expectedVersion ?? 0,
+    };
   }
 
   analyzeSolicitation(input: AnalyzeSolicitationInput): Promise<SolicitationAnalysis> {

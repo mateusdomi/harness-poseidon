@@ -75,8 +75,28 @@ async function scan(page: Page, context: string) {
   ).toEqual([]);
 }
 
+/** Gate transversal: nenhum erro da aplicação e nenhum asset estático quebrado. */
+function watchRuntime(page: Page) {
+  const issues: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') issues.push(`console: ${message.text()}`);
+  });
+  page.on('pageerror', (error) => issues.push(`pageerror: ${error.message}`));
+  page.on('response', (response) => {
+    const resourceType = response.request().resourceType();
+    if (
+      response.status() >= 400 &&
+      ['font', 'image', 'script', 'stylesheet'].includes(resourceType)
+    ) {
+      issues.push(`${resourceType} ${response.status()}: ${response.url()}`);
+    }
+  });
+  return (context: string) => expect(issues, `${context}: erros de runtime/assets`).toEqual([]);
+}
+
 test.describe('A11y (axe-core) — todas as rotas, 2 temas', () => {
   test('onboarding (fora do shell)', async ({ page }) => {
+    const assertRuntime = watchRuntime(page);
     await page.goto('/onboarding');
     await expect(page.getByRole('button', { name: /Mateus/ })).toBeVisible();
     await scan(page, 'onboarding dark');
@@ -84,10 +104,12 @@ test.describe('A11y (axe-core) — todas as rotas, 2 temas', () => {
     await page.reload();
     await expect(page.getByRole('button', { name: /Mateus/ })).toBeVisible();
     await scan(page, 'onboarding light');
+    assertRuntime('onboarding');
   });
 
   for (const route of ROUTES) {
     test(`${route.key} (${route.path})`, async ({ page }) => {
+      const assertRuntime = watchRuntime(page);
       await page.goto('/');
       await ensureProfile(page);
 
@@ -102,6 +124,7 @@ test.describe('A11y (axe-core) — todas as rotas, 2 temas', () => {
       await expect(page.getByRole('main')).toBeVisible();
       await page.waitForTimeout(500);
       await scan(page, `${route.key} light`);
+      assertRuntime(route.key);
     });
   }
 });

@@ -1,5 +1,123 @@
 {
   "orchestrator": {
+    "tabs": {
+      "label": "Seções do orquestrador",
+      "overview": "Visão geral",
+      "definitions": "Definições de agentes"
+    },
+    "definitions": {
+      "title": "Definições de agentes",
+      "help": "A definição de agente é a configuração lógica do agente (papel, instruções, modelo padrão). A conta de provider é a credencial usada nas chamadas ao modelo — são conceitos diferentes.",
+      "new": "Nova definição",
+      "empty": "Nenhuma definição corresponde aos filtros.",
+      "versionShort": "v{{version}}",
+      "state": {
+        "enabled": "Habilitada",
+        "disabled": "Desabilitada",
+        "archived": "Arquivada"
+      },
+      "role": {
+        "chief": "Chefe",
+        "specialist": "Especialista"
+      },
+      "effort": {
+        "low": "Baixo",
+        "medium": "Médio",
+        "high": "Alto"
+      },
+      "risk": {
+        "low": "Baixo",
+        "medium": "Médio",
+        "high": "Alto"
+      },
+      "actorCritic": {
+        "actor": "Actor",
+        "critic": "Critic"
+      },
+      "filters": {
+        "team": "Time",
+        "stack": "Stack",
+        "role": "Papel",
+        "provider": "Provider",
+        "model": "Modelo",
+        "skill": "Skill",
+        "status": "Status",
+        "all": "Todos",
+        "noTeam": "Sem time"
+      },
+      "list": {
+        "team": "Time:",
+        "model": "Modelo padrão:",
+        "provider": "Provider:",
+        "noModel": "Sem modelo padrão",
+        "noProvider": "Sem provider",
+        "inUse": "Definição em uso — utilize arquivar."
+      },
+      "actions": {
+        "view": "Visualizar",
+        "edit": "Editar",
+        "duplicate": "Duplicar",
+        "enable": "Habilitar",
+        "disable": "Desabilitar",
+        "archive": "Arquivar",
+        "delete": "Excluir"
+      },
+      "archive": {
+        "title": "Arquivar definição",
+        "body": "A definição \"{{name}}\" ficará arquivada: não poderá ser editada nem usada em novas instâncias, mas o histórico é preservado.",
+        "confirm": "Arquivar"
+      },
+      "delete": {
+        "title": "Excluir definição",
+        "body": "Excluir a definição \"{{name}}\"? A ação é permanente e só é permitida porque nenhuma instância de agente a utiliza.",
+        "confirm": "Excluir"
+      },
+      "details": {
+        "title": "Definição — {{name}}",
+        "version": "Versão {{version}}",
+        "historyTitle": "Histórico de revisões",
+        "historyEmpty": "Nenhuma revisão registrada."
+      },
+      "fields": {
+        "key": "Chave",
+        "name": "Nome",
+        "role": "Papel",
+        "specialty": "Especialidade",
+        "description": "Descrição",
+        "persona": "Persona",
+        "mission": "Missão",
+        "responsibilities": "Responsabilidades",
+        "instructions": "Instruções",
+        "restrictions": "Restrições",
+        "bestPractices": "Boas práticas",
+        "skills": "Skills",
+        "tools": "Ferramentas",
+        "stacks": "Stacks",
+        "defaultModel": "Modelo padrão",
+        "defaultEffort": "Esforço padrão",
+        "preferredAccount": "Conta preferencial",
+        "fallbackModels": "Modelos de fallback",
+        "team": "Time",
+        "actorCritic": "Actor/Critic",
+        "risk": "Risco",
+        "state": "Estado",
+        "version": "Versão"
+      },
+      "form": {
+        "createTitle": "Nova definição de agente",
+        "editTitle": "Editar definição — {{name}}",
+        "sectionIdentity": "Identidade",
+        "sectionBehavior": "Comportamento",
+        "sectionExecution": "Execução",
+        "keyHint": "Identificador estável: letras minúsculas, números e hífens.",
+        "stacksHint": "Separe as stacks por vírgula (ex.: React, TypeScript).",
+        "noModel": "Nenhum",
+        "noAccount": "Nenhuma",
+        "notDefined": "Não definido",
+        "accountHint": "A conta de provider é a credencial (o segredo fica no backend); a definição apenas referencia qual credencial preferir.",
+        "create": "Criar definição"
+      }
+    },
     "chief": {
       "title": "Chefe do projeto",
       "turnState": "Estado do turno",

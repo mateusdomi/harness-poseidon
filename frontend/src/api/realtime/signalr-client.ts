@@ -1,6 +1,10 @@
 import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
 
-import { parseEventEnvelope, type EventEnvelope } from '../contracts';
+import {
+  eventStreamSnapshotSchema,
+  parseEventEnvelope,
+  type EventEnvelope,
+} from '../contracts';
 import type {
   ConnectionState,
   ConnectionStateHandler,
@@ -12,6 +16,8 @@ import type {
 export interface SignalRRealtimeOptions {
   /** Base URL do backend (ex.: `https://localhost:5001`). Hub em `/hubs/events`. */
   baseUrl: string;
+  /** fetch injetável para o fallback HTTP e testes. */
+  fetchFn?: typeof fetch;
 }
 
 interface Subscriber {
@@ -33,9 +39,11 @@ export class SignalRRealtimeClient implements RealtimeClient {
   #subscribers = new Set<Subscriber>();
   #stateHandlers = new Set<ConnectionStateHandler>();
   readonly #baseUrl: string;
+  readonly #fetch: typeof fetch;
 
   constructor(options: SignalRRealtimeOptions) {
     this.#baseUrl = options.baseUrl.replace(/\/$/, '');
+    this.#fetch = options.fetchFn ?? ((input, init) => fetch(input, init));
   }
 
   get state(): ConnectionState {
@@ -91,12 +99,30 @@ export class SignalRRealtimeClient implements RealtimeClient {
     return () => this.#stateHandlers.delete(handler);
   }
 
-  async getSnapshot(stream: string): Promise<EventEnvelope[]> {
-    if (!this.#connection || this.#connection.state !== HubConnectionState.Connected) {
-      return [];
+  /**
+   * Snapshot do stream: o hub (`GetStreamSnapshot`) é a fonte principal.
+   * Sem conexão ativa, cai no endpoint REST canônico
+   * `GET /api/v1/event-streams/snapshot?stream=&afterSequence=`
+   * (docs/contracts/events.json) — re-sync mesmo com o hub fora do ar.
+   */
+  async getSnapshot(stream: string, afterSequence?: number): Promise<EventEnvelope[]> {
+    if (this.#connection && this.#connection.state === HubConnectionState.Connected) {
+      const raw = await this.#connection.invoke<unknown>(
+        'GetStreamSnapshot',
+        stream,
+        afterSequence ?? 0,
+      );
+      return eventStreamSnapshotSchema.parse(raw).delta as EventEnvelope[];
     }
-    const raw = await this.#connection.invoke<unknown[]>('GetStreamSnapshot', stream);
-    return raw.map((item) => parseEventEnvelope(item));
+    const params = new URLSearchParams({ stream });
+    if (afterSequence !== undefined) params.set('afterSequence', String(afterSequence));
+    const response = await this.#fetch(
+      `${this.#baseUrl}/api/v1/event-streams/snapshot?${params.toString()}`,
+      { credentials: 'include' },
+    );
+    if (!response.ok) return [];
+    const snapshot = eventStreamSnapshotSchema.parse(await response.json());
+    return snapshot.delta as EventEnvelope[];
   }
 
   #deliver(envelope: EventEnvelope): void {

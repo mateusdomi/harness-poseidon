@@ -1,6 +1,6 @@
 # HANDOFF — Camada de API do Frontend
 
-Documento vivo do contrato **contract-first** entre o frontend e o backend (.NET ASP.NET Core + SignalR). Cada endpoint/evento que a UI consome está listado com método, rota, tipos request/response, exemplo e a **tela real** que usa (inventário completo em `SCREENS.md`). Atualizado na FE-4; divergências devem ser resolvidas aqui primeiro.
+Documento vivo do contrato **contract-first** entre o frontend e o backend (.NET ASP.NET Core + SignalR). Cada endpoint/evento que a UI consome está listado com método, rota, tipos request/response, exemplo e a **tela real** que usa (inventário completo em `SCREENS.md`). Atualizado no FR-5; divergências devem ser resolvidas aqui primeiro.
 
 Código-fonte da verdade no frontend: `frontend/src/api/contracts/` (tipos TS + schemas Zod).
 
@@ -59,14 +59,14 @@ Verbos comuns: `GET /api/v1/<recurso>` (lista, cursor), `GET /api/v1/<recurso>/<
 | `document-versions` | `DocumentVersion` (imutável) | ✓ | — | — | documents |
 | `prototypes` | `Prototype` | ✓ | — | ✓ | prototypes |
 | `visual-references` | `VisualReference` | ✓ | — | ✓ | prototypes |
-| `agent-definitions` | `AgentDefinition` | — | — | — | agents, orchestrator (handoff), workflows |
+| `agent-definitions` | `AgentDefinition` | ✓ | ✓ | ✓ | agents, orchestrator (handoff + gestão), workflows |
 | `agents` | `Agent` (instância + métricas) | — | — | — | agents, cockpit, board, orchestrator |
 | `skills` | `Skill` | — | ✓ | — | tools |
 | `tools` | `Tool` | — | ✓ | — | tools |
 | `plugins` | `Plugin` | — | ✓ | — | tools |
 | `mcp-servers` | `McpServer` | — | ✓ | — | tools |
 | `providers` | `Provider` | — | ✓ | — | providers |
-| `accounts` | `Account` | — | — | — | providers, orchestrator |
+| `accounts` | `Account` | ✓ | ✓ | ✓ | providers, orchestrator |
 | `models` | `Model` | — | ✓ | — | providers, chat, orchestrator, agents |
 | `routing-policies` | `RoutingPolicy` | — | ✓ | — | providers |
 | `budgets` | `Budget` | — | ✓ | — | providers, cockpit (custos), orchestrator |
@@ -161,6 +161,13 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | `POST /workflow-templates/<id>/duplicate` (FR-4) | — — novo template rascunho "(cópia)" + rascunho da versão vigente | `WorkflowTemplate` | — | workflows |
 | `POST /workflow-versions/<id>/duplicate` (FR-4) | — — novo rascunho no mesmo template (número = última + 1) | `WorkflowVersion` | — | workflows |
 | `POST /projects/<id>/workflow` (FR-4) | `{ templateId, versionId? }` — cria o `Workflow` do projeto com a versão publicada vigente (409 se já tem workflow / template sem versão publicada); `operationMode` = `defaultOperationMode` do template (ou `manual`) | `Workflow` | `audit.eventAppended` (`workflow.templateLinked`) | workflows (vincular ao projeto ativo) |
+| `POST /agent-definitions` (FR-5/V3) | `AgentDefinitionWriteRequest` | `AgentDefinition` (201) | ledger/outbox do backend | orchestrator |
+| `PATCH /agent-definitions/<id>` (FR-5/V3) | write request completo + `expectedVersion` | `AgentDefinition` | ledger/outbox do backend | orchestrator |
+| `POST /agent-definitions/<id>/duplicate` (FR-5/V3) | `{ key, name }` | `AgentDefinition` (201) | ledger/outbox do backend | orchestrator |
+| `POST /agent-definitions/<id>/<enable\|disable\|archive>` (FR-5/V3) | — | `AgentDefinition` | ledger/outbox do backend | orchestrator |
+| `DELETE /agent-definitions/<id>` (FR-5/V3) | — — somente definição customizada nunca utilizada | — (204) | ledger/outbox do backend | orchestrator |
+
+As contas usam o CRUD REST publicado pelo backend: `POST /accounts`, `PATCH /accounts/<id>` e `DELETE /accounts/<id>`. Habilitar/desabilitar é `PATCH` com `{ state: "active" | "disabled" }`, não endpoints de ação. Uma conta nasce desabilitada; `DELETE` só é permitido após desabilitar e continua sujeito a 409 quando houver referência. O `credentialReference` é aceito apenas na criação (`keychain://`, `dpapi://` ou `secret://`) e nunca integra a resposta.
 
 ### Campos adicionados na FE-2a
 
@@ -192,6 +199,19 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 - `WorkflowPhaseConfig` estendido (todos opcionais/aditivos): `objective`, `context`, `acceptanceCriteria[]`, `dependsOn[]` (nomes de fases — sem ciclos, validado na publicação), `entryConditions[]`, `exitConditions[]`, `allowedSkillIds[]` (catálogo `skills`), `allowedToolIds[]` (catálogo `tools`).
 - `Project.configHistory: { version, changedAt, changedFields[], summary }[]` — histórico das versões de configuração; o backend/mock registra uma entrada a cada update que altera DE FATO campos versionados (`repositoryUrl`, `repositoryProvider`, `defaultBranch`, `technologies`, `brand`). **Mudança de comportamento (FR-4):** antes o `configVersion` incrementava por presença do campo no payload; agora só incrementa quando o valor muda (deep-compare) — edição de metadados não gera versão.
 - **Validação do Harness** (`contracts/workflow-validation.ts`): regras de publicação — ≥1 fase, nomes únicos/não vazios, gates/transições/dependências referenciam fases existentes, sem ciclo simples de dependência, peso 0–100. A ordem das fases é posicional (o array `phases` é a ordem), então "ordem contínua" é garantida pelo modelo. O mock aplica zod + regras em `publishWorkflowDraft` (422); o backend deve espelhar.
+
+### Campos reconciliados/adicionados na FR-5
+
+- `Account`: `identity`, `plan`, `authentication`, `health`, `quotaWindow`, `quotaResetsAt` e `capabilities`, todos reconciliados ao `AccountContract` real. A UI não usa um campo fictício `email`; identidade/e-mail é o campo neutro `identity`.
+- `CreateProviderAccountRequest`: `providerId`, `label`, `credentialReference`, cota e metadados opcionais. A referência de segredo é enviada uma única vez e nunca guardada no estado do frontend.
+- `Model.effortMappings: { effort, providerValue }[]`, reconciliado ao OpenAPI e exibido no catálogo/rota do agente. O frontend mostra decisão padrão versus override, esforço, motivo disponível, custo estimado e fallbacks sem fabricar telemetria.
+- `AgentDefinition` ganhou campos aditivos opcionais no frontend/mock para persona, missão, responsabilidades, instruções, restrições, boas práticas, stacks, esforço, conta preferencial, fallbacks, time, actor/critic, risco, ciclo de vida, versão e histórico.
+
+### Pendências de contrato identificadas na FR-5 (não fabricadas silenciosamente)
+
+- O backend V3 passou a publicar o lifecycle completo e os campos `persona`, `mission`, `operatingPrinciples`, `deliverables`, `qualityCriteria`, `communicationStyle`, `limitations`, `version`, `enabled` e `archivedAt`. O cliente adapta instruções→princípios, responsabilidades→entregáveis, boas práticas→critérios e restrições→limitações. Ainda não há persistência real para time, stacks, effort/account/fallback padrão, actor/critic, risco nem histórico legível de revisões; esses campos permanecem aditivos no mock e não entram como integração completa do bloco.
+- O backend já publica `GET /projects/<projectId>/agent-org-chart`, mas a tela atual deriva o mesmo organograma das coleções `agents` + `agent-definitions` para manter compatibilidade com o mock. Uma futura troca para o endpoint agregado não exige mudança visual.
+- Não há tipo específico no catálogo canônico para create/update/lifecycle de definição. O backend grava ledger/outbox e a UI invalida queries após a mutation; para atualização multi-janela direcionada, sugere-se `agentDefinition.changed` no stream `global`.
 
 ### Pendências de contrato identificadas na FR-4 (não fabricadas na UI)
 
@@ -246,7 +266,7 @@ Hub único, assinatura por streams. Envelope:
 
 Métodos do hub SignalR (backend): cliente chama `SubscribeToStreams(string[])`, `UnsubscribeFromStreams(string[])`, `GetStreamSnapshot(string)`; servidor emite `event` com o envelope.
 
-### Catálogo de eventos (25)
+### Catálogo de eventos (29)
 
 | Tipo | Payload (resumo) | Stream típico | Tela |
 |---|---|---|---|
@@ -275,6 +295,10 @@ Métodos do hub SignalR (backend): cliente chama `SubscribeToStreams(string[])`,
 | `progress.updated` | `{ taskId, track, value, progress }` — trilhas separadas, nunca somar | `task:<id>` | board, cockpit |
 | `quota.updated` | `{ accountId?, budgetId?, usedUsd, limitUsd? }` | `project:<id>`, `global` | providers, cockpit, orchestrator |
 | `chief.turnStateChanged` | `{ conversationId, turnId?, state }` | `conversation:<id>` | chat, orchestrator |
+| `decision.requested` | `{ decisionId, projectId, title, reason, requestedByAgentId? }` | `project:<id>` | approvals, cockpit |
+| `decision.resolved` | `{ decisionId, outcome, resolvedByProfileId, note? }` | `project:<id>` | approvals, cockpit |
+| `project.created` | `{ project }` | `global` | projects, shell |
+| `prototype.created` | `{ prototype }` | `project:<id>` | prototypes |
 
 ## 6. Semântica de domínio refletida no contrato
 

@@ -1,5 +1,123 @@
 {
   "orchestrator": {
+    "tabs": {
+      "label": "Orchestrator sections",
+      "overview": "Overview",
+      "definitions": "Agent definitions"
+    },
+    "definitions": {
+      "title": "Agent definitions",
+      "help": "An agent definition is the agent's logical configuration (role, instructions, default model). A provider account is the credential used for model calls — they are different concepts.",
+      "new": "New definition",
+      "empty": "No definitions match the filters.",
+      "versionShort": "v{{version}}",
+      "state": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "archived": "Archived"
+      },
+      "role": {
+        "chief": "Chief",
+        "specialist": "Specialist"
+      },
+      "effort": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "risk": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "actorCritic": {
+        "actor": "Actor",
+        "critic": "Critic"
+      },
+      "filters": {
+        "team": "Team",
+        "stack": "Stack",
+        "role": "Role",
+        "provider": "Provider",
+        "model": "Model",
+        "skill": "Skill",
+        "status": "Status",
+        "all": "All",
+        "noTeam": "No team"
+      },
+      "list": {
+        "team": "Team:",
+        "model": "Default model:",
+        "provider": "Provider:",
+        "noModel": "No default model",
+        "noProvider": "No provider",
+        "inUse": "Definition in use — archive it instead."
+      },
+      "actions": {
+        "view": "View",
+        "edit": "Edit",
+        "duplicate": "Duplicate",
+        "enable": "Enable",
+        "disable": "Disable",
+        "archive": "Archive",
+        "delete": "Delete"
+      },
+      "archive": {
+        "title": "Archive definition",
+        "body": "The definition \"{{name}}\" will be archived: it can no longer be edited or used for new instances, but its history is preserved.",
+        "confirm": "Archive"
+      },
+      "delete": {
+        "title": "Delete definition",
+        "body": "Delete the definition \"{{name}}\"? This action is permanent and only allowed because no agent instance uses it.",
+        "confirm": "Delete"
+      },
+      "details": {
+        "title": "Definition — {{name}}",
+        "version": "Version {{version}}",
+        "historyTitle": "Revision history",
+        "historyEmpty": "No revisions recorded."
+      },
+      "fields": {
+        "key": "Key",
+        "name": "Name",
+        "role": "Role",
+        "specialty": "Specialty",
+        "description": "Description",
+        "persona": "Persona",
+        "mission": "Mission",
+        "responsibilities": "Responsibilities",
+        "instructions": "Instructions",
+        "restrictions": "Restrictions",
+        "bestPractices": "Best practices",
+        "skills": "Skills",
+        "tools": "Tools",
+        "stacks": "Stacks",
+        "defaultModel": "Default model",
+        "defaultEffort": "Default effort",
+        "preferredAccount": "Preferred account",
+        "fallbackModels": "Fallback models",
+        "team": "Team",
+        "actorCritic": "Actor/Critic",
+        "risk": "Risk",
+        "state": "State",
+        "version": "Version"
+      },
+      "form": {
+        "createTitle": "New agent definition",
+        "editTitle": "Edit definition — {{name}}",
+        "sectionIdentity": "Identity",
+        "sectionBehavior": "Behavior",
+        "sectionExecution": "Execution",
+        "keyHint": "Stable identifier: lowercase letters, numbers and hyphens.",
+        "stacksHint": "Separate stacks with commas (e.g. React, TypeScript).",
+        "noModel": "None",
+        "noAccount": "None",
+        "notDefined": "Not set",
+        "accountHint": "A provider account is the credential (the secret stays in the backend); the definition only references which credential to prefer.",
+        "create": "Create definition"
+      }
+    },
     "chief": {
       "title": "Project chief",
       "turnState": "Turn state",

@@ -84,8 +84,10 @@ export class MockRealtimeClient implements RealtimeClient {
   }
 
   /** Snapshot = log de eventos já emitidos no stream (ordem crescente). */
-  getSnapshot(stream: string): Promise<EventEnvelope[]> {
-    return Promise.resolve([...(this.#logs.get(stream) ?? [])]);
+  getSnapshot(stream: string, afterSequence?: number): Promise<EventEnvelope[]> {
+    const log = this.#logs.get(stream) ?? [];
+    const events = afterSequence === undefined ? log : log.filter((e) => e.sequence > afterSequence);
+    return Promise.resolve([...events]);
   }
 
   /**

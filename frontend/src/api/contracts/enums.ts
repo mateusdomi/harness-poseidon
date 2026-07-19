@@ -60,6 +60,25 @@ export const AGENT_STATES = agentStateSchema.options;
 export const agentRoleSchema = z.enum(['chief', 'specialist']);
 export type AgentRole = z.infer<typeof agentRoleSchema>;
 
+/** Ciclo de vida de uma definição de agente (habilitada/desabilitada/arquivada). */
+export const agentDefinitionStateSchema = z.enum(['enabled', 'disabled', 'archived']);
+export type AgentDefinitionState = z.infer<typeof agentDefinitionStateSchema>;
+export const AGENT_DEFINITION_STATES = agentDefinitionStateSchema.options;
+
+/** Nível de esforço de raciocínio padrão de uma definição de agente. */
+export const effortLevelSchema = z.enum(['low', 'medium', 'high']);
+export type EffortLevel = z.infer<typeof effortLevelSchema>;
+export const EFFORT_LEVELS = effortLevelSchema.options;
+
+/** Nível de risco das ações de uma definição de agente. */
+export const riskLevelSchema = z.enum(['low', 'medium', 'high']);
+export type RiskLevel = z.infer<typeof riskLevelSchema>;
+export const RISK_LEVELS = riskLevelSchema.options;
+
+/** Papel do agente no par actor/critic (actor executa, critic revisa). */
+export const actorCriticSchema = z.enum(['actor', 'critic']);
+export type ActorCritic = z.infer<typeof actorCriticSchema>;
+
 /** Modos de operação do workflow (troca exige confirmação + aceite de risco). */
 export const operationModeSchema = z.enum(['manual', 'semiautonomous', 'autonomous']);
 export type OperationMode = z.infer<typeof operationModeSchema>;
@@ -198,6 +217,42 @@ export type ProviderKind = z.infer<typeof providerKindSchema>;
 
 export const accountStateSchema = z.enum(['active', 'disabled', 'quotaExceeded']);
 export type AccountState = z.infer<typeof accountStateSchema>;
+
+/** Plano comercial da conta — vocabulário fechado do catálogo de providers. */
+export const accountPlanSchema = z.enum([
+  'unknown',
+  'free',
+  'pro',
+  'team',
+  'enterprise',
+  'payAsYouGo',
+  'local',
+]);
+export type AccountPlan = z.infer<typeof accountPlanSchema>;
+
+/** Como a referência de credencial da conta é autenticada pelo provider. */
+export const accountAuthenticationSchema = z.enum(['apiKey', 'oauth', 'local']);
+export type AccountAuthentication = z.infer<typeof accountAuthenticationSchema>;
+
+/** Saúde observada da conta no último sync/probe. */
+export const accountHealthSchema = z.enum(['unknown', 'healthy', 'degraded', 'unavailable']);
+export type AccountHealth = z.infer<typeof accountHealthSchema>;
+
+/** Janela operacional da cota da conta. */
+export const accountQuotaWindowSchema = z.enum(['daily', 'weekly', 'monthly', 'none']);
+export type AccountQuotaWindow = z.infer<typeof accountQuotaWindowSchema>;
+
+/** Capacidades autorizadas na conta (pode ser subconjunto das capacidades do modelo). */
+export const accountCapabilitySchema = z.enum([
+  'audio',
+  'chat',
+  'code',
+  'embeddings',
+  'reasoning',
+  'tools',
+  'vision',
+]);
+export type AccountCapability = z.infer<typeof accountCapabilitySchema>;
 
 export const modelCapabilitySchema = z.enum(['chat', 'code', 'vision', 'embeddings']);
 export type ModelCapability = z.infer<typeof modelCapabilitySchema>;

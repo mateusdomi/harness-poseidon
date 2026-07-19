@@ -1,22 +1,29 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { FilterX, Users } from 'lucide-react';
 
-import type { Ulid } from '@/api';
+import { AGENT_STATES, type AgentState, type Ulid } from '@/api';
 import { Button, Card, CardContent, Select, Skeleton } from '@/design-system';
 import { AgentDetail } from '@/features/agents/components/agent-detail';
 import { AgentOrgChart } from '@/features/agents/components/agent-org-chart';
 import { useAgentsData, useAgentsRealtime } from '@/features/agents/hooks/use-agents';
-import { definitionOf, teamOfProject } from '@/features/agents/lib/agents-derive';
+import {
+  definitionOf,
+  distinctTeams,
+  filterSpecialists,
+  teamOfProject,
+  type TeamFilter,
+} from '@/features/agents/lib/agents-derive';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useNow } from '@/features/shared/hooks/use-now';
 
 /**
  * Equipe de agentes do projeto ativo: organograma (chefe no topo,
- * especialistas abaixo) com cards de estado/capacidades/métricas e
- * detalhe em modal. `agent.statusChanged` (stream global) atualiza
- * os badges em tempo real.
+ * especialistas agrupados pelo time da definição) com cards de
+ * estado/capacidades/métricas, filtros de estado e time (o chefe
+ * permanece) e detalhe em modal. `agent.statusChanged` (stream global)
+ * atualiza os badges em tempo real.
  */
 export default function UagentsPage() {
   const { t } = useTranslation();
@@ -27,6 +34,8 @@ export default function UagentsPage() {
   const now = useNow();
 
   const [selectedAgentId, setSelectedAgentId] = useState<Ulid | null>(null);
+  const [stateFilter, setStateFilter] = useState<AgentState | 'all'>('all');
+  const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
 
   const loading = isPending || data.isPending;
   const errored = isError || data.isError;
@@ -40,6 +49,17 @@ export default function UagentsPage() {
   const teamCount = (team?.chief ? 1 : 0) + (team?.specialists.length ?? 0);
   // Resolve a instância fresca: o modal reflete mudanças de estado em tempo real.
   const selectedAgent = data.agents.find((agent) => agent.id === selectedAgentId) ?? null;
+
+  const specialists = team?.specialists ?? [];
+  const { teams, hasGeneral } = distinctTeams(specialists, data.definitions);
+  const filteredSpecialists = filterSpecialists(
+    specialists,
+    data.definitions,
+    stateFilter,
+    teamFilter,
+  );
+  const filtersActive = stateFilter !== 'all' || teamFilter !== 'all';
+  const filteredTeam = team ? { ...team, specialists: filteredSpecialists } : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -107,15 +127,69 @@ export default function UagentsPage() {
           </CardContent>
         </Card>
       ) : (
-        team && (
-          <AgentOrgChart
-            team={team}
-            definitions={data.definitions}
-            skills={data.skills}
-            tasks={data.tasks}
-            attempts={data.attempts}
-            onSelect={(agent) => setSelectedAgentId(agent.id)}
-          />
+        filteredTeam && (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label htmlFor="agents-filter-state" className="text-sm text-foreground-muted">
+                  {t('agents.filters.state.label')}
+                </label>
+                <Select
+                  id="agents-filter-state"
+                  className="w-auto min-w-40"
+                  value={stateFilter}
+                  onChange={(event) => setStateFilter(event.target.value as AgentState | 'all')}
+                >
+                  <option value="all">{t('agents.filters.state.all')}</option>
+                  {AGENT_STATES.map((state) => (
+                    <option key={state} value={state}>
+                      {t(`status.agentState.${state}`)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="agents-filter-team" className="text-sm text-foreground-muted">
+                  {t('agents.filters.team.label')}
+                </label>
+                <Select
+                  id="agents-filter-team"
+                  className="w-auto min-w-40"
+                  value={teamFilter}
+                  onChange={(event) => setTeamFilter(event.target.value)}
+                >
+                  <option value="all">{t('agents.filters.team.all')}</option>
+                  {teams.map((teamName) => (
+                    <option key={teamName} value={teamName}>
+                      {teamName}
+                    </option>
+                  ))}
+                  {hasGeneral && <option value="none">{t('agents.teams.general')}</option>}
+                </Select>
+              </div>
+            </div>
+
+            {filtersActive && filteredSpecialists.length === 0 && (
+              <Card>
+                <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
+                  <FilterX aria-hidden="true" className="size-8 text-foreground-muted" />
+                  <h2 className="font-heading text-lg font-semibold">
+                    {t('agents.filteredEmpty.title')}
+                  </h2>
+                  <p className="text-sm text-foreground-muted">{t('agents.filteredEmpty.body')}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            <AgentOrgChart
+              team={filteredTeam}
+              definitions={data.definitions}
+              skills={data.skills}
+              tasks={data.tasks}
+              attempts={data.attempts}
+              onSelect={(agent) => setSelectedAgentId(agent.id)}
+            />
+          </>
         )
       )}
 

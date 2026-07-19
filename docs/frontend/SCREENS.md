@@ -1,4 +1,4 @@
-# SCREENS — Inventário de telas e auditoria de estados (FE-4)
+# SCREENS — Inventário de telas e auditoria de estados (FR-5)
 
 Inventário das 21 telas do frontend: rota, dados consumidos, eventos realtime assinados, ações/comandos e checklist dos 5 estados obrigatórios. Resultado da auditoria tela a tela da FE-4.
 
@@ -106,18 +106,18 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Ações:** resolver aprovação (`resolveApproval` — aprovar/rejeitar; nota obrigatória ao reprovar).
 - **Estados:** vazio com orientação; skeleton; erro com retry (5 queries).
 
-## 10. orchestrator — `/orchestrator`
+## 10. orchestrator — `/orchestrator` (`?tab=definitions&definition=<id>`)
 
-- **Dados:** `agents`, `tasks`, `attempts`, `conversations`, `agent-definitions`, `models`, `accounts`, `budgets`; `attempt-events` no detalhe da tentativa.
+- **Dados:** `agents`, `tasks`, `attempts`, `conversations`, `agent-definitions`, `skills`, `tools`, `providers`, `models`, `accounts`, `budgets`; `attempt-events` no detalhe da tentativa.
 - **Realtime:** stream `global` + streams das attempts em execução — `agent.statusChanged`, `attempt.started`, `attempt.heartbeat`, `attempt.completed`, `attempt.failed`, `quota.updated`; `chief.turnStateChanged` nas conversas.
-- **Ações:** pausar/retomar chefe (`pauseChief`/`resumeChief`), drenar tarefas (`drainChiefTasks`), passagem de bastão (`handoffChief`).
+- **Ações:** pausar/retomar chefe (`pauseChief`/`resumeChief`), drenar tarefas (`drainChiefTasks`), passagem de bastão (`handoffChief`); na aba Definições: criar, visualizar, editar, duplicar, habilitar/desabilitar, arquivar e excluir somente quando nunca utilizada. As mutações de definições estão completas no mock e pendentes no backend real.
 - **Estados:** vazio sem projeto/sem chefe (CTA), grade vazia, tentativa sem eventos; skeleton (página, wizard, attempt-dialog); erro com retry (página, wizard, attempt-dialog).
 
 ## 11. agents — `/agents`
 
 - **Dados:** `agents`, `agent-definitions`, `skills`, `tools`, `models`, `tasks`, `attempts`, `audit-events`.
 - **Realtime:** stream `global` — `agent.statusChanged`.
-- **Ações:** nenhuma (read-only; detalhe em modal).
+- **Ações:** read-only; detalhe em modal e link profundo para a definição no Orquestrador. Organograma mostra Chief no topo e especialistas agrupados por time, com filtros de time/status, tarefa, saúde/cota, modelo/effort/rota, capacidades, métricas e histórico.
 - **Estados:** vazio sem projeto (CTA), equipe vazia, seções vazias no detalhe; skeleton; erro com retry.
 
 ## 12. tools — `/tools`
@@ -129,9 +129,9 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 ## 13. run-project — `/run-project`
 
-- **Dados:** `run-targets` (por projeto), `projects`.
+- **Dados:** `run-targets` (por projeto), `projects`, `settings` (diretório de dados local).
 - **Realtime:** stream `project:<id>` — `run.logAppended` (painel de logs, últimas 200 linhas).
-- **Ações:** start/stop/restart por serviço e em lote (`startRunTarget`/`stopRunTarget`/`restartRunTarget`); cleanup do ambiente com confirmação (`cleanupRunEnvironment`).
+- **Ações:** start/stop/restart por serviço e em lote (`startRunTarget`/`stopRunTarget`/`restartRunTarget`); cleanup do ambiente com confirmação (`cleanupRunEnvironment`); card explica Launcher/atalho, Host/Runner, porta/navegador, estado, diretório de dados, diagnóstico e operação sem IDE.
 - **Estados:** vazio sem projeto, sem serviços, log vazio; skeleton; erro com retry.
 
 ## 14. onboarding — `/onboarding` (fora do AppShell e do guard de perfil)
@@ -152,7 +152,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 - **Dados:** `providers`, `accounts`, `models`, `budgets`, `routing-policies`, `projects`.
 - **Realtime:** stream `global` — `quota.updated` (atualiza consumo da conta no cache + invalida budgets).
-- **Ações:** sincronizar catálogo (`syncProviderCatalog`); editar política de roteamento com confirmação (`update('routing-policies')`).
+- **Ações:** sincronizar catálogo (`syncProviderCatalog`); criar/editar/habilitar/desabilitar/remover conta (remoção somente desabilitada e ainda protegida contra referências); editar política de roteamento com confirmação (`update('routing-policies')`). Contas exibem identidade, plano, autenticação, saúde, cota/janela/reset e capacidades; modelos exibem capabilities, custos, localidade derivada do provider e mapeamento de esforço.
 - **Estados:** vazio de página/contas/modelos/budgets/roteamento (3 últimos adicionados na FE-4); skeleton; erro com retry (5 queries).
 
 ## 17. po-assistant — `/po-assistant`

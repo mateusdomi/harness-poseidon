@@ -1,15 +1,36 @@
 import { z } from 'zod';
 
 import {
+  actorCriticSchema,
+  agentDefinitionStateSchema,
   agentRoleSchema,
   agentStateSchema,
   componentStateSchema,
+  effortLevelSchema,
   mcpTransportSchema,
+  riskLevelSchema,
   toolKindSchema,
 } from './enums';
 import { isoDateTimeSchema, ulidSchema } from './primitives';
 
-/** Definição (tipo) de agente: chefe ou especialista. */
+/** Entrada do histórico de revisões de uma definição de agente (FR-5). */
+export const agentDefinitionRevisionSchema = z.object({
+  version: z.number().int().positive(),
+  changedAt: isoDateTimeSchema,
+  /** Campos alterados nesta revisão. */
+  changedFields: z.array(z.string()),
+  /** Resumo legível da mudança. */
+  summary: z.string(),
+});
+export type AgentDefinitionRevision = z.infer<typeof agentDefinitionRevisionSchema>;
+
+/**
+ * Definição (tipo) de agente: chefe ou especialista.
+ * Campos FR-5 são ADITIVOS e opcionais (o backend pode ainda não enviá-los):
+ * persona/missão/responsabilidades/instruções/restrições/boas práticas,
+ * stacks, esforço padrão, conta preferencial, fallbacks, time, actor/critic,
+ * risco, estado do ciclo de vida e versionamento (`version` + `history`).
+ */
 export const agentDefinitionSchema = z.object({
   id: ulidSchema,
   key: z.string(),
@@ -20,6 +41,37 @@ export const agentDefinitionSchema = z.object({
   defaultModelId: ulidSchema.nullable(),
   skillIds: z.array(ulidSchema),
   toolIds: z.array(ulidSchema),
+  /* ---- FR-5 (aditivos) ---- */
+  state: agentDefinitionStateSchema.optional(),
+  persona: z.string().nullable().optional(),
+  mission: z.string().nullable().optional(),
+  responsibilities: z.string().nullable().optional(),
+  instructions: z.string().nullable().optional(),
+  restrictions: z.string().nullable().optional(),
+  bestPractices: z.string().nullable().optional(),
+  stacks: z.array(z.string()).optional(),
+  defaultEffort: effortLevelSchema.nullable().optional(),
+  /** Conta de provider preferencial (o provider se resolve pela conta). */
+  preferredAccountId: ulidSchema.nullable().optional(),
+  /** Modelos alternativos, em ordem, quando o padrão não está disponível. */
+  fallbackModelIds: z.array(ulidSchema).optional(),
+  /** Time ao qual a definição pertence (agrupa o organograma). */
+  team: z.string().nullable().optional(),
+  actorCritic: actorCriticSchema.nullable().optional(),
+  risk: riskLevelSchema.nullable().optional(),
+  /** Versão da definição — incrementa a cada edição (como os demais recursos). */
+  version: z.number().int().positive().optional(),
+  /** Histórico simples de revisões (mais recente por último). */
+  history: z.array(agentDefinitionRevisionSchema).optional(),
+  /* Campos do contrato real V3 (2026-07-19). Permanecem junto aos campos
+     aditivos do refinamento para compatibilidade progressiva. */
+  operatingPrinciples: z.array(z.string()).optional(),
+  deliverables: z.array(z.string()).optional(),
+  qualityCriteria: z.array(z.string()).optional(),
+  communicationStyle: z.string().nullable().optional(),
+  limitations: z.array(z.string()).optional(),
+  enabled: z.boolean().optional(),
+  archivedAt: isoDateTimeSchema.nullable().optional(),
 });
 export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
@@ -59,6 +111,13 @@ export const agentSchema = z.object({
   lease: agentLeaseSchema.nullable(),
   metrics: agentMetricsSchema,
   lastHeartbeatAt: isoDateTimeSchema.nullable(),
+  /** Seleção operacional persistida pelo backend V3. */
+  accountId: ulidSchema.nullable().optional(),
+  effort: effortLevelSchema.nullable().optional(),
+  providerEffortValue: z.string().nullable().optional(),
+  fallbackModelIds: z.array(ulidSchema).optional(),
+  selectionReason: z.string().nullable().optional(),
+  selectionUpdatedAt: isoDateTimeSchema.nullable().optional(),
 });
 export type Agent = z.infer<typeof agentSchema>;
 

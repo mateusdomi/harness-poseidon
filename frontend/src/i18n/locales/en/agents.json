@@ -2,8 +2,24 @@
   "agents": {
     "count": "{{count}} agent(s) on the team",
     "groups": {
-      "chief": "Chief",
-      "specialists": "Specialists"
+      "chief": "Chief"
+    },
+    "teams": {
+      "general": "General"
+    },
+    "filters": {
+      "state": {
+        "label": "State",
+        "all": "All states"
+      },
+      "team": {
+        "label": "Team",
+        "all": "All teams"
+      }
+    },
+    "filteredEmpty": {
+      "title": "No specialists found",
+      "body": "No specialist matches the selected filters. Adjust the state or team."
     },
     "tree": {
       "label": "Project team org chart"
@@ -18,7 +34,8 @@
     },
     "card": {
       "capabilities": "Capabilities",
-      "details": "View details"
+      "details": "View details",
+      "configureDefinition": "Configure definition"
     },
     "metrics": {
       "tasksCompleted": {
@@ -47,6 +64,31 @@
       "modelDefault": "Default",
       "modelOverride": "In use (override)",
       "modelContext": "{{total}} token context",
+      "route": {
+        "title": "Model and routing",
+        "current": "Model in use",
+        "sourceOverride": "Human override",
+        "sourceDefault": "Definition default (automatic routing)",
+        "reason": "Reason",
+        "reasonOverride": "The model was selected by a human override recorded on the agent instance.",
+        "reasonDefault": "Routing automatically applied the definition default model.",
+        "effort": "Effort",
+        "effortLevel": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High"
+        },
+        "providerEffort": "value sent to the provider: {{value}}",
+        "effortUnavailable": "the model does not publish a compatible mapping",
+        "effortAutomatic": "Automatic according to policy and capability",
+        "estimatedImpact": "Estimated impact",
+        "estimatedImpactCost": "Base rate per 1k tokens: {{input}} input and {{output}} output; final cost depends on actual usage.",
+        "estimatedImpactLocal": "No monetary rate published; latency and capacity depend on the local/provider environment.",
+        "defaultModel": "Definition default model",
+        "fallbacks": "Configured fallbacks",
+        "fallbacksEmpty": "No fallback configured.",
+        "unresolved": "Model not found in the catalog"
+      },
       "history": "Recent history",
       "historyEmpty": "No recent audit events or attempts.",
       "attempt": "Attempt #{{number}}",

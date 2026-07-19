@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { Info } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Info, Settings } from 'lucide-react';
 
 import type { Agent, AgentDefinition, Skill } from '@/api';
 import { Badge, Button, Card, CardContent } from '@/design-system';
@@ -95,14 +96,24 @@ export function AgentCard({ agent, definition, skills, metrics, onSelect }: Agen
           />
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-auto min-h-11 w-full"
-          onClick={() => onSelect(agent)}
-        >
-          {t('agents.card.details')}
-        </Button>
+        <div className="mt-auto flex flex-col gap-2">
+          {definition && (
+            <Button asChild variant="ghost" className="min-h-11 w-full">
+              <Link to={`/orchestrator?tab=definitions&definition=${definition.id}`}>
+                <Settings aria-hidden="true" className="size-4" />
+                {t('agents.card.configureDefinition')}
+              </Link>
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full"
+            onClick={() => onSelect(agent)}
+          >
+            {t('agents.card.details')}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

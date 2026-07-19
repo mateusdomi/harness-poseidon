@@ -2,6 +2,7 @@
   "providers": {
     "enabled": "Enabled",
     "disabled": "Disabled",
+    "local": "Local",
     "empty": "No providers configured. Providers appear here once the catalog is synced by the API.",
     "sync": {
       "action": "Sync",
@@ -10,15 +11,93 @@
     "accounts": {
       "title": "Accounts",
       "empty": "No accounts for this provider.",
+      "new": "New account",
+      "meta": "Identity: {{identity}} · plan: {{plan}} · authentication: {{authentication}}",
+      "notProvided": "not provided",
+      "health": {
+        "unknown": "Health unknown",
+        "healthy": "Healthy",
+        "degraded": "Degraded",
+        "unavailable": "Unavailable"
+      },
+      "plan": {
+        "unknown": "Not provided",
+        "free": "Free",
+        "pro": "Pro",
+        "team": "Team",
+        "enterprise": "Enterprise",
+        "payAsYouGo": "Pay as you go",
+        "local": "Local (no cost)"
+      },
+      "authentication": {
+        "apiKey": "API key",
+        "oauth": "OAuth",
+        "local": "Local"
+      },
+      "quotaWindow": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "none": "No window"
+      },
+      "capability": {
+        "audio": "Audio",
+        "chat": "Chat",
+        "code": "Code",
+        "embeddings": "Embeddings",
+        "reasoning": "Reasoning",
+        "tools": "Tools",
+        "vision": "Vision"
+      },
       "quotaBar": "Quota usage of account {{label}}",
       "quota": "{{used}} of {{limit}} used",
       "quotaNoLimit": "{{used}} used (no limit configured)",
-      "window": "Window: {{period}} · next reset on {{reset}} (derived from the budget period)"
+      "window": "Window: {{period}} · next reset: {{reset}}",
+      "noReset": "not scheduled",
+      "budgetReset": "Budget reference: next period on {{reset}}.",
+      "actions": {
+        "edit": "Edit",
+        "enable": "Enable",
+        "disable": "Disable",
+        "remove": "Remove"
+      },
+      "form": {
+        "createTitle": "New account",
+        "editTitle": "Edit account",
+        "provider": "Provider",
+        "label": "Label",
+        "labelRequired": "Enter a label for the account.",
+        "credentialReference": "Credential reference",
+        "credentialHint": "Use a secure keychain://, dpapi:// or secret:// reference. The value will not be shown again.",
+        "credentialRequired": "Enter the secure credential reference.",
+        "credentialInvalid": "Use a valid keychain://, dpapi:// or secret:// reference.",
+        "identity": "Email/identity (optional)",
+        "plan": "Plan",
+        "authentication": "Authentication",
+        "quotaWindow": "Quota window",
+        "quotaLimit": "Quota limit (USD)",
+        "capabilities": "Allowed capabilities",
+        "error": "Could not save the account. Please try again."
+      },
+  "delete": {
+    "title": "Remove account",
+    "body": "Remove the account \"{{label}}\"? This action cannot be undone.",
+    "disableFirst": "Disable the account before removing it.",
+    "confirm": "Remove account",
+        "error": "Could not remove the account. Please try again."
+      }
     },
     "models": {
       "title": "Model catalog",
       "empty": "No models for this provider.",
-      "meta": "Context: {{context}} tokens · cost/1k: {{input}} input · {{output}} output"
+      "meta": "Context: {{context}} tokens · cost/1k: {{input}} input · {{output}} output",
+      "effortMappings": "Supported effort",
+      "effort": {
+        "low": "Low → {{value}}",
+        "medium": "Medium → {{value}}",
+        "high": "High → {{value}}",
+        "max": "Maximum → {{value}}"
+      }
     },
     "budgets": {
       "title": "Budgets",

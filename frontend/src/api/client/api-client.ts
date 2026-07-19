@@ -1,5 +1,7 @@
 import type {
+  Account,
   Agent,
+  AgentDefinition,
   AnalyzeSolicitationInput,
   AppendTaskInstructionInput,
   ActivateLicenseInput,
@@ -7,6 +9,9 @@ import type {
   ChatTurnHandle,
   ClassifyDocumentInput,
   CreatableResource,
+  CreateAccountInput,
+  CreateAgentDefinitionInput,
+  DuplicateAgentDefinitionInput,
   CreateInputMap,
   CreateWorkflowTemplateInput,
   Diagnostics,
@@ -39,6 +44,8 @@ import type {
   TransitionSolicitationInput,
   Ulid,
   UpdatableResource,
+  UpdateAccountInput,
+  UpdateAgentDefinitionInput,
   UpdateInputMap,
   Workflow,
   WorkflowDraftInput,
@@ -215,6 +222,48 @@ export interface ApiClient {
    * → emite `quota.updated` das contas do provider no stream global.
    */
   syncProviderCatalog(providerId: Ulid): Promise<Model[]>;
+
+  /* ---- contas de provider (FR-5) ---- */
+
+  /** Cria uma conta com referência write-only e metadados — nasce `disabled`. */
+  createAccount(input: CreateAccountInput): Promise<Account>;
+  /** Edita estado, apelido, identidade, plano, saúde, cota e capacidades. */
+  updateAccount(id: Ulid, input: UpdateAccountInput): Promise<Account>;
+  /** Habilita a conta (`state: active`). */
+  enableAccount(id: Ulid): Promise<Account>;
+  /** Desabilita a conta (`state: disabled`). */
+  disableAccount(id: Ulid): Promise<Account>;
+  /**
+   * Remove somente conta desabilitada — 409 se estiver ativa ou se houver
+   * budget/definição referenciando-a (remova as referências antes).
+   */
+  deleteAccount(id: Ulid): Promise<void>;
+
+  /* ---- definições de agente (FR-5) ---- */
+
+  /** Cria definição de agente — nasce `enabled`, `version: 1`. */
+  createAgentDefinition(input: CreateAgentDefinitionInput): Promise<AgentDefinition>;
+  /** Edita a definição — incrementa `version` e registra no histórico. */
+  updateAgentDefinition(id: Ulid, input: UpdateAgentDefinitionInput): Promise<AgentDefinition>;
+  /** Duplica a definição (cópia habilitada, sem instâncias, `version: 1`). */
+  duplicateAgentDefinition(
+    id: Ulid,
+    input?: DuplicateAgentDefinitionInput,
+  ): Promise<AgentDefinition>;
+  /** Habilita a definição (`state: enabled`). */
+  enableAgentDefinition(id: Ulid): Promise<AgentDefinition>;
+  /** Desabilita a definição (`state: disabled`). */
+  disableAgentDefinition(id: Ulid): Promise<AgentDefinition>;
+  /**
+   * Arquiva a definição (`state: archived` — tombstone). Instâncias
+   * existentes continuam referenciando-a (histórico preservado).
+   */
+  archiveAgentDefinition(id: Ulid): Promise<AgentDefinition>;
+  /**
+   * Exclui SOMENTE definição nunca utilizada (sem instâncias de agente)
+   * — 409 caso contrário (usar archiveAgentDefinition).
+   */
+  deleteAgentDefinition(id: Ulid): Promise<void>;
 
   /* ---- PO Assistant ---- */
 

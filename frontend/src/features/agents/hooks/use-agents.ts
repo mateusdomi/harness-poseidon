@@ -44,7 +44,7 @@ export function useAgentsData() {
   const definitionsQuery = useQuery({
     queryKey: agentKeys.definitions,
     queryFn: async (): Promise<AgentDefinition[]> =>
-      (await api.list('agent-definitions')).items,
+      (await api.list('agent-definitions', { filter: { includeArchived: true } })).items,
   });
 
   const skillsQuery = useQuery({

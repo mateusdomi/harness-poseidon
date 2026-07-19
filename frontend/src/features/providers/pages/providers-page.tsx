@@ -1,16 +1,21 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil, RefreshCw } from 'lucide-react';
+import { Pencil, Plus, Power, PowerOff, RefreshCw, Trash2 } from 'lucide-react';
 
-import type { RoutingPolicy, Ulid } from '@/api';
+import { ApiError, type Account, type RoutingPolicy, type Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
-import { accountStateVariant } from '@/lib/status';
+import { accountHealthVariant, accountStateVariant } from '@/lib/status';
 import { formatCurrencyUSD, formatDate, formatNumber } from '@/lib/format';
 import { ConsumptionBar } from '@/features/providers/components/consumption-bar';
+import { AccountFormDialog } from '@/features/providers/components/account-form-dialog';
 import { RoutingPolicyDialog } from '@/features/providers/components/routing-policy-dialog';
+import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import {
   useAccounts,
   useBudgets,
+  useDeleteAccount,
+  useDisableAccount,
+  useEnableAccount,
   useModels,
   useProviders,
   useProvidersRealtime,
@@ -27,8 +32,9 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 
 /**
  * Providers e contas: catálogo de modelos (somente leitura) com sync,
- * contas com saúde/cota/janela/reset, budgets por escopo e política de
- * roteamento em visualização estruturada com edição confirmada.
+ * CRUD de contas (criar/editar/habilitar/desabilitar/remover — FR-5) com
+ * saúde/cota/janela/reset, budgets por escopo e política de roteamento em
+ * visualização estruturada com edição confirmada.
  * Realtime: `quota.updated` (stream global) atualiza as barras de cota.
  */
 export default function UprovidersPage() {
@@ -40,10 +46,17 @@ export default function UprovidersPage() {
   const routingQuery = useRoutingPolicies();
   const { projects } = useActiveProject();
   const syncCatalog = useSyncProviderCatalog();
+  const enableAccount = useEnableAccount();
+  const disableAccount = useDisableAccount();
+  const deleteAccount = useDeleteAccount();
   const now = useNow();
   useProvidersRealtime();
 
   const [editingPolicy, setEditingPolicy] = useState<RoutingPolicy | null>(null);
+  const [accountForm, setAccountForm] = useState<{ providerId: Ulid; account: Account | null } | null>(
+    null,
+  );
+  const [deletingAccount, setDeletingAccount] = useState<Account | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<{ providerId: Ulid; count: number } | null>(
     null,
   );
@@ -156,8 +169,18 @@ export default function UprovidersPage() {
 
             <div className="grid gap-3 lg:grid-cols-2">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex-row flex-wrap items-center gap-3">
                   <CardTitle>{t('providers.accounts.title')}</CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => setAccountForm({ providerId: provider.id, account: null })}
+                  >
+                    <Plus aria-hidden="true" />
+                    {t('providers.accounts.new')}
+                  </Button>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                   {providerAccounts.length === 0 ? (
@@ -172,6 +195,84 @@ export default function UprovidersPage() {
                             <Badge variant={accountStateVariant(account.state)}>
                               {t(`status.accountState.${account.state}`)}
                             </Badge>
+                            {/* O contrato não tem flag "local" na conta/modelo:
+                                deriva-se de provider.kind === 'ollama'. */}
+                            {provider.kind === 'ollama' && (
+                              <Badge variant="info">{t('providers.local')}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-foreground-muted">
+                            {t('providers.accounts.meta', {
+                              identity: account.identity ?? t('providers.accounts.notProvided'),
+                              plan: t(`providers.accounts.plan.${account.plan}`),
+                              authentication: t(
+                                `providers.accounts.authentication.${account.authentication}`,
+                              ),
+                            })}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={accountHealthVariant(account.health)}>
+                              {t(`providers.accounts.health.${account.health}`)}
+                            </Badge>
+                            {account.capabilities.map((capability) => (
+                              <Badge key={capability} variant="info">
+                                {t(`providers.accounts.capability.${capability}`)}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setAccountForm({ providerId: provider.id, account })
+                              }
+                            >
+                              <Pencil aria-hidden="true" />
+                              {t('providers.accounts.actions.edit')}
+                            </Button>
+                            {account.state === 'active' ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={disableAccount.isPending}
+                                onClick={() => disableAccount.mutate(account.id)}
+                              >
+                                <PowerOff aria-hidden="true" />
+                                {t('providers.accounts.actions.disable')}
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={enableAccount.isPending}
+                                onClick={() => enableAccount.mutate(account.id)}
+                              >
+                                <Power aria-hidden="true" />
+                                {t('providers.accounts.actions.enable')}
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={account.state !== 'disabled'}
+                              title={
+                                account.state !== 'disabled'
+                                  ? t('providers.accounts.delete.disableFirst')
+                                  : undefined
+                              }
+                              onClick={() => {
+                                deleteAccount.reset();
+                                setDeletingAccount(account);
+                              }}
+                            >
+                              <Trash2 aria-hidden="true" />
+                              {t('providers.accounts.actions.remove')}
+                            </Button>
                           </div>
                           <ConsumptionBar
                             used={account.quotaUsedUsd}
@@ -189,10 +290,18 @@ export default function UprovidersPage() {
                                   limit: formatCurrencyUSD(account.quotaLimitUsd),
                                 })}
                           </p>
-                          {budget && (
+                          <p className="text-xs text-foreground-muted">
+                            {t('providers.accounts.window', {
+                              period: t(`providers.accounts.quotaWindow.${account.quotaWindow}`),
+                              reset:
+                                account.quotaResetsAt === null
+                                  ? t('providers.accounts.noReset')
+                                  : formatDate(account.quotaResetsAt),
+                            })}
+                          </p>
+                          {budget && account.quotaResetsAt === null && (
                             <p className="text-xs text-foreground-muted">
-                              {t('providers.accounts.window', {
-                                period: t(`status.budgetPeriod.${budget.period}`),
+                              {t('providers.accounts.budgetReset', {
                                 reset: formatDate(nextBudgetReset(budget.period, now)),
                               })}
                             </p>
@@ -223,6 +332,10 @@ export default function UprovidersPage() {
                           <Badge variant={model.enabled ? 'success' : 'outline'}>
                             {model.enabled ? t('providers.enabled') : t('providers.disabled')}
                           </Badge>
+                          {/* Sem flag "local" no contrato: deriva do provider (kind 'ollama'). */}
+                          {provider.kind === 'ollama' && (
+                            <Badge variant="info">{t('providers.local')}</Badge>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {model.capabilities.map((capability) => (
@@ -244,6 +357,18 @@ export default function UprovidersPage() {
                                 : formatCurrencyUSD(model.costPer1kOutputUsd),
                           })}
                         </p>
+                        {model.effortMappings.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 text-xs text-foreground-muted">
+                            <span>{t('providers.models.effortMappings')}:</span>
+                            {model.effortMappings.map((mapping) => (
+                              <Badge key={mapping.effort} variant="outline">
+                                {t(`providers.models.effort.${mapping.effort}`, {
+                                  value: mapping.providerValue,
+                                })}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -366,6 +491,55 @@ export default function UprovidersPage() {
           models={models}
           onClose={() => setEditingPolicy(null)}
         />
+      )}
+
+      {accountForm && (
+        <AccountFormDialog
+          providers={providers}
+          account={accountForm.account ?? undefined}
+          initialProviderId={accountForm.providerId}
+          onClose={() => setAccountForm(null)}
+        />
+      )}
+
+      {deletingAccount && (
+        <ModalDialog
+          label={t('providers.accounts.delete.title')}
+          onClose={() => setDeletingAccount(null)}
+        >
+          <div className="flex flex-col gap-4">
+            <h3 className="font-heading text-lg font-semibold">
+              {t('providers.accounts.delete.title')}
+            </h3>
+            <p className="text-sm">
+              {t('providers.accounts.delete.body', { label: deletingAccount.label })}
+            </p>
+            {deleteAccount.isError && (
+              <p role="alert" className="text-sm text-error">
+                {deleteAccount.error instanceof ApiError
+                  ? deleteAccount.error.problem.detail || deleteAccount.error.problem.title
+                  : t('providers.accounts.delete.error')}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDeletingAccount(null)}>
+                {t('common.actions.cancel')}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={deleteAccount.isPending}
+                onClick={() =>
+                  deleteAccount.mutate(deletingAccount.id, {
+                    onSuccess: () => setDeletingAccount(null),
+                  })
+                }
+              >
+                {t('providers.accounts.delete.confirm')}
+              </Button>
+            </div>
+          </div>
+        </ModalDialog>
       )}
     </div>
   );
