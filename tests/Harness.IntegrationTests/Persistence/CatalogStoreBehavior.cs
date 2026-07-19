@@ -66,5 +66,20 @@ public static class CatalogStoreBehavior
         Assert.Equal("Provider-neutral account", updated.Label);
         Assert.Equal("disabled", updated.State);
         Assert.Equal(125m, updated.QuotaLimitUsd);
+
+        const string disposableAccountId = "01ARZ3NDEKTSV4RRFFQ69G5FN1";
+        var created = await providers.CreateAccountAsync(
+            new ProviderAccountCreateCommand(
+                tenantId, tenantId, disposableAccountId, providerRows[0].Id,
+                "Provider-neutral disposable", "secret://providers/disposable", 50m,
+                DateTimeOffset.Parse("2026-07-19T12:01:00Z", System.Globalization.CultureInfo.InvariantCulture)),
+            cancellationToken);
+        Assert.Equal("disabled", created.State);
+        await providers.DeleteAccountAsync(
+            new ProviderAccountDeleteCommand(
+                tenantId, tenantId, disposableAccountId,
+                DateTimeOffset.Parse("2026-07-19T12:02:00Z", System.Globalization.CultureInfo.InvariantCulture)),
+            cancellationToken);
+        Assert.Null(await providers.GetAccountAsync(tenantId, disposableAccountId, cancellationToken));
     }
 }

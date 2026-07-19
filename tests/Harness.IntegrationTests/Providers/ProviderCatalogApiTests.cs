@@ -49,6 +49,24 @@ public sealed class ProviderCatalogApiTests
                     Assert.All(definitions.Items, definition => Assert.Contains(definition.DefaultModelId, models.Items.Select(x => x.Id)));
 
                     providerId = providers.Items.Single(x => x.Kind == "openai").Id;
+                    using (var invalid = await client.PostAsJsonAsync("/api/v1/accounts", new CreateProviderAccountRequest(providerId, "Unsafe", "https://example.test/secret", 10m), timeout.Token))
+                        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+                    string disposableAccountId;
+                    using (var created = await client.PostAsJsonAsync("/api/v1/accounts", new CreateProviderAccountRequest(providerId, "Disposable account", "keychain://harness/disposable", 25m), timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+                        var value = (await created.Content.ReadFromJsonAsync<AccountContract>(timeout.Token))!;
+                        disposableAccountId = value.Id; Assert.Equal("disabled", value.State);
+                        Assert.DoesNotContain("keychain://", await created.Content.ReadAsStringAsync(timeout.Token), StringComparison.OrdinalIgnoreCase);
+                    }
+                    using (var activated = await client.PatchAsJsonAsync($"/api/v1/accounts/{disposableAccountId}", new AccountPatchRequest(null, "active", null), timeout.Token))
+                        Assert.Equal(HttpStatusCode.OK, activated.StatusCode);
+                    using (var blocked = await client.DeleteAsync($"/api/v1/accounts/{disposableAccountId}", timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+                    using (var disabled = await client.PatchAsJsonAsync($"/api/v1/accounts/{disposableAccountId}", new AccountPatchRequest(null, "disabled", null), timeout.Token))
+                        Assert.Equal(HttpStatusCode.OK, disabled.StatusCode);
+                    using (var deleted = await client.DeleteAsync($"/api/v1/accounts/{disposableAccountId}", timeout.Token))
+                        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/providers/{providerId}", new ProviderPatchRequest("OpenAI managed", null, true), timeout.Token))
                     { patch.EnsureSuccessStatusCode(); Assert.Equal("OpenAI managed", (await patch.Content.ReadFromJsonAsync<ProviderContract>(timeout.Token))?.Name); }
                     accountId = accounts.Items.Single(x => x.ProviderId == providerId).Id;

@@ -15,6 +15,11 @@ public sealed class ProviderContractDriftTests
         var root = FindRepositoryRoot(); using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "contracts", "openapi.json")));
         var api = document.RootElement; var paths = api.GetProperty("paths"); Assert.True(paths.GetProperty($"/api/v1/{route}").TryGetProperty("get", out _));
         var item = paths.GetProperty($"/api/v1/{route}/{{id}}"); Assert.True(item.TryGetProperty("get", out _)); Assert.Equal(patch, item.TryGetProperty("patch", out _));
+        if (route == "accounts")
+        {
+            Assert.True(paths.GetProperty("/api/v1/accounts").TryGetProperty("post", out _));
+            Assert.True(item.TryGetProperty("delete", out _));
+        }
         var fields = csv.Split(','); var actual = api.GetProperty("components").GetProperty("schemas").GetProperty(schema).GetProperty("properties").EnumerateObject().Select(x => x.Name).Order(StringComparer.Ordinal).ToArray(); Assert.Equal(fields.Order(StringComparer.Ordinal), actual);
         var source = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "providers.ts")); var start = source.IndexOf($"export const {marker}", StringComparison.Ordinal); var end = source.IndexOf($"export type {type}", start, StringComparison.Ordinal); Assert.True(start >= 0 && end > start); var block = source[start..end]; Assert.All(fields, f => Assert.Contains($"{f}:", block, StringComparison.Ordinal));
         if (route == "providers") Assert.True(paths.GetProperty("/api/v1/providers/{id}/sync").TryGetProperty("post", out _));

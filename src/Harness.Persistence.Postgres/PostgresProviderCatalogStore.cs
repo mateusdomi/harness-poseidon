@@ -83,6 +83,20 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         string tenantId, string id, CancellationToken cancellationToken = default) =>
         GetCoreAsync(tenantId, AccountSelect, id, ReadAccount, cancellationToken);
 
+    public Task<AccountRecord> CreateAccountAsync(
+        ProviderAccountCreateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return CreateAccountCoreAsync(command, cancellationToken);
+    }
+
+    public Task DeleteAccountAsync(
+        ProviderAccountDeleteCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return DeleteAccountCoreAsync(command, cancellationToken);
+    }
+
     public Task<IReadOnlyList<ModelRecord>> ListModelsAsync(
         string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) =>
         ListAsync(tenantId, ModelSelect, afterId, limit, ReadModel, cancellationToken);
@@ -257,6 +271,111 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
 
         await transaction.CommitAsync(cancellationToken);
         return result;
+    }
+
+    private async Task<AccountRecord> CreateAccountCoreAsync(
+        ProviderAccountCreateCommand command, CancellationToken cancellationToken)
+    {
+        ValidateAccountCreate(command);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await EnsureAsync(connection, command.TenantId, cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await ExecuteAsync(connection, transaction,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));", cancellationToken,
+            Text($"audit-ledger:{command.TenantId}"));
+        if (await ReadOneAsync(connection, transaction, command.TenantId, ProviderSelect,
+                command.ProviderId, ReadProvider, cancellationToken) is null)
+            throw new ProviderCatalogNotFoundException("provider");
+        await ExecuteAsync(connection, transaction,
+            "INSERT INTO harness.provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd) VALUES($1,$2,$3,$4,'disabled',$5,$6,0);",
+            cancellationToken, Text(command.TenantId), Text(command.Id), Text(command.ProviderId),
+            Text(command.Label.Trim()), Text(command.CredentialReference.Trim()),
+            command.QuotaLimitUsd is null ? NullableNumeric() : Numeric(command.QuotaLimitUsd.Value));
+        var payload = JsonSerializer.Serialize(new
+        {
+            auditEvent = new
+            {
+                id = UlidValue.New(command.OccurredAt).ToString(),
+                actorKind = "user",
+                actorId = command.ActorProfileId,
+                action = "providerAccount.created",
+                targetType = "accounts",
+                targetId = command.Id,
+                detail = $"Provider account created for provider {command.ProviderId}.",
+                occurredAt = command.OccurredAt,
+            },
+        }, JsonOptions);
+        await AppendLedgerAsync(connection, transaction, command.TenantId, "providerAccount.created",
+            payload, command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(connection, transaction, command.TenantId, "audit.eventAppended",
+            payload, command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(connection, transaction, command.TenantId, "quota.updated",
+            JsonSerializer.Serialize(new { accountId = command.Id, budgetId = (string?)null, usedUsd = 0m, limitUsd = command.QuotaLimitUsd }, JsonOptions),
+            command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (await ReadOneAsync(connection, null, command.TenantId, AccountSelect, command.Id,
+            ReadAccount, cancellationToken))!;
+    }
+
+    private async Task DeleteAccountCoreAsync(
+        ProviderAccountDeleteCommand command, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await EnsureAsync(connection, command.TenantId, cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await ExecuteAsync(connection, transaction,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));", cancellationToken,
+            Text($"audit-ledger:{command.TenantId}"));
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText = "SELECT a.state,EXISTS(SELECT 1 FROM harness.budgets b WHERE b.tenant_id=a.tenant_id AND b.scope='account' AND b.scope_id=a.id) FROM harness.provider_accounts a WHERE a.tenant_id=$1 AND a.id=$2 FOR UPDATE;";
+            query.Parameters.Add(Text(command.TenantId)); query.Parameters.Add(Text(command.Id));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken)) throw new ProviderCatalogNotFoundException("account");
+            if (reader.GetString(0) != "disabled")
+                throw new ProviderCatalogLifecycleException("Only a disabled provider account can be removed.");
+            if (reader.GetBoolean(1))
+                throw new ProviderCatalogLifecycleException("A provider account referenced by a budget cannot be removed.");
+        }
+        await ExecuteAsync(connection, transaction,
+            "DELETE FROM harness.provider_accounts WHERE tenant_id=$1 AND id=$2;",
+            cancellationToken, Text(command.TenantId), Text(command.Id));
+        var payload = JsonSerializer.Serialize(new
+        {
+            auditEvent = new
+            {
+                id = UlidValue.New(command.OccurredAt).ToString(),
+                actorKind = "user",
+                actorId = command.ActorProfileId,
+                action = "providerAccount.deleted",
+                targetType = "accounts",
+                targetId = command.Id,
+                detail = "Disabled provider account removed; secret material was not stored in the catalog.",
+                occurredAt = command.OccurredAt,
+            },
+        }, JsonOptions);
+        await AppendLedgerAsync(connection, transaction, command.TenantId, "providerAccount.deleted",
+            payload, command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(connection, transaction, command.TenantId, "audit.eventAppended",
+            payload, command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static void ValidateAccountCreate(ProviderAccountCreateCommand command)
+    {
+        if (!UlidValue.TryParse(command.Id, out _) || !UlidValue.TryParse(command.ProviderId, out _))
+            throw new ProviderCatalogValidationException("Account and provider IDs must be ULIDs.");
+        if (string.IsNullOrWhiteSpace(command.Label) || command.Label.Trim().Length > 200)
+            throw new ProviderCatalogValidationException("Account label is invalid.");
+        var reference = command.CredentialReference.Trim();
+        if (reference.Length is < 12 or > 500 ||
+            !(reference.StartsWith("keychain://", StringComparison.Ordinal) ||
+              reference.StartsWith("dpapi://", StringComparison.Ordinal) ||
+              reference.StartsWith("secret://", StringComparison.Ordinal)))
+            throw new ProviderCatalogValidationException("Credential reference must use an approved secret-store scheme.");
+        if (command.QuotaLimitUsd < 0)
+            throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
     }
 
     private static async Task<ProviderRecord> UpdateProviderAsync(

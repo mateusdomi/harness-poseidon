@@ -6,6 +6,8 @@ public interface IProviderCatalogStore
     Task<ProviderRecord?> GetProviderAsync(string tenantId, string id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AccountRecord>> ListAccountsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default);
     Task<AccountRecord?> GetAccountAsync(string tenantId, string id, CancellationToken cancellationToken = default);
+    Task<AccountRecord> CreateAccountAsync(ProviderAccountCreateCommand command, CancellationToken cancellationToken = default);
+    Task DeleteAccountAsync(ProviderAccountDeleteCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ModelRecord>> ListModelsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default);
     Task<ModelRecord?> GetModelAsync(string tenantId, string id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RoutingPolicyRecord>> ListRoutingPoliciesAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default);
@@ -27,5 +29,11 @@ public sealed record BudgetRecord(string Id, string Scope, string? ScopeId, stri
 public sealed record ProviderCatalogUpdateCommand(string TenantId, string ActorProfileId, string Resource,
     string Id, string PatchJson, DateTimeOffset OccurredAt);
 public sealed record ProviderCatalogSyncCommand(string TenantId, string ActorProfileId, string ProviderId, DateTimeOffset OccurredAt);
+public sealed record ProviderAccountCreateCommand(
+    string TenantId, string ActorProfileId, string Id, string ProviderId, string Label,
+    string CredentialReference, decimal? QuotaLimitUsd, DateTimeOffset OccurredAt);
+public sealed record ProviderAccountDeleteCommand(
+    string TenantId, string ActorProfileId, string Id, DateTimeOffset OccurredAt);
 public sealed class ProviderCatalogNotFoundException(string resource) : Exception(resource) { public string Resource { get; } = resource; }
 public sealed class ProviderCatalogValidationException(string detail) : Exception(detail);
+public sealed class ProviderCatalogLifecycleException(string detail) : Exception(detail);

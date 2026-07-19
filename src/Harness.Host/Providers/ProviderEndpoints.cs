@@ -20,8 +20,10 @@ public static class ProviderEndpoints
         providers.MapPost("/{id}/sync", SyncProviderAsync).Produces<IReadOnlyList<ModelContract>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         var accounts = endpoints.MapGroup("/api/v1/accounts").WithTags("providers");
         accounts.MapGet("/", ListAccountsAsync).Produces<AccountPage>().ProducesProblem(400).ProducesProblem(401);
+        accounts.MapPost("/", CreateAccountAsync).Produces<AccountContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         accounts.MapGet("/{id}", GetAccountAsync).Produces<AccountContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         accounts.MapPatch("/{id}", PatchAccountAsync).Produces<AccountContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        accounts.MapDelete("/{id}", DeleteAccountAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         var models = endpoints.MapGroup("/api/v1/models").WithTags("providers");
         models.MapGet("/", ListModelsAsync).Produces<ModelPage>().ProducesProblem(400).ProducesProblem(401);
         models.MapGet("/{id}", GetModelAsync).Produces<ModelContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
@@ -81,6 +83,40 @@ public static class ProviderEndpoints
         catch (ProviderCatalogNotFoundException e) { return NotFound(e.Resource); }
     }
 
+    private static async Task<IResult> CreateAccountAsync(CreateProviderAccountRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(input.ProviderId, out _)) return InvalidId();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var now = clock.UtcNow; var id = UlidValue.New(now).ToString();
+            var value = await store.CreateAccountAsync(new(profile.TenantId, profile.Id, id,
+                input.ProviderId, input.Label, input.CredentialReference, input.QuotaLimitUsd, now), token);
+            return Results.Created($"/api/v1/accounts/{id}", ToContract(value));
+        }
+        catch (ProviderCatalogNotFoundException e) { return NotFound(e.Resource); }
+        catch (ProviderCatalogValidationException e) { return Problem(400, "invalid_provider_account", e.Message); }
+    }
+
+    private static async Task<IResult> DeleteAccountAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(id, out _)) return InvalidId();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            await store.DeleteAccountAsync(new(profile.TenantId, profile.Id, id, clock.UtcNow), token);
+            return Results.NoContent();
+        }
+        catch (ProviderCatalogNotFoundException e) { return NotFound(e.Resource); }
+        catch (ProviderCatalogLifecycleException e) { return Problem(409, "provider_account_in_use", e.Message); }
+    }
+
     private static object ToContract(ProviderCatalogRecord value) => value switch { ProviderRecord x => ToContract(x), AccountRecord x => ToContract(x), ModelRecord x => ToContract(x), RoutingPolicyRecord x => ToContract(x), BudgetRecord x => ToContract(x), _ => throw new InvalidOperationException() };
     private static ProviderContract ToContract(ProviderRecord x) => new(x.Id, x.Kind, x.Name, x.BaseUrl, x.Enabled);
     private static AccountContract ToContract(AccountRecord x) => new(x.Id, x.ProviderId, x.Label, x.State, x.QuotaLimitUsd, x.QuotaUsedUsd);
@@ -97,6 +133,8 @@ public static class ProviderEndpoints
 
 public sealed record ProviderPatchRequest(string? Name, string? BaseUrl, bool? Enabled);
 public sealed record AccountPatchRequest(string? Label, string? State, decimal? QuotaLimitUsd);
+public sealed record CreateProviderAccountRequest(
+    string ProviderId, string Label, string CredentialReference, decimal? QuotaLimitUsd = null);
 public sealed record ModelPatchRequest(string? DisplayName, bool? Enabled);
 public sealed record RoutingPolicyPatchRequest(string? Name, IReadOnlyList<RoutingRuleContract>? Rules, bool? Active);
 public sealed record BudgetPatchRequest(decimal? LimitUsd, decimal? AlertThresholdPct);

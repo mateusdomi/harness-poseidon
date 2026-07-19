@@ -16,6 +16,8 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     public Task<ProviderRecord?> GetProviderAsync(string tenantId, string id, CancellationToken cancellationToken = default) => GetAsync(tenantId, ProviderSelect, id, ReadProvider, cancellationToken);
     public Task<IReadOnlyList<AccountRecord>> ListAccountsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) => ListAsync(tenantId, AccountSelect, afterId, limit, ReadAccount, cancellationToken);
     public Task<AccountRecord?> GetAccountAsync(string tenantId, string id, CancellationToken cancellationToken = default) => GetAsync(tenantId, AccountSelect, id, ReadAccount, cancellationToken);
+    public Task<AccountRecord> CreateAccountAsync(ProviderAccountCreateCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync((c, t) => CreateAccountCoreAsync(c, command, t), cancellationToken);
+    public Task DeleteAccountAsync(ProviderAccountDeleteCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync((c, t) => DeleteAccountCoreAsync(c, command, t), cancellationToken);
     public Task<IReadOnlyList<ModelRecord>> ListModelsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) => ListAsync(tenantId, ModelSelect, afterId, limit, ReadModel, cancellationToken);
     public Task<ModelRecord?> GetModelAsync(string tenantId, string id, CancellationToken cancellationToken = default) => GetAsync(tenantId, ModelSelect, id, ReadModel, cancellationToken);
     public Task<IReadOnlyList<RoutingPolicyRecord>> ListRoutingPoliciesAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) => ListAsync(tenantId, RoutingSelect, afterId, limit, ReadRouting, cancellationToken);
@@ -87,6 +89,104 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         else if (result is BudgetRecord budget)
             await AppendOutboxAsync(c, tx, command.TenantId, "quota.updated", JsonSerializer.Serialize(new { accountId = budget.Scope == "account" ? budget.ScopeId : null, budgetId = budget.Id, usedUsd = budget.SpentUsd, limitUsd = budget.LimitUsd }, JsonOptions), command.OccurredAt, token);
         await tx.CommitAsync(token); return result;
+    }
+
+    private static async Task<AccountRecord> CreateAccountCoreAsync(
+        SqliteConnection c, ProviderAccountCreateCommand command, CancellationToken token)
+    {
+        await EnsureAsync(c, command.TenantId, token);
+        ValidateAccountCreate(command);
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        if (await ReadOneAsync(c, tx, command.TenantId, ProviderSelect, command.ProviderId,
+                ReadProvider, token) is null)
+            throw new ProviderCatalogNotFoundException("provider");
+        await ExecuteAsync(c, tx,
+            "INSERT INTO provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd) VALUES($tenant,$id,$provider,$label,'disabled',$credential,$limit,0);",
+            token, ("$tenant", command.TenantId), ("$id", command.Id),
+            ("$provider", command.ProviderId), ("$label", command.Label.Trim()),
+            ("$credential", command.CredentialReference.Trim()),
+            ("$limit", command.QuotaLimitUsd ?? (object)DBNull.Value));
+        var payload = JsonSerializer.Serialize(new
+        {
+            auditEvent = new
+            {
+                id = UlidValue.New(command.OccurredAt).ToString(),
+                actorKind = "user",
+                actorId = command.ActorProfileId,
+                action = "providerAccount.created",
+                targetType = "accounts",
+                targetId = command.Id,
+                detail = $"Provider account created for provider {command.ProviderId}.",
+                occurredAt = command.OccurredAt,
+            },
+        }, JsonOptions);
+        await AppendLedgerAsync(c, tx, command.TenantId, "providerAccount.created", payload,
+            command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "audit.eventAppended", payload,
+            command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "quota.updated",
+            JsonSerializer.Serialize(new { accountId = command.Id, budgetId = (string?)null, usedUsd = 0m, limitUsd = command.QuotaLimitUsd }, JsonOptions),
+            command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return (await ReadOneAsync(c, null, command.TenantId, AccountSelect, command.Id,
+            ReadAccount, token))!;
+    }
+
+    private static async Task DeleteAccountCoreAsync(
+        SqliteConnection c, ProviderAccountDeleteCommand command, CancellationToken token)
+    {
+        await EnsureAsync(c, command.TenantId, token);
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        await using (var query = c.CreateCommand())
+        {
+            query.Transaction = tx;
+            query.CommandText = "SELECT a.state,EXISTS(SELECT 1 FROM budgets b WHERE b.tenant_id=a.tenant_id AND b.scope='account' AND b.scope_id=a.id) FROM provider_accounts a WHERE a.tenant_id=$tenant AND a.id=$id;";
+            Add(query, "$tenant", command.TenantId); Add(query, "$id", command.Id);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            if (!await reader.ReadAsync(token)) throw new ProviderCatalogNotFoundException("account");
+            if (reader.GetString(0) != "disabled")
+                throw new ProviderCatalogLifecycleException("Only a disabled provider account can be removed.");
+            if (reader.GetInt64(1) != 0)
+                throw new ProviderCatalogLifecycleException("A provider account referenced by a budget cannot be removed.");
+        }
+        await ExecuteAsync(c, tx,
+            "DELETE FROM provider_accounts WHERE tenant_id=$tenant AND id=$id;", token,
+            ("$tenant", command.TenantId), ("$id", command.Id));
+        var payload = JsonSerializer.Serialize(new
+        {
+            auditEvent = new
+            {
+                id = UlidValue.New(command.OccurredAt).ToString(),
+                actorKind = "user",
+                actorId = command.ActorProfileId,
+                action = "providerAccount.deleted",
+                targetType = "accounts",
+                targetId = command.Id,
+                detail = "Disabled provider account removed; secret material was not stored in the catalog.",
+                occurredAt = command.OccurredAt,
+            },
+        }, JsonOptions);
+        await AppendLedgerAsync(c, tx, command.TenantId, "providerAccount.deleted", payload,
+            command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "audit.eventAppended", payload,
+            command.OccurredAt, token);
+        await tx.CommitAsync(token);
+    }
+
+    private static void ValidateAccountCreate(ProviderAccountCreateCommand command)
+    {
+        if (!UlidValue.TryParse(command.Id, out _) || !UlidValue.TryParse(command.ProviderId, out _))
+            throw new ProviderCatalogValidationException("Account and provider IDs must be ULIDs.");
+        if (string.IsNullOrWhiteSpace(command.Label) || command.Label.Trim().Length > 200)
+            throw new ProviderCatalogValidationException("Account label is invalid.");
+        var reference = command.CredentialReference.Trim();
+        if (reference.Length is < 12 or > 500 ||
+            !(reference.StartsWith("keychain://", StringComparison.Ordinal) ||
+              reference.StartsWith("dpapi://", StringComparison.Ordinal) ||
+              reference.StartsWith("secret://", StringComparison.Ordinal)))
+            throw new ProviderCatalogValidationException("Credential reference must use an approved secret-store scheme.");
+        if (command.QuotaLimitUsd < 0)
+            throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
     }
 
     private static async Task<ProviderRecord> UpdateProviderAsync(SqliteConnection c, SqliteTransaction tx, ProviderCatalogUpdateCommand cmd, JsonElement p, CancellationToken token)
