@@ -186,6 +186,73 @@ def run_probe():
         raise SystemExit(1)
 
 
+def run_fake_codex_app_server():
+    for line in sys.stdin:
+        request = json.loads(line)
+        method = request.get("method")
+        request_id = request.get("id")
+        if method == "initialize":
+            print(json.dumps({
+                "id": request_id,
+                "result": {
+                    "userAgent": "harness-docker-fixture",
+                    "platformFamily": "unix",
+                    "platformOs": "linux",
+                },
+            }), flush=True)
+        elif method == "thread/start":
+            print(json.dumps({
+                "id": request_id,
+                "result": {"thread": {"id": "thr_docker", "ephemeral": False}},
+            }), flush=True)
+        elif method == "thread/resume":
+            thread_id = request["params"]["threadId"]
+            print(json.dumps({
+                "id": request_id,
+                "result": {"thread": {"id": thread_id, "ephemeral": False}},
+            }), flush=True)
+        elif method == "turn/start":
+            with open("/workspace/docker-codex-ran.txt", "w", encoding="utf-8") as marker:
+                marker.write("isolated app-server completed\n")
+            final_message = json.dumps({
+                "response": "Docker-isolated fixture complete.",
+                "demands": [],
+            }, separators=(",", ":"))
+            print(json.dumps({
+                "id": request_id,
+                "result": {"turn": {"id": "turn_docker", "items": [], "status": "inProgress"}},
+            }), flush=True)
+            print(json.dumps({
+                "method": "item/agentMessage/delta",
+                "params": {
+                    "threadId": "thr_docker",
+                    "turnId": "turn_docker",
+                    "itemId": "item_docker",
+                    "delta": final_message,
+                },
+            }), flush=True)
+            print(json.dumps({
+                "method": "item/completed",
+                "params": {
+                    "threadId": "thr_docker",
+                    "turnId": "turn_docker",
+                    "completedAtMs": 1,
+                    "item": {
+                        "id": "item_docker",
+                        "type": "agentMessage",
+                        "text": final_message,
+                    },
+                },
+            }), flush=True)
+            print(json.dumps({
+                "method": "turn/completed",
+                "params": {
+                    "threadId": "thr_docker",
+                    "turn": {"id": "turn_docker", "items": [], "status": "completed"},
+                },
+            }), flush=True)
+
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "probe"
     if mode == "target":
@@ -194,6 +261,8 @@ def main():
         ThreadedServer(("0.0.0.0", 8080), ProxyHandler).serve_forever()
     elif mode == "probe":
         run_probe()
+    elif mode == "fake-codex":
+        run_fake_codex_app_server()
     else:
         raise SystemExit(f"unknown mode: {mode}")
 

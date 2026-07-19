@@ -72,6 +72,11 @@ public sealed class CodexCliAppServer : IAsyncDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        foreach (var argument in options.ExecutablePrefixArguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
         startInfo.ArgumentList.Add("app-server");
         startInfo.ArgumentList.Add("--listen");
         startInfo.ArgumentList.Add("stdio://");
@@ -108,7 +113,7 @@ public sealed class CodexCliAppServer : IAsyncDisposable
             "thread/start",
             new
             {
-                cwd = _options.WorkingDirectory,
+                cwd = _options.AgentWorkingDirectory,
                 ephemeral,
                 developerInstructions,
                 approvalPolicy = "never",
@@ -130,7 +135,7 @@ public sealed class CodexCliAppServer : IAsyncDisposable
             new
             {
                 threadId,
-                cwd = _options.WorkingDirectory,
+                cwd = _options.AgentWorkingDirectory,
                 approvalPolicy = "never",
                 sandbox = "read-only",
             },
@@ -208,7 +213,20 @@ public sealed class CodexCliAppServer : IAsyncDisposable
     {
         if (Interlocked.Exchange(ref _stopping, 1) == 0 && !_process.HasExited)
         {
-            _process.Kill(entireProcessTree: true);
+            _process.StandardInput.Close();
+            using var gracefulTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            gracefulTimeout.CancelAfter(TimeSpan.FromSeconds(2));
+            try
+            {
+                await _process.WaitForExitAsync(gracefulTimeout.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                if (!_process.HasExited)
+                {
+                    _process.Kill(entireProcessTree: true);
+                }
+            }
         }
 
         if (!_process.HasExited)

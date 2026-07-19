@@ -99,6 +99,20 @@ public sealed class GitWorktreeClaimsPocTests
             await CommitInWorktreeAsync(worktreeAPath, "agent-a.txt", cancellationToken);
             Assert.False(File.Exists(Path.Combine(worktreeBPath, "agent-b.txt")));
         }
+
+        Assert.True(await manager.RemoveTaskWorktreeAsync(
+            worktrees[0].BranchName,
+            worktrees[0].WorktreePath,
+            deleteBranch: false,
+            cancellationToken));
+        Assert.False(await manager.RemoveTaskWorktreeAsync(
+            worktrees[0].BranchName,
+            worktrees[0].WorktreePath,
+            deleteBranch: false,
+            cancellationToken));
+        Assert.DoesNotContain(
+            await manager.ListWorktreesAsync(cancellationToken),
+            item => item.WorktreePath == worktrees[0].WorktreePath);
     }
 
     private static async Task CreateFixtureRepositoryAsync(

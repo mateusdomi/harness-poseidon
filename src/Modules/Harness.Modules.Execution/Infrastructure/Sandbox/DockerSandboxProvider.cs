@@ -44,6 +44,115 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
         EnsureSuccess("build the managed sandbox image", result);
     }
 
+    public async Task<ISandboxProcessSession> OpenProcessSessionAsync(
+        SandboxProcessRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateProcessRequest(request);
+
+        var internalNetwork = $"harness-internal-{request.AttemptId}";
+        var egressNetwork = $"harness-egress-{request.AttemptId}";
+        var cacheVolume = $"harness-cache-{request.AttemptId}";
+        var stateVolume = $"harness-state-{request.AttemptId}";
+        var proxyContainer = $"harness-proxy-{request.AttemptId}";
+        var sandboxContainer = $"harness-sandbox-{request.AttemptId}";
+        var attemptLabel = $"{AttemptLabelName}={request.AttemptId}";
+
+        try
+        {
+            EnsureSuccess(
+                "create the internal process network",
+                await RunDockerAsync(
+                    ["network", "create", "--internal", "--label", ManagedLabel, "--label", attemptLabel, internalNetwork],
+                    cancellationToken));
+            EnsureSuccess(
+                "create the proxy process network",
+                await RunDockerAsync(
+                    ["network", "create", "--label", ManagedLabel, "--label", attemptLabel, egressNetwork],
+                    cancellationToken));
+            foreach (var volume in new[] { cacheVolume, stateVolume })
+            {
+                EnsureSuccess(
+                    "create a managed process volume",
+                    await RunDockerAsync(
+                        ["volume", "create", "--label", ManagedLabel, "--label", attemptLabel, volume],
+                        cancellationToken));
+            }
+
+            EnsureSuccess(
+                "start the process egress proxy",
+                await RunDockerAsync(
+                    [
+                        "run", "--detach",
+                        "--name", proxyContainer,
+                        "--hostname", "harness-proxy",
+                        "--label", ManagedLabel,
+                        "--label", attemptLabel,
+                        "--network", internalNetwork,
+                        "--network-alias", "harness-proxy",
+                        "--read-only",
+                        "--tmpfs", "/tmp:rw,noexec,nosuid,size=8m",
+                        "--cap-drop", "ALL",
+                        "--security-opt", "no-new-privileges",
+                        "--memory", "64m",
+                        "--cpus", "0.25",
+                        "--pids-limit", "64",
+                        request.ProxyImageName,
+                        request.ProxyCommand,
+                    ],
+                    cancellationToken));
+            EnsureSuccess(
+                "connect the process proxy to egress",
+                await RunDockerAsync(
+                    ["network", "connect", "--alias", "harness-egress-proxy", egressNetwork, proxyContainer],
+                    cancellationToken));
+
+            var worktreeMount =
+                $"type=bind,source={Path.GetFullPath(request.WorktreePath)},target=/workspace";
+            var prefixArguments = new List<string>
+            {
+                "run", "--interactive", "--rm",
+                "--name", sandboxContainer,
+                "--label", ManagedLabel,
+                "--label", attemptLabel,
+                "--network", internalNetwork,
+                "--read-only",
+                "--tmpfs", $"/tmp:rw,noexec,nosuid,size={request.WritableDiskBytes.ToString(CultureInfo.InvariantCulture)}",
+                "--storage-opt", $"size={request.WritableDiskBytes.ToString(CultureInfo.InvariantCulture)}",
+                "--mount", worktreeMount,
+                "--mount", $"type=volume,source={cacheVolume},target=/cache",
+                "--mount", $"type=volume,source={stateVolume},target=/codex-state",
+                "--workdir", "/workspace",
+                "--env", "CODEX_HOME=/codex-state",
+                "--env", "HTTP_PROXY=http://harness-proxy:8080",
+                "--env", "HTTPS_PROXY=http://harness-proxy:8080",
+                "--env", "NO_PROXY=",
+                "--cap-drop", "ALL",
+                "--security-opt", "no-new-privileges",
+                "--memory", request.MemoryBytes.ToString(CultureInfo.InvariantCulture),
+                "--cpus", request.CpuLimit.ToString(CultureInfo.InvariantCulture),
+                "--pids-limit", request.PidsLimit.ToString(CultureInfo.InvariantCulture),
+                request.AgentImageName,
+                request.ContainerExecutable,
+            };
+            var plan = new SandboxProcessPlan(
+                _dockerExecutable,
+                prefixArguments,
+                "/workspace",
+                RootFilesystemReadOnly: true,
+                WorktreeIsolated: true,
+                EgressRestricted: true,
+                ResourceLimitsApplied: true);
+            return new DockerSandboxProcessSession(this, request.AttemptId, plan);
+        }
+        catch
+        {
+            await CleanupAsync(request.AttemptId, CancellationToken.None);
+            throw;
+        }
+    }
+
     public async Task<SandboxRunResult> RunAsync(
         SandboxRunRequest request,
         CancellationToken cancellationToken = default)
@@ -295,15 +404,51 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
     {
         ValidateAttemptId(request.AttemptId);
         ValidateImageName(request.ImageName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.ExecutionRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.WorktreePath);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(request.CpuLimit, 0);
-        ArgumentOutOfRangeException.ThrowIfLessThan(request.MemoryBytes, 16 * 1024 * 1024);
-        ArgumentOutOfRangeException.ThrowIfLessThan(request.WritableDiskBytes, 4 * 1024 * 1024);
-        ArgumentOutOfRangeException.ThrowIfLessThan(request.PidsLimit, 16);
+        ValidateResourceLimits(
+            request.ExecutionRoot,
+            request.WorktreePath,
+            request.CpuLimit,
+            request.MemoryBytes,
+            request.WritableDiskBytes,
+            request.PidsLimit,
+            nameof(request));
+    }
 
-        var executionRoot = Path.GetFullPath(request.ExecutionRoot);
-        var worktree = Path.GetFullPath(request.WorktreePath);
+    private static void ValidateProcessRequest(SandboxProcessRequest request)
+    {
+        ValidateAttemptId(request.AttemptId);
+        ValidateImageName(request.AgentImageName);
+        ValidateImageName(request.ProxyImageName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProxyCommand);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ContainerExecutable);
+        ValidateResourceLimits(
+            request.ExecutionRoot,
+            request.WorktreePath,
+            request.CpuLimit,
+            request.MemoryBytes,
+            request.WritableDiskBytes,
+            request.PidsLimit,
+            nameof(request));
+    }
+
+    private static void ValidateResourceLimits(
+        string executionRootValue,
+        string worktreePathValue,
+        decimal cpuLimit,
+        long memoryBytes,
+        long writableDiskBytes,
+        int pidsLimit,
+        string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executionRootValue);
+        ArgumentException.ThrowIfNullOrWhiteSpace(worktreePathValue);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(cpuLimit, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThan(memoryBytes, 16 * 1024 * 1024);
+        ArgumentOutOfRangeException.ThrowIfLessThan(writableDiskBytes, 4 * 1024 * 1024);
+        ArgumentOutOfRangeException.ThrowIfLessThan(pidsLimit, 16);
+
+        var executionRoot = Path.GetFullPath(executionRootValue);
+        var worktree = Path.GetFullPath(worktreePathValue);
         var relative = Path.GetRelativePath(executionRoot, worktree);
         if (relative == ".." ||
             relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
@@ -311,7 +456,9 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
             worktree.Contains(',') ||
             !Directory.Exists(worktree))
         {
-            throw new ArgumentException("The worktree must be an existing path under the execution root.", nameof(request));
+            throw new ArgumentException(
+                "The worktree must be an existing path under the execution root.",
+                parameterName);
         }
     }
 
@@ -369,4 +516,22 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
         int PidsLimit,
         bool RootFilesystemReadOnly,
         string NetworkMode);
+
+    private sealed class DockerSandboxProcessSession(
+        DockerSandboxProvider owner,
+        string attemptId,
+        SandboxProcessPlan processPlan) : ISandboxProcessSession
+    {
+        private int _disposed;
+
+        public SandboxProcessPlan ProcessPlan { get; } = processPlan;
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                await owner.CleanupAsync(attemptId, CancellationToken.None);
+            }
+        }
+    }
 }

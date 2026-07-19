@@ -68,6 +68,70 @@ public sealed class CodexCliAgentExecutorProtocolTests
         }
     }
 
+    [Fact]
+    public async Task AppServerSupportsLauncherPrefixAndContainerWorkingDirectory()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "poc-artifacts",
+            "codex-launcher",
+            Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
+        var worktree = Path.Combine(root, "worktree");
+        var state = Path.Combine(root, "state");
+        var launcher = Path.Combine(root, "launcher");
+        var appServer = Path.Combine(root, "fake-codex");
+        var captured = Path.Combine(root, "arguments.txt");
+        Directory.CreateDirectory(worktree);
+        Directory.CreateDirectory(state);
+
+        try
+        {
+            await File.WriteAllTextAsync(appServer, FakeAppServerScript, timeout.Token);
+            await File.WriteAllTextAsync(
+                launcher,
+                "#!/bin/sh\ncapture=\"$1\"\nshift\nprintf '%s\\n' \"$@\" > \"$capture\"\nexec \"$@\"\n",
+                timeout.Token);
+            File.SetUnixFileMode(appServer, ExecutableMode);
+            File.SetUnixFileMode(launcher, ExecutableMode);
+
+            var options = new CodexCliAppServerOptions(
+                launcher,
+                root,
+                worktree,
+                state,
+                TimeSpan.FromMilliseconds(100),
+                [captured, appServer],
+                "/workspace");
+            await using var server = await CodexCliAppServer.StartAsync(
+                options,
+                cancellationToken: timeout.Token);
+            var thread = await server.StartThreadAsync(
+                ephemeral: true,
+                cancellationToken: timeout.Token);
+
+            Assert.Equal("thr_fixture", thread.ThreadId);
+            Assert.Equal(
+                [appServer, "app-server", "--listen", "stdio://", "--strict-config"],
+                await File.ReadAllLinesAsync(captured, timeout.Token));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    private const UnixFileMode ExecutableMode =
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+
     private const string FakeAppServerScript =
         """
         #!/bin/sh
