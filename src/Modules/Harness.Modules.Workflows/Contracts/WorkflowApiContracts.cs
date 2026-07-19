@@ -57,6 +57,9 @@ public sealed record CreateWorkflowRequest(
     IReadOnlyList<string>? SemiautonomousPauseGates, string RiskAcceptanceNote);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record LinkWorkflowTemplateRequest(string TemplateId, string? VersionId = null);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateWorkflowRunRequest(string WorkflowId);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

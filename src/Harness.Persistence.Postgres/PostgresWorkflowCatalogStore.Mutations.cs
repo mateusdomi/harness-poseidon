@@ -29,6 +29,48 @@ public sealed partial class PostgresWorkflowCatalogStore
         return PublishDraftCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkflowTemplateCatalogRecord> ArchiveTemplateAsync(
+        WorkflowTemplateArchiveCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return ArchiveTemplateCoreAsync(command, cancellationToken);
+    }
+
+    public Task DeleteTemplateAsync(
+        WorkflowTemplateDeleteCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return DeleteTemplateCoreAsync(command, cancellationToken);
+    }
+
+    public Task<WorkflowTemplateCatalogRecord> DuplicateTemplateAsync(
+        WorkflowTemplateDuplicateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return DuplicateTemplateCoreAsync(command, cancellationToken);
+    }
+
+    public Task<WorkflowVersionCatalogRecord> ArchiveVersionAsync(
+        WorkflowVersionArchiveCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return ArchiveVersionCoreAsync(command, cancellationToken);
+    }
+
+    public Task DeleteDraftVersionAsync(
+        WorkflowVersionDeleteCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return DeleteDraftVersionCoreAsync(command, cancellationToken);
+    }
+
+    public Task<WorkflowBindingCatalogRecord> LinkTemplateAsync(
+        WorkflowTemplateLinkCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return LinkTemplateCoreAsync(command, cancellationToken);
+    }
+
     private async Task<WorkflowTemplateCatalogRecord> CreateTemplateCoreAsync(
         WorkflowTemplateCreateCommand value, CancellationToken cancellationToken)
     {
@@ -172,6 +214,259 @@ public sealed partial class PostgresWorkflowCatalogStore
             payload, value.OccurredAt, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return (await ReadVersionAsync(connection, value.TenantId, value.VersionId,
+            cancellationToken))!;
+    }
+
+    private async Task<WorkflowTemplateCatalogRecord> ArchiveTemplateCoreAsync(
+        WorkflowTemplateArchiveCommand value, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText = "SELECT archived_at FROM harness.workflow_definitions WHERE tenant_id=$1 AND id=$2 FOR UPDATE;";
+            query.Parameters.Add(Text(value.TenantId)); query.Parameters.Add(Text(value.TemplateId));
+            var archived = await query.ExecuteScalarAsync(cancellationToken);
+            if (archived is null) throw new WorkflowCatalogReferenceNotFoundException("workflow_template");
+            if (archived is not DBNull)
+                throw new WorkflowCatalogLifecycleException("The workflow template is already archived.");
+        }
+        await ExecuteAsync(connection, transaction,
+            "UPDATE harness.workflow_definitions SET archived_at=$1 WHERE tenant_id=$2 AND id=$3;",
+            cancellationToken, Timestamp(value.OccurredAt), Text(value.TenantId), Text(value.TemplateId));
+        var payload = JsonSerializer.Serialize(new
+        {
+            templateId = value.TemplateId,
+            actorProfileId = value.ActorProfileId,
+        }, JsonOptions);
+        await AppendAuditAsync(connection, transaction, value.TenantId, "workflow.templateArchived",
+            payload, value.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (await ReadTemplateAfterMutationAsync(connection, value.TenantId, value.TemplateId,
+            cancellationToken))!;
+    }
+
+    private async Task<WorkflowVersionCatalogRecord> ArchiveVersionCoreAsync(
+        WorkflowVersionArchiveCommand value, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        string templateId;
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText =
+                "SELECT v.definition_id,v.archived_at,(SELECT p.id FROM harness.workflow_definition_versions p WHERE p.definition_id=v.definition_id AND p.status='published' AND p.archived_at IS NULL ORDER BY p.version DESC LIMIT 1) FROM harness.workflow_definition_versions v WHERE v.tenant_id=$1 AND v.id=$2 FOR UPDATE;";
+            query.Parameters.Add(Text(value.TenantId)); query.Parameters.Add(Text(value.VersionId));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                throw new WorkflowCatalogReferenceNotFoundException("workflow_version");
+            if (!reader.IsDBNull(1))
+                throw new WorkflowCatalogLifecycleException("The workflow version is already archived.");
+            if (!reader.IsDBNull(2) && reader.GetString(2).TrimEnd() == value.VersionId)
+                throw new WorkflowCatalogLifecycleException("The current workflow version cannot be archived.");
+            templateId = reader.GetString(0).TrimEnd();
+        }
+        await ExecuteAsync(connection, transaction,
+            "UPDATE harness.workflow_definition_versions SET archived_at=$1 WHERE tenant_id=$2 AND id=$3;",
+            cancellationToken, Timestamp(value.OccurredAt), Text(value.TenantId), Text(value.VersionId));
+        var payload = JsonSerializer.Serialize(new
+        {
+            templateId,
+            versionId = value.VersionId,
+            actorProfileId = value.ActorProfileId,
+        }, JsonOptions);
+        await AppendAuditAsync(connection, transaction, value.TenantId, "workflow.versionArchived",
+            payload, value.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (await ReadVersionAsync(connection, value.TenantId, value.VersionId,
+            cancellationToken))!;
+    }
+
+    private async Task DeleteDraftVersionCoreAsync(
+        WorkflowVersionDeleteCommand value, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        string templateId;
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText =
+                "SELECT v.definition_id,v.status,v.archived_at,EXISTS(SELECT 1 FROM harness.workflow_bindings b WHERE b.tenant_id=v.tenant_id AND b.active_version_id=v.id),EXISTS(SELECT 1 FROM harness.workflow_runs r WHERE r.tenant_id=v.tenant_id AND r.definition_version_id=v.id) FROM harness.workflow_definition_versions v WHERE v.tenant_id=$1 AND v.id=$2 FOR UPDATE;";
+            query.Parameters.Add(Text(value.TenantId)); query.Parameters.Add(Text(value.VersionId));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                throw new WorkflowCatalogReferenceNotFoundException("workflow_version");
+            if (reader.GetString(1) != "draft" || !reader.IsDBNull(2) ||
+                reader.GetBoolean(3) || reader.GetBoolean(4))
+                throw new WorkflowCatalogLifecycleException("Only an unused active draft can be deleted.");
+            templateId = reader.GetString(0).TrimEnd();
+        }
+        await DeleteHierarchyAsync(connection, transaction, value.VersionId, cancellationToken);
+        await ExecuteAsync(connection, transaction,
+            "DELETE FROM harness.workflow_definition_versions WHERE tenant_id=$1 AND id=$2;",
+            cancellationToken, Text(value.TenantId), Text(value.VersionId));
+        var payload = JsonSerializer.Serialize(new
+        {
+            templateId,
+            versionId = value.VersionId,
+            actorProfileId = value.ActorProfileId,
+        }, JsonOptions);
+        await AppendAuditAsync(connection, transaction, value.TenantId, "workflow.draftDeleted",
+            payload, value.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private async Task DeleteTemplateCoreAsync(
+        WorkflowTemplateDeleteCommand value, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText =
+                "SELECT d.archived_at,EXISTS(SELECT 1 FROM harness.workflow_definition_versions v WHERE v.definition_id=d.id AND (v.status<>'draft' OR v.archived_at IS NOT NULL)),EXISTS(SELECT 1 FROM harness.workflow_bindings b WHERE b.tenant_id=d.tenant_id AND b.definition_id=d.id) FROM harness.workflow_definitions d WHERE d.tenant_id=$1 AND d.id=$2 FOR UPDATE;";
+            query.Parameters.Add(Text(value.TenantId)); query.Parameters.Add(Text(value.TemplateId));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                throw new WorkflowCatalogReferenceNotFoundException("workflow_template");
+            if (!reader.IsDBNull(0) || reader.GetBoolean(1) || reader.GetBoolean(2))
+                throw new WorkflowCatalogLifecycleException("Only an unused draft template can be deleted.");
+        }
+        var draftIds = new List<string>();
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText = "SELECT id FROM harness.workflow_definition_versions WHERE tenant_id=$1 AND definition_id=$2;";
+            query.Parameters.Add(Text(value.TenantId)); query.Parameters.Add(Text(value.TemplateId));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) draftIds.Add(reader.GetString(0).TrimEnd());
+        }
+        foreach (var draftId in draftIds)
+            await DeleteHierarchyAsync(connection, transaction, draftId, cancellationToken);
+        await ExecuteAsync(connection, transaction,
+            "DELETE FROM harness.workflow_definition_versions WHERE tenant_id=$1 AND definition_id=$2;",
+            cancellationToken, Text(value.TenantId), Text(value.TemplateId));
+        await ExecuteAsync(connection, transaction,
+            "DELETE FROM harness.workflow_definitions WHERE tenant_id=$1 AND id=$2;",
+            cancellationToken, Text(value.TenantId), Text(value.TemplateId));
+        var payload = JsonSerializer.Serialize(new
+        {
+            templateId = value.TemplateId,
+            actorProfileId = value.ActorProfileId,
+        }, JsonOptions);
+        await AppendAuditAsync(connection, transaction, value.TenantId, "workflow.templateDeleted",
+            payload, value.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private async Task<WorkflowTemplateCatalogRecord> DuplicateTemplateCoreAsync(
+        WorkflowTemplateDuplicateCommand value, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        string? currentVersionId;
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText =
+                "SELECT (SELECT v.id FROM harness.workflow_definition_versions v WHERE v.definition_id=d.id AND v.status='published' AND v.archived_at IS NULL ORDER BY v.version DESC LIMIT 1) FROM harness.workflow_definitions d WHERE d.tenant_id=$1 AND d.id=$2 FOR UPDATE;";
+            query.Parameters.Add(Text(value.TenantId)); query.Parameters.Add(Text(value.SourceTemplateId));
+            var result = await query.ExecuteScalarAsync(cancellationToken);
+            if (result is null) throw new WorkflowCatalogReferenceNotFoundException("workflow_template");
+            currentVersionId = result is DBNull ? null : ((string)result).TrimEnd();
+        }
+        if (currentVersionId != value.SourceVersionId)
+            throw new WorkflowCatalogLifecycleException("The source template changed while it was duplicated.");
+        await ExecuteAsync(connection, transaction,
+            "INSERT INTO harness.workflow_definitions (id,tenant_id,name,description,created_at) VALUES ($1,$2,$3,$4,$5);",
+            cancellationToken, Text(value.TemplateId), Text(value.TenantId), Text(value.Name),
+            Text(value.Description), Timestamp(value.OccurredAt));
+        if (value.Draft is not null)
+        {
+            var draft = value.Draft;
+            await ExecuteAsync(connection, transaction,
+                "INSERT INTO harness.workflow_definition_versions (id,tenant_id,definition_id,version,status,content_hash,created_at,published_at,phase_configs_json,default_operation_mode,transitions_json,changelog) VALUES ($1,$2,$3,1,'draft',$4,$5,NULL,$6,$7,$8,NULL);",
+                cancellationToken, Text(draft.VersionId), Text(value.TenantId), Text(value.TemplateId),
+                Text(WorkflowDefinitionContentHash.Compute(draft.Phases)), Timestamp(value.OccurredAt),
+                Json(draft.PhaseConfigsJson), NullableText(draft.DefaultOperationMode),
+                Json(draft.TransitionsJson));
+            await InsertHierarchyAsync(connection, transaction, value.TenantId, draft.VersionId,
+                draft.Phases, cancellationToken);
+        }
+        var payload = JsonSerializer.Serialize(new
+        {
+            sourceTemplateId = value.SourceTemplateId,
+            templateId = value.TemplateId,
+            versionId = value.Draft?.VersionId,
+            actorProfileId = value.ActorProfileId,
+        }, JsonOptions);
+        await AppendAuditAsync(connection, transaction, value.TenantId, "workflow.templateDuplicated",
+            payload, value.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (await ReadTemplateAfterMutationAsync(connection, value.TenantId, value.TemplateId,
+            cancellationToken))!;
+    }
+
+    private async Task<WorkflowBindingCatalogRecord> LinkTemplateCoreAsync(
+        WorkflowTemplateLinkCommand value, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using (var check = connection.CreateCommand())
+        {
+            check.Transaction = transaction;
+            check.CommandText =
+                "SELECT EXISTS(SELECT 1 FROM harness.projects WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL)," +
+                "EXISTS(SELECT 1 FROM harness.workflow_definition_versions v JOIN harness.workflow_definitions d ON d.tenant_id=v.tenant_id AND d.id=v.definition_id WHERE v.tenant_id=$1 AND v.id=$3 AND v.definition_id=$4 AND v.status='published' AND v.archived_at IS NULL AND d.archived_at IS NULL)," +
+                "EXISTS(SELECT 1 FROM harness.local_users WHERE tenant_id=$1 AND id=$5);";
+            check.Parameters.Add(Text(value.TenantId)); check.Parameters.Add(Text(value.ProjectId));
+            check.Parameters.Add(Text(value.ActiveVersionId)); check.Parameters.Add(Text(value.TemplateId));
+            check.Parameters.Add(Text(value.ActorProfileId));
+            await using var reader = await check.ExecuteReaderAsync(cancellationToken);
+            await reader.ReadAsync(cancellationToken);
+            if (!reader.GetBoolean(0)) throw new WorkflowCatalogReferenceNotFoundException("project");
+            if (!reader.GetBoolean(1))
+                throw new WorkflowCatalogLifecycleException("The workflow version must be active, published, and belong to the template.");
+            if (!reader.GetBoolean(2)) throw new WorkflowCatalogReferenceNotFoundException("profile");
+        }
+        try
+        {
+            await ExecuteAsync(connection, transaction,
+                "INSERT INTO harness.workflow_bindings (id,tenant_id,project_id,definition_id,active_version_id,operation_mode,pause_gates_json,created_at) VALUES ($1,$2,$3,$4,$5,$6,'[]'::jsonb,$7);",
+                cancellationToken, Text(value.Id), Text(value.TenantId), Text(value.ProjectId),
+                Text(value.TemplateId), Text(value.ActiveVersionId), Text(value.OperationMode),
+                Timestamp(value.OccurredAt));
+        }
+        catch (PostgresException exception) when (IsConstraintViolation(exception))
+        {
+            throw new WorkflowBindingAlreadyExistsException();
+        }
+        var auditId = UlidValue.New(value.OccurredAt).ToString();
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = value.ProjectId,
+            auditEvent = new
+            {
+                id = auditId,
+                actorKind = "user",
+                actorId = value.ActorProfileId,
+                action = "workflow.templateLinked",
+                targetType = "project",
+                targetId = value.ProjectId,
+                detail = $"Workflow template {value.TemplateId} linked at version {value.ActiveVersionId}.",
+                occurredAt = value.OccurredAt,
+            },
+        }, JsonOptions);
+        await AppendAuditAsync(connection, transaction, value.TenantId, "audit.eventAppended",
+            payload, value.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(connection, transaction, value.TenantId, "audit.eventAppended",
+            payload, value.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (await ReadBindingAsync(connection, value.TenantId, value.Id,
             cancellationToken))!;
     }
 
@@ -323,12 +618,12 @@ public sealed partial class PostgresWorkflowCatalogStore
         string versionId, CancellationToken cancellationToken)
     {
         await using var query = connection.CreateCommand(); query.Transaction = transaction;
-        query.CommandText = "SELECT status,archived_at FROM harness.workflow_definition_versions WHERE tenant_id=$1 AND id=$2 FOR UPDATE;";
+        query.CommandText = "SELECT v.status,v.archived_at,d.archived_at FROM harness.workflow_definition_versions v JOIN harness.workflow_definitions d ON d.tenant_id=v.tenant_id AND d.id=v.definition_id WHERE v.tenant_id=$1 AND v.id=$2 FOR UPDATE OF v,d;";
         query.Parameters.Add(Text(tenantId)); query.Parameters.Add(Text(versionId));
         await using var reader = await query.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
             throw new WorkflowCatalogReferenceNotFoundException("workflow_version");
-        if (reader.GetString(0) != "draft" || !reader.IsDBNull(1))
+        if (reader.GetString(0) != "draft" || !reader.IsDBNull(1) || !reader.IsDBNull(2))
             throw new WorkflowCatalogLifecycleException("Only an active draft can be edited.");
     }
 

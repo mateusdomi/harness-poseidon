@@ -151,14 +151,13 @@ public static class BoardWorkflowProjectionBehavior
         Assert.Equal(template.CurrentVersionId, (await workflowCatalog.GetTemplateAsync(
             tenantId, template.Id, cancellationToken))!.CurrentVersionId);
         var workflowId = UlidValue.New(now.AddMilliseconds(8)).ToString();
-        var binding = await workflowCatalog.CreateBindingAsync(
-            new WorkflowBindingCreateCommand(
+        var binding = await workflowCatalog.LinkTemplateAsync(
+            new WorkflowTemplateLinkCommand(
                 tenantId, workflowId, projectId, template.Id, template.CurrentVersionId!,
-                "semiautonomous", ["Aprovação de Homologação"], profileId,
-                UlidValue.New(now.AddMilliseconds(9)).ToString(),
-                "Aceite de risco da paridade dual.", now.AddMilliseconds(9)),
+                "semiautonomous", profileId, now.AddMilliseconds(9)),
             cancellationToken);
         Assert.Equal("semiautonomous", binding.OperationMode);
+        Assert.Empty(binding.RiskAcceptances);
         var autonomous = await workflowCatalog.SetOperationModeAsync(
             new WorkflowOperationModeCommand(
                 tenantId, workflowId, "autonomous", [],
@@ -166,5 +165,94 @@ public static class BoardWorkflowProjectionBehavior
                 "Aceite para modo autônomo.", now.AddMilliseconds(10)),
             cancellationToken);
         Assert.Equal("autonomous", autonomous.OperationMode);
+        Assert.Single(autonomous.RiskAcceptances);
+
+        // Lifecycle FR-4: tombstones, exclusão restrita e duplicação atômica
+        // possuem a mesma semântica nos dois providers.
+        var archivedDraft = await workflowCatalog.ArchiveVersionAsync(
+            new WorkflowVersionArchiveCommand(
+                tenantId, draftVersion.Id, profileId, now.AddMilliseconds(24)),
+            cancellationToken);
+        Assert.Equal("archived", archivedDraft.State);
+        await Assert.ThrowsAsync<WorkflowCatalogLifecycleException>(() =>
+            workflowCatalog.ArchiveVersionAsync(
+                new WorkflowVersionArchiveCommand(
+                    tenantId, template.CurrentVersionId!, profileId, now.AddMilliseconds(25)),
+                cancellationToken));
+
+        var disposableVersionId = UlidValue.New(now.AddMilliseconds(26)).ToString();
+        var disposableCreation = Harness.Modules.Workflows.Application.WorkflowCatalogApplicationService
+            .CreateDraftVersion(
+                template.Id,
+                disposableVersionId,
+                new Harness.Modules.Workflows.Contracts.WorkflowDraftRequest(["Temporária"]),
+                now.AddMilliseconds(26));
+        await workflowCatalog.CreateDraftAsync(
+            new WorkflowVersionDraftCreateCommand(
+                tenantId, template.Id, disposableVersionId,
+                disposableCreation.Hierarchy.Phases.Select(phase => new WorkflowPhaseCreateInput(
+                    phase.Id, phase.Key, phase.Name, phase.Order,
+                    phase.Objectives.Select(objective => new WorkflowObjectiveCreateInput(
+                        objective.Id, objective.Key, objective.Name, objective.Kind,
+                        objective.Weight)).ToArray(),
+                    phase.Gates.Select(gate => new WorkflowGateCreateInput(
+                        gate.Id, gate.ObjectiveId, gate.Key, gate.Name,
+                        gate.MinimumRequiredState, gate.RequiredObjectiveIds)).ToArray())).ToArray(),
+                "{}", null, "{}", null, now.AddMilliseconds(26)),
+            cancellationToken);
+        await workflowCatalog.DeleteDraftVersionAsync(
+            new WorkflowVersionDeleteCommand(
+                tenantId, disposableVersionId, profileId, now.AddMilliseconds(27)),
+            cancellationToken);
+        Assert.Null(await workflowCatalog.GetVersionAsync(
+            tenantId, disposableVersionId, cancellationToken));
+
+        var copyTemplateId = UlidValue.New(now.AddMilliseconds(28)).ToString();
+        var copyVersionId = UlidValue.New(now.AddMilliseconds(29)).ToString();
+        var copyCreation = Harness.Modules.Workflows.Application.WorkflowCatalogApplicationService
+            .CreateDraftVersion(
+                copyTemplateId,
+                copyVersionId,
+                new Harness.Modules.Workflows.Contracts.WorkflowDraftRequest(
+                    ["Fase A", "Fase B"],
+                    new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+                    {
+                        ["Fase B"] = ["Aprovação de Homologação"],
+                    }),
+                now.AddMilliseconds(29));
+        var copyPhases = copyCreation.Hierarchy.Phases.Select(phase =>
+            new WorkflowPhaseCreateInput(
+                phase.Id, phase.Key, phase.Name, phase.Order,
+                phase.Objectives.Select(objective => new WorkflowObjectiveCreateInput(
+                    objective.Id, objective.Key, objective.Name, objective.Kind,
+                    objective.Weight)).ToArray(),
+                phase.Gates.Select(gate => new WorkflowGateCreateInput(
+                    gate.Id, gate.ObjectiveId, gate.Key, gate.Name,
+                    gate.MinimumRequiredState, gate.RequiredObjectiveIds)).ToArray())).ToArray();
+        var copy = await workflowCatalog.DuplicateTemplateAsync(
+            new WorkflowTemplateDuplicateCommand(
+                tenantId, template.Id, template.CurrentVersionId, copyTemplateId,
+                "Paridade (cópia)", template.Description, profileId,
+                new WorkflowVersionDraftCreateCommand(
+                    tenantId, copyTemplateId, copyVersionId, copyPhases, "{}", null,
+                    "{}", null, now.AddMilliseconds(29)),
+                now.AddMilliseconds(29)),
+            cancellationToken);
+        Assert.Equal("draft", copy.State);
+        Assert.Null(copy.CurrentVersionId);
+        Assert.Equal("draft", (await workflowCatalog.GetVersionAsync(
+            tenantId, copyVersionId, cancellationToken))!.State);
+        var archivedCopy = await workflowCatalog.ArchiveTemplateAsync(
+            new WorkflowTemplateArchiveCommand(
+                tenantId, copyTemplateId, profileId, now.AddMilliseconds(30)),
+            cancellationToken);
+        Assert.Equal("archived", archivedCopy.State);
+
+        await workflowCatalog.DeleteTemplateAsync(
+            new WorkflowTemplateDeleteCommand(
+                tenantId, draftTemplateId, profileId, now.AddMilliseconds(31)),
+            cancellationToken);
+        Assert.Null(await workflowCatalog.GetTemplateAsync(
+            tenantId, draftTemplateId, cancellationToken));
     }
 }

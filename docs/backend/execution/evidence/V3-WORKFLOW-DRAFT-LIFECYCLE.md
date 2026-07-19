@@ -9,9 +9,13 @@ Data: 2026-07-19. Branch: `develop`.
 - `PATCH /api/v1/workflow-versions/{id}` faz atualização parcial somente de rascunho. Versões publicadas são imutáveis e retornam 409.
 - `POST /api/v1/workflow-versions/{id}/publish` valida a hierarquia e referências tipadas antes de publicar. Rascunho inválido retorna 422; publicação define a versão vigente e emite `workflow.versionPublished` atomicamente com ledger e Outbox.
 - Contratos de fase foram ampliados com objetivo, contexto, critérios de aceite, dependências, entry/exit, skills e tools. Dependências desconhecidas/cíclicas e ULIDs inválidos de skills/tools são recusados.
-- Migration dual `0036_workflow_draft_lifecycle` adiciona tombstones preparados para a próxima fatia de archive/delete, sem alterar dados publicados existentes.
+- `POST /workflow-templates/{id}/archive` e `POST /workflow-versions/{id}/archive` aplicam tombstone; versão vigente não pode ser arquivada e recursos já arquivados retornam 409.
+- `DELETE /workflow-versions/{id}` remove somente rascunho ativo nunca utilizado. `DELETE /workflow-templates/{id}` remove somente template rascunho sem publicação/vínculo e elimina seus rascunhos na mesma transação.
+- Duplicação de versão cria novo rascunho monotônico no mesmo template. Duplicação de template é atômica, cria `" (cópia)"` em rascunho e copia somente a versão vigente como rascunho v1 com IDs novos.
+- `POST /projects/{id}/workflow` vincula uma única vez, aceita versão publicada explícita ou a vigente, herda `defaultOperationMode` (fallback `manual`) e publica auditoria `workflow.templateLinked`; templates/versões arquivados são recusados.
+- Migration dual `0036_workflow_draft_lifecycle` adiciona os tombstones sem alterar dados publicados existentes.
 
-SQLite e PostgreSQL implementam as mesmas transações, regras de estado, numeração monotônica e leitura de `draft`/`published`/`archived`. A bateria provider-neutra cria template e versão em rascunho nos dois bancos. O teste HTTP cobre criação mínima, cópia de versão, edição parcial, rejeição 422, imutabilidade 409, publicação v3, evento global e reinício do Host.
+SQLite e PostgreSQL implementam as mesmas transações, regras de estado, numeração monotônica e leitura de `draft`/`published`/`archived`. A bateria provider-neutra percorre criação, vínculo, tombstones, exclusões e duplicação atômica nos dois bancos. O teste HTTP cobre criação mínima, cópia de versão, edição parcial, rejeição 422, imutabilidade 409, publicação v3, archive/delete/duplicate, vínculo por projeto, evento global e reinício do Host.
 
 ## Gates executados
 
@@ -24,6 +28,6 @@ SQLite e PostgreSQL implementam as mesmas transações, regras de estado, numera
 
 O gate de frontend foi executado sobre a cópia isolada criada pelo script. Nenhum arquivo em `frontend/**` ou `docs/frontend/**` foi modificado nesta entrega.
 
-## Próxima fatia independente
+## Resultado
 
-Completar os comandos de arquivamento, exclusão segura e duplicação de template/versão, seguidos do vínculo de workflow a projeto conforme o contrato FR-4.
+O contrato funcional FR-4 descrito em `docs/frontend/HANDOFF_API.md` está completo no backend. Permanecem fora deste contrato as pendências explicitamente registradas pelo frontend (troca do template de um workflow já vinculado e troca de `activeVersionId`), que exigem comandos novos antes de implementação.

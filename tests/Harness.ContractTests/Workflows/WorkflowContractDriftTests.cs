@@ -18,13 +18,18 @@ public sealed class WorkflowContractDriftTests
     public void OpenApiMatchesWorkflowResourcesAndFrontendFields()
     {
         var root = Root(); using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "contracts", "openapi.json"))); var api = document.RootElement; var paths = api.GetProperty("paths");
-        Methods(paths, "/api/v1/workflow-templates", "get", "post"); Methods(paths, "/api/v1/workflow-templates/{id}", "get");
+        Methods(paths, "/api/v1/workflow-templates", "get", "post"); Methods(paths, "/api/v1/workflow-templates/{id}", "get", "delete");
         Methods(paths, "/api/v1/workflow-templates/{id}/versions", "post");
         Methods(paths, "/api/v1/workflow-templates/{id}/drafts", "post");
-        Methods(paths, "/api/v1/workflow-versions", "get"); Methods(paths, "/api/v1/workflow-versions/{id}", "get", "patch");
+        Methods(paths, "/api/v1/workflow-templates/{id}/archive", "post");
+        Methods(paths, "/api/v1/workflow-templates/{id}/duplicate", "post");
+        Methods(paths, "/api/v1/workflow-versions", "get"); Methods(paths, "/api/v1/workflow-versions/{id}", "get", "patch", "delete");
         Methods(paths, "/api/v1/workflow-versions/{id}/publish", "post");
+        Methods(paths, "/api/v1/workflow-versions/{id}/archive", "post");
+        Methods(paths, "/api/v1/workflow-versions/{id}/duplicate", "post");
         Methods(paths, "/api/v1/workflows", "get", "post"); Methods(paths, "/api/v1/workflows/{id}", "get");
         Methods(paths, "/api/v1/workflows/{id}/operation-mode", "post");
+        Methods(paths, "/api/v1/projects/{id}/workflow", "post");
         Methods(paths, "/api/v1/workflow-runs", "get", "post"); Methods(paths, "/api/v1/workflow-runs/{id}", "get");
         Methods(paths, "/api/v1/workflow-runs/{id}/transitions", "post");
         Methods(paths, "/api/v1/workflow-runs/{id}/objectives", "post");

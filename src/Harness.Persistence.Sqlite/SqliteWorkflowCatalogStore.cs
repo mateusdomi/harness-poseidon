@@ -160,7 +160,7 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
         {
             check.Transaction = tx; check.CommandText =
                 "SELECT EXISTS(SELECT 1 FROM projects WHERE tenant_id=$tenant AND id=$project AND deleted_at IS NULL)," +
-                "EXISTS(SELECT 1 FROM workflow_definition_versions WHERE tenant_id=$tenant AND id=$version AND definition_id=$template AND status='published')," +
+                "EXISTS(SELECT 1 FROM workflow_definition_versions v JOIN workflow_definitions d ON d.tenant_id=v.tenant_id AND d.id=v.definition_id WHERE v.tenant_id=$tenant AND v.id=$version AND v.definition_id=$template AND v.status='published' AND v.archived_at IS NULL AND d.archived_at IS NULL)," +
                 "EXISTS(SELECT 1 FROM local_users WHERE tenant_id=$tenant AND id=$profile);";
             Add(check, "$tenant", value.TenantId); Add(check, "$project", value.ProjectId);
             Add(check, "$version", value.ActiveVersionId); Add(check, "$template", value.TemplateId);

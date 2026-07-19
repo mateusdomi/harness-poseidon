@@ -226,7 +226,7 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
             check.Transaction = transaction;
             check.CommandText =
                 "SELECT EXISTS(SELECT 1 FROM harness.projects WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL)," +
-                "EXISTS(SELECT 1 FROM harness.workflow_definition_versions WHERE tenant_id=$1 AND id=$3 AND definition_id=$4 AND status='published')," +
+                "EXISTS(SELECT 1 FROM harness.workflow_definition_versions v JOIN harness.workflow_definitions d ON d.tenant_id=v.tenant_id AND d.id=v.definition_id WHERE v.tenant_id=$1 AND v.id=$3 AND v.definition_id=$4 AND v.status='published' AND v.archived_at IS NULL AND d.archived_at IS NULL)," +
                 "EXISTS(SELECT 1 FROM harness.local_users WHERE tenant_id=$1 AND id=$5);";
             check.Parameters.Add(Text(value.TenantId));
             check.Parameters.Add(Text(value.ProjectId));

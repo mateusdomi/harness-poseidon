@@ -19,16 +19,25 @@ public static class WorkflowEndpoints
         templates.MapPost("/", CreateTemplateAsync).Produces<WorkflowTemplateContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
         templates.MapPost("/{id}/drafts", CreateDraftAsync).Produces<WorkflowVersionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         templates.MapPost("/{id}/versions", PublishVersionAsync).Produces<WorkflowVersionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        templates.MapPost("/{id}/archive", ArchiveTemplateAsync).Produces<WorkflowTemplateContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        templates.MapDelete("/{id}", DeleteTemplateAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        templates.MapPost("/{id}/duplicate", DuplicateTemplateAsync).Produces<WorkflowTemplateContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         var versions = endpoints.MapGroup("/api/v1/workflow-versions").WithTags("workflow-versions");
         versions.MapGet("/", ListVersionsAsync).Produces<WorkflowVersionPage>().ProducesProblem(400).ProducesProblem(401);
         versions.MapGet("/{id}", GetVersionAsync).Produces<WorkflowVersionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         versions.MapPatch("/{id}", UpdateDraftAsync).Produces<WorkflowVersionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         versions.MapPost("/{id}/publish", PublishDraftAsync).Produces<WorkflowVersionContract>().ProducesProblem(401).ProducesProblem(404).ProducesProblem(409).ProducesProblem(422);
+        versions.MapPost("/{id}/archive", ArchiveVersionAsync).Produces<WorkflowVersionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        versions.MapDelete("/{id}", DeleteDraftVersionAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        versions.MapPost("/{id}/duplicate", DuplicateVersionAsync).Produces<WorkflowVersionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         var workflows = endpoints.MapGroup("/api/v1/workflows").WithTags("workflows");
         workflows.MapGet("/", ListWorkflowsAsync).Produces<WorkflowPage>().ProducesProblem(400).ProducesProblem(401);
         workflows.MapGet("/{id}", GetWorkflowAsync).Produces<WorkflowContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         workflows.MapPost("/", CreateWorkflowAsync).Produces<WorkflowContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         workflows.MapPost("/{id}/operation-mode", SetOperationModeAsync).Produces<WorkflowContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        endpoints.MapPost("/api/v1/projects/{id}/workflow", LinkProjectWorkflowAsync)
+            .WithTags("projects").Produces<WorkflowContract>(201).ProducesProblem(400)
+            .ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         var runs = endpoints.MapGroup("/api/v1/workflow-runs").WithTags("workflow-runs");
         runs.MapGet("/", ListRunsAsync).Produces<WorkflowRunPage>().ProducesProblem(400).ProducesProblem(401);
         runs.MapGet("/{id}", GetRunAsync).Produces<WorkflowRunContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
@@ -193,12 +202,174 @@ public static class WorkflowEndpoints
         catch (ArgumentException e) { return Problem(400, "invalid_workflow_version", e.Message); }
     }
 
+    private static async Task<IResult> ArchiveTemplateAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        try
+        {
+            var row = await store.ArchiveTemplateAsync(new(profile.TenantId, id, profile.Id,
+                clock.UtcNow), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+    }
+
+    private static async Task<IResult> ArchiveVersionAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        try
+        {
+            var row = await store.ArchiveVersionAsync(new(profile.TenantId, id, profile.Id,
+                clock.UtcNow), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+    }
+
+    private static async Task<IResult> DeleteDraftVersionAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        try
+        {
+            await store.DeleteDraftVersionAsync(new(profile.TenantId, id, profile.Id, clock.UtcNow), token);
+            return Results.NoContent();
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+    }
+
+    private static async Task<IResult> DeleteTemplateAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        try
+        {
+            await store.DeleteTemplateAsync(new(profile.TenantId, id, profile.Id, clock.UtcNow), token);
+            return Results.NoContent();
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+    }
+
+    private static async Task<IResult> DuplicateVersionAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        var source = await store.GetVersionAsync(profile.TenantId, id, token);
+        if (source is null) return NotFound("workflow_version");
+        try
+        {
+            var now = clock.UtcNow; var versionId = UlidValue.New(now).ToString();
+            var value = WorkflowCatalogApplicationService.CreateDraftVersion(source.TemplateId,
+                versionId, CopyAsDraft(source), now);
+            var row = await store.CreateDraftAsync(new(profile.TenantId, source.TemplateId,
+                versionId, ToPersistence(value.Hierarchy.Phases),
+                JsonSerializer.Serialize(value.PhaseConfigs), value.DefaultOperationMode,
+                JsonSerializer.Serialize(value.Transitions), null, now), token);
+            return Results.Created($"/api/v1/workflow-versions/{versionId}", ToContract(row));
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+        catch (ArgumentException e) { return Problem(400, "invalid_workflow_draft", e.Message); }
+    }
+
+    private static async Task<IResult> DuplicateTemplateAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        var source = await store.GetTemplateAsync(profile.TenantId, id, token);
+        if (source is null) return NotFound("workflow_template");
+        try
+        {
+            var now = clock.UtcNow; var templateId = UlidValue.New(now).ToString();
+            WorkflowVersionDraftCreateCommand? draftCommand = null;
+            if (source.CurrentVersionId is not null)
+            {
+                var current = await store.GetVersionAsync(profile.TenantId, source.CurrentVersionId, token)
+                    ?? throw new WorkflowCatalogReferenceNotFoundException("workflow_version");
+                var versionId = UlidValue.New(now.AddTicks(1)).ToString();
+                var draft = WorkflowCatalogApplicationService.CreateDraftVersion(templateId,
+                    versionId, CopyAsDraft(current), now);
+                draftCommand = new(profile.TenantId, templateId, versionId,
+                    ToPersistence(draft.Hierarchy.Phases), JsonSerializer.Serialize(draft.PhaseConfigs),
+                    draft.DefaultOperationMode, JsonSerializer.Serialize(draft.Transitions), null, now);
+            }
+            const string suffix = " (cópia)";
+            var baseName = source.Name.Length > 200 - suffix.Length
+                ? source.Name[..(200 - suffix.Length)]
+                : source.Name;
+            var row = await store.DuplicateTemplateAsync(new(profile.TenantId, source.Id,
+                source.CurrentVersionId, templateId, baseName + suffix, source.Description,
+                profile.Id, draftCommand, now), token);
+            return Results.Created($"/api/v1/workflow-templates/{templateId}", ToContract(row));
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+        catch (ArgumentException e) { return Problem(400, "invalid_workflow_template", e.Message); }
+    }
+
+    private static WorkflowDraftRequest CopyAsDraft(WorkflowVersionCatalogRecord source) => new(
+        source.Phases, source.GatesByPhase,
+        JsonSerializer.Deserialize<Dictionary<string, WorkflowPhaseConfigContract>>(source.PhaseConfigsJson),
+        source.DefaultOperationMode,
+        JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(source.TransitionsJson),
+        null);
+
     private static async Task<IResult> ListWorkflowsAsync(string? projectId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
     { var invalid = Page(cursor, limit, projectId); if (invalid is not null) return invalid; var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var size = limit ?? 100; var rows = await store.ListBindingsAsync(profile.TenantId, projectId, cursor, size + 1, token); return Paged(rows, size, ToContract, x => x.Id, (items, next) => new WorkflowPage(items, next)); }
     private static async Task<IResult> GetWorkflowAsync(string id, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
     { if (!Valid(id)) return InvalidId(); var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var row = await store.GetBindingAsync(profile.TenantId, id, token); return row is null ? NotFound("workflow") : Results.Ok(ToContract(row)); }
     private static async Task<IResult> CreateWorkflowAsync(CreateWorkflowRequest input, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock, CancellationToken token)
     { var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); try { var value = WorkflowCatalogApplicationService.CreateBinding(input); var version = value.VersionId ?? (await store.GetTemplateAsync(profile.TenantId, value.TemplateId, token))?.CurrentVersionId ?? throw new WorkflowCatalogReferenceNotFoundException("workflow_version"); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); var row = await store.CreateBindingAsync(new(profile.TenantId, id, value.ProjectId, value.TemplateId, version, value.OperationMode, value.PauseGates, profile.Id, UlidValue.New(now.AddTicks(1)).ToString(), value.RiskAcceptanceNote, now), token); return Results.Created($"/api/v1/workflows/{id}", ToContract(row)); } catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); } catch (WorkflowBindingAlreadyExistsException) { return Problem(409, "workflow_already_exists", "The project already has a workflow."); } catch (ArgumentException e) { return Problem(400, "invalid_workflow", e.Message); } }
+
+    private static async Task<IResult> LinkProjectWorkflowAsync(string id,
+        LinkWorkflowTemplateRequest input, HttpRequest request, ILocalProfileStore profiles,
+        IWorkflowCatalogStore store, IClock clock, CancellationToken token)
+    {
+        if (!Valid(id) || !Valid(input.TemplateId) ||
+            (input.VersionId is not null && !Valid(input.VersionId))) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        var template = await store.GetTemplateAsync(profile.TenantId, input.TemplateId, token);
+        if (template is null) return NotFound("workflow_template");
+        if (template.State == "archived")
+            return Problem(409, "workflow_lifecycle_conflict", "An archived workflow template cannot be linked.");
+        var versionId = input.VersionId ?? template.CurrentVersionId;
+        if (versionId is null)
+            return Problem(409, "workflow_template_unpublished", "Publish a workflow version before linking the template.");
+        var version = await store.GetVersionAsync(profile.TenantId, versionId, token);
+        if (version is null || version.TemplateId != template.Id || version.State != "published")
+            return Problem(409, "workflow_version_invalid", "The workflow version must be active, published, and belong to the template.");
+        var mode = version.DefaultOperationMode ?? "manual";
+        if (mode is not ("manual" or "semiautonomous" or "autonomous"))
+            return Problem(409, "workflow_version_invalid", "The workflow version has an invalid default operation mode.");
+        try
+        {
+            var now = clock.UtcNow; var workflowId = UlidValue.New(now).ToString();
+            var row = await store.LinkTemplateAsync(new(profile.TenantId, workflowId, id,
+                template.Id, version.Id, mode, profile.Id, now), token);
+            return Results.Created($"/api/v1/workflows/{workflowId}", ToContract(row));
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+        catch (WorkflowBindingAlreadyExistsException) { return Problem(409, "workflow_already_exists", "The project already has a workflow."); }
+    }
 
     private static async Task<IResult> SetOperationModeAsync(string id, SetWorkflowOperationModeRequest input,
         HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,

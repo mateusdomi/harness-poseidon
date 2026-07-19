@@ -1,15 +1,15 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-19T21:37:40Z
+Atualizado em: 2026-07-19T21:55:33Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Último commit remoto auditado: `a8a8ff7` (`origin/develop`), com a administração segura de conta de provider v3 §8.13. O núcleo backend do FR-4 (draft/cópia/PATCH/validação/publicação) está verde localmente e aguarda push.
+- Último commit remoto auditado: `50b6049` (`origin/develop`), com o núcleo backend FR-4. O ciclo restante (tombstones/exclusão/duplicação/vínculo por projeto) está verde localmente e aguarda push.
 - Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 99,5% · Validado 99,3% · Integrado 96,4% · Homologado 0% · Geral ≈78,5%.
-- Próximo passo exato: publicar o núcleo backend FR-4 e continuar por archive/delete/duplicate, depois vínculo de workflow a projeto. Em paralelo externo ficam a11y/E2E navegados e GNG-6. F6/F7/F9 estão tecnicamente completas; faltam smokes externos com executor/modelo, macOS limpo+Developer ID, Microsoft/Azure Bot e Entra ID reais. O navegador embutido segue sem sessão disponível apesar de Chrome/Edge instalados, mas isso não bloqueia os refinamentos independentes. Telegram real exige rotação do token antes de nova ativação (R-013).
+- Próximo passo exato: publicar o FR-4 completo e continuar pelo catálogo tipado de providers/modelos/esforço e pelo CRUD de definições de agentes, auditando antes o que já existe. Em paralelo externo ficam a11y/E2E navegados e GNG-6. F6/F7/F9 estão tecnicamente completas; faltam smokes externos com executor/modelo, macOS limpo+Developer ID, Microsoft/Azure Bot e Entra ID reais. O navegador embutido segue sem sessão disponível apesar de Chrome/Edge instalados, mas isso não bloqueia os refinamentos independentes. Telegram real exige rotação do token antes de nova ativação (R-013).
 - Bloqueios: nenhum técnico — há refinamentos v3 independentes. Apenas a11y/E2E de browser e os smokes/aceites externos (GNG-3 visual, GNG-4 macOS limpo, GNG-6, Entra ID, Teams e modelo reais) aguardam outra frente/terceiros e não travam o backlog backend. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
 ## Suposições ativas

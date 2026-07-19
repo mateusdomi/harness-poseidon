@@ -8,6 +8,12 @@ public interface IWorkflowCatalogStore
         string tenantId, string templateId, CancellationToken cancellationToken = default);
     Task<WorkflowTemplateCatalogRecord> CreateTemplateAsync(
         WorkflowTemplateCreateCommand command, CancellationToken cancellationToken = default);
+    Task<WorkflowTemplateCatalogRecord> ArchiveTemplateAsync(
+        WorkflowTemplateArchiveCommand command, CancellationToken cancellationToken = default);
+    Task DeleteTemplateAsync(
+        WorkflowTemplateDeleteCommand command, CancellationToken cancellationToken = default);
+    Task<WorkflowTemplateCatalogRecord> DuplicateTemplateAsync(
+        WorkflowTemplateDuplicateCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkflowVersionCatalogRecord>> ListVersionsAsync(
         string tenantId, string? templateId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
@@ -19,10 +25,16 @@ public interface IWorkflowCatalogStore
         WorkflowVersionDraftUpdateCommand command, CancellationToken cancellationToken = default);
     Task<WorkflowVersionCatalogRecord> PublishDraftAsync(
         WorkflowVersionDraftPublishCommand command, CancellationToken cancellationToken = default);
+    Task<WorkflowVersionCatalogRecord> ArchiveVersionAsync(
+        WorkflowVersionArchiveCommand command, CancellationToken cancellationToken = default);
+    Task DeleteDraftVersionAsync(
+        WorkflowVersionDeleteCommand command, CancellationToken cancellationToken = default);
     Task<WorkflowVersionCatalogRecord> PublishVersionAsync(
         WorkflowVersionPublishCommand command, CancellationToken cancellationToken = default);
     Task<WorkflowBindingCatalogRecord> CreateBindingAsync(
         WorkflowBindingCreateCommand command, CancellationToken cancellationToken = default);
+    Task<WorkflowBindingCatalogRecord> LinkTemplateAsync(
+        WorkflowTemplateLinkCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkflowBindingCatalogRecord>> ListBindingsAsync(
         string tenantId, string? projectId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
@@ -61,6 +73,17 @@ public sealed record WorkflowTemplateCreateCommand(
     string TenantId, string Id, string Name, string Description, string ActorProfileId,
     DateTimeOffset OccurredAt);
 
+public sealed record WorkflowTemplateArchiveCommand(
+    string TenantId, string TemplateId, string ActorProfileId, DateTimeOffset OccurredAt);
+
+public sealed record WorkflowTemplateDeleteCommand(
+    string TenantId, string TemplateId, string ActorProfileId, DateTimeOffset OccurredAt);
+
+public sealed record WorkflowTemplateDuplicateCommand(
+    string TenantId, string SourceTemplateId, string? SourceVersionId, string TemplateId,
+    string Name, string Description, string ActorProfileId,
+    WorkflowVersionDraftCreateCommand? Draft, DateTimeOffset OccurredAt);
+
 public sealed record WorkflowRiskAcceptanceCatalogRecord(
     string Mode, string AcceptedByProfileId, string Note, DateTimeOffset AcceptedAt);
 
@@ -87,6 +110,10 @@ public sealed record WorkflowBindingCreateCommand(
     string AcceptedByProfileId, string RiskAcceptanceId, string RiskAcceptanceNote,
     DateTimeOffset OccurredAt);
 
+public sealed record WorkflowTemplateLinkCommand(
+    string TenantId, string Id, string ProjectId, string TemplateId, string ActiveVersionId,
+    string OperationMode, string ActorProfileId, DateTimeOffset OccurredAt);
+
 public sealed record WorkflowVersionPublishCommand(
     string TenantId, string TemplateId, string VersionId,
     IReadOnlyList<WorkflowPhaseCreateInput> Phases, string PhaseConfigsJson,
@@ -106,6 +133,12 @@ public sealed record WorkflowVersionDraftUpdateCommand(
 
 public sealed record WorkflowVersionDraftPublishCommand(
     string TenantId, string VersionId, string? Changelog, DateTimeOffset OccurredAt);
+
+public sealed record WorkflowVersionArchiveCommand(
+    string TenantId, string VersionId, string ActorProfileId, DateTimeOffset OccurredAt);
+
+public sealed record WorkflowVersionDeleteCommand(
+    string TenantId, string VersionId, string ActorProfileId, DateTimeOffset OccurredAt);
 
 public sealed record WorkflowOperationModeCommand(
     string TenantId, string WorkflowId, string Mode, IReadOnlyList<string> PauseGates,
