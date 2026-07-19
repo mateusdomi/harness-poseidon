@@ -90,3 +90,7 @@ No instante do inventário: `5000`, `7000`, `50942` e `59869`. As portas 5000 e 
 - Nunca executar `docker system prune`, `docker volume prune` ou equivalentes.
 - Publicar somente em porta host livre/dinâmica e registrar a porta escolhida.
 - Cleanup e detecção de órfãos filtram simultaneamente por prefixo e label.
+
+## Re-inventário antes de F2-DOGFOOD-1d.1
+
+Capturado em 2026-07-19T00:00Z: os mesmos 11 containers de terceiros estavam parados; havia 14 volumes e 7 networks preexistentes, todos intocados, e zero recurso com `com.harness.managed=true`. O teste da sessão streaming criou somente recursos prefixados/labelados e confirmou inventário Harness vazio após o cleanup. Nenhuma porta foi publicada pelo sandbox.

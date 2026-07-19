@@ -16,6 +16,7 @@ public static class WorkBoardEndpoints
         solicitations.MapGet("/", ListSolicitationsAsync).Produces<SolicitationPage>().ProducesProblem(400).ProducesProblem(401);
         solicitations.MapGet("/{id}", GetSolicitationAsync).Produces<SolicitationContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         solicitations.MapPost("/", CreateSolicitationAsync).Produces<SolicitationContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        solicitations.MapPost("/analyze", AnalyzeSolicitationAsync).Produces<SolicitationAnalysisContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         solicitations.MapPost("/{id}/transitions", TransitionSolicitationAsync).Produces<SolicitationContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
 
         var demands = endpoints.MapGroup("/api/v1/demands").WithTags("demands");
@@ -96,6 +97,34 @@ public static class WorkBoardEndpoints
         catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
         catch (WorkBoardInvalidStateException e) { return Conflict("solicitation_state_conflict", e.Message); }
         catch (ArgumentException e) { return Invalid("solicitation", e.Message); }
+    }
+
+    private static async Task<IResult> AnalyzeSolicitationAsync(AnalyzeSolicitationRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token)
+    {
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var now = clock.UtcNow;
+            var draft = WorkBoardApplicationService.AnalyzeSolicitation(
+                UlidValue.New(now).ToString(), profile.Id, input, now);
+            var solicitation = draft.Solicitation;
+            await store.CreateSolicitationAsync(new(profile.TenantId, solicitation.Id,
+                solicitation.ProjectId, solicitation.AuthorProfileId, solicitation.Kind,
+                solicitation.Title, solicitation.Body, null, now), token);
+            var offset = 1;
+            IReadOnlyList<SolicitationAnalysisItemContract> Items(IReadOnlyList<string> values) =>
+                values.Select(value => new SolicitationAnalysisItemContract(
+                    UlidValue.New(now.AddTicks(offset++)).ToString(), value)).ToArray();
+            var result = new SolicitationAnalysisContract(solicitation.Id,
+                Items(draft.Requirements), Items(draft.Ambiguities), Items(draft.Contradictions),
+                Items(draft.Questions), Items(draft.AcceptanceCriteria));
+            return Results.Created($"/api/v1/solicitations/{solicitation.Id}", result);
+        }
+        catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
+        catch (ArgumentException e) { return Invalid("solicitation_analysis", e.Message); }
     }
 
     private static async Task<IResult> ListDemandsAsync(string? projectId, string? solicitationId,

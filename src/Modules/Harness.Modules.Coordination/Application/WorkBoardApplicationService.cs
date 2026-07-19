@@ -5,6 +5,8 @@ namespace Harness.Modules.Coordination.Application;
 
 public static class WorkBoardApplicationService
 {
+    private static readonly string[] AmbiguityTerms =
+        ["talvez", "aproximadamente", "adequado", "rápido", "simples", "etc", "quando possível", "se necessário"];
     private static readonly HashSet<string> Priorities =
         new(["low", "medium", "high", "critical"], StringComparer.Ordinal);
     private static readonly HashSet<string> SolicitationKinds =
@@ -87,6 +89,53 @@ public static class WorkBoardApplicationService
         return Choice(request.State, SolicitationStates);
     }
 
+    public static SolicitationAnalysisDraft AnalyzeSolicitation(
+        string solicitationId, string profileId, AnalyzeSolicitationRequest request,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var body = Text(request.Text, 100_000);
+        var attachments = NormalizeAttachments(request.AttachmentNames);
+        var clauses = body.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split(['\n', '.', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(50)
+            .ToArray();
+        if (clauses.Length == 0) clauses = [body];
+
+        var requirements = clauses.Where(value => !value.EndsWith('?'))
+            .Select(CleanClause).Where(value => value.Length > 0).Take(25).ToList();
+        if (requirements.Count == 0) requirements.Add(CleanClause(clauses[0]));
+        requirements.AddRange(attachments.Select(name => $"Considerar o anexo \"{name}\"."));
+
+        var ambiguities = clauses.Where(value => AmbiguityTerms.Any(term =>
+                value.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .Select(value => $"Termo impreciso a esclarecer: {CleanClause(value)}")
+            .Take(20).ToArray();
+        var questions = clauses.Where(value => value.EndsWith('?'))
+            .Select(value => CleanClause(value).TrimEnd('?') + "?")
+            .Concat(ambiguities.Select(value => $"Como tornar mensurável: {value[0].ToString().ToLowerInvariant()}{value[1..]}?"))
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(25).ToList();
+        if (questions.Count == 0)
+            questions.Add("Qual resultado observável define que esta solicitação foi atendida?");
+
+        var normalized = clauses.Select(value => CleanClause(value).TrimEnd('.', '?', '!'))
+            .ToArray();
+        var contradictions = normalized.Where(value => value.StartsWith("não ", StringComparison.OrdinalIgnoreCase) &&
+                normalized.Contains(value[4..], StringComparer.OrdinalIgnoreCase))
+            .Select(value => $"Declarações opostas detectadas para: {value[4..]}.")
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(20).ToArray();
+        var acceptance = requirements.Select(value =>
+                $"Deve ser verificável que {LowerFirst(value.TrimEnd('.', '?', '!'))}.")
+            .Take(25).ToArray();
+        var title = CleanClause(clauses[0]);
+        if (title.Length > 120) title = title[..120].TrimEnd();
+        var solicitation = CreateSolicitation(solicitationId, profileId,
+            new(request.ProjectId, "request", title, body), now);
+        return new(solicitation, requirements, ambiguities, contradictions, questions, acceptance);
+    }
+
     private static string Id(string value) =>
         UlidValue.TryParse(value, out var id)
             ? id.ToString()
@@ -108,6 +157,25 @@ public static class WorkBoardApplicationService
             ? normalized
             : throw new ArgumentException("Value is not supported.", nameof(value));
     }
+
+    private static string[] NormalizeAttachments(IReadOnlyList<string>? values)
+    {
+        if (values is null) return [];
+        if (values.Count > 25) throw new ArgumentException("At most 25 attachments are supported.", nameof(values));
+        var normalized = values.Select(value => Text(value, 255))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (normalized.Any(value => value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                value.Contains('/') || value.Contains('\\') || value is "." or ".."))
+            throw new ArgumentException("Attachment names must not contain paths.", nameof(values));
+        return normalized;
+    }
+
+    private static string CleanClause(string value) => value.Trim().TrimEnd('.', ';') +
+        (value.TrimEnd().EndsWith('?') ? string.Empty : ".");
+
+    private static string LowerFirst(string value) => value.Length == 0
+        ? value
+        : char.ToLowerInvariant(value[0]) + value[1..];
 
     private static DateTimeOffset Utc(DateTimeOffset value) =>
         value != default && value.Offset == TimeSpan.Zero

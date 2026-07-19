@@ -2,6 +2,7 @@ using Harness.Host.Profiles;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.SharedKernel.Identifiers;
@@ -220,6 +221,7 @@ public static class ConversationEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         IConversationStore conversations,
+        IChiefTurnStore chiefTurns,
         IProjectStore projects,
         IClock clock,
         CancellationToken cancellationToken)
@@ -238,40 +240,29 @@ public static class ConversationEndpoints
             var now = clock.UtcNow;
             var turnId = UlidValue.New(now).ToString();
             var userAt = now.AddMilliseconds(1);
-            var chiefAt = now.AddMilliseconds(2);
             var user = ConversationApplicationService.CreateUserMessage(
                 UlidValue.New(userAt).ToString(), profile.Id,
                 new CreateMessageRequest(conversationId, input.Content), userAt);
-            var chunks = ConversationApplicationService.ComposeDeterministicReply(input.Content);
-            var chief = ConversationApplicationService.CreateChiefMessage(
-                UlidValue.New(chiefAt).ToString(), conversationId, project.ChiefAgentId,
-                string.Concat(chunks), chiefAt);
-            var result = await conversations.StartTurnAsync(
-                new ChatTurnCommand(
+            await chiefTurns.EnqueueAsync(
+                new ChiefTurnEnqueueCommand(
                     profile.TenantId,
+                    project.Id,
                     conversationId,
                     turnId,
+                    project.ChiefAgentId,
                     ToRecord(profile.TenantId, conversation.ProjectId, user),
-                    ToRecord(profile.TenantId, conversation.ProjectId, chief),
-                    chunks,
+                    $"chief-turn:{turnId}",
                     now),
                 cancellationToken);
-            return result.Status switch
-            {
-                MessageMutationStatus.Applied => Results.Accepted(
-                    value: new ChatTurnHandle(result.TurnId, result.ConversationId)),
-                MessageMutationStatus.ConversationNotFound => ConversationNotFound(),
-                MessageMutationStatus.ConversationInactive => Problem(
-                    409, "conversation_inactive", "The conversation is not active."),
-                MessageMutationStatus.AlreadyExists => Problem(
-                    409, "chat_turn_already_exists", "The chat turn already exists."),
-                _ => throw new InvalidOperationException(
-                    $"Unexpected chat turn status {result.Status}."),
-            };
+            return Results.Accepted(value: new ChatTurnHandle(turnId, conversationId));
         }
         catch (ArgumentException exception)
         {
             return Problem(400, "invalid_chat_turn", exception.Message);
+        }
+        catch (ChiefTurnConflictException exception)
+        {
+            return Problem(409, "chief_turn_conflict", exception.Message);
         }
     }
 
@@ -320,6 +311,7 @@ public static class ConversationEndpoints
         Problem(404, "project_not_found", "The project does not exist.");
     private static IResult Problem(int status, string title, string detail) =>
         Results.Problem(statusCode: status, title: title, detail: detail);
+
 }
 
 public sealed record ConversationResponse(

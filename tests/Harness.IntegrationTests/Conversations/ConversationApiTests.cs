@@ -7,10 +7,15 @@ using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Host.Realtime;
 using Harness.Modules.Conversations.Contracts;
+using Harness.Modules.Conversations.Application;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Sqlite;
+using Harness.Persistence.Abstractions.Agents;
+using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -20,6 +25,77 @@ namespace Harness.IntegrationTests.Conversations;
 
 public sealed class ConversationApiTests
 {
+    [Fact]
+    public async Task ExpiredChiefLeaseIsReacquiredAfterRestartAndOldFencingIsRejected()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var artifactRoot = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"chief-recovery-{Guid.NewGuid():N}");
+        var databasePath = Path.Combine(artifactRoot, "chief.db");
+        Directory.CreateDirectory(artifactRoot);
+        string tenantId; string profileId; string projectId; string chiefAgentId; string conversationId;
+        ChiefTurnLease staleLease;
+        try
+        {
+            await using (var app = CreateHost(databasePath))
+            {
+                await app.StartAsync(timeout.Token);
+                try
+                {
+                    using var client = new HttpClient { BaseAddress = GetBaseAddress(app.Services) };
+                    var profile = await CreateProfileAsync(client, "Recovery", timeout.Token); profileId = profile.Id;
+                    tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>().GetAsync(profileId, timeout.Token))!.TenantId;
+                    var organization = await CreateOrganizationAsync(client, timeout.Token);
+                    var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                    projectId = project.Id; chiefAgentId = project.ChiefAgentId;
+                    using var created = await client.PostAsJsonAsync("/api/v1/conversations", new CreateConversationRequest(projectId, "Recovery"), timeout.Token);
+                    created.EnsureSuccessStatusCode();
+                    conversationId = (await created.Content.ReadFromJsonAsync<ConversationResponse>(timeout.Token))!.Id;
+                }
+                finally { await app.StopAsync(timeout.Token); }
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var turnId = UlidValue.New(now).ToString();
+            var user = ConversationApplicationService.CreateUserMessage(
+                UlidValue.New(now.AddMilliseconds(1)).ToString(), profileId,
+                new CreateMessageRequest(conversationId, "Retome após o restart"), now.AddMilliseconds(1));
+            await using (var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
+            {
+                Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+                var store = new SqliteConversationStore(dispatcher);
+                await store.EnqueueAsync(new ChiefTurnEnqueueCommand(
+                    tenantId, projectId, conversationId, turnId, chiefAgentId,
+                    new MessageRecord(tenantId, projectId, user.Id, conversationId, "user", profileId, null, user.Content, null, user.CreatedAt),
+                    $"chief-turn:{turnId}", now), timeout.Token);
+                staleLease = await store.AcquireAsync(
+                    new ChiefTurnAcquireCommand(tenantId, turnId, "crashed-owner", now, TimeSpan.FromMilliseconds(1)),
+                    timeout.Token);
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
+
+            await using var restarted = CreateHost(databasePath);
+            await restarted.StartAsync(timeout.Token);
+            try
+            {
+                using var client = new HttpClient { BaseAddress = GetBaseAddress(restarted.Services) };
+                client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
+                _ = await WaitForTurnAsync(client, conversationId, turnId, timeout.Token);
+                var recovered = await ReadChiefPipelineAsync(restarted.Services, turnId, timeout.Token);
+                Assert.Equal("completed", recovered.MailboxState);
+                Assert.Equal(2, recovered.AttemptCount);
+                Assert.Equal(2, recovered.FencingToken);
+                await Assert.ThrowsAsync<ChiefTurnConflictException>(() =>
+                    restarted.Services.GetRequiredService<IChiefTurnStore>().FailAsync(
+                        new ChiefTurnFailCommand(staleLease, "stale", DateTimeOffset.UtcNow, false), timeout.Token));
+            }
+            finally { await restarted.StopAsync(timeout.Token); }
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot)) Directory.Delete(artifactRoot, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task ConversationMessagesAndTurnAreTenantScopedDurableAndSequenced()
     {
@@ -124,6 +200,17 @@ public sealed class ConversationApiTests
                     var auditCounts = await ReadChatAuditCountsAsync(
                         app.Services, timeout.Token);
                     Assert.Equal((3L, 1L), auditCounts);
+                    var pipeline = await ReadChiefPipelineAsync(
+                        app.Services, handle.TurnId, timeout.Token);
+                    Assert.Equal("completed", pipeline.MailboxState);
+                    Assert.Equal(1, pipeline.AttemptCount);
+                    Assert.NotNull(pipeline.ResponseMessageId);
+                    Assert.Equal($"fake:{project.Id}", pipeline.SessionId);
+                    Assert.Equal("idle", pipeline.ChiefState);
+                    Assert.Null(pipeline.LeaseOwner);
+                    Assert.Equal(1, pipeline.FencingToken);
+                    Assert.True(pipeline.HasDigest);
+                    Assert.Equal(1, pipeline.InboxCount);
 
                     var page = await client.GetFromJsonAsync<ConversationPage>(
                         $"/api/v1/conversations?projectId={project.Id}", timeout.Token);
@@ -155,6 +242,10 @@ public sealed class ConversationApiTests
                 var recoveredMessages = await client.GetFromJsonAsync<MessagePage>(
                     $"/api/v1/messages?conversationId={conversationId}", timeout.Token);
                 Assert.Equal(3, recoveredMessages?.Items.Count);
+                var recoveredPipeline = await ReadChiefPipelineAsync(
+                    restarted.Services, null, timeout.Token);
+                Assert.Equal("completed", recoveredPipeline.MailboxState);
+                Assert.Equal(1, recoveredPipeline.FencingToken);
 
                 using var deleted = await client.DeleteAsync(
                     $"/api/v1/conversations/{conversationId}", timeout.Token);
@@ -265,6 +356,39 @@ public sealed class ConversationApiTests
             },
             cancellationToken);
 
+    private static Task<ChiefPipelineSnapshot> ReadChiefPipelineAsync(
+        IServiceProvider services,
+        string? turnId,
+        CancellationToken cancellationToken) =>
+        services.GetRequiredService<SqliteWriteDispatcher>().ExecuteAsync(
+            async (connection, token) =>
+            {
+                await using var query = connection.CreateCommand();
+                query.CommandText =
+                    """
+                    SELECT m.state,m.attempt_count,m.response_message_id,m.session_id,
+                           s.state,s.lease_owner_id,s.lease_fencing_token,
+                           s.last_digest_json IS NOT NULL,
+                           (SELECT COUNT(*) FROM inbox_messages i
+                            WHERE i.tenant_id=m.tenant_id
+                              AND i.idempotency_key='chief-turn:' || m.id)
+                    FROM chief_turn_mailbox m
+                    JOIN chief_states s ON s.tenant_id=m.tenant_id AND s.project_id=m.project_id
+                    WHERE ($turn IS NULL OR m.id=$turn)
+                    ORDER BY m.id DESC LIMIT 1;
+                    """;
+                query.Parameters.AddWithValue("$turn", turnId ?? (object)DBNull.Value);
+                await using var reader = await query.ExecuteReaderAsync(token);
+                Assert.True(await reader.ReadAsync(token));
+                return new ChiefPipelineSnapshot(
+                    reader.GetString(0), reader.GetInt32(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.GetInt64(6), reader.GetBoolean(7), reader.GetInt32(8));
+            },
+            cancellationToken);
+
     private static WebApplication CreateHost(string databasePath) =>
         HostApplication.Build(
             ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", databasePath]);
@@ -277,4 +401,15 @@ public sealed class ConversationApiTests
         return new Uri(addresses.Single(item =>
             item.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)));
     }
+
+    private sealed record ChiefPipelineSnapshot(
+        string MailboxState,
+        int AttemptCount,
+        string? ResponseMessageId,
+        string? SessionId,
+        string ChiefState,
+        string? LeaseOwner,
+        long FencingToken,
+        bool HasDigest,
+        int InboxCount);
 }

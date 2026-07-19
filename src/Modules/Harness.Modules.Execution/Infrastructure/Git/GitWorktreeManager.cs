@@ -135,6 +135,70 @@ public sealed class GitWorktreeManager : IDisposable
             .ToArray();
     }
 
+    public async Task<bool> RemoveTaskWorktreeAsync(
+        string branchName,
+        string worktreePath,
+        bool deleteBranch,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
+        if (!branchName.StartsWith("task/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Task branches must use the task/ prefix.", nameof(branchName));
+        }
+
+        var destination = EnsureContained(_controlledRoot, worktreePath, nameof(worktreePath));
+        await _metadataGate.WaitAsync(cancellationToken);
+        try
+        {
+            var registered = (await ListWorktreesCoreAsync(cancellationToken)).SingleOrDefault(item =>
+                string.Equals(item.WorktreePath, destination, StringComparison.Ordinal));
+            if (registered is null)
+            {
+                if (Directory.Exists(destination) || File.Exists(destination))
+                {
+                    throw new InvalidOperationException(
+                        "Cleanup refused a destination that is not registered as a Git worktree.");
+                }
+
+                return false;
+            }
+
+            if (!string.Equals(registered.BranchName, branchName, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Cleanup refused a worktree registered for another branch.");
+            }
+
+            var removal = await RunGitAsync(
+                _repositoryRoot,
+                ["worktree", "remove", destination],
+                cancellationToken);
+            if (removal.ExitCode != 0)
+            {
+                throw CreateGitException("remove the task worktree", removal);
+            }
+
+            if (deleteBranch)
+            {
+                var deletion = await RunGitAsync(
+                    _repositoryRoot,
+                    ["branch", "--delete", branchName],
+                    cancellationToken);
+                if (deletion.ExitCode != 0)
+                {
+                    throw CreateGitException("delete the merged task branch", deletion);
+                }
+            }
+
+            return true;
+        }
+        finally
+        {
+            _metadataGate.Release();
+        }
+    }
+
     public async Task<IReadOnlyList<GitWorktreeDescriptor>> ListWorktreesAsync(
         CancellationToken cancellationToken = default)
     {

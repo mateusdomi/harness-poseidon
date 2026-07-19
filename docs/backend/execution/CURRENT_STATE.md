@@ -1,19 +1,19 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T22:43:48Z
+Atualizado em: 2026-07-19T00:03:29Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-RUN-1 — detecção e lifecycle mínimo de run targets .NET/Node; prototipação está verde.
+- Épico atual: F2-DOGFOOD-1d.2 — claims/workspace duráveis e composição por tentativa; a sessão Codex Docker streaming está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `2e47ea3` (`develop`), contendo F2-PROT-1 verde com 159/159 testes após rebase concorrente.
-- Próximo passo exato: implementar `run-targets` para detecção e start/stop/restart de aplicações .NET/Node, streaming de logs e cleanup seguro.
+- Último commit remoto validado: `5638840` (`develop`), contendo F2-DOGFOOD-1d.1 com 176 testes backend e 270 testes frontend verdes.
+- Próximo passo exato: persistir claims de escopo e o catálogo de workspace da tentativa; depois compor worktree exclusiva, sessão Docker e `CodexCliAgentExecutor` no projeto externo.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
 
-- O conteúdo integral v1.3 fornecido pelo usuário é a única fonte de verdade. O arquivo `PROMPT_CODEX_BACKEND_HARNESS_POSEIDON_v1.3.md` não foi encontrado no filesystem.
+- O prompt v1.3 em `/Users/mateus/Downloads/PROMPT_ORIGINAL_CODEX_BACKEND_POSEIDON_v1.3_COM_ADENDO.md` é a fonte de verdade; o prompt de continuidade no mesmo diretório define a ordem de retomada.
 - O clone `/Users/mateus/Documents/harness-poseidon` está ativo com alterações não commitadas da Kimi e é somente leitura para o trabalho backend.
 - O trabalho Codex ocorre exclusivamente em `/Users/mateus/Documents/harness-poseidon-backend`.
 - Contratos em `frontend/src/api/contracts/**` e `docs/frontend/HANDOFF_API.md` são provisórios até reconciliação; não serão editados pelo backend.
@@ -22,7 +22,7 @@ Atualizado em: 2026-07-18T22:43:48Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` até `0024_prototyping`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`24→0` e `11→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite possui também `0009_local_profiles` até `0027_chief_turn_pipeline`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`27→0` e `11→0`); não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -35,7 +35,7 @@ Atualizado em: 2026-07-18T22:43:48Z
 - Fencing: token antigo não gravou nem renovou após aquisição do token crescente pelo novo owner.
 - Codex CLI: app-server real supervisionado com ambiente/estado isolados; heartbeat crescente, kill da árvore, retomada por `threadId` e sessão nova reidratada do commit Git, sem turno de modelo.
 - Git/claims: três fixtures criaram duas branches/worktrees de tentativa; claims disjuntos executaram em paralelo e claim ancestral bloqueou conflito; refs/worktrees oficiais ficaram idênticas antes/depois.
-- Sandbox: Docker provider validou CPU 0,5, memória 64 MiB, 64 PIDs, disk limit 8 MiB, worktree montada, proxy-only egress, rootfs read-only e cleanup label-guarded em seis execuções verdes.
+- Sandbox: além do probe one-shot, o provider abre app-server streaming por `docker run -i`, com `/workspace`, `CODEX_HOME` em volume, rede interna, proxy-only egress, rootfs read-only, limites e cleanup label-guarded; `CodexCliAgentExecutor` completou um turno estruturado real no container sem quota/rede externa.
 - Realtime: hub `/hubs/events`, sequência por stream, catálogo tipado, endpoint snapshot+delta e OpenAPI determinístico; lacuna 3–5 recuperada e live retomado em 6.
 - PostgreSQL: Npgsql/EF provider 10.0.3; 80 itens adquiridos uma vez por 12 workers, linha bloqueada pulada sem espera, token antigo rejeitado após lease expirada e migrations `1` depois `0`; imagem final Alpine/PostgreSQL 18.4 passou Scout com 0 crítica/alta/média e residual 2 baixas + 1 não classificada sem correção disponível.
 - IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; o Host persiste tentativa, versão, sequência, checkpoints, Inbox e Outbox via `IRunnerMessageStore`. Replay integral depois de reiniciar o Host não duplica estado/eventos; gap, owner conflitante, chave conflitante, tentativa concluída e token inválido são rejeitados. O assembly Runner continua sem referência a persistência.
@@ -89,10 +89,18 @@ Atualizado em: 2026-07-18T22:43:48Z
 - F2 notificações/settings: settings nasce atomicamente com o perfil e permanece tenant/profile-scoped. Notificações validam enums, coalescem somente grupos unread, incrementam `dedupeCount`, aceitam read/mute em lote e publicam payload completo em `profile:<id>`. Todas as mutações gravam ledger encadeado e auditoria global; contratos, isolamento, restart e o teste de corrida do Chief estabilizado estão comprovados.
 - F2 governança/auditoria: `audit-events` projeta tanto payloads explícitos quanto eventos legados do ledger sem expor payload bruto. List/get e filtros são tenant-scoped; integridade recalcula sequência, elo e SHA-256; export JSON/CSV mascara segredos. Triggers recusam UPDATE/DELETE do ledger no SQLite e PostgreSQL, e o estado permanece verificável após restart.
 - F2 prototipação: projeto expõe cenário `externalPrototype|guidelinesOnly|autonomousGeneration|notApplicable`; dispensa exige waiver formal e impede criação de galeria. Protótipos/referências são tenant/project-scoped, tags são normalizadas, vínculo documental/protótipo é validado, lifecycle publica eventos e soft-delete/restart estão comprovados.
-- Migrations: SQLite `24→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-PROT-1, inclusive depois do rebase sobre o merge remoto `9bf6ffe`: restore locked, format, build Release com zero warnings/erros e 159/159 testes verdes (`Unit 91`, `Integration 30`, `Contract 25`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- F2 run targets: detector read-only e limitado encontra projetos .NET e Node sob o diretório autorizado. O supervisor inicia processos reais sem shell, captura stdout/stderr, mata somente árvores gerenciadas e implementa start/stop/restart/cleanup. Estado e identidade sobrevivem restart; processos órfãos são reconciliados para `unknown`; logs seguem o stream do projeto e auditoria o stream global.
+- F2 análise de solicitação: `POST /solicitations/analyze` valida texto e nomes de anexos sem aceitar paths, cria uma solicitação `request` imutável e devolve requisitos, ambiguidades, contradições, perguntas e critérios de aceite com IDs canônicos. A extração local é determinística e não usa rede/cota; a solicitação sobrevive restart.
+- F2 licenciamento: uma licença por tenant/dispositivo nasce `unlicensed`; ativação de chave formatada armazena somente SHA-256, mascara o valor na auditoria, concede cinco entitlements e define validade anual+grace. Estado público é derivado como active/offline/gracePeriod/expired; expiração simulada não bloqueou leitura de projeto nem entitlements após restart.
+- F2 operações locais: backup usa a API online do SQLite dentro do dispatcher e copia o catálogo sem seguir symlinks para uma raiz confinada por ULID. Restore mantém cópias de rollback do banco e catálogo, reaplica auditoria global e foi comprovado removendo estado criado após o snapshot. Diagnóstico retorna metadados do produto, `quick_check`, catálogo, backups e realtime.
+- F2 frontend integrado: `build-frontend.sh` copia a árvore protegida para `.artifacts`, executa `npm ci`, lint, typecheck, 270 testes e build HTTP same-origin, e publica 127 arquivos em `Harness.Host/wwwroot`. O Host serve arquivos estáticos e fallback SPA sem mascarar 404 de API/hub; o publish Release contém o bundle. O proxy dev também usa cópia isolada. Smoke HTTP real está verde; a sessão não expôs navegador, portanto a homologação visual/humana continua pendente e GNG-3 não foi promovido.
+- F2 executor de agentes: `IAgentExecutor` possui Fake determinístico e `CodexCliAgentExecutor`. A implementação Codex segue o protocolo app-server V2 da CLI 0.144.5, processa deltas/conclusão, impõe JSON Schema do Chief, valida propriedades e bounds e tenta um repair único. O construtor falha fechado sem prova completa de sandbox externo; por isso o Host usa Fake em testes/execução padrão até a composição Docker. O endpoint de turnos já reconstrói `StatusDigest` e passa pela interface, sem chamada de modelo nos testes.
+- F2 pipeline durável do Chief: migration 0027 adiciona estado por tenant/projeto e mailbox. O endpoint persiste Inbox, mensagem humana e item pendente antes do executor; a aquisição serializa o projeto com lease/fencing e marca agente working. A conclusão só aceita owner/token não expirado, grava mensagem/resposta/eventos, sessão e digest, libera lease e retorna o agente a idle. Restart preservou mailbox completed, sessão, digest, Inbox e fencing.
+- F2 reconciliação do Chief: o endpoint apenas enfileira e retorna 202. `ChiefTurnBackgroundService` drena pendências, isola falhas, limita retries e reaquece `processing` após lease expirar. Um cenário deixou owner/token 1 morrer, reiniciou o Host, concluiu automaticamente com token 2 e recusou o lease antigo.
+- Migrations: SQLite `27→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
+- Pipeline: `tools/backend/verify.sh` verde após F2-DOGFOOD-1c: frontend com lint/typecheck/build e 270/270 testes; backend com restore locked, format, build Release com zero warnings/erros e 174/174 testes verdes (`Unit 96`, `Integration 37`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
-- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog, perfil, organizações, projetos, cockpit, chat, quadro, workflows, documentos, aprovações, agentes/orquestrador, ferramentas, providers, notificações/settings, governança e prototipação F2 verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é run targets.
+- Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 
 ## Sanidade antes de retomar
 

@@ -14,6 +14,7 @@ public sealed class CodexCliAppServer : IAsyncDisposable
     private readonly Func<CodexCliHeartbeat, CancellationToken, ValueTask>? _heartbeatSink;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<long, TaskCompletionSource<JsonElement>> _pending = new();
+    private readonly ConcurrentDictionary<string, PendingTurn> _turnsByThread = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _standardInputLock = new(1, 1);
     private readonly object _errorLock = new();
     private readonly Queue<string> _standardError = new();
@@ -71,6 +72,11 @@ public sealed class CodexCliAppServer : IAsyncDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        foreach (var argument in options.ExecutablePrefixArguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
         startInfo.ArgumentList.Add("app-server");
         startInfo.ArgumentList.Add("--listen");
         startInfo.ArgumentList.Add("stdio://");
@@ -107,7 +113,7 @@ public sealed class CodexCliAppServer : IAsyncDisposable
             "thread/start",
             new
             {
-                cwd = _options.WorkingDirectory,
+                cwd = _options.AgentWorkingDirectory,
                 ephemeral,
                 developerInstructions,
                 approvalPolicy = "never",
@@ -129,7 +135,7 @@ public sealed class CodexCliAppServer : IAsyncDisposable
             new
             {
                 threadId,
-                cwd = _options.WorkingDirectory,
+                cwd = _options.AgentWorkingDirectory,
                 approvalPolicy = "never",
                 sandbox = "read-only",
             },
@@ -167,11 +173,60 @@ public sealed class CodexCliAppServer : IAsyncDisposable
             cancellationToken);
     }
 
+    public async Task<CodexTurnResult> RunTurnAsync(
+        string threadId,
+        string instruction,
+        JsonElement outputSchema,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(threadId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
+        var pendingTurn = new PendingTurn(threadId);
+        if (!_turnsByThread.TryAdd(threadId, pendingTurn))
+        {
+            throw new InvalidOperationException("A thread cannot execute more than one turn concurrently.");
+        }
+
+        try
+        {
+            var response = await SendRequestAsync(
+                "turn/start",
+                new
+                {
+                    threadId,
+                    input = new[] { new { type = "text", text = instruction } },
+                    outputSchema,
+                    approvalPolicy = "never",
+                    sandboxPolicy = new { type = "externalSandbox", networkAccess = "restricted" },
+                },
+                cancellationToken);
+            pendingTurn.SetTurnId(ReadTurnId(response));
+            return await pendingTurn.Completion.Task.WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            _turnsByThread.TryRemove(threadId, out _);
+        }
+    }
+
     public async Task InterruptAsync(CancellationToken cancellationToken = default)
     {
         if (Interlocked.Exchange(ref _stopping, 1) == 0 && !_process.HasExited)
         {
-            _process.Kill(entireProcessTree: true);
+            _process.StandardInput.Close();
+            using var gracefulTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            gracefulTimeout.CancelAfter(TimeSpan.FromSeconds(2));
+            try
+            {
+                await _process.WaitForExitAsync(gracefulTimeout.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                if (!_process.HasExited)
+                {
+                    _process.Kill(entireProcessTree: true);
+                }
+            }
         }
 
         if (!_process.HasExited)
@@ -307,6 +362,13 @@ public sealed class CodexCliAppServer : IAsyncDisposable
 
                 using var document = JsonDocument.Parse(line);
                 var root = document.RootElement;
+                if (!root.TryGetProperty("id", out _) &&
+                    root.TryGetProperty("method", out var methodElement) &&
+                    root.TryGetProperty("params", out var parameters))
+                {
+                    HandleNotification(methodElement.GetString(), parameters);
+                    continue;
+                }
                 if (!root.TryGetProperty("id", out var idElement) ||
                     !idElement.TryGetInt64(out var id) ||
                     !_pending.TryGetValue(id, out var completion))
@@ -345,6 +407,10 @@ public sealed class CodexCliAppServer : IAsyncDisposable
                 foreach (var completion in _pending.Values)
                 {
                     completion.TrySetException(exception);
+                }
+                foreach (var turn in _turnsByThread.Values)
+                {
+                    turn.Completion.TrySetException(exception);
                 }
             }
         }
@@ -417,6 +483,52 @@ public sealed class CodexCliAppServer : IAsyncDisposable
         return new CodexThreadSession(threadId, ephemeral);
     }
 
+    private static string ReadTurnId(JsonElement response)
+    {
+        if (!response.TryGetProperty("turn", out var turn) ||
+            !turn.TryGetProperty("id", out var idElement) ||
+            string.IsNullOrWhiteSpace(idElement.GetString()))
+        {
+            throw new CodexAppServerException("Codex app-server response did not contain a turn identifier.");
+        }
+
+        return idElement.GetString()!;
+    }
+
+    private void HandleNotification(string? method, JsonElement parameters)
+    {
+        if (method is null ||
+            !parameters.TryGetProperty("threadId", out var threadElement) ||
+            string.IsNullOrWhiteSpace(threadElement.GetString()) ||
+            !_turnsByThread.TryGetValue(threadElement.GetString()!, out var pendingTurn))
+        {
+            return;
+        }
+
+        if (method == "item/agentMessage/delta" &&
+            parameters.TryGetProperty("delta", out var deltaElement) &&
+            deltaElement.ValueKind == JsonValueKind.String)
+        {
+            pendingTurn.AddDelta(deltaElement.GetString() ?? string.Empty);
+            return;
+        }
+
+        if (method == "item/completed" &&
+            parameters.TryGetProperty("item", out var item) &&
+            item.TryGetProperty("type", out var itemType) &&
+            itemType.GetString() == "agentMessage" &&
+            item.TryGetProperty("text", out var textElement))
+        {
+            pendingTurn.SetFinalMessage(textElement.GetString() ?? string.Empty);
+            return;
+        }
+
+        if (method == "turn/completed" && parameters.TryGetProperty("turn", out var turn))
+        {
+            pendingTurn.Complete(turn);
+        }
+    }
+
     private CodexAppServerException CreateExitedException()
     {
         var exitCode = _process.HasExited
@@ -438,6 +550,85 @@ public sealed class CodexCliAppServer : IAsyncDisposable
         catch (OperationCanceledException)
         {
             // Expected when the supervised process is interrupted.
+        }
+    }
+
+    private sealed class PendingTurn(string threadId)
+    {
+        private readonly object _sync = new();
+        private readonly List<string> _deltas = [];
+        private readonly long _started = Stopwatch.GetTimestamp();
+        private string? _turnId;
+        private string? _finalMessage;
+
+        public TaskCompletionSource<CodexTurnResult> Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void SetTurnId(string turnId)
+        {
+            lock (_sync)
+            {
+                _turnId = turnId;
+            }
+        }
+
+        public void AddDelta(string delta)
+        {
+            if (delta.Length == 0) return;
+            lock (_sync)
+            {
+                _deltas.Add(delta);
+            }
+        }
+
+        public void SetFinalMessage(string message)
+        {
+            lock (_sync)
+            {
+                _finalMessage = message;
+            }
+        }
+
+        public void Complete(JsonElement turn)
+        {
+            lock (_sync)
+            {
+                var turnId = turn.TryGetProperty("id", out var idElement)
+                    ? idElement.GetString()
+                    : _turnId;
+                var status = turn.TryGetProperty("status", out var statusElement)
+                    ? statusElement.GetString()
+                    : null;
+                if (string.IsNullOrWhiteSpace(turnId) || string.IsNullOrWhiteSpace(status))
+                {
+                    Completion.TrySetException(new CodexAppServerException(
+                        "Codex turn completion did not contain an identifier and status."));
+                    return;
+                }
+
+                if (!string.Equals(status, "completed", StringComparison.Ordinal))
+                {
+                    Completion.TrySetException(new CodexAppServerException(
+                        $"Codex turn {turnId} finished with status {status}."));
+                    return;
+                }
+
+                var finalMessage = _finalMessage ?? string.Concat(_deltas);
+                if (string.IsNullOrWhiteSpace(finalMessage))
+                {
+                    Completion.TrySetException(new CodexAppServerException(
+                        $"Codex turn {turnId} completed without an agent message."));
+                    return;
+                }
+
+                Completion.TrySetResult(new CodexTurnResult(
+                    threadId,
+                    turnId,
+                    status,
+                    finalMessage,
+                    _deltas.ToArray(),
+                    (long)Stopwatch.GetElapsedTime(_started).TotalMilliseconds));
+            }
         }
     }
 }

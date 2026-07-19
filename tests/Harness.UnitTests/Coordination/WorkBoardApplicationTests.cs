@@ -62,4 +62,25 @@ public sealed class WorkBoardApplicationTests
         Assert.Throws<ArgumentException>(() => WorkBoardApplicationService.TransitionSolicitation(
             new TransitionSolicitationRequest("pending")));
     }
+
+    [Fact]
+    public void SolicitationAnalysisProducesFiveDeterministicPanelsAndValidatesAttachments()
+    {
+        var result = WorkBoardApplicationService.AnalyzeSolicitation(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV", "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            new AnalyzeSolicitationRequest("01ARZ3NDEKTSV4RRFFQ69G5FAX",
+                "A API deve responder rápido. Não salvar segredo. Salvar segredo. Qual é o SLA?",
+                ["contrato.pdf", "CONTRATO.pdf"]), Now);
+
+        Assert.Equal("request", result.Solicitation.Kind);
+        Assert.Equal("A API deve responder rápido.", result.Solicitation.Title);
+        Assert.Contains(result.Requirements, value => value.Contains("contrato.pdf", StringComparison.Ordinal));
+        Assert.Single(result.Ambiguities);
+        Assert.Single(result.Contradictions);
+        Assert.Contains("Qual é o SLA?", result.Questions);
+        Assert.Equal(result.Requirements.Count, result.AcceptanceCriteria.Count);
+        Assert.Throws<ArgumentException>(() => WorkBoardApplicationService.AnalyzeSolicitation(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV", "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            new AnalyzeSolicitationRequest("01ARZ3NDEKTSV4RRFFQ69G5FAX", "Pedido", ["../segredo.txt"]), Now));
+    }
 }
