@@ -26,6 +26,14 @@ public sealed class SqliteIdentityCoreStoreTests
                     new SqliteProjectStore(dispatcher),
                     new SqliteAuditEventStore(dispatcher),
                     timeout.Token);
+                var profile = (await new SqliteLocalProfileStore(dispatcher)
+                    .ListAsync(timeout.Token))[0];
+                await CatalogStoreBehavior.AssertAsync(
+                    new SqliteAgentCatalogStore(dispatcher),
+                    new SqliteToolCatalogStore(dispatcher),
+                    new SqliteProviderCatalogStore(dispatcher),
+                    profile.TenantId,
+                    timeout.Token);
             }
         }
         finally
