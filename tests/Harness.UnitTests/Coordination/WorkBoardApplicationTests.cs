@@ -15,14 +15,18 @@ public sealed class WorkBoardApplicationTests
             new CreateSolicitationRequest("01ARZ3NDEKTSV4RRFFQ69G5FAX", "request", " Pedido ", " Corpo "), Now);
         var demand = WorkBoardApplicationService.CreateDemand(
             "01ARZ3NDEKTSV4RRFFQ69G5FAY",
-            new CreateDemandRequest(solicitation.ProjectId, "Entrega", "Descrição", solicitation.Id), Now);
+            new CreateDemandRequest(solicitation.ProjectId, "Entrega", "Descrição", solicitation.Id,
+                PhaseName: "  Execução  "), Now);
         var (task, instruction) = WorkBoardApplicationService.CreateTask(
             "01ARZ3NDEKTSV4RRFFQ69G5FAZ", "01ARZ3NDEKTSV4RRFFQ69G5FB0",
-            new CreateTaskRequest(demand.ProjectId, "Implementar", "Faça com testes", demand.Id), Now);
+            new CreateTaskRequest(demand.ProjectId, "Implementar", "Faça com testes", demand.Id,
+                PhaseName: " Execução "), Now);
 
         Assert.Equal("open", solicitation.State);
         Assert.Equal("medium", demand.Priority);
+        Assert.Equal("Execução", demand.PhaseName);
         Assert.Equal("backlog", task.State);
+        Assert.Equal("Execução", task.PhaseName);
         Assert.Equal((0m, 0m, 0m),
             (task.Progress.Executed, task.Progress.Validated, task.Progress.Approved));
         Assert.Equal(1, task.InstructionVersion);

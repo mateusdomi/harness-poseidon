@@ -8,7 +8,7 @@ public sealed record SolicitationContract(
 
 public sealed record DemandContract(
     string Id, string ProjectId, string? SolicitationId, string Title, string Description,
-    string State, string Priority, DateTimeOffset CreatedAt);
+    string State, string Priority, DateTimeOffset CreatedAt, string? PhaseName = null);
 
 public sealed record WorkProgressContract(decimal Executed, decimal Validated, decimal Approved);
 
@@ -16,7 +16,7 @@ public sealed record BoardTaskContract(
     string Id, string ProjectId, string? DemandId, string Title, string State, string Priority,
     string? AssigneeAgentId, string? BlockedReason, int InstructionVersion,
     WorkProgressContract Progress, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
-    DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt);
+    DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt, string? PhaseName = null);
 
 public sealed record TaskInstructionContract(
     string Id, string TaskId, int Version, string Body, string AuthorKind, string? AuthorId,
@@ -56,12 +56,13 @@ public sealed record CreateSolicitationRequest(
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateDemandRequest(
     string ProjectId, string Title, string Description, string? SolicitationId = null,
-    string? Priority = null);
+    string? Priority = null, string? PhaseName = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateTaskRequest(
     string ProjectId, string Title, string Instruction, string? DemandId = null,
-    string? Priority = null, string? AssigneeAgentId = null, DateTimeOffset? DueAt = null);
+    string? Priority = null, string? AssigneeAgentId = null, DateTimeOffset? DueAt = null,
+    string? PhaseName = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record MoveTaskRequest(string ToState, string? Note = null);

@@ -64,7 +64,8 @@ public sealed record BoardSolicitationRecord(
 
 public sealed record BoardDemandRecord(
     string TenantId, string Id, string ProjectId, string? SolicitationId, string Title,
-    string Description, string State, string Priority, DateTimeOffset CreatedAt, bool Internal);
+    string Description, string State, string Priority, DateTimeOffset CreatedAt, bool Internal,
+    string? PhaseName = null);
 
 public sealed record BoardProgressRecord(decimal Executed, decimal Validated, decimal Approved);
 
@@ -73,11 +74,12 @@ public sealed record BoardTaskRecord(
     string Priority, string? AssigneeAgentId, string? BlockedReason, int InstructionVersion,
     BoardProgressRecord Progress, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
     DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt, long Version, string InternalState,
-    string BackingSolicitationId, string BackingDemandId);
+    string BackingSolicitationId, string BackingDemandId, string? PhaseName = null);
 
 public sealed record BoardTaskPageQuery(
     string? ProjectId, string? DemandId, string? Search, string? State, string? Priority,
-    string? AssigneeAgentId, string Archive, DateTimeOffset? UpdatedSince, int Offset, int Limit);
+    string? AssigneeAgentId, string Archive, DateTimeOffset? UpdatedSince, int Offset, int Limit,
+    string? PhaseName = null);
 
 public sealed record BoardTaskPageRecord(
     IReadOnlyList<BoardTaskRecord> Items, int Total);
@@ -103,13 +105,13 @@ public sealed record BoardSolicitationCreateCommand(
 public sealed record BoardDemandCreateCommand(
     string TenantId, string Id, string ProjectId, string? SolicitationId,
     string BackingSolicitationId, string AuthorProfileId, string Title, string Description,
-    string Priority, DateTimeOffset OccurredAt);
+    string Priority, DateTimeOffset OccurredAt, string? PhaseName = null);
 
 public sealed record BoardTaskCreateCommand(
     string TenantId, string Id, string ProjectId, string? DemandId, string BackingDemandId,
     string BackingSolicitationId, string AuthorProfileId, string Title, string Priority,
     string? AssigneeAgentId, DateTimeOffset? DueAt, string InstructionId,
-    string InstructionBody, DateTimeOffset OccurredAt);
+    string InstructionBody, DateTimeOffset OccurredAt, string? PhaseName = null);
 
 public sealed record BoardTaskCreateResult(BoardTaskRecord Task, BoardInstructionRecord Instruction);
 

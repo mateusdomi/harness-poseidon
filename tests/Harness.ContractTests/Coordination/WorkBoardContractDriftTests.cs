@@ -7,8 +7,8 @@ public sealed class WorkBoardContractDriftTests
     private static readonly Dictionary<string, string[]> Schemas = new(StringComparer.Ordinal)
     {
         ["SolicitationContract"] = ["id", "projectId", "authorProfileId", "kind", "title", "body", "state", "supersedesId", "createdAt"],
-        ["DemandContract"] = ["id", "projectId", "solicitationId", "title", "description", "state", "priority", "createdAt"],
-        ["BoardTaskContract"] = ["id", "projectId", "demandId", "title", "state", "priority", "assigneeAgentId", "blockedReason", "instructionVersion", "progress", "createdAt", "updatedAt", "dueAt", "archivedAt"],
+        ["DemandContract"] = ["id", "projectId", "solicitationId", "title", "description", "state", "priority", "createdAt", "phaseName"],
+        ["BoardTaskContract"] = ["id", "projectId", "demandId", "title", "state", "priority", "assigneeAgentId", "blockedReason", "instructionVersion", "progress", "createdAt", "updatedAt", "dueAt", "archivedAt", "phaseName"],
         ["TaskInstructionContract"] = ["id", "taskId", "version", "body", "authorKind", "authorId", "createdAt"],
         ["AttemptContract"] = ["id", "taskId", "number", "state", "agentId", "startedAt", "finishedAt", "durationMs", "costUsd", "tokensInput", "tokensOutput", "commitRefs", "summary", "failureReason"],
         ["AttemptEventContract"] = ["id", "attemptId", "kind", "content", "occurredAt"],
@@ -45,12 +45,12 @@ public sealed class WorkBoardContractDriftTests
 
         var core = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "core.ts"));
         AssertFrontend(core, "solicitationSchema", "Solicitation", Schemas["SolicitationContract"]);
-        AssertFrontend(core, "demandSchema", "Demand", Schemas["DemandContract"]);
+        AssertFrontend(core, "demandSchema", "Demand", WithoutPhase(Schemas["DemandContract"]));
         var commands = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "commands.ts"));
         AssertFrontend(commands, "solicitationAnalysisItemSchema", "SolicitationAnalysisItem", Schemas["SolicitationAnalysisItemContract"]);
         AssertFrontend(commands, "solicitationAnalysisSchema", "SolicitationAnalysis", Schemas["SolicitationAnalysisContract"]);
         var delivery = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "delivery.ts"));
-        AssertFrontend(delivery, "taskSchema", "Task", Schemas["BoardTaskContract"]);
+        AssertFrontend(delivery, "taskSchema", "Task", WithoutPhase(Schemas["BoardTaskContract"]));
         AssertFrontend(delivery, "taskInstructionSchema", "TaskInstruction", Schemas["TaskInstructionContract"]);
         AssertFrontend(delivery, "attemptSchema", "Attempt", Schemas["AttemptContract"]);
         AssertFrontend(delivery, "attemptEventSchema", "AttemptEvent", Schemas["AttemptEventContract"]);
@@ -71,6 +71,9 @@ public sealed class WorkBoardContractDriftTests
         Assert.True(start >= 0 && end > start); var block = text[start..end];
         Assert.All(fields, field => Assert.Contains($"{field}:", block, StringComparison.Ordinal));
     }
+
+    private static string[] WithoutPhase(string[] fields) =>
+        fields.Where(field => field != "phaseName").ToArray();
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

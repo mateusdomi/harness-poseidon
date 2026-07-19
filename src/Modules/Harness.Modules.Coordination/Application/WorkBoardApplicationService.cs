@@ -34,7 +34,8 @@ public static class WorkBoardApplicationService
             Id(id), Id(request.ProjectId),
             request.SolicitationId is null ? null : Id(request.SolicitationId),
             Text(request.Title, 500), Text(request.Description, 20_000), "open",
-            Choice(request.Priority ?? "medium", Priorities), Utc(now));
+            Choice(request.Priority ?? "medium", Priorities), Utc(now),
+            OptionalText(request.PhaseName, 200));
     }
 
     public static (BoardTaskContract Task, TaskInstructionContract Instruction) CreateTask(
@@ -52,7 +53,8 @@ public static class WorkBoardApplicationService
         var task = new BoardTaskContract(
             Id(taskId), projectId, demandId, Text(request.Title, 500), "backlog",
             Choice(request.Priority ?? "medium", Priorities), assignee, null, 1,
-            new WorkProgressContract(0m, 0m, 0m), Utc(now), now, request.DueAt, null);
+            new WorkProgressContract(0m, 0m, 0m), Utc(now), now, request.DueAt, null,
+            OptionalText(request.PhaseName, 200));
         var instruction = new TaskInstructionContract(
             Id(instructionId), task.Id, 1, Text(request.Instruction, 100_000), "chief", null, now);
         return (task, instruction);
@@ -70,6 +72,9 @@ public static class WorkBoardApplicationService
         ArgumentNullException.ThrowIfNull(request);
         return Choice(request.Priority, Priorities);
     }
+
+    private static string? OptionalText(string? value, int maxLength) =>
+        string.IsNullOrWhiteSpace(value) ? null : Text(value, maxLength);
 
     public static string AppendInstruction(AppendTaskInstructionRequest request)
     {

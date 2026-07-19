@@ -166,7 +166,7 @@ public static class WorkBoardEndpoints
             var now = clock.UtcNow; var value = WorkBoardApplicationService.CreateDemand(UlidValue.New(now).ToString(), input, now);
             var row = await store.CreateDemandAsync(new(profile.TenantId, value.Id, value.ProjectId,
                 value.SolicitationId, UlidValue.New(now.AddMilliseconds(1)).ToString(), profile.Id,
-                value.Title, value.Description, value.Priority, now), token);
+                value.Title, value.Description, value.Priority, now, value.PhaseName), token);
             return Results.Created($"/api/v1/demands/{value.Id}", ToContract(row));
         }
         catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
@@ -174,12 +174,12 @@ public static class WorkBoardEndpoints
     }
 
     private static async Task<IResult> ListTasksAsync(
-        string? projectId, string? demandId, string? q, string? state, string? priority,
+        string? projectId, string? demandId, string? q, string? state, string? priority, string? phaseName,
         string? agent, string? period, string? archive, int? page, int? pageSize,
         string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles,
         IWorkBoardStore store, IClock clock, CancellationToken token)
     {
-        var invalid = ValidateTaskPage(projectId, demandId, q, state, priority, agent, period,
+        var invalid = ValidateTaskPage(projectId, demandId, q, state, priority, phaseName, agent, period,
             archive, page, pageSize, cursor, limit);
         if (invalid is not null) return invalid;
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired();
@@ -210,7 +210,8 @@ public static class WorkBoardEndpoints
             : $"%{EscapeLike(q.Trim().ToLowerInvariant())}%";
         var result = await store.PageTasksAsync(profile.TenantId, new(
             projectId, demandId, search, state, priority, agent, archive ?? "active",
-            updatedSince, checked((requestedPage - 1) * requestedSize), requestedSize), token);
+            updatedSince, checked((requestedPage - 1) * requestedSize), requestedSize,
+            string.IsNullOrWhiteSpace(phaseName) ? null : phaseName.Trim()), token);
         return Results.Ok(new TaskPage(result.Items.Select(ToContract).ToArray(), null,
             result.Total, requestedPage, requestedSize));
     }
@@ -235,7 +236,7 @@ public static class WorkBoardEndpoints
                 values.Task.DemandId, UlidValue.New(now.AddMilliseconds(2)).ToString(),
                 UlidValue.New(now.AddMilliseconds(3)).ToString(), profile.Id, values.Task.Title,
                 values.Task.Priority, values.Task.AssigneeAgentId, values.Task.DueAt,
-                instructionId, values.Instruction.Body, now), token);
+                instructionId, values.Instruction.Body, now, values.Task.PhaseName), token);
             return Results.Created($"/api/v1/tasks/{taskId}", ToContract(result.Task));
         }
         catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
@@ -412,12 +413,13 @@ public static class WorkBoardEndpoints
     }
 
     private static IResult? ValidateTaskPage(
-        string? projectId, string? demandId, string? query, string? state, string? priority,
+        string? projectId, string? demandId, string? query, string? state, string? priority, string? phaseName,
         string? agent, string? period, string? archive, int? page, int? pageSize,
         string? cursor, int? limit)
     {
         if (new[] { projectId, demandId, agent }.Any(id => id is not null && !Valid(id)) ||
             (query?.Length ?? 0) > 200 ||
+            (phaseName?.Length ?? 0) > 200 ||
             (state is not null && !TaskStates.Contains(state)) ||
             (priority is not null && !Priorities.Contains(priority)) ||
             (period is not null && !Periods.Contains(period)) ||
@@ -428,7 +430,7 @@ public static class WorkBoardEndpoints
         if (cursor is not null || limit is not null)
         {
             if (page is not null || pageSize is not null || query is not null || state is not null ||
-                priority is not null || agent is not null || period is not null || archive is not null)
+                priority is not null || phaseName is not null || agent is not null || period is not null || archive is not null)
                 return Problem(400, "mixed_task_pagination", "Cursor and page pagination cannot be combined.");
             return ValidatePage(cursor, limit, projectId, demandId);
         }
@@ -442,8 +444,8 @@ public static class WorkBoardEndpoints
         .Replace("_", "\\_", StringComparison.Ordinal);
 
     private static SolicitationContract ToContract(BoardSolicitationRecord x) => new(x.Id, x.ProjectId, x.AuthorProfileId, x.Kind, x.Title, x.Body, x.State, x.SupersedesId, x.CreatedAt);
-    private static DemandContract ToContract(BoardDemandRecord x) => new(x.Id, x.ProjectId, x.SolicitationId, x.Title, x.Description, x.State, x.Priority, x.CreatedAt);
-    private static BoardTaskContract ToContract(BoardTaskRecord x) => new(x.Id, x.ProjectId, x.DemandId, x.Title, x.State, x.Priority, x.AssigneeAgentId, x.BlockedReason, x.InstructionVersion, new(x.Progress.Executed, x.Progress.Validated, x.Progress.Approved), x.CreatedAt, x.UpdatedAt, x.DueAt, x.ArchivedAt);
+    private static DemandContract ToContract(BoardDemandRecord x) => new(x.Id, x.ProjectId, x.SolicitationId, x.Title, x.Description, x.State, x.Priority, x.CreatedAt, x.PhaseName);
+    private static BoardTaskContract ToContract(BoardTaskRecord x) => new(x.Id, x.ProjectId, x.DemandId, x.Title, x.State, x.Priority, x.AssigneeAgentId, x.BlockedReason, x.InstructionVersion, new(x.Progress.Executed, x.Progress.Validated, x.Progress.Approved), x.CreatedAt, x.UpdatedAt, x.DueAt, x.ArchivedAt, x.PhaseName);
     private static TaskInstructionContract ToContract(BoardInstructionRecord x) => new(x.Id, x.TaskId, x.Version, x.Body, x.AuthorKind, x.AuthorId, x.CreatedAt);
     private static AttemptContract ToContract(BoardAttemptRecord x) => new(x.Id, x.TaskId, x.Number, x.State, x.AgentId, x.StartedAt, x.FinishedAt, x.DurationMs, x.CostUsd, x.TokensInput, x.TokensOutput, x.CommitRefs, x.Summary, x.FailureReason);
     private static AttemptEventContract ToContract(BoardAttemptEventRecord x) => new(x.Id, x.AttemptId, x.Kind, x.Content, x.OccurredAt);

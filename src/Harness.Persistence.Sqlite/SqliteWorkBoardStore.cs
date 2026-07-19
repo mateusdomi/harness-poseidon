@@ -103,6 +103,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
                 "AND ($state IS NULL OR t.board_state=$state) " +
                 "AND ($priority IS NULL OR t.priority=$priority) " +
                 "AND ($agent IS NULL OR t.assignee_agent_id=$agent) " +
+                "AND ($phase IS NULL OR t.phase_name=$phase) " +
                 "AND ($archive='all' OR ($archive='active' AND t.archived_at IS NULL) " +
                 "OR ($archive='archived' AND t.archived_at IS NOT NULL)) " +
                 "AND ($since IS NULL OR t.updated_at >= $since)";
@@ -247,19 +248,20 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             """
             INSERT INTO demands
                 (id,tenant_id,project_id,solicitation_id,title,acceptance_criteria_json,created_at,
-                 description,state,priority,source_solicitation_id,is_internal)
+                 description,state,priority,source_solicitation_id,is_internal,phase_name)
             VALUES ($id,$tenant,$project,$backing,$title,$criteria,$at,$description,'open',$priority,
-                    $source,0);
+                    $source,0,$phase);
             """;
         Add(q, "$id", command.Id); Add(q, "$tenant", command.TenantId);
         Add(q, "$project", command.ProjectId); Add(q, "$backing", backing);
         Add(q, "$title", command.Title); Add(q, "$criteria", JsonSerializer.Serialize(
             new[] { command.Description }, JsonOptions)); Add(q, "$at", Store(command.OccurredAt));
         Add(q, "$description", command.Description); Add(q, "$priority", command.Priority);
-        AddNullable(q, "$source", command.SolicitationId); await q.ExecuteNonQueryAsync(token);
+        AddNullable(q, "$source", command.SolicitationId); AddNullable(q, "$phase", command.PhaseName);
+        await q.ExecuteNonQueryAsync(token);
         var record = new BoardDemandRecord(command.TenantId, command.Id, command.ProjectId,
             command.SolicitationId, command.Title, command.Description, "open", command.Priority,
-            command.OccurredAt, false); var payload = DemandPayload(record);
+            command.OccurredAt, false, command.PhaseName); var payload = DemandPayload(record);
         await AppendAuditAsync(c, tx, command.TenantId, "demand.created", payload,
             command.OccurredAt, token);
         await AppendOutboxAsync(c, tx, command.TenantId, "demand.created", payload,
@@ -273,6 +275,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         if (!await ProjectExistsAsync(c, tx, command.TenantId, command.ProjectId, token))
             throw new WorkBoardReferenceNotFoundException("project");
         var backingDemand = command.DemandId ?? command.BackingDemandId;
+        var phaseName = command.PhaseName;
         string backingSolicitation;
         if (command.DemandId is null)
         {
@@ -288,6 +291,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
                 ?? throw new WorkBoardReferenceNotFoundException("demand");
             if (demand.ProjectId != command.ProjectId)
                 throw new WorkBoardReferenceNotFoundException("demand");
+            phaseName ??= demand.PhaseName;
             backingSolicitation = await ReadBackingSolicitationIdAsync(c, tx, backingDemand, token);
         }
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(command.InstructionBody)));
@@ -295,9 +299,9 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             """
             INSERT INTO work_tasks
                 (id,tenant_id,project_id,demand_id,title,risk_tier,weight,state,version,created_at,
-                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at)
+                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name)
             VALUES ($id,$tenant,$project,$backing,$title,$priority,1,'ready',1,$at,$at,$source,
-                    'backlog',$priority,$assignee,$due);
+                    'backlog',$priority,$assignee,$due,$phase);
             INSERT INTO instruction_versions
                 (id,tenant_id,project_id,task_id,version,content,content_hash,created_at,
                  author_kind,author_id)
@@ -309,13 +313,14 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         Add(q, "$at", Store(command.OccurredAt)); AddNullable(q, "$source", command.DemandId);
         AddNullable(q, "$assignee", command.AssigneeAgentId);
         AddNullable(q, "$due", command.DueAt is null ? null : Store(command.DueAt.Value));
+        AddNullable(q, "$phase", phaseName);
         Add(q, "$instruction", command.InstructionId); Add(q, "$body", command.InstructionBody);
         Add(q, "$hash", hash); await q.ExecuteNonQueryAsync(token);
         var task = new BoardTaskRecord(command.TenantId, command.Id, command.ProjectId,
             command.DemandId, command.Title, "backlog", command.Priority,
             command.AssigneeAgentId, null, 1, new BoardProgressRecord(0, 0, 0),
             command.OccurredAt, command.OccurredAt, command.DueAt, null, 1, "ready",
-            backingSolicitation, backingDemand);
+            backingSolicitation, backingDemand, phaseName);
         var instruction = new BoardInstructionRecord(command.TenantId, command.InstructionId,
             command.Id, 1, command.InstructionBody, "chief", null, command.OccurredAt);
         var payload = TaskPayload(task); await AppendAuditAsync(c, tx, command.TenantId,
@@ -350,15 +355,16 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             """
             INSERT INTO demands
                 (id,tenant_id,project_id,solicitation_id,title,acceptance_criteria_json,created_at,
-                 description,state,priority,source_solicitation_id,is_internal)
+                 description,state,priority,source_solicitation_id,is_internal,phase_name)
             VALUES ($id,$tenant,$project,$solicitation,$title,$criteria,$at,$description,'open',
-                    $priority,NULL,1);
+                    $priority,NULL,1,$phase);
             """;
         Add(q, "$id", command.BackingDemandId); Add(q, "$tenant", command.TenantId);
         Add(q, "$project", command.ProjectId); Add(q, "$solicitation", solicitationId);
         Add(q, "$title", command.Title); Add(q, "$criteria", JsonSerializer.Serialize(
             new[] { command.InstructionBody }, JsonOptions)); Add(q, "$at", Store(command.OccurredAt));
         Add(q, "$description", command.InstructionBody); Add(q, "$priority", command.Priority);
+        AddNullable(q, "$phase", command.PhaseName);
         await q.ExecuteNonQueryAsync(token);
     }
 
@@ -417,7 +423,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
     private static BoardDemandRecord ReadDemand(SqliteDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3),
         r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7), Parse(r.GetString(8)),
-        r.GetInt32(9) == 1);
+        r.GetInt32(9) == 1, r.IsDBNull(10) ? null : r.GetString(10));
     private static BoardTaskRecord ReadTask(SqliteDataReader r)
     {
         var internalState = r.GetString(17); var progress = internalState switch
@@ -433,7 +439,8 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             Parse(r.GetString(10)), Parse(r.GetString(11)),
             r.IsDBNull(12) ? null : Parse(r.GetString(12)),
             r.IsDBNull(13) ? null : Parse(r.GetString(13)), r.GetInt64(14),
-            internalState, r.GetString(15), r.GetString(16));
+            internalState, r.GetString(15), r.GetString(16),
+            r.IsDBNull(18) ? null : r.GetString(18));
     }
     private static BoardInstructionRecord ReadInstruction(SqliteDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetString(4),
@@ -456,7 +463,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
     private static string DemandPayload(BoardDemandRecord d) => JsonSerializer.Serialize(new
     {
         projectId = d.ProjectId,
-        demand = new { d.Id, d.ProjectId, d.SolicitationId, d.Title, d.Description, d.State, d.Priority, d.CreatedAt },
+        demand = new { d.Id, d.ProjectId, d.SolicitationId, d.Title, d.Description, d.State, d.Priority, d.CreatedAt, d.PhaseName },
     }, JsonOptions);
     private static string TaskPayload(BoardTaskRecord t) => JsonSerializer.Serialize(new
     {
@@ -477,6 +484,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             t.UpdatedAt,
             t.DueAt,
             t.ArchivedAt,
+            t.PhaseName,
         },
     }, JsonOptions);
 
@@ -514,14 +522,14 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
     private const string SolicitationSelect =
         "SELECT tenant_id,id,project_id,user_id,kind,title,content,state,supersedes_id,created_at,is_internal FROM solicitations";
     private const string DemandSelect =
-        "SELECT tenant_id,id,project_id,source_solicitation_id,title,description,state,priority,created_at,is_internal FROM demands";
+        "SELECT tenant_id,id,project_id,source_solicitation_id,title,description,state,priority,created_at,is_internal,phase_name FROM demands";
     private const string TaskSelect =
         """
         SELECT t.tenant_id,t.id,t.project_id,t.source_demand_id,t.title,t.board_state,t.priority,
                t.assignee_agent_id,t.blocked_reason,
                (SELECT MAX(version) FROM instruction_versions i WHERE i.task_id=t.id),
                t.created_at,t.updated_at,t.due_at,t.archived_at,t.version,
-               d.solicitation_id,t.demand_id,t.state
+               d.solicitation_id,t.demand_id,t.state,t.phase_name
         FROM work_tasks t JOIN demands d ON d.id=t.demand_id
         """;
     private const string InstructionSelect =
@@ -545,6 +553,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         AddNullable(command, "$demand", query.DemandId); AddNullable(command, "$search", query.Search);
         AddNullable(command, "$state", query.State); AddNullable(command, "$priority", query.Priority);
         AddNullable(command, "$agent", query.AssigneeAgentId); Add(command, "$archive", query.Archive);
+        AddNullable(command, "$phase", query.PhaseName);
         AddNullable(command, "$since", query.UpdatedSince is null ? null : Store(query.UpdatedSince.Value));
     }
     private static void Add(SqliteCommand q, string name, object value) => q.Parameters.AddWithValue(name, value);

@@ -37,9 +37,10 @@ public static class BoardWorkflowProjectionBehavior
                 tenantId, demandId, projectId, solicitationId,
                 UlidValue.New(now.AddMilliseconds(2)).ToString(), profileId,
                 "Demanda do quadro", "Descrição da demanda.", "medium",
-                now.AddMilliseconds(2)),
+                now.AddMilliseconds(2), "Execução"),
             cancellationToken);
         Assert.Equal(solicitationId, demand.SolicitationId);
+        Assert.Equal("Execução", demand.PhaseName);
         var taskId = UlidValue.New(now.AddMilliseconds(3)).ToString();
         var instructionId = UlidValue.New(now.AddMilliseconds(4)).ToString();
         var task = await board.CreateTaskAsync(
@@ -51,6 +52,7 @@ public static class BoardWorkflowProjectionBehavior
                 instructionId, "Instrução imutável v1.", now.AddMilliseconds(6)),
             cancellationToken);
         Assert.Equal("backlog", task.Task.State);
+        Assert.Equal("Execução", task.Task.PhaseName);
         Assert.Equal(1, task.Instruction.Version);
 
         // Movimento respeita a matriz; instrução única listável.
@@ -64,7 +66,7 @@ public static class BoardWorkflowProjectionBehavior
             tenantId, taskId, null, 10, cancellationToken));
         var pagedTasks = await board.PageTasksAsync(tenantId, new BoardTaskPageQuery(
             projectId, demandId, "%tarefa%", "ready", "medium", null, "active",
-            now.AddDays(-1), 0, 15), cancellationToken);
+            now.AddDays(-1), 0, 15, "Execução"), cancellationToken);
         Assert.Single(pagedTasks.Items); Assert.Equal(1, pagedTasks.Total);
         Assert.Equal(taskId, pagedTasks.Items[0].Id);
 

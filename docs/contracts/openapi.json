@@ -7835,6 +7835,13 @@
                         }
                     },
                     {
+                        "name": "phaseName",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
                         "name": "agent",
                         "in": "query",
                         "schema": {
@@ -13450,6 +13457,12 @@
                             "string"
                         ],
                         "format": "date-time"
+                    },
+                    "phaseName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -13961,6 +13974,12 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "phaseName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 },
                 "additionalProperties": false
@@ -14322,6 +14341,12 @@
                             "string"
                         ],
                         "format": "date-time"
+                    },
+                    "phaseName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 },
                 "additionalProperties": false
@@ -14464,6 +14489,12 @@
                     "createdAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "phaseName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },

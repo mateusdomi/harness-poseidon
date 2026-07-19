@@ -53,9 +53,11 @@ public sealed class WorkBoardApiTests
                     Assert.NotNull(solicitation); Assert.Equal(profileId, solicitation.AuthorProfileId); Assert.Equal("open", solicitation.State);
 
                     using var demandResponse = await client.PostAsJsonAsync("/api/v1/demands",
-                        new CreateDemandRequest(projectId, "Quadro", "Publicar recursos", solicitation.Id, "high"), timeout.Token);
+                        new CreateDemandRequest(projectId, "Quadro", "Publicar recursos", solicitation.Id,
+                            "high", "Execução"), timeout.Token);
                     var demand = await demandResponse.Content.ReadFromJsonAsync<DemandContract>(timeout.Token);
                     Assert.Equal(HttpStatusCode.Created, demandResponse.StatusCode); Assert.Equal(solicitation.Id, demand?.SolicitationId);
+                    Assert.Equal("Execução", demand?.PhaseName);
 
                     using var independentDemandResponse = await client.PostAsJsonAsync("/api/v1/demands",
                         new CreateDemandRequest(projectId, "Conversa", "Demanda originada no chat"), timeout.Token);
@@ -67,10 +69,12 @@ public sealed class WorkBoardApiTests
                     Assert.Equal(HttpStatusCode.Created, taskResponse.StatusCode);
                     var task = await taskResponse.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token);
                     Assert.NotNull(task); taskId = task.Id; Assert.Equal("backlog", task.State);
+                    Assert.Equal("Execução", task.PhaseName);
                     Assert.Equal((0m, 0m, 0m), (task.Progress.Executed, task.Progress.Validated, task.Progress.Approved));
 
                     using var independentTaskResponse = await client.PostAsJsonAsync("/api/v1/tasks",
-                        new CreateTaskRequest(projectId, "Tarefa avulsa", "Planeje com segurança"), timeout.Token);
+                        new CreateTaskRequest(projectId, "Tarefa avulsa", "Planeje com segurança",
+                            PhaseName: "Planejamento"), timeout.Token);
                     var independentTask = await independentTaskResponse.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token);
                     Assert.Null(independentTask?.DemandId);
 
@@ -93,6 +97,11 @@ public sealed class WorkBoardApiTests
                         timeout.Token);
                     Assert.Single(searchedTasks?.Items ?? []);
                     Assert.Equal(independentTask?.Id, searchedTasks?.Items[0].Id);
+                    var phaseTasks = await client.GetFromJsonAsync<TaskPage>(
+                        $"/api/v1/tasks?projectId={projectId}&phaseName={Uri.EscapeDataString("Execução")}",
+                        timeout.Token);
+                    Assert.Single(phaseTasks?.Items ?? []);
+                    Assert.Equal(taskId, phaseTasks?.Items[0].Id);
                     using (var invalidPage = await client.GetAsync(
                         $"/api/v1/tasks?projectId={projectId}&page=0", timeout.Token))
                         Assert.Equal(HttpStatusCode.BadRequest, invalidPage.StatusCode);
