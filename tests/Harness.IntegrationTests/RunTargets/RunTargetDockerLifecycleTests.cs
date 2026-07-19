@@ -50,10 +50,11 @@ public sealed class RunTargetDockerLifecycleTests
         try
         {
             var definitions = await new RunTargetDetector().DetectAsync(root, timeout.Token);
-            var docker = Assert.Single(definitions, target => target.Kind == "docker");
-            var compose = Assert.Single(definitions, target => target.Kind == "compose");
+            var docker = Assert.Single(definitions, target => target.Environment["HARNESS_RUN_DOCKER_MODE"] == "dockerfile");
+            var compose = Assert.Single(definitions, target => target.Environment["HARNESS_RUN_DOCKER_MODE"] == "compose");
             Assert.All(new[] { docker, compose }, target =>
             {
+                Assert.Equal("http", target.Kind);
                 Assert.StartsWith("http://127.0.0.1:", target.Url, StringComparison.Ordinal);
                 Assert.True(target.Port is > 0);
                 Assert.True(target.Environment.ContainsKey("HARNESS_RUN_DOCKER_MODE"));
@@ -94,7 +95,7 @@ public sealed class RunTargetDockerLifecycleTests
                 var standardError = process.StandardError.ReadToEndAsync(timeout.Token);
                 await WaitForBodyAsync(
                     definition.Url!,
-                    definition.Kind == "docker" ? "docker-ok" : "compose-ok",
+                    definition.Environment["HARNESS_RUN_DOCKER_MODE"] == "dockerfile" ? "docker-ok" : "compose-ok",
                     timeout.Token);
                 await lifecycle.CleanupAsync(targetId, _ => Task.CompletedTask, timeout.Token);
                 await process.WaitForExitAsync(timeout.Token);
@@ -129,7 +130,9 @@ public sealed class RunTargetDockerLifecycleTests
                 Compose.Replace("expose:\n      - \"8080\"", "ports:\n      - \"18080:8080\"", StringComparison.Ordinal),
                 timeout.Token);
             var definitions = await new RunTargetDetector().DetectAsync(root, timeout.Token);
-            Assert.DoesNotContain(definitions, target => target.Kind == "compose");
+            Assert.DoesNotContain(
+                definitions,
+                target => target.Environment.TryGetValue("HARNESS_RUN_DOCKER_MODE", out var mode) && mode == "compose");
         }
         finally
         {

@@ -281,7 +281,7 @@ public sealed class RunTargetDetector
             definition = new(
                 Fingerprint("dockerfile", dockerfile),
                 $"{Path.GetFileName(directory)} (Dockerfile)",
-                "docker",
+                "http",
                 $"http://127.0.0.1:{hostPort}",
                 hostPort,
                 directory,
@@ -369,7 +369,7 @@ public sealed class RunTargetDetector
             return new(
                 Fingerprint("compose", directory),
                 $"{Path.GetFileName(directory)} (Compose)",
-                "compose",
+                "http",
                 $"http://127.0.0.1:{hostPort}",
                 hostPort,
                 directory,

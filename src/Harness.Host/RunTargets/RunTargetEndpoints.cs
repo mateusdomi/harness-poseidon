@@ -110,7 +110,7 @@ public static class RunTargetEndpoints
             health = new RunTargetHealthContract(
                 target.Id, target.Url, false, null, "process_not_running", checkedAt);
         }
-        else if (string.IsNullOrWhiteSpace(target.Url))
+        else if (target.Kind != "http" || string.IsNullOrWhiteSpace(target.Url))
         {
             health = new RunTargetHealthContract(
                 target.Id, target.Url, true, null, "process_alive_without_http_probe", checkedAt);

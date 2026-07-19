@@ -49,8 +49,8 @@ Data: 2026-07-19.
   são recusados; portas fixas e volumes anônimos também. Cleanup inventaria pelo label da execução,
   reinspeciona prefixo + os dois labels antes de cada remoção e nunca usa prune.
 - O supervisor usa o lifecycle tanto no stop/restart/cleanup quanto em saída inesperada ou falha de
-  startup. O health HTTP existente passou a sondar qualquer alvo com URL, incluindo `docker` e
-  `compose`.
+  startup. Dockerfile/Compose preservam o `kind=http` do contrato público; o modo de lifecycle fica
+  somente no metadata privado de lançamento, sem drift com o frontend protegido.
 - `RunTargetDockerLifecycleTests` usa o Docker Engine real: build/run de Dockerfile, build/up de
   Compose, respostas HTTP distintas, porta dinâmica, stop e inventário final vazio de containers,
   images, networks e volumes; um Compose com `18080:8080` comprova a recusa de porta fixa.
