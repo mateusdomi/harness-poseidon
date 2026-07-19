@@ -64,6 +64,7 @@ public static class LocalProfileEndpoints
         CreateProfileRequest request,
         HttpResponse response,
         ILocalProfileStore store,
+        Workflows.WorkflowTemplateSeeder workflowTemplates,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -85,6 +86,7 @@ public static class LocalProfileEndpoints
 
             var created = result.Profile
                 ?? throw new InvalidOperationException("Applied profile creation returned no profile.");
+            await workflowTemplates.EnsureSeededAsync(created.TenantId, cancellationToken);
             SetSessionCookie(response, created.Id);
             return Results.Created($"/api/v1/profiles/{created.Id}", ToResponse(created));
         }

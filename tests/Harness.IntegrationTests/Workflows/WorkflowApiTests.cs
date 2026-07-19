@@ -88,8 +88,8 @@ public sealed class WorkflowApiTests
                     Assert.Equal(gate.Id, gatePayload.GetProperty("gateId").GetString()); Assert.Equal(runId, gatePayload.GetProperty("runId").GetString());
                     Assert.Equal("failed", gatePayload.GetProperty("from").GetString()); Assert.Equal("passed", gatePayload.GetProperty("to").GetString());
                     Assert.Equal(profileId, gatePayload.GetProperty("decidedByProfileId").GetString());
-                    var globalEvents = await WaitForEventsAsync(client, "global", "workflow.versionPublished", 2, timeout.Token);
-                    Assert.Equal([1, 2], globalEvents.Delta.Where(x => x.Type == "workflow.versionPublished").Select(x => x.Payload.GetProperty("version").GetInt32()));
+                    var globalEvents = await WaitForEventsAsync(client, "global", "workflow.versionPublished", 2, timeout.Token, x => x.Payload.GetProperty("templateId").GetString() == templateId);
+                    Assert.Equal([1, 2], globalEvents.Delta.Where(x => x.Type == "workflow.versionPublished" && x.Payload.GetProperty("templateId").GetString() == templateId).Select(x => x.Payload.GetProperty("version").GetInt32()));
 
                     string approvalRunId; using (var response = await client.PostAsJsonAsync("/api/v1/workflow-runs", new CreateWorkflowRunRequest(workflowId), timeout.Token))
                     { Assert.Equal(HttpStatusCode.Created, response.StatusCode); approvalRunId = (await response.Content.ReadFromJsonAsync<WorkflowRunContract>(timeout.Token))!.Id; }
@@ -117,12 +117,12 @@ public sealed class WorkflowApiTests
     }
 
     private static WebApplication CreateHost(string database) => HostApplication.Build(["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
-    private static async Task<EventStreamSnapshot> WaitForEventsAsync(HttpClient client, string stream, string type, int count, CancellationToken token)
+    private static async Task<EventStreamSnapshot> WaitForEventsAsync(HttpClient client, string stream, string type, int count, CancellationToken token, Func<RealtimeEventEnvelope, bool>? filter = null)
     {
         for (var index = 0; index < 200; index++)
         {
             var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>($"/api/v1/event-streams/snapshot?stream={Uri.EscapeDataString(stream)}", token);
-            if (snapshot is not null && snapshot.Delta.Count(x => x.Type == type) >= count) return snapshot;
+            if (snapshot is not null && snapshot.Delta.Count(x => x.Type == type && (filter is null || filter(x))) >= count) return snapshot;
             await Task.Delay(25, token);
         }
         throw new TimeoutException($"Events {type} were not dispatched to {stream}.");

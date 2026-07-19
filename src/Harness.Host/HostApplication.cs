@@ -79,6 +79,8 @@ public static class HostApplication
         builder.Services.AddSingleton(
             _ => SqliteWriteDispatcher.CreateAsync(databasePath).GetAwaiter().GetResult());
         builder.Services.AddSingleton<IHostedService, SqliteMigrationHostedService>();
+        builder.Services.AddSingleton<WorkflowTemplateSeeder>();
+        builder.Services.AddSingleton<IHostedService, WorkflowTemplateSeedHostedService>();
         builder.Services.AddSingleton<IRunnerMessageStore>(services =>
             new SqliteRunnerMessageStore(services.GetRequiredService<SqliteWriteDispatcher>()));
         builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
