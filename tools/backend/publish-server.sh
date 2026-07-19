@@ -5,7 +5,7 @@ readonly TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPOSITORY_ROOT="$(cd "${TOOLS_DIR}/../.." && pwd)"
 readonly DOTNET="${TOOLS_DIR}/dotnet.sh"
 readonly RID="${1:-osx-arm64}"
-readonly OUTPUT="${REPOSITORY_ROOT}/.artifacts/desktop/${RID}"
+readonly OUTPUT="${REPOSITORY_ROOT}/.artifacts/server/${RID}"
 
 cd "${REPOSITORY_ROOT}"
 
@@ -22,7 +22,7 @@ trap restore_canonical_locks EXIT
 
 "${TOOLS_DIR}/build-frontend.sh"
 rm -rf "${OUTPUT}"
-"${DOTNET}" publish src/Harness.Launcher/Harness.Launcher.csproj \
+"${DOTNET}" publish src/Harness.Host/Harness.Host.csproj \
   --configuration Release \
   --runtime "${RID}" \
   --self-contained true \
@@ -30,5 +30,5 @@ rm -rf "${OUTPUT}"
   --output "${OUTPUT}"
 rsync -a --delete "${REPOSITORY_ROOT}/src/Harness.Host/wwwroot/" "${OUTPUT}/wwwroot/"
 
-echo "Publicado em ${OUTPUT}"
-echo "Execute: ${OUTPUT}/Harness.Launcher [--port <porta>] [--data-dir <caminho>] [--no-browser]"
+echo "Servidor publicado em ${OUTPUT}"
+echo "Consulte docs/backend/operations/INSTALLATION.md antes de configurar PostgreSQL/OIDC."

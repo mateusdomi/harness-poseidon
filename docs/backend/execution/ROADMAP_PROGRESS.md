@@ -48,21 +48,21 @@ Total: **100**.
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
 | F9 | 72 | 72 | 75 | 0 | Gateway (terminal) + adaptador Telegram (long polling, dedupe, linking, resposta na origem) verdes com fake **e smoke real do bot `@SystemPoseidon_bot`** (getMe ok, link `5774120296`, sendMessage entregue). **Falta** Teams (ordem terminal→Telegram→Teams). |
 | F10 | 100 | 97 | 95 | 0 | Paridade PG completa (31 stores duais, 34 migrations), modo servidor, multiusuário, rate limit, carga 30 usuários, RBAC/ABAC e maquinaria OIDC com IdP fake. **Lacuna**: smoke OIDC com Entra ID **real** (externo, não validável sem credenciais). |
-| F11 | 62.5 | 62.5 | 62.5 | 0 | F11-1 (threat model/SBOM/upgrade), F11-2 (headers/cookie/CORS), F11-3 (secret scanning), F11-4 (migração integral SQLite→PostgreSQL) e F11-5 (gate formal de upgrade, backup/restore, carga/isolamento e recovery dual-provider) verdes. Dependências auditadas via `NuGetAudit=all`. **Faltam**: runbooks e docs de instalação/operação, a11y/E2E e DoD global. |
+| F11 | 75 | 75 | 75 | 0 | F11-1..5 verdes e F11-6 fecha publish servidor, instalação/operação, backup/upgrade, resposta a incidentes e gate operacional real. Dependências auditadas via `NuGetAudit=all`. **Faltam**: a11y/E2E real e DoD global/GNG-6. |
 
 ## 4. Cálculo por dimensão
 
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.82)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.625)`
-`= 5+12+25+8+6+5+6.56+5.95+6+3.60+8+3.125 = 94.235` → **94.2% (num 94.235 / den 100)**
+`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.82)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.75)`
+`= 5+12+25+8+6+5+6.56+5.95+6+3.60+8+3.75 = 94.86` → **94.9% (num 94.86 / den 100)**
 
 ### Validado
-`5+12+25+8+6+5+6.56+5.95+6+3.60+(8·0.97=7.76)+3.125 = 93.995` → **94.0% (num 93.995 / den 100)**
+`5+12+25+8+6+5+6.56+5.95+6+3.60+(8·0.97=7.76)+3.75 = 94.62` → **94.6% (num 94.62 / den 100)**
 
 ### Integrado
-`5+12+(25·0.92=23.00)+8+6+5+(8·0.80=6.40)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+3.125 = 91.825` → **91.8% (num 91.825 / den 100)**
+`5+12+(25·0.92=23.00)+8+6+5+(8·0.80=6.40)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+3.75 = 92.45` → **92.5% (num 92.45 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,16 +70,16 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·93.995 + 0.30·91.825 + 0.20·0 = 46.9975 + 27.5475 + 0.00 = 74.545`
-→ **≈ 74.5%**
+`= 0.50·94.62 + 0.30·92.45 + 0.20·0 = 47.31 + 27.735 + 0.00 = 75.045`
+→ **≈ 75.0%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
 Independentes (trabalho técnico que prossegue sem terceiros):
 
-1. **F11** (maior lacuna, 37,5% aberto): runbook de incidentes, docs de
-   instalação/operação, DoD global. (Headers/cookies/CORS, scanning de segredos e auditoria de
-   dependências via NuGetAudit, migração SQLite→PostgreSQL e matriz formal de resiliência já verdes.)
+1. **F11** (25% aberto): a11y/E2E real e DoD global/GNG-6. Publicação servidor,
+   instalação/operação, runbook, headers/cookies/CORS, scanning, auditoria de dependências,
+   migração SQLite→PostgreSQL e matriz de resiliência já estão verdes.
 2. **F6**: detecção Docker/Compose (ciclo §1.2) e fallback por agente (Java já detectado).
 3. **F9**: adaptador Teams + testes fake (Telegram real já validado).
 4. **F7**: fluxo de atualização e desinstalação segura.
