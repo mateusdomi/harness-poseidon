@@ -92,3 +92,40 @@ describe('ProjectList', () => {
     expect(screen.getAllByText('Crítica').length).toBeGreaterThan(0);
   });
 });
+
+describe('FR-4 — filtro de arquivados', () => {
+  const archivedProject = { ...projects[0], id: '01JLEGACY0000000000000000', name: 'Projeto Legado', state: 'archived' as const };
+  const mixed = [...projects, archivedProject];
+
+  it('filterProjects: ativos, arquivados ou todos', () => {
+    expect(filterProjects(mixed, { ...EMPTY_FILTERS, archive: '' })).toHaveLength(3);
+    const active = filterProjects(mixed, { ...EMPTY_FILTERS, archive: 'active' });
+    expect(active).toHaveLength(2);
+    expect(active.every((p) => p.state !== 'archived')).toBe(true);
+    const archived = filterProjects(mixed, { ...EMPTY_FILTERS, archive: 'archived' });
+    expect(archived).toEqual([archivedProject]);
+  });
+
+  it('lista mostra projetos arquivados pelo filtro', async () => {
+    const user = userEvent.setup();
+    renderWithApi(
+      <ProjectList
+        projects={mixed}
+        organizations={organizations}
+        onSelect={() => {}}
+        onCreateNew={() => {}}
+      />,
+    );
+
+    // Padrão (todos): os 3 projetos aparecem, incluindo o arquivado.
+    expect(screen.getByText('Projeto Legado')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/arquivamento/i), 'active');
+    expect(screen.queryByText('Projeto Legado')).not.toBeInTheDocument();
+    expect(screen.getByText('API de Pagamentos')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/arquivamento/i), 'archived');
+    expect(screen.getByText('Projeto Legado')).toBeInTheDocument();
+    expect(screen.queryByText('API de Pagamentos')).not.toBeInTheDocument();
+  });
+});

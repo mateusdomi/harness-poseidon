@@ -264,6 +264,11 @@
       "failed": "Failed",
       "cancelled": "Cancelled"
     },
+    "workflowContentState": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
     "chiefTurnState": {
       "thinking": "Thinking",
       "delegating": "Delegating",
@@ -477,7 +482,13 @@
       "criticality": "Criticality",
       "allCriticalities": "All criticalities",
       "state": "State",
-      "allStates": "All states"
+      "allStates": "All states",
+      "archive": {
+        "label": "Archiving",
+        "all": "Active and archived",
+        "activeOnly": "Active only",
+        "archivedOnly": "Archived only"
+      }
     },
     "empty": {
       "title": "No projects yet",
@@ -526,6 +537,27 @@
         "required": "Select at least one person."
       },
       "create": "Create project"
+    },
+    "config": {
+      "current": "Config v{{version}}",
+      "pending": "{{count}} pending change(s)",
+      "historyTitle": "Configuration history",
+      "version": "v{{version}}"
+    },
+    "impact": {
+      "title": "Change impact",
+      "body": "This project has a workflow run in progress. Changes to operational fields apply to NEW runs: the active run stays on the previous configuration.",
+      "changedFields": "Fields that will change:",
+      "versionNote": "Saving increments the configuration version and records it in the project history.",
+      "confirmCheckbox": "I understand the active run will not change and the new configuration only applies to new runs",
+      "confirm": "Save anyway",
+      "fields": {
+        "repositoryProvider": "Repository provider",
+        "repositoryUrl": "Repository URL",
+        "defaultBranch": "Default branch",
+        "technologies": "Technologies",
+        "brand": "Brand"
+      }
     }
   },
   "shared": {
@@ -1024,9 +1056,106 @@
       "agentsLabel": "Allowed agents",
       "transitionsLabel": "Allowed transitions",
       "publish": "Publish version",
+      "create": "New template",
+      "newDraft": "New draft",
+      "editDraft": "Edit draft",
+      "duplicate": "Duplicate",
+      "archive": "Archive",
+      "delete": "Delete",
+      "link": "Link to active project",
+      "compare": "Compare versions",
+      "compareHint": "Select two versions to compare.",
+      "compareSelect": "Select v{{version}} to compare",
+      "notPublished": "Not published",
+      "archivedAt": "Archived on {{date}}",
+      "deleteBlocked": "Only never-used draft templates can be deleted — archive to preserve history.",
+      "deleteVersionInUse": "This draft is in use and cannot be deleted — archive it instead.",
+      "deletePublishedBlocked": "Published versions are immutable and never deleted — archive to retire.",
+      "linkBlockedInUse": "The active project already has a linked workflow.",
+      "linkBlockedNoPublished": "Publish a version before linking the template.",
+      "impactBanner": "The project's active run stays on v{{version}} — the new version only applies to new runs.",
+      "validationTitle": "The version failed Harness validation:",
+      "validation": {
+        "phasesRequired": "Provide at least one phase.",
+        "emptyPhaseName": "Every phase needs a name.",
+        "duplicatePhase": "Duplicated phase: {{phase}}.",
+        "unknownGatePhase": "Gates reference the missing phase \"{{phase}}\".",
+        "unknownTransitionPhase": "Transition defined on the missing phase \"{{phase}}\".",
+        "unknownTransitionTarget": "Phase \"{{phase}}\" transitions to the missing phase \"{{target}}\".",
+        "unknownConfigPhase": "Configuration defined for the missing phase \"{{phase}}\".",
+        "unknownDependency": "Phase \"{{phase}}\" depends on the missing phase \"{{target}}\".",
+        "dependencyCycle": "Dependency cycle between \"{{phase}}\" and \"{{target}}\".",
+        "invalidWeight": "Invalid weight in phase {{phase}} (use 0–100)."
+      },
+      "createDialog": {
+        "title": "New workflow template",
+        "nameLabel": "Name",
+        "descriptionLabel": "Description",
+        "confirm": "Create template"
+      },
+      "deleteDialog": {
+        "title": "Delete template",
+        "body": "Delete the template \"{{name}}\"? Only never-used drafts can be deleted; published versions are preserved through archiving.",
+        "confirm": "Delete permanently"
+      },
+      "deleteVersionDialog": {
+        "title": "Delete draft",
+        "body": "Delete draft v{{version}}? Only never-used drafts can be deleted.",
+        "confirm": "Delete draft"
+      },
       "errors": {
         "phasesRequired": "Provide at least one phase.",
         "invalidWeight": "Invalid weight in phase {{phase}} (use 0–100)."
+      }
+    },
+    "editor": {
+      "title": "Edit draft — {{name}} (v{{version}})",
+      "hint": "Drafts are editable; publishing freezes the version (immutable) after Harness validation.",
+      "phaseLegend": "Phase {{index}}",
+      "nameLabel": "Phase name",
+      "objectiveLabel": "Objective",
+      "contextLabel": "Context",
+      "acceptanceCriteriaLabel": "Acceptance criteria",
+      "linesHint": "One per line.",
+      "skillsLabel": "Allowed skills",
+      "toolsLabel": "Allowed tools",
+      "dependsOnLabel": "Depends on",
+      "addPhase": "Add phase",
+      "removePhase": "Remove phase",
+      "moveUp": "Move phase up",
+      "moveDown": "Move phase down",
+      "saveDraft": "Save draft",
+      "saved": "Draft saved."
+    },
+    "compare": {
+      "title": "Compare versions",
+      "subtitle": "Structural diff: v{{from}} → v{{to}}",
+      "identical": "The versions are structurally identical.",
+      "phasesAdded": "Added phases",
+      "phasesRemoved": "Removed phases",
+      "phasesReordered": "Reordered phases: {{phases}}",
+      "phasesChanged": "Changed phases",
+      "modeChange": "Default mode: {{from}} → {{to}}",
+      "mode": {
+        "manual": "Manual",
+        "semiautonomous": "Semi-autonomous",
+        "autonomous": "Autonomous",
+        "none": "no default mode"
+      },
+      "fields": {
+        "gates": "Gates",
+        "documentKinds": "Documents",
+        "agents": "Agents",
+        "skills": "Skills",
+        "tools": "Tools",
+        "acceptanceCriteria": "Acceptance criteria",
+        "dependsOn": "Dependencies",
+        "entryConditions": "Entry conditions",
+        "exitConditions": "Exit conditions",
+        "transitions": "Transitions",
+        "weight": "Weight",
+        "objective": "Objective",
+        "context": "Context"
       }
     }
   },

@@ -88,6 +88,41 @@ export const publishWorkflowVersionInputSchema = z.object({
 });
 export type PublishWorkflowVersionInput = z.infer<typeof publishWorkflowVersionInputSchema>;
 
+/* ---- gestão de templates de workflow (FR-4) ---- */
+
+/** Criação de template do zero — nasce como rascunho (sem versão publicada). */
+export const createWorkflowTemplateInputSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+export type CreateWorkflowTemplateInput = z.infer<typeof createWorkflowTemplateInputSchema>;
+
+/**
+ * Conteúdo de uma versão em rascunho (criação/edição). Igual ao payload de
+ * publicação, mas tudo opcional — rascunho admite estado incompleto; a
+ * validação completa (zod + regras do Harness) acontece ao publicar.
+ */
+export const workflowDraftInputSchema = publishWorkflowVersionInputSchema.partial();
+export type WorkflowDraftInput = z.infer<typeof workflowDraftInputSchema>;
+
+/** Publicação de um rascunho existente (changelog opcional de última hora). */
+export const publishWorkflowDraftInputSchema = z.object({
+  changelog: z.string().optional(),
+});
+export type PublishWorkflowDraftInput = z.infer<typeof publishWorkflowDraftInputSchema>;
+
+/**
+ * Vincula um template a um projeto (cria o `Workflow` do projeto com a
+ * versão publicada vigente do template). 409 se o projeto já tem workflow.
+ */
+export const linkWorkflowTemplateInputSchema = z.object({
+  projectId: ulidSchema,
+  templateId: ulidSchema,
+  /** Versão específica a vincular; default = `currentVersionId` do template. */
+  versionId: ulidSchema.optional(),
+});
+export type LinkWorkflowTemplateInput = z.infer<typeof linkWorkflowTemplateInputSchema>;
+
 /**
  * Troca de modo de operação do workflow — exige confirmação com
  * registro de aceite de risco. No semiautônomo, define quais gates pausam.

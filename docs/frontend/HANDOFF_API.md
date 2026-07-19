@@ -150,6 +150,17 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | `POST /documents/<id>/versions` (FR-3) | `{ body }` — **nova versão por edição manual**; nasce `authorKind: "user"`, `version = currentVersion + 1` | `DocumentVersion` | — (ver pendência FR-3: sugestão `document.versionAdded`) | documents (revisão manual) |
 | `POST /tasks/<id>/archive` (FR-3) | — — **só `done`** (409 caso contrário; 409 se já arquivada) | `Task` (`archivedAt` preenchido) | — (ver pendência FR-3) | board (arquivar) |
 | `POST /tasks/<id>/unarchive` (FR-3) | — — sempre permitido em tarefa arquivada (409 se não arquivada) | `Task` (`archivedAt: null`) | — | board (desarquivar) |
+| `POST /workflow-templates` (FR-4) | `{ name, description? }` — nasce **rascunho** (`state: "draft"`, sem versão) | `WorkflowTemplate` | — (ver pendências FR-4) | workflows (gestão de templates) |
+| `POST /workflow-templates/<id>/drafts` (FR-4) | `WorkflowDraftInput` (parcial — sem input, copia a versão vigente) | `WorkflowVersion` (rascunho, `publishedAt: null`) | — | workflows (novo rascunho / editar publicado) |
+| `PATCH /workflow-versions/<id>` (FR-4) | `WorkflowDraftInput` — **só rascunho** (409 em publicada/arquivada; única exceção ao "sem PATCH em versões": rascunho é mutável por definição) | `WorkflowVersion` | — | workflows (editor de fases) |
+| `POST /workflow-versions/<id>/publish` (FR-4) | `{ changelog? }` — **validação do Harness** (zod + regras, 422 se inválida); publicada = imutável e vira `currentVersionId` | `WorkflowVersion` | `workflow.versionPublished` | workflows (publicar) |
+| `POST /workflow-templates/<id>/archive` (FR-4) | — — tombstone, nunca exclusão física | `WorkflowTemplate` | — | workflows |
+| `POST /workflow-versions/<id>/archive` (FR-4) | — — tombstone; 409 na **versão vigente** do template | `WorkflowVersion` | — | workflows |
+| `DELETE /workflow-versions/<id>` (FR-4) | — — **só rascunho nunca utilizado** (409 em publicada/em uso) | — | — | workflows (excluir rascunho, com confirmação) |
+| `DELETE /workflow-templates/<id>` (FR-4) | — — **só template rascunho sem versões publicadas e sem vínculos** (409 caso contrário — arquivar é a alternativa) | — | — | workflows |
+| `POST /workflow-templates/<id>/duplicate` (FR-4) | — — novo template rascunho "(cópia)" + rascunho da versão vigente | `WorkflowTemplate` | — | workflows |
+| `POST /workflow-versions/<id>/duplicate` (FR-4) | — — novo rascunho no mesmo template (número = última + 1) | `WorkflowVersion` | — | workflows |
+| `POST /projects/<id>/workflow` (FR-4) | `{ templateId, versionId? }` — cria o `Workflow` do projeto com a versão publicada vigente (409 se já tem workflow / template sem versão publicada); `operationMode` = `defaultOperationMode` do template (ou `manual`) | `Workflow` | `audit.eventAppended` (`workflow.templateLinked`) | workflows (vincular ao projeto ativo) |
 
 ### Campos adicionados na FE-2a
 
@@ -173,6 +184,22 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 
 - `Task.archivedAt: string | null` — **arquivamento é metaestado**, NÃO entra na máquina de estados: a tarefa arquivada mantém `state`/histórico/attempts, some do quadro padrão (filtro "ativas") e permanece acessível pelo filtro "arquivadas" e pelo detalhe. Regra de domínio: arquivar só é permitido para `done` (o contrato não distingue "backlog cancelada" de backlog viva — ver D-073); desarquivar é sempre permitido. Comandos na tabela acima; tarefas continuam **sem PATCH**.
 - Comando `saveDocumentVersion` (`POST /documents/<id>/versions`, `{ body }`): edição manual cria versão nova com `authorKind: "user"` e `authorId = profile da sessão` — a origem (agente vs. humano) já era modelada pelo enum `authorKind` de `DocumentVersion` (`user | chief | agent`), nenhum campo novo foi necessário. Verificado na FR-3: `DocumentVersion` **já expõe `body`** (conteúdo da versão) — diff e edição usam o campo existente.
+
+### Campos adicionados na FR-4
+
+- `WorkflowTemplate.state: draft | published | archived` + `archivedAt` — ciclo de vida do template (rascunho editável → publicado → arquivado/tombstone). Template criado do zero nasce `draft`; vira `published` na primeira versão publicada.
+- `WorkflowVersion.state: draft | published | archived` + `archivedAt`; `publishedAt` agora é **`string | null`** (nulo enquanto rascunho). Rascunho é editável (única mutação permitida em versões); publicada é imutável — alterar cria NOVA versão via rascunho.
+- `WorkflowPhaseConfig` estendido (todos opcionais/aditivos): `objective`, `context`, `acceptanceCriteria[]`, `dependsOn[]` (nomes de fases — sem ciclos, validado na publicação), `entryConditions[]`, `exitConditions[]`, `allowedSkillIds[]` (catálogo `skills`), `allowedToolIds[]` (catálogo `tools`).
+- `Project.configHistory: { version, changedAt, changedFields[], summary }[]` — histórico das versões de configuração; o backend/mock registra uma entrada a cada update que altera DE FATO campos versionados (`repositoryUrl`, `repositoryProvider`, `defaultBranch`, `technologies`, `brand`). **Mudança de comportamento (FR-4):** antes o `configVersion` incrementava por presença do campo no payload; agora só incrementa quando o valor muda (deep-compare) — edição de metadados não gera versão.
+- **Validação do Harness** (`contracts/workflow-validation.ts`): regras de publicação — ≥1 fase, nomes únicos/não vazios, gates/transições/dependências referenciam fases existentes, sem ciclo simples de dependência, peso 0–100. A ordem das fases é posicional (o array `phases` é a ordem), então "ordem contínua" é garantida pelo modelo. O mock aplica zod + regras em `publishWorkflowDraft` (422); o backend deve espelhar.
+
+### Pendências de contrato identificadas na FR-4 (não fabricadas na UI)
+
+- Ciclo de vida de templates **não tem eventos realtime** próprios (criar/duplicar/arquivar/excluir rascunho) — só `workflow.versionPublished` na publicação. A UI re-sincroniza por invalidação pós-mutation. Sugestão: `workflow.templateChanged` no stream `global`.
+- **Troca de template** de um projeto já vinculado não existe — `linkWorkflowTemplate` retorna 409 quando o projeto já tem workflow; trocar exigiria comando próprio (ex.: `POST /workflows/<id>/template`). Hoje só é possível apontar `activeVersionId` dentro do mesmo template (e mesmo assim sem comando — pendência anterior da FE-2a).
+- **DELETE de projeto (tombstone)** não é oferecido na UI: `projects` tem DELETE genérico no contrato, mas não há fluxo/tela — arquivamento (`state: archived`) é o caminho suportado e preserva histórico. Se o produto exigir exclusão, definir regras (cascata/tombstone) no contrato primeiro.
+- Duplicar template copia apenas a versão VIGENTE como rascunho — histórico de versões antigas não é duplicado (decisão consciente; o histórico permanece no template de origem).
+- `Workflow.defaultOperationMode` da versão é aplicado só no VÍNCULO; trocar a versão ativa depois não repropõe modo (o card de modo existente cobre a troca manual com aceite de risco).
 
 ### Pendências de contrato identificadas na FR-3 (não fabricadas na UI)
 

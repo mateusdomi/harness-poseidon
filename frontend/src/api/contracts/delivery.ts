@@ -10,6 +10,7 @@ import {
   phaseStateSchema,
   prioritySchema,
   taskStateSchema,
+  workflowContentStateSchema,
   workflowRunStateSchema,
 } from './enums';
 import { isoDateTimeSchema, progressSchema, ulidSchema } from './primitives';
@@ -95,6 +96,12 @@ export const workflowTemplateSchema = z.object({
   name: z.string(),
   description: z.string(),
   currentVersionId: ulidSchema.nullable(),
+  /**
+   * Ciclo de vida (FR-4, aditivo): rascunho editável → publicado (imutável)
+   * → arquivado (tombstone; template utilizado NUNCA é excluído fisicamente).
+   */
+  state: workflowContentStateSchema,
+  archivedAt: isoDateTimeSchema.nullable(),
   createdAt: isoDateTimeSchema,
 });
 export type WorkflowTemplate = z.infer<typeof workflowTemplateSchema>;
@@ -107,10 +114,31 @@ export const workflowPhaseConfigSchema = z.object({
   progressWeight: z.number().min(0).max(100),
   /** Definições de agente permitidas na fase (vazio = todas). */
   allowedAgentDefinitionIds: z.array(ulidSchema),
+  /* ---- campos do editor de fases (FR-4 — todos opcionais/aditivos) ---- */
+  /** Objetivo da fase (o que deve ser alcançado). */
+  objective: z.string().optional(),
+  /** Contexto/insumos relevantes para os agentes da fase. */
+  context: z.string().optional(),
+  /** Critérios de aceite da fase. */
+  acceptanceCriteria: z.array(z.string()).optional(),
+  /** Fases das quais esta depende (nomes; sem ciclos — validado na publicação). */
+  dependsOn: z.array(z.string()).optional(),
+  /** Condições para entrar na fase. */
+  entryConditions: z.array(z.string()).optional(),
+  /** Condições para sair/concluir a fase. */
+  exitConditions: z.array(z.string()).optional(),
+  /** Skills permitidas na fase (catálogo `skills`; vazio/ausente = todas). */
+  allowedSkillIds: z.array(ulidSchema).optional(),
+  /** Ferramentas permitidas na fase (catálogo `tools`; vazio/ausente = todas). */
+  allowedToolIds: z.array(ulidSchema).optional(),
 });
 export type WorkflowPhaseConfig = z.infer<typeof workflowPhaseConfigSchema>;
 
-/** Versão publicada (imutável) de um template de workflow. */
+/**
+ * Versão de um template de workflow. Publicada = imutável (alterar cria
+ * NOVA versão); rascunho = editável até publicar; arquivada = tombstone
+ * (versão utilizada por execução/vínculo nunca é excluída fisicamente).
+ */
 export const workflowVersionSchema = z.object({
   id: ulidSchema,
   templateId: ulidSchema,
@@ -126,7 +154,11 @@ export const workflowVersionSchema = z.object({
   /** Regras de transição: fase → fases seguintes permitidas. */
   transitions: z.record(z.array(z.string())).optional(),
   changelog: z.string().nullable(),
-  publishedAt: isoDateTimeSchema,
+  /** Ciclo de vida (FR-4, aditivo). */
+  state: workflowContentStateSchema,
+  /** Nulo enquanto rascunho; preenchido na publicação. */
+  publishedAt: isoDateTimeSchema.nullable(),
+  archivedAt: isoDateTimeSchema.nullable(),
 });
 export type WorkflowVersion = z.infer<typeof workflowVersionSchema>;
 

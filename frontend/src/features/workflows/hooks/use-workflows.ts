@@ -3,13 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   streams,
   type AgentDefinition,
+  type ApiClient,
+  type CreateWorkflowTemplateInput,
   type Document,
   type Gate,
+  type LinkWorkflowTemplateInput,
   type Phase,
+  type PublishWorkflowDraftInput,
   type PublishWorkflowVersionInput,
   type SetOperationModeInput,
   type Ulid,
   type Workflow,
+  type WorkflowDraftInput,
   type WorkflowRun,
   type WorkflowTemplate,
   type WorkflowVersion,
@@ -140,6 +145,39 @@ export function useAgentDefinitions() {
 }
 
 /**
+ * Uso de templates/versões (FR-4): templates vinculados a algum workflow e
+ * versões em uso (versão ativa de workflow ou de qualquer run) — insumos
+ * das regras "utilizado nunca é excluído fisicamente" na administração.
+ */
+export function useWorkflowUsage() {
+  const api = useApi();
+
+  const workflowsQuery = useQuery({
+    queryKey: [...WORKFLOWS_PREFIX, 'all-workflows'] as const,
+    queryFn: async (): Promise<Workflow[]> => (await api.list('workflows')).items,
+  });
+  const runsQuery = useQuery({
+    queryKey: [...WORKFLOWS_PREFIX, 'all-runs'] as const,
+    queryFn: async (): Promise<WorkflowRun[]> => (await api.list('workflow-runs')).items,
+  });
+
+  const usedTemplateIds = new Set<Ulid>(
+    (workflowsQuery.data ?? []).map((workflow) => workflow.templateId),
+  );
+  const usedVersionIds = new Set<Ulid>([
+    ...(workflowsQuery.data ?? []).map((workflow) => workflow.activeVersionId),
+    ...(runsQuery.data ?? []).map((run) => run.versionId),
+  ]);
+
+  return {
+    usedTemplateIds,
+    usedVersionIds,
+    isPending: workflowsQuery.isPending || runsQuery.isPending,
+    isError: workflowsQuery.isError || runsQuery.isError,
+  };
+}
+
+/**
  * Tempo real: gates mudando, versões publicadas e documentos transicionando
  * invalidam as queries da feature (re-sync autoritativo).
  */
@@ -176,4 +214,74 @@ export function usePublishWorkflowVersion() {
     }) => api.publishWorkflowVersion(templateId, input),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: WORKFLOWS_PREFIX }),
   });
+}
+
+/* ---- gestão de templates (FR-4) — todas invalidam o prefixo workflows ---- */
+
+function useWorkflowMutation<TVariables, TResult>(
+  fn: (api: ApiClient, variables: TVariables) => Promise<TResult>,
+) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (variables: TVariables) => fn(api, variables),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: WORKFLOWS_PREFIX }),
+  });
+}
+
+export function useCreateWorkflowTemplate() {
+  return useWorkflowMutation((api, input: CreateWorkflowTemplateInput) =>
+    api.createWorkflowTemplate(input),
+  );
+}
+
+export function useCreateWorkflowDraftVersion() {
+  return useWorkflowMutation(
+    (api, { templateId, input }: { templateId: Ulid; input?: WorkflowDraftInput }) =>
+      api.createWorkflowDraftVersion(templateId, input),
+  );
+}
+
+export function useUpdateWorkflowDraftVersion() {
+  return useWorkflowMutation(
+    (api, { versionId, input }: { versionId: Ulid; input: WorkflowDraftInput }) =>
+      api.updateWorkflowDraftVersion(versionId, input),
+  );
+}
+
+export function usePublishWorkflowDraft() {
+  return useWorkflowMutation(
+    (api, { versionId, input }: { versionId: Ulid; input?: PublishWorkflowDraftInput }) =>
+      api.publishWorkflowDraft(versionId, input),
+  );
+}
+
+export function useArchiveWorkflowTemplate() {
+  return useWorkflowMutation((api, templateId: Ulid) => api.archiveWorkflowTemplate(templateId));
+}
+
+export function useArchiveWorkflowVersion() {
+  return useWorkflowMutation((api, versionId: Ulid) => api.archiveWorkflowVersion(versionId));
+}
+
+export function useDeleteWorkflowDraftVersion() {
+  return useWorkflowMutation((api, versionId: Ulid) => api.deleteWorkflowDraftVersion(versionId));
+}
+
+export function useDeleteWorkflowTemplate() {
+  return useWorkflowMutation((api, templateId: Ulid) => api.deleteWorkflowTemplate(templateId));
+}
+
+export function useDuplicateWorkflowTemplate() {
+  return useWorkflowMutation((api, templateId: Ulid) => api.duplicateWorkflowTemplate(templateId));
+}
+
+export function useDuplicateWorkflowVersion() {
+  return useWorkflowMutation((api, versionId: Ulid) => api.duplicateWorkflowVersion(versionId));
+}
+
+export function useLinkWorkflowTemplate() {
+  return useWorkflowMutation((api, input: LinkWorkflowTemplateInput) =>
+    api.linkWorkflowTemplate(input),
+  );
 }

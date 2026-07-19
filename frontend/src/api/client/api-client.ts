@@ -8,17 +8,20 @@ import type {
   ClassifyDocumentInput,
   CreatableResource,
   CreateInputMap,
+  CreateWorkflowTemplateInput,
   Diagnostics,
   DocumentVersion,
   DrainChiefTasksInput,
   HandoffChiefInput,
   License,
+  LinkWorkflowTemplateInput,
   ListQuery,
   Model,
   MoveTaskInput,
   Page,
   Profile,
   Project,
+  PublishWorkflowDraftInput,
   PublishWorkflowVersionInput,
   RemovableResource,
   ResolveApprovalInput,
@@ -38,6 +41,8 @@ import type {
   UpdatableResource,
   UpdateInputMap,
   Workflow,
+  WorkflowDraftInput,
+  WorkflowTemplate,
   WorkflowVersion,
   Approval,
   Document,
@@ -108,6 +113,50 @@ export interface ApiClient {
     templateId: Ulid,
     input: PublishWorkflowVersionInput,
   ): Promise<WorkflowVersion>;
+
+  /* ---- gestão de templates de workflow (FR-4) ---- */
+
+  /** Cria template do zero — nasce rascunho, sem versão publicada. */
+  createWorkflowTemplate(input: CreateWorkflowTemplateInput): Promise<WorkflowTemplate>;
+  /**
+   * Cria versão em RASCUNHO de um template (cópia da versão vigente quando
+   * `input` é omitido). Rascunhos são editáveis até publicar.
+   */
+  createWorkflowDraftVersion(templateId: Ulid, input?: WorkflowDraftInput): Promise<WorkflowVersion>;
+  /** Edita uma versão em rascunho (409 se não for rascunho). */
+  updateWorkflowDraftVersion(versionId: Ulid, input: WorkflowDraftInput): Promise<WorkflowVersion>;
+  /**
+   * Publica um rascunho: validação do Harness (zod + regras) bloqueia com
+   * 422 se inválido; ao publicar, congela (imutável) e o template passa a
+   * apontar para a nova versão → emite `workflow.versionPublished`.
+   */
+  publishWorkflowDraft(
+    versionId: Ulid,
+    input?: PublishWorkflowDraftInput,
+  ): Promise<WorkflowVersion>;
+  /**
+   * Arquiva (tombstone) template ou versão — NUNCA exclusão física.
+   * A versão vigente do template não pode ser arquivada (409).
+   */
+  archiveWorkflowTemplate(templateId: Ulid): Promise<WorkflowTemplate>;
+  archiveWorkflowVersion(versionId: Ulid): Promise<WorkflowVersion>;
+  /**
+   * Exclui APENAS rascunho nunca utilizado (sem vínculo de workflow/run) —
+   * 409 caso contrário. Versão publicada/utilizada não pode ser excluída.
+   */
+  deleteWorkflowDraftVersion(versionId: Ulid): Promise<void>;
+  /** Exclui template rascunho nunca utilizado (sem versões publicadas/vínculos) — 409 caso contrário. */
+  deleteWorkflowTemplate(templateId: Ulid): Promise<void>;
+  /** Duplica o template (nova cópia rascunho, com rascunho da versão vigente). */
+  duplicateWorkflowTemplate(templateId: Ulid): Promise<WorkflowTemplate>;
+  /** Duplica uma versão (publicada ou rascunho) como NOVO rascunho no mesmo template. */
+  duplicateWorkflowVersion(versionId: Ulid): Promise<WorkflowVersion>;
+  /**
+   * Vincula template ao projeto: cria o `Workflow` com a versão publicada
+   * vigente (ou a informada) — 409 se o projeto já tem workflow ou o
+   * template não tem versão publicada.
+   */
+  linkWorkflowTemplate(input: LinkWorkflowTemplateInput): Promise<Workflow>;
   /**
    * Troca modo de operação do workflow com aceite de risco registrado →
    * emite `audit.eventAppended`. No semiautônomo define quais gates pausam.

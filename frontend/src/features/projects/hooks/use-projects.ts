@@ -39,3 +39,24 @@ export function useUpdateProject() {
     },
   });
 }
+
+/**
+ * Projeto INICIADO (FR-4): tem workflow vinculado com ao menos uma execução
+ * (run em qualquer estado). Edição de campos operacionais em projeto
+ * iniciado exige o painel de impacto antes de salvar.
+ */
+export function useProjectStarted(projectId: Ulid | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...projectKeys.all, 'started', projectId ?? 'none'] as const,
+    enabled: projectId !== null,
+    queryFn: async (): Promise<boolean> => {
+      const workflow = (await api.list('workflows', { filter: { projectId: projectId! } }))
+        .items[0];
+      if (!workflow) return false;
+      const runs = (await api.list('workflow-runs', { filter: { workflowId: workflow.id } }))
+        .items;
+      return runs.length > 0;
+    },
+  });
+}

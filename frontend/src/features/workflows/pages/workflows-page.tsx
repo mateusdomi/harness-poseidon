@@ -15,7 +15,9 @@ import {
   useWorkflowDocuments,
   useWorkflowsRealtime,
   useWorkflowTemplates,
+  useWorkflowUsage,
 } from '@/features/workflows/hooks/use-workflows';
+import { useToolsCatalog } from '@/features/tools/hooks/use-tools';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 
 /**
@@ -44,6 +46,8 @@ export default function UworkflowsPage() {
     refetch: refetchTemplates,
   } = useWorkflowTemplates();
   const agentDefinitionsQuery = useAgentDefinitions();
+  const usage = useWorkflowUsage();
+  const toolsCatalog = useToolsCatalog();
   useWorkflowsRealtime(projectId);
 
   const loading =
@@ -158,6 +162,13 @@ export default function UworkflowsPage() {
             templates={templates}
             versions={versions}
             agentDefinitions={agentDefinitionsQuery.data ?? []}
+            skills={toolsCatalog.skills}
+            tools={toolsCatalog.tools}
+            usedTemplateIds={usage.usedTemplateIds}
+            usedVersionIds={usage.usedVersionIds}
+            activeProjectId={projectId}
+            activeProjectWorkflow={workflow}
+            activeRunVersion={runVersion}
           />
         </>
       )}

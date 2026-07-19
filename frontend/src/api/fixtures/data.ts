@@ -524,6 +524,20 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     brand: { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
     memberProfileIds: [profile.id, profileAna.id],
     configVersion: 3,
+    configHistory: [
+      {
+        version: 2,
+        changedAt: tick(),
+        changedFields: ['technologies'],
+        summary: 'Campos alterados: technologies.',
+      },
+      {
+        version: 3,
+        changedAt: tick(),
+        changedFields: ['defaultBranch'],
+        summary: 'Campos alterados: defaultBranch.',
+      },
+    ],
     chiefAgentId: chefePoseidon.id,
     operationMode: 'manual',
     prototyping: { mode: 'autonomousGeneration', waiver: null },
@@ -545,6 +559,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     brand: { logoUrl: null, primaryColor: '#0EA5E9', secondaryColor: null, typography: null },
     memberProfileIds: [profile.id],
     configVersion: 1,
+    configHistory: [],
     chiefAgentId: chefePagamentos.id,
     operationMode: 'semiautonomous',
     prototyping: {
@@ -1151,6 +1166,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     name: 'Fluxo de Entrega Padrão',
     description: 'Planejamento → Execução → Validação → Publicação, com gates de qualidade e release.',
     currentVersionId: null,
+    state: 'published',
+    archivedAt: null,
     createdAt: tick(),
   };
   const versao1: WorkflowVersion = {
@@ -1163,10 +1180,50 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       Publicação: ['Gate de Release'],
     },
     changelog: 'Versão inicial do fluxo de entrega.',
+    state: 'published',
     publishedAt: tick(),
+    archivedAt: null,
   };
   template.currentVersionId = versao1.id;
   orgPoseidon.defaultWorkflowTemplateIds = [template.id];
+
+  // Template rascunho (FR-4): editável, ainda sem versão publicada.
+  const templateRascunho: WorkflowTemplate = {
+    id: id(),
+    name: 'Fluxo Experimental',
+    description: 'Rascunho de fluxo enxuto para experimentos — ainda não publicado.',
+    currentVersionId: null,
+    state: 'draft',
+    archivedAt: null,
+    createdAt: tick(),
+  };
+  const versaoRascunho: WorkflowVersion = {
+    id: id(),
+    templateId: templateRascunho.id,
+    version: 1,
+    phases: ['Descoberta', 'Entrega'],
+    gatesByPhase: { Entrega: ['Revisão final'] },
+    phaseConfigs: {
+      Descoberta: {
+        documentKinds: ['prd', 'note'],
+        progressWeight: 40,
+        allowedAgentDefinitionIds: [],
+        objective: 'Entender o problema e delimitar o experimento.',
+        acceptanceCriteria: ['Escopo do experimento registrado.'],
+      },
+      Entrega: {
+        documentKinds: ['spec', 'runbook'],
+        progressWeight: 60,
+        allowedAgentDefinitionIds: [],
+        dependsOn: ['Descoberta'],
+        exitConditions: ['Revisão final aprovada.'],
+      },
+    },
+    changelog: null,
+    state: 'draft',
+    publishedAt: null,
+    archivedAt: null,
+  };
 
   const workflowPoseidon: Workflow = {
     id: id(),
@@ -1465,8 +1522,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     'task-instructions': taskInstructions,
     attempts,
     'attempt-events': attemptEvents,
-    'workflow-templates': [template],
-    'workflow-versions': [versao1],
+    'workflow-templates': [template, templateRascunho],
+    'workflow-versions': [versao1, versaoRascunho],
     workflows: [workflowPoseidon, workflowPagamentos],
     'workflow-runs': [run1],
     phases: fases,

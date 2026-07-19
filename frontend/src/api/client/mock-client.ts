@@ -4,9 +4,12 @@ import {
   analyzeSolicitationInputSchema,
   appendTaskInstructionInputSchema,
   classifyDocumentInputSchema,
+  createWorkflowTemplateInputSchema,
   drainChiefTasksInputSchema,
   handoffChiefInputSchema,
+  linkWorkflowTemplateInputSchema,
   moveTaskInputSchema,
+  publishWorkflowDraftInputSchema,
   publishWorkflowVersionInputSchema,
   resolveApprovalInputSchema,
   saveDocumentVersionInputSchema,
@@ -15,6 +18,8 @@ import {
   startChatTurnInputSchema,
   transitionDocumentInputSchema,
   transitionSolicitationInputSchema,
+  validateWorkflowVersionContent,
+  workflowDraftInputSchema,
   type Agent,
   type Approval,
   type AnalyzeSolicitationInput,
@@ -26,6 +31,7 @@ import {
   type ClassifyDocumentInput,
   type CreatableResource,
   type CreateInputMap,
+  type CreateWorkflowTemplateInput,
   type Demand,
   type Diagnostics,
   type Document,
@@ -33,6 +39,7 @@ import {
   type DrainChiefTasksInput,
   type HandoffChiefInput,
   type License,
+  type LinkWorkflowTemplateInput,
   type ListQuery,
   type Message,
   type Model,
@@ -42,6 +49,7 @@ import {
   type ProblemDetails,
   type Profile,
   type Project,
+  type PublishWorkflowDraftInput,
   type PublishWorkflowVersionInput,
   type RemovableResource,
   type ResolveApprovalInput,
@@ -62,6 +70,8 @@ import {
   type UpdatableResource,
   type UpdateInputMap,
   type Workflow,
+  type WorkflowDraftInput,
+  type WorkflowTemplate,
   type WorkflowVersion,
 } from '../contracts';
 import { streams } from '../contracts';
@@ -229,7 +239,9 @@ export class MockApiClient implements ApiClient {
     if (!current) throw this.#notFound(resource, id);
     const next = { ...current, ...(input as Record<string, unknown>) };
     if (resource === 'projects') {
-      // Campos versionados (repositório, tecnologias, marca) incrementam configVersion.
+      // Campos versionados (repositório, tecnologias, marca) incrementam
+      // configVersion e registram entrada no histórico — APENAS quando o
+      // valor muda de fato (FR-4: edição de metadados não gera versão).
       const versioned = [
         'repositoryUrl',
         'repositoryProvider',
@@ -237,8 +249,23 @@ export class MockApiClient implements ApiClient {
         'technologies',
         'brand',
       ] as const;
-      if (versioned.some((field) => field in (input as Record<string, unknown>))) {
+      const inputRecord = input as Record<string, unknown>;
+      const changedFields = versioned.filter(
+        (field) =>
+          field in inputRecord &&
+          JSON.stringify(inputRecord[field]) !== JSON.stringify(current[field]),
+      );
+      if (changedFields.length > 0) {
         next.configVersion = ((current.configVersion as number) ?? 0) + 1;
+        next.configHistory = [
+          ...((current.configHistory as Project['configHistory']) ?? []),
+          {
+            version: next.configVersion as number,
+            changedAt: this.#options.now(),
+            changedFields: [...changedFields],
+            summary: `Campos alterados: ${changedFields.join(', ')}.`,
+          },
+        ];
       }
       next.lastActivityAt = this.#options.now();
     }
@@ -483,10 +510,13 @@ export class MockApiClient implements ApiClient {
       defaultOperationMode: parsed.defaultOperationMode ?? null,
       transitions: parsed.transitions,
       changelog: parsed.changelog ?? null,
+      state: 'published',
       publishedAt: this.#options.now(),
+      archivedAt: null,
     };
     this.#table('workflow-versions').set(version.id, version);
     template.currentVersionId = version.id;
+    if (template.state === 'draft') template.state = 'published';
 
     // Emite no stream global e nos projetos que usam o template.
     const payload = { templateId, versionId: version.id, version: version.version };
@@ -500,6 +530,280 @@ export class MockApiClient implements ApiClient {
       this.#options.realtime?.emit(streams.project(projectId), 'workflow.versionPublished', payload);
     }
     return structuredClone(version);
+  }
+
+  /* ---- gestão de templates de workflow (FR-4) ---- */
+
+  async createWorkflowTemplate(input: CreateWorkflowTemplateInput): Promise<WorkflowTemplate> {
+    await this.#simulate();
+    const parsed = createWorkflowTemplateInputSchema.parse(input);
+    const template: WorkflowTemplate = {
+      id: this.#options.nextId(),
+      name: parsed.name,
+      description: parsed.description ?? '',
+      currentVersionId: null,
+      state: 'draft',
+      archivedAt: null,
+      createdAt: this.#options.now(),
+    };
+    this.#table('workflow-templates').set(template.id, template);
+    return structuredClone(template);
+  }
+
+  async createWorkflowDraftVersion(
+    templateId: Ulid,
+    input?: WorkflowDraftInput,
+  ): Promise<WorkflowVersion> {
+    await this.#simulate();
+    const parsed = workflowDraftInputSchema.parse(input ?? {});
+    const template = this.#require('workflow-templates', templateId);
+    if (template.state === 'archived') {
+      throw ApiError.of(409, 'Template arquivado', 'Não é possível criar rascunho em template arquivado.');
+    }
+    const current = template.currentVersionId
+      ? this.#table('workflow-versions').get(template.currentVersionId)
+      : undefined;
+    // Sem input: o rascunho nasce como cópia da versão vigente (editar publicado).
+    const version: WorkflowVersion = {
+      id: this.#options.nextId(),
+      templateId,
+      version: this.#nextVersionNumber(templateId),
+      phases: parsed.phases ?? structuredClone(current?.phases ?? []),
+      gatesByPhase: parsed.gatesByPhase ?? structuredClone(current?.gatesByPhase ?? {}),
+      phaseConfigs:
+        parsed.phaseConfigs ?? (current?.phaseConfigs ? structuredClone(current.phaseConfigs) : undefined),
+      defaultOperationMode:
+        parsed.defaultOperationMode !== undefined
+          ? parsed.defaultOperationMode
+          : (current?.defaultOperationMode ?? null),
+      transitions: parsed.transitions ?? (current?.transitions ? structuredClone(current.transitions) : undefined),
+      changelog: parsed.changelog ?? null,
+      state: 'draft',
+      publishedAt: null,
+      archivedAt: null,
+    };
+    this.#table('workflow-versions').set(version.id, version);
+    return structuredClone(version);
+  }
+
+  async updateWorkflowDraftVersion(
+    versionId: Ulid,
+    input: WorkflowDraftInput,
+  ): Promise<WorkflowVersion> {
+    await this.#simulate();
+    const parsed = workflowDraftInputSchema.parse(input);
+    const draft = this.#requireDraftVersion(versionId);
+    if (parsed.phases !== undefined) draft.phases = parsed.phases;
+    if (parsed.gatesByPhase !== undefined) draft.gatesByPhase = parsed.gatesByPhase;
+    if (parsed.phaseConfigs !== undefined) draft.phaseConfigs = parsed.phaseConfigs;
+    if (parsed.defaultOperationMode !== undefined) draft.defaultOperationMode = parsed.defaultOperationMode;
+    if (parsed.transitions !== undefined) draft.transitions = parsed.transitions;
+    if (parsed.changelog !== undefined) draft.changelog = parsed.changelog ?? null;
+    return structuredClone(draft);
+  }
+
+  async publishWorkflowDraft(
+    versionId: Ulid,
+    input?: PublishWorkflowDraftInput,
+  ): Promise<WorkflowVersion> {
+    await this.#simulate();
+    const parsed = publishWorkflowDraftInputSchema.parse(input ?? {});
+    const draft = this.#requireDraftVersion(versionId);
+
+    // Validação "do Harness": zod (payload completo de publicação) + regras
+    // de domínio (fases, gates/transições/dependências). 422 bloqueia.
+    const content = {
+      phases: draft.phases,
+      gatesByPhase: draft.gatesByPhase,
+      phaseConfigs: draft.phaseConfigs,
+      defaultOperationMode: draft.defaultOperationMode ?? null,
+      transitions: draft.transitions,
+    };
+    try {
+      publishWorkflowVersionInputSchema.parse({ ...content, changelog: draft.changelog ?? undefined });
+    } catch {
+      throw ApiError.of(422, 'Versão inválida', 'O rascunho não passou na validação do Harness (schema).');
+    }
+    const issues = validateWorkflowVersionContent(content);
+    if (issues.length > 0) {
+      throw ApiError.of(
+        422,
+        'Versão inválida',
+        `O rascunho não passou na validação do Harness: ${issues.map((issue) => issue.key).join('; ')}`,
+      );
+    }
+
+    const template = this.#require('workflow-templates', draft.templateId);
+    draft.state = 'published';
+    draft.publishedAt = this.#options.now();
+    if (parsed.changelog !== undefined) draft.changelog = parsed.changelog || null;
+    template.currentVersionId = draft.id;
+    if (template.state === 'draft') template.state = 'published';
+
+    const payload = { templateId: template.id, versionId: draft.id, version: draft.version };
+    this.#options.realtime?.emit(streams.global(), 'workflow.versionPublished', payload);
+    const projectIds = new Set(
+      [...this.#table('workflows').values()]
+        .filter((workflow) => workflow.templateId === template.id)
+        .map((workflow) => workflow.projectId),
+    );
+    for (const projectId of projectIds) {
+      this.#options.realtime?.emit(streams.project(projectId), 'workflow.versionPublished', payload);
+    }
+    return structuredClone(draft);
+  }
+
+  async archiveWorkflowTemplate(templateId: Ulid): Promise<WorkflowTemplate> {
+    await this.#simulate();
+    const template = this.#require('workflow-templates', templateId);
+    if (template.state === 'archived') {
+      throw ApiError.of(409, 'Template já arquivado', `Template ${templateId} já está arquivado.`);
+    }
+    template.state = 'archived';
+    template.archivedAt = this.#options.now();
+    return structuredClone(template);
+  }
+
+  async archiveWorkflowVersion(versionId: Ulid): Promise<WorkflowVersion> {
+    await this.#simulate();
+    const version = this.#require('workflow-versions', versionId);
+    if (version.state === 'archived') {
+      throw ApiError.of(409, 'Versão já arquivada', `Versão ${versionId} já está arquivada.`);
+    }
+    const template = this.#require('workflow-templates', version.templateId);
+    if (template.currentVersionId === versionId) {
+      throw ApiError.of(
+        409,
+        'Versão vigente',
+        'A versão vigente do template não pode ser arquivada — publique outra versão antes.',
+      );
+    }
+    version.state = 'archived';
+    version.archivedAt = this.#options.now();
+    return structuredClone(version);
+  }
+
+  async deleteWorkflowDraftVersion(versionId: Ulid): Promise<void> {
+    await this.#simulate();
+    const version = this.#requireDraftVersion(versionId);
+    if (this.#isVersionUsed(versionId)) {
+      throw ApiError.of(
+        409,
+        'Rascunho em uso',
+        'Este rascunho está vinculado a um workflow/execução e não pode ser excluído — arquive-o.',
+      );
+    }
+    this.#table('workflow-versions').delete(version.id);
+  }
+
+  async deleteWorkflowTemplate(templateId: Ulid): Promise<void> {
+    await this.#simulate();
+    const template = this.#require('workflow-templates', templateId);
+    const inUse = [...this.#table('workflows').values()].some(
+      (workflow) => workflow.templateId === templateId,
+    );
+    if (inUse) {
+      throw ApiError.of(
+        409,
+        'Template em uso',
+        'Template vinculado a projetos não pode ser excluído — arquive-o (tombstone).',
+      );
+    }
+    const versions = [...this.#table('workflow-versions').values()].filter(
+      (version) => version.templateId === templateId,
+    );
+    if (versions.some((version) => version.state !== 'draft' || this.#isVersionUsed(version.id))) {
+      throw ApiError.of(
+        409,
+        'Template com versões publicadas',
+        'Apenas templates rascunho nunca utilizados podem ser excluídos — arquive-o (tombstone).',
+      );
+    }
+    for (const version of versions) this.#table('workflow-versions').delete(version.id);
+    this.#table('workflow-templates').delete(template.id);
+  }
+
+  async duplicateWorkflowTemplate(templateId: Ulid): Promise<WorkflowTemplate> {
+    await this.#simulate();
+    const source = this.#require('workflow-templates', templateId);
+    const copy = await this.createWorkflowTemplate({
+      name: `${source.name} (cópia)`,
+      description: source.description,
+    });
+    if (source.currentVersionId) {
+      const current = this.#table('workflow-versions').get(source.currentVersionId);
+      if (current) {
+        const draft = await this.duplicateWorkflowVersion(current.id);
+        const moved = this.#table('workflow-versions').get(draft.id)!;
+        moved.templateId = copy.id;
+      }
+    }
+    return structuredClone(this.#table('workflow-templates').get(copy.id)!);
+  }
+
+  async duplicateWorkflowVersion(versionId: Ulid): Promise<WorkflowVersion> {
+    await this.#simulate();
+    const source = this.#require('workflow-versions', versionId);
+    const copy: WorkflowVersion = {
+      ...structuredClone(source),
+      id: this.#options.nextId(),
+      version: this.#nextVersionNumber(source.templateId),
+      changelog: null,
+      state: 'draft',
+      publishedAt: null,
+      archivedAt: null,
+    };
+    this.#table('workflow-versions').set(copy.id, copy);
+    return structuredClone(copy);
+  }
+
+  async linkWorkflowTemplate(input: LinkWorkflowTemplateInput): Promise<Workflow> {
+    await this.#simulate();
+    const parsed = linkWorkflowTemplateInputSchema.parse(input);
+    this.#require('projects', parsed.projectId);
+    const template = this.#require('workflow-templates', parsed.templateId);
+    const existing = [...this.#table('workflows').values()].find(
+      (workflow) => workflow.projectId === parsed.projectId,
+    );
+    if (existing) {
+      throw ApiError.of(
+        409,
+        'Projeto já tem workflow',
+        'O projeto já tem um workflow vinculado — troque a versão ativa em vez de vincular outro.',
+      );
+    }
+    const versionId = parsed.versionId ?? template.currentVersionId;
+    if (versionId === null) {
+      throw ApiError.of(
+        409,
+        'Template sem versão publicada',
+        'Publique uma versão do template antes de vinculá-lo ao projeto.',
+      );
+    }
+    const version = this.#require('workflow-versions', versionId);
+    if (version.templateId !== template.id || version.state !== 'published') {
+      throw ApiError.of(409, 'Versão inválida', 'A versão precisa estar publicada e pertencer ao template.');
+    }
+    const workflow: Workflow = {
+      id: this.#options.nextId(),
+      projectId: parsed.projectId,
+      templateId: template.id,
+      activeVersionId: versionId,
+      operationMode: version.defaultOperationMode ?? 'manual',
+      semiautonomousPauseGates: [],
+      riskAcceptances: [],
+      createdAt: this.#options.now(),
+    };
+    this.#table('workflows').set(workflow.id, workflow);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'workflow.templateLinked',
+      'project',
+      parsed.projectId,
+      `Template "${template.name}" vinculado (v${version.version}).`,
+    );
+    return structuredClone(workflow);
   }
 
   async setWorkflowOperationMode(
@@ -1076,6 +1380,42 @@ export class MockApiClient implements ApiClient {
     return item;
   }
 
+  /** Próximo número de versão do template (máximo + 1). */
+  #nextVersionNumber(templateId: Ulid): number {
+    return (
+      [...this.#table('workflow-versions').values()]
+        .filter((version) => version.templateId === templateId)
+        .reduce((max, entry) => Math.max(max, entry.version), 0) + 1
+    );
+  }
+
+  /** Exige versão existente e em rascunho (única fase editável/excluível). */
+  #requireDraftVersion(versionId: Ulid): WorkflowVersion {
+    const version = this.#require('workflow-versions', versionId);
+    if (version.state === 'archived') {
+      throw ApiError.of(409, 'Versão arquivada', 'Versões arquivadas não podem ser alteradas.');
+    }
+    if (version.state !== 'draft') {
+      throw ApiError.of(
+        409,
+        'Versão publicada é imutável',
+        'Versões publicadas não podem ser alteradas — crie um novo rascunho (duplicar/nova versão).',
+      );
+    }
+    return version;
+  }
+
+  /** Versão "utilizada": vinculada como ativa de um workflow ou de um run. */
+  #isVersionUsed(versionId: Ulid): boolean {
+    const inWorkflow = [...this.#table('workflows').values()].some(
+      (workflow) => workflow.activeVersionId === versionId,
+    );
+    const inRun = [...this.#table('workflow-runs').values()].some(
+      (run) => run.versionId === versionId,
+    );
+    return inWorkflow || inRun;
+  }
+
   #notFound(resource: ResourceKind, id: string): ApiError {
     return ApiError.of(404, 'Recurso não encontrado', `${resource}/${id} não existe.`);
   }
@@ -1366,6 +1706,7 @@ export class MockApiClient implements ApiClient {
           brand: i.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
           memberProfileIds: i.memberProfileIds ?? [this.#options.currentProfileId],
           configVersion: 1,
+          configHistory: [],
           chiefAgentId: id, // placeholder: backend vincula o chefe provisionado
           operationMode: 'manual',
           prototyping: { mode: 'autonomousGeneration', waiver: null },

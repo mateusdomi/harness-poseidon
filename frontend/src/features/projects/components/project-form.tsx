@@ -11,6 +11,7 @@ import {
   type Project,
 } from '@/api';
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -23,7 +24,9 @@ import {
   Textarea,
 } from '@/design-system';
 import { zodResolver } from '@/lib/form';
+import { formatDateTime } from '@/lib/format';
 import { BrandFields } from '@/features/shared/components/brand-fields';
+import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import { VersionedBadge } from '@/features/shared/components/versioned-badge';
 import { useProfiles } from '@/features/shared/hooks/use-profiles';
 import { TechnologiesInput } from '@/features/projects/components/technologies-input';
@@ -39,9 +42,35 @@ import {
 
 export type { ProjectFormTab, ProjectFormValues } from '@/features/projects/components/project-form-schema';
 
+/** Campos operacionais/versionados — mudança em projeto INICIADO exige painel de impacto. */
+const OPERATIONAL_FIELDS = [
+  'repositoryProvider',
+  'repositoryUrl',
+  'defaultBranch',
+  'technologies',
+  'brand',
+] as const;
+type OperationalField = (typeof OPERATIONAL_FIELDS)[number];
+
+/** Campos operacionais alterados em relação ao projeto salvo. */
+function changedOperationalFields(
+  project: Project,
+  values: ProjectFormValues,
+): OperationalField[] {
+  const saved = projectToFormValues(project);
+  return OPERATIONAL_FIELDS.filter((field) => {
+    const before = saved[field];
+    const after = values[field];
+    if (typeof before === 'string' || typeof after === 'string') return before !== after;
+    return JSON.stringify(before) !== JSON.stringify(after);
+  });
+}
+
 export interface ProjectFormProps {
   organizations: Organization[];
   initial?: Project;
+  /** Projeto iniciado (workflow com execução) — ativa o painel de impacto. */
+  started?: boolean;
   submitting: boolean;
   onSubmit: (values: ProjectFormValues) => void;
   onCancel: () => void;
@@ -52,12 +81,17 @@ export interface ProjectFormProps {
  * Ao salvar, valida todas as abas e foca a primeira com erro.
  * Campos versionados (repositório, tecnologias, marca) têm badge próprio;
  * a marca mostra herança da organização vs sobrescrita.
+ * FR-4: edição exibe a versão de config atual, alterações pendentes e o
+ * histórico de versões; em projeto INICIADO, mudança em campo operacional
+ * abre o painel de impacto com confirmação reforçada (checkbox).
  */
-export function ProjectForm({ organizations, initial, submitting, onSubmit, onCancel }: ProjectFormProps) {
-  const { t } = useTranslation();
+export function ProjectForm({ organizations, initial, started = false, submitting, onSubmit, onCancel }: ProjectFormProps) {
+  const { t, i18n } = useTranslation();
   const profilesQuery = useProfiles();
   const [activeTab, setActiveTab] = useState<ProjectFormTab>('identification');
   const [summaryError, setSummaryError] = useState(false);
+  const [impact, setImpact] = useState<{ values: ProjectFormValues; fields: OperationalField[] } | null>(null);
+  const [impactAccepted, setImpactAccepted] = useState(false);
 
   const {
     register,
@@ -67,7 +101,7 @@ export function ProjectForm({ organizations, initial, submitting, onSubmit, onCa
     setError,
     clearErrors,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, dirtyFields, isDirty },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: initial ? projectToFormValues(initial) : defaultProjectValues(organizations[0]?.id ?? ''),
@@ -77,6 +111,7 @@ export function ProjectForm({ organizations, initial, submitting, onSubmit, onCa
 
   const selectedOrganizationId = watch('organizationId');
   const selectedOrganization = organizations.find((org) => org.id === selectedOrganizationId);
+  const pendingCount = Object.keys(dirtyFields).length;
 
   function validateTabs(values: ProjectFormValues): ProjectFormTab | null {
     for (const tab of PROJECT_FORM_TABS) {
@@ -102,6 +137,16 @@ export function ProjectForm({ organizations, initial, submitting, onSubmit, onCa
       return;
     }
     setSummaryError(false);
+    // Projeto iniciado + campo operacional alterado → painel de impacto.
+    // Metadados seguros (título, descrição) seguem o fluxo normal.
+    if (initial && started) {
+      const fields = changedOperationalFields(initial, values);
+      if (fields.length > 0) {
+        setImpact({ values, fields });
+        setImpactAccepted(false);
+        return;
+      }
+    }
     onSubmit(values);
   }
 
@@ -109,6 +154,13 @@ export function ProjectForm({ organizations, initial, submitting, onSubmit, onCa
     const failingTab = validateTabs(getValues());
     setActiveTab(failingTab ?? 'identification');
     setSummaryError(true);
+  }
+
+  function confirmImpact() {
+    if (!impact) return;
+    const { values } = impact;
+    setImpact(null);
+    onSubmit(values);
   }
 
   return (
@@ -119,6 +171,18 @@ export function ProjectForm({ organizations, initial, submitting, onSubmit, onCa
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {initial && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Badge variant="outline">
+              {t('projects.config.current', { version: initial.configVersion })}
+            </Badge>
+            {isDirty && (
+              <Badge variant="warning" role="status">
+                {t('projects.config.pending', { count: pendingCount })}
+              </Badge>
+            )}
+          </div>
+        )}
         <div role="tablist" aria-label={t('projects.form.tabsLabel')} className="mb-6 flex flex-wrap gap-1">
           {PROJECT_FORM_TABS.map((tab) => (
             <button
@@ -410,7 +474,67 @@ export function ProjectForm({ organizations, initial, submitting, onSubmit, onCa
             </Button>
           </div>
         </form>
+
+        {initial && initial.configHistory.length > 0 && (
+          <section
+            aria-labelledby="config-history-title"
+            className="mt-6 flex flex-col gap-2 border-t border-border pt-4"
+          >
+            <h3 id="config-history-title" className="text-sm font-semibold">
+              {t('projects.config.historyTitle')}
+            </h3>
+            <ul className="flex flex-col gap-1">
+              {[...initial.configHistory].reverse().map((entry) => (
+                <li
+                  key={entry.version}
+                  className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted"
+                >
+                  <Badge variant="outline">
+                    {t('projects.config.version', { version: entry.version })}
+                  </Badge>
+                  <span>{formatDateTime(entry.changedAt, i18n.language)}</span>
+                  <span>— {entry.summary}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </CardContent>
+
+      {impact && (
+        <ModalDialog
+          label={t('projects.impact.title')}
+          onClose={() => setImpact(null)}
+          className="max-w-lg"
+        >
+          <h3 className="font-heading text-lg font-semibold">{t('projects.impact.title')}</h3>
+          <p className="text-sm text-foreground-muted">{t('projects.impact.body')}</p>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium">{t('projects.impact.changedFields')}</span>
+            <ul className="list-inside list-disc text-sm text-foreground-muted">
+              {impact.fields.map((field) => (
+                <li key={field}>{t(`projects.impact.fields.${field}`)}</li>
+              ))}
+            </ul>
+          </div>
+          <p className="text-xs text-foreground-muted">{t('projects.impact.versionNote')}</p>
+          <label className="flex min-h-touch items-center gap-3 rounded-md border border-border bg-surface-elevated p-3 text-sm">
+            <Checkbox
+              checked={impactAccepted}
+              onChange={(event) => setImpactAccepted(event.target.checked)}
+            />
+            {t('projects.impact.confirmCheckbox')}
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={!impactAccepted} onClick={confirmImpact}>
+              {t('projects.impact.confirm')}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setImpact(null)}>
+              {t('common.actions.cancel')}
+            </Button>
+          </div>
+        </ModalDialog>
+      )}
     </Card>
   );
 }

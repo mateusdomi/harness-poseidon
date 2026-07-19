@@ -46,6 +46,22 @@ export const organizationPolicySchema = z.object({
 });
 export type OrganizationPolicy = z.infer<typeof organizationPolicySchema>;
 
+/**
+ * Entrada do histórico de configuração versionada do projeto (FR-4, aditivo):
+ * registrada a cada update que altera campos versionados (repositório,
+ * branch, tecnologias, marca). Imutável — nunca editada/removida.
+ */
+export const projectConfigVersionSchema = z.object({
+  /** Valor de `configVersion` após a alteração. */
+  version: z.number().int().positive(),
+  changedAt: isoDateTimeSchema,
+  /** Campos versionados alterados (ex.: `repositoryUrl`, `technologies`). */
+  changedFields: z.array(z.string()),
+  /** Resumo legível da alteração. */
+  summary: z.string(),
+});
+export type ProjectConfigVersion = z.infer<typeof projectConfigVersionSchema>;
+
 export const organizationSchema = z.object({
   id: ulidSchema,
   name: z.string(),
@@ -102,6 +118,12 @@ export const projectSchema = z.object({
    * Incrementada a cada update que toca esses campos.
    */
   configVersion: z.number().int().positive(),
+  /**
+   * Histórico das versões de configuração (FR-4, aditivo). Cada entrada
+   * corresponde a um incremento de `configVersion`; arquivar o projeto
+   * preserva o histórico.
+   */
+  configHistory: z.array(projectConfigVersionSchema),
   /** Agente chefe coordenador do projeto. */
   chiefAgentId: ulidSchema,
   operationMode: operationModeSchema,

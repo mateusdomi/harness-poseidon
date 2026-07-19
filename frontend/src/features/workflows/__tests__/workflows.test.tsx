@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
@@ -19,6 +19,13 @@ function renderWorkflows() {
     </MemoryRouter>,
     bundle,
   );
+}
+
+/** Card (li) de um template pelo nome, dentro da seção de templates. */
+async function templateCard(name: string) {
+  const section = await screen.findByRole('region', { name: 'Templates de workflow' });
+  const heading = await within(section).findByRole('heading', { name });
+  return within(heading.closest('li')!);
 }
 
 describe('WorkflowsPage', () => {
@@ -110,24 +117,183 @@ describe('WorkflowsPage', () => {
 
     expect(await screen.findByText(/Pausa nos gates: Gate de Release/)).toBeInTheDocument();
   });
+});
 
-  it('publica nova versão de template e lista a versão publicada', async () => {
+describe('TemplateAdmin (FR-4)', () => {
+  it('cria template do zero como rascunho', async () => {
     const user = userEvent.setup();
     renderWorkflows();
 
-    await user.click(await screen.findByRole('button', { name: 'Nova versão' }));
-    const dialog = await screen.findByRole('dialog', { name: /Nova versão — Fluxo de Entrega Padrão/ });
+    await user.click(await screen.findByRole('button', { name: 'Novo template' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo template de workflow' });
+    await user.type(within(dialog).getByLabelText(/Nome/), 'Fluxo Sob Medida');
+    await user.type(within(dialog).getByLabelText('Descrição'), 'Template criado do zero.');
+    await user.click(within(dialog).getByRole('button', { name: 'Criar template' }));
 
-    const phasesField = within(dialog).getByLabelText(/Fases \(uma por linha/) as HTMLTextAreaElement;
-    fireEvent.change(phasesField, {
-      target: { value: `${phasesField.value}\nPós-produção` },
+    const card = await templateCard('Fluxo Sob Medida');
+    expect(card.getByText('Rascunho')).toBeInTheDocument();
+    expect(card.getByText('Template criado do zero.')).toBeInTheDocument();
+  });
+
+  it('edita fase do rascunho, publica congelando e mostra banner de impacto', async () => {
+    const user = userEvent.setup();
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo de Entrega Padrão');
+    await user.click(card.getByRole('button', { name: 'Novo rascunho' }));
+
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Editar rascunho — Fluxo de Entrega Padrão (v2)',
     });
+
+    // Banner: a execução ativa permanece na versão em uso (v1).
+    expect(
+      within(dialog).getByText(/execução ativa do projeto permanece na v1/),
+    ).toBeInTheDocument();
+
+    // Edita o nome da 4ª fase e salva o rascunho (segue editável).
+    const names = within(dialog).getAllByLabelText(/Nome da fase/);
+    await user.clear(names[3]);
+    await user.type(names[3], 'Publicação Final');
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar rascunho' }));
+    expect(await within(dialog).findByText('Rascunho salvo.')).toBeInTheDocument();
+
+    // Publicar congela: v2 nasce publicada e vira a vigente.
     await user.click(within(dialog).getByRole('button', { name: 'Publicar versão' }));
 
-    // v2 publicada com 5 fases; vira a versão atual do template.
-    expect(await screen.findByText('5 fases')).toBeInTheDocument();
-    const templatesSection = screen.getByRole('region', { name: 'Templates de workflow' });
-    expect(within(templatesSection).getByText('v2')).toBeInTheDocument();
-    expect(within(templatesSection).getByText('Atual')).toBeInTheDocument();
+    const updatedCard = await templateCard('Fluxo de Entrega Padrão');
+    expect(updatedCard.getByText('v2')).toBeInTheDocument();
+    expect(updatedCard.getByText('Atual')).toBeInTheDocument();
+    // Badge "Publicada" no template e na v2.
+    expect(updatedCard.getAllByText('Publicada').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('validação do Harness impede publicar rascunho inválido', async () => {
+    const user = userEvent.setup();
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo de Entrega Padrão');
+    await user.click(card.getByRole('button', { name: 'Novo rascunho' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Editar rascunho — Fluxo de Entrega Padrão (v2)',
+    });
+
+    // Fase duplicada: renomeia a 4ª fase com o nome da 3ª.
+    const names = within(dialog).getAllByLabelText(/Nome da fase/);
+    await user.clear(names[3]);
+    await user.type(names[3], 'Validação');
+    await user.click(within(dialog).getByRole('button', { name: 'Publicar versão' }));
+
+    // Publicação bloqueada com erros i18n claros; o dialog permanece aberto.
+    expect(
+      await within(dialog).findByText('A versão não passou na validação do Harness:'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Fase duplicada: Validação.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: 'Editar rascunho — Fluxo de Entrega Padrão (v2)' }),
+    ).toBeInTheDocument();
+  });
+
+  it('duplica versão publicada como novo rascunho', async () => {
+    const user = userEvent.setup();
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo de Entrega Padrão');
+    // Duplicar da LINHA DA VERSÃO (o primeiro "Duplicar" é o do template).
+    const duplicateButtons = card.getAllByRole('button', { name: 'Duplicar' });
+    await user.click(duplicateButtons[1]);
+
+    const updatedCard = await templateCard('Fluxo de Entrega Padrão');
+    expect(updatedCard.getByText('v2')).toBeInTheDocument();
+    expect(updatedCard.getByText('Rascunho')).toBeInTheDocument();
+    // A vigente continua sendo a v1 publicada.
+    expect(updatedCard.getAllByText('Publicada').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('exclui rascunho nunca utilizado com confirmação', async () => {
+    const user = userEvent.setup();
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo Experimental');
+    const deleteButtons = card.getAllByRole('button', { name: 'Excluir' });
+    // Excluir da LINHA DA VERSÃO (rascunho v1, nunca utilizado).
+    await user.click(deleteButtons[1]);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Excluir rascunho' });
+    await user.click(within(dialog).getByRole('button', { name: 'Excluir rascunho' }));
+
+    const updatedCard = await templateCard('Fluxo Experimental');
+    expect(updatedCard.queryByText('v1')).not.toBeInTheDocument();
+  });
+
+  it('bloqueia excluir versão publicada e template utilizado (UI explica)', async () => {
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo de Entrega Padrão');
+    const deleteButtons = card.getAllByRole('button', { name: 'Excluir' });
+    // Template em uso + versão publicada: ambos desabilitados com explicação.
+    expect(deleteButtons[0]).toBeDisabled();
+    expect(deleteButtons[0]).toHaveAttribute(
+      'title',
+      expect.stringContaining('rascunho nunca utilizados'),
+    );
+    expect(deleteButtons[1]).toBeDisabled();
+    expect(deleteButtons[1]).toHaveAttribute(
+      'title',
+      expect.stringContaining('publicadas são imutáveis'),
+    );
+  });
+
+  it('compara duas versões e mostra o diff estrutural', async () => {
+    const user = userEvent.setup();
+    renderWorkflows();
+
+    // Publica uma v2 com fase renomeada (cria diff real).
+    const card = await templateCard('Fluxo de Entrega Padrão');
+    await user.click(card.getByRole('button', { name: 'Novo rascunho' }));
+    const editor = await screen.findByRole('dialog', {
+      name: 'Editar rascunho — Fluxo de Entrega Padrão (v2)',
+    });
+    const names = within(editor).getAllByLabelText(/Nome da fase/);
+    await user.clear(names[3]);
+    await user.type(names[3], 'Publicação Final');
+    await user.click(within(editor).getByRole('button', { name: 'Publicar versão' }));
+
+    const updatedCard = await templateCard('Fluxo de Entrega Padrão');
+    await user.click(updatedCard.getByRole('checkbox', { name: 'Selecionar v1 para comparar' }));
+    await user.click(updatedCard.getByRole('checkbox', { name: 'Selecionar v2 para comparar' }));
+
+    const section = screen.getByRole('region', { name: 'Templates de workflow' });
+    await user.click(within(section).getByRole('button', { name: 'Comparar versões' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Comparar versões' });
+    expect(within(dialog).getByText('Diff estrutural: v1 → v2')).toBeInTheDocument();
+    expect(within(dialog).getByText('Fases adicionadas')).toBeInTheDocument();
+    expect(within(dialog).getByText('+ Publicação Final')).toBeInTheDocument();
+    expect(within(dialog).getByText('Fases removidas')).toBeInTheDocument();
+    expect(within(dialog).getByText('− Publicação')).toBeInTheDocument();
+  });
+
+  it('arquiva template (tombstone) preservando-o na lista', async () => {
+    const user = userEvent.setup();
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo Experimental');
+    // Arquivar do TEMPLATE (o primeiro; o outro é o da versão rascunho).
+    await user.click(card.getAllByRole('button', { name: 'Arquivar' })[0]);
+
+    const updatedCard = await templateCard('Fluxo Experimental');
+    expect(updatedCard.getByText('Arquivada')).toBeInTheDocument();
+    // Arquivado não permite novo rascunho.
+    expect(updatedCard.queryByRole('button', { name: 'Novo rascunho' })).not.toBeInTheDocument();
+  });
+
+  it('vincular ao projeto ativo fica bloqueado quando o projeto já tem workflow', async () => {
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo Experimental');
+    const link = card.getByRole('button', { name: 'Vincular ao projeto ativo' });
+    expect(link).toBeDisabled();
+    expect(link).toHaveAttribute('title', 'O projeto ativo já tem um workflow vinculado.');
   });
 });

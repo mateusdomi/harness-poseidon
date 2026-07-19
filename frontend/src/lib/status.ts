@@ -19,6 +19,7 @@ import type {
   PrototypeState,
   RunTargetState,
   TaskState,
+  WorkflowContentState,
   WorkflowRunState,
 } from '@/api';
 import type { BadgeProps } from '@/design-system';
@@ -161,6 +162,17 @@ export const WORKFLOW_RUN_STATE_VARIANTS: Record<WorkflowRunState, BadgeProps['v
 
 export function workflowRunStateVariant(state: WorkflowRunState): BadgeProps['variant'] {
   return WORKFLOW_RUN_STATE_VARIANTS[state];
+}
+
+/** Ciclo de vida de template/versão de workflow (rascunho/publicado/arquivado). */
+export const WORKFLOW_CONTENT_STATE_VARIANTS: Record<WorkflowContentState, BadgeProps['variant']> = {
+  draft: 'warning',
+  published: 'success',
+  archived: 'outline',
+};
+
+export function workflowContentStateVariant(state: WorkflowContentState): BadgeProps['variant'] {
+  return WORKFLOW_CONTENT_STATE_VARIANTS[state];
 }
 
 /** Estado do turno do chefe: atenção só quando aguarda aprovação humana. */

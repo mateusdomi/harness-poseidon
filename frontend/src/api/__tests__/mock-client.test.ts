@@ -126,3 +126,143 @@ describe('MockApiClient: latência e erros simulados', () => {
     await expect(api.list('projects')).rejects.toMatchObject({ problem: { status: 500 } });
   });
 });
+
+describe('MockApiClient: FR-4 — histórico de config de projeto', () => {
+  it('alterar campo versionado incrementa configVersion e registra no histórico', async () => {
+    const { api, fixtures } = createTestBundle();
+    const project = fixtures.data.projects[0]; // configVersion 3, 2 entradas
+
+    const updated = await api.update('projects', project.id, {
+      technologies: ['React', 'TypeScript', 'Vite', 'Tailwind', 'Zustand'],
+    });
+
+    expect(updated.configVersion).toBe(4);
+    expect(updated.configHistory).toHaveLength(3);
+    const entry = updated.configHistory[2];
+    expect(entry.version).toBe(4);
+    expect(entry.changedFields).toEqual(['technologies']);
+    expect(entry.summary).toContain('technologies');
+  });
+
+  it('editar apenas metadados NÃO gera nova versão de config', async () => {
+    const { api, fixtures } = createTestBundle();
+    const project = fixtures.data.projects[0];
+
+    const updated = await api.update('projects', project.id, {
+      name: 'Poseidon Frontend (renomeado)',
+      description: 'Nova descrição.',
+    });
+
+    expect(updated.configVersion).toBe(3);
+    expect(updated.configHistory).toHaveLength(2);
+  });
+
+  it('campo versionado enviado sem mudança NÃO gera nova versão', async () => {
+    const { api, fixtures } = createTestBundle();
+    const project = fixtures.data.projects[0];
+
+    const updated = await api.update('projects', project.id, {
+      defaultBranch: project.defaultBranch,
+    });
+
+    expect(updated.configVersion).toBe(3);
+  });
+});
+
+describe('MockApiClient: FR-4 — ciclo de vida de templates de workflow', () => {
+  it('cria template rascunho, edita rascunho, publica (congela) e bloqueia edição de publicada', async () => {
+    const { api } = createTestBundle();
+
+    const template = await api.createWorkflowTemplate({ name: 'Fluxo X' });
+    expect(template.state).toBe('draft');
+    expect(template.currentVersionId).toBeNull();
+
+    const draft = await api.createWorkflowDraftVersion(template.id, {
+      phases: ['Descoberta'],
+    });
+    expect(draft.state).toBe('draft');
+    expect(draft.publishedAt).toBeNull();
+
+    const edited = await api.updateWorkflowDraftVersion(draft.id, { phases: ['Descoberta', 'Entrega'] });
+    expect(edited.phases).toEqual(['Descoberta', 'Entrega']);
+
+    const published = await api.publishWorkflowDraft(draft.id, { changelog: 'Primeira versão.' });
+    expect(published.state).toBe('published');
+    expect(published.publishedAt).not.toBeNull();
+
+    const updatedTemplate = await api.get('workflow-templates', template.id);
+    expect(updatedTemplate.currentVersionId).toBe(published.id);
+    expect(updatedTemplate.state).toBe('published');
+
+    // Publicada é imutável: edição e exclusão bloqueadas (409).
+    await expect(
+      api.updateWorkflowDraftVersion(published.id, { phases: ['Outra'] }),
+    ).rejects.toMatchObject({ problem: { status: 409 } });
+    await expect(api.deleteWorkflowDraftVersion(published.id)).rejects.toMatchObject({
+      problem: { status: 409 },
+    });
+  });
+
+  it('publicação inválida é bloqueada pela validação do Harness (422)', async () => {
+    const { api } = createTestBundle();
+
+    const template = await api.createWorkflowTemplate({ name: 'Fluxo Inválido' });
+    const draft = await api.createWorkflowDraftVersion(template.id, {
+      phases: ['A', 'A'],
+    });
+
+    await expect(api.publishWorkflowDraft(draft.id)).rejects.toMatchObject({
+      problem: { status: 422 },
+    });
+
+    // Rascunho permanece rascunho após a tentativa bloqueada.
+    const kept = await api.get('workflow-versions', draft.id);
+    expect(kept.state).toBe('draft');
+  });
+
+  it('duplicar versão cria rascunho independente; excluir rascunho em uso é bloqueado', async () => {
+    const { api, fixtures } = createTestBundle();
+    const published = fixtures.data['workflow-versions'].find((v) => v.state === 'published')!;
+
+    const copy = await api.duplicateWorkflowVersion(published.id);
+    expect(copy.state).toBe('draft');
+    expect(copy.version).toBe(published.version + 1);
+    expect(copy.id).not.toBe(published.id);
+
+    // A versão publicada está em uso (workflow ativo): nunca excluível.
+    await expect(api.deleteWorkflowDraftVersion(published.id)).rejects.toMatchObject({
+      problem: { status: 409 },
+    });
+
+    // Template utilizado não pode ser excluído, mas pode ser arquivado.
+    await expect(api.deleteWorkflowTemplate(published.templateId)).rejects.toMatchObject({
+      problem: { status: 409 },
+    });
+    const archived = await api.archiveWorkflowTemplate(published.templateId);
+    expect(archived.state).toBe('archived');
+    expect(archived.archivedAt).not.toBeNull();
+  });
+
+  it('vincula template a projeto sem workflow; 409 quando já vinculado', async () => {
+    const { api, fixtures } = createTestBundle();
+    const template = fixtures.data['workflow-templates'].find((tpl) => tpl.state === 'published')!;
+    const projectWithWorkflow = fixtures.data.projects[0];
+
+    await expect(
+      api.linkWorkflowTemplate({ projectId: projectWithWorkflow.id, templateId: template.id }),
+    ).rejects.toMatchObject({ problem: { status: 409 } });
+
+    const newProject = await api.create('projects', {
+      organizationId: fixtures.data.organizations[0].id,
+      name: 'Projeto Novo',
+      key: 'NOVO',
+      description: 'Sem workflow ainda.',
+    });
+    const workflow = await api.linkWorkflowTemplate({
+      projectId: newProject.id,
+      templateId: template.id,
+    });
+    expect(workflow.projectId).toBe(newProject.id);
+    expect(workflow.activeVersionId).toBe(template.currentVersionId);
+  });
+});

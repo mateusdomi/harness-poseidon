@@ -10,17 +10,20 @@ import {
   type ClassifyDocumentInput,
   type CreatableResource,
   type CreateInputMap,
+  type CreateWorkflowTemplateInput,
   type Diagnostics,
   type DocumentVersion,
   type DrainChiefTasksInput,
   type HandoffChiefInput,
   type License,
+  type LinkWorkflowTemplateInput,
   type ListQuery,
   type Model,
   type MoveTaskInput,
   type Page,
   type Profile,
   type Project,
+  type PublishWorkflowDraftInput,
   type PublishWorkflowVersionInput,
   type RemovableResource,
   type ResolveApprovalInput,
@@ -40,6 +43,8 @@ import {
   type UpdatableResource,
   type UpdateInputMap,
   type Workflow,
+  type WorkflowDraftInput,
+  type WorkflowTemplate,
   type WorkflowVersion,
   type Approval,
   type Document,
@@ -151,6 +156,55 @@ export class HttpApiClient implements ApiClient {
     input: PublishWorkflowVersionInput,
   ): Promise<WorkflowVersion> {
     return this.#request('POST', `/workflow-templates/${templateId}/versions`, input);
+  }
+
+  /* ---- gestão de templates de workflow (FR-4) ---- */
+
+  createWorkflowTemplate(input: CreateWorkflowTemplateInput): Promise<WorkflowTemplate> {
+    return this.#request('POST', '/workflow-templates', input);
+  }
+
+  createWorkflowDraftVersion(templateId: Ulid, input?: WorkflowDraftInput): Promise<WorkflowVersion> {
+    return this.#request('POST', `/workflow-templates/${templateId}/drafts`, input ?? {});
+  }
+
+  updateWorkflowDraftVersion(versionId: Ulid, input: WorkflowDraftInput): Promise<WorkflowVersion> {
+    return this.#request('PATCH', `/workflow-versions/${versionId}`, input);
+  }
+
+  publishWorkflowDraft(versionId: Ulid, input?: PublishWorkflowDraftInput): Promise<WorkflowVersion> {
+    return this.#request('POST', `/workflow-versions/${versionId}/publish`, input ?? {});
+  }
+
+  archiveWorkflowTemplate(templateId: Ulid): Promise<WorkflowTemplate> {
+    return this.#request('POST', `/workflow-templates/${templateId}/archive`);
+  }
+
+  archiveWorkflowVersion(versionId: Ulid): Promise<WorkflowVersion> {
+    return this.#request('POST', `/workflow-versions/${versionId}/archive`);
+  }
+
+  async deleteWorkflowDraftVersion(versionId: Ulid): Promise<void> {
+    await this.#request('DELETE', `/workflow-versions/${versionId}`);
+  }
+
+  async deleteWorkflowTemplate(templateId: Ulid): Promise<void> {
+    await this.#request('DELETE', `/workflow-templates/${templateId}`);
+  }
+
+  duplicateWorkflowTemplate(templateId: Ulid): Promise<WorkflowTemplate> {
+    return this.#request('POST', `/workflow-templates/${templateId}/duplicate`);
+  }
+
+  duplicateWorkflowVersion(versionId: Ulid): Promise<WorkflowVersion> {
+    return this.#request('POST', `/workflow-versions/${versionId}/duplicate`);
+  }
+
+  linkWorkflowTemplate(input: LinkWorkflowTemplateInput): Promise<Workflow> {
+    return this.#request('POST', `/projects/${input.projectId}/workflow`, {
+      templateId: input.templateId,
+      versionId: input.versionId,
+    });
   }
 
   setWorkflowOperationMode(workflowId: Ulid, input: SetOperationModeInput): Promise<Workflow> {

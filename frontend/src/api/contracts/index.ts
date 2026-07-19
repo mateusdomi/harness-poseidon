@@ -13,5 +13,6 @@ export * from './providers';
 export * from './system';
 export * from './events';
 export * from './commands';
+export * from './workflow-validation';
 export * from './registry';
 export * from './streams';

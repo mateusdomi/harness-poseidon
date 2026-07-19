@@ -8,6 +8,7 @@ import { ProjectCard } from '@/features/projects/components/project-card';
 import {
   EMPTY_FILTERS,
   filterProjects,
+  type ArchiveFilter,
   type ProjectListFilters,
 } from '@/features/projects/components/project-filters';
 import { PaginationBar } from '@/features/shared/components/pagination';
@@ -43,7 +44,7 @@ export function ProjectList({ projects, organizations, onSelect, onCreateNew }: 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto_auto]">
         <div>
           <label htmlFor="project-search" className="sr-only">
             {t('projects.search')}
@@ -108,6 +109,21 @@ export function ProjectList({ projects, organizations, onSelect, onCreateNew }: 
                 {t(`status.projectState.${state}`)}
               </option>
             ))}
+          </Select>
+        </div>
+        <div>
+          <label htmlFor="project-filter-archive" className="sr-only">
+            {t('projects.filters.archive.label')}
+          </label>
+          <Select
+            id="project-filter-archive"
+            aria-label={t('projects.filters.archive.label')}
+            value={filters.archive}
+            onChange={(event) => patch({ archive: event.target.value as ArchiveFilter })}
+          >
+            <option value="">{t('projects.filters.archive.all')}</option>
+            <option value="active">{t('projects.filters.archive.activeOnly')}</option>
+            <option value="archived">{t('projects.filters.archive.archivedOnly')}</option>
           </Select>
         </div>
         <Button type="button" onClick={onCreateNew}>

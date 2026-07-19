@@ -11,6 +11,7 @@ import {
 } from '@/features/projects/components/project-form';
 import {
   useCreateProject,
+  useProjectStarted,
   useProjects,
   useUpdateProject,
 } from '@/features/projects/hooks/use-projects';
@@ -24,6 +25,8 @@ export default function ProjectsPage() {
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const [view, setView] = useState<View>({ kind: 'list' });
+  const editingProjectId = view.kind === 'edit' ? view.project.id : null;
+  const startedQuery = useProjectStarted(editingProjectId);
 
   function toInput(values: ProjectFormValues) {
     return {
@@ -77,6 +80,7 @@ export default function ProjectsPage() {
         <ProjectForm
           organizations={organizations}
           initial={view.project}
+          started={startedQuery.data ?? false}
           submitting={updateProject.isPending}
           onSubmit={(values) => void handleUpdate(view.project, values)}
           onCancel={() => setView({ kind: 'list' })}

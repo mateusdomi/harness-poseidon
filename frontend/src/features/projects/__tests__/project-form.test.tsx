@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { buildFixtures } from '@/api';
@@ -113,5 +113,90 @@ describe('ProjectForm', () => {
 
     // Um badge "Versionado" por aba versionada (todas montadas no DOM).
     expect(screen.getAllByText('Versionado')).toHaveLength(3);
+  });
+});
+
+describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
+  const project = fixtures.data.projects[0]; // Poseidon: configVersion 3 + histórico
+
+  function renderEditForm(onSubmit = vi.fn(), started = true) {
+    return {
+      onSubmit,
+      ...renderWithApi(
+        <ProjectForm
+          organizations={organizations}
+          initial={project}
+          started={started}
+          submitting={false}
+          onSubmit={onSubmit}
+          onCancel={() => {}}
+        />,
+      ),
+    };
+  }
+
+  it('exibe a versão de config atual e o histórico de versões', () => {
+    renderEditForm();
+
+    expect(screen.getByText('Configuração v3')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Histórico de configuração' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Campos alterados: defaultBranch/)).toBeInTheDocument();
+    expect(screen.getByText(/Campos alterados: technologies/)).toBeInTheDocument();
+  });
+
+  it('metadados (título) salvam sem cerimônia mesmo em projeto iniciado', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEditForm();
+
+    await user.type(screen.getByLabelText(/título/i), ' (rev)');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByRole('dialog', { name: 'Impacto da alteração' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('campo operacional em projeto iniciado abre o painel de impacto com confirmação', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEditForm();
+
+    await user.click(screen.getByRole('tab', { name: /repositório/i }));
+    const branch = screen.getByLabelText(/branch padrão/i);
+    await user.clear(branch);
+    await user.type(branch, 'main');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    // Painel de impacto ANTES de salvar; confirmação reforçada por checkbox.
+    const dialog = await screen.findByRole('dialog', { name: 'Impacto da alteração' });
+    expect(within(dialog).getByText(/execução de workflow em andamento/i)).toBeInTheDocument();
+    expect(within(dialog).getByText('Branch padrão')).toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', { name: 'Salvar mesmo assim' });
+    expect(confirm).toBeDisabled();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('checkbox', { name: /Entendo que a execução ativa/i }));
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  });
+
+  it('campo operacional em projeto NÃO iniciado salva sem painel', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEditForm(vi.fn(), false);
+
+    await user.click(screen.getByRole('tab', { name: /repositório/i }));
+    const branch = screen.getByLabelText(/branch padrão/i);
+    await user.clear(branch);
+    await user.type(branch, 'main');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByRole('dialog', { name: 'Impacto da alteração' }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -264,6 +264,11 @@
       "failed": "Falhou",
       "cancelled": "Cancelada"
     },
+    "workflowContentState": {
+      "draft": "Rascunho",
+      "published": "Publicada",
+      "archived": "Arquivada"
+    },
     "chiefTurnState": {
       "thinking": "Pensando",
       "delegating": "Delegando",
@@ -477,7 +482,13 @@
       "criticality": "Criticidade",
       "allCriticalities": "Todas as criticidades",
       "state": "Estado",
-      "allStates": "Todos os estados"
+      "allStates": "Todos os estados",
+      "archive": {
+        "label": "Arquivamento",
+        "all": "Ativos e arquivados",
+        "activeOnly": "Somente ativos",
+        "archivedOnly": "Somente arquivados"
+      }
     },
     "empty": {
       "title": "Nenhum projeto ainda",
@@ -526,6 +537,27 @@
         "required": "Selecione pelo menos uma pessoa."
       },
       "create": "Criar projeto"
+    },
+    "config": {
+      "current": "Configuração v{{version}}",
+      "pending": "{{count}} alteração(ões) pendente(s)",
+      "historyTitle": "Histórico de configuração",
+      "version": "v{{version}}"
+    },
+    "impact": {
+      "title": "Impacto da alteração",
+      "body": "Este projeto tem uma execução de workflow em andamento. Alterações em campos operacionais valem para NOVAS execuções: a execução ativa permanece na configuração anterior.",
+      "changedFields": "Campos que vão mudar:",
+      "versionNote": "Salvar incrementa a versão de configuração e registra no histórico do projeto.",
+      "confirmCheckbox": "Entendo que a execução ativa não será alterada e que a nova configuração vale apenas para novas execuções",
+      "confirm": "Salvar mesmo assim",
+      "fields": {
+        "repositoryProvider": "Provedor do repositório",
+        "repositoryUrl": "URL do repositório",
+        "defaultBranch": "Branch padrão",
+        "technologies": "Tecnologias",
+        "brand": "Marca"
+      }
     }
   },
   "shared": {
@@ -1024,9 +1056,106 @@
       "agentsLabel": "Agentes permitidos",
       "transitionsLabel": "Transições permitidas",
       "publish": "Publicar versão",
+      "create": "Novo template",
+      "newDraft": "Novo rascunho",
+      "editDraft": "Editar rascunho",
+      "duplicate": "Duplicar",
+      "archive": "Arquivar",
+      "delete": "Excluir",
+      "link": "Vincular ao projeto ativo",
+      "compare": "Comparar versões",
+      "compareHint": "Selecione duas versões para comparar.",
+      "compareSelect": "Selecionar v{{version}} para comparar",
+      "notPublished": "Não publicada",
+      "archivedAt": "Arquivado em {{date}}",
+      "deleteBlocked": "Apenas templates rascunho nunca utilizados podem ser excluídos — arquive para preservar o histórico.",
+      "deleteVersionInUse": "Este rascunho está em uso e não pode ser excluído — arquive-o.",
+      "deletePublishedBlocked": "Versões publicadas são imutáveis e nunca excluídas — arquive para tirar de circulação.",
+      "linkBlockedInUse": "O projeto ativo já tem um workflow vinculado.",
+      "linkBlockedNoPublished": "Publique uma versão antes de vincular o template.",
+      "impactBanner": "A execução ativa do projeto permanece na v{{version}} — a nova versão vale apenas para novas execuções.",
+      "validationTitle": "A versão não passou na validação do Harness:",
+      "validation": {
+        "phasesRequired": "Informe ao menos uma fase.",
+        "emptyPhaseName": "Toda fase precisa de um nome.",
+        "duplicatePhase": "Fase duplicada: {{phase}}.",
+        "unknownGatePhase": "Gates referenciam a fase inexistente \"{{phase}}\".",
+        "unknownTransitionPhase": "Transição definida na fase inexistente \"{{phase}}\".",
+        "unknownTransitionTarget": "A fase \"{{phase}}\" transiciona para a fase inexistente \"{{target}}\".",
+        "unknownConfigPhase": "Configuração definida para a fase inexistente \"{{phase}}\".",
+        "unknownDependency": "A fase \"{{phase}}\" depende da fase inexistente \"{{target}}\".",
+        "dependencyCycle": "Dependência em ciclo entre \"{{phase}}\" e \"{{target}}\".",
+        "invalidWeight": "Peso inválido na fase {{phase}} (use 0–100)."
+      },
+      "createDialog": {
+        "title": "Novo template de workflow",
+        "nameLabel": "Nome",
+        "descriptionLabel": "Descrição",
+        "confirm": "Criar template"
+      },
+      "deleteDialog": {
+        "title": "Excluir template",
+        "body": "Excluir o template \"{{name}}\"? Apenas rascunhos nunca utilizados podem ser excluídos; versões publicadas são preservadas por arquivamento.",
+        "confirm": "Excluir definitivamente"
+      },
+      "deleteVersionDialog": {
+        "title": "Excluir rascunho",
+        "body": "Excluir o rascunho v{{version}}? Apenas rascunhos nunca utilizados podem ser excluídos.",
+        "confirm": "Excluir rascunho"
+      },
       "errors": {
         "phasesRequired": "Informe ao menos uma fase.",
         "invalidWeight": "Peso inválido na fase {{phase}} (use 0–100)."
+      }
+    },
+    "editor": {
+      "title": "Editar rascunho — {{name}} (v{{version}})",
+      "hint": "Rascunhos são editáveis; publicar congela a versão (imutável) após a validação do Harness.",
+      "phaseLegend": "Fase {{index}}",
+      "nameLabel": "Nome da fase",
+      "objectiveLabel": "Objetivo",
+      "contextLabel": "Contexto",
+      "acceptanceCriteriaLabel": "Critérios de aceite",
+      "linesHint": "Um por linha.",
+      "skillsLabel": "Skills permitidas",
+      "toolsLabel": "Ferramentas permitidas",
+      "dependsOnLabel": "Depende de",
+      "addPhase": "Adicionar fase",
+      "removePhase": "Remover fase",
+      "moveUp": "Mover fase para cima",
+      "moveDown": "Mover fase para baixo",
+      "saveDraft": "Salvar rascunho",
+      "saved": "Rascunho salvo."
+    },
+    "compare": {
+      "title": "Comparar versões",
+      "subtitle": "Diff estrutural: v{{from}} → v{{to}}",
+      "identical": "As versões são estruturalmente idênticas.",
+      "phasesAdded": "Fases adicionadas",
+      "phasesRemoved": "Fases removidas",
+      "phasesReordered": "Fases reordenadas: {{phases}}",
+      "phasesChanged": "Fases alteradas",
+      "modeChange": "Modo padrão: {{from}} → {{to}}",
+      "mode": {
+        "manual": "Manual",
+        "semiautonomous": "Semiautônomo",
+        "autonomous": "Autônomo",
+        "none": "sem modo padrão"
+      },
+      "fields": {
+        "gates": "Gates",
+        "documentKinds": "Documentos",
+        "agents": "Agentes",
+        "skills": "Skills",
+        "tools": "Ferramentas",
+        "acceptanceCriteria": "Critérios de aceite",
+        "dependsOn": "Dependências",
+        "entryConditions": "Condições de entrada",
+        "exitConditions": "Condições de saída",
+        "transitions": "Transições",
+        "weight": "Peso",
+        "objective": "Objetivo",
+        "context": "Contexto"
       }
     }
   },

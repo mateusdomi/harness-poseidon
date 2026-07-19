@@ -82,6 +82,14 @@ export const workflowRunStateSchema = z.enum([
 ]);
 export type WorkflowRunState = z.infer<typeof workflowRunStateSchema>;
 
+/**
+ * Ciclo de vida de conteúdo de workflow (template/versão): rascunho editável,
+ * publicado imutável, arquivado (tombstone — nunca excluído fisicamente).
+ */
+export const workflowContentStateSchema = z.enum(['draft', 'published', 'archived']);
+export type WorkflowContentState = z.infer<typeof workflowContentStateSchema>;
+export const WORKFLOW_CONTENT_STATES = workflowContentStateSchema.options;
+
 /** Solicitações são criadas por humanos e triadas pelo chefe (imutáveis). */
 export const solicitationKindSchema = z.enum(['request', 'intervention']);
 export type SolicitationKind = z.infer<typeof solicitationKindSchema>;
