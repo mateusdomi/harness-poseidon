@@ -115,11 +115,13 @@ public sealed class RunTargetProcessSupervisor(
 
     private async Task ObserveExitAsync(ManagedProcess managed)
     {
+        var ownsDisposal = false;
         try
         {
             await managed.Process.WaitForExitAsync();
             if (_processes.TryRemove(new KeyValuePair<string, ManagedProcess>(managed.TargetId, managed)))
             {
+                ownsDisposal = true;
                 await store.SetStateAsync(new(managed.TenantId, managed.ActorProfileId, managed.TargetId, "stopped", $"Managed service exited with code {managed.Process.ExitCode}.", clock.UtcNow));
             }
         }
@@ -127,7 +129,16 @@ public sealed class RunTargetProcessSupervisor(
         {
             ObservationFailure(logger, managed.TargetId, exception);
         }
-        finally { managed.Process.Dispose(); }
+        finally
+        {
+            // Removing the exact dictionary entry transfers lifecycle ownership. When an API stop,
+            // project cleanup, or Host shutdown removed it first, that path owns WaitForExit and
+            // disposal; disposing here would race its WaitForExitAsync and detach the process.
+            if (ownsDisposal)
+            {
+                managed.Process.Dispose();
+            }
+        }
     }
 
     private static async Task StopManagedAsync(ManagedProcess managed, CancellationToken cancellationToken)
