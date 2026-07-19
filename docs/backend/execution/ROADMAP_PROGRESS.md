@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(231/231 testes backend, build Release 0 warnings/0 erros, frontend buildado) reproduzida nesta sessão.
+(232/232 testes backend, build Release 0 warnings/0 erros, frontend buildado) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -43,7 +43,7 @@ Total: **100**.
 | F3 | 100 | 100 | 100 | 0 | Templates canônicos, guarda de ações invioláveis, verificação em 3 camadas e run semiautônomo completo provados via API/anti-burla. Gate da fase (automático) verde. |
 | F4 | 100 | 100 | 100 | 0 | Segurança de upload (allowlist/magic bytes/anti zip-bomb/traversal/quarentena) + demanda de documento real, via API e migration 0029. |
 | F5 | 100 | 100 | 100 | 0 | Upload inspecionado de referências (PNG/JPEG/ZIP), galeria, waiver; migration 0030. |
-| F6 | 70 | 70 | 70 | 0 | Saída mínima (3 stacks .NET/Node/Python start/stop/health/logs via API) verde. **Faltam** camadas de detecção Docker/Compose/Java e fallback por agente (escopo documentado da fase). |
+| F6 | 82 | 82 | 80 | 0 | 3 stacks .NET/Node/Python start/stop/health/logs via API + **camada Java (Maven/Gradle Spring Boot)** detectada e testada. **Faltam** camadas Docker/Compose (exigem ciclo §1.2) e fallback por agente. |
 | F7 | 85 | 85 | 85 | 0 | Launcher + publish self-contained com frontend embarcado + smoke do binário sem IDE verdes. Backup/restore existe (F2-OPS). **Parciais**: atualização e desinstalação segura. |
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
 | F9 | 72 | 72 | 75 | 0 | Gateway (terminal) + adaptador Telegram (long polling, dedupe, linking, resposta na origem) verdes com fake **e smoke real do bot `@SystemPoseidon_bot`** (getMe ok, link `5774120296`, sendMessage entregue). **Falta** Teams (ordem terminal→Telegram→Teams). |
@@ -55,14 +55,14 @@ Total: **100**.
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.70)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.38)`
-`= 5+12+25+8+6+5+5.60+5.95+6+3.60+8+1.90 = 92.05` → **92.1% (num 92.05 / den 100)**
+`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.82)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.38)`
+`= 5+12+25+8+6+5+6.56+5.95+6+3.60+8+1.90 = 93.01` → **93.0% (num 93.01 / den 100)**
 
 ### Validado
-`5+12+25+8+6+5+5.60+5.95+6+3.60+(8·0.97=7.76)+1.90 = 91.81` → **91.8% (num 91.81 / den 100)**
+`5+12+25+8+6+5+6.56+5.95+6+3.60+(8·0.97=7.76)+1.90 = 92.77` → **92.8% (num 92.77 / den 100)**
 
 ### Integrado
-`5+12+(25·0.88=22.00)+8+6+5+5.60+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+1.90 = 88.80` → **88.8% (num 88.80 / den 100)**
+`5+12+(25·0.88=22.00)+8+6+5+(8·0.80=6.40)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+1.90 = 89.60` → **89.6% (num 89.60 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,8 +70,8 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·91.81 + 0.30·88.80 + 0.20·0 = 45.905 + 26.64 + 0.00 = 72.545`
-→ **≈ 72.5%**
+`= 0.50·92.77 + 0.30·89.60 + 0.20·0 = 46.385 + 26.88 + 0.00 = 73.265`
+→ **≈ 73.3%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
@@ -81,7 +81,7 @@ Independentes (trabalho técnico que prossegue sem terceiros):
    isolamento/upgrade/backup-restore/carga/regressão, runbook de incidentes, docs de
    instalação/operação, DoD global. (Headers/cookies/CORS, scanning de segredos e auditoria de
    dependências via NuGetAudit já verdes.)
-2. **F6**: detecção Docker/Compose/Java e fallback por agente.
+2. **F6**: detecção Docker/Compose (ciclo §1.2) e fallback por agente (Java já detectado).
 3. **F9**: adaptador Teams + testes fake (Telegram real já validado).
 4. **F7**: fluxo de atualização e desinstalação segura.
 5. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação

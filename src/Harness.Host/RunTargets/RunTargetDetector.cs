@@ -39,6 +39,15 @@ public sealed class RunTargetDetector
             {
                 definitions.Add(Python(file));
             }
+            else if (string.Equals(Path.GetFileName(file), "pom.xml", StringComparison.OrdinalIgnoreCase) &&
+                     TryMaven(file, out var maven))
+            {
+                definitions.Add(maven);
+            }
+            else if (IsGradleBuildFile(file) && TryGradle(file, out var gradle))
+            {
+                definitions.Add(gradle);
+            }
         }
 
         return Task.FromResult<IReadOnlyList<RunTargetDefinition>>(
@@ -129,6 +138,98 @@ public sealed class RunTargetDetector
             return false;
         }
         catch (JsonException)
+        {
+            definition = null!;
+            return false;
+        }
+    }
+
+    // Java (camada de manifesto): registra apenas apps Spring Boot runnable — a heurística
+    // exige o plugin/starter no manifesto para não criar alvo que não sobe com URL/health.
+    private static bool TryMaven(string pomFile, out RunTargetDefinition definition)
+    {
+        try
+        {
+            var content = File.ReadAllText(pomFile);
+            if (!content.Contains("spring-boot", StringComparison.OrdinalIgnoreCase))
+            {
+                definition = null!;
+                return false;
+            }
+
+            var directory = Path.GetDirectoryName(pomFile)!;
+            var port = FreePort();
+            var wrapper = Path.Combine(directory, "mvnw");
+            var hasWrapper = File.Exists(wrapper);
+            var executable = hasWrapper ? wrapper : "/usr/bin/env";
+            var arguments = hasWrapper
+                ? new[] { "-q", "spring-boot:run", $"-Dspring-boot.run.arguments=--server.port={port}" }
+                : new[] { "mvn", "-q", "spring-boot:run", $"-Dspring-boot.run.arguments=--server.port={port}" };
+            definition = new(
+                Fingerprint("maven", pomFile),
+                $"{Path.GetFileName(directory)} (Maven)",
+                "http",
+                $"http://127.0.0.1:{port}",
+                port,
+                directory,
+                executable,
+                arguments,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["SERVER_PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+            return true;
+        }
+        catch (IOException)
+        {
+            definition = null!;
+            return false;
+        }
+    }
+
+    private static bool IsGradleBuildFile(string file)
+    {
+        var name = Path.GetFileName(file);
+        return string.Equals(name, "build.gradle", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name, "build.gradle.kts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryGradle(string buildFile, out RunTargetDefinition definition)
+    {
+        try
+        {
+            var content = File.ReadAllText(buildFile);
+            if (!content.Contains("org.springframework.boot", StringComparison.OrdinalIgnoreCase) &&
+                !content.Contains("spring-boot", StringComparison.OrdinalIgnoreCase))
+            {
+                definition = null!;
+                return false;
+            }
+
+            var directory = Path.GetDirectoryName(buildFile)!;
+            var port = FreePort();
+            var wrapper = Path.Combine(directory, "gradlew");
+            var hasWrapper = File.Exists(wrapper);
+            var executable = hasWrapper ? wrapper : "/usr/bin/env";
+            var arguments = hasWrapper
+                ? new[] { "bootRun", $"--args=--server.port={port}" }
+                : new[] { "gradle", "bootRun", $"--args=--server.port={port}" };
+            definition = new(
+                Fingerprint("gradle", buildFile),
+                $"{Path.GetFileName(directory)} (Gradle)",
+                "http",
+                $"http://127.0.0.1:{port}",
+                port,
+                directory,
+                executable,
+                arguments,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["SERVER_PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+            return true;
+        }
+        catch (IOException)
         {
             definition = null!;
             return false;
