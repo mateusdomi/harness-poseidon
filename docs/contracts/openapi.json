@@ -8492,6 +8492,85 @@
                 }
             }
         },
+        "/api/v1/workflow-templates/{id}/drafts": {
+            "post": {
+                "tags": [
+                    "workflow-templates"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkflowDraftRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowVersionContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-templates/{id}/versions": {
             "post": {
                 "tags": [
@@ -8686,6 +8765,162 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "workflow-versions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkflowDraftRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowVersionContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workflow-versions/{id}/publish": {
+            "post": {
+                "tags": [
+                    "workflow-versions"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PublishWorkflowDraftRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowVersionContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
@@ -12499,10 +12734,7 @@
             },
             "CreateWorkflowTemplateRequest": {
                 "required": [
-                    "name",
-                    "description",
-                    "phases",
-                    "gatesByPhase"
+                    "name"
                 ],
                 "type": "object",
                 "properties": {
@@ -12510,16 +12742,25 @@
                         "type": "string"
                     },
                     "description": {
-                        "type": "string"
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     },
                     "phases": {
-                        "type": "array",
+                        "type": [
+                            "null",
+                            "array"
+                        ],
                         "items": {
                             "type": "string"
                         }
                     },
                     "gatesByPhase": {
-                        "type": "object",
+                        "type": [
+                            "null",
+                            "object"
+                        ],
                         "additionalProperties": {
                             "type": "array",
                             "items": {
@@ -14913,6 +15154,18 @@
                     }
                 }
             },
+            "PublishWorkflowDraftRequest": {
+                "type": "object",
+                "properties": {
+                    "changelog": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
             "PublishWorkflowVersionRequest": {
                 "required": [
                     "phases",
@@ -16515,6 +16768,66 @@
                     }
                 }
             },
+            "WorkflowDraftRequest": {
+                "type": "object",
+                "properties": {
+                    "phases": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "gatesByPhase": {
+                        "type": [
+                            "null",
+                            "object"
+                        ],
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "phaseConfigs": {
+                        "type": [
+                            "null",
+                            "object"
+                        ],
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/WorkflowPhaseConfigContract"
+                        }
+                    },
+                    "defaultOperationMode": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "transitions": {
+                        "type": [
+                            "null",
+                            "object"
+                        ],
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "changelog": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
             "WorkflowPage": {
                 "required": [
                     "items",
@@ -16560,6 +16873,72 @@
                     },
                     "allowedAgentDefinitionIds": {
                         "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "objective": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "context": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "acceptanceCriteria": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "dependsOn": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "entryConditions": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "exitConditions": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "allowedSkillIds": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "allowedToolIds": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
                         "items": {
                             "type": "string"
                         }
@@ -16653,6 +17032,8 @@
                     "name",
                     "description",
                     "currentVersionId",
+                    "state",
+                    "archivedAt",
                     "createdAt"
                 ],
                 "type": "object",
@@ -16671,6 +17052,16 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "archivedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
                     },
                     "createdAt": {
                         "type": "string",
@@ -16710,7 +17101,9 @@
                     "defaultOperationMode",
                     "transitions",
                     "changelog",
-                    "publishedAt"
+                    "state",
+                    "publishedAt",
+                    "archivedAt"
                 ],
                 "type": "object",
                 "properties": {
@@ -16770,8 +17163,21 @@
                             "string"
                         ]
                     },
+                    "state": {
+                        "type": "string"
+                    },
                     "publishedAt": {
-                        "type": "string",
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "archivedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
                         "format": "date-time"
                     }
                 }

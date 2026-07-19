@@ -36,6 +36,10 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
             return await r.ReadAsync(token) ? ReadTemplate(r) : null;
         }, cancellationToken);
 
+    public Task<WorkflowTemplateCatalogRecord> CreateTemplateAsync(
+        WorkflowTemplateCreateCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync((c, token) => CreateTemplateCoreAsync(c, command, token), cancellationToken);
+
     public Task<IReadOnlyList<WorkflowVersionCatalogRecord>> ListVersionsAsync(
         string tenantId, string? templateId, string? afterId, int limit,
         CancellationToken cancellationToken = default) =>
@@ -44,7 +48,7 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
             var ids = new List<string>(); await using (var q = c.CreateCommand())
             {
                 q.CommandText = "SELECT id FROM workflow_definition_versions WHERE tenant_id=$tenant " +
-                    "AND status='published' AND ($template IS NULL OR definition_id=$template) " +
+                    "AND ($template IS NULL OR definition_id=$template) " +
                     "AND ($after IS NULL OR id>$after) ORDER BY id LIMIT $limit;";
                 Add(q, "$tenant", tenantId); AddNullable(q, "$template", templateId);
                 AddNullable(q, "$after", afterId); Add(q, "$limit", limit);
@@ -203,17 +207,18 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
         SqliteConnection c, string tenant, string id, CancellationToken token)
     {
         string template; int version; string phaseConfigs; string? defaultMode;
-        string transitions; string? changelog; DateTimeOffset published;
+        string transitions; string? changelog; string status; DateTimeOffset? published; DateTimeOffset? archived;
         await using (var q = c.CreateCommand())
         {
             q.CommandText = "SELECT definition_id,version,phase_configs_json,default_operation_mode," +
-                "transitions_json,changelog,published_at FROM workflow_definition_versions " +
-                "WHERE tenant_id=$tenant AND id=$id AND status='published';";
+                "transitions_json,changelog,status,published_at,archived_at FROM workflow_definition_versions " +
+                "WHERE tenant_id=$tenant AND id=$id;";
             Add(q, "$tenant", tenant); Add(q, "$id", id); await using var r = await q.ExecuteReaderAsync(token);
             if (!await r.ReadAsync(token)) return null;
             template = r.GetString(0); version = r.GetInt32(1); phaseConfigs = r.GetString(2);
             defaultMode = r.IsDBNull(3) ? null : r.GetString(3); transitions = r.GetString(4);
-            changelog = r.IsDBNull(5) ? null : r.GetString(5); published = Parse(r.GetString(6));
+            changelog = r.IsDBNull(5) ? null : r.GetString(5); status = r.GetString(6);
+            published = r.IsDBNull(7) ? null : Parse(r.GetString(7)); archived = r.IsDBNull(8) ? null : Parse(r.GetString(8));
         }
         var phases = new List<string>(); var gates = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         var phaseIds = new List<(string Id, string Name)>(); await using (var q = c.CreateCommand())
@@ -230,7 +235,7 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
             while (await r.ReadAsync(token)) names.Add(r.GetString(0)); if (names.Count > 0) gates[phase.Name] = names;
         }
         return new(tenant, id, template, version, phases, gates, phaseConfigs, defaultMode,
-            transitions, changelog, published);
+            transitions, changelog, archived is null ? status : "archived", published, archived);
     }
 
     private static async Task<WorkflowBindingCatalogRecord?> ReadBindingAsync(
@@ -273,7 +278,8 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
     }
 
     private static WorkflowTemplateCatalogRecord ReadTemplate(SqliteDataReader r) => new(
-        r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), Parse(r.GetString(5)));
+        r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4),
+        r.GetString(5), r.IsDBNull(6) ? null : Parse(r.GetString(6)), Parse(r.GetString(7)));
     private static WorkflowRunCatalogRecord ReadRun(SqliteDataReader r)
     {
         var created = Parse(r.GetString(5)); return new(
@@ -287,7 +293,9 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
         r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetString(5), true,
         r.IsDBNull(7) ? null : r.GetString(7), r.IsDBNull(6) ? null : Parse(r.GetString(6)), r.IsDBNull(8) ? null : r.GetString(8));
     private const string TemplateSelect = "SELECT d.tenant_id,d.id,d.name,d.description," +
-        "(SELECT v.id FROM workflow_definition_versions v WHERE v.definition_id=d.id AND v.status='published' ORDER BY v.version DESC LIMIT 1),d.created_at FROM workflow_definitions d";
+        "(SELECT v.id FROM workflow_definition_versions v WHERE v.definition_id=d.id AND v.status='published' AND v.archived_at IS NULL ORDER BY v.version DESC LIMIT 1)," +
+        "CASE WHEN d.archived_at IS NOT NULL THEN 'archived' WHEN EXISTS(SELECT 1 FROM workflow_definition_versions p WHERE p.definition_id=d.id AND p.status='published') THEN 'published' ELSE 'draft' END," +
+        "d.archived_at,d.created_at FROM workflow_definitions d";
     private const string GateSelect = "SELECT g.tenant_id,g.id,g.phase_run_id,p.workflow_run_id,d.name,g.state,g.evaluated_at,g.decided_by_profile_id,g.decision_note " +
         "FROM workflow_gate_runs g JOIN workflow_phase_runs p ON p.id=g.phase_run_id JOIN workflow_gate_definitions d ON d.id=g.gate_definition_id";
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);

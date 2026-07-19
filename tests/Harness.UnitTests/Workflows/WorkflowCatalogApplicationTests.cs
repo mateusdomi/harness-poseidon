@@ -6,6 +6,36 @@ namespace Harness.UnitTests.Workflows;
 public sealed class WorkflowCatalogApplicationTests
 {
     [Fact]
+    public void DraftTemplateAcceptsTheMinimalFr4Input()
+    {
+        var value = WorkflowCatalogApplicationService.CreateDraftTemplate(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            new CreateWorkflowTemplateRequest("  Entrega  "),
+            new DateTimeOffset(2026, 7, 19, 21, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal("Entrega", value.Name);
+        Assert.Empty(value.Description);
+        Assert.Throws<ArgumentException>(() => WorkflowCatalogApplicationService.CreateDraftTemplate(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            new CreateWorkflowTemplateRequest(" "),
+            value.OccurredAt));
+    }
+
+    [Fact]
+    public void DraftVersionMayBeIncompleteWithoutPublishing()
+    {
+        var value = WorkflowCatalogApplicationService.CreateDraftVersion(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            new WorkflowDraftRequest(),
+            new DateTimeOffset(2026, 7, 19, 21, 1, 0, TimeSpan.Zero));
+
+        Assert.Empty(value.Hierarchy.Phases);
+        Assert.Empty(value.PhaseConfigs);
+        Assert.Null(value.DefaultOperationMode);
+    }
+
+    [Fact]
     public void FrontendPhaseShapeExpandsIntoValidatedAuthorityHierarchy()
     {
         var value = WorkflowCatalogApplicationService.CreateTemplate(

@@ -3,18 +3,27 @@ using System.Text.Json.Serialization;
 namespace Harness.Modules.Workflows.Contracts;
 
 public sealed record WorkflowTemplateContract(
-    string Id, string Name, string Description, string? CurrentVersionId, DateTimeOffset CreatedAt);
+    string Id, string Name, string Description, string? CurrentVersionId, string State,
+    DateTimeOffset? ArchivedAt, DateTimeOffset CreatedAt);
 
 public sealed record WorkflowPhaseConfigContract(
     IReadOnlyList<string> DocumentKinds, decimal ProgressWeight,
-    IReadOnlyList<string> AllowedAgentDefinitionIds);
+    IReadOnlyList<string> AllowedAgentDefinitionIds,
+    string? Objective = null,
+    string? Context = null,
+    IReadOnlyList<string>? AcceptanceCriteria = null,
+    IReadOnlyList<string>? DependsOn = null,
+    IReadOnlyList<string>? EntryConditions = null,
+    IReadOnlyList<string>? ExitConditions = null,
+    IReadOnlyList<string>? AllowedSkillIds = null,
+    IReadOnlyList<string>? AllowedToolIds = null);
 
 public sealed record WorkflowVersionContract(
     string Id, string TemplateId, int Version, IReadOnlyList<string> Phases,
     IReadOnlyDictionary<string, IReadOnlyList<string>> GatesByPhase,
     IReadOnlyDictionary<string, WorkflowPhaseConfigContract> PhaseConfigs,
     string? DefaultOperationMode, IReadOnlyDictionary<string, IReadOnlyList<string>> Transitions,
-    string? Changelog, DateTimeOffset PublishedAt);
+    string? Changelog, string State, DateTimeOffset? PublishedAt, DateTimeOffset? ArchivedAt);
 
 public sealed record WorkflowRiskAcceptanceContract(
     string Mode, string AcceptedByProfileId, string Note, DateTimeOffset AcceptedAt);
@@ -38,8 +47,9 @@ public sealed record GateContract(
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateWorkflowTemplateRequest(
-    string Name, string Description, IReadOnlyList<string> Phases,
-    IReadOnlyDictionary<string, IReadOnlyList<string>> GatesByPhase, string? Changelog = null);
+    string Name, string? Description = null, IReadOnlyList<string>? Phases = null,
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? GatesByPhase = null,
+    string? Changelog = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateWorkflowRequest(
@@ -56,6 +66,18 @@ public sealed record PublishWorkflowVersionRequest(
     string? DefaultOperationMode = null,
     IReadOnlyDictionary<string, IReadOnlyList<string>>? Transitions = null,
     string? Changelog = null);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record WorkflowDraftRequest(
+    IReadOnlyList<string>? Phases = null,
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? GatesByPhase = null,
+    IReadOnlyDictionary<string, WorkflowPhaseConfigContract>? PhaseConfigs = null,
+    string? DefaultOperationMode = null,
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? Transitions = null,
+    string? Changelog = null);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record PublishWorkflowDraftRequest(string? Changelog = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SetWorkflowOperationModeRequest(

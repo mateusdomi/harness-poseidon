@@ -6,11 +6,19 @@ public interface IWorkflowCatalogStore
         string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default);
     Task<WorkflowTemplateCatalogRecord?> GetTemplateAsync(
         string tenantId, string templateId, CancellationToken cancellationToken = default);
+    Task<WorkflowTemplateCatalogRecord> CreateTemplateAsync(
+        WorkflowTemplateCreateCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkflowVersionCatalogRecord>> ListVersionsAsync(
         string tenantId, string? templateId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
     Task<WorkflowVersionCatalogRecord?> GetVersionAsync(
         string tenantId, string versionId, CancellationToken cancellationToken = default);
+    Task<WorkflowVersionCatalogRecord> CreateDraftAsync(
+        WorkflowVersionDraftCreateCommand command, CancellationToken cancellationToken = default);
+    Task<WorkflowVersionCatalogRecord> UpdateDraftAsync(
+        WorkflowVersionDraftUpdateCommand command, CancellationToken cancellationToken = default);
+    Task<WorkflowVersionCatalogRecord> PublishDraftAsync(
+        WorkflowVersionDraftPublishCommand command, CancellationToken cancellationToken = default);
     Task<WorkflowVersionCatalogRecord> PublishVersionAsync(
         WorkflowVersionPublishCommand command, CancellationToken cancellationToken = default);
     Task<WorkflowBindingCatalogRecord> CreateBindingAsync(
@@ -41,12 +49,17 @@ public interface IWorkflowCatalogStore
 
 public sealed record WorkflowTemplateCatalogRecord(
     string TenantId, string Id, string Name, string Description, string? CurrentVersionId,
-    DateTimeOffset CreatedAt);
+    string State, DateTimeOffset? ArchivedAt, DateTimeOffset CreatedAt);
 
 public sealed record WorkflowVersionCatalogRecord(
     string TenantId, string Id, string TemplateId, int Version, IReadOnlyList<string> Phases,
     IReadOnlyDictionary<string, IReadOnlyList<string>> GatesByPhase, string PhaseConfigsJson,
-    string? DefaultOperationMode, string TransitionsJson, string? Changelog, DateTimeOffset PublishedAt);
+    string? DefaultOperationMode, string TransitionsJson, string? Changelog, string State,
+    DateTimeOffset? PublishedAt, DateTimeOffset? ArchivedAt);
+
+public sealed record WorkflowTemplateCreateCommand(
+    string TenantId, string Id, string Name, string Description, string ActorProfileId,
+    DateTimeOffset OccurredAt);
 
 public sealed record WorkflowRiskAcceptanceCatalogRecord(
     string Mode, string AcceptedByProfileId, string Note, DateTimeOffset AcceptedAt);
@@ -80,6 +93,20 @@ public sealed record WorkflowVersionPublishCommand(
     string? DefaultOperationMode, string TransitionsJson, string? Changelog,
     DateTimeOffset OccurredAt);
 
+public sealed record WorkflowVersionDraftCreateCommand(
+    string TenantId, string TemplateId, string VersionId,
+    IReadOnlyList<WorkflowPhaseCreateInput> Phases, string PhaseConfigsJson,
+    string? DefaultOperationMode, string TransitionsJson, string? Changelog,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkflowVersionDraftUpdateCommand(
+    string TenantId, string VersionId, IReadOnlyList<WorkflowPhaseCreateInput> Phases,
+    string PhaseConfigsJson, string? DefaultOperationMode, string TransitionsJson,
+    string? Changelog, DateTimeOffset OccurredAt);
+
+public sealed record WorkflowVersionDraftPublishCommand(
+    string TenantId, string VersionId, string? Changelog, DateTimeOffset OccurredAt);
+
 public sealed record WorkflowOperationModeCommand(
     string TenantId, string WorkflowId, string Mode, IReadOnlyList<string> PauseGates,
     string AcceptanceId, string AcceptedByProfileId, string Note, DateTimeOffset OccurredAt);
@@ -90,3 +117,5 @@ public sealed class WorkflowCatalogReferenceNotFoundException(string reference) 
 }
 
 public sealed class WorkflowBindingAlreadyExistsException() : Exception("workflow");
+public sealed class WorkflowTemplateAlreadyExistsException() : Exception("workflow_template");
+public sealed class WorkflowCatalogLifecycleException(string detail) : Exception(detail);

@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(246/246 testes backend, build Release 0 warnings/0 erros, 362/362 frontend) reproduzida nesta sessão.
+(248/248 testes backend, build Release 0 warnings/0 erros, 362/362 frontend) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -81,8 +81,10 @@ Independentes (trabalho técnico que prossegue sem terceiros):
    `page/pageSize`, workflows por projeto, CRUD de definições de agentes e
    providers/contas/modelos/esforço. A administração segura de contas (`label`, estado e limite de
    cota) já está verde nos dois providers; ainda faltam os demais comandos de configuração e o
-   modelo tipado de esforço. No quadro, arquivamento backend está verde e busca/filtros, paginação,
-   lote e CSV Excel-compatible já são client-side; falta auditar eventual filtro de fase.
+   modelo tipado de esforço. O ciclo central de template/versão de workflow (draft, PATCH,
+   validação e publicação) está verde; faltam archive/delete/duplicate e vínculo por projeto. No
+   quadro, arquivamento backend está verde e busca/filtros, paginação, lote e CSV Excel-compatible
+   já são client-side; falta auditar eventual filtro de fase.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
@@ -103,5 +105,7 @@ v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão
 são client-side por D-063/D-073/D-075. O read-model tenant-scoped de organograma v3 §8.10 também
 está **implementado/validado/integrado**. Em §8.13, o PATCH seguro de conta está
 **implementado/validado/integrado** com paridade SQLite/PostgreSQL; providers/modelos/esforço
-continuam parciais. Os demais itens seguem em auditoria dirigida antes de implementação, para
-evitar duplicar comportamento pronto.
+continuam parciais. O núcleo FR-4 de workflows (criação de draft, cópia da versão vigente, edição
+parcial, validação e publicação imutável) também está **implementado/validado/integrado** nos dois
+providers; archive/delete/duplicate e vínculo por projeto permanecem abertos. Os demais itens
+seguem em auditoria dirigida antes de implementação, para evitar duplicar comportamento pronto.

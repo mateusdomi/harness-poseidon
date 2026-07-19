@@ -8,18 +8,30 @@ public static class WorkflowCatalogApplicationService
     private static readonly HashSet<string> Modes =
         new(["manual", "semiautonomous", "autonomous"], StringComparer.Ordinal);
 
+    public static WorkflowDraftTemplateCreation CreateDraftTemplate(
+        string templateId, CreateWorkflowTemplateRequest request, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var name = Text(request.Name, 200);
+        var description = string.IsNullOrWhiteSpace(request.Description)
+            ? string.Empty
+            : Text(request.Description, 20_000);
+        return new(Id(templateId), name, description, Utc(now));
+    }
+
     public static WorkflowTemplateCreation CreateTemplate(
         string templateId, string versionId, CreateWorkflowTemplateRequest request,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var name = Text(request.Name, 200); var description = Text(request.Description, 20_000);
+        var name = Text(request.Name, 200); var description = Text(request.Description ?? string.Empty, 20_000);
         if (request.Phases is null || request.Phases.Count == 0)
             throw new ArgumentException("At least one phase is required.", nameof(request));
         var phaseNames = request.Phases.Select(x => Text(x, 200)).ToArray();
         if (phaseNames.Distinct(StringComparer.Ordinal).Count() != phaseNames.Length)
             throw new ArgumentException("Phase names must be unique.", nameof(request));
-        if (request.GatesByPhase.Keys.Any(x => !phaseNames.Contains(x, StringComparer.Ordinal)))
+        var gatesByPhase = request.GatesByPhase ?? new Dictionary<string, IReadOnlyList<string>>();
+        if (gatesByPhase.Keys.Any(x => !phaseNames.Contains(x, StringComparer.Ordinal)))
             throw new ArgumentException("Gate phases must exist in the phase list.", nameof(request));
 
         var tick = 0L; string NextId() => UlidValue.New(now.AddTicks(++tick)).ToString();
@@ -32,7 +44,7 @@ public static class WorkflowCatalogApplicationService
                 new(workId, $"work-{index + 1}", phaseName, "task", 1m),
             };
             var gates = new List<WorkflowApiGateCreation>();
-            var gateNames = request.GatesByPhase.TryGetValue(phaseName, out var configured)
+            var gateNames = gatesByPhase.TryGetValue(phaseName, out var configured)
                 ? configured.Select(x => Text(x, 200)).ToArray() : [];
             if (gateNames.Distinct(StringComparer.Ordinal).Count() != gateNames.Length)
                 throw new ArgumentException("Gate names must be unique inside a phase.", nameof(request));
@@ -80,14 +92,54 @@ public static class WorkflowCatalogApplicationService
             configs.Values.Any(value => value.DocumentKinds is null ||
                 value.AllowedAgentDefinitionIds is null ||
                 value.ProgressWeight is < 0m or > 100m ||
-                value.AllowedAgentDefinitionIds.Any(id => !UlidValue.TryParse(id, out _))))
+                value.AllowedAgentDefinitionIds.Any(id => !UlidValue.TryParse(id, out _)) ||
+                (value.AllowedSkillIds ?? []).Any(id => !UlidValue.TryParse(id, out _)) ||
+                (value.AllowedToolIds ?? []).Any(id => !UlidValue.TryParse(id, out _)) ||
+                (value.DependsOn ?? []).Any(phase => !phaseSet.Contains(phase))))
             throw new ArgumentException("Phase configuration is invalid.", nameof(request));
+        foreach (var (phase, config) in configs)
+        {
+            var dependencies = config.DependsOn ?? [];
+            if (dependencies.Contains(phase, StringComparer.Ordinal) || dependencies.Any(dependency =>
+                    configs.TryGetValue(dependency, out var other) &&
+                    (other.DependsOn ?? []).Contains(phase, StringComparer.Ordinal)))
+                throw new ArgumentException("Workflow phase dependencies contain a cycle.", nameof(request));
+        }
         var transitions = request.Transitions ?? new Dictionary<string, IReadOnlyList<string>>();
         if (transitions.Any(rule => !phaseSet.Contains(rule.Key) ||
             rule.Value is null || rule.Value.Any(next => !phaseSet.Contains(next))))
             throw new ArgumentException("Workflow transitions reference an unknown phase.", nameof(request));
         var mode = request.DefaultOperationMode is null ? null : Choice(request.DefaultOperationMode, Modes);
         return new(hierarchy, configs, mode, transitions);
+    }
+
+    public static WorkflowVersionCreation CreateDraftVersion(
+        string templateId, string versionId, WorkflowDraftRequest request, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var phases = request.Phases ?? [];
+        WorkflowTemplateCreation hierarchy;
+        if (phases.Count == 0)
+        {
+            hierarchy = new(Id(templateId), Id(versionId), "Draft", string.Empty, [],
+                string.IsNullOrWhiteSpace(request.Changelog) ? null : Text(request.Changelog, 10_000),
+                Utc(now));
+        }
+        else
+        {
+            hierarchy = CreateTemplate(templateId, versionId,
+                new CreateWorkflowTemplateRequest("Draft", "Draft", phases,
+                    request.GatesByPhase ?? new Dictionary<string, IReadOnlyList<string>>(),
+                    request.Changelog), now);
+        }
+
+        var mode = request.DefaultOperationMode is null
+            ? null
+            : Choice(request.DefaultOperationMode, Modes);
+        return new(hierarchy,
+            request.PhaseConfigs ?? new Dictionary<string, WorkflowPhaseConfigContract>(),
+            mode,
+            request.Transitions ?? new Dictionary<string, IReadOnlyList<string>>());
     }
 
     public static WorkflowBindingInput SetOperationMode(
@@ -147,6 +199,9 @@ public static class WorkflowCatalogApplicationService
 public sealed record WorkflowTemplateCreation(
     string TemplateId, string VersionId, string Name, string Description,
     IReadOnlyList<WorkflowApiPhaseCreation> Phases, string? Changelog, DateTimeOffset OccurredAt);
+
+public sealed record WorkflowDraftTemplateCreation(
+    string TemplateId, string Name, string Description, DateTimeOffset OccurredAt);
 
 public sealed record WorkflowApiPhaseCreation(
     string Id, string Key, string Name, int Order, IReadOnlyList<WorkflowApiObjectiveCreation> Objectives,

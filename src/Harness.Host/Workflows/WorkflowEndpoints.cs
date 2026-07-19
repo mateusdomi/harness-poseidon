@@ -17,10 +17,13 @@ public static class WorkflowEndpoints
         templates.MapGet("/", ListTemplatesAsync).Produces<WorkflowTemplatePage>().ProducesProblem(400).ProducesProblem(401);
         templates.MapGet("/{id}", GetTemplateAsync).Produces<WorkflowTemplateContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         templates.MapPost("/", CreateTemplateAsync).Produces<WorkflowTemplateContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
+        templates.MapPost("/{id}/drafts", CreateDraftAsync).Produces<WorkflowVersionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         templates.MapPost("/{id}/versions", PublishVersionAsync).Produces<WorkflowVersionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         var versions = endpoints.MapGroup("/api/v1/workflow-versions").WithTags("workflow-versions");
         versions.MapGet("/", ListVersionsAsync).Produces<WorkflowVersionPage>().ProducesProblem(400).ProducesProblem(401);
         versions.MapGet("/{id}", GetVersionAsync).Produces<WorkflowVersionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        versions.MapPatch("/{id}", UpdateDraftAsync).Produces<WorkflowVersionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        versions.MapPost("/{id}/publish", PublishDraftAsync).Produces<WorkflowVersionContract>().ProducesProblem(401).ProducesProblem(404).ProducesProblem(409).ProducesProblem(422);
         var workflows = endpoints.MapGroup("/api/v1/workflows").WithTags("workflows");
         workflows.MapGet("/", ListWorkflowsAsync).Produces<WorkflowPage>().ProducesProblem(400).ProducesProblem(401);
         workflows.MapGet("/{id}", GetWorkflowAsync).Produces<WorkflowContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
@@ -52,13 +55,24 @@ public static class WorkflowEndpoints
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
         try
         {
-            var now = clock.UtcNow; var creation = WorkflowCatalogApplicationService.CreateTemplate(UlidValue.New(now).ToString(), UlidValue.New(now.AddTicks(1)).ToString(), input, now);
+            var now = clock.UtcNow;
+            if (input.Phases is null || input.Phases.Count == 0)
+            {
+                var draft = WorkflowCatalogApplicationService.CreateDraftTemplate(
+                    UlidValue.New(now).ToString(), input, now);
+                var created = await catalog.CreateTemplateAsync(new(profile.TenantId,
+                    draft.TemplateId, draft.Name, draft.Description, profile.Id, now), token);
+                return Results.Created($"/api/v1/workflow-templates/{created.Id}", ToContract(created));
+            }
+
+            var creation = WorkflowCatalogApplicationService.CreateTemplate(UlidValue.New(now).ToString(), UlidValue.New(now.AddTicks(1)).ToString(), input, now);
             var phases = creation.Phases.Select(p => new WorkflowPhaseCreateInput(p.Id, p.Key, p.Name, p.Order, p.Objectives.Select(o => new WorkflowObjectiveCreateInput(o.Id, o.Key, o.Name, o.Kind, o.Weight)).ToArray(), p.Gates.Select(g => new WorkflowGateCreateInput(g.Id, g.ObjectiveId, g.Key, g.Name, g.MinimumRequiredState, g.RequiredObjectiveIds)).ToArray())).ToArray();
             await authority.CreatePublishedDefinitionAsync(new(profile.TenantId, creation.TemplateId, creation.Name, creation.VersionId, 1, WorkflowDefinitionContentHash.Compute(phases), phases, $"api:workflow-template:{creation.TemplateId}", now, creation.Description), token);
             var row = await catalog.GetTemplateAsync(profile.TenantId, creation.TemplateId, token) ?? throw new InvalidOperationException("Created template was not readable.");
             return Results.Created($"/api/v1/workflow-templates/{row.Id}", ToContract(row));
         }
         catch (ArgumentException e) { return Problem(400, "invalid_workflow_template", e.Message); }
+        catch (WorkflowTemplateAlreadyExistsException) { return Problem(409, "workflow_template_conflict", "The workflow template already exists."); }
         catch (Exception e) when (e.GetType().Name == "IdempotencyConflictException") { return Problem(409, "workflow_template_conflict", e.Message); }
     }
 
@@ -66,6 +80,98 @@ public static class WorkflowEndpoints
     { var invalid = Page(cursor, limit, templateId); if (invalid is not null) return invalid; var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var size = limit ?? 100; var rows = await store.ListVersionsAsync(profile.TenantId, templateId, cursor, size + 1, token); return Paged(rows, size, ToContract, x => x.Id, (items, next) => new WorkflowVersionPage(items, next)); }
     private static async Task<IResult> GetVersionAsync(string id, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
     { if (!Valid(id)) return InvalidId(); var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var row = await store.GetVersionAsync(profile.TenantId, id, token); return row is null ? NotFound("workflow_version") : Results.Ok(ToContract(row)); }
+
+    private static async Task<IResult> CreateDraftAsync(string id, WorkflowDraftRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        var template = await store.GetTemplateAsync(profile.TenantId, id, token);
+        if (template is null) return NotFound("workflow_template");
+        try
+        {
+            WorkflowVersionCatalogRecord? current = null;
+            if (template.CurrentVersionId is not null)
+                current = await store.GetVersionAsync(profile.TenantId, template.CurrentVersionId, token);
+            var effective = new WorkflowDraftRequest(
+                input.Phases ?? current?.Phases,
+                input.GatesByPhase ?? current?.GatesByPhase,
+                input.PhaseConfigs ?? (current is null ? null : JsonSerializer.Deserialize<Dictionary<string, WorkflowPhaseConfigContract>>(current.PhaseConfigsJson)),
+                input.DefaultOperationMode ?? current?.DefaultOperationMode,
+                input.Transitions ?? (current is null ? null : JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(current.TransitionsJson)),
+                input.Changelog ?? current?.Changelog);
+            var now = clock.UtcNow; var versionId = UlidValue.New(now).ToString();
+            var value = WorkflowCatalogApplicationService.CreateDraftVersion(id, versionId, effective, now);
+            var row = await store.CreateDraftAsync(new(profile.TenantId, id, versionId,
+                ToPersistence(value.Hierarchy.Phases), JsonSerializer.Serialize(value.PhaseConfigs),
+                value.DefaultOperationMode, JsonSerializer.Serialize(value.Transitions),
+                value.Hierarchy.Changelog, now), token);
+            return Results.Created($"/api/v1/workflow-versions/{versionId}", ToContract(row));
+        }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+        catch (ArgumentException e) { return Problem(400, "invalid_workflow_draft", e.Message); }
+    }
+
+    private static async Task<IResult> UpdateDraftAsync(string id, WorkflowDraftRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        var current = await store.GetVersionAsync(profile.TenantId, id, token);
+        if (current is null) return NotFound("workflow_version");
+        try
+        {
+            var effective = MergeDraft(input, current); var now = clock.UtcNow;
+            var value = WorkflowCatalogApplicationService.CreateDraftVersion(
+                current.TemplateId, id, effective, now);
+            var row = await store.UpdateDraftAsync(new(profile.TenantId, id,
+                ToPersistence(value.Hierarchy.Phases), JsonSerializer.Serialize(value.PhaseConfigs),
+                value.DefaultOperationMode, JsonSerializer.Serialize(value.Transitions),
+                value.Hierarchy.Changelog, now), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+        catch (ArgumentException e) { return Problem(400, "invalid_workflow_draft", e.Message); }
+    }
+
+    private static async Task<IResult> PublishDraftAsync(string id, PublishWorkflowDraftRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
+        var current = await store.GetVersionAsync(profile.TenantId, id, token);
+        if (current is null) return NotFound("workflow_version");
+        try
+        {
+            var now = clock.UtcNow;
+            _ = WorkflowCatalogApplicationService.CreateVersion(current.TemplateId,
+                UlidValue.New(now).ToString(), new PublishWorkflowVersionRequest(
+                    current.Phases, current.GatesByPhase,
+                    JsonSerializer.Deserialize<Dictionary<string, WorkflowPhaseConfigContract>>(current.PhaseConfigsJson),
+                    current.DefaultOperationMode,
+                    JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(current.TransitionsJson),
+                    input.Changelog ?? current.Changelog), now);
+            var row = await store.PublishDraftAsync(new(profile.TenantId, id,
+                input.Changelog ?? current.Changelog, now), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
+        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
+        catch (ArgumentException e) { return Problem(422, "workflow_validation_failed", e.Message); }
+    }
+
+    private static WorkflowDraftRequest MergeDraft(WorkflowDraftRequest input,
+        WorkflowVersionCatalogRecord current) => new(
+            input.Phases ?? current.Phases,
+            input.GatesByPhase ?? current.GatesByPhase,
+            input.PhaseConfigs ?? JsonSerializer.Deserialize<Dictionary<string, WorkflowPhaseConfigContract>>(current.PhaseConfigsJson),
+            input.DefaultOperationMode ?? current.DefaultOperationMode,
+            input.Transitions ?? JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(current.TransitionsJson),
+            input.Changelog ?? current.Changelog);
 
     private static async Task<IResult> PublishVersionAsync(string id, PublishWorkflowVersionRequest input,
         HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, IClock clock,
@@ -209,10 +315,10 @@ public static class WorkflowEndpoints
     private static IResult? Page(string? cursor, int? limit, params string?[] filters) => ((cursor is not null && !Valid(cursor)) || limit is < 1 or > 200 || filters.Any(x => x is not null && !Valid(x))) ? Problem(400, "invalid_cursor", "Filter, cursor, or limit is invalid.") : null;
     private static Task<LocalProfileRecord?> Session(HttpRequest request, ILocalProfileStore profiles, CancellationToken token) => LocalProfileSession.ResolveAsync(request, profiles, token);
     private static bool Valid(string id) => UlidValue.TryParse(id, out _); private static IResult InvalidId() => Problem(400, "invalid_id", "ID must be a ULID."); private static IResult Unauthorized() => Problem(401, "local_session_required", "A local profile session is required."); private static IResult NotFound(string resource) => Problem(404, $"{resource}_not_found", "The resource does not exist."); private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
-    private static WorkflowTemplateContract ToContract(WorkflowTemplateCatalogRecord x) => new(x.Id, x.Name, x.Description, x.CurrentVersionId, x.CreatedAt);
+    private static WorkflowTemplateContract ToContract(WorkflowTemplateCatalogRecord x) => new(x.Id, x.Name, x.Description, x.CurrentVersionId, x.State, x.ArchivedAt, x.CreatedAt);
     private static WorkflowVersionContract ToContract(WorkflowVersionCatalogRecord x) => new(x.Id, x.TemplateId, x.Version, x.Phases, x.GatesByPhase,
         JsonSerializer.Deserialize<Dictionary<string, WorkflowPhaseConfigContract>>(x.PhaseConfigsJson) ?? [],
-        x.DefaultOperationMode, JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(x.TransitionsJson) ?? [], x.Changelog, x.PublishedAt);
+        x.DefaultOperationMode, JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(x.TransitionsJson) ?? [], x.Changelog, x.State, x.PublishedAt, x.ArchivedAt);
     private static WorkflowContract ToContract(WorkflowBindingCatalogRecord x) => new(x.Id, x.ProjectId, x.TemplateId, x.ActiveVersionId, x.OperationMode, x.SemiautonomousPauseGates, x.RiskAcceptances.Select(a => new WorkflowRiskAcceptanceContract(a.Mode, a.AcceptedByProfileId, a.Note, a.AcceptedAt)).ToArray(), x.CreatedAt);
     private static WorkflowRunContract ToContract(WorkflowRunCatalogRecord x) => new(x.Id, x.WorkflowId, x.VersionId, x.State, x.StartedAt, x.FinishedAt);
     private static PhaseContract ToContract(WorkflowPhaseCatalogRecord x) => new(x.Id, x.RunId, x.Name, x.Order, x.State, x.StartedAt, x.FinishedAt);

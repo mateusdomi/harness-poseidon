@@ -6,8 +6,8 @@ public sealed class WorkflowContractDriftTests
 {
     private static readonly Dictionary<string, string[]> Schemas = new(StringComparer.Ordinal)
     {
-        ["WorkflowTemplateContract"] = ["id", "name", "description", "currentVersionId", "createdAt"],
-        ["WorkflowVersionContract"] = ["id", "templateId", "version", "phases", "gatesByPhase", "phaseConfigs", "defaultOperationMode", "transitions", "changelog", "publishedAt"],
+        ["WorkflowTemplateContract"] = ["id", "name", "description", "currentVersionId", "state", "archivedAt", "createdAt"],
+        ["WorkflowVersionContract"] = ["id", "templateId", "version", "phases", "gatesByPhase", "phaseConfigs", "defaultOperationMode", "transitions", "changelog", "state", "publishedAt", "archivedAt"],
         ["WorkflowContract"] = ["id", "projectId", "templateId", "activeVersionId", "operationMode", "semiautonomousPauseGates", "riskAcceptances", "createdAt"],
         ["WorkflowRunContract"] = ["id", "workflowId", "versionId", "state", "startedAt", "finishedAt"],
         ["PhaseContract"] = ["id", "runId", "name", "order", "state", "startedAt", "finishedAt"],
@@ -20,7 +20,9 @@ public sealed class WorkflowContractDriftTests
         var root = Root(); using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "contracts", "openapi.json"))); var api = document.RootElement; var paths = api.GetProperty("paths");
         Methods(paths, "/api/v1/workflow-templates", "get", "post"); Methods(paths, "/api/v1/workflow-templates/{id}", "get");
         Methods(paths, "/api/v1/workflow-templates/{id}/versions", "post");
-        Methods(paths, "/api/v1/workflow-versions", "get"); Methods(paths, "/api/v1/workflow-versions/{id}", "get");
+        Methods(paths, "/api/v1/workflow-templates/{id}/drafts", "post");
+        Methods(paths, "/api/v1/workflow-versions", "get"); Methods(paths, "/api/v1/workflow-versions/{id}", "get", "patch");
+        Methods(paths, "/api/v1/workflow-versions/{id}/publish", "post");
         Methods(paths, "/api/v1/workflows", "get", "post"); Methods(paths, "/api/v1/workflows/{id}", "get");
         Methods(paths, "/api/v1/workflows/{id}/operation-mode", "post");
         Methods(paths, "/api/v1/workflow-runs", "get", "post"); Methods(paths, "/api/v1/workflow-runs/{id}", "get");

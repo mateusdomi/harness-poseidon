@@ -65,6 +65,17 @@ public static class BoardWorkflowProjectionBehavior
 
         // Catálogo de workflows: definição publicada pela autoridade projeta como template;
         // binding registra aceite; troca de modo grava nova aceitação.
+        var draftTemplateId = UlidValue.New(now.AddMilliseconds(19)).ToString();
+        var draft = await workflowCatalog.CreateTemplateAsync(
+            new WorkflowTemplateCreateCommand(
+                tenantId, draftTemplateId, "Rascunho provider-neutral", string.Empty,
+                profileId, now.AddMilliseconds(19)),
+            cancellationToken);
+        Assert.Equal("draft", draft.State);
+        Assert.Null(draft.CurrentVersionId);
+        Assert.Equal("draft", (await workflowCatalog.GetTemplateAsync(
+            tenantId, draftTemplateId, cancellationToken))!.State);
+
         var templateId = UlidValue.New(now.AddMilliseconds(20)).ToString();
         var versionId = UlidValue.New(now.AddMilliseconds(21)).ToString();
         var creation = Harness.Modules.Workflows.Application.WorkflowCatalogApplicationService
@@ -104,6 +115,41 @@ public static class BoardWorkflowProjectionBehavior
             tenantId, creation.TemplateId, cancellationToken);
         Assert.NotNull(template);
         Assert.NotNull(template!.CurrentVersionId);
+        var draftVersionId = UlidValue.New(now.AddMilliseconds(23)).ToString();
+        var draftCreation = Harness.Modules.Workflows.Application.WorkflowCatalogApplicationService
+            .CreateDraftVersion(
+                template.Id,
+                draftVersionId,
+                new Harness.Modules.Workflows.Contracts.WorkflowDraftRequest(
+                    ["Fase A", "Fase B"],
+                    new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+                    {
+                        ["Fase B"] = ["Aprovação de Homologação"],
+                    }),
+                now.AddMilliseconds(23));
+        var draftPhases = draftCreation.Hierarchy.Phases
+            .Select(phase => new WorkflowPhaseCreateInput(
+                phase.Id, phase.Key, phase.Name, phase.Order,
+                phase.Objectives
+                    .Select(objective => new WorkflowObjectiveCreateInput(
+                        objective.Id, objective.Key, objective.Name, objective.Kind, objective.Weight))
+                    .ToArray(),
+                phase.Gates
+                    .Select(gate => new WorkflowGateCreateInput(
+                        gate.Id, gate.ObjectiveId, gate.Key, gate.Name,
+                        gate.MinimumRequiredState, gate.RequiredObjectiveIds))
+                    .ToArray()))
+            .ToArray();
+        var draftVersion = await workflowCatalog.CreateDraftAsync(
+            new WorkflowVersionDraftCreateCommand(
+                tenantId, template.Id, draftVersionId, draftPhases, "{}", null, "{}", null,
+                now.AddMilliseconds(23)),
+            cancellationToken);
+        Assert.Equal(2, draftVersion.Version);
+        Assert.Equal("draft", draftVersion.State);
+        Assert.Null(draftVersion.PublishedAt);
+        Assert.Equal(template.CurrentVersionId, (await workflowCatalog.GetTemplateAsync(
+            tenantId, template.Id, cancellationToken))!.CurrentVersionId);
         var workflowId = UlidValue.New(now.AddMilliseconds(8)).ToString();
         var binding = await workflowCatalog.CreateBindingAsync(
             new WorkflowBindingCreateCommand(

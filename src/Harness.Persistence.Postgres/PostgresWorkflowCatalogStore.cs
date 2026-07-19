@@ -11,8 +11,9 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
 {
     private const string TemplateSelect =
         "SELECT d.tenant_id,d.id,d.name,d.description," +
-        "(SELECT v.id FROM harness.workflow_definition_versions v WHERE v.definition_id=d.id AND v.status='published' ORDER BY v.version DESC LIMIT 1)," +
-        "d.created_at FROM harness.workflow_definitions d";
+        "(SELECT v.id FROM harness.workflow_definition_versions v WHERE v.definition_id=d.id AND v.status='published' AND v.archived_at IS NULL ORDER BY v.version DESC LIMIT 1)," +
+        "CASE WHEN d.archived_at IS NOT NULL THEN 'archived' WHEN EXISTS(SELECT 1 FROM harness.workflow_definition_versions p WHERE p.definition_id=d.id AND p.status='published') THEN 'published' ELSE 'draft' END," +
+        "d.archived_at,d.created_at FROM harness.workflow_definitions d";
     private const string RunSelect =
         "SELECT tenant_id,id,workflow_id,definition_version_id,state,created_at,started_at,completed_at,version " +
         "FROM harness.workflow_runs";
@@ -58,6 +59,13 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
         return await reader.ReadAsync(cancellationToken) ? ReadTemplate(reader) : null;
     }
 
+    public Task<WorkflowTemplateCatalogRecord> CreateTemplateAsync(
+        WorkflowTemplateCreateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return CreateTemplateCoreAsync(command, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<WorkflowVersionCatalogRecord>> ListVersionsAsync(
         string tenantId, string? templateId, string? afterId, int limit,
         CancellationToken cancellationToken = default)
@@ -68,7 +76,7 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
         {
             query.CommandText =
                 "SELECT id FROM harness.workflow_definition_versions WHERE tenant_id=$1 " +
-                "AND status='published' AND ($2 IS NULL OR definition_id=$2) " +
+                "AND ($2 IS NULL OR definition_id=$2) " +
                 "AND ($3 IS NULL OR id>$3) ORDER BY id LIMIT $4;";
             query.Parameters.Add(Text(tenantId));
             query.Parameters.Add(NullableText(templateId));
@@ -299,13 +307,15 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
         string? defaultMode;
         string transitions;
         string? changelog;
-        DateTimeOffset published;
+        string status;
+        DateTimeOffset? published;
+        DateTimeOffset? archived;
         await using (var query = connection.CreateCommand())
         {
             query.CommandText =
                 "SELECT definition_id,version,phase_configs_json::text,default_operation_mode," +
-                "transitions_json::text,changelog,published_at FROM harness.workflow_definition_versions " +
-                "WHERE tenant_id=$1 AND id=$2 AND status='published';";
+                "transitions_json::text,changelog,status,published_at,archived_at FROM harness.workflow_definition_versions " +
+                "WHERE tenant_id=$1 AND id=$2;";
             query.Parameters.Add(Text(tenant));
             query.Parameters.Add(Text(id));
             await using var reader = await query.ExecuteReaderAsync(cancellationToken);
@@ -320,7 +330,9 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
             defaultMode = reader.IsDBNull(3) ? null : reader.GetString(3);
             transitions = reader.GetString(4);
             changelog = reader.IsDBNull(5) ? null : reader.GetString(5);
-            published = reader.GetFieldValue<DateTimeOffset>(6);
+            status = reader.GetString(6);
+            published = reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7);
+            archived = reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8);
         }
 
         var phases = new List<string>();
@@ -359,7 +371,7 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
         }
 
         return new(tenant, id, template, version, phases, gates, phaseConfigs, defaultMode,
-            transitions, changelog, published);
+            transitions, changelog, archived is null ? status : "archived", published, archived);
     }
 
     private static async Task<WorkflowBindingCatalogRecord?> ReadBindingAsync(
@@ -473,7 +485,8 @@ public sealed partial class PostgresWorkflowCatalogStore(NpgsqlDataSource dataSo
     private static WorkflowTemplateCatalogRecord ReadTemplate(NpgsqlDataReader reader) => new(
         reader.GetString(0).TrimEnd(), reader.GetString(1).TrimEnd(), reader.GetString(2),
         reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetString(4).TrimEnd(),
-        reader.GetFieldValue<DateTimeOffset>(5));
+        reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetFieldValue<DateTimeOffset>(6),
+        reader.GetFieldValue<DateTimeOffset>(7));
 
     private static WorkflowRunCatalogRecord ReadRun(NpgsqlDataReader reader)
     {
