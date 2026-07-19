@@ -102,6 +102,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
         builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
         builder.Services.AddSingleton<ISignedLicenseStore, SqliteSignedLicenseStore>();
+        builder.Services.AddSingleton<IChannelLinkStore, SqliteChannelLinkStore>();
         builder.Services.AddSingleton<RunTargetDetector>();
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();
         builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<RunTargetProcessSupervisor>());
@@ -222,6 +223,7 @@ public static class HostApplication
         app.MapLicensing();
         app.MapSignedLicenses();
         app.MapConversations();
+        app.MapChannels();
         app.MapWorkBoard();
         app.MapSolicitationAttachments();
         app.MapWorkflowCatalog();

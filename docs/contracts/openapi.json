@@ -6243,6 +6243,237 @@
                 }
             }
         },
+        "/api/v1/channels/links": {
+            "get": {
+                "tags": [
+                    "channels"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChannelLinkPage"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "channels"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateChannelLinkRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChannelLinkContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/channels/links/{linkId}/messages": {
+            "post": {
+                "tags": [
+                    "channels"
+                ],
+                "parameters": [
+                    {
+                        "name": "linkId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChannelMessageRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChannelMessageReceipt"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "channels"
+                ],
+                "parameters": [
+                    {
+                        "name": "linkId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "afterMessageId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChannelMessagePage"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/solicitations": {
             "get": {
                 "tags": [
@@ -10926,6 +11157,139 @@
                     }
                 }
             },
+            "ChannelLinkContract": {
+                "required": [
+                    "id",
+                    "kind",
+                    "externalIdentity",
+                    "projectId",
+                    "conversationId",
+                    "linkedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "externalIdentity": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "conversationId": {
+                        "type": "string"
+                    },
+                    "linkedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ChannelLinkPage": {
+                "required": [
+                    "items",
+                    "nextCursor"
+                ],
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ChannelLinkContract"
+                        }
+                    },
+                    "nextCursor": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "ChannelMessageContract": {
+                "required": [
+                    "id",
+                    "authorRole",
+                    "content",
+                    "createdAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "authorRole": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ChannelMessagePage": {
+                "required": [
+                    "items",
+                    "nextCursor"
+                ],
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ChannelMessageContract"
+                        }
+                    },
+                    "nextCursor": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "ChannelMessageReceipt": {
+                "required": [
+                    "turnId",
+                    "conversationId",
+                    "deduplicated"
+                ],
+                "type": "object",
+                "properties": {
+                    "turnId": {
+                        "type": "string"
+                    },
+                    "conversationId": {
+                        "type": "string"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ChannelMessageRequest": {
+                "required": [
+                    "externalMessageId",
+                    "content"
+                ],
+                "type": "object",
+                "properties": {
+                    "externalMessageId": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
             "ChatTurnHandle": {
                 "required": [
                     "turnId",
@@ -11132,6 +11496,26 @@
                             "string"
                         ],
                         "format": "date-time"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "CreateChannelLinkRequest": {
+                "required": [
+                    "kind",
+                    "externalIdentity",
+                    "projectId"
+                ],
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string"
+                    },
+                    "externalIdentity": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
                     }
                 },
                 "additionalProperties": false
@@ -15789,6 +16173,9 @@
         },
         {
             "name": "messages"
+        },
+        {
+            "name": "channels"
         },
         {
             "name": "solicitations"

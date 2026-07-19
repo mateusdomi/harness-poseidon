@@ -5,7 +5,7 @@ Atualizado em: 2026-07-19T02:00:00Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: Fases 3, 4, 5 e 6 tecnicamente avançadas nesta sessão (F3-1..4, F4-1, F5-1, F6-1 verdes); GNG-3 aguarda validações humanas (smoke Codex real + homologação visual).
+- Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes (F7-1 Launcher+publish, F8-1 licença Ed25519, F9-1 gateway de canais); smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
 - Último commit remoto validado: `a5a808d`+F5-1 (`develop`); 209 testes backend verdes, format limpo, zero warnings.
 - Próximo passo exato: (a) validações humanas pendentes — smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`, Host em modo docker, consome cota — decidir momento com o usuário), executar E2E do frontend contra a API real e preparar a homologação humana do GNG-3; o GNG-3 não é declarado sem aceite humano registrado. Trabalho independente restante do roadmap: F7 empacotamento desktop → F8 licenciamento assinado (Ed25519/offline/revogação), F9 canais (terminal→Telegram), F10 servidor multiusuário, F11 hardening; camadas restantes de detecção F6 (Docker/Compose/Java) registradas em `evidence/F6-RUN-PROJECT-STACKS.md`.
