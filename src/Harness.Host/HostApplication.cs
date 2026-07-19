@@ -103,6 +103,10 @@ public static class HostApplication
         builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
         builder.Services.AddSingleton<ISignedLicenseStore, SqliteSignedLicenseStore>();
         builder.Services.AddSingleton<IChannelLinkStore, SqliteChannelLinkStore>();
+        builder.Services.AddSingleton(builder.Configuration
+            .GetSection("Harness:Channels:Telegram")
+            .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());
+        builder.Services.AddHostedService<TelegramChannelBackgroundService>();
         builder.Services.AddSingleton<RunTargetDetector>();
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();
         builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<RunTargetProcessSupervisor>());
