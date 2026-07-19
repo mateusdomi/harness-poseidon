@@ -21,6 +21,7 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 - **Repudiation**: `audit_ledger` append-only com hash encadeado (`AuditLedgerHash`), integridade verificada em teste.
 - **Information disclosure**: RBAC (admin/member) + ABAC (posse do perfil); role e external_subject não são expostos no contrato HTTP; erros de execução sanitizados antes de persistir.
 - **DoS**: rate limit por IP no modo servidor (FixedWindow, 429), limites de payload dos uploads, `QueueLimit=0`.
+- **Browser hardening**: `SecurityHeadersMiddleware` (primeiro do pipeline) aplica a toda resposta CSP restritiva (`default-src 'self'`, `script-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Content-Type-Options=nosniff`, `X-Frame-Options=DENY`, `Referrer-Policy=no-referrer`, `Permissions-Policy` mínima, COOP/CORP `same-origin` e HSTS **apenas** sobre TLS; cookie de sessão `HttpOnly`+`SameSite=Strict`+`Secure` quando HTTPS. **CORS default-deny**: nenhuma política permissiva habilitada — origem externa não recebe `Access-Control-Allow-Origin` (testado).
 - **Elevation of privilege**: `AutonomousActionGuard` nega as 7 ações invioláveis a atores automatizados em todos os modos; aprovação forjada negada; gates de workflow não-contornáveis (409/400 testados).
 
 ### Canais externos
@@ -46,7 +47,7 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 
 1. **Semântica divergente PG×SQLite em WorkChain** (`gate.changed` vs `task.stateChanged`, payload do Finalize) — registrada na onda 5; unificação planejada.
 2. **Hub de eventos no modo pessoal é aberto no loopback** — aceitável para desktop single-user; no modo OIDC o hub exige bearer.
-3. **SAST**: a esteira usa os analisadores do .NET (CA*/IDE*) com `TreatWarningsAsErrors` — não há scanner externo dedicado; adição de ferramenta externa fica a critério de operação.
+3. **SAST/dependências**: a esteira usa os analisadores do .NET (CA*/IDE*) com `TreatWarningsAsErrors` e `NuGetAudit=all` (auditoria de vulnerabilidades de pacotes diretos e transitivos no restore) — não há scanner SAST externo dedicado; adição de ferramenta externa fica a critério de operação.
 4. **Flakiness de containers PG concorrentes** — mitigada com janela de health dobrada (60s); reavaliar se recorrer.
 
 ## SBOM

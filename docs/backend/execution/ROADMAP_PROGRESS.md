@@ -1,8 +1,8 @@
 # Progresso auditável do roadmap — Harness Poseidon backend
 
-Atualizado em: 2026-07-19. Fonte: `git` (`origin/develop` @ `47d4412`), evidências em
+Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(226/226 testes backend, build Release 0 warnings/0 erros, frontend buildado) reproduzida nesta sessão.
+(230/230 testes backend, build Release 0 warnings/0 erros, frontend buildado) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -48,21 +48,21 @@ Total: **100**.
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
 | F9 | 70 | 70 | 65 | 0 | Gateway (terminal) + adaptador Telegram (long polling, dedupe, linking, resposta na origem) verdes com Telegram fake. **Faltam** Teams (ordem terminal→Telegram→Teams) e o smoke real do bot (depende de token). |
 | F10 | 100 | 97 | 95 | 0 | Paridade PG completa (31 stores duais, 34 migrations), modo servidor, multiusuário, rate limit, carga 30 usuários, RBAC/ABAC e maquinaria OIDC com IdP fake. **Lacuna**: smoke OIDC com Entra ID **real** (externo, não validável sem credenciais). |
-| F11 | 25 | 25 | 25 | 0 | F11-1 verde: threat model STRIDE, SBOM (28 proj/77 pkgs), upgrade de qualquer prefixo de migrations, caça a flake real. **Faltam**: scanning dedicado de dependências/segredos, migração SQLite→PostgreSQL, testes de isolamento/recuperação/upgrade/carga formais, headers/cookies/CORS, backup/restore de release, runbooks e docs de instalação/operação, a11y/E2E, DoD global. |
+| F11 | 32 | 32 | 32 | 0 | F11-1 verde (threat model STRIDE, SBOM 28/77, upgrade de qualquer prefixo de migrations, caça a flake real) + F11-2 verde (security headers/CSP/cookie Secure/CORS default-deny). Auditoria de dependências já ativa via `NuGetAudit=all`. **Faltam**: scanning de segredos dedicado, migração SQLite→PostgreSQL, testes formais de isolamento/recuperação/upgrade/backup-restore/carga, runbooks e docs de instalação/operação, a11y/E2E, DoD global. |
 
 ## 4. Cálculo por dimensão
 
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.70)+(7·0.85)+(6·1.00)+(5·0.70)+(8·1.00)+(5·0.25)`
-`= 5+12+25+8+6+5+5.60+5.95+6+3.50+8+1.25 = 91.30` → **91.3% (num 91.30 / den 100)**
+`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.70)+(7·0.85)+(6·1.00)+(5·0.70)+(8·1.00)+(5·0.32)`
+`= 5+12+25+8+6+5+5.60+5.95+6+3.50+8+1.60 = 91.65` → **91.7% (num 91.65 / den 100)**
 
 ### Validado
-`5+12+25+8+6+5+5.60+5.95+6+3.50+(8·0.97=7.76)+1.25 = 91.06` → **91.1% (num 91.06 / den 100)**
+`5+12+25+8+6+5+5.60+5.95+6+3.50+(8·0.97=7.76)+1.60 = 91.41` → **91.4% (num 91.41 / den 100)**
 
 ### Integrado
-`5+12+(25·0.88=22.00)+8+6+5+5.60+5.95+6+(5·0.65=3.25)+(8·0.95=7.60)+1.25 = 87.65` → **87.7% (num 87.65 / den 100)**
+`5+12+(25·0.88=22.00)+8+6+5+5.60+5.95+6+(5·0.65=3.25)+(8·0.95=7.60)+1.60 = 88.00` → **88.0% (num 88.00 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,16 +70,17 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·91.06 + 0.30·87.65 + 0.20·0 = 45.53 + 26.30 + 0.00 = 71.83`
-→ **≈ 71.8%**
+`= 0.50·91.41 + 0.30·88.00 + 0.20·0 = 45.705 + 26.40 + 0.00 = 72.105`
+→ **≈ 72.1%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
 Independentes (trabalho técnico que prossegue sem terceiros):
 
-1. **F11** (maior lacuna, ~75% aberto): scanning de dependências/segredos, teste de migração
-   SQLite→PostgreSQL, hardening de headers/cookies/CORS, testes formais de isolamento/upgrade/
-   backup-restore/carga/regressão, runbook de incidentes, docs de instalação/operação, DoD global.
+1. **F11** (maior lacuna, ~68% aberto): scanning de segredos dedicado, teste de migração
+   SQLite→PostgreSQL, testes formais de isolamento/upgrade/backup-restore/carga/regressão,
+   runbook de incidentes, docs de instalação/operação, DoD global. (Headers/cookies/CORS e
+   auditoria de dependências via NuGetAudit já verdes.)
 2. **F6**: detecção Docker/Compose/Java e fallback por agente.
 3. **F9**: adaptador Teams + testes fake.
 4. **F7**: fluxo de atualização e desinstalação segura.

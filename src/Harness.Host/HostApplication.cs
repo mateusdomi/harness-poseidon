@@ -17,6 +17,7 @@ using Harness.Host.Providers;
 using Harness.Host.Prototyping;
 using Harness.Host.Realtime;
 using Harness.Host.RunTargets;
+using Harness.Host.Security;
 using Harness.Host.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Harness.Host.WorkBoard;
@@ -112,6 +113,9 @@ public static class HostApplication
                     out var permits) && permits > 0 ? permits : 600
                 : 0);
         builder.Services.AddSingleton(serverOptions);
+        builder.Services.AddSingleton(
+            builder.Configuration.GetSection("Harness:Security:Headers").Get<SecurityHeadersOptions>()
+            ?? new SecurityHeadersOptions());
         if (oidc.Enabled)
         {
             builder.Services.AddSingleton(oidc);
@@ -335,6 +339,7 @@ public static class HostApplication
                 }));
 
         var app = builder.Build();
+        app.UseMiddleware<SecurityHeadersMiddleware>();
         if (frontendPath is not null)
         {
             var frontendFiles = new PhysicalFileProvider(frontendPath);
