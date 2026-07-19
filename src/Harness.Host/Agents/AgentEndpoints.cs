@@ -19,6 +19,8 @@ public static class AgentEndpoints
         var agents = endpoints.MapGroup("/api/v1/agents").WithTags("agents");
         agents.MapGet("/", ListAgentsAsync).Produces<AgentPage>().ProducesProblem(400).ProducesProblem(401);
         agents.MapGet("/{agentId}", GetAgentAsync).Produces<AgentContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        agents.MapPatch("/{agentId}/selection", UpdateSelectionAsync).Produces<AgentContract>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
 
         var organization = endpoints.MapGroup("/api/v1/projects").WithTags("agents");
         organization.MapGet("/{projectId}/agent-org-chart", GetOrgChartAsync)
@@ -143,6 +145,30 @@ public static class AgentEndpoints
         return value is null ? NotFound("agent") : Results.Ok(ToContract(value));
     }
 
+    private static async Task<IResult> UpdateSelectionAsync(
+        string agentId, AgentSelectionRequest input, HttpRequest request, ILocalProfileStore profiles,
+        IAgentCatalogStore store, IClock clock, CancellationToken token)
+    {
+        if (!UlidValue.TryParse(agentId, out _) || !UlidValue.TryParse(input.AccountId, out _) ||
+            !UlidValue.TryParse(input.ModelId, out _) ||
+            input.FallbackModelIds.Any(value => !UlidValue.TryParse(value, out _)))
+            return InvalidId("selection_resource");
+        if (string.IsNullOrWhiteSpace(input.Reason))
+            return Problem(400, "invalid_agent_selection", "Selection reason is required.");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var value = await store.UpdateSelectionAsync(new(profile.TenantId, agentId, profile.Id,
+                input.AccountId, input.ModelId, input.Effort, input.FallbackModelIds,
+                input.Reason.Trim(), clock.UtcNow), token);
+            return Results.Ok(ToContract(value));
+        }
+        catch (AgentSelectionNotFoundException e) { return NotFound(e.Resource); }
+        catch (AgentSelectionValidationException e) { return Problem(400, "invalid_agent_selection", e.Message); }
+        catch (AgentSelectionConflictException e) { return Problem(409, "agent_selection_conflict", e.Message); }
+    }
+
     private static async Task<IResult> GetOrgChartAsync(
         string projectId, HttpRequest request, ILocalProfileStore profiles,
         IProjectStore projects, IAgentCatalogStore agents, CancellationToken token)
@@ -214,7 +240,8 @@ public static class AgentEndpoints
         value.Lease is null ? null : new AgentLeaseContract(value.Lease.FencingToken, value.Lease.ExpiresAt),
         new AgentMetricsContract(value.Metrics.TasksCompleted, value.Metrics.TokensInput,
             value.Metrics.TokensOutput, value.Metrics.CostUsd, value.Metrics.UptimeMs),
-        value.LastHeartbeatAt);
+        value.LastHeartbeatAt, value.AccountId, value.Effort, value.ProviderEffortValue,
+        value.FallbackModelIds ?? [], value.SelectionReason, value.SelectionUpdatedAt);
 
     private static IResult InvalidCursor() => Problem(400, "invalid_cursor", "Cursor or limit is invalid.");
     private static IResult InvalidId(string resource) => Problem(400, $"invalid_{resource}_id", $"{resource} ID must be a ULID.");
@@ -232,7 +259,9 @@ public sealed record AgentLeaseContract(long FencingToken, DateTimeOffset Expire
 public sealed record AgentContract(
     string Id, string DefinitionId, string? ProjectId, string Name, string State,
     string? CurrentTaskId, string? ModelId, AgentLeaseContract? Lease,
-    AgentMetricsContract Metrics, DateTimeOffset? LastHeartbeatAt);
+    AgentMetricsContract Metrics, DateTimeOffset? LastHeartbeatAt, string? AccountId,
+    string? Effort, string? ProviderEffortValue, IReadOnlyList<string> FallbackModelIds,
+    string? SelectionReason, DateTimeOffset? SelectionUpdatedAt);
 public sealed record AgentPage(IReadOnlyList<AgentContract> Items, string? NextCursor);
 public sealed record AgentOrgChartContract(
     string ProjectId, string? RootAgentId, IReadOnlyList<AgentOrgChartNodeContract> Nodes);
@@ -243,3 +272,6 @@ public sealed record AgentOrgChartNodeContract(
     AgentMetricsContract Metrics);
 public sealed record HandoffChiefRequest(string? TargetDefinitionId, string? TargetModelId, string Note);
 public sealed record DrainChiefRequest(string? Note);
+public sealed record AgentSelectionRequest(
+    string AccountId, string ModelId, string Effort, IReadOnlyList<string> FallbackModelIds,
+    string Reason);

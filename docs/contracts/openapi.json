@@ -1565,6 +1565,85 @@
                 }
             }
         },
+        "/api/v1/agents/{agentId}/selection": {
+            "patch": {
+                "tags": [
+                    "agents"
+                ],
+                "parameters": [
+                    {
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AgentSelectionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectId}/agent-org-chart": {
             "get": {
                 "tags": [
@@ -11664,7 +11743,13 @@
                     "modelId",
                     "lease",
                     "metrics",
-                    "lastHeartbeatAt"
+                    "lastHeartbeatAt",
+                    "accountId",
+                    "effort",
+                    "providerEffortValue",
+                    "fallbackModelIds",
+                    "selectionReason",
+                    "selectionUpdatedAt"
                 ],
                 "type": "object",
                 "properties": {
@@ -11712,6 +11797,43 @@
                         "$ref": "#/components/schemas/AgentMetricsContract"
                     },
                     "lastHeartbeatAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "accountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "effort": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "providerEffortValue": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "fallbackModelIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "selectionReason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "selectionUpdatedAt": {
                         "type": [
                             "null",
                             "string"
@@ -12003,6 +12125,36 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "AgentSelectionRequest": {
+                "required": [
+                    "accountId",
+                    "modelId",
+                    "effort",
+                    "fallbackModelIds",
+                    "reason"
+                ],
+                "type": "object",
+                "properties": {
+                    "accountId": {
+                        "type": "string"
+                    },
+                    "modelId": {
+                        "type": "string"
+                    },
+                    "effort": {
+                        "type": "string"
+                    },
+                    "fallbackModelIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "reason": {
+                        "type": "string"
                     }
                 }
             },

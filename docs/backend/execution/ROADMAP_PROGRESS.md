@@ -82,8 +82,8 @@ Independentes (trabalho técnico que prossegue sem terceiros):
    providers/contas/modelos/esforço. O ciclo administrativo de contas (criação por referência de
    segredo, identidade, plano, autenticação, saúde, capacidades, janela/reset, estado, limite de
    cota e remoção segura) já está verde nos dois providers; ainda faltam o catálogo/configuração
-   avançada de modelos e a seleção persistida por agente. O catálogo de esforço já possui níveis
-   canônicos e mapeamento explícito por provider/modelo. O ciclo FR-4 de
+   avançada de modelos. Seleção persistida de conta/modelo/effort/fallback por agente e o catálogo
+   de esforço com mapeamento explícito por provider/modelo já estão verdes. O ciclo FR-4 de
    workflows está completo (draft, PATCH, validação,
    publicação, tombstones, exclusão, duplicação e vínculo por projeto). No quadro, arquivamento
    backend está verde e busca/filtros, paginação, lote e CSV Excel-compatible já são client-side;
@@ -108,8 +108,8 @@ v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão
 são client-side por D-063/D-073/D-075. O read-model tenant-scoped de organograma v3 §8.10 também
 está **implementado/validado/integrado**. Em §8.13, criação, PATCH e remoção segura de contas estão
 **implementados/validados/integrados** com paridade SQLite/PostgreSQL, incluindo os metadados
-operacionais. O catálogo de effort tipado por modelo está verde; seleção por agente e CRUD
-avançado de modelos continuam parciais. O FR-4 de workflows (draft, cópia, edição,
+operacionais. O catálogo de effort tipado e a seleção por agente estão verdes; CRUD avançado de
+modelos continua parcial. O FR-4 de workflows (draft, cópia, edição,
 validação, publicação imutável,
 tombstones, exclusão restrita, duplicação e vínculo por projeto) está
 **implementado/validado/integrado** nos dois providers. Os demais itens seguem em auditoria

@@ -90,5 +90,20 @@ public static class CatalogStoreBehavior
                 DateTimeOffset.Parse("2026-07-19T12:02:00Z", System.Globalization.CultureInfo.InvariantCulture)),
             cancellationToken);
         Assert.Null(await providers.GetAccountAsync(tenantId, disposableAccountId, cancellationToken));
+
+        _ = await providers.UpdateAsync(new ProviderCatalogUpdateCommand(
+            tenantId, tenantId, "accounts", account.Id, "{\"state\":\"active\"}",
+            DateTimeOffset.Parse("2026-07-19T12:03:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        var tenantAgents = await agents.ListAgentsAsync(tenantId, null, null, 50, cancellationToken);
+        if (tenantAgents.Count > 0)
+        {
+            var compatibleModels = models.Where(value => value.ProviderId == account.ProviderId && value.Enabled).ToArray();
+            var selected = await agents.UpdateSelectionAsync(new AgentSelectionCommand(
+                tenantId, tenantAgents[0].Id, tenantId, account.Id, compatibleModels[0].Id,
+                "max", [compatibleModels[1].Id], "Provider-neutral selection.",
+                DateTimeOffset.Parse("2026-07-19T12:04:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+            Assert.Equal("max", selected.Effort);
+            Assert.NotNull(selected.ProviderEffortValue);
+        }
     }
 }

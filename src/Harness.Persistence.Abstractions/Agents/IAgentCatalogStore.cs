@@ -22,6 +22,10 @@ public interface IAgentCatalogStore
         string? afterId,
         int limit,
         CancellationToken cancellationToken = default);
+
+    Task<AgentRecord> UpdateSelectionAsync(
+        AgentSelectionCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record AgentDefinitionRecord(
@@ -55,4 +59,21 @@ public sealed record AgentRecord(
     string? ModelId,
     AgentLeaseRecord? Lease,
     AgentMetricsRecord Metrics,
-    DateTimeOffset? LastHeartbeatAt);
+    DateTimeOffset? LastHeartbeatAt,
+    string? AccountId = null,
+    string? Effort = null,
+    string? ProviderEffortValue = null,
+    IReadOnlyList<string>? FallbackModelIds = null,
+    string? SelectionReason = null,
+    DateTimeOffset? SelectionUpdatedAt = null);
+
+public sealed record AgentSelectionCommand(
+    string TenantId, string AgentId, string ActorProfileId, string AccountId, string ModelId,
+    string Effort, IReadOnlyList<string> FallbackModelIds, string Reason, DateTimeOffset OccurredAt);
+
+public sealed class AgentSelectionNotFoundException(string resource) : Exception(resource)
+{
+    public string Resource { get; } = resource;
+}
+public sealed class AgentSelectionValidationException(string detail) : Exception(detail);
+public sealed class AgentSelectionConflictException(string detail) : Exception(detail);

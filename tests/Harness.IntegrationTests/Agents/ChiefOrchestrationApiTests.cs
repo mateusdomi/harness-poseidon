@@ -4,6 +4,7 @@ using Harness.Host;
 using Harness.Host.Agents;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
+using Harness.Host.Providers;
 using Harness.Host.Projects;
 using Harness.Host.Realtime;
 using Harness.Modules.Coordination.Contracts;
@@ -117,6 +118,19 @@ public sealed class ChiefOrchestrationApiTests
                     Assert.Null(orgChart?.Nodes[0].ParentAgentId);
                     Assert.Equal(newChiefId, orgChart?.Nodes[1].ParentAgentId);
                     Assert.Equal([0, 1], orgChart?.Nodes.Select(node => node.Level));
+
+                    var accounts = (await client.GetFromJsonAsync<AccountPage>("/api/v1/accounts", timeout.Token))!;
+                    var models = (await client.GetFromJsonAsync<ModelPage>("/api/v1/models", timeout.Token))!;
+                    var account = accounts.Items.Single(value => value.State == "active");
+                    var compatible = models.Items.Where(value => value.ProviderId == account.ProviderId && value.Enabled).ToArray();
+                    using (var selection = await client.PatchAsJsonAsync($"/api/v1/agents/{newChiefId}/selection",
+                        new AgentSelectionRequest(account.Id, compatible[0].Id, "max", [compatible[1].Id],
+                            "Prefer the strongest mapped effort with a compatible fallback."), timeout.Token))
+                    {
+                        selection.EnsureSuccessStatusCode(); var selected = (await selection.Content.ReadFromJsonAsync<AgentContract>(timeout.Token))!;
+                        Assert.Equal(account.Id, selected.AccountId); Assert.Equal("max", selected.Effort);
+                        Assert.Equal("xhigh", selected.ProviderEffortValue); Assert.Equal([compatible[1].Id], selected.FallbackModelIds);
+                    }
 
                     await app.Services.GetRequiredService<SqliteWriteDispatcher>().ExecuteAsync(async (connection, token) =>
                     {

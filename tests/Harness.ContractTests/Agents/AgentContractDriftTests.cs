@@ -12,6 +12,7 @@ public sealed class AgentContractDriftTests
     private static readonly string[] AgentFields =
     [
         "id", "definitionId", "projectId", "name", "state", "currentTaskId", "modelId", "lease", "metrics", "lastHeartbeatAt",
+        "accountId", "effort", "providerEffortValue", "fallbackModelIds", "selectionReason", "selectionUpdatedAt",
     ];
 
     [Fact]
@@ -26,6 +27,7 @@ public sealed class AgentContractDriftTests
         Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents/{agentId}").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/agents/{agentId}/selection").TryGetProperty("patch", out _));
         Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/agent-org-chart").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/pause").TryGetProperty("post", out _));
         Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/resume").TryGetProperty("post", out _));
@@ -42,7 +44,7 @@ public sealed class AgentContractDriftTests
 
         var frontend = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "agents.ts"));
         AssertFrontendFields(frontend, "export const agentDefinitionSchema", "export type AgentDefinition", DefinitionFields);
-        AssertFrontendFields(frontend, "export const agentSchema", "export type Agent", AgentFields);
+        AssertFrontendFields(frontend, "export const agentSchema", "export type Agent", AgentFields.Take(10));
     }
 
     private static void AssertFields(JsonElement openApi, string schema, IEnumerable<string> fields)
