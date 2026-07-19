@@ -1659,6 +1659,85 @@
                 }
             }
         },
+        "/api/v1/attempts/{attemptId}/isolated-executions": {
+            "post": {
+                "tags": [
+                    "execution"
+                ],
+                "parameters": [
+                    {
+                        "name": "attemptId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartIsolatedExecutionApiRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IsolatedExecutionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/skills": {
             "get": {
                 "tags": [
@@ -11478,6 +11557,207 @@
                     }
                 }
             },
+            "IsolatedExecutionResponse": {
+                "required": [
+                    "status",
+                    "workspace",
+                    "conflicts",
+                    "execution",
+                    "finalError"
+                ],
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "workspace": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/IsolatedWorkspaceContract"
+                            }
+                        ]
+                    },
+                    "conflicts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/IsolatedScopeConflictContract"
+                        }
+                    },
+                    "execution": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/IsolatedExecutionRunContract"
+                            }
+                        ]
+                    },
+                    "finalError": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "IsolatedExecutionRunContract": {
+                "required": [
+                    "executor",
+                    "sessionId",
+                    "turnId",
+                    "structuredOutput",
+                    "durationMs"
+                ],
+                "type": "object",
+                "properties": {
+                    "executor": {
+                        "type": "string"
+                    },
+                    "sessionId": {
+                        "type": "string"
+                    },
+                    "turnId": {
+                        "type": "string"
+                    },
+                    "structuredOutput": {
+                        "type": "string"
+                    },
+                    "durationMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
+            "IsolatedScopeConflictContract": {
+                "required": [
+                    "existingAttemptId",
+                    "requestedPathPattern",
+                    "existingPathPattern"
+                ],
+                "type": "object",
+                "properties": {
+                    "existingAttemptId": {
+                        "type": "string"
+                    },
+                    "requestedPathPattern": {
+                        "type": "string"
+                    },
+                    "existingPathPattern": {
+                        "type": "string"
+                    }
+                }
+            },
+            "IsolatedWorkspaceContract": {
+                "required": [
+                    "attemptId",
+                    "taskId",
+                    "projectId",
+                    "state",
+                    "cleanupState",
+                    "branchName",
+                    "worktreePath",
+                    "scopeClaims",
+                    "owner",
+                    "fencingToken",
+                    "commitSha",
+                    "sessionId",
+                    "finalError",
+                    "createdAt",
+                    "updatedAt",
+                    "releasedAt",
+                    "version"
+                ],
+                "type": "object",
+                "properties": {
+                    "attemptId": {
+                        "type": "string"
+                    },
+                    "taskId": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "cleanupState": {
+                        "type": "string"
+                    },
+                    "branchName": {
+                        "type": "string"
+                    },
+                    "worktreePath": {
+                        "type": "string"
+                    },
+                    "scopeClaims": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "owner": {
+                        "type": "string"
+                    },
+                    "fencingToken": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "commitSha": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "sessionId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "finalError": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "releasedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
             "JsonElement": {},
             "LicenseContract": {
                 "required": [
@@ -13707,6 +13987,31 @@
                 },
                 "additionalProperties": false
             },
+            "StartIsolatedExecutionApiRequest": {
+                "required": [
+                    "instruction",
+                    "scopeClaims"
+                ],
+                "type": "object",
+                "properties": {
+                    "instruction": {
+                        "type": "string"
+                    },
+                    "scopeClaims": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "baseReference": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
             "TaskInstructionContract": {
                 "required": [
                     "id",
@@ -14514,6 +14819,9 @@
         },
         {
             "name": "agents"
+        },
+        {
+            "name": "execution"
         },
         {
             "name": "tools"

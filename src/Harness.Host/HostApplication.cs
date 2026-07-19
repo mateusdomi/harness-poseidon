@@ -2,6 +2,7 @@ using System.Net;
 using Harness.Host.Agents;
 using Harness.Host.Conversations;
 using Harness.Host.Documents;
+using Harness.Host.Execution;
 using Harness.Host.Ipc;
 using Harness.Host.Licensing;
 using Harness.Host.Governance;
@@ -21,6 +22,8 @@ using Harness.Host.Workflows;
 using Harness.Host.Tools;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.Fake;
+using Harness.Modules.Execution.Application.Sandbox;
+using Harness.Modules.Execution.Infrastructure.Sandbox;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Agents;
@@ -104,6 +107,34 @@ public static class HostApplication
         builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
         builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
         builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
+        var isolatedSettings = builder.Configuration
+            .GetSection("Harness:IsolatedExecution")
+            .Get<IsolatedExecutionSettings>() ?? new IsolatedExecutionSettings();
+        builder.Services.AddSingleton(isolatedSettings);
+        if (isolatedSettings.Mode != IsolatedExecutionMode.Disabled)
+        {
+            builder.Services.AddSingleton(isolatedSettings.ToOptions());
+            if (isolatedSettings.Mode == IsolatedExecutionMode.Fake)
+            {
+                builder.Services.AddSingleton<ISandboxProvider, FakeSandboxProvider>();
+                builder.Services.AddSingleton<ISandboxAgentExecutorFactory, FakeSandboxAgentExecutorFactory>();
+            }
+            else
+            {
+                builder.Services.AddSingleton<ISandboxProvider>(_ => new DockerSandboxProvider());
+                builder.Services.AddSingleton<ISandboxAgentExecutorFactory>(services =>
+                    new CodexCliSandboxExecutorFactory(
+                        services.GetRequiredService<IsolatedExecutionOptions>()));
+            }
+
+            builder.Services.AddSingleton(services => new IsolatedAttemptOrchestrator(
+                services.GetRequiredService<IAttemptWorkspaceStore>(),
+                services.GetRequiredService<ISandboxProvider>(),
+                services.GetRequiredService<ISandboxAgentExecutorFactory>(),
+                services.GetRequiredService<IClock>(),
+                services.GetRequiredService<IsolatedExecutionOptions>()));
+        }
+
         builder.Services.AddSingleton<IWorkflowStore, SqliteWorkflowStore>();
         builder.Services.AddSingleton<IWorkflowCatalogStore, SqliteWorkflowCatalogStore>();
         builder.Services.AddSingleton<IDocumentStore, SqliteDocumentStore>();
@@ -171,6 +202,7 @@ public static class HostApplication
         app.MapOrganizations();
         app.MapProjects();
         app.MapAgents();
+        app.MapIsolatedExecutions();
         app.MapToolCatalog();
         app.MapProviders();
         app.MapNotifications();
