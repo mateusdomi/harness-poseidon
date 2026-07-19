@@ -42,7 +42,7 @@ public sealed class DocumentApprovalRequest
 
     public EntityId<DocumentTag> DocumentId { get; }
 
-    public EntityId<DocumentVersionTag> DocumentVersionId { get; }
+    public EntityId<DocumentVersionTag> DocumentVersionId { get; internal set; }
 
     public string Title { get; }
 

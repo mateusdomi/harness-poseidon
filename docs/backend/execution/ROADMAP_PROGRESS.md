@@ -96,6 +96,7 @@ Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 ## 6. Backlog de refinamentos desta rodada (separado do roadmap base)
 
 Peso não incluído nos 100 pontos do roadmap base (v3 §6 manda manter separados). Estado auditado:
-v3 §8.7 arquivamento está **implementado/validado/integrado** no backend; busca, filtros,
-paginação, lote e CSV da mesma tela são client-side por D-063/D-073/D-075. Os demais itens seguem
-em auditoria dirigida antes de implementação, para evitar duplicar comportamento pronto.
+v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão
+**implementados/validados/integrados** no backend; busca, filtros, paginação, lote e CSV do quadro
+são client-side por D-063/D-073/D-075. Os demais itens seguem em auditoria dirigida antes de
+implementação, para evitar duplicar comportamento pronto.

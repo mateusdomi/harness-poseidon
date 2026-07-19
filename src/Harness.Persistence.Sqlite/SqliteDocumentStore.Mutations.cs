@@ -59,7 +59,7 @@ public sealed partial class SqliteDocumentStore
                 row.State,
                 row.CurrentVersion);
         }
-        else if (row.State != "in_elaboration")
+        else if (row.State is not ("in_elaboration" or "in_review" or "awaiting_approval"))
         {
             receipt = Rejected(
                 DocumentMutationStatus.InvalidState,
@@ -86,6 +86,11 @@ public sealed partial class SqliteDocumentStore
                     UPDATE documents
                     SET current_version=$contentVersion,version=$nextVersion,updated_at=$occurredAt
                     WHERE tenant_id=$tenantId AND id=$documentId AND version=$expectedVersion;
+
+                    UPDATE document_approval_requests
+                    SET document_version_id=$documentVersionId,version=version+1
+                    WHERE tenant_id=$tenantId AND document_id=$documentId AND state='pending'
+                      AND $rebindApproval=1;
                     """;
                 Add(insert, "$documentVersionId", command.DocumentVersionId);
                 Add(insert, "$tenantId", command.TenantId);
@@ -100,7 +105,10 @@ public sealed partial class SqliteDocumentStore
                 Add(insert, "$occurredAt", Store(command.OccurredAt));
                 Add(insert, "$nextVersion", nextDocumentVersion);
                 Add(insert, "$expectedVersion", command.ExpectedDocumentVersion);
-                if (await insert.ExecuteNonQueryAsync(cancellationToken) != 2)
+                var rebindApproval = row.State == "awaiting_approval";
+                Add(insert, "$rebindApproval", rebindApproval ? 1 : 0);
+                var expectedChanges = rebindApproval ? 3 : 2;
+                if (await insert.ExecuteNonQueryAsync(cancellationToken) != expectedChanges)
                 {
                     throw new InvalidOperationException(
                         "The document changed during serialized version append.");

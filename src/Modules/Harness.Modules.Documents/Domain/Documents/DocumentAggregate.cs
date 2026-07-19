@@ -114,12 +114,19 @@ public sealed class DocumentAggregate
         string? authorId)
     {
         ValidateVersionReference(catalogPath, contentHash, authorKind, authorId);
-        if (State != DocumentState.InElaboration)
+        if (State is not (DocumentState.InElaboration or DocumentState.InReview or
+            DocumentState.AwaitingApproval))
         {
             return Result<DocumentVersion>.Failure(DocumentErrors.InvalidState);
         }
 
         var version = AppendVersionCore(catalogPath, contentHash, authorKind, authorId);
+        var pendingApproval = _approvalRequests.SingleOrDefault(
+            approval => approval.State == DocumentApprovalState.Pending);
+        if (pendingApproval is not null)
+        {
+            pendingApproval.DocumentVersionId = version.Id;
+        }
         Touch();
         return Result<DocumentVersion>.Success(version);
     }

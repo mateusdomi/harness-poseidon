@@ -52,7 +52,7 @@ public sealed class DocumentAggregateTests
     }
 
     [Fact]
-    public void CorrectionCreatesNewImmutableVersionLinkedToPrevious()
+    public void ManualEditCreatesImmutableVersionsDuringElaborationAndReview()
     {
         var document = CreateDocument();
         var first = document.Versions[0];
@@ -67,11 +67,12 @@ public sealed class DocumentAggregateTests
         Assert.Equal(HashA, first.ContentHash);
         Assert.Equal("documents/spec-v1.md", first.CatalogPath);
         Assert.True(document.Transition(DocumentState.InReview).IsSuccess);
-        Assert.Equal(
-            DocumentErrors.InvalidState,
-            document.AppendVersion(
-                "documents/spec-v3.md", new string('C', 64),
-                DocumentAuthorKind.Chief, AgentId).Error);
+        var reviewed = document.AppendVersion(
+            "documents/spec-v3.md", new string('C', 64),
+            DocumentAuthorKind.User, ProfileId);
+        Assert.True(reviewed.IsSuccess);
+        Assert.Equal(3, reviewed.Value.Version);
+        Assert.Equal(appended.Value.Id, reviewed.Value.SupersedesId);
     }
 
     [Fact]
@@ -91,6 +92,10 @@ public sealed class DocumentAggregateTests
         Assert.Equal(DocumentState.AwaitingApproval, document.State);
         Assert.Equal(DocumentApprovalState.Pending, requested.Value.State);
         Assert.Equal(document.Versions[^1].Id, requested.Value.DocumentVersionId);
+        var edited = document.AppendVersion(
+            "documents/spec-v2.md", HashB, DocumentAuthorKind.User, ProfileId);
+        Assert.True(edited.IsSuccess);
+        Assert.Equal(edited.Value.Id, requested.Value.DocumentVersionId);
         Assert.Equal(
             DocumentErrors.ApprovalAlreadyPending,
             document.RequestApproval(

@@ -29,6 +29,9 @@ public sealed record CreateDocumentRequest(
 public sealed record CreateDocumentVersionRequest(string DocumentId, string Body);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record SaveDocumentVersionRequest(string Body);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ClassifyDocumentRequest(
     IReadOnlyList<string>? Classifications = null, string? PhaseName = null);
 

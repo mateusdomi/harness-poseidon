@@ -62,7 +62,7 @@ public sealed partial class PostgresDocumentStore
                 row.State,
                 row.CurrentVersion);
         }
-        else if (row.State != "in_elaboration")
+        else if (row.State is not ("in_elaboration" or "in_review" or "awaiting_approval"))
         {
             receipt = Rejected(
                 DocumentMutationStatus.InvalidState,
@@ -115,6 +115,27 @@ public sealed partial class PostgresDocumentStore
             {
                 throw new InvalidOperationException(
                     "The document changed while its locked version was appended.");
+            }
+
+            if (row.State == "awaiting_approval")
+            {
+                var rebound = await ExecuteCountAsync(
+                    connection,
+                    transaction,
+                    """
+                    UPDATE harness.document_approval_requests
+                    SET document_version_id=$1,version=version+1
+                    WHERE tenant_id=$2 AND document_id=$3 AND state='pending';
+                    """,
+                    cancellationToken,
+                    Text(command.DocumentVersionId),
+                    Text(command.TenantId),
+                    Text(command.DocumentId));
+                if (rebound != 1)
+                {
+                    throw new InvalidOperationException(
+                        "The pending approval was not rebound to the appended document version.");
+                }
             }
 
             receipt = new DocumentMutationReceipt(
