@@ -5,11 +5,11 @@ Atualizado em: 2026-07-19T02:00:00Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-DOGFOOD-2 em curso — 2a (demandas do Chief) verde; próximo é 2b (dogfood ponta a ponta).
+- Épico atual: F2-DOGFOOD-2 concluído (2a/2b verdes) — o pipeline dogfood técnico está comprovado; próximo é F2-DOGFOOD-3 (preparação do GNG-3).
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `d141d19` (`develop`); 2a nesta working tree com 182 testes verdes.
-- Próximo passo exato: F2-DOGFOOD-2b — cenário dogfood ponta a ponta via API: turno do Chief materializa demanda → criar tarefa a partir da demanda → iniciar tentativa → execução isolada via `POST /attempts/{id}/isolated-executions` (modo fake; smoke docker/Codex real com `HARNESS_RUN_REAL_AGENT_TESTS=true`) → evidência → critic/gate actor–critic → conclusão → auditoria completa; depois integrar frontend final, E2E contra API real e preparar homologação humana do GNG-3 (não declarar GNG-3 sem aceite humano).
-- Bloqueios: nenhum.
+- Último commit remoto validado: `d8d0ad5` (`develop`); 2b nesta working tree com 183 testes verdes e verify.sh integral exit 0.
+- Próximo passo exato: F2-DOGFOOD-3 — smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`, Host em modo docker, consome cota — decidir momento com o usuário), executar E2E do frontend contra a API real e preparar a homologação humana do GNG-3; o GNG-3 não é declarado sem aceite humano registrado. Trabalho independente pode continuar pelo roadmap (F3/F6/F4/F5) enquanto o aceite estiver pendente.
+- Bloqueios: nenhum técnico; homologação humana do GNG-3 aguarda o usuário.
 
 ## Suposições ativas
 
@@ -103,8 +103,9 @@ Atualizado em: 2026-07-19T02:00:00Z
 - Composição real F2-DOGFOOD-1e.1: sandbox Docker real + protocolo Codex app-server através do orquestrador completo; worktree suja é preservada (claim retido, cleanup pendente) e a compensação idempotente conclui após o commit do trabalho; inventário Docker do Harness vazio antes/depois.
 - API F2-DOGFOOD-1e.2: `Harness:IsolatedExecution` liga a execução isolada por modo fechado (disabled/fake/docker) com registro lazy; `POST /api/v1/attempts/{id}/isolated-executions` valida sessão/tenant, política do repositório do projeto dentro da raiz controlada, deriva branch/worktree/idempotency determinísticos e devolve contrato completo tipado; OpenAPI canônico republicado sem drift.
 - Demandas do Chief F2-DOGFOOD-2a: propostas estruturadas do turno materializam solicitação interna + demanda + `demand.created` na mesma transação da completion, com autor humano resolvido da mensagem, risk tier fechado como prioridade e critérios de aceite reais; `FakeAgentExecutor` emite propostas determinísticas via marcador `DEMANDA:`.
+- Dogfood F2-DOGFOOD-2b: fluxo único comprovado — chat→Chief→demanda materializada→tarefa da demanda→tentativa→execução isolada via API (claim, branch/worktree reais, sandbox, executor, cleanup, liberação)→evidência `workspace:<branch>@<commit>`→critic independente aprova→tarefa `done`→trilha de auditoria completa via `GET /api/v1/audit-events`.
 - Migrations: SQLite `28→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: backend com format sem mudanças, build Release zero warnings/erros e 182/182 testes verdes (`Unit 96`, `Integration 44`, `Contract 28`, `Recovery 5`, `Architecture 6`, `Concurrency 3`); frontend 270/270 no gate integrado anterior.
+- Pipeline: `tools/backend/verify.sh` integral exit 0 — frontend lint/typecheck/build e 270/270; backend restore locked, format sem mudanças, build Release `0 Aviso(s)`/zero erros e 183/183 testes verdes (`Unit 96`, `Integration 45`, `Contract 28`, `Recovery 5`, `Architecture 6`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 
