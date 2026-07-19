@@ -8,7 +8,7 @@ readonly CONFIGURATION="${CONFIGURATION:-Release}"
 
 cd "${REPOSITORY_ROOT}"
 
-for script in publish-desktop.sh publish-server.sh verify-resilience.sh; do
+for script in publish-desktop.sh publish-server.sh verify-resilience.sh verify-sast.sh verify-release-candidate.sh; do
   bash -n "${TOOLS_DIR}/${script}"
   [[ -x "${TOOLS_DIR}/${script}" ]] || {
     echo "verify-operations: ${script} não é executável." >&2

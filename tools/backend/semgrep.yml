@@ -1,0 +1,38 @@
+rules:
+  - id: harness-csharp-no-interpolated-sql-outside-persistence
+    message: SQL interpolado deve permanecer confinado à persistência/migração e usar identificadores internos fechados.
+    severity: ERROR
+    languages: [csharp]
+    paths:
+      include:
+        - /src/Harness.Host/**
+        - /src/Modules/**
+      exclude:
+        - /src/Harness.Host/Operations/LocalOperationsService.cs
+    patterns:
+      - pattern-regex: 'CommandText\s*=\s*\$"'
+
+  - id: harness-csharp-no-shell-process-start
+    message: Shell não pode ser iniciado diretamente; use argumentos tipados e executável allowlisted.
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: new ProcessStartInfo("sh", ...)
+      - pattern: new ProcessStartInfo("bash", ...)
+      - pattern: new ProcessStartInfo("/bin/sh", ...)
+      - pattern: new ProcessStartInfo("/bin/bash", ...)
+      - pattern: new ProcessStartInfo("cmd.exe", ...)
+      - pattern: new ProcessStartInfo("powershell.exe", ...)
+
+  - id: harness-csharp-no-disabled-tls-validation
+    message: Validação de certificado TLS não pode aceitar qualquer certificado.
+    severity: ERROR
+    languages: [csharp]
+    patterns:
+      - pattern: $HANDLER.ServerCertificateCustomValidationCallback = (..., $CERT, ..., ...) => true
+
+  - id: harness-csharp-no-use-shell-execute
+    message: UseShellExecute=true é proibido nos processos do backend.
+    severity: ERROR
+    languages: [csharp]
+    pattern: $START.UseShellExecute = true

@@ -21,19 +21,37 @@ public sealed class SolicitationAttachmentStorage(string rootPath)
         ReadOnlyMemory<byte> content,
         CancellationToken cancellationToken)
     {
-        var relative = Path.Combine(tenantId, attachmentId);
+        var tenantSegment = SafeUlidSegment(tenantId, nameof(tenantId));
+        var attachmentSegment = SafeUlidSegment(attachmentId, nameof(attachmentId));
+        var relative = Path.Combine(tenantSegment, attachmentSegment);
         var absolute = Path.GetFullPath(Path.Combine(_rootPath, relative));
-        if (!absolute.StartsWith($"{_rootPath}{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Attachment storage refused a path outside its root.");
-        }
+        EnsureConfined(absolute);
 
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
         await File.WriteAllBytesAsync(absolute, content.ToArray(), cancellationToken);
         return relative;
     }
 
-    public string Resolve(string relativePath) => Path.GetFullPath(Path.Combine(_rootPath, relativePath));
+    public string Resolve(string relativePath)
+    {
+        var absolute = Path.GetFullPath(Path.Combine(_rootPath, relativePath));
+        EnsureConfined(absolute);
+        return absolute;
+    }
+
+    private static string SafeUlidSegment(string value, string parameterName)
+    {
+        var segment = Path.GetFileName(value);
+        if (!UlidValue.TryParse(value, out _) || !string.Equals(segment, value, StringComparison.Ordinal))
+            throw new ArgumentException("Attachment path segment must be a ULID.", parameterName);
+        return segment;
+    }
+
+    private void EnsureConfined(string absolute)
+    {
+        if (!absolute.StartsWith($"{_rootPath}{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            throw new InvalidOperationException("Attachment storage refused a path outside its root.");
+    }
 }
 
 public static class SolicitationAttachmentEndpoints

@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(245/245 testes backend, build Release 0 warnings/0 erros, 331/331 frontend) reproduzida nesta sessão.
+(246/246 testes backend, build Release 0 warnings/0 erros, 331/331 frontend) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -48,21 +48,21 @@ Total: **100**.
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
 | F9 | 100 | 100 | 97 | 0 | Gateway, Telegram e Teams verdes. Teams cobre webhook autenticado, linking AAD, dedupe durável, resposta na origem, anexos por metadados, retry e defesa SSRF contra fake local. Telegram também tem smoke real. Lacuna externa: smoke com credenciais Microsoft/Azure Bot reais. |
 | F10 | 100 | 97 | 95 | 0 | Paridade PG completa (31 stores duais, 34 migrations), modo servidor, multiusuário, rate limit, carga 30 usuários, RBAC/ABAC e maquinaria OIDC com IdP fake. **Lacuna**: smoke OIDC com Entra ID **real** (externo, não validável sem credenciais). |
-| F11 | 75 | 75 | 75 | 0 | F11-1..5 verdes e F11-6 fecha publish servidor, instalação/operação, backup/upgrade, resposta a incidentes e gate operacional real. Dependências auditadas via `NuGetAudit=all`. **Faltam**: a11y/E2E real e DoD global/GNG-6. |
+| F11 | 90 | 90 | 88 | 0 | F11-1..7 verdes: hardening, SAST dedicado, release-candidate agregado, resiliência, operação, SBOM, segredos e DoD técnico. **Faltam**: a11y/E2E navegados e aceite global humano/GNG-6. |
 
 ## 4. Cálculo por dimensão
 
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(7·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(5·0.75)`
-`= 5+12+25+8+6+5+8+7+6+5+8+3.75 = 98.75` → **98.8% (num 98.75 / den 100)**
+`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(7·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(5·0.90)`
+`= 5+12+25+8+6+5+8+7+6+5+8+(5·0.90=4.50) = 99.50` → **99.5% (num 99.50 / den 100)**
 
 ### Validado
-`5+12+25+8+6+5+8+7+6+5+(8·0.97=7.76)+3.75 = 98.51` → **98.5% (num 98.51 / den 100)**
+`5+12+25+8+6+5+8+7+6+5+(8·0.97=7.76)+(5·0.90=4.50) = 99.26` → **99.3% (num 99.26 / den 100)**
 
 ### Integrado
-`5+12+(25·0.92=23.00)+8+6+5+(8·0.96=7.68)+(7·0.98=6.86)+6+(5·0.97=4.85)+(8·0.95=7.60)+3.75 = 95.74` → **95.7% (num 95.74 / den 100)**
+`5+12+(25·0.92=23.00)+8+6+5+(8·0.96=7.68)+(7·0.98=6.86)+6+(5·0.97=4.85)+(8·0.95=7.60)+(5·0.88=4.40) = 96.39` → **96.4% (num 96.39 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,22 +70,20 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·98.51 + 0.30·95.74 + 0.20·0 = 49.255 + 28.722 + 0.00 = 77.977`
-→ **≈ 78.0%**
+`= 0.50·99.26 + 0.30·96.39 + 0.20·0 = 49.63 + 28.917 + 0.00 = 78.547`
+→ **≈ 78.5%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
 Independentes (trabalho técnico que prossegue sem terceiros):
 
-1. **F11** (25% aberto): a11y/E2E real e DoD global/GNG-6. Publicação servidor,
-   instalação/operação, runbook, headers/cookies/CORS, scanning, auditoria de dependências,
-   migração SQLite→PostgreSQL e matriz de resiliência já estão verdes.
-2. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
+1. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
    `page/pageSize`, arquivar/CSV do quadro, workflows por projeto, CRUD de definições de agentes,
    organograma read-model, providers/contas/modelos/esforço.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
+2. **F11 final** (10–12% aberto): a11y/E2E navegados na frente frontend e aceite humano GNG-6. Todo o DoD técnico backend, SAST e agregador de release candidate estão verdes.
 3. **Homologação humana GNG-3** (visual, em navegador) — desbloqueia os 20% de Homologado do F2 e
    dependentes.
 4. **GNG-4 em macOS limpo + Developer ID/notarização** — exige identidade/certificado Apple e aceite operacional; pacote ad-hoc local já passou o fluxo completo.

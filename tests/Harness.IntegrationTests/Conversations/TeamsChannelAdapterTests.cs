@@ -151,17 +151,36 @@ public sealed class TeamsChannelAdapterTests
 
     private sealed class FakeTeamsServer : IAsyncDisposable
     {
-        private readonly HttpListener _listener = new();
+        private readonly HttpListener _listener;
         private readonly CancellationTokenSource _shutdown = new();
         private readonly Task _loop;
 
         public FakeTeamsServer()
         {
-            var port = FreePort();
-            BaseUrl = $"http://127.0.0.1:{port}";
-            _listener.Prefixes.Add(BaseUrl + "/");
-            _listener.Start();
-            _loop = Task.Run(LoopAsync);
+            HttpListenerException? lastBindFailure = null;
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                var candidate = new HttpListener();
+                var port = FreePort();
+                candidate.Prefixes.Add($"http://127.0.0.1:{port}/");
+                try
+                {
+                    candidate.Start();
+                }
+                catch (HttpListenerException exception)
+                {
+                    lastBindFailure = exception;
+                    try { candidate.Close(); }
+                    catch (HttpListenerException) { }
+                    continue;
+                }
+                _listener = candidate;
+                BaseUrl = $"http://127.0.0.1:{port}";
+                _loop = Task.Run(LoopAsync);
+                return;
+            }
+            throw new InvalidOperationException(
+                "No loopback port could be bound for the fake Teams server.", lastBindFailure);
         }
 
         public string BaseUrl { get; }
@@ -211,10 +230,17 @@ public sealed class TeamsChannelAdapterTests
         public async ValueTask DisposeAsync()
         {
             await _shutdown.CancelAsync();
-            _listener.Stop();
-            _listener.Close();
+            try
+            {
+                _listener.Stop();
+                _listener.Close();
+            }
+            catch (HttpListenerException)
+            {
+                // HttpListener may revalidate a prefix already reused while closing on macOS.
+            }
             try { await _loop; }
-            catch (HttpListenerException) { }
+            catch (Exception exception) when (exception is HttpListenerException or ObjectDisposedException) { }
             _shutdown.Dispose();
         }
     }
