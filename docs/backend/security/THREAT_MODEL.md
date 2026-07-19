@@ -7,7 +7,7 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 | Superfície | Ativos em risco |
 |---|---|
 | API HTTP (`/api/v1/*`) + hub SignalR (`/hubs/events`) | dados do tenant, sessões, comandos de execução |
-| Canais externos (gateway + Telegram long polling) | identidade de vínculo, conteúdo de conversas, token do bot |
+| Canais externos (gateway + Telegram + Teams) | identidade de vínculo, conteúdo de conversas, tokens dos providers |
 | Execução isolada (worktree + Docker + CLI de agente) | código-fonte do repositório alvo, credenciais do ambiente, host |
 | Uploads (anexos de solicitação, referências visuais) | sistema de arquivos, integridade do pipeline |
 | Persistência (SQLite local / PostgreSQL gerenciado) | todos os dados, trilha de auditoria |
@@ -25,9 +25,9 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 - **Elevation of privilege**: `AutonomousActionGuard` nega as 7 ações invioláveis a atores automatizados em todos os modos; aprovação forjada negada; gates de workflow não-contornáveis (409/400 testados).
 
 ### Canais externos
-- **Spoofing**: vínculo explícito por identidade externa antes de aceitar turnos; turn id determinístico por id externo (dedupe garante zero duplicação em reentrega).
-- **Information disclosure**: token do Telegram só por env var (`Harness__Channels__Telegram__BotToken`) — nunca em repo, banco, docs ou logs.
-- **DoS**: long polling com backoff; dedupe por `update_id`.
+- **Spoofing**: vínculo explícito por identidade externa antes de aceitar turnos; turn id determinístico por id externo (dedupe garante zero duplicação em reentrega). Teams exige bearer de gateway comparado em tempo constante.
+- **Information disclosure**: tokens Telegram/Teams só por configuração externa — nunca em repo, banco, docs ou logs. Anexos Teams entram somente como metadados; nenhuma URL remota é buscada.
+- **DoS/SSRF**: Telegram usa long polling com backoff e dedupe por `update_id`; Teams limita payload/anexos, retenta 429/5xx e aceita `serviceUrl` HTTPS em allowlist exata (HTTP apenas em loopback de teste).
 
 ### Execução isolada
 - **Elevation/escape**: sandbox Docker com `no-new-privileges`, limites de memória/CPU/pids, rede dedicada, worktree por tentativa; cleanup preserva worktree suja (sem perda de trabalho) e claims usam lease+fencing token (owner antigo recusado — provado em recovery).
@@ -37,7 +37,7 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 - **Tampering/malware**: `AttachmentIngestPolicy` — allowlist de extensões, magic bytes de executáveis rejeitados, anti zip-bomb (razão de expansão), path traversal bloqueado, quarentena confinada, hash SHA-256 e auditoria de aceite/rejeição.
 
 ### Persistência
-- **Tampering**: migrations embutidas idempotentes (34→0) com upgrade de qualquer prefixo histórico testado; backup/restore locais respondem 409 no modo servidor (PostgreSQL gerenciado é a autoridade); `signed_licenses.document_json` em `json` puro para preservar a assinatura.
+- **Tampering**: migrations embutidas idempotentes (35→0) com upgrade de qualquer prefixo histórico testado; backup/restore locais respondem 409 no modo servidor (PostgreSQL gerenciado é a autoridade); `signed_licenses.document_json` em `json` puro para preservar a assinatura.
 - **Information disclosure**: senha do PG de teste via secret file com permissão 600; connection string só por configuração.
 
 ### Licenciamento
@@ -47,7 +47,7 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 
 1. **Semântica divergente PG×SQLite em WorkChain** (`gate.changed` vs `task.stateChanged`, payload do Finalize) — registrada na onda 5; unificação planejada.
 2. **Hub de eventos no modo pessoal é aberto no loopback** — aceitável para desktop single-user; no modo OIDC o hub exige bearer.
-3. **SAST/dependências**: a esteira usa os analisadores do .NET (CA*/IDE*) com `TreatWarningsAsErrors` e `NuGetAudit=all` (auditoria de vulnerabilidades de pacotes diretos e transitivos no restore) — não há scanner SAST externo dedicado; adição de ferramenta externa fica a critério de operação.
+3. **SAST/dependências**: analisadores .NET (CA*/IDE*) com `TreatWarningsAsErrors`, `NuGetAudit=all` e Semgrep dedicado via `verify-sast.sh`. O rule comunitário C# de SQL é excluído porque marcou 85 usos de SQL constante/parametrizado na DAL; uma regra local proíbe SQL interpolado fora de persistência/migração. Essa exceção deve ser reavaliada se a fronteira de SQL mudar.
 4. **Flakiness de containers PG concorrentes** — mitigada com janela de health dobrada (60s); reavaliar se recorrer.
 
 ## SBOM

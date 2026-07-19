@@ -81,6 +81,65 @@
                 }
             }
         },
+        "/api/v1/channels/teams/activities": {
+            "post": {
+                "tags": [
+                    "channels"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamsActivity"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamsActivityReceipt"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-runs/{id}/consistency-checks": {
             "post": {
                 "tags": [
@@ -1416,6 +1475,75 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectId}/agent-org-chart": {
+            "get": {
+                "tags": [
+                    "agents"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentOrgChartContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
@@ -7333,6 +7461,144 @@
                 }
             }
         },
+        "/api/v1/tasks/{id}/archive": {
+            "post": {
+                "tags": [
+                    "tasks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BoardTaskContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/tasks/{id}/unarchive": {
+            "post": {
+                "tags": [
+                    "tasks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BoardTaskContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/tasks/{id}/instructions": {
             "post": {
                 "tags": [
@@ -9736,6 +10002,85 @@
                 }
             }
         },
+        "/api/v1/documents/{id}/versions": {
+            "post": {
+                "tags": [
+                    "documents"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SaveDocumentVersionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentVersionContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/document-versions": {
             "get": {
                 "tags": [
@@ -10515,6 +10860,122 @@
                     }
                 }
             },
+            "AgentOrgChartContract": {
+                "required": [
+                    "projectId",
+                    "rootAgentId",
+                    "nodes"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "rootAgentId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "nodes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AgentOrgChartNodeContract"
+                        }
+                    }
+                }
+            },
+            "AgentOrgChartNodeContract": {
+                "required": [
+                    "agentId",
+                    "definitionId",
+                    "parentAgentId",
+                    "level",
+                    "order",
+                    "name",
+                    "role",
+                    "specialty",
+                    "state",
+                    "currentTaskId",
+                    "effectiveModelId",
+                    "skillIds",
+                    "toolIds",
+                    "metrics"
+                ],
+                "type": "object",
+                "properties": {
+                    "agentId": {
+                        "type": "string"
+                    },
+                    "definitionId": {
+                        "type": "string"
+                    },
+                    "parentAgentId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "level": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "order": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "specialty": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "currentTaskId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "effectiveModelId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "skillIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "toolIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "metrics": {
+                        "$ref": "#/components/schemas/AgentMetricsContract"
+                    }
+                }
+            },
             "AgentPage": {
                 "required": [
                     "items",
@@ -11001,7 +11462,8 @@
                     "progress",
                     "createdAt",
                     "updatedAt",
-                    "dueAt"
+                    "dueAt",
+                    "archivedAt"
                 ],
                 "type": "object",
                 "properties": {
@@ -11058,6 +11520,13 @@
                         "format": "date-time"
                     },
                     "dueAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "archivedAt": {
                         "type": [
                             "null",
                             "string"
@@ -14714,6 +15183,18 @@
                     }
                 }
             },
+            "SaveDocumentVersionRequest": {
+                "required": [
+                    "body"
+                ],
+                "type": "object",
+                "properties": {
+                    "body": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
             "SetTaskPriorityRequest": {
                 "required": [
                     "priority"
@@ -15315,6 +15796,143 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "TeamsActivity": {
+                "required": [
+                    "type",
+                    "id",
+                    "serviceUrl",
+                    "from",
+                    "conversation",
+                    "text",
+                    "attachments"
+                ],
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "serviceUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "from": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/TeamsChannelAccount"
+                            }
+                        ]
+                    },
+                    "conversation": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/TeamsConversationAccount"
+                            }
+                        ]
+                    },
+                    "text": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "attachments": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/TeamsAttachment"
+                        }
+                    }
+                }
+            },
+            "TeamsActivityReceipt": {
+                "required": [
+                    "turnId",
+                    "conversationId",
+                    "linked",
+                    "deduplicated"
+                ],
+                "type": "object",
+                "properties": {
+                    "turnId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "conversationId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "linked": {
+                        "type": "boolean"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "TeamsAttachment": {
+                "required": [
+                    "contentType",
+                    "name"
+                ],
+                "type": "object",
+                "properties": {
+                    "contentType": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "TeamsChannelAccount": {
+                "required": [
+                    "id",
+                    "aadObjectId"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "aadObjectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "TeamsConversationAccount": {
+                "required": [
+                    "id"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
                     }
                 }
             },
@@ -16125,6 +16743,9 @@
             "name": "run-project"
         },
         {
+            "name": "channels"
+        },
+        {
             "name": "workflow-runs"
         },
         {
@@ -16183,9 +16804,6 @@
         },
         {
             "name": "messages"
-        },
-        {
-            "name": "channels"
         },
         {
             "name": "solicitations"

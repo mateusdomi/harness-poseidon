@@ -281,7 +281,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         var task = new BoardTaskRecord(command.TenantId, command.Id, command.ProjectId,
             command.DemandId, command.Title, "backlog", command.Priority,
             command.AssigneeAgentId, null, 1, new BoardProgressRecord(0, 0, 0),
-            command.OccurredAt, command.OccurredAt, command.DueAt, 1, "ready",
+            command.OccurredAt, command.OccurredAt, command.DueAt, null, 1, "ready",
             backingSolicitation, backingDemand);
         var instruction = new BoardInstructionRecord(command.TenantId, command.InstructionId,
             command.Id, 1, command.InstructionBody, "chief", null, command.OccurredAt);
@@ -387,7 +387,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         r.GetInt32(9) == 1);
     private static BoardTaskRecord ReadTask(SqliteDataReader r)
     {
-        var internalState = r.GetString(16); var progress = internalState switch
+        var internalState = r.GetString(17); var progress = internalState switch
         {
             "awaiting_review" => new BoardProgressRecord(100, 0, 0),
             "completed" => new BoardProgressRecord(100, 100, 100),
@@ -398,8 +398,9 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             r.GetString(6), r.IsDBNull(7) ? null : r.GetString(7),
             r.IsDBNull(8) ? null : r.GetString(8), r.GetInt32(9), progress,
             Parse(r.GetString(10)), Parse(r.GetString(11)),
-            r.IsDBNull(12) ? null : Parse(r.GetString(12)), r.GetInt64(13),
-            internalState, r.GetString(14), r.GetString(15));
+            r.IsDBNull(12) ? null : Parse(r.GetString(12)),
+            r.IsDBNull(13) ? null : Parse(r.GetString(13)), r.GetInt64(14),
+            internalState, r.GetString(15), r.GetString(16));
     }
     private static BoardInstructionRecord ReadInstruction(SqliteDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetString(4),
@@ -442,6 +443,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             t.CreatedAt,
             t.UpdatedAt,
             t.DueAt,
+            t.ArchivedAt,
         },
     }, JsonOptions);
 
@@ -485,7 +487,8 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         SELECT t.tenant_id,t.id,t.project_id,t.source_demand_id,t.title,t.board_state,t.priority,
                t.assignee_agent_id,t.blocked_reason,
                (SELECT MAX(version) FROM instruction_versions i WHERE i.task_id=t.id),
-               t.created_at,t.updated_at,t.due_at,t.version,d.solicitation_id,t.demand_id,t.state
+               t.created_at,t.updated_at,t.due_at,t.archived_at,t.version,
+               d.solicitation_id,t.demand_id,t.state
         FROM work_tasks t JOIN demands d ON d.id=t.demand_id
         """;
     private const string InstructionSelect =

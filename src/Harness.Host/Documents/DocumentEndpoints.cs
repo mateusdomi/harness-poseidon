@@ -19,6 +19,7 @@ public static class DocumentEndpoints
         documents.MapPost("/", CreateDocumentAsync).Produces<DocumentContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         documents.MapPost("/{id}/classification", ClassifyDocumentAsync).Produces<DocumentContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         documents.MapPost("/{id}/transitions", TransitionDocumentAsync).Produces<DocumentContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        documents.MapPost("/{id}/versions", SaveDocumentVersionAsync).Produces<DocumentVersionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
 
         var versions = endpoints.MapGroup("/api/v1/document-versions").WithTags("document-versions");
         versions.MapGet("/", ListVersionsAsync).Produces<DocumentVersionPage>().ProducesProblem(400).ProducesProblem(401);
@@ -119,20 +120,34 @@ public static class DocumentEndpoints
         CreateDocumentVersionRequest input, HttpRequest request, ILocalProfileStore profiles,
         IDocumentStore authority, IDocumentCatalogStore store, IDocumentContentCatalog content,
         IClock clock, CancellationToken token)
+        => await CreateVersionCoreAsync(input.DocumentId, input.Body, request, profiles, authority,
+            store, content, clock, token);
+
+    private static async Task<IResult> SaveDocumentVersionAsync(
+        string id, SaveDocumentVersionRequest input, HttpRequest request,
+        ILocalProfileStore profiles, IDocumentStore authority, IDocumentCatalogStore store,
+        IDocumentContentCatalog content, IClock clock, CancellationToken token)
+        => await CreateVersionCoreAsync(id, input.Body, request, profiles, authority, store,
+            content, clock, token);
+
+    private static async Task<IResult> CreateVersionCoreAsync(
+        string documentId, string body, HttpRequest request, ILocalProfileStore profiles,
+        IDocumentStore authority, IDocumentCatalogStore store, IDocumentContentCatalog content,
+        IClock clock, CancellationToken token)
     {
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
-        if (!Valid(input.DocumentId)) return Problem(400, "invalid_document", "Document ID must be a ULID.");
-        var snapshot = await authority.ReadAsync(profile.TenantId, input.DocumentId, token);
+        if (!Valid(documentId)) return Problem(400, "invalid_document", "Document ID must be a ULID.");
+        var snapshot = await authority.ReadAsync(profile.TenantId, documentId, token);
         if (snapshot is null) return NotFound("document");
         try
         {
             var now = clock.UtcNow; var versionId = UlidValue.New(now).ToString();
-            var prepared = DocumentApiApplicationService.Prepare(profile.TenantId, input.DocumentId, versionId, input.Body);
+            var prepared = DocumentApiApplicationService.Prepare(profile.TenantId, documentId, versionId, body);
             await content.WriteAsync(prepared.CatalogPath, prepared.Body, prepared.ContentHash, token);
             DocumentMutationReceipt receipt;
             try
             {
-                receipt = await authority.AppendVersionAsync(new(profile.TenantId, input.DocumentId,
+                receipt = await authority.AppendVersionAsync(new(profile.TenantId, documentId,
                     versionId, prepared.CatalogPath, prepared.ContentHash, "user", profile.Id,
                     snapshot.Version, $"api:document-version:{versionId}", now), token);
             }

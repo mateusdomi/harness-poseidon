@@ -104,6 +104,16 @@ public sealed class ProjectApiTests
                     var projectAgents = await client.GetFromJsonAsync<AgentPage>(
                         $"/api/v1/agents?projectId={created.Id}", timeout.Token);
                     Assert.Equal(created.ChiefAgentId, Assert.Single(projectAgents!.Items).Id);
+                    var orgChart = await client.GetFromJsonAsync<AgentOrgChartContract>(
+                        $"/api/v1/projects/{created.Id}/agent-org-chart", timeout.Token);
+                    Assert.Equal(created.Id, orgChart?.ProjectId);
+                    Assert.Equal(created.ChiefAgentId, orgChart?.RootAgentId);
+                    var rootNode = Assert.Single(orgChart!.Nodes);
+                    Assert.Equal(created.ChiefAgentId, rootNode.AgentId);
+                    Assert.Null(rootNode.ParentAgentId); Assert.Equal(0, rootNode.Level);
+                    Assert.Equal(0, rootNode.Order); Assert.Equal("chief", rootNode.Role);
+                    Assert.Equal("idle", rootNode.State); Assert.NotEmpty(rootNode.SkillIds);
+                    Assert.NotNull(rootNode.EffectiveModelId);
                     Assert.Equal("active", created.State);
                     Assert.Equal("manual", created.OperationMode);
                     Assert.Equal([profileId], created.MemberProfileIds);
@@ -180,6 +190,9 @@ public sealed class ProjectApiTests
                     $"/api/v1/agents/{recovered?.ChiefAgentId}", timeout.Token);
                 Assert.Equal(projectId, recoveredChief?.ProjectId);
                 Assert.Equal(1, recoveredChief?.Lease?.FencingToken);
+                var recoveredChart = await client.GetFromJsonAsync<AgentOrgChartContract>(
+                    $"/api/v1/projects/{projectId}/agent-org-chart", timeout.Token);
+                Assert.Equal(recovered?.ChiefAgentId, recoveredChart?.RootAgentId);
 
                 using var deleted = await client.DeleteAsync($"/api/v1/projects/{projectId}", timeout.Token);
                 Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);

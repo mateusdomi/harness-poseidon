@@ -24,6 +24,9 @@ public sealed class LauncherSmokeTests
             Assert.NotEqual(0, handle.Address.Port);
             Assert.Equal(Path.GetFullPath(root), handle.DataDirectory);
             Assert.True(File.Exists(Path.Combine(root, "harness.db")));
+            Assert.True(File.Exists(Path.Combine(root, DesktopLifecycleManager.ProcessLeaseFileName)));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await LauncherApplication.StartAsync(options, timeout.Token));
 
             using var client = new HttpClient { BaseAddress = handle.Address };
             var health = await client.GetFromJsonAsync<HealthPayload>("/health", timeout.Token);

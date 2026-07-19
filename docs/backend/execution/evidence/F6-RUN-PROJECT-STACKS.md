@@ -11,7 +11,8 @@ O teste de integração executa **três stacks diferentes reais** — HttpListen
 
 Gate: format sem mudanças; build Release zero warnings/erros; backend 198/198 (`Unit 107`, `Integration 49`, `Contract 28`, `Recovery 5`, `Architecture 6`, `Concurrency 3`).
 
-Camadas restantes da detecção F6 (Dockerfile/Compose como alvos gerenciados sob as regras Docker 1.2, scripts registrados pelo usuário e agente como último recurso) permanecem no backlog da fase, registradas aqui como pendência consciente — exigem política de execução containerizada de projetos de usuário que conversa com o modo docker da execução isolada.
+As camadas de scripts registrados/heurísticas e agente como último recurso permanecem no backlog;
+Dockerfile/Compose foram fechados em F6-3 abaixo.
 
 ## F6-2 — camada de manifesto Java (Maven/Gradle Spring Boot)
 
@@ -30,3 +31,56 @@ O detector passou a reconhecer a stack **Java** (item explícito da Fase 6), fec
   **sem** Spring Boot **não** vira alvo executável.
 
 Gate: format sem mudanças; build Release zero warnings/erros; suíte integral 232/232.
+
+## F6-3 — alvos Dockerfile e Compose gerenciados
+
+Data: 2026-07-19.
+
+- `RunTargetDetector` reconhece `Dockerfile*` com `EXPOSE` numérico e os quatro nomes canônicos
+  de Compose. Compose é normalizado por `docker compose config --format json`; só entra no catálogo
+  quando possui um serviço com porta exclusivamente interna (`expose`). Publicações de host já
+  declaradas são recusadas para impedir colisão com portas de outros projetos.
+- `DockerRunTargetLifecycle` gera nomes `harness-run-*`, aplica
+  `com.harness.managed=true` e ownership `com.harness.run-target=<ULID>` a containers, imagens
+  construídas, networks e volumes. Dockerfile é buildado com imagem taggeada `harness-*`; Compose
+  recebe override temporário gerado sem alterar o repositório do projeto e publica somente uma
+  porta loopback livre.
+- A validação é fail-closed: `container_name`, imagem construída, network ou volume fora do prefixo
+  são recusados; portas fixas e volumes anônimos também. Cleanup inventaria pelo label da execução,
+  reinspeciona prefixo + os dois labels antes de cada remoção e nunca usa prune.
+- O supervisor usa o lifecycle tanto no stop/restart/cleanup quanto em saída inesperada ou falha de
+  startup. Dockerfile/Compose preservam o `kind=http` do contrato público; o modo de lifecycle fica
+  somente no metadata privado de lançamento, sem drift com o frontend protegido.
+- `RunTargetDockerLifecycleTests` usa o Docker Engine real: build/run de Dockerfile, build/up de
+  Compose, respostas HTTP distintas, porta dinâmica, stop e inventário final vazio de containers,
+  images, networks e volumes; um Compose com `18080:8080` comprova a recusa de porta fixa.
+
+Gate focado: 2/2 testes reais verdes em 3 s. Gate integral: 236/236 backend
+(`Unit 121`, `Integration 72`, `Contract 28`, `Recovery 5`, `Architecture 7`, `Concurrency 3`),
+331/331 frontend, build Release e format verdes, zero warning/erro e zero recurso Docker Harness
+órfão.
+
+## F6-4 — agente como último recurso
+
+Data: 2026-07-19.
+
+`RunTargetAgentFallback` fecha a última camada da ordem F6 sem transformar saída de modelo em shell:
+
+- só é invocado quando manifestos, arquivos de projeto, Dockerfile e Compose não detectam nada e
+  quando o usuário já registrou o aceite de modo inseguro; o Host o fia ao `IAgentExecutor` existente;
+- recebe inventário read-only limitado a 200 paths/profundidade 4 e exige JSON v1 dentro da resposta
+  estruturada do Chief, com no máximo cinco alvos `http|process`;
+- aceita `/usr/bin/env` somente com runtime allowlisted ou executável regular confinado ao projeto;
+  recusa shell, `npx`, path traversal, symlinks, chaves de ambiente semelhantes a segredo, campos
+  desconhecidos e HTTP sem `{port}` dinâmica;
+- substitui `{port}` sem shell, preserva `kind=http|process` do contrato frontend, marca a origem em
+  metadata privado, registra `runTarget.agentDetectionCompleted` no ledger/auditoria e mantém cache
+  por projeto durante cinco minutos para evitar custo duplicado;
+- falha do agente ou saída inválida resulta em lista vazia e log somente com o tipo do erro, sem
+  derrubar a descoberta determinística e sem registrar a resposta potencialmente sensível.
+
+`RunTargetAgentFallbackTests` prova seis cenários: proposta tipada executada de verdade por Python e
+health HTTP `agent-ok`, replay de cache sem segunda chamada, precedência determinística, rejeição de
+shell, variável de segredo, traversal e escape por symlink. Gate integral: 242/242 backend
+(`Unit 121`, `Integration 78`, `Contract 28`, `Recovery 5`, `Architecture 7`, `Concurrency 3`),
+331/331 frontend e build Release zero warnings/erros.

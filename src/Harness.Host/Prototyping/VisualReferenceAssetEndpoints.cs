@@ -134,7 +134,7 @@ public static class VisualReferenceAssetEndpoints
         var sha256 = Convert.ToHexString(SHA256.HashData(content.Span));
         var storagePath = await storage.SaveAsync(
             profile.TenantId,
-            $"reference-{assetId}",
+            assetId,
             content,
             token);
         VisualReferenceAssetRecord record;

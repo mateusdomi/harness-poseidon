@@ -24,6 +24,30 @@ namespace Harness.IntegrationTests.WorkBoard;
 public sealed class SolicitationAttachmentApiTests
 {
     [Fact]
+    public async Task StorageRejectsNonUlidSegmentsAndResolveTraversal()
+    {
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "integration-artifacts",
+            $"attachment-storage-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var storage = new SolicitationAttachmentStorage(root);
+            var valid = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+            await Assert.ThrowsAsync<ArgumentException>(() => storage.SaveAsync(
+                "../tenant", valid, new byte[] { 1 }, CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentException>(() => storage.SaveAsync(
+                valid, "../attachment", new byte[] { 1 }, CancellationToken.None));
+            Assert.Throws<InvalidOperationException>(() => storage.Resolve("../outside"));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task AcceptsRealDocumentRejectsMaliciousUploadsAndFeedsDemandCreation()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));

@@ -14,6 +14,7 @@ public sealed class DocumentContractDriftTests
         Methods(paths, "/api/v1/documents/{id}", "get");
         Methods(paths, "/api/v1/documents/{id}/classification", "post");
         Methods(paths, "/api/v1/documents/{id}/transitions", "post");
+        Methods(paths, "/api/v1/documents/{id}/versions", "post");
         Methods(paths, "/api/v1/document-versions", "get", "post");
         Methods(paths, "/api/v1/document-versions/{id}", "get");
         Methods(paths, "/api/v1/approvals", "get", "post");

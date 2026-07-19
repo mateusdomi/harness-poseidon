@@ -1,16 +1,16 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-19T15:00:00Z
+Atualizado em: 2026-07-19T21:01:29Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `9886bf9` (`develop`). Nesta sessão: F11-2 (security headers/cookie/CORS), F11-3 (scanning de segredos), F9-3 (smoke real do Telegram `@SystemPoseidon_bot`), F6-2 (detecção Java Maven/Gradle) e fix de flake do teste de isolamento adversarial PG (premissa de índice dependente da corrida de bootstrap → resolvida pelo papel no banco). Fix do blocker de homologação GNG-3: adoção de sessão no modo pessoal (cockpit carrega em navegador novo). `verify.sh` verde com 233/233 testes backend, build Release zero warnings, frontend buildado, zero Docker órfão. Host de homologação no ar em http://127.0.0.1:5090 (SQLite persistente em ~/.harness-poseidon/homolog; token Telegram só em env var).
-- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 93,0% · Validado 92,8% · Integrado 90,6% · Homologado 0% · Geral ≈73,6%.
-- Próximo passo exato: continuar o hardening independente da F11. Trabalho técnico independente restante, em ordem: F11 (migração de dados SQLite→PostgreSQL, testes formais de isolamento/backup-restore/carga, runbooks e docs de instalação/operação, DoD global) → F6 detecção Docker/Compose (Java já feito) → F9 adaptador Teams → F7 atualização/desinstalação. Dependências externas isoladas (NÃO bloqueiam o acima): homologação visual GNG-3 em navegador (Host em http://127.0.0.1:5090); smoke OIDC com Entra ID real (Tenant ID + Client ID da app registration — config em `evidence/F10-OIDC.md`). Telegram real já validado (F9-3). Antes era: F10 paridade PG onda 2 — catálogos (agentes/ferramentas/providers), conversas/chief turn, quadro/projeções e demais stores SQLite-only; depois switch `Harness:Database:Provider` no Host, RBAC/rate limit e carga 30 usuários; OIDC/Entra por último (única dependência externa — pedir dados da app registration). Validações humanas pendentes — smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`, Host em modo docker, consome cota — decidir momento com o usuário), executar E2E do frontend contra a API real e preparar a homologação humana do GNG-3; o GNG-3 não é declarado sem aceite humano registrado. Trabalho independente restante do roadmap: F7 empacotamento desktop → F8 licenciamento assinado (Ed25519/offline/revogação), F9 canais (terminal→Telegram), F10 servidor multiusuário, F11 hardening; camadas restantes de detecção F6 (Docker/Compose/Java) registradas em `evidence/F6-RUN-PROJECT-STACKS.md`.
-- Bloqueios: nenhum técnico — há trabalho independente de F11/F6/F9/F7 em andamento. Apenas os smokes externos (GNG-3 visual, Entra ID real, token Telegram) aguardam terceiros e não travam o roadmap técnico.
+- Último commit remoto auditado: `79bc592` (`origin/develop`), com os refinamentos v3 §8.6/§8.7 publicados e áreas frontend preservadas. O read-model de organograma v3 §8.10 está verde localmente e aguarda gate integral/commit/push.
+- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 99,5% · Validado 99,3% · Integrado 96,4% · Homologado 0% · Geral ≈78,5%.
+- Próximo passo exato: publicar o organograma v3 §8.10 após o gate e continuar a auditoria dos refinamentos backend v3 §8 pelo primeiro desvio real seguinte, com foco no CRUD de definições assim que o contrato frontend final estiver presente. Em paralelo externo ficam a11y/E2E navegados e GNG-6. F6/F7/F9 estão tecnicamente completas; faltam smokes externos com executor/modelo, macOS limpo+Developer ID, Microsoft/Azure Bot e Entra ID reais. O navegador embutido segue sem sessão disponível apesar de Chrome/Edge instalados, mas isso não bloqueia os refinamentos independentes. Telegram real exige rotação do token antes de nova ativação (R-013).
+- Bloqueios: nenhum técnico — há refinamentos v3 independentes. Apenas a11y/E2E de browser e os smokes/aceites externos (GNG-3 visual, GNG-4 macOS limpo, GNG-6, Entra ID, Teams e modelo reais) aguardam outra frente/terceiros e não travam o backlog backend. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
 ## Suposições ativas
 
@@ -23,13 +23,13 @@ Atualizado em: 2026-07-19T15:00:00Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite possui também `0009_local_profiles` até `0027_chief_turn_pipeline`; PostgreSQL possui `0011_audit_ledger_append_only`. Históricos são separados/idempotentes (`27→0` e `11→0`); não há migration parcialmente aplicada.
+- Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0035`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
 - Containers em execução: nenhum do Harness; os 11 containers de terceiros permanecem parados.
 - Recursos Docker com `com.harness.managed=true`: nenhum container, volume ou network.
-- Solução: 22 projetos de produção (Host, Runner, Launcher, SharedKernel, persistência e 15 módulos) e 6 projetos de teste em `Harness.sln`.
+- Solução: 23 projetos de produção (Host, Runner, Launcher, SharedKernel, três projetos de persistência + migração e 15 módulos) e 6 projetos de teste em `Harness.sln`.
 - SharedKernel: ULID canônico, `EntityId<TTag>`, `IClock`, `SystemClock`, `ErrorDescriptor` e `Result`/`Result<T>` implementados.
 - SQLite: EF Core SQLite 10.0.10; native SQLite pinado em 3.53.3 por segurança; dispatcher único validado em WAL.
 - Recuperação: processo fixture sofreu SIGKILL real após 3/6 checkpoints; nova instância reconciliou e concluiu com 6 checkpoints únicos.

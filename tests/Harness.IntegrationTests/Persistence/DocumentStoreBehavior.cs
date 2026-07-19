@@ -1,5 +1,6 @@
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Foundation;
+using Harness.SharedKernel.Identifiers;
 
 namespace Harness.IntegrationTests.Persistence;
 
@@ -510,6 +511,9 @@ internal static class DocumentStoreBehavior
             ],
             approved.StateTransitions.Select(item => item.ToState));
 
+        await AssertManualEditRebindsPendingApprovalAsync(
+            store, command.TenantId, command.ProjectId, cancellationToken);
+
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FZZ",
@@ -553,4 +557,45 @@ internal static class DocumentStoreBehavior
         1,
         "document:append:context-map-v2",
         new DateTimeOffset(2026, 7, 18, 17, 5, 0, TimeSpan.Zero));
+
+    private static async Task AssertManualEditRebindsPendingApprovalAsync(
+        IDocumentStore store, string tenantId, string projectId,
+        CancellationToken cancellationToken)
+    {
+        var at = new DateTimeOffset(2026, 7, 18, 19, 0, 0, TimeSpan.Zero);
+        string Id(int offset) => UlidValue.New(at.AddMilliseconds(offset)).ToString();
+        var documentId = Id(1); var initialVersionId = Id(2); var editedVersionId = Id(3);
+        var approvalId = Id(4);
+        await store.CreateAsync(new(
+            tenantId, projectId, documentId, "Manual approval edit", "spec", [], null,
+            initialVersionId, $"docs/manual/{documentId}-v1.md", new string('A', 64),
+            "agent", Id(5), $"document:create:{documentId}", at), cancellationToken);
+        var review = await store.TransitionAsync(new(
+            tenantId, documentId, Id(6), "in_review", null, "user", Id(7), 1,
+            $"document:review:{documentId}", at.AddMinutes(1)), cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, review.Status);
+        var requested = await store.RequestApprovalAsync(new(
+            tenantId, documentId, approvalId, Id(8), "Approve manual edit", "Review",
+            "high", null, Id(9), 2, $"document:approval:{documentId}",
+            at.AddMinutes(2)), cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, requested.Status);
+        var appended = await store.AppendVersionAsync(new(
+            tenantId, documentId, editedVersionId, $"docs/manual/{documentId}-v2.md",
+            new string('B', 64), "user", Id(10), 3,
+            $"document:append:{documentId}", at.AddMinutes(3)), cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, appended.Status);
+        var edited = await store.ReadAsync(tenantId, documentId, cancellationToken);
+        Assert.NotNull(edited);
+        Assert.Equal("awaiting_approval", edited.State);
+        Assert.Equal(2, edited.CurrentVersion);
+        var pending = Assert.Single(edited.ApprovalRequests);
+        Assert.Equal(editedVersionId, pending.DocumentVersionId);
+        Assert.Equal(2, pending.Version);
+        var resolved = await store.ResolveApprovalAsync(new(
+            tenantId, documentId, approvalId, Id(11), "approved", Id(12),
+            "Saved and approved by reviewer.", 4, $"document:resolve:{documentId}",
+            at.AddMinutes(4)), cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, resolved.Status);
+        Assert.Equal("approved", resolved.State);
+    }
 }

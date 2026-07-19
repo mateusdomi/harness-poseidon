@@ -31,6 +31,8 @@ public interface IWorkBoardStore
         BoardTaskMoveCommand command, CancellationToken cancellationToken = default);
     Task<BoardTaskRecord> SetTaskPriorityAsync(
         BoardTaskPriorityCommand command, CancellationToken cancellationToken = default);
+    Task<BoardTaskRecord> SetTaskArchivedAsync(
+        BoardTaskArchiveCommand command, CancellationToken cancellationToken = default);
 
     Task<BoardInstructionRecord?> GetInstructionAsync(
         string tenantId, string instructionId, CancellationToken cancellationToken = default);
@@ -67,8 +69,8 @@ public sealed record BoardTaskRecord(
     string TenantId, string Id, string ProjectId, string? DemandId, string Title, string State,
     string Priority, string? AssigneeAgentId, string? BlockedReason, int InstructionVersion,
     BoardProgressRecord Progress, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
-    DateTimeOffset? DueAt, long Version, string InternalState, string BackingSolicitationId,
-    string BackingDemandId);
+    DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt, long Version, string InternalState,
+    string BackingSolicitationId, string BackingDemandId);
 
 public sealed record BoardInstructionRecord(
     string TenantId, string Id, string TaskId, int Version, string Body, string AuthorKind,
@@ -110,6 +112,10 @@ public sealed record BoardTaskMoveCommand(
 
 public sealed record BoardTaskPriorityCommand(
     string TenantId, string TaskId, string Priority, DateTimeOffset OccurredAt);
+
+public sealed record BoardTaskArchiveCommand(
+    string TenantId, string TaskId, bool Archived, string ChangedByKind,
+    DateTimeOffset OccurredAt);
 
 public sealed record BoardInstructionAppendCommand(
     string TenantId, string TaskId, string InstructionId, string Body, string AuthorKind,

@@ -28,6 +28,13 @@ public sealed partial class PostgresWorkBoardStore
         return SetTaskPriorityCoreAsync(command, cancellationToken);
     }
 
+    public Task<BoardTaskRecord> SetTaskArchivedAsync(
+        BoardTaskArchiveCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return SetTaskArchivedCoreAsync(command, cancellationToken);
+    }
+
     public Task<BoardInstructionRecord> AppendInstructionAsync(
         BoardInstructionAppendCommand command, CancellationToken cancellationToken = default)
     {
@@ -77,6 +84,10 @@ public sealed partial class PostgresWorkBoardStore
         var current = await ReadTaskAsync(
                 connection, transaction, command.TenantId, command.TaskId, cancellationToken)
             ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (current.ArchivedAt is not null)
+        {
+            throw new WorkBoardInvalidStateException("An archived task cannot change board state.");
+        }
         if (command.ToState == "done" && current.InternalState != "completed")
         {
             throw new WorkBoardInvalidStateException("Only a completed task can move to done.");
@@ -149,6 +160,58 @@ public sealed partial class PostgresWorkBoardStore
         return current with
         {
             Priority = command.Priority,
+            UpdatedAt = command.OccurredAt,
+            Version = current.Version + 1,
+        };
+    }
+
+    private async Task<BoardTaskRecord> SetTaskArchivedCoreAsync(
+        BoardTaskArchiveCommand command, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var current = await ReadTaskAsync(
+                connection, transaction, command.TenantId, command.TaskId, cancellationToken)
+            ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (command.Archived)
+        {
+            if (current.ArchivedAt is not null)
+                throw new WorkBoardInvalidStateException("Task is already archived.");
+            if (current.State != "done")
+                throw new WorkBoardInvalidStateException("Only a done task can be archived.");
+        }
+        else if (current.ArchivedAt is null)
+        {
+            throw new WorkBoardInvalidStateException("Task is not archived.");
+        }
+
+        var archivedAt = command.Archived ? command.OccurredAt : (DateTimeOffset?)null;
+        await ExecuteAsync(
+            connection, transaction,
+            "UPDATE harness.work_tasks SET archived_at=$1,version=version+1,updated_at=$2 WHERE tenant_id=$3 AND id=$4;",
+            cancellationToken,
+            NullableTimestamp(archivedAt), Timestamp(command.OccurredAt), Text(command.TenantId),
+            Text(command.TaskId));
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = current.ProjectId,
+            taskId = current.Id,
+            from = current.State,
+            to = current.State,
+            changedByKind = command.ChangedByKind,
+            note = command.Archived ? "archived" : "unarchived",
+            archivedAt,
+        }, JsonOptions);
+        await AppendAuditAsync(
+            connection, transaction, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(
+            connection, transaction, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return current with
+        {
+            ArchivedAt = archivedAt,
             UpdatedAt = command.OccurredAt,
             Version = current.Version + 1,
         };

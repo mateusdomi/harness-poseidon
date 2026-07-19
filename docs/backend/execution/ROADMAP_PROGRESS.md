@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(233/233 testes backend, build Release 0 warnings/0 erros, frontend buildado) reproduzida nesta sessão.
+(246/246 testes backend, build Release 0 warnings/0 erros, 331/331 frontend) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -43,26 +43,26 @@ Total: **100**.
 | F3 | 100 | 100 | 100 | 0 | Templates canônicos, guarda de ações invioláveis, verificação em 3 camadas e run semiautônomo completo provados via API/anti-burla. Gate da fase (automático) verde. |
 | F4 | 100 | 100 | 100 | 0 | Segurança de upload (allowlist/magic bytes/anti zip-bomb/traversal/quarentena) + demanda de documento real, via API e migration 0029. |
 | F5 | 100 | 100 | 100 | 0 | Upload inspecionado de referências (PNG/JPEG/ZIP), galeria, waiver; migration 0030. |
-| F6 | 82 | 82 | 80 | 0 | 3 stacks .NET/Node/Python start/stop/health/logs via API + **camada Java (Maven/Gradle Spring Boot)** detectada e testada. **Faltam** camadas Docker/Compose (exigem ciclo §1.2) e fallback por agente. |
-| F7 | 85 | 85 | 85 | 0 | Launcher + publish self-contained com frontend embarcado + smoke do binário sem IDE verdes. Backup/restore existe (F2-OPS). **Parciais**: atualização e desinstalação segura. |
+| F6 | 100 | 100 | 96 | 0 | .NET/Node/Python via API, Java, Dockerfile/Compose reais e **fallback por agente** policy-gated/JSON fechado, com execução real e probes adversariais. Lacuna de integração: smoke com executor/modelo real (externo); composição Host e fake tipado estão verdes. |
+| F7 | 100 | 100 | 98 | 0 | Launcher/Host/Runner/SPA self-contained, manifesto íntegro, instalação idempotente, update com backup+swap/rollback e uninstall preservando dados; pacote macOS real passou start/health/shutdown. Lacuna externa: Developer ID/notarização e aceite em macOS limpo (GNG-4). |
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
-| F9 | 72 | 72 | 75 | 0 | Gateway (terminal) + adaptador Telegram (long polling, dedupe, linking, resposta na origem) verdes com fake **e smoke real do bot `@SystemPoseidon_bot`** (getMe ok, link `5774120296`, sendMessage entregue). **Falta** Teams (ordem terminal→Telegram→Teams). |
+| F9 | 100 | 100 | 97 | 0 | Gateway, Telegram e Teams verdes. Teams cobre webhook autenticado, linking AAD, dedupe durável, resposta na origem, anexos por metadados, retry e defesa SSRF contra fake local. Telegram também tem smoke real. Lacuna externa: smoke com credenciais Microsoft/Azure Bot reais. |
 | F10 | 100 | 97 | 95 | 0 | Paridade PG completa (31 stores duais, 34 migrations), modo servidor, multiusuário, rate limit, carga 30 usuários, RBAC/ABAC e maquinaria OIDC com IdP fake. **Lacuna**: smoke OIDC com Entra ID **real** (externo, não validável sem credenciais). |
-| F11 | 38 | 38 | 38 | 0 | F11-1 (threat model STRIDE, SBOM 28/77, upgrade de migrations, flake fix) + F11-2 (security headers/CSP/cookie Secure/CORS default-deny) + F11-3 (scanning de segredos: gate contínuo + script) verdes. Dependências auditadas via `NuGetAudit=all`. **Faltam**: migração de dados SQLite→PostgreSQL, testes formais de isolamento/recuperação/backup-restore/carga, runbooks e docs de instalação/operação, a11y/E2E, DoD global. |
+| F11 | 90 | 90 | 88 | 0 | F11-1..7 verdes: hardening, SAST dedicado, release-candidate agregado, resiliência, operação, SBOM, segredos e DoD técnico. **Faltam**: a11y/E2E navegados e aceite global humano/GNG-6. |
 
 ## 4. Cálculo por dimensão
 
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.82)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.38)`
-`= 5+12+25+8+6+5+6.56+5.95+6+3.60+8+1.90 = 93.01` → **93.0% (num 93.01 / den 100)**
+`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(7·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(5·0.90)`
+`= 5+12+25+8+6+5+8+7+6+5+8+(5·0.90=4.50) = 99.50` → **99.5% (num 99.50 / den 100)**
 
 ### Validado
-`5+12+25+8+6+5+6.56+5.95+6+3.60+(8·0.97=7.76)+1.90 = 92.77` → **92.8% (num 92.77 / den 100)**
+`5+12+25+8+6+5+8+7+6+5+(8·0.97=7.76)+(5·0.90=4.50) = 99.26` → **99.3% (num 99.26 / den 100)**
 
 ### Integrado
-`5+12+(25·0.92=23.00)+8+6+5+(8·0.80=6.40)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+1.90 = 90.60` → **90.6% (num 90.60 / den 100)**
+`5+12+(25·0.92=23.00)+8+6+5+(8·0.96=7.68)+(7·0.98=6.86)+6+(5·0.97=4.85)+(8·0.95=7.60)+(5·0.88=4.40) = 96.39` → **96.4% (num 96.39 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,34 +70,34 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·92.77 + 0.30·90.60 + 0.20·0 = 46.385 + 27.18 + 0.00 = 73.565`
-→ **≈ 73.6%**
+`= 0.50·99.26 + 0.30·96.39 + 0.20·0 = 49.63 + 28.917 + 0.00 = 78.547`
+→ **≈ 78.5%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
 Independentes (trabalho técnico que prossegue sem terceiros):
 
-1. **F11** (maior lacuna, ~62% aberto): migração de dados SQLite→PostgreSQL, testes formais de
-   isolamento/upgrade/backup-restore/carga/regressão, runbook de incidentes, docs de
-   instalação/operação, DoD global. (Headers/cookies/CORS, scanning de segredos e auditoria de
-   dependências via NuGetAudit já verdes.)
-2. **F6**: detecção Docker/Compose (ciclo §1.2) e fallback por agente (Java já detectado).
-3. **F9**: adaptador Teams + testes fake (Telegram real já validado).
-4. **F7**: fluxo de atualização e desinstalação segura.
-5. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
-   `page/pageSize`, arquivar/CSV do quadro, workflows por projeto, CRUD de definições de agentes,
-   organograma read-model, providers/contas/modelos/esforço.
+1. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
+   `page/pageSize`, workflows por projeto, CRUD de definições de agentes e
+   providers/contas/modelos/esforço. No quadro, arquivamento backend está verde e busca/filtros,
+   paginação, lote e CSV Excel-compatible já são client-side; falta auditar eventual filtro de fase.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
-6. **Homologação humana GNG-3** (visual, em navegador) — desbloqueia os 20% de Homologado do F2 e
+2. **F11 final** (10–12% aberto): a11y/E2E navegados na frente frontend e aceite humano GNG-6. Todo o DoD técnico backend, SAST e agregador de release candidate estão verdes.
+3. **Homologação humana GNG-3** (visual, em navegador) — desbloqueia os 20% de Homologado do F2 e
    dependentes.
-7. **Smoke OIDC com Entra ID real** — Tenant ID + Client ID da app registration.
-8. ~~Smoke real do bot Telegram~~ — **feito** (`@SystemPoseidon_bot`, F9-3); só o Host precisa estar no ar com o token em env var.
-9. **Smoke de agente real que consuma cota**, se exigido na homologação.
+4. **GNG-4 em macOS limpo + Developer ID/notarização** — exige identidade/certificado Apple e aceite operacional; pacote ad-hoc local já passou o fluxo completo.
+5. **Smoke OIDC com Entra ID real** — Tenant ID + Client ID da app registration.
+6. **Smoke Teams com Azure Bot/Microsoft 365 real** — credenciais e tenant externos; a integração fake já está verde.
+7. ~~Smoke real do bot Telegram~~ — **feito** (`@SystemPoseidon_bot`, F9-3); só o Host precisa estar no ar com o token em env var.
+8. **Smoke do fallback F6 com executor/modelo real que consuma cota**, se exigido na homologação.
 
 ## 6. Backlog de refinamentos desta rodada (separado do roadmap base)
 
-Peso não incluído nos 100 pontos do roadmap base (v3 §6 manda manter separados). Estado atual:
-todos **pendentes**, exceto o que já existir no código e for confirmado por auditoria dirigida
-antes de implementar (evita duplicar comportamento pronto). Ver v3 §8.1–§8.13.
+Peso não incluído nos 100 pontos do roadmap base (v3 §6 manda manter separados). Estado auditado:
+v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão
+**implementados/validados/integrados** no backend; busca, filtros, paginação, lote e CSV do quadro
+são client-side por D-063/D-073/D-075. O read-model tenant-scoped de organograma v3 §8.10 também
+está **implementado/validado/integrado**. Os demais itens seguem em auditoria dirigida antes de
+implementação, para evitar duplicar comportamento pronto.

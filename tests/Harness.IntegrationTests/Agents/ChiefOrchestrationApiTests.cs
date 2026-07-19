@@ -110,6 +110,13 @@ public sealed class ChiefOrchestrationApiTests
                         newChiefId = next.Id; Assert.Equal(2, next.Lease?.FencingToken); Assert.Equal(projectId, next.ProjectId);
                     }
                     Assert.Null((await client.GetFromJsonAsync<AgentContract>($"/api/v1/agents/{oldChiefId}", timeout.Token))?.Lease);
+                    var orgChart = await client.GetFromJsonAsync<AgentOrgChartContract>(
+                        $"/api/v1/projects/{projectId}/agent-org-chart", timeout.Token);
+                    Assert.Equal(newChiefId, orgChart?.RootAgentId);
+                    Assert.Equal([newChiefId, oldChiefId], orgChart?.Nodes.Select(node => node.AgentId));
+                    Assert.Null(orgChart?.Nodes[0].ParentAgentId);
+                    Assert.Equal(newChiefId, orgChart?.Nodes[1].ParentAgentId);
+                    Assert.Equal([0, 1], orgChart?.Nodes.Select(node => node.Level));
 
                     await app.Services.GetRequiredService<SqliteWriteDispatcher>().ExecuteAsync(async (connection, token) =>
                     {

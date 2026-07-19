@@ -52,7 +52,7 @@ public static class WorkBoardApplicationService
         var task = new BoardTaskContract(
             Id(taskId), projectId, demandId, Text(request.Title, 500), "backlog",
             Choice(request.Priority ?? "medium", Priorities), assignee, null, 1,
-            new WorkProgressContract(0m, 0m, 0m), Utc(now), now, request.DueAt);
+            new WorkProgressContract(0m, 0m, 0m), Utc(now), now, request.DueAt, null);
         var instruction = new TaskInstructionContract(
             Id(instructionId), task.Id, 1, Text(request.Instruction, 100_000), "chief", null, now);
         return (task, instruction);
