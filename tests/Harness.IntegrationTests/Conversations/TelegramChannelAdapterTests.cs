@@ -143,18 +143,40 @@ public sealed class TelegramChannelAdapterTests
 
     private sealed class FakeTelegramServer : IAsyncDisposable
     {
-        private readonly HttpListener _listener = new();
+        private readonly HttpListener _listener;
         private readonly ConcurrentQueue<string> _pendingUpdateBatches = new();
         private readonly Task _loop;
         private readonly CancellationTokenSource _shutdown = new();
 
         public FakeTelegramServer()
         {
-            var port = FreePort();
-            BaseUrl = $"http://127.0.0.1:{port}";
-            _listener.Prefixes.Add($"{BaseUrl}/");
-            _listener.Start();
-            _loop = Task.Run(LoopAsync);
+            // FreePort() solta a porta antes do bind do HttpListener; sob testes
+            // paralelos (e o martelo de rate limit) outra conexão pode capturá-la
+            // no intervalo — tenta portas novas até o bind vingar.
+            HttpListenerException? lastBindFailure = null;
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                var candidate = new HttpListener();
+                var port = FreePort();
+                candidate.Prefixes.Add($"http://127.0.0.1:{port}/");
+                try
+                {
+                    candidate.Start();
+                }
+                catch (HttpListenerException exception)
+                {
+                    lastBindFailure = exception;
+                    continue;
+                }
+
+                _listener = candidate;
+                BaseUrl = $"http://127.0.0.1:{port}";
+                _loop = Task.Run(LoopAsync);
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "No loopback port could be bound for the fake Telegram server.", lastBindFailure);
         }
 
         public string BaseUrl { get; }
@@ -248,8 +270,17 @@ public sealed class TelegramChannelAdapterTests
         public async ValueTask DisposeAsync()
         {
             await _shutdown.CancelAsync();
-            _listener.Stop();
-            _listener.Close();
+            try
+            {
+                _listener.Stop();
+                _listener.Close();
+            }
+            catch (HttpListenerException)
+            {
+                // O Close do HttpListener revalida os prefixos no macOS e pode
+                // falhar se a porta já foi reutilizada; o listener já parou.
+            }
+
             try
             {
                 await _loop;

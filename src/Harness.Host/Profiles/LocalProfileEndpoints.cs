@@ -204,7 +204,9 @@ public static class LocalProfileEndpoints
                 HttpOnly = true,
                 IsEssential = true,
                 SameSite = SameSiteMode.Strict,
-                Secure = false,
+                // Sob TLS (modo servidor) o cookie de sessão exige canal seguro; em
+                // loopback HTTP do modo pessoal ele precisa continuar sendo enviado.
+                Secure = response.HttpContext.Request.IsHttps,
                 Path = "/",
             });
 }
