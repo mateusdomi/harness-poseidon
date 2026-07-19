@@ -58,7 +58,7 @@ public sealed class PostgresMultiuserLoadTests
 
                 await AssertSingleTenantAsync(fixture.ConnectionString, timeout.Token);
                 var projects = await CreateWorkspacesConcurrentlyAsync(users, timeout.Token);
-                await AssertAdversarialIsolationAsync(address, users, timeout.Token);
+                await AssertAdversarialIsolationAsync(fixture.ConnectionString, address, users, timeout.Token);
                 await AssertRoleBasedAccessAsync(fixture.ConnectionString, users, projects, timeout.Token);
                 await AssertRateLimiterKicksInAsync(address, timeout.Token);
             }
@@ -207,13 +207,31 @@ public sealed class PostgresMultiuserLoadTests
     }
 
     private static async Task AssertAdversarialIsolationAsync(
+        string connectionString,
         Uri address,
         IReadOnlyList<UserSession> users,
         CancellationToken token)
     {
-        // Sessão B não pode mutar o perfil de A, mesmo autenticada.
-        using (var hijack = await users[1].Client.PatchAsJsonAsync(
-            $"/api/v1/profiles/{users[0].Profile.Id}",
+        // O atacante precisa ser um MEMBER (não o admin vencedor do bootstrap): a regra
+        // ABAC deixa o admin editar qualquer perfil, então fixar users[1] tornava este
+        // probe dependente da corrida de bootstrap. Resolve o admin pelo banco e escolhe
+        // um member como atacante e um outro usuário qualquer como vítima.
+        string adminProfileId;
+        await using (var dataSource = NpgsqlDataSource.Create(connectionString))
+        await using (var admin = dataSource.CreateCommand(
+            "SELECT id FROM harness.local_users WHERE role='admin';"))
+        {
+            adminProfileId = ((string)(await admin.ExecuteScalarAsync(token))!).TrimEnd();
+        }
+
+        var attackerIndex = Enumerable.Range(0, users.Count)
+            .First(index => users[index].Profile.Id != adminProfileId);
+        var victimIndex = Enumerable.Range(0, users.Count)
+            .First(index => index != attackerIndex);
+
+        // Um member não pode mutar o perfil de outro usuário, mesmo autenticado.
+        using (var hijack = await users[attackerIndex].Client.PatchAsJsonAsync(
+            $"/api/v1/profiles/{users[victimIndex].Profile.Id}",
             new Dictionary<string, string> { ["displayName"] = "Invasor" },
             token))
         {
