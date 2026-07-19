@@ -15,6 +15,9 @@ public static class AgentEndpoints
         var definitions = endpoints.MapGroup("/api/v1/agent-definitions").WithTags("agents");
         definitions.MapGet("/", ListDefinitionsAsync).Produces<AgentDefinitionPage>().ProducesProblem(400).ProducesProblem(401);
         definitions.MapGet("/{definitionId}", GetDefinitionAsync).Produces<AgentDefinitionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        definitions.MapGet("/{definitionId}/versions", ListDefinitionVersionsAsync)
+            .Produces<AgentDefinitionVersionPage>().ProducesProblem(400).ProducesProblem(401)
+            .ProducesProblem(404);
         definitions.MapPost("/", CreateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
         definitions.MapPatch("/{definitionId}", UpdateDefinitionAsync).Produces<AgentDefinitionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
         definitions.MapPost("/{definitionId}/duplicate", DuplicateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
@@ -123,6 +126,25 @@ public static class AgentEndpoints
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired();
         var value = await store.GetDefinitionForTenantAsync(profile.TenantId, definitionId, token);
         return value is null ? NotFound("agent_definition") : Results.Ok(ToContract(value));
+    }
+
+    private static async Task<IResult> ListDefinitionVersionsAsync(
+        string definitionId, int? beforeVersion, int? limit, HttpRequest request,
+        ILocalProfileStore profiles, IAgentCatalogStore store, CancellationToken token)
+    {
+        if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition");
+        if (beforeVersion is < 1 || limit is < 1 or > 200) return InvalidCursor();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        if (await store.GetDefinitionForTenantAsync(profile.TenantId, definitionId, token) is null)
+            return NotFound("agent_definition");
+        var size = limit ?? 50;
+        var values = await store.ListDefinitionVersionsAsync(
+            profile.TenantId, definitionId, beforeVersion, size + 1, token);
+        var more = values.Count > size;
+        var items = values.Take(size).Select(ToContract).ToArray();
+        return Results.Ok(new AgentDefinitionVersionPage(
+            items, more ? items[^1].Version : null));
     }
 
     private static async Task<IResult> CreateDefinitionAsync(AgentDefinitionWriteRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var value = await store.CreateDefinitionAsync(new(profile.TenantId, profile.Id, id, ToContent(input), now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionAdminException e) { return Problem(400, "invalid_agent_definition", e.Message); } catch (Exception e) when (e is Microsoft.Data.Sqlite.SqliteException or Npgsql.PostgresException) { return Problem(409, "agent_definition_conflict", "Definition key already exists."); } }
@@ -248,6 +270,16 @@ public static class AgentEndpoints
         value.OperatingPrinciples ?? [], value.Deliverables ?? [], value.QualityCriteria ?? [],
         value.CommunicationStyle, value.Limitations ?? [], value.Version, value.Enabled, value.ArchivedAt);
 
+    private static AgentDefinitionVersionContract ToContract(AgentDefinitionVersionRecord value) => new(
+        value.Id, value.DefinitionId, value.Version,
+        new(value.Snapshot.Key, value.Snapshot.Name, value.Snapshot.Role,
+            value.Snapshot.Specialty, value.Snapshot.Description, value.Snapshot.DefaultModelId,
+            value.Snapshot.SkillIds, value.Snapshot.ToolIds, value.Snapshot.Persona,
+            value.Snapshot.Mission, value.Snapshot.OperatingPrinciples,
+            value.Snapshot.Deliverables, value.Snapshot.QualityCriteria,
+            value.Snapshot.CommunicationStyle, value.Snapshot.Limitations),
+        value.ActorProfileId, value.CreatedAt);
+
     private static AgentContract ToContract(AgentRecord value) => new(
         value.Id, value.DefinitionId, value.ProjectId, value.Name, value.State, value.CurrentTaskId,
         value.ModelId,
@@ -272,6 +304,17 @@ public sealed record AgentDefinitionContract(
     string? CommunicationStyle, IReadOnlyList<string> Limitations, int Version, bool Enabled,
     DateTimeOffset? ArchivedAt);
 public sealed record AgentDefinitionPage(IReadOnlyList<AgentDefinitionContract> Items, string? NextCursor);
+public sealed record AgentDefinitionSnapshotContract(
+    string Key, string Name, string Role, string? Specialty, string Description,
+    string? DefaultModelId, IReadOnlyList<string> SkillIds, IReadOnlyList<string> ToolIds,
+    string? Persona, string? Mission, IReadOnlyList<string> OperatingPrinciples,
+    IReadOnlyList<string> Deliverables, IReadOnlyList<string> QualityCriteria,
+    string? CommunicationStyle, IReadOnlyList<string> Limitations);
+public sealed record AgentDefinitionVersionContract(
+    string Id, string DefinitionId, int Version, AgentDefinitionSnapshotContract Snapshot,
+    string ActorProfileId, DateTimeOffset CreatedAt);
+public sealed record AgentDefinitionVersionPage(
+    IReadOnlyList<AgentDefinitionVersionContract> Items, int? NextBeforeVersion);
 public sealed record AgentMetricsContract(long TasksCompleted, long TokensInput, long TokensOutput, decimal CostUsd, long UptimeMs);
 public sealed record AgentLeaseContract(long FencingToken, DateTimeOffset ExpiresAt);
 public sealed record AgentContract(

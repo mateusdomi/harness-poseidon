@@ -27,6 +27,7 @@ public sealed class AgentContractDriftTests
         var paths = openApi.GetProperty("paths");
         Assert.True(paths.GetProperty("/api/v1/agent-definitions").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}/versions").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agent-definitions").TryGetProperty("post", out _));
         Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("patch", out _));
         Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("delete", out _));
@@ -41,6 +42,10 @@ public sealed class AgentContractDriftTests
         Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/drain").TryGetProperty("post", out _));
 
         AssertFields(openApi, "AgentDefinitionContract", DefinitionFields);
+        AssertFields(openApi, "AgentDefinitionVersionContract",
+            ["id", "definitionId", "version", "snapshot", "actorProfileId", "createdAt"]);
+        AssertFields(openApi, "AgentDefinitionSnapshotContract", DefinitionFields
+            .Where(field => field is not ("id" or "version" or "enabled" or "archivedAt")));
         AssertFields(openApi, "AgentContract", AgentFields);
         AssertFields(openApi, "AgentOrgChartContract", ["projectId", "rootAgentId", "nodes"]);
         AssertFields(openApi, "AgentOrgChartNodeContract",

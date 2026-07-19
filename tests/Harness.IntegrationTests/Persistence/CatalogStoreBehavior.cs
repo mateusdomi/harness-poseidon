@@ -121,6 +121,14 @@ public static class CatalogStoreBehavior
             definitionContent with { Name = "Provider-neutral Senior Reviewer" },
             DateTimeOffset.Parse("2026-07-19T12:06:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
         Assert.Equal(2, customDefinition.Version);
+        var latestDefinitionVersion = Assert.Single(await agents.ListDefinitionVersionsAsync(
+            tenantId, customDefinitionId, null, 1, cancellationToken));
+        Assert.Equal(2, latestDefinitionVersion.Version);
+        Assert.Equal("Provider-neutral Senior Reviewer", latestDefinitionVersion.Snapshot.Name);
+        var initialDefinitionVersion = Assert.Single(await agents.ListDefinitionVersionsAsync(
+            tenantId, customDefinitionId, 2, 1, cancellationToken));
+        Assert.Equal(1, initialDefinitionVersion.Version);
+        Assert.Equal("Provider-neutral Reviewer", initialDefinitionVersion.Snapshot.Name);
         const string duplicateDefinitionId = "01ARZ3NDEKTSV4RRFFQ69G5FP2";
         var duplicate = await agents.DuplicateDefinitionAsync(new(
             tenantId, tenantId, customDefinitionId, duplicateDefinitionId,

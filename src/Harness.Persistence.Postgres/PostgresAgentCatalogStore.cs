@@ -95,6 +95,7 @@ public sealed class PostgresAgentCatalogStore(NpgsqlDataSource dataSource) : IAg
 
     public async Task<AgentDefinitionRecord?> GetDefinitionForTenantAsync(string tenantId, string definitionId, CancellationToken cancellationToken = default) { await using var command = _dataSource.CreateCommand($"{DefinitionSelect} WHERE id=$1 AND (tenant_id IS NULL OR tenant_id=$2);"); command.Parameters.Add(Text(definitionId)); command.Parameters.Add(Text(tenantId)); await using var reader = await command.ExecuteReaderAsync(cancellationToken); return await reader.ReadAsync(cancellationToken) ? ReadDefinition(reader) : null; }
     public async Task<IReadOnlyList<AgentDefinitionRecord>> ListDefinitionsForTenantAsync(string tenantId, string? afterId, int limit, bool includeArchived, CancellationToken cancellationToken = default) { var values = new List<AgentDefinitionRecord>(); await using var command = _dataSource.CreateCommand($"{DefinitionSelect} WHERE (tenant_id IS NULL OR tenant_id=$1) AND ($2 OR archived_at IS NULL) AND ($3::text IS NULL OR id>$3) ORDER BY id LIMIT $4;"); command.Parameters.Add(Text(tenantId)); command.Parameters.Add(Boolean(includeArchived)); command.Parameters.Add(NullableText(afterId)); command.Parameters.Add(Integer(limit)); await using var reader = await command.ExecuteReaderAsync(cancellationToken); while (await reader.ReadAsync(cancellationToken)) values.Add(ReadDefinition(reader)); return values; }
+    public async Task<IReadOnlyList<AgentDefinitionVersionRecord>> ListDefinitionVersionsAsync(string tenantId, string definitionId, int? beforeVersion, int limit, CancellationToken cancellationToken = default) { var values = new List<AgentDefinitionVersionRecord>(); await using var command = _dataSource.CreateCommand("SELECT v.id,v.definition_id,v.version,v.snapshot_json::text,v.actor_profile_id,v.created_at FROM harness.agent_definition_versions v JOIN harness.agent_definitions d ON d.id=v.definition_id WHERE d.tenant_id=$1 AND v.definition_id=$2 AND ($3::integer IS NULL OR v.version<$3) ORDER BY v.version DESC LIMIT $4;"); command.Parameters.Add(Text(tenantId)); command.Parameters.Add(Text(definitionId)); command.Parameters.Add(NullableInteger(beforeVersion)); command.Parameters.Add(Integer(limit)); await using var reader = await command.ExecuteReaderAsync(cancellationToken); while (await reader.ReadAsync(cancellationToken)) values.Add(ReadDefinitionVersion(reader)); return values; }
     public Task<AgentDefinitionRecord> CreateDefinitionAsync(AgentDefinitionCreateCommand command, CancellationToken cancellationToken = default) => CreateDefinitionCoreAsync(command, cancellationToken);
     public async Task<AgentDefinitionRecord> UpdateDefinitionAsync(AgentDefinitionUpdateCommand command, CancellationToken cancellationToken = default) { ValidateDefinition(command.Content); await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken); await using var tx = await connection.BeginTransactionAsync(cancellationToken); await ExecuteAsync(connection, tx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0));", cancellationToken, Text($"audit-ledger:{command.TenantId}")); var parameters = DefinitionParameters(command.Content); await ExecuteDefinitionUpdateAsync(connection, tx, command, parameters, cancellationToken); await InsertDefinitionVersionAsync(connection, tx, command.Id, command.ExpectedVersion + 1, command.ActorProfileId, command.Content, command.OccurredAt, cancellationToken); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.updated", "update", command.OccurredAt, cancellationToken); await tx.CommitAsync(cancellationToken); return (await GetDefinitionForTenantAsync(command.TenantId, command.Id, cancellationToken))!; }
     public async Task<AgentDefinitionRecord> DuplicateDefinitionAsync(AgentDefinitionDuplicateCommand command, CancellationToken cancellationToken = default) { var source = await GetDefinitionForTenantAsync(command.TenantId, command.SourceId, cancellationToken) ?? throw new AgentDefinitionAdminException("Source definition was not found."); return await CreateDefinitionCoreAsync(new(command.TenantId, command.ActorProfileId, command.Id, ToContent(source) with { Key = command.Key, Name = command.Name }, command.OccurredAt), cancellationToken); }
@@ -147,6 +148,12 @@ public sealed class PostgresAgentCatalogStore(NpgsqlDataSource dataSource) : IAg
             reader.IsDBNull(14) ? null : reader.GetString(14), Deserialize(reader.GetString(15)), reader.GetInt32(16),
             reader.GetBoolean(17), reader.IsDBNull(18) ? null : reader.GetFieldValue<DateTimeOffset>(18));
 
+    private static AgentDefinitionVersionRecord ReadDefinitionVersion(NpgsqlDataReader reader) => new(
+        reader.GetString(0).TrimEnd(), reader.GetString(1).TrimEnd(), reader.GetInt32(2),
+        JsonSerializer.Deserialize<AgentDefinitionContent>(reader.GetString(3), JsonOptions)
+            ?? throw new InvalidDataException("Agent definition snapshot is invalid."),
+        reader.GetString(4).TrimEnd(), reader.GetFieldValue<DateTimeOffset>(5));
+
     private static AgentRecord ReadAgent(NpgsqlDataReader reader)
     {
         var lease = reader.IsDBNull(8)
@@ -190,6 +197,11 @@ public sealed class PostgresAgentCatalogStore(NpgsqlDataSource dataSource) : IAg
     private static NpgsqlParameter NullableText(string? value) => new()
     {
         NpgsqlDbType = NpgsqlDbType.Text,
+        Value = (object?)value ?? DBNull.Value,
+    };
+    private static NpgsqlParameter NullableInteger(int? value) => new()
+    {
+        NpgsqlDbType = NpgsqlDbType.Integer,
         Value = (object?)value ?? DBNull.Value,
     };
 }

@@ -64,6 +64,26 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
     public Task<AgentDefinitionRecord?> GetDefinitionForTenantAsync(string tenantId, string definitionId, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync(async (connection, token) => { await using var command = connection.CreateCommand(); command.CommandText = $"{DefinitionSelect} WHERE id=$id AND (tenant_id IS NULL OR tenant_id=$tenant);"; Add(command, "$id", definitionId); Add(command, "$tenant", tenantId); await using var reader = await command.ExecuteReaderAsync(token); return await reader.ReadAsync(token) ? ReadDefinition(reader) : null; }, cancellationToken);
     public Task<IReadOnlyList<AgentDefinitionRecord>> ListDefinitionsForTenantAsync(string tenantId, string? afterId, int limit, bool includeArchived, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync<IReadOnlyList<AgentDefinitionRecord>>(async (connection, token) => { var values = new List<AgentDefinitionRecord>(); await using var command = connection.CreateCommand(); command.CommandText = $"{DefinitionSelect} WHERE (tenant_id IS NULL OR tenant_id=$tenant) AND ($archived=1 OR archived_at IS NULL) AND ($after IS NULL OR id>$after) ORDER BY id LIMIT $limit;"; Add(command, "$tenant", tenantId); Add(command, "$archived", includeArchived ? 1 : 0); Add(command, "$after", afterId is null ? DBNull.Value : afterId); Add(command, "$limit", limit); await using var reader = await command.ExecuteReaderAsync(token); while (await reader.ReadAsync(token)) values.Add(ReadDefinition(reader)); return values; }, cancellationToken);
 
+    public Task<IReadOnlyList<AgentDefinitionVersionRecord>> ListDefinitionVersionsAsync(
+        string tenantId, string definitionId, int? beforeVersion, int limit,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<IReadOnlyList<AgentDefinitionVersionRecord>>(async (connection, token) =>
+        {
+            var values = new List<AgentDefinitionVersionRecord>();
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT v.id,v.definition_id,v.version,v.snapshot_json,v.actor_profile_id,v.created_at " +
+                "FROM agent_definition_versions v JOIN agent_definitions d ON d.id=v.definition_id " +
+                "WHERE d.tenant_id=$tenant AND v.definition_id=$id " +
+                "AND ($before IS NULL OR v.version<$before) ORDER BY v.version DESC LIMIT $limit;";
+            Add(command, "$tenant", tenantId); Add(command, "$id", definitionId);
+            Add(command, "$before", beforeVersion is null ? DBNull.Value : beforeVersion.Value);
+            Add(command, "$limit", limit);
+            await using var reader = await command.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token)) values.Add(ReadDefinitionVersion(reader));
+            return values;
+        }, cancellationToken);
+
     public Task<AgentDefinitionRecord> CreateDefinitionAsync(AgentDefinitionCreateCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync((connection, token) => CreateDefinitionCoreAsync(connection, command, token), cancellationToken);
     public Task<AgentDefinitionRecord> UpdateDefinitionAsync(AgentDefinitionUpdateCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync((connection, token) => UpdateDefinitionCoreAsync(connection, command, token), cancellationToken);
     public Task<AgentDefinitionRecord> DuplicateDefinitionAsync(AgentDefinitionDuplicateCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync(async (connection, token) => { var source = await ReadDefinitionForTenantAsync(connection, command.TenantId, command.SourceId, token) ?? throw new AgentDefinitionAdminException("Source definition was not found."); var content = ToContent(source) with { Key = command.Key, Name = command.Name }; return await CreateDefinitionCoreAsync(connection, new(command.TenantId, command.ActorProfileId, command.Id, content, command.OccurredAt), token); }, cancellationToken);
@@ -156,6 +176,12 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
         reader.IsDBNull(14) ? null : reader.GetString(14),
         JsonSerializer.Deserialize<string[]>(reader.GetString(15), JsonOptions) ?? [], reader.GetInt32(16),
         reader.GetInt32(17) == 1, reader.IsDBNull(18) ? null : Parse(reader.GetString(18)));
+
+    private static AgentDefinitionVersionRecord ReadDefinitionVersion(SqliteDataReader reader) => new(
+        reader.GetString(0), reader.GetString(1), reader.GetInt32(2),
+        JsonSerializer.Deserialize<AgentDefinitionContent>(reader.GetString(3), JsonOptions)
+            ?? throw new InvalidDataException("Agent definition snapshot is invalid."),
+        reader.GetString(4), Parse(reader.GetString(5)));
 
     private static AgentRecord ReadAgent(SqliteDataReader reader)
     {

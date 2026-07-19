@@ -114,6 +114,17 @@ public sealed class ChiefOrchestrationApiTests
                     }
                     using (var updateDefinition = await client.PatchAsJsonAsync($"/api/v1/agent-definitions/{customDefinitionId}", custom with { Name = "Senior Security Reviewer", ExpectedVersion = 1 }, timeout.Token))
                     { updateDefinition.EnsureSuccessStatusCode(); Assert.Equal(2, (await updateDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))?.Version); }
+                    var versions = (await client.GetFromJsonAsync<AgentDefinitionVersionPage>(
+                        $"/api/v1/agent-definitions/{customDefinitionId}/versions?limit=1", timeout.Token))!;
+                    var latestVersion = Assert.Single(versions.Items);
+                    Assert.Equal(2, latestVersion.Version);
+                    Assert.Equal("Senior Security Reviewer", latestVersion.Snapshot.Name);
+                    Assert.Equal(profileId, latestVersion.ActorProfileId);
+                    Assert.Equal(2, versions.NextBeforeVersion);
+                    var initialVersions = (await client.GetFromJsonAsync<AgentDefinitionVersionPage>(
+                        $"/api/v1/agent-definitions/{customDefinitionId}/versions?beforeVersion=2&limit=1",
+                        timeout.Token))!;
+                    Assert.Equal("Security Reviewer", Assert.Single(initialVersions.Items).Snapshot.Name);
                     string duplicateId;
                     using (var duplicateDefinition = await client.PostAsJsonAsync($"/api/v1/agent-definitions/{customDefinitionId}/duplicate", new AgentDefinitionDuplicateRequest("security-reviewer-copy", "Security Reviewer Copy"), timeout.Token))
                     { Assert.Equal(HttpStatusCode.Created, duplicateDefinition.StatusCode); duplicateId = (await duplicateDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))!.Id; }

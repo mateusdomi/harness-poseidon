@@ -88,7 +88,7 @@ Independentes (trabalho técnico que prossegue sem terceiros):
    publicação, tombstones, exclusão, duplicação e vínculo por projeto). No quadro, arquivamento,
    paginação server-side das tarefas e filtro de fase persistido estão verdes; lote e CSV
    Excel-compatible permanecem client-side. O CRUD/versionamento/lifecycle de definições de
-   agentes já está verde nos dois providers.
+   agentes e seu histórico de revisões tipado já estão verdes nos dois providers.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 

@@ -29,6 +29,9 @@ public interface IAgentCatalogStore
 
     Task<AgentDefinitionRecord?> GetDefinitionForTenantAsync(string tenantId, string definitionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AgentDefinitionRecord>> ListDefinitionsForTenantAsync(string tenantId, string? afterId, int limit, bool includeArchived, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AgentDefinitionVersionRecord>> ListDefinitionVersionsAsync(
+        string tenantId, string definitionId, int? beforeVersion, int limit,
+        CancellationToken cancellationToken = default);
     Task<AgentDefinitionRecord> CreateDefinitionAsync(AgentDefinitionCreateCommand command, CancellationToken cancellationToken = default);
     Task<AgentDefinitionRecord> UpdateDefinitionAsync(AgentDefinitionUpdateCommand command, CancellationToken cancellationToken = default);
     Task<AgentDefinitionRecord> DuplicateDefinitionAsync(AgentDefinitionDuplicateCommand command, CancellationToken cancellationToken = default);
@@ -58,6 +61,9 @@ public sealed record AgentDefinitionContent(
     string? Persona, string? Mission, IReadOnlyList<string> OperatingPrinciples,
     IReadOnlyList<string> Deliverables, IReadOnlyList<string> QualityCriteria,
     string? CommunicationStyle, IReadOnlyList<string> Limitations);
+public sealed record AgentDefinitionVersionRecord(
+    string Id, string DefinitionId, int Version, AgentDefinitionContent Snapshot,
+    string ActorProfileId, DateTimeOffset CreatedAt);
 public sealed record AgentDefinitionCreateCommand(string TenantId, string ActorProfileId, string Id, AgentDefinitionContent Content, DateTimeOffset OccurredAt);
 public sealed record AgentDefinitionUpdateCommand(string TenantId, string ActorProfileId, string Id, int ExpectedVersion, AgentDefinitionContent Content, DateTimeOffset OccurredAt);
 public sealed record AgentDefinitionDuplicateCommand(string TenantId, string ActorProfileId, string SourceId, string Id, string Key, string Name, DateTimeOffset OccurredAt);
