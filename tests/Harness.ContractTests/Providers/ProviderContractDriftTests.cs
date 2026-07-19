@@ -6,7 +6,7 @@ public sealed class ProviderContractDriftTests
 {
     [Theory]
     [InlineData("providers", "ProviderContract", "providerSchema", "Provider", "id,kind,name,baseUrl,enabled", true)]
-    [InlineData("accounts", "AccountContract", "accountSchema", "Account", "id,providerId,label,state,quotaLimitUsd,quotaUsedUsd", false)]
+    [InlineData("accounts", "AccountContract", "accountSchema", "Account", "id,providerId,label,state,quotaLimitUsd,quotaUsedUsd", true)]
     [InlineData("models", "ModelContract", "modelSchema", "Model", "id,providerId,name,displayName,capabilities,contextWindow,costPer1kInputUsd,costPer1kOutputUsd,enabled", true)]
     [InlineData("routing-policies", "RoutingPolicyContract", "routingPolicySchema", "RoutingPolicy", "id,projectId,name,rules,active", true)]
     [InlineData("budgets", "BudgetContract", "budgetSchema", "Budget", "id,scope,scopeId,period,limitUsd,spentUsd,alertThresholdPct", true)]

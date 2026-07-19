@@ -199,6 +199,8 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         {
             "providers" => await UpdateProviderAsync(
                 connection, transaction, command, patch.RootElement, cancellationToken),
+            "accounts" => await UpdateAccountAsync(
+                connection, transaction, command, patch.RootElement, cancellationToken),
             "models" => await UpdateModelAsync(
                 connection, transaction, command, patch.RootElement, cancellationToken),
             "routing-policies" => await UpdateRoutingAsync(
@@ -214,7 +216,26 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         await AppendOutboxAsync(
             connection, transaction, command.TenantId, "audit.eventAppended",
             payload, command.OccurredAt, cancellationToken);
-        if (result is BudgetRecord budget)
+        if (result is AccountRecord account)
+        {
+            await AppendOutboxAsync(
+                connection,
+                transaction,
+                command.TenantId,
+                "quota.updated",
+                JsonSerializer.Serialize(
+                    new
+                    {
+                        accountId = account.Id,
+                        budgetId = (string?)null,
+                        usedUsd = account.QuotaUsedUsd,
+                        limitUsd = account.QuotaLimitUsd,
+                    },
+                    JsonOptions),
+                command.OccurredAt,
+                cancellationToken);
+        }
+        else if (result is BudgetRecord budget)
         {
             await AppendOutboxAsync(
                 connection,
@@ -288,6 +309,43 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             Text(command.TenantId),
             Text(command.Id));
         return current with { DisplayName = name, Enabled = enabled };
+    }
+
+    private static async Task<AccountRecord> UpdateAccountAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        ProviderCatalogUpdateCommand command,
+        JsonElement patch,
+        CancellationToken cancellationToken)
+    {
+        var current = await ReadOneAsync(
+            connection, transaction, command.TenantId, AccountSelect, command.Id,
+            ReadAccount, cancellationToken)
+            ?? throw new ProviderCatalogNotFoundException("account");
+        var label = ReadString(patch, "label", current.Label, false);
+        var state = ReadString(patch, "state", current.State, false);
+        var quotaLimit = ReadNullableDecimal(patch, "quotaLimitUsd", current.QuotaLimitUsd);
+        if (state is not ("active" or "disabled" or "quotaExceeded"))
+        {
+            throw new ProviderCatalogValidationException("Account state is invalid.");
+        }
+
+        if (quotaLimit < 0)
+        {
+            throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
+        }
+
+        await ExecuteAsync(
+            connection,
+            transaction,
+            "UPDATE harness.provider_accounts SET label=$1,state=$2,quota_limit_usd=$3 WHERE tenant_id=$4 AND id=$5;",
+            cancellationToken,
+            Text(label),
+            Text(state),
+            quotaLimit is null ? NullableNumeric() : Numeric(quotaLimit.Value),
+            Text(command.TenantId),
+            Text(command.Id));
+        return current with { Label = label, State = state, QuotaLimitUsd = quotaLimit };
     }
 
     private static async Task<RoutingPolicyRecord> UpdateRoutingAsync(
@@ -478,14 +536,9 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
 
     private static string? ReadNullableString(JsonElement patch, string key, string? current)
     {
-        if (!patch.TryGetProperty(key, out var node))
+        if (!patch.TryGetProperty(key, out var node) || node.ValueKind == JsonValueKind.Null)
         {
             return current;
-        }
-
-        if (node.ValueKind == JsonValueKind.Null)
-        {
-            return null;
         }
 
         if (node.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(node.GetString()))
@@ -516,6 +569,26 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         if (!patch.TryGetProperty(key, out var node) || node.ValueKind == JsonValueKind.Null)
         {
             return current;
+        }
+
+        if (node.ValueKind != JsonValueKind.Number || !node.TryGetDecimal(out var value))
+        {
+            throw new ProviderCatalogValidationException($"{key} is invalid.");
+        }
+
+        return value;
+    }
+
+    private static decimal? ReadNullableDecimal(JsonElement patch, string key, decimal? current)
+    {
+        if (!patch.TryGetProperty(key, out var node))
+        {
+            return current;
+        }
+
+        if (node.ValueKind == JsonValueKind.Null)
+        {
+            return null;
         }
 
         if (node.ValueKind != JsonValueKind.Number || !node.TryGetDecimal(out var value))
@@ -710,6 +783,12 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
     private static NpgsqlParameter<bool> Boolean(bool value) => new() { TypedValue = value };
 
     private static NpgsqlParameter<decimal> Numeric(decimal value) => new() { TypedValue = value };
+
+    private static NpgsqlParameter NullableNumeric() => new()
+    {
+        NpgsqlDbType = NpgsqlDbType.Numeric,
+        Value = DBNull.Value,
+    };
 
     private static NpgsqlParameter<DateTimeOffset> Timestamp(DateTimeOffset value) =>
         new() { TypedValue = value };

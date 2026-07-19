@@ -52,5 +52,19 @@ public static class CatalogStoreBehavior
         Assert.Contains(budgets, budget => budget.Scope == "account");
         var global = budgets.Single(budget => budget.Scope == "global");
         Assert.Equal(global.Id, (await providers.GetBudgetAsync(tenantId, global.Id, cancellationToken))!.Id);
+
+        var account = Assert.Single(await providers.ListAccountsAsync(tenantId, null, 1, cancellationToken));
+        var updated = Assert.IsType<AccountRecord>(await providers.UpdateAsync(
+            new ProviderCatalogUpdateCommand(
+                tenantId,
+                tenantId,
+                "accounts",
+                account.Id,
+                "{\"label\":\"Provider-neutral account\",\"state\":\"disabled\",\"quotaLimitUsd\":125}",
+                DateTimeOffset.Parse("2026-07-19T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture)),
+            cancellationToken));
+        Assert.Equal("Provider-neutral account", updated.Label);
+        Assert.Equal("disabled", updated.State);
+        Assert.Equal(125m, updated.QuotaLimitUsd);
     }
 }

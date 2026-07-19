@@ -73,6 +73,7 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         ProviderCatalogRecord result = command.Resource switch
         {
             "providers" => await UpdateProviderAsync(c, tx, command, patch.RootElement, token),
+            "accounts" => await UpdateAccountAsync(c, tx, command, patch.RootElement, token),
             "models" => await UpdateModelAsync(c, tx, command, patch.RootElement, token),
             "routing-policies" => await UpdateRoutingAsync(c, tx, command, patch.RootElement, token),
             "budgets" => await UpdateBudgetAsync(c, tx, command, patch.RootElement, token),
@@ -81,7 +82,9 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         var payload = AuditPayload(command, $"{command.Resource}/{command.Id} updated.");
         await AppendLedgerAsync(c, tx, command.TenantId, "providerCatalog.updated", payload, command.OccurredAt, token);
         await AppendOutboxAsync(c, tx, command.TenantId, "audit.eventAppended", payload, command.OccurredAt, token);
-        if (result is BudgetRecord budget)
+        if (result is AccountRecord account)
+            await AppendOutboxAsync(c, tx, command.TenantId, "quota.updated", JsonSerializer.Serialize(new { accountId = account.Id, budgetId = (string?)null, usedUsd = account.QuotaUsedUsd, limitUsd = account.QuotaLimitUsd }, JsonOptions), command.OccurredAt, token);
+        else if (result is BudgetRecord budget)
             await AppendOutboxAsync(c, tx, command.TenantId, "quota.updated", JsonSerializer.Serialize(new { accountId = budget.Scope == "account" ? budget.ScopeId : null, budgetId = budget.Id, usedUsd = budget.SpentUsd, limitUsd = budget.LimitUsd }, JsonOptions), command.OccurredAt, token);
         await tx.CommitAsync(token); return result;
     }
@@ -101,6 +104,17 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         var name = ReadString(p, "displayName", current.DisplayName, false); var enabled = ReadBool(p, "enabled", current.Enabled);
         await ExecuteAsync(c, tx, "UPDATE provider_models SET display_name=$name,enabled=$enabled WHERE tenant_id=$tenant AND id=$id;", token,
             ("$name", name), ("$enabled", enabled ? 1 : 0), ("$tenant", cmd.TenantId), ("$id", cmd.Id)); return current with { DisplayName = name, Enabled = enabled };
+    }
+
+    private static async Task<AccountRecord> UpdateAccountAsync(SqliteConnection c, SqliteTransaction tx, ProviderCatalogUpdateCommand cmd, JsonElement p, CancellationToken token)
+    {
+        var current = await ReadOneAsync(c, tx, cmd.TenantId, AccountSelect, cmd.Id, ReadAccount, token) ?? throw new ProviderCatalogNotFoundException("account");
+        var label = ReadString(p, "label", current.Label, false); var state = ReadString(p, "state", current.State, false); var quotaLimit = ReadNullableDecimal(p, "quotaLimitUsd", current.QuotaLimitUsd);
+        if (state is not ("active" or "disabled" or "quotaExceeded")) throw new ProviderCatalogValidationException("Account state is invalid.");
+        if (quotaLimit < 0) throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
+        await ExecuteAsync(c, tx, "UPDATE provider_accounts SET label=$label,state=$state,quota_limit_usd=$limit WHERE tenant_id=$tenant AND id=$id;", token,
+            ("$label", label), ("$state", state), ("$limit", quotaLimit ?? (object)DBNull.Value), ("$tenant", cmd.TenantId), ("$id", cmd.Id));
+        return current with { Label = label, State = state, QuotaLimitUsd = quotaLimit };
     }
 
     private static async Task<RoutingPolicyRecord> UpdateRoutingAsync(SqliteConnection c, SqliteTransaction tx, ProviderCatalogUpdateCommand cmd, JsonElement p, CancellationToken token)
@@ -155,6 +169,7 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     private static string? ReadNullableString(JsonElement p, string key, string? current) { if (!p.TryGetProperty(key, out var n)) return current; if (n.ValueKind == JsonValueKind.Null) return null; if (n.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(n.GetString())) throw new ProviderCatalogValidationException($"{key} is invalid."); return n.GetString()!.Trim(); }
     private static bool ReadBool(JsonElement p, string key, bool current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new ProviderCatalogValidationException($"{key} is invalid."); return n.GetBoolean(); }
     private static decimal ReadDecimal(JsonElement p, string key, decimal current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Number || !n.TryGetDecimal(out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value; }
+    private static decimal? ReadNullableDecimal(JsonElement p, string key, decimal? current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Number || !n.TryGetDecimal(out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value; }
 
     private static async Task<T?> ReadOneAsync<T>(SqliteConnection c, SqliteTransaction? tx, string tenant, string select, string id, Func<SqliteDataReader, T> read, CancellationToken token) where T : class
     { await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText = $"{select} WHERE tenant_id=$tenant AND id=$id;"; Add(q, "$tenant", tenant); Add(q, "$id", id); await using var r = await q.ExecuteReaderAsync(token); return await r.ReadAsync(token) ? read(r) : null; }

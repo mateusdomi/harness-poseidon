@@ -21,6 +21,7 @@ public static class ProviderEndpoints
         var accounts = endpoints.MapGroup("/api/v1/accounts").WithTags("providers");
         accounts.MapGet("/", ListAccountsAsync).Produces<AccountPage>().ProducesProblem(400).ProducesProblem(401);
         accounts.MapGet("/{id}", GetAccountAsync).Produces<AccountContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        accounts.MapPatch("/{id}", PatchAccountAsync).Produces<AccountContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         var models = endpoints.MapGroup("/api/v1/models").WithTags("providers");
         models.MapGet("/", ListModelsAsync).Produces<ModelPage>().ProducesProblem(400).ProducesProblem(401);
         models.MapGet("/{id}", GetModelAsync).Produces<ModelContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
@@ -60,6 +61,7 @@ public static class ProviderEndpoints
     }
 
     private static Task<IResult> PatchProviderAsync(string id, ProviderPatchRequest input, HttpRequest request, ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock, CancellationToken token) => PatchAsync("providers", id, input, request, profiles, store, clock, token);
+    private static Task<IResult> PatchAccountAsync(string id, AccountPatchRequest input, HttpRequest request, ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock, CancellationToken token) => PatchAsync("accounts", id, input, request, profiles, store, clock, token);
     private static Task<IResult> PatchModelAsync(string id, ModelPatchRequest input, HttpRequest request, ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock, CancellationToken token) => PatchAsync("models", id, input, request, profiles, store, clock, token);
     private static Task<IResult> PatchRoutingAsync(string id, RoutingPolicyPatchRequest input, HttpRequest request, ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock, CancellationToken token) => PatchAsync("routing-policies", id, input, request, profiles, store, clock, token);
     private static Task<IResult> PatchBudgetAsync(string id, BudgetPatchRequest input, HttpRequest request, ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock, CancellationToken token) => PatchAsync("budgets", id, input, request, profiles, store, clock, token);
@@ -94,6 +96,7 @@ public static class ProviderEndpoints
 }
 
 public sealed record ProviderPatchRequest(string? Name, string? BaseUrl, bool? Enabled);
+public sealed record AccountPatchRequest(string? Label, string? State, decimal? QuotaLimitUsd);
 public sealed record ModelPatchRequest(string? DisplayName, bool? Enabled);
 public sealed record RoutingPolicyPatchRequest(string? Name, IReadOnlyList<RoutingRuleContract>? Rules, bool? Active);
 public sealed record BudgetPatchRequest(decimal? LimitUsd, decimal? AlertThresholdPct);

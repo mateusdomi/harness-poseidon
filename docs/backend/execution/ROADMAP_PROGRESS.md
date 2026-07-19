@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(246/246 testes backend, build Release 0 warnings/0 erros, 331/331 frontend) reproduzida nesta sessão.
+(246/246 testes backend, build Release 0 warnings/0 erros, 362/362 frontend) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -79,8 +79,10 @@ Independentes (trabalho técnico que prossegue sem terceiros):
 
 1. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
    `page/pageSize`, workflows por projeto, CRUD de definições de agentes e
-   providers/contas/modelos/esforço. No quadro, arquivamento backend está verde e busca/filtros,
-   paginação, lote e CSV Excel-compatible já são client-side; falta auditar eventual filtro de fase.
+   providers/contas/modelos/esforço. A administração segura de contas (`label`, estado e limite de
+   cota) já está verde nos dois providers; ainda faltam os demais comandos de configuração e o
+   modelo tipado de esforço. No quadro, arquivamento backend está verde e busca/filtros, paginação,
+   lote e CSV Excel-compatible já são client-side; falta auditar eventual filtro de fase.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
@@ -99,5 +101,7 @@ Peso não incluído nos 100 pontos do roadmap base (v3 §6 manda manter separado
 v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão
 **implementados/validados/integrados** no backend; busca, filtros, paginação, lote e CSV do quadro
 são client-side por D-063/D-073/D-075. O read-model tenant-scoped de organograma v3 §8.10 também
-está **implementado/validado/integrado**. Os demais itens seguem em auditoria dirigida antes de
-implementação, para evitar duplicar comportamento pronto.
+está **implementado/validado/integrado**. Em §8.13, o PATCH seguro de conta está
+**implementado/validado/integrado** com paridade SQLite/PostgreSQL; providers/modelos/esforço
+continuam parciais. Os demais itens seguem em auditoria dirigida antes de implementação, para
+evitar duplicar comportamento pronto.
