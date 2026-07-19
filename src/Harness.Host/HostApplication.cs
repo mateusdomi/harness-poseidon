@@ -30,6 +30,7 @@ using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Licensing;
 using Harness.Persistence.Abstractions.Messaging;
@@ -150,6 +151,9 @@ public static class HostApplication
         }
         builder.Services.AddSingleton<IDocumentContentCatalog>(
             new FileSystemDocumentContentCatalog(documentCatalogPath));
+        builder.Services.AddSingleton(new SolicitationAttachmentStorage(
+            Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "attachments")));
+        builder.Services.AddSingleton<ISolicitationAttachmentStore, SqliteSolicitationAttachmentStore>();
         builder.Services.AddSingleton(services => new LocalOperationsService(
             services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
@@ -215,6 +219,7 @@ public static class HostApplication
         app.MapLicensing();
         app.MapConversations();
         app.MapWorkBoard();
+        app.MapSolicitationAttachments();
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
         app.MapDocumentCatalog();
