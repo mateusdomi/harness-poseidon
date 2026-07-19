@@ -214,6 +214,12 @@ public static class HostApplication
             .GetSection("Harness:Channels:Telegram")
             .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());
         builder.Services.AddHostedService<TelegramChannelBackgroundService>();
+        builder.Services.AddSingleton(builder.Configuration
+            .GetSection("Harness:Channels:Teams")
+            .Get<TeamsChannelOptions>() ?? new TeamsChannelOptions());
+        builder.Services.AddSingleton<TeamsChannelBackgroundService>();
+        builder.Services.AddSingleton<IHostedService>(services =>
+            services.GetRequiredService<TeamsChannelBackgroundService>());
         builder.Services.AddSingleton<RunTargetAgentFallback>();
         builder.Services.AddSingleton<RunTargetDetector>();
         builder.Services.AddSingleton<DockerRunTargetLifecycle>();

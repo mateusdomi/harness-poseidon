@@ -81,6 +81,65 @@
                 }
             }
         },
+        "/api/v1/channels/teams/activities": {
+            "post": {
+                "tags": [
+                    "channels"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamsActivity"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamsActivityReceipt"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-runs/{id}/consistency-checks": {
             "post": {
                 "tags": [
@@ -15318,6 +15377,143 @@
                     }
                 }
             },
+            "TeamsActivity": {
+                "required": [
+                    "type",
+                    "id",
+                    "serviceUrl",
+                    "from",
+                    "conversation",
+                    "text",
+                    "attachments"
+                ],
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "serviceUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "from": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/TeamsChannelAccount"
+                            }
+                        ]
+                    },
+                    "conversation": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/TeamsConversationAccount"
+                            }
+                        ]
+                    },
+                    "text": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "attachments": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/TeamsAttachment"
+                        }
+                    }
+                }
+            },
+            "TeamsActivityReceipt": {
+                "required": [
+                    "turnId",
+                    "conversationId",
+                    "linked",
+                    "deduplicated"
+                ],
+                "type": "object",
+                "properties": {
+                    "turnId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "conversationId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "linked": {
+                        "type": "boolean"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "TeamsAttachment": {
+                "required": [
+                    "contentType",
+                    "name"
+                ],
+                "type": "object",
+                "properties": {
+                    "contentType": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "TeamsChannelAccount": {
+                "required": [
+                    "id",
+                    "aadObjectId"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "aadObjectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "TeamsConversationAccount": {
+                "required": [
+                    "id"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                }
+            },
             "ToolContract": {
                 "required": [
                     "id",
@@ -16125,6 +16321,9 @@
             "name": "run-project"
         },
         {
+            "name": "channels"
+        },
+        {
             "name": "workflow-runs"
         },
         {
@@ -16183,9 +16382,6 @@
         },
         {
             "name": "messages"
-        },
-        {
-            "name": "channels"
         },
         {
             "name": "solicitations"

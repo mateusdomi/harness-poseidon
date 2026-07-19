@@ -40,7 +40,38 @@ public static class ChannelEndpoints
             .ProducesProblem(400)
             .ProducesProblem(401)
             .ProducesProblem(404);
+        endpoints.MapPost("/api/v1/channels/teams/activities", ReceiveTeamsActivityAsync)
+            .WithTags("channels")
+            .Produces<TeamsActivityReceipt>(202)
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(503);
         return endpoints;
+    }
+
+    private static async Task<IResult> ReceiveTeamsActivityAsync(
+        TeamsActivity activity,
+        HttpRequest request,
+        TeamsChannelBackgroundService teams,
+        CancellationToken token)
+    {
+        try
+        {
+            var receipt = await teams.ReceiveAsync(request.Headers.Authorization, activity, token);
+            return Results.Accepted(value: receipt);
+        }
+        catch (TeamsActivityAuthenticationException exception)
+        {
+            return Problem(401, "teams_activity_unauthorized", exception.Message);
+        }
+        catch (TeamsActivityValidationException exception)
+        {
+            return Problem(400, "invalid_teams_activity", exception.Message);
+        }
+        catch (TeamsChannelUnavailableException exception)
+        {
+            return Problem(503, "teams_channel_unavailable", exception.Message);
+        }
     }
 
     private static async Task<IResult> ListLinksAsync(

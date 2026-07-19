@@ -1,16 +1,16 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-19T19:49:47Z
+Atualizado em: 2026-07-19T20:00:30Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Último commit remoto auditado: `fcfdc17` (`origin/develop`). F6-3 foi publicada com contrato frontend preservado. F6-4 (fallback por agente policy-gated, tipado, auditado e sem shell) está verde localmente; gate integral 242/242 backend + 331/331 frontend, build zero warnings/erros, aguardando commit/push desta fatia.
-- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 96,3% · Validado 96,1% · Integrado 93,7% · Homologado 0% · Geral ≈76,1%.
-- Próximo passo exato: F9 Teams; depois F7 atualização/desinstalação e F11 a11y/E2E/DoD. F6 está tecnicamente completa; falta apenas eventual smoke do fallback com executor/modelo real. O navegador embutido segue sem sessão disponível apesar de Chrome/Edge instalados, mas isso não bloqueia os itens independentes. Dependências externas isoladas: homologação visual GNG-3 e smoke OIDC com Entra ID real. Telegram real exige rotação do token antes de nova ativação (R-013).
-- Bloqueios: nenhum técnico — há trabalho independente de F9/F7/F11 em andamento. Apenas os smokes externos (GNG-3 visual, Entra ID real e modelo real) aguardam terceiros e não travam o roadmap técnico. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
+- Último commit remoto auditado: `a9b2f86` (`origin/develop`). F6 está publicada com contrato frontend preservado. F9-4 (adaptador Teams autenticado, tipado, com dedupe/retry/SSRF guard e fake ponta-a-ponta) está verde localmente; gate integral 243/243 backend + 331/331 frontend, build zero warnings/erros, aguardando commit/push desta fatia.
+- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 97,7% · Validado 97,5% · Integrado 94,8% · Homologado 0% · Geral ≈77,2%.
+- Próximo passo exato: F7 atualização/desinstalação segura; depois F11 a11y/E2E/DoD. F6 e F9 estão tecnicamente completas; faltam apenas smokes externos com executor/modelo e Microsoft/Azure Bot reais. O navegador embutido segue sem sessão disponível apesar de Chrome/Edge instalados, mas isso não bloqueia os itens independentes. Dependências externas isoladas: homologação visual GNG-3, Entra ID real e Teams real. Telegram real exige rotação do token antes de nova ativação (R-013).
+- Bloqueios: nenhum técnico — há trabalho independente de F7/F11 e refinamentos v3 em andamento. Apenas os smokes externos (GNG-3 visual, Entra ID, Teams e modelo reais) aguardam terceiros e não travam o roadmap técnico. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
 ## Suposições ativas
 
