@@ -21,6 +21,7 @@ using Harness.Host.Workflows;
 using Harness.Host.Tools;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.Fake;
+using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Documents;
@@ -102,6 +103,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<SqliteConversationStore>());
         builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
         builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
+        builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
         builder.Services.AddSingleton<IWorkflowStore, SqliteWorkflowStore>();
         builder.Services.AddSingleton<IWorkflowCatalogStore, SqliteWorkflowCatalogStore>();
         builder.Services.AddSingleton<IDocumentStore, SqliteDocumentStore>();

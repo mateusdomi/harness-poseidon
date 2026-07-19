@@ -1,14 +1,14 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-19T00:03:29Z
+Atualizado em: 2026-07-19T02:00:00Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-DOGFOOD-1d.2 — claims/workspace duráveis e composição por tentativa; a sessão Codex Docker streaming está verde.
+- Épico atual: F2-DOGFOOD-1d.2 — claims/workspace duráveis (1d.2a verde) e composição por tentativa (1d.2b em curso).
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `5638840` (`develop`), contendo F2-DOGFOOD-1d.1 com 176 testes backend e 270 testes frontend verdes.
-- Próximo passo exato: persistir claims de escopo e o catálogo de workspace da tentativa; depois compor worktree exclusiva, sessão Docker e `CodexCliAgentExecutor` no projeto externo.
+- Último commit remoto validado: `c42441c` (`develop`, FE-5b da Kimi); o backend 1d.2a está nesta working tree com 177 testes verdes.
+- Próximo passo exato: orquestrador tipado da tentativa externa — validar projeto/política, adquirir claim persistente via `IAttemptWorkspaceStore`, criar branch/worktree com `GitWorktreeManager`, abrir `ISandboxProvider`, executar `CodexCliAgentExecutor`, renovar lease/heartbeat, concluir/falhar, cleanup e liberar claim, com testes de recovery por estágio.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
@@ -97,8 +97,9 @@ Atualizado em: 2026-07-19T00:03:29Z
 - F2 executor de agentes: `IAgentExecutor` possui Fake determinístico e `CodexCliAgentExecutor`. A implementação Codex segue o protocolo app-server V2 da CLI 0.144.5, processa deltas/conclusão, impõe JSON Schema do Chief, valida propriedades e bounds e tenta um repair único. O construtor falha fechado sem prova completa de sandbox externo; por isso o Host usa Fake em testes/execução padrão até a composição Docker. O endpoint de turnos já reconstrói `StatusDigest` e passa pela interface, sem chamada de modelo nos testes.
 - F2 pipeline durável do Chief: migration 0027 adiciona estado por tenant/projeto e mailbox. O endpoint persiste Inbox, mensagem humana e item pendente antes do executor; a aquisição serializa o projeto com lease/fencing e marca agente working. A conclusão só aceita owner/token não expirado, grava mensagem/resposta/eventos, sessão e digest, libera lease e retorna o agente a idle. Restart preservou mailbox completed, sessão, digest, Inbox e fencing.
 - F2 reconciliação do Chief: o endpoint apenas enfileira e retorna 202. `ChiefTurnBackgroundService` drena pendências, isola falhas, limita retries e reaquece `processing` após lease expirar. Um cenário deixou owner/token 1 morrer, reiniciou o Host, concluiu automaticamente com token 2 e recusou o lease antigo.
-- Migrations: SQLite `27→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` verde após F2-DOGFOOD-1c: frontend com lint/typecheck/build e 270/270 testes; backend com restore locked, format, build Release com zero warnings/erros e 174/174 testes verdes (`Unit 96`, `Integration 37`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`).
+- Claims/workspace duráveis F2-DOGFOOD-1d.2a: `IAttemptWorkspaceStore` persiste catálogo por tentativa com estados fechados, ClaimId ULID, owner/fencing/lease/heartbeat, cleanup lifecycle separado, erro final sanitizado, Inbox idempotente por SHA-256, reclaim determinístico de lease expirada, `ListExpiredAsync` para reconciliação, ledger encadeado e Outbox `attempt.started/completed/failed`. Migration 0028 impõe FKs compostas contra `work_tasks`/`work_attempts`, branch ativa única por repositório e worktree única por tenant. Restart real preservou claims/lease; owner antigo é recusado após reclaim.
+- Migrations: SQLite `28→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
+- Pipeline: backend com format sem mudanças, build Release zero warnings/erros e 177/177 testes verdes (`Unit 96`, `Integration 40`, `Contract 28`, `Recovery 4`, `Architecture 6`, `Concurrency 3`); frontend 270/270 no gate integrado anterior.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 
