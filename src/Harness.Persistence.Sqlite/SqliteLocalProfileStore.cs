@@ -191,7 +191,7 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
     }
 
     private const string SelectSql =
-        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,last_active_at,version FROM local_users";
+        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version FROM local_users";
 
     private static string Store(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);

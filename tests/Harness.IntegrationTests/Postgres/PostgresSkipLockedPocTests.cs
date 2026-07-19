@@ -20,7 +20,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(11, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(14, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -55,6 +55,12 @@ public sealed class PostgresSkipLockedPocTests
         await RunnerMessageStoreBehavior.AssertAsync(
             new PostgresRunnerMessageStore(dataSource),
             "attempt-dual-postgres",
+            timeout.Token);
+        await IdentityCoreStoreBehavior.AssertAsync(
+            new PostgresLocalProfileStore(dataSource),
+            new PostgresOrganizationStore(dataSource),
+            new PostgresProjectStore(dataSource),
+            new PostgresAuditEventStore(dataSource),
             timeout.Token);
 
         var createdAt = DateTimeOffset.Parse(
