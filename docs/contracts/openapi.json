@@ -81,6 +81,65 @@
                 }
             }
         },
+        "/api/v1/workflow-runs/{id}/consistency-checks": {
+            "post": {
+                "tags": [
+                    "workflow-runs"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowConsistencyCheckResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/backups": {
             "post": {
                 "tags": [
@@ -10451,6 +10510,43 @@
                     }
                 }
             },
+            "ConsistencyFindingContract": {
+                "required": [
+                    "code",
+                    "detail"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ConsistencyLayerContract": {
+                "required": [
+                    "layer",
+                    "state",
+                    "findings"
+                ],
+                "type": "object",
+                "properties": {
+                    "layer": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "findings": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ConsistencyFindingContract"
+                        }
+                    }
+                }
+            },
             "ConversationPage": {
                 "required": [
                     "items",
@@ -14428,6 +14524,28 @@
                     }
                 }
             },
+            "WorkflowConsistencyCheckResponse": {
+                "required": [
+                    "runId",
+                    "consistent",
+                    "layers"
+                ],
+                "type": "object",
+                "properties": {
+                    "runId": {
+                        "type": "string"
+                    },
+                    "consistent": {
+                        "type": "boolean"
+                    },
+                    "layers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ConsistencyLayerContract"
+                        }
+                    }
+                }
+            },
             "WorkflowContract": {
                 "required": [
                     "id",
@@ -14800,6 +14918,9 @@
             "name": "run-project"
         },
         {
+            "name": "workflow-runs"
+        },
+        {
             "name": "backups"
         },
         {
@@ -14879,9 +15000,6 @@
         },
         {
             "name": "workflows"
-        },
-        {
-            "name": "workflow-runs"
         },
         {
             "name": "phases"

@@ -81,6 +81,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IHostedService, SqliteMigrationHostedService>();
         builder.Services.AddSingleton<WorkflowTemplateSeeder>();
         builder.Services.AddSingleton<IHostedService, WorkflowTemplateSeedHostedService>();
+        builder.Services.AddSingleton<IWorkflowConsistencyReviewer, DeterministicWorkflowConsistencyReviewer>();
         builder.Services.AddSingleton<IRunnerMessageStore>(services =>
             new SqliteRunnerMessageStore(services.GetRequiredService<SqliteWriteDispatcher>()));
         builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
@@ -215,6 +216,7 @@ public static class HostApplication
         app.MapConversations();
         app.MapWorkBoard();
         app.MapWorkflowCatalog();
+        app.MapWorkflowConsistency();
         app.MapDocumentCatalog();
         app.MapLocalOperations();
         app.MapGet(
