@@ -1,1 +1,0 @@
-import{r as t}from"./vendor-react-PEIO5avY.js";function a(e=3e4){const[r,n]=t.useState(()=>new Date);return t.useEffect(()=>{const o=setInterval(()=>n(new Date),e);return()=>clearInterval(o)},[e]),r}export{a as u};

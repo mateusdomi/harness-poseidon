@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(232/232 testes backend, build Release 0 warnings/0 erros, frontend buildado) reproduzida nesta sessão.
+(233/233 testes backend, build Release 0 warnings/0 erros, frontend buildado) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -39,7 +39,7 @@ Total: **100**.
 |---|---:|---:|---:|---:|---|
 | F0 | 100 | 100 | 100 | 0 | 9 PoCs verdes com evidência; GNG-1 (automático) verde; mecanismos integrados na F1. Sem homologação humana. |
 | F1 | 100 | 100 | 100 | 0 | Fundação dual-provider + motor durável + GNG-2 (SIGKILL reconciliado) verde e fiado no Host. Sem homologação humana. |
-| F2 | 100 | 100 | 88 | 0 | Toda a API/SignalR + integração frontend (bundle servido, 270 FE verdes, smoke HTTP, drift reconciliado). Lacuna de integração: E2E navegado contra API real + resync visual SignalR (v3 §7) ainda não executados em navegador. **GNG-3 aguarda aceite humano → H=0.** |
+| F2 | 100 | 100 | 92 | 0 | Toda a API/SignalR + integração frontend (bundle FR-1/FR-2 servido, 270 FE verdes, drift reconciliado). Blocker técnico da homologação resolvido: adoção de sessão no modo pessoal (cockpit carrega em navegador novo). Lacuna restante: E2E navegado + resync visual e o **aceite humano do GNG-3 → H=0**. |
 | F3 | 100 | 100 | 100 | 0 | Templates canônicos, guarda de ações invioláveis, verificação em 3 camadas e run semiautônomo completo provados via API/anti-burla. Gate da fase (automático) verde. |
 | F4 | 100 | 100 | 100 | 0 | Segurança de upload (allowlist/magic bytes/anti zip-bomb/traversal/quarentena) + demanda de documento real, via API e migration 0029. |
 | F5 | 100 | 100 | 100 | 0 | Upload inspecionado de referências (PNG/JPEG/ZIP), galeria, waiver; migration 0030. |
@@ -62,7 +62,7 @@ Total: **100**.
 `5+12+25+8+6+5+6.56+5.95+6+3.60+(8·0.97=7.76)+1.90 = 92.77` → **92.8% (num 92.77 / den 100)**
 
 ### Integrado
-`5+12+(25·0.88=22.00)+8+6+5+(8·0.80=6.40)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+1.90 = 89.60` → **89.6% (num 89.60 / den 100)**
+`5+12+(25·0.92=23.00)+8+6+5+(8·0.80=6.40)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+1.90 = 90.60` → **90.6% (num 90.60 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,8 +70,8 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·92.77 + 0.30·89.60 + 0.20·0 = 46.385 + 26.88 + 0.00 = 73.265`
-→ **≈ 73.3%**
+`= 0.50·92.77 + 0.30·90.60 + 0.20·0 = 46.385 + 27.18 + 0.00 = 73.565`
+→ **≈ 73.6%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 

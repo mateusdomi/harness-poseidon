@@ -1,1 +1,0 @@
-const r=/\b(token|api[-_]?key|secret|password|passwd|authorization|bearer|credential|senha)\b([\s:=]+)("?)(?:Bearer\s+)?[^\s"']+"?/gi;function t(e){return e.replace(r,(n,a,s)=>`${a}${s}****`)}const c="****";function o(e){return t(e.replace(/\/\/[^/@\s]+@/,"//****@"))}export{c as S,o as a,t as m};

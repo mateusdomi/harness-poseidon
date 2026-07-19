@@ -84,3 +84,14 @@ O contrato explicita sinais ainda indisponíveis para impedir zeros enganosos de
 ## 2026-07-19 — métodos do hub `/hubs/events`
 
 Divergência encontrada na homologação humana do GNG-3: o frontend final (`frontend/src/api/realtime/signalr-client.ts`) invoca `SubscribeToStreams(string[])`/`UnsubscribeFromStreams(string[])`, enquanto o Host expunha `Subscribe`/`Unsubscribe` (`HubException: Method does not exist` na tela de chat). Resolução: o contrato mockado do frontend prevalece como especificação do ponto de encontro — o `EventsHub` foi renomeado para `SubscribeToStreams`/`UnsubscribeFromStreams` (assinaturas, ack, `GetStreamSnapshot` e o evento `event` já coincidiam). Nenhuma alteração em `frontend/**`.
+
+## 2026-07-19 — bundle embarcado regenerado para o frontend FR-1
+
+A Kimi publicou o `1d557fb` (FR-1: paginação 15/30/50, command palette Cmd/Ctrl+K, nova ordem de menu, assets de protótipo locais, future flags React Router v7) alterando `frontend/**`, mas o bundle embarcado em `src/Harness.Host/wwwroot/**` (build output servido pelo Host, propriedade backend) permanecia na versão anterior. Durante a integração desta sessão o `tools/backend/build-frontend.sh` regenerou o bundle a partir do fonte FR-1 e o Host passou a servi-lo. Verificado: `EmbeddedFrontendApiTests` verde (default de API same-origin, sem `localhost:5001` ativo — a ocorrência remanescente é mock de run-target na UI), e a CSP de segurança (`script-src 'self'`) é compatível (bundle sem inline script). Nenhuma alteração em `frontend/**`.
+
+## 2026-07-19 — bundle embarcado atualizado para FR-2
+
+A Kimi publicou `e2b17f2` (FR-2: cockpit com seletor 24h/3d/7d + carregamento incremental; painel de
+workflow no chat com acordeões de fase, progresso, documentos por estado, deep-links, realtime e drawer
+mobile). Bundle embarcado regenerado por `build-frontend.sh` e servido pelo Host; CSP `script-src 'self'`
+compatível (sem inline script); suíte 232/232. Ver DECISIONS_PENDING sobre versionar o bundle.

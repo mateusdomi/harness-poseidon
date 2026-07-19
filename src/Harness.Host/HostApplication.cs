@@ -355,6 +355,13 @@ public static class HostApplication
             app.UseMiddleware<OidcSessionMiddleware>();
         }
 
+        // Modo pessoal (não multiusuário/OIDC): adota o único perfil local como sessão,
+        // para que um navegador novo (sem cookie) não fique travado sem login.
+        if (!serverOptions.Multiuser)
+        {
+            app.UseMiddleware<PersonalProfileSessionMiddleware>();
+        }
+
         if (serverOptions.RateLimitPermitsPerMinute > 0)
         {
             app.UseRateLimiter();
