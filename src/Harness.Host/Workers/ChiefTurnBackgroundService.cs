@@ -67,6 +67,15 @@ public sealed partial class ChiefTurnBackgroundService(
                 lease.ChiefAgentId,
                 output.Response,
                 occurredAt);
+            var demandSeeds = output.Demands
+                .Select((demand, index) => new ChiefDemandSeed(
+                    UlidValue.New(occurredAt.AddMilliseconds(10 + index * 2)).ToString(),
+                    UlidValue.New(occurredAt.AddMilliseconds(11 + index * 2)).ToString(),
+                    demand.Title,
+                    demand.Description,
+                    demand.RiskTier,
+                    demand.AcceptanceCriteria))
+                .ToArray();
             await turns.CompleteAsync(
                 new ChiefTurnCompleteCommand(
                     lease,
@@ -77,7 +86,8 @@ public sealed partial class ChiefTurnBackgroundService(
                     chunks,
                     execution.SessionId,
                     digestJson,
-                    occurredAt),
+                    occurredAt,
+                    demandSeeds),
                 cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

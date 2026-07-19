@@ -34,7 +34,42 @@ public sealed record ChiefTurnLease(
 
 public sealed record ChiefTurnCompleteCommand(
     ChiefTurnLease Lease, MessageRecord ChiefMessage, IReadOnlyList<string> Chunks,
-    string SessionId, string StatusDigestJson, DateTimeOffset OccurredAt);
+    string SessionId, string StatusDigestJson, DateTimeOffset OccurredAt,
+    IReadOnlyList<ChiefDemandSeed>? Demands = null);
+
+public sealed record ChiefDemandSeed(
+    string DemandId, string BackingSolicitationId, string Title, string Description,
+    string RiskTier, IReadOnlyList<string> AcceptanceCriteria)
+{
+    private static readonly HashSet<string> RiskTiers =
+        new(["low", "medium", "high", "critical"], StringComparer.Ordinal);
+
+    public ChiefDemandSeed Normalize()
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(DemandId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(BackingSolicitationId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(Title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(Description);
+        ArgumentNullException.ThrowIfNull(AcceptanceCriteria);
+        if (!RiskTiers.Contains(RiskTier))
+        {
+            throw new ArgumentException("The demand risk tier is not part of the closed set.", nameof(RiskTier));
+        }
+
+        var criteria = AcceptanceCriteria
+            .Select(criterion => criterion.Trim())
+            .Where(criterion => criterion.Length > 0)
+            .ToArray();
+        return criteria.Length == 0
+            ? throw new ArgumentException("At least one acceptance criterion is required.", nameof(AcceptanceCriteria))
+            : this with
+            {
+                Title = Title.Trim().Length > 500 ? Title.Trim()[..500] : Title.Trim(),
+                Description = Description.Trim(),
+                AcceptanceCriteria = criteria,
+            };
+    }
+}
 
 public sealed record ChiefTurnFailCommand(
     ChiefTurnLease Lease, string ErrorCode, DateTimeOffset OccurredAt, bool Retryable);

@@ -27,8 +27,21 @@ public sealed class FakeAgentExecutor : IAgentExecutor
             "Recebi sua mensagem. ",
             $"O turno foi registrado de forma durável para: {subject}",
         ];
+        var demands = request.Instruction
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => line.StartsWith("DEMANDA:", StringComparison.Ordinal))
+            .Select(line =>
+            {
+                var parts = line["DEMANDA:".Length..].Split('|', 2, StringSplitOptions.TrimEntries);
+                return new FakeDemandProposal(
+                    parts[0],
+                    parts.Length > 1 && parts[1].Length > 0 ? parts[1] : parts[0],
+                    "medium",
+                    ["Critério de aceite proposto pelo Chief."]);
+            })
+            .ToArray();
         var structured = JsonSerializer.Serialize(
-            new { response = string.Concat(chunks), demands = Array.Empty<object>() },
+            new FakeChiefOutput(string.Concat(chunks), demands),
             JsonOptions);
         _ = ChiefTurnOutputContract.Parse(structured);
         return Task.FromResult(new AgentExecutionResult(
@@ -39,6 +52,14 @@ public sealed class FakeAgentExecutor : IAgentExecutor
             chunks,
             (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds));
     }
+
+    private sealed record FakeChiefOutput(string Response, IReadOnlyList<FakeDemandProposal> Demands);
+
+    private sealed record FakeDemandProposal(
+        string Title,
+        string Description,
+        string RiskTier,
+        IReadOnlyList<string> AcceptanceCriteria);
 
     private static void Validate(AgentExecutionRequest request)
     {

@@ -155,8 +155,75 @@ public sealed partial class SqliteConversationStore
             ("$digest", command.StatusDigestJson), ("$project", command.Lease.Turn.ProjectId),
             ("$fencing", command.Lease.FencingToken), ("$agent", command.Lease.ChiefAgentId));
         await QueueChiefCompletionEventsAsync(connection, tx, command, token);
+        await MaterializeChiefDemandsAsync(connection, tx, command, token);
         await tx.CommitAsync(token);
     }
+
+    private static async Task MaterializeChiefDemandsAsync(
+        SqliteConnection connection, SqliteTransaction tx, ChiefTurnCompleteCommand command,
+        CancellationToken token)
+    {
+        if (command.Demands is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var tenant = command.Lease.Turn.TenantId;
+        var project = command.Lease.Turn.ProjectId;
+        await using var authorQuery = connection.CreateCommand();
+        authorQuery.Transaction = tx;
+        authorQuery.CommandText =
+            "SELECT author_profile_id FROM conversation_messages WHERE tenant_id=$tenant AND id=$message;";
+        Add(authorQuery, "$tenant", tenant);
+        Add(authorQuery, "$message", command.Lease.Turn.UserMessageId);
+        var author = await authorQuery.ExecuteScalarAsync(token) as string
+            ?? throw new ChiefTurnConflictException(
+                "The chief turn user message has no author profile for demand materialization.");
+        var index = 0;
+        foreach (var raw in command.Demands)
+        {
+            var seed = raw.Normalize();
+            var occurredAt = command.OccurredAt.AddMilliseconds(index * 2);
+            await ExecuteChiefAsync(connection, tx,
+                """
+                INSERT INTO solicitations
+                    (id,tenant_id,project_id,user_id,content,created_at,kind,title,state,supersedes_id,is_internal)
+                VALUES ($id,$tenant,$project,$author,$body,$at,'request',$title,'open',NULL,1);
+                """,
+                token, ("$id", seed.BackingSolicitationId), ("$tenant", tenant),
+                ("$project", project), ("$author", author), ("$body", seed.Description),
+                ("$at", Store(occurredAt)), ("$title", seed.Title));
+            await ExecuteChiefAsync(connection, tx,
+                """
+                INSERT INTO demands
+                    (id,tenant_id,project_id,solicitation_id,title,acceptance_criteria_json,created_at,
+                     description,state,priority,source_solicitation_id,is_internal)
+                VALUES ($id,$tenant,$project,$backing,$title,$criteria,$at,$description,'open',
+                        $priority,NULL,0);
+                """,
+                token, ("$id", seed.DemandId), ("$tenant", tenant), ("$project", project),
+                ("$backing", seed.BackingSolicitationId), ("$title", seed.Title),
+                ("$criteria", JsonSerializer.Serialize(seed.AcceptanceCriteria, JsonOptions)),
+                ("$at", Store(occurredAt)), ("$description", seed.Description),
+                ("$priority", seed.RiskTier));
+            var payload = JsonSerializer.Serialize(new ChiefDemandCreatedPayload(
+                project,
+                new ChiefDemandPayload(
+                    seed.DemandId, project, null, seed.Title, seed.Description, "open",
+                    seed.RiskTier, occurredAt)), JsonOptions);
+            await AppendAuditAsync(connection, tx, tenant, "demand.created", payload, occurredAt, token);
+            await AppendOutboxAsync(
+                connection, tx, tenant, "demand.created", payload,
+                command.OccurredAt.AddTicks(command.Chunks.Count + 3 + index), occurredAt, token);
+            index++;
+        }
+    }
+
+    private sealed record ChiefDemandCreatedPayload(string ProjectId, ChiefDemandPayload Demand);
+
+    private sealed record ChiefDemandPayload(
+        string Id, string ProjectId, string? SolicitationId, string Title, string Description,
+        string State, string Priority, DateTimeOffset CreatedAt);
 
     private static async Task FailCoreAsync(SqliteConnection connection, ChiefTurnFailCommand command, CancellationToken token)
     {
