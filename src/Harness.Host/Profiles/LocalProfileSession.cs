@@ -7,6 +7,33 @@ internal static class LocalProfileSession
 {
     public const string CookieName = "harness.profile";
 
+    /// <summary>
+    /// Perfil resolvido por autenticação OIDC nesta requisição; tem precedência
+    /// sobre o cookie de sessão local.
+    /// </summary>
+    public const string ItemKey = "harness.session.profileId";
+
+    public static bool TryGetProfileId(HttpRequest request, out string profileId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.HttpContext.Items.TryGetValue(ItemKey, out var item) &&
+            item is string resolved && UlidValue.TryParse(resolved, out _))
+        {
+            profileId = resolved;
+            return true;
+        }
+
+        if (request.Cookies.TryGetValue(CookieName, out var cookie) &&
+            cookie is not null && UlidValue.TryParse(cookie, out _))
+        {
+            profileId = cookie;
+            return true;
+        }
+
+        profileId = string.Empty;
+        return false;
+    }
+
     public static async Task<LocalProfileRecord?> ResolveAsync(
         HttpRequest request,
         ILocalProfileStore store,
@@ -14,12 +41,8 @@ internal static class LocalProfileSession
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(store);
-        if (!request.Cookies.TryGetValue(CookieName, out var profileId) ||
-            !UlidValue.TryParse(profileId, out _))
-        {
-            return null;
-        }
-
-        return await store.GetAsync(profileId, cancellationToken);
+        return TryGetProfileId(request, out var profileId)
+            ? await store.GetAsync(profileId, cancellationToken)
+            : null;
     }
 }

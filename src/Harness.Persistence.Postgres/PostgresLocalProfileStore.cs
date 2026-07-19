@@ -7,7 +7,7 @@ namespace Harness.Persistence.Postgres;
 public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILocalProfileStore
 {
     private const string SelectSql =
-        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version,role FROM harness.local_users";
+        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version,role,external_subject FROM harness.local_users";
 
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
@@ -18,6 +18,17 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         return await ReadAsync(connection, profileId, cancellationToken);
+    }
+
+    public async Task<LocalProfileRecord?> GetByExternalSubjectAsync(
+        string externalSubject,
+        CancellationToken cancellationToken = default)
+    {
+        await using var command = _dataSource.CreateCommand(
+            $"{SelectSql} WHERE external_subject=$1;");
+        command.Parameters.Add(Text(externalSubject));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? Read(reader) : null;
     }
 
     public async Task<IReadOnlyList<LocalProfileRecord>> ListAsync(
@@ -105,8 +116,8 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             transaction,
             """
             INSERT INTO harness.local_users
-                (id, tenant_id, display_name, email, avatar_url, locale, last_active_at, version, created_at, role)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $7, $8);
+                (id, tenant_id, display_name, email, avatar_url, locale, last_active_at, version, created_at, role, external_subject)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $7, $8, $9);
             """,
             cancellationToken,
             Text(command.ProfileId),
@@ -117,7 +128,8 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             Text(command.Locale),
             Timestamp(command.OccurredAt),
             Text(LocalProfileRoleCodec.ToStorage(
-                command.JoinExistingTenant ? LocalProfileRole.Member : LocalProfileRole.Admin)));
+                command.JoinExistingTenant ? LocalProfileRole.Member : LocalProfileRole.Admin)),
+            NullableText(command.ExternalSubject));
         await ExecuteAsync(
             connection,
             transaction,
@@ -188,7 +200,8 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             reader.GetFieldValue<DateTimeOffset>(6),
             reader.GetFieldValue<DateTimeOffset>(7),
             reader.GetInt64(8),
-            LocalProfileRoleCodec.Parse(reader.GetString(9)));
+            LocalProfileRoleCodec.Parse(reader.GetString(9)),
+            reader.IsDBNull(10) ? null : reader.GetString(10));
 
     private static async Task ExecuteAsync(
         NpgsqlConnection connection,

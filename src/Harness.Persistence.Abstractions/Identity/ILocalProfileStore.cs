@@ -4,6 +4,10 @@ public interface ILocalProfileStore
 {
     Task<LocalProfileRecord?> GetAsync(string profileId, CancellationToken cancellationToken = default);
 
+    Task<LocalProfileRecord?> GetByExternalSubjectAsync(
+        string externalSubject,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<LocalProfileRecord>> ListAsync(CancellationToken cancellationToken = default);
 
     Task<LocalProfileMutationResult> CreateAsync(
@@ -25,7 +29,8 @@ public sealed record LocalProfileRecord(
     DateTimeOffset CreatedAt,
     DateTimeOffset LastActiveAt,
     long Version,
-    LocalProfileRole Role);
+    LocalProfileRole Role,
+    string? ExternalSubject);
 
 public sealed record LocalProfileCreateCommand(
     string TenantId,
@@ -36,7 +41,8 @@ public sealed record LocalProfileCreateCommand(
     string? AvatarUrl,
     string Locale,
     DateTimeOffset OccurredAt,
-    bool JoinExistingTenant = false);
+    bool JoinExistingTenant = false,
+    string? ExternalSubject = null);
 
 public sealed record LocalProfileUpdateCommand(
     string ProfileId,

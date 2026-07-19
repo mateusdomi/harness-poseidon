@@ -25,8 +25,7 @@ public static class LocalProfileEndpoints
         ILocalProfileStore store,
         CancellationToken cancellationToken)
     {
-        if (!request.Cookies.TryGetValue(LocalProfileSession.CookieName, out var profileId) ||
-            !UlidValue.TryParse(profileId, out _))
+        if (!LocalProfileSession.TryGetProfileId(request, out var profileId))
         {
             return Problem(404, "profile_not_found", "No local profile session exists.");
         }
@@ -140,8 +139,7 @@ public static class LocalProfileEndpoints
             return Problem(400, "invalid_profile_id", "Profile ID must be a ULID.");
         }
 
-        if (!request.Cookies.TryGetValue(LocalProfileSession.CookieName, out var currentId) ||
-            !UlidValue.TryParse(currentId, out _))
+        if (!LocalProfileSession.TryGetProfileId(request, out var currentId))
         {
             return Problem(403, "profile_forbidden", "The local session cannot update this profile.");
         }

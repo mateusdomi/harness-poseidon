@@ -1,5 +1,6 @@
 using System.Net;
 using Harness.Host.Agents;
+using Harness.Host.Auth;
 using Harness.Host.Conversations;
 using Harness.Host.Documents;
 using Harness.Host.Execution;
@@ -17,6 +18,7 @@ using Harness.Host.Prototyping;
 using Harness.Host.Realtime;
 using Harness.Host.RunTargets;
 using Harness.Host.Workers;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
 using Harness.Host.Tools;
@@ -94,15 +96,52 @@ public static class HostApplication
             builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
             builder.Services.AddSingleton<IHostedService, PostgresMigrationHostedService>();
         }
+        else
+        {
+            builder.Services.AddSingleton(
+                _ => SqliteWriteDispatcher.CreateAsync(databasePath).GetAwaiter().GetResult());
+            builder.Services.AddSingleton<IHostedService, SqliteMigrationHostedService>();
+        }
 
+        var oidc = OidcSettings.From(builder.Configuration);
         var serverOptions = new HarnessServerOptions(
-            Multiuser: serverMode,
+            Multiuser: serverMode || oidc.Enabled,
             RateLimitPermitsPerMinute: serverMode
                 ? int.TryParse(
                     builder.Configuration["Harness:Server:RateLimitPermitsPerMinute"],
                     out var permits) && permits > 0 ? permits : 600
                 : 0);
         builder.Services.AddSingleton(serverOptions);
+        if (oidc.Enabled)
+        {
+            builder.Services.AddSingleton(oidc);
+            builder.Services.AddSingleton<OidcProfileProvisioner>();
+            builder.Services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.Authority = oidc.Authority;
+                    options.RequireHttpsMetadata = oidc.RequireHttpsMetadata;
+                    options.MapInboundClaims = false;
+                    options.TokenValidationParameters.ValidAudience = oidc.Audience;
+                    options.Events = new JwtBearerEvents
+                    {
+                        // SignalR entrega o token pela query string no hub de eventos.
+                        OnMessageReceived = context =>
+                        {
+                            if (context.HttpContext.Request.Path.StartsWithSegments(
+                                    "/hubs", StringComparison.Ordinal) &&
+                                context.Request.Query.TryGetValue("access_token", out var token))
+                            {
+                                context.Token = token;
+                            }
+
+                            return Task.CompletedTask;
+                        },
+                    };
+                });
+        }
+
         if (serverOptions.RateLimitPermitsPerMinute > 0)
         {
             builder.Services.AddRateLimiter(options =>
@@ -119,12 +158,6 @@ public static class HostApplication
                                 QueueLimit = 0,
                             }));
             });
-        }
-        else
-        {
-            builder.Services.AddSingleton(
-                _ => SqliteWriteDispatcher.CreateAsync(databasePath).GetAwaiter().GetResult());
-            builder.Services.AddSingleton<IHostedService, SqliteMigrationHostedService>();
         }
         builder.Services.AddSingleton<WorkflowTemplateSeeder>();
         builder.Services.AddSingleton<IHostedService, WorkflowTemplateSeedHostedService>();
@@ -311,6 +344,12 @@ public static class HostApplication
         app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy")))
             .WithTags("system");
         app.MapOpenApi("/openapi/{documentName}.json");
+        if (oidc.Enabled)
+        {
+            app.UseAuthentication();
+            app.UseMiddleware<OidcSessionMiddleware>();
+        }
+
         if (serverOptions.RateLimitPermitsPerMinute > 0)
         {
             app.UseRateLimiter();

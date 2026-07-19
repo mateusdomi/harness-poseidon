@@ -16,6 +16,20 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
             (connection, token) => ReadAsync(connection, profileId, token),
             cancellationToken);
 
+    public Task<LocalProfileRecord?> GetByExternalSubjectAsync(
+        string externalSubject,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(
+            async (connection, token) =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = $"{SelectSql} WHERE external_subject=$externalSubject;";
+                Add(command, "$externalSubject", externalSubject);
+                await using var reader = await command.ExecuteReaderAsync(token);
+                return await reader.ReadAsync(token) ? Read(reader) : null;
+            },
+            cancellationToken);
+
     public Task<IReadOnlyList<LocalProfileRecord>> ListAsync(
         CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<IReadOnlyList<LocalProfileRecord>>(
@@ -103,13 +117,15 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
             profile.CommandText =
                 """
                 INSERT INTO local_users
-                    (id,tenant_id,display_name,email,avatar_url,locale,last_active_at,version,created_at,role)
-                VALUES ($id,$tenantId,$displayName,$email,$avatarUrl,$locale,$occurredAt,1,$occurredAt,$role);
+                    (id,tenant_id,display_name,email,avatar_url,locale,last_active_at,version,created_at,role,external_subject)
+                VALUES ($id,$tenantId,$displayName,$email,$avatarUrl,$locale,$occurredAt,1,$occurredAt,$role,$externalSubject);
                 """;
             Bind(profile, command.ProfileId, command.TenantId, command.DisplayName, command.Email,
                 command.AvatarUrl, command.Locale, command.OccurredAt);
             Add(profile, "$role", LocalProfileRoleCodec.ToStorage(
                 command.JoinExistingTenant ? LocalProfileRole.Member : LocalProfileRole.Admin));
+            Add(profile, "$externalSubject",
+                command.ExternalSubject is null ? DBNull.Value : command.ExternalSubject);
             await profile.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -187,7 +203,8 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
             DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
             DateTimeOffset.Parse(reader.GetString(7), CultureInfo.InvariantCulture),
             reader.GetInt64(8),
-            LocalProfileRoleCodec.Parse(reader.GetString(9)));
+            LocalProfileRoleCodec.Parse(reader.GetString(9)),
+            reader.IsDBNull(10) ? null : reader.GetString(10));
 
     private static void Bind(
         SqliteCommand command,
@@ -209,7 +226,7 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
     }
 
     private const string SelectSql =
-        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version,role FROM local_users";
+        "SELECT tenant_id,id,display_name,email,avatar_url,locale,created_at,COALESCE(last_active_at,created_at),version,role,external_subject FROM local_users";
 
     private static string Store(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
