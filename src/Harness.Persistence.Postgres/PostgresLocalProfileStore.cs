@@ -61,27 +61,45 @@ public sealed class PostgresLocalProfileStore(NpgsqlDataSource dataSource) : ILo
             transaction,
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));",
             cancellationToken,
-            Text($"local-profile:{command.TenantId}"));
-        await using (var exists = connection.CreateCommand())
+            Text(command.JoinExistingTenant
+                ? $"local-profile:{command.TenantId}"
+                : "local-profile:bootstrap"));
+        if (command.JoinExistingTenant)
         {
-            exists.Transaction = transaction;
-            exists.CommandText = "SELECT EXISTS(SELECT 1 FROM harness.local_users);";
-            if ((bool)(await exists.ExecuteScalarAsync(cancellationToken)
-                ?? throw new InvalidOperationException("PostgreSQL did not return profile state.")))
+            await using var tenantExists = connection.CreateCommand();
+            tenantExists.Transaction = transaction;
+            tenantExists.CommandText = "SELECT EXISTS(SELECT 1 FROM harness.tenants WHERE id=$1);";
+            tenantExists.Parameters.Add(Text(command.TenantId));
+            if (!(bool)(await tenantExists.ExecuteScalarAsync(cancellationToken)
+                ?? throw new InvalidOperationException("PostgreSQL did not return tenant state.")))
             {
                 await transaction.CommitAsync(cancellationToken);
-                return new LocalProfileMutationResult(LocalProfileMutationStatus.AlreadyExists);
+                return new LocalProfileMutationResult(LocalProfileMutationStatus.NotFound);
             }
         }
+        else
+        {
+            await using (var exists = connection.CreateCommand())
+            {
+                exists.Transaction = transaction;
+                exists.CommandText = "SELECT EXISTS(SELECT 1 FROM harness.local_users);";
+                if ((bool)(await exists.ExecuteScalarAsync(cancellationToken)
+                    ?? throw new InvalidOperationException("PostgreSQL did not return profile state.")))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return new LocalProfileMutationResult(LocalProfileMutationStatus.AlreadyExists);
+                }
+            }
 
-        await ExecuteAsync(
-            connection,
-            transaction,
-            "INSERT INTO harness.tenants (id, name, version, created_at) VALUES ($1, $2, 1, $3);",
-            cancellationToken,
-            Text(command.TenantId),
-            Text(command.TenantName),
-            Timestamp(command.OccurredAt));
+            await ExecuteAsync(
+                connection,
+                transaction,
+                "INSERT INTO harness.tenants (id, name, version, created_at) VALUES ($1, $2, 1, $3);",
+                cancellationToken,
+                Text(command.TenantId),
+                Text(command.TenantName),
+                Timestamp(command.OccurredAt));
+        }
         await ExecuteAsync(
             connection,
             transaction,

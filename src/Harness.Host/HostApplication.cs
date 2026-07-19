@@ -94,6 +94,32 @@ public static class HostApplication
             builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
             builder.Services.AddSingleton<IHostedService, PostgresMigrationHostedService>();
         }
+
+        var serverOptions = new HarnessServerOptions(
+            Multiuser: serverMode,
+            RateLimitPermitsPerMinute: serverMode
+                ? int.TryParse(
+                    builder.Configuration["Harness:Server:RateLimitPermitsPerMinute"],
+                    out var permits) && permits > 0 ? permits : 600
+                : 0);
+        builder.Services.AddSingleton(serverOptions);
+        if (serverOptions.RateLimitPermitsPerMinute > 0)
+        {
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter
+                    .Create<HttpContext, string>(context =>
+                        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                            context.Connection.RemoteIpAddress?.ToString() ?? "local",
+                            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                            {
+                                PermitLimit = serverOptions.RateLimitPermitsPerMinute,
+                                Window = TimeSpan.FromMinutes(1),
+                                QueueLimit = 0,
+                            }));
+            });
+        }
         else
         {
             builder.Services.AddSingleton(
@@ -285,6 +311,11 @@ public static class HostApplication
         app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy")))
             .WithTags("system");
         app.MapOpenApi("/openapi/{documentName}.json");
+        if (serverOptions.RateLimitPermitsPerMinute > 0)
+        {
+            app.UseRateLimiter();
+        }
+
         app.MapHub<EventsHub>("/hubs/events");
         app.MapRunnerIpc();
         app.MapLocalProfiles();
@@ -397,3 +428,5 @@ public static class HostApplication
 
     private sealed record HealthResponse(string Status);
 }
+
+public sealed record HarnessServerOptions(bool Multiuser, int RateLimitPermitsPerMinute);

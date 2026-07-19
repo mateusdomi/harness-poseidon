@@ -60,26 +60,41 @@ public sealed class SqliteLocalProfileStore(SqliteWriteDispatcher dispatcher) : 
         CancellationToken cancellationToken)
     {
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
-        await using (var exists = connection.CreateCommand())
+        if (command.JoinExistingTenant)
         {
-            exists.Transaction = transaction;
-            exists.CommandText = "SELECT EXISTS(SELECT 1 FROM local_users);";
-            if (Convert.ToInt64(await exists.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1)
+            await using var tenantExists = connection.CreateCommand();
+            tenantExists.Transaction = transaction;
+            tenantExists.CommandText = "SELECT EXISTS(SELECT 1 FROM tenants WHERE id=$id);";
+            Add(tenantExists, "$id", command.TenantId);
+            if (Convert.ToInt64(await tenantExists.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 0)
             {
                 await transaction.CommitAsync(cancellationToken);
-                return new LocalProfileMutationResult(LocalProfileMutationStatus.AlreadyExists);
+                return new LocalProfileMutationResult(LocalProfileMutationStatus.NotFound);
             }
         }
-
-        await using (var tenant = connection.CreateCommand())
+        else
         {
-            tenant.Transaction = transaction;
-            tenant.CommandText =
-                "INSERT INTO tenants (id,name,version,created_at) VALUES ($id,$name,1,$createdAt);";
-            Add(tenant, "$id", command.TenantId);
-            Add(tenant, "$name", command.TenantName);
-            Add(tenant, "$createdAt", Store(command.OccurredAt));
-            await tenant.ExecuteNonQueryAsync(cancellationToken);
+            await using (var exists = connection.CreateCommand())
+            {
+                exists.Transaction = transaction;
+                exists.CommandText = "SELECT EXISTS(SELECT 1 FROM local_users);";
+                if (Convert.ToInt64(await exists.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return new LocalProfileMutationResult(LocalProfileMutationStatus.AlreadyExists);
+                }
+            }
+
+            await using (var tenant = connection.CreateCommand())
+            {
+                tenant.Transaction = transaction;
+                tenant.CommandText =
+                    "INSERT INTO tenants (id,name,version,created_at) VALUES ($id,$name,1,$createdAt);";
+                Add(tenant, "$id", command.TenantId);
+                Add(tenant, "$name", command.TenantName);
+                Add(tenant, "$createdAt", Store(command.OccurredAt));
+                await tenant.ExecuteNonQueryAsync(cancellationToken);
+            }
         }
 
         await using (var profile = connection.CreateCommand())

@@ -65,6 +65,7 @@ public static class LocalProfileEndpoints
         HttpResponse response,
         ILocalProfileStore store,
         Workflows.WorkflowTemplateSeeder workflowTemplates,
+        HarnessServerOptions serverOptions,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -72,16 +73,46 @@ public static class LocalProfileEndpoints
         {
             var occurredAt = clock.UtcNow;
             var tenantId = UlidValue.New(occurredAt).ToString();
+            var joinExistingTenant = false;
+            if (serverOptions.Multiuser)
+            {
+                var existing = await store.ListAsync(cancellationToken);
+                if (existing.Count > 0)
+                {
+                    tenantId = existing[0].TenantId;
+                    joinExistingTenant = true;
+                }
+            }
+
             var profileId = UlidValue.New(occurredAt).ToString();
             var profile = LocalProfileApplicationService.Create(profileId, request, occurredAt);
             var result = await store.CreateAsync(
                 new LocalProfileCreateCommand(
                     tenantId, "Personal", profile.Id, profile.DisplayName, profile.Email,
-                    profile.AvatarUrl, profile.Locale, occurredAt),
+                    profile.AvatarUrl, profile.Locale, occurredAt, joinExistingTenant),
                 cancellationToken);
+            if (result.Status is LocalProfileMutationStatus.AlreadyExists &&
+                serverOptions.Multiuser && !joinExistingTenant)
+            {
+                // Corrida de bootstrap multiusuário: outro perfil venceu a criação do
+                // tenant entre a listagem e o INSERT; repete como adesão ao tenant dele.
+                var winners = await store.ListAsync(cancellationToken);
+                result = await store.CreateAsync(
+                    new LocalProfileCreateCommand(
+                        winners[0].TenantId, "Personal", profile.Id, profile.DisplayName,
+                        profile.Email, profile.AvatarUrl, profile.Locale, occurredAt,
+                        JoinExistingTenant: true),
+                    cancellationToken);
+            }
+
             if (result.Status is LocalProfileMutationStatus.AlreadyExists)
             {
                 return Problem(409, "profile_already_exists", "A local profile already exists.");
+            }
+
+            if (result.Status is LocalProfileMutationStatus.NotFound)
+            {
+                return Problem(409, "tenant_not_found", "The shared tenant no longer exists.");
             }
 
             var created = result.Profile

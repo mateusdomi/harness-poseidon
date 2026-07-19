@@ -34,7 +34,8 @@ public sealed record LocalProfileCreateCommand(
     string? Email,
     string? AvatarUrl,
     string Locale,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    bool JoinExistingTenant = false);
 
 public sealed record LocalProfileUpdateCommand(
     string ProfileId,
