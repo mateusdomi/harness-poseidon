@@ -154,6 +154,7 @@ public static class HostApplication
         builder.Services.AddSingleton(new SolicitationAttachmentStorage(
             Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "attachments")));
         builder.Services.AddSingleton<ISolicitationAttachmentStore, SqliteSolicitationAttachmentStore>();
+        builder.Services.AddSingleton<IVisualReferenceAssetStore, SqliteVisualReferenceAssetStore>();
         builder.Services.AddSingleton(services => new LocalOperationsService(
             services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
@@ -215,6 +216,7 @@ public static class HostApplication
         app.MapNotifications();
         app.MapGovernance();
         app.MapPrototypes();
+        app.MapVisualReferenceAssets();
         app.MapRunTargets();
         app.MapLicensing();
         app.MapConversations();

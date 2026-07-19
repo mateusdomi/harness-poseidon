@@ -5,10 +5,10 @@ Atualizado em: 2026-07-19T02:00:00Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: Fase 3 tecnicamente concluída (F3-1..F3-4 verdes: templates canônicos, guard inviolável, verificação em camadas, semiautônomo completo); F2-DOGFOOD-3 (GNG-3) aguarda validações humanas.
+- Épico atual: Fases 3, 4, 5 e 6 tecnicamente avançadas nesta sessão (F3-1..4, F4-1, F5-1, F6-1 verdes); GNG-3 aguarda validações humanas (smoke Codex real + homologação visual).
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `e464005` (`develop`); F3-4 nesta working tree com 198 testes verdes e verify.sh integral exit 0.
-- Próximo passo exato: (a) validações humanas pendentes — smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`, Host em modo docker, consome cota — decidir momento com o usuário), executar E2E do frontend contra a API real e preparar a homologação humana do GNG-3; o GNG-3 não é declarado sem aceite humano registrado. Trabalho independente pode continuar pelo roadmap (F3/F6/F4/F5) enquanto o aceite estiver pendente.
+- Último commit remoto validado: `a5a808d`+F5-1 (`develop`); 209 testes backend verdes, format limpo, zero warnings.
+- Próximo passo exato: (a) validações humanas pendentes — smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`, Host em modo docker, consome cota — decidir momento com o usuário), executar E2E do frontend contra a API real e preparar a homologação humana do GNG-3; o GNG-3 não é declarado sem aceite humano registrado. Trabalho independente restante do roadmap: F7 empacotamento desktop → F8 licenciamento assinado (Ed25519/offline/revogação), F9 canais (terminal→Telegram), F10 servidor multiusuário, F11 hardening; camadas restantes de detecção F6 (Docker/Compose/Java) registradas em `evidence/F6-RUN-PROJECT-STACKS.md`.
 - Bloqueios: nenhum técnico; homologação humana do GNG-3 aguarda o usuário.
 
 ## Suposições ativas
