@@ -33,9 +33,11 @@ gate de resiliência e smoke HTTP contra o destino restaurado.
 ## Atualização
 
 1. Gere e retenha backup verificável.
-2. Publique o novo pacote a partir de commit com gates verdes.
+2. Publique o novo pacote a partir de commit com gates verdes; preserve o manifesto SHA-256 gerado.
 3. Encerre graciosamente a versão anterior.
-4. Substitua somente os binários; preserve o data dir.
+4. No desktop, execute `Harness.Launcher update --install-dir <destino> --data-dir <dados>` a partir
+   do pacote novo. O comando valida integridade, cria backup offline, troca a instalação por rename
+   e preserva o data dir. No servidor, substitua somente os binários pelo procedimento do supervisor.
 5. Inicie a nova versão; migrations são idempotentes e avançam até 0034.
 6. Confirme `/health`, diagnóstico, login, um read model e SignalR snapshot/delta.
 7. Em falha, pare a nova versão, restaure backup/binário anterior e siga o runbook de incidente.

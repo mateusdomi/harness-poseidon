@@ -61,7 +61,11 @@ public sealed record LauncherOptions
             ".harness-poseidon"));
 }
 
-public sealed class LauncherHandle(WebApplication host, Uri address, string dataDirectory)
+public sealed class LauncherHandle(
+    WebApplication host,
+    Uri address,
+    string dataDirectory,
+    LauncherProcessLease processLease)
     : IAsyncDisposable
 {
     public Uri Address { get; } = address;
@@ -73,8 +77,15 @@ public sealed class LauncherHandle(WebApplication host, Uri address, string data
 
     public async ValueTask DisposeAsync()
     {
-        await host.StopAsync();
-        await host.DisposeAsync();
+        try
+        {
+            await host.StopAsync();
+            await host.DisposeAsync();
+        }
+        finally
+        {
+            processLease.Dispose();
+        }
     }
 }
 
@@ -87,21 +98,30 @@ public static class LauncherApplication
         ArgumentNullException.ThrowIfNull(options);
         var dataDirectory = options.ResolveDataDirectory();
         Directory.CreateDirectory(dataDirectory);
+        var processLease = LauncherProcessLease.Acquire(dataDirectory);
         var urls = $"http://127.0.0.1:{options.Port ?? 0}";
-        var host = HostApplication.Build(
-        [
-            "--urls",
-            urls,
-            "--Harness:DatabasePath",
-            Path.Combine(dataDirectory, "harness.db"),
-        ]);
-        await host.StartAsync(cancellationToken);
-        var addresses = host.Services.GetRequiredService<IServer>()
-            .Features.Get<IServerAddressesFeature>()?.Addresses
-            ?? throw new InvalidOperationException("O Host não expôs endereço de escuta.");
-        var address = new Uri(addresses.Single(value =>
-            value.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)));
-        return new LauncherHandle(host, address, dataDirectory);
+        try
+        {
+            var host = HostApplication.Build(
+            [
+                "--urls",
+                urls,
+                "--Harness:DatabasePath",
+                Path.Combine(dataDirectory, "harness.db"),
+            ]);
+            await host.StartAsync(cancellationToken);
+            var addresses = host.Services.GetRequiredService<IServer>()
+                .Features.Get<IServerAddressesFeature>()?.Addresses
+                ?? throw new InvalidOperationException("O Host não expôs endereço de escuta.");
+            var address = new Uri(addresses.Single(value =>
+                value.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)));
+            return new LauncherHandle(host, address, dataDirectory, processLease);
+        }
+        catch
+        {
+            processLease.Dispose();
+            throw;
+        }
     }
 
     public static bool TryOpenBrowser(Uri address)

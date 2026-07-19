@@ -27,7 +27,7 @@ done
 "${DOTNET}" build Harness.sln --configuration "${CONFIGURATION}" --no-restore
 "${DOTNET}" test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
   --configuration "${CONFIGURATION}" --no-build --no-restore \
-  --filter 'FullyQualifiedName~LauncherSmokeTests|FullyQualifiedName~PostgresServerModeHostTests|FullyQualifiedName~LocalOperationsApiTests'
+  --filter 'FullyQualifiedName~LauncherSmokeTests|FullyQualifiedName~DesktopLifecycleTests|FullyQualifiedName~PostgresServerModeHostTests|FullyQualifiedName~LocalOperationsApiTests'
 "${TOOLS_DIR}/scan-secrets.sh"
 
 echo "verify-operations: documentação e fluxos operacionais verdes."

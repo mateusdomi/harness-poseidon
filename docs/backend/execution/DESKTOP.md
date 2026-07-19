@@ -6,11 +6,19 @@
 tools/backend/publish-desktop.sh osx-arm64   # também: osx-x64, win-x64, linux-x64
 ```
 
-Saída em `.artifacts/desktop/<rid>/`: executável `Harness.Launcher` self-contained (não requer .NET nem Node instalados), Host embarcado e `wwwroot/` com o frontend buildado.
+Saída em `.artifacts/desktop/<rid>/`: executáveis self-contained do Launcher/Host e Runner (não requer .NET nem Node instalados), `wwwroot/` com o frontend buildado e manifesto SHA-256 de todos os arquivos. A instalação recusa pacote que não contenha os quatro componentes obrigatórios: Launcher, Host, Runner e SPA.
 
 ## Instalar
 
-Copie a pasta publicada para o destino (ex.: `~/Applications/Harness/`). Nenhum outro passo é necessário.
+Execute a partir da pasta publicada:
+
+```bash
+./Harness.Launcher install \
+  --install-dir "$HOME/Applications/Harness" \
+  --data-dir "$HOME/.harness-poseidon"
+```
+
+O instalador valida integralmente o manifesto, recusa symlinks/arquivos extras, não sobrescreve pasta não gerenciada e grava um recibo que vincula a instalação ao data dir. Repetir o mesmo comando com o mesmo pacote é um no-op verificável.
 
 ## Executar
 
@@ -29,11 +37,27 @@ Pela API autenticada por sessão local: `POST /api/v1/backups`, `POST /api/v1/ba
 
 ## Atualizar
 
-Substitua a pasta do aplicativo pela nova versão publicada. O data dir é separado do binário; as migrations idempotentes atualizam o banco no primeiro start. Recomenda-se `POST /api/v1/backups` antes de atualizar.
+Encerre o Launcher e, a partir da **nova** pasta publicada, execute:
+
+```bash
+./Harness.Launcher update \
+  --install-dir "$HOME/Applications/Harness" \
+  --data-dir "$HOME/.harness-poseidon"
+```
+
+Antes da troca, o comando cria um backup SQLite consistente + catálogo em `<data-dir>/backups/<ulid>/`. O novo pacote é validado e copiado para staging; a pasta anterior só é substituída por rename e é restaurada automaticamente se a troca falhar. Pacote corrompido, Launcher ainda ativo, data dir divergente, destino inseguro ou instalação não gerenciada falham sem tocar na versão corrente. As migrations idempotentes atualizam o banco no primeiro start.
 
 ## Desinstalar com segurança
 
-1. Encerre o launcher (Ctrl+C ou kill do processo).
-2. (Opcional) exporte um backup: `POST /api/v1/backups` e copie `<data-dir>/backups/`.
-3. Apague a pasta do aplicativo.
-4. Os dados permanecem em `~/.harness-poseidon/` até você removê-los explicitamente — a desinstalação nunca apaga dados do usuário.
+1. Encerre o launcher (Ctrl+C).
+2. A partir de qualquer pacote publicado íntegro, execute:
+
+   ```bash
+   ./Harness.Launcher uninstall \
+     --install-dir "$HOME/Applications/Harness" \
+     --data-dir "$HOME/.harness-poseidon"
+   ```
+
+3. O comando exige o recibo gerenciado, valida o vínculo com o data dir e remove apenas a pasta da aplicação. O data dir, banco, catálogo e backups permanecem intactos. Repetir a desinstalação é um no-op.
+
+Instalação e data dir não podem se sobrepor; raiz do volume, home do usuário, symlinks e diretórios sem recibo nunca são alvos válidos de remoção.

@@ -17,10 +17,12 @@ No checkout de release:
 tools/backend/publish-desktop.sh osx-arm64
 ```
 
-Copie todo o conteúdo de `.artifacts/desktop/osx-arm64/` para um diretório dedicado e execute
-`Harness.Launcher --no-browser` para smoke sem interface ou sem a opção para abrir o navegador. O
-data dir padrão é `~/.harness-poseidon`; `--data-dir <caminho>` seleciona outro diretório. O pacote
-nunca deve ser instalado dentro do data dir.
+Use o comando `Harness.Launcher install --install-dir <destino> [--data-dir <caminho>]` dentro de
+`.artifacts/desktop/osx-arm64/`; ele valida o manifesto SHA-256 antes da cópia e registra a
+instalação gerenciada. Depois execute o binário instalado com `--no-browser` para smoke sem
+interface ou sem a opção para abrir o navegador. O data dir padrão é `~/.harness-poseidon`; o
+pacote nunca pode ser instalado dentro do data dir. O worker self-contained fica em
+`runner/Harness.Runner` (ou `.exe` no RID Windows) e também é coberto pelo manifesto.
 
 ## Pacote servidor
 
