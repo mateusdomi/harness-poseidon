@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
-import '@/i18n';
+import i18n from '@/i18n';
 import { AppShell } from '@/app/app-shell';
 import { AppProviders } from '@/app/providers';
 
@@ -28,6 +28,11 @@ function renderShell(initialPath = '/') {
 }
 
 describe('AppShell', () => {
+  // A instância i18n é global: garante pt-BR mesmo após o teste que troca o idioma.
+  beforeEach(async () => {
+    await i18n.changeLanguage('pt-BR');
+  });
+
   it('renderiza a navegação principal e o conteúdo da rota', async () => {
     renderShell();
 
@@ -65,5 +70,32 @@ describe('AppShell', () => {
     await user.selectOptions(select, 'en');
 
     expect(await screen.findByRole('navigation', { name: /primary navigation/i })).toBeInTheDocument();
+  });
+
+  it('agrupa a navegação em seções rotuladas', () => {
+    renderShell();
+
+    expect(screen.getAllByText('Operação').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Orquestração').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Artefatos e governança').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Administração').length).toBeGreaterThan(0);
+  });
+
+  it('exibe o nome do projeto ativo no header', async () => {
+    renderShell();
+
+    // Fixture do mock: primeiro projeto é adotado como ativo.
+    expect(await screen.findByText('Poseidon Frontend')).toBeInTheDocument();
+  });
+
+  it('mostra tooltip com o nome do item na sidebar colapsada', async () => {
+    const user = userEvent.setup();
+    renderShell();
+
+    await user.click(screen.getByRole('button', { name: /recolher barra lateral/i }));
+    // Sidebar colapsada: links só com ícone (aria-label); o texto visível some.
+    await user.hover(screen.getAllByRole('link', { name: 'Cockpit' })[0]);
+
+    expect(await screen.findByText('Cockpit')).toBeInTheDocument();
   });
 });

@@ -21,6 +21,12 @@
       "label": "Notifications",
       "unread": "{{count}} unread",
       "unread_one": "{{count}} unread"
+    },
+    "context": {
+      "label": "Project context",
+      "phase": "Phase {{name}}",
+      "agentsWorking": "{{count}} agents working",
+      "agentsWorking_one": "{{count}} agent working"
     }
   },
   "nav": {
@@ -44,7 +50,13 @@
     "po-assistant": "PO Assistant",
     "governance": "Governance",
     "licenses": "Licenses",
-    "settings": "Settings"
+    "settings": "Settings",
+    "groups": {
+      "operation": "Operation",
+      "orchestration": "Orchestration",
+      "artifacts": "Artifacts & governance",
+      "administration": "Administration"
+    }
   },
   "placeholder": {
     "badge": "Coming soon",

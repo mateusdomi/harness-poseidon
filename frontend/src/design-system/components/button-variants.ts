@@ -1,12 +1,13 @@
 import { cva } from 'class-variance-authority';
 
 export const buttonVariants = cva(
-  'inline-flex min-h-touch items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex min-h-touch items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium motion-safe:transition-colors motion-safe:duration-fast focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        // Ação principal (CTA) — verde-limão, não é cor de sucesso.
-        primary: 'bg-accent text-accent-foreground hover:bg-accent/90',
+        // Ação primária (CTA) — gradiente violeta→magenta da marca (tokens AA).
+        primary:
+          'bg-primary bg-[image:var(--gradient-primary)] text-primary-foreground hover:bg-[image:var(--gradient-primary-hover)] active:bg-[image:var(--gradient-primary-active)]',
         brand: 'bg-brand text-white hover:bg-brand/90',
         secondary: 'bg-surface-elevated text-foreground hover:bg-surface-elevated/70',
         outline: 'border border-border-strong bg-transparent text-foreground hover:bg-surface',

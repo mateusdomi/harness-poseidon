@@ -20,6 +20,13 @@ export default {
         brand: {
           DEFAULT: 'var(--color-brand)',
           magenta: 'var(--color-brand-magenta)',
+          strong: 'var(--color-brand-strong)',
+        },
+        primary: {
+          DEFAULT: 'var(--color-primary)',
+          foreground: 'var(--color-primary-foreground)',
+          hover: 'var(--color-primary-hover)',
+          active: 'var(--color-primary-active)',
         },
         accent: {
           DEFAULT: 'var(--color-accent)',
@@ -52,6 +59,22 @@ export default {
       },
       minWidth: {
         touch: '44px',
+      },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+      },
+      transitionDuration: {
+        fast: 'var(--duration-fast)',
+        base: 'var(--duration-base)',
+      },
+      keyframes: {
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in var(--duration-fast) ease',
       },
     },
   },

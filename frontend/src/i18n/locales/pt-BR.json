@@ -21,6 +21,12 @@
       "label": "Notificações",
       "unread": "{{count}} não lidas",
       "unread_one": "{{count}} não lida"
+    },
+    "context": {
+      "label": "Contexto do projeto",
+      "phase": "Fase {{name}}",
+      "agentsWorking": "{{count}} agentes trabalhando",
+      "agentsWorking_one": "{{count}} agente trabalhando"
     }
   },
   "nav": {
@@ -44,7 +50,13 @@
     "po-assistant": "Assistente de PO",
     "governance": "Governança",
     "licenses": "Licenças",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "groups": {
+      "operation": "Operação",
+      "orchestration": "Orquestração",
+      "artifacts": "Artefatos e governança",
+      "administration": "Administração"
+    }
   },
   "placeholder": {
     "badge": "Em breve",

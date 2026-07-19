@@ -11,6 +11,15 @@
     @apply bg-background font-sans text-foreground;
   }
 
+  /* Troca de tema suave (desligada com prefers-reduced-motion). */
+  @media (prefers-reduced-motion: no-preference) {
+    body {
+      transition:
+        background-color var(--duration-base) ease,
+        color var(--duration-base) ease;
+    }
+  }
+
   h1,
   h2,
   h3,

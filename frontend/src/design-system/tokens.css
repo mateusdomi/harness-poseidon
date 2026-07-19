@@ -4,31 +4,50 @@
  * (não é uma inversão automática). Componentes NUNCA hardcodam cores — usam
  * apenas as variáveis abaixo (via classes utilitárias do Tailwind mapeadas em
  * tailwind.config.js).
+ *
+ * Ação primária (CTA): gradiente violeta→magenta da marca. Todos os pontos do
+ * gradiente (base/hover/active) têm contraste ≥ 4.5:1 com o foreground branco
+ * nos 2 temas (WCAG AA para texto normal). Onde gradiente não se aplica
+ * (ex.: anel de foco), usa-se o violeta sólido.
  */
 
 :root,
 [data-theme='dark'] {
   color-scheme: dark;
 
-  /* Superfícies */
-  --color-background: #0a0a0f;
-  --color-surface: #14141c;
-  --color-surface-elevated: #1b1b25;
+  /* Superfícies — 3 níveis de profundidade claramente separados */
+  --color-background: #0b0b12;
+  --color-surface: #17171f;
+  --color-surface-elevated: #21212e;
 
   /* Texto */
   --color-foreground: #f5f5f7;
-  --color-foreground-muted: #9ca3af;
+  --color-foreground-muted: #a6adbb;
 
-  /* Bordas (branco com opacidade) */
-  --color-border: rgb(255 255 255 / 0.08);
-  --color-border-strong: rgb(255 255 255 / 0.14);
+  /* Bordas (branco com opacidade) — discretas porém visíveis */
+  --color-border: rgb(255 255 255 / 0.1);
+  --color-border-strong: rgb(255 255 255 / 0.18);
+
+  /* Sombra de superfície elevada (cards) */
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.5);
 
   /* Marca (destaques controlados, não semânticos) */
   --color-brand: #7c5cfc;
   --color-brand-magenta: #ec4899;
+  /* Violeta claro para texto/ícone da marca sobre fundos escuros (AA). */
+  --color-brand-strong: #a78bfa;
   --gradient-brand: linear-gradient(135deg, #7c5cfc 0%, #ec4899 100%);
 
-  /* Ação principal (CTA). NÃO usar como cor de sucesso. */
+  /* Ação primária (CTA) — gradiente da marca; pontos AA com branco (≥ 4.5:1) */
+  --color-primary: #6d4bf7;
+  --color-primary-hover: #5f3de8;
+  --color-primary-active: #5233cc;
+  --color-primary-foreground: #ffffff;
+  --gradient-primary: linear-gradient(135deg, #6d4bf7 0%, #c93284 100%);
+  --gradient-primary-hover: linear-gradient(135deg, #5f3de8 0%, #b52a72 100%);
+  --gradient-primary-active: linear-gradient(135deg, #5233cc 0%, #a62666 100%);
+
+  /* Destaque secundário (badges, checkboxes, progresso). NÃO é CTA nem sucesso. */
   --color-accent: #b6ff3c;
   --color-accent-foreground: #0a0a0f;
 
@@ -42,26 +61,45 @@
   --color-info: #60a5fa;
   --color-info-foreground: #0a1c3d;
 
-  /* Foco visível */
-  --color-focus-ring: #b6ff3c;
+  /* Foco visível — violeta sólido da marca */
+  --color-focus-ring: #7c5cfc;
+
+  /* Durações de transição (microinterações) */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
 }
 
 [data-theme='light'] {
   color-scheme: light;
 
-  --color-background: #f7f7fa;
+  /* Fundo levemente acinzentado, superfícies brancas */
+  --color-background: #eff0f5;
   --color-surface: #ffffff;
   --color-surface-elevated: #ffffff;
 
   --color-foreground: #17171d;
-  --color-foreground-muted: #5b6270;
+  --color-foreground-muted: #525a6a;
 
-  --color-border: rgb(10 10 15 / 0.1);
-  --color-border-strong: rgb(10 10 15 / 0.18);
+  /* Bordas sutis porém visíveis */
+  --color-border: rgb(10 10 15 / 0.14);
+  --color-border-strong: rgb(10 10 15 / 0.24);
+
+  /* Sombra MUITO leve para superfícies elevadas */
+  --shadow-card: 0 1px 2px 0 rgb(16 16 24 / 0.05);
 
   --color-brand: #6a3ef0;
   --color-brand-magenta: #d61c7f;
+  --color-brand-strong: #6a3ef0;
   --gradient-brand: linear-gradient(135deg, #6a3ef0 0%, #d61c7f 100%);
+
+  /* Ação primária (CTA) — pontos do gradiente AA com branco (≥ 4.5:1) */
+  --color-primary: #6a3ef0;
+  --color-primary-hover: #5f35e0;
+  --color-primary-active: #542ec9;
+  --color-primary-foreground: #ffffff;
+  --gradient-primary: linear-gradient(135deg, #6a3ef0 0%, #d61c7f 100%);
+  --gradient-primary-hover: linear-gradient(135deg, #5f35e0 0%, #c2187a 100%);
+  --gradient-primary-active: linear-gradient(135deg, #542ec9 0%, #a81568 100%);
 
   --color-accent: #79c400;
   --color-accent-foreground: #0a0a0f;
@@ -75,5 +113,5 @@
   --color-info: #1d5fd1;
   --color-info-foreground: #ffffff;
 
-  --color-focus-ring: #5a9e00;
+  --color-focus-ring: #6a3ef0;
 }

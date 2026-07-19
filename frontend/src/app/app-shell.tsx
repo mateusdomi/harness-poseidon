@@ -7,8 +7,9 @@ import { Button } from '@/design-system';
 import { cn } from '@/lib/utils';
 import { product } from '@/config/product';
 import { useUiStore } from '@/stores/ui-store';
-import { MOBILE_PRIMARY_ITEMS, NAV_ITEMS } from '@/app/navigation';
+import { MOBILE_PRIMARY_ITEMS, NAV_GROUPS } from '@/app/navigation';
 import { AppNavLink } from '@/app/components/app-nav-link';
+import { HeaderContext } from '@/app/components/header-context';
 import { LanguageSelector } from '@/app/components/language-selector';
 import { NotificationsButton } from '@/app/components/notifications-button';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
@@ -27,6 +28,54 @@ function BrandMark({ className }: { className?: string }) {
   );
 }
 
+/** Rótulo da seção (expandida) ou separador sutil entre grupos (colapsada). */
+function NavGroupLabel({
+  groupKey,
+  collapsed,
+  first,
+}: {
+  groupKey: string;
+  collapsed: boolean;
+  first: boolean;
+}) {
+  const { t } = useTranslation();
+
+  if (collapsed) {
+    // Colapsada: sem rótulos; apenas separador entre grupos (nunca antes do 1º).
+    return first ? null : <li aria-hidden="true" className="mx-auto my-1 h-px w-8 bg-border" />;
+  }
+  return (
+    <li
+      aria-hidden="true"
+      className={cn(
+        'px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-foreground-muted',
+        first ? 'pt-1' : 'pt-3',
+      )}
+    >
+      {t(`nav.groups.${groupKey}`)}
+    </li>
+  );
+}
+
+function NavMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  return (
+    <ul className="flex flex-col gap-1">
+      {NAV_GROUPS.map((group, groupIndex) => (
+        <li key={group.key}>
+          <ul className="flex flex-col gap-1">
+            <NavGroupLabel groupKey={group.key} collapsed={collapsed} first={groupIndex === 0} />
+            {group.items.map((item) => (
+              <li key={item.key}>
+                <AppNavLink item={item} collapsed={collapsed} tooltip={collapsed} onNavigate={onNavigate} />
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Sidebar() {
   const { t } = useTranslation();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -36,6 +85,7 @@ function Sidebar() {
     <aside
       className={cn(
         'sticky top-0 hidden h-svh shrink-0 flex-col border-r border-border bg-surface lg:flex',
+        'motion-safe:transition-[width] motion-safe:duration-base',
         collapsed ? 'w-16' : 'w-64',
       )}
     >
@@ -51,13 +101,7 @@ function Sidebar() {
         )}
       </div>
       <nav aria-label={t('shell.primaryNav')} className="flex-1 overflow-y-auto p-2">
-        <ul className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.key}>
-              <AppNavLink item={item} collapsed={collapsed} />
-            </li>
-          ))}
-        </ul>
+        <NavMenu collapsed={collapsed} />
       </nav>
       <div className="border-t border-border p-2">
         <Button
@@ -98,13 +142,7 @@ function MobileDrawer() {
           </Button>
         </div>
         <nav aria-label={t('shell.primaryNav')} className="flex-1 overflow-y-auto p-2">
-          <ul className="flex flex-col gap-1">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.key}>
-                <AppNavLink item={item} onNavigate={() => setOpen(false)} />
-              </li>
-            ))}
-          </ul>
+          <NavMenu collapsed={false} onNavigate={() => setOpen(false)} />
         </nav>
       </div>
     </div>
@@ -154,6 +192,7 @@ function Header() {
       <div className="lg:hidden">
         <BrandMark />
       </div>
+      <HeaderContext />
       <div className="ml-auto flex items-center gap-1">
         <LanguageSelector />
         <ThemeToggle />
@@ -170,7 +209,7 @@ export function AppShell() {
     <div className="flex min-h-svh bg-background">
       <a
         href="#main-content"
-        className="sr-only z-50 rounded-md bg-accent px-4 py-2 text-accent-foreground focus:not-sr-only focus:absolute focus:left-2 focus:top-2"
+        className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:absolute focus:left-2 focus:top-2"
       >
         {t('shell.skipToContent')}
       </a>

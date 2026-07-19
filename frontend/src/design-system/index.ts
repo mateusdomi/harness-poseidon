@@ -16,3 +16,4 @@ export { Textarea, type TextareaProps } from './components/textarea';
 export { Checkbox, type CheckboxProps } from './components/checkbox';
 export { Field, type FieldProps } from './components/field';
 export { Skeleton } from './components/skeleton';
+export { Tooltip, type TooltipProps } from './components/tooltip';
