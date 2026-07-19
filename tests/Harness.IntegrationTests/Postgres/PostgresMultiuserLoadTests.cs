@@ -15,6 +15,7 @@ using Npgsql;
 
 namespace Harness.IntegrationTests.Postgres;
 
+[Collection("managed-postgres")]
 public sealed class PostgresMultiuserLoadTests
 {
     private const int UserCount = 30;

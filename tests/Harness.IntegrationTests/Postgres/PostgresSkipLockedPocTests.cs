@@ -10,6 +10,7 @@ using Npgsql;
 
 namespace Harness.IntegrationTests.Postgres;
 
+[Collection("managed-postgres")]
 public sealed class PostgresSkipLockedPocTests
 {
     [Fact]
@@ -767,7 +768,7 @@ public sealed class PostgresSkipLockedPocTests
                         "--health-cmd", "pg_isready --username harness --dbname harness_poc",
                         "--health-interval", "1s",
                         "--health-timeout", "2s",
-                        "--health-retries", "30",
+                        "--health-retries", "60",
                         imageName,
                     ],
                     cancellationToken);
@@ -817,7 +818,7 @@ public sealed class PostgresSkipLockedPocTests
             string containerName,
             CancellationToken cancellationToken)
         {
-            for (var attempt = 0; attempt < 60; attempt++)
+            for (var attempt = 0; attempt < 120; attempt++)
             {
                 var state = await RunDockerAsync(
                     ["container", "inspect", "--format", "{{.State.Health.Status}}", containerName],
@@ -835,7 +836,7 @@ public sealed class PostgresSkipLockedPocTests
                 cancellationToken);
             var logsResult = await RunDockerAsync(["container", "logs", containerName], cancellationToken);
             throw new InvalidOperationException(
-                "Managed PostgreSQL did not become healthy within 30 seconds. " +
+                "Managed PostgreSQL did not become healthy within 60 seconds. " +
                 $"state={stateResult.StandardOutput.Trim()} logs={logsResult.StandardOutput.Trim()} " +
                 $"stderr={logsResult.StandardError.Trim()}");
         }

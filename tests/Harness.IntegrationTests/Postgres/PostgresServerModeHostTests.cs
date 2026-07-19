@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Harness.IntegrationTests.Postgres;
 
+[Collection("managed-postgres")]
 public sealed class PostgresServerModeHostTests
 {
     [Fact]
