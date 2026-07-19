@@ -11,6 +11,7 @@ import {
   type CreatableResource,
   type CreateInputMap,
   type Diagnostics,
+  type DocumentVersion,
   type DrainChiefTasksInput,
   type HandoffChiefInput,
   type License,
@@ -26,6 +27,7 @@ import {
   type ResourceKind,
   type ResourceMap,
   type RunTarget,
+  type SaveDocumentVersionInput,
   type SetOperationModeInput,
   type SetTaskPriorityInput,
   type SolicitationAnalysis,
@@ -112,6 +114,14 @@ export class HttpApiClient implements ApiClient {
     return this.#request('POST', `/tasks/${taskId}/priority`, input);
   }
 
+  archiveTask(taskId: Ulid): Promise<Task> {
+    return this.#request('POST', `/tasks/${taskId}/archive`);
+  }
+
+  unarchiveTask(taskId: Ulid): Promise<Task> {
+    return this.#request('POST', `/tasks/${taskId}/unarchive`);
+  }
+
   appendTaskInstruction(taskId: Ulid, input: AppendTaskInstructionInput): Promise<TaskInstruction> {
     return this.#request('POST', `/tasks/${taskId}/instructions`, input);
   }
@@ -126,6 +136,10 @@ export class HttpApiClient implements ApiClient {
 
   transitionDocument(id: Ulid, input: TransitionDocumentInput): Promise<Document> {
     return this.#request('POST', `/documents/${id}/transitions`, input);
+  }
+
+  saveDocumentVersion(id: Ulid, input: SaveDocumentVersionInput): Promise<DocumentVersion> {
+    return this.#request('POST', `/documents/${id}/versions`, input);
   }
 
   classifyDocument(id: Ulid, input: ClassifyDocumentInput): Promise<Document> {

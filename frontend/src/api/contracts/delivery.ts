@@ -34,6 +34,12 @@ export const taskSchema = z.object({
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
   dueAt: isoDateTimeSchema.nullable(),
+  /**
+   * Arquivamento é um METAESTADO (não entra na máquina de estados):
+   * a tarefa arquivada some do quadro padrão, mas mantém estado/histórico
+   * e volta pelo filtro "arquivadas" ou pelo desarquivamento.
+   */
+  archivedAt: isoDateTimeSchema.nullable(),
 });
 export type Task = z.infer<typeof taskSchema>;
 

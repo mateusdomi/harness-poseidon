@@ -151,4 +151,93 @@ describe('DocumentsPage', () => {
     });
     expect(within(screen.getByRole('table')).getAllByText('Em revisão').length).toBeGreaterThan(0);
   });
+
+  it('copia o conteúdo da versão vigente com feedback i18n', async () => {
+    const user = userEvent.setup();
+    // Stub depois do setup: o userEvent instala o próprio clipboard.
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+    renderDocuments(`/documents?doc=${prd.id}`);
+
+    expect(
+      await screen.findByRole('heading', { name: 'PRD do Poseidon Console' }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copiar conteúdo' }));
+
+    expect(writeText).toHaveBeenCalledWith('# PRD v2\n\nInclui cockpit e quadro.');
+    // Botão (texto visível) + live region sr-only anunciam a cópia.
+    expect((await screen.findAllByText('Conteúdo copiado')).length).toBeGreaterThan(0);
+  });
+
+  it('edita manualmente e salva como nova versão de origem humana', async () => {
+    const user = userEvent.setup();
+    const guia = fixtures.documents.find((doc) => doc.title === 'Guia de UX do quadro')!;
+    renderDocuments(`/documents?doc=${guia.id}`);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Guia de UX do quadro' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Editar' }));
+    const editor = screen.getByLabelText(/Conteúdo \(markdown\)/);
+    expect(editor).toHaveValue('# Guia de UX\n\nColunas, drag-and-drop e estados vazios.');
+
+    // Cancelar descarta: nada muda.
+    await user.clear(editor);
+    await user.type(editor, '# Guia de UX v2\n\nRascunho descartado.');
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.getByText(/Colunas, drag-and-drop e estados vazios/)).toBeInTheDocument();
+
+    // Editar de verdade e salvar nova versão.
+    await user.click(screen.getByRole('button', { name: 'Editar' }));
+    const editor2 = screen.getByLabelText(/Conteúdo \(markdown\)/);
+    await user.clear(editor2);
+    await user.type(editor2, '# Guia de UX v2\n\nRevisão manual do conteúdo.');
+    await user.click(screen.getByRole('button', { name: 'Salvar nova versão' }));
+
+    // Sai do modo de edição, markdown da nova versão e histórico com origem humana.
+    expect(await screen.findByText(/Revisão manual do conteúdo/)).toBeInTheDocument();
+    const versionsSection = screen.getByRole('region', {
+      name: /Versões/,
+    });
+    // "v2" aparece no item do histórico e nas opções de diff.
+    expect(within(versionsSection).getAllByText('v2').length).toBeGreaterThan(0);
+    expect(within(versionsSection).getAllByText('Você').length).toBeGreaterThan(0);
+  });
+
+  it('salvar e aprovar encadeia nova versão + aprovação pendente', async () => {
+    const user = userEvent.setup();
+    renderDocuments(`/documents?doc=${specApi.id}`);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Spec da API v1' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Editar' }));
+    const editor = screen.getByLabelText(/Conteúdo \(markdown\)/);
+    await user.clear(editor);
+    await user.type(editor, '# Spec API v1\n\nContratos REST corrigidos manualmente.');
+    await user.click(screen.getByRole('button', { name: 'Salvar e aprovar' }));
+
+    // Aprovação resolvida como aprovada, documento aprovado e nova versão humana.
+    expect(await screen.findByText('Aprovada')).toBeInTheDocument();
+    expect(await screen.findByText(/Corrigidos manualmente/i)).toBeInTheDocument();
+    const versionsSection = screen.getByRole('region', { name: /Versões/ });
+    expect(within(versionsSection).getAllByText('v2').length).toBeGreaterThan(0);
+    expect(within(versionsSection).getAllByText('Você').length).toBeGreaterThan(0);
+  });
+
+  it('documento aprovado não oferece edição manual (exige reabrir o fluxo)', async () => {
+    renderDocuments(`/documents?doc=${prd.id}`);
+
+    expect(
+      await screen.findByRole('heading', { name: 'PRD do Poseidon Console' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    // A leitura e a cópia continuam disponíveis.
+    expect(screen.getByRole('button', { name: 'Copiar conteúdo' })).toBeInTheDocument();
+  });
 });

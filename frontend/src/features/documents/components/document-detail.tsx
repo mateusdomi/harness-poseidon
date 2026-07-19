@@ -1,19 +1,30 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, ArrowLeft, FileCheck } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Copy, FileCheck, Pencil } from 'lucide-react';
 
-import type { Approval, DocumentVersion, Ulid } from '@/api';
+import type { Approval, DocumentState, DocumentVersion, Ulid } from '@/api';
 import { Badge, Button, Select, Skeleton } from '@/design-system';
 import { formatDateTime } from '@/lib/format';
 import { documentStateVariant } from '@/lib/status';
 import { ApprovalResolveActions } from '@/features/shared/components/approval-resolve-actions';
 import { MarkdownContent } from '@/features/shared/components/markdown-content';
+import { DocumentManualEdit } from '@/features/documents/components/document-manual-edit';
 import { diffLines } from '@/features/documents/lib/diff';
 import {
   useDocumentDetail,
   useRequestDocumentApproval,
   useResolveDocumentApproval,
 } from '@/features/documents/hooks/use-documents';
+
+/** Tempo do feedback visual "copiado" (mesmo padrão da cópia do chat). */
+const COPIED_FEEDBACK_MS = 1600;
+
+/**
+ * Estados em que a edição manual faz sentido (elaboração/revisão/correção
+ * antes da aprovação). Documento aprovado/terminal exige reabrir o fluxo —
+ * a UI não oferece edição (decisão D-072).
+ */
+const EDITABLE_STATES: readonly DocumentState[] = ['inElaboration', 'inReview', 'awaitingApproval'];
 
 export interface DocumentDetailProps {
   documentId: Ulid;
@@ -26,9 +37,11 @@ export interface DocumentDetailProps {
 
 /**
  * Detalhe do documento: metadados (estado, classificações, inconsistência/
- * waiver), conteúdo markdown da versão vigente, histórico de versões com
+ * waiver), conteúdo markdown da versão vigente com cópia (clipboard) e
+ * edição manual (nova versão de origem humana; "salvar e aprovar" encadeia
+ * versão + aprovação pendente), histórico de versões com origem (autor) e
  * comparação (diff linha a linha) e ações de aprovação (reprovação exige
- * observação — regra do contrato).
+ * observação — regra do contrato; reprovar = solicitar correção).
  */
 export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: DocumentDetailProps) {
   const { t, i18n } = useTranslation();
@@ -38,6 +51,15 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
 
   const [diffFrom, setDiffFrom] = useState<number | null>(null);
   const [diffTo, setDiffTo] = useState<number | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    },
+    [],
+  );
 
   const pendingApproval = approvals.find(
     (approval) => approval.documentId === documentId && approval.state === 'pending',
@@ -81,6 +103,19 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
   const currentVersion: DocumentVersion | undefined = versions.find(
     (v) => v.version === document.currentVersion,
   );
+  const editable = EDITABLE_STATES.includes(document.state) && currentVersion !== undefined;
+
+  async function copyContent() {
+    if (!currentVersion) return;
+    try {
+      await navigator.clipboard.writeText(currentVersion.body);
+      setCopied(true);
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+      feedbackTimer.current = setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
+    } catch {
+      // Clipboard indisponível (permissão negada/contexto inseguro): sem feedback falso.
+    }
+  }
 
   return (
     <article className="flex flex-col gap-6">
@@ -131,16 +166,60 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
       </div>
 
       <section aria-labelledby="document-content" className="flex flex-col gap-2">
-        <h2 id="document-content" className="font-heading text-lg font-semibold">
-          {t('documents.detail.contentTitle')}
-        </h2>
-        <div className="rounded-xl border border-border bg-surface p-4">
-          {currentVersion ? (
-            <MarkdownContent content={currentVersion.body} />
-          ) : (
-            <p className="text-sm text-foreground-muted">{t('documents.detail.noContent')}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="document-content" className="font-heading text-lg font-semibold">
+            {t('documents.detail.contentTitle')}
+          </h2>
+          {!editing && currentVersion && (
+            <div className="ml-auto flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={t('documents.detail.copy')}
+                onClick={() => void copyContent()}
+              >
+                {copied ? (
+                  <Check aria-hidden="true" className="text-success" />
+                ) : (
+                  <Copy aria-hidden="true" />
+                )}
+                {copied ? t('documents.detail.copied') : t('documents.detail.copy')}
+              </Button>
+              {editable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil aria-hidden="true" />
+                  {t('documents.detail.edit.open')}
+                </Button>
+              )}
+            </div>
           )}
         </div>
+        {/* Feedback da cópia anunciado a leitores de tela (aria-label estável). */}
+        <span aria-live="polite" className="sr-only">
+          {copied ? t('documents.detail.copied') : ''}
+        </span>
+        {editing && currentVersion ? (
+          <DocumentManualEdit
+            documentId={document.id}
+            initialBody={currentVersion.body}
+            pendingApprovalId={pendingApproval?.id ?? null}
+            onDone={() => setEditing(false)}
+          />
+        ) : (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            {currentVersion ? (
+              <MarkdownContent content={currentVersion.body} />
+            ) : (
+              <p className="text-sm text-foreground-muted">{t('documents.detail.noContent')}</p>
+            )}
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="document-approval" className="flex flex-col gap-2">

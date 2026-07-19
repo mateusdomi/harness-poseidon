@@ -9,6 +9,7 @@ import type {
   CreatableResource,
   CreateInputMap,
   Diagnostics,
+  DocumentVersion,
   DrainChiefTasksInput,
   HandoffChiefInput,
   License,
@@ -24,6 +25,7 @@ import type {
   ResourceKind,
   ResourceMap,
   RunTarget,
+  SaveDocumentVersionInput,
   SetOperationModeInput,
   SetTaskPriorityInput,
   SolicitationAnalysis,
@@ -72,6 +74,13 @@ export interface ApiClient {
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task>;
   /** Altera a prioridade da tarefa (ação humana; conteúdo permanece imutável). */
   setTaskPriority(taskId: Ulid, input: SetTaskPriorityInput): Promise<Task>;
+  /**
+   * Arquiva a tarefa (metaestado — não muda `state`). Permitido apenas para
+   * tarefas concluídas (`done`); desarquivar é sempre permitido.
+   */
+  archiveTask(taskId: Ulid): Promise<Task>;
+  /** Desarquiva a tarefa (remove `archivedAt`; `state` permanece). */
+  unarchiveTask(taskId: Ulid): Promise<Task>;
   /** Nova versão de instrução (correção) — incrementa `instructionVersion`. */
   appendTaskInstruction(taskId: Ulid, input: AppendTaskInstructionInput): Promise<TaskInstruction>;
   /** Triagem de solicitação (apenas estado; conteúdo imutável). */
@@ -80,6 +89,12 @@ export interface ApiClient {
   resolveApproval(id: Ulid, input: ResolveApprovalInput): Promise<Approval>;
   /** Transição da máquina de estados de documento → emite `document.stateChanged`. */
   transitionDocument(id: Ulid, input: TransitionDocumentInput): Promise<Document>;
+  /**
+   * Nova versão do documento por edição manual (origem humana — a versão
+   * nasce com `authorKind: 'user'` e `version = currentVersion + 1`;
+   * versões anteriores permanecem imutáveis).
+   */
+  saveDocumentVersion(id: Ulid, input: SaveDocumentVersionInput): Promise<DocumentVersion>;
   /**
    * Classificação de documento (metadados: rótulos + vínculo de fase) —
    * também usada para adotar documentos órfãos. Não emite evento próprio.

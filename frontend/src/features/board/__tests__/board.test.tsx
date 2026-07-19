@@ -201,4 +201,134 @@ describe('BoardPage', () => {
     await user.selectOptions(prioritySelect, 'critical');
     await waitFor(() => expect(prioritySelect).toHaveValue('critical'));
   });
+
+  it('filtra por busca (título) com contagem de resultados e limpa os filtros', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+
+    const search = await screen.findByLabelText('Buscar');
+    expect(screen.getByText(`${projectTasks.length - 1} de ${projectTasks.length} tarefas`)).toBeInTheDocument();
+
+    await user.type(search, 'Mapear endpoints');
+    expect(await screen.findByText(`1 de ${projectTasks.length} tarefas`)).toBeInTheDocument();
+    const backlogColumn = screen.getByRole('region', { name: /Backlog/ });
+    expect(
+      within(backlogColumn).getByRole('button', { name: /Mapear endpoints de billing/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(backlogColumn).queryByRole('button', { name: /Definir tokens de espaçamento/ }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect(
+      await screen.findByText(`${projectTasks.length - 1} de ${projectTasks.length} tarefas`),
+    ).toBeInTheDocument();
+  });
+
+  it('filtra por coluna na barra mantendo as demais visíveis com contador 0', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+
+    await user.selectOptions(await screen.findByLabelText('Coluna'), 'blocked');
+
+    const blockedColumn = await screen.findByRole('region', { name: /Bloqueada/ });
+    expect(
+      within(blockedColumn).getByRole('button', { name: /Deploy em staging/ }),
+    ).toBeInTheDocument();
+    // Estrutura preservada: coluna vazia continua visível com contador 0.
+    const backlogColumn = screen.getByRole('region', { name: /Backlog/ });
+    expect(within(backlogColumn).getByText('0')).toBeInTheDocument();
+    expect(within(backlogColumn).getByText('Sem tarefas nesta coluna.')).toBeInTheDocument();
+  });
+
+  it('esconde arquivadas por padrão e as mostra (com badge) no filtro "Arquivadas"', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+
+    const doneColumn = await screen.findByRole('region', { name: /Concluída/ });
+    expect(
+      within(doneColumn).queryByRole('button', { name: /Setup do Vite/ }),
+    ).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Arquivamento'), 'archived');
+    expect(await screen.findByText(`1 de ${projectTasks.length} tarefas`)).toBeInTheDocument();
+    expect(
+      within(doneColumn).getByRole('button', { name: /Setup do Vite/ }),
+    ).toBeInTheDocument();
+    expect(within(doneColumn).getByText('Arquivada')).toBeInTheDocument();
+  });
+
+  it('arquiva todas as concluídas em lote, com diálogo de confirmação', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+
+    // 6 concluídas no projeto 1, 1 já arquivada na fixture → 5 elegíveis.
+    const batchButton = await screen.findByRole('button', { name: /Arquivar concluídas \(5\)/ });
+    await user.click(batchButton);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Arquivar tarefas concluídas' });
+    await user.click(within(dialog).getByRole('button', { name: /Arquivar 5 tarefa/ }));
+
+    // Após arquivar, não restam elegíveis: botão zera e desabilita.
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Arquivar concluídas \(0\)/ }),
+      ).toBeDisabled();
+    });
+    // A coluna Concluída fica vazia no filtro padrão (ativas).
+    const doneColumn = screen.getByRole('region', { name: /Concluída/ });
+    expect(within(doneColumn).getByText('0')).toBeInTheDocument();
+  });
+
+  it('desarquiva pelo detalhe e o card volta ao quadro padrão', async () => {
+    const user = userEvent.setup();
+    const archived = projectTasks.find((entry) => entry.archivedAt !== null)!;
+    renderBoard(`/board?task=${archived.id}&archive=all`);
+
+    const unarchive = await screen.findByRole('button', { name: 'Desarquivar' });
+    await user.click(unarchive);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Arquivar' })).toBeEnabled();
+    });
+  });
+
+  it('não permite arquivar tarefa não concluída (botão desabilitado no detalhe)', async () => {
+    const backlogTask = projectTasks.find((entry) => entry.state === 'backlog')!;
+    renderBoard(`/board?task=${backlogTask.id}`);
+
+    const archive = await screen.findByRole('button', { name: 'Arquivar' });
+    expect(archive).toBeDisabled();
+  });
+
+  it('abre "Como o trabalho flui" com a ordem das colunas e Bloqueada transversal', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+
+    await user.click(await screen.findByRole('button', { name: 'Como o trabalho flui' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Como o trabalho flui' });
+
+    // Stepper linear (7 colunas) — Bloqueada fora da lista ordenada.
+    const steps = within(dialog).getAllByRole('list')[0];
+    for (const name of [
+      'Backlog',
+      'Pronta',
+      'Em desenvolvimento',
+      'Em revisão',
+      'Em correção',
+      'Testes e gates',
+      'Concluída',
+    ]) {
+      expect(within(steps).getByText(name)).toBeInTheDocument();
+    }
+    expect(within(steps).queryByText('Bloqueada')).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/transversal/)).toBeInTheDocument();
+    expect(within(dialog).getByText('O que você (humano) faz')).toBeInTheDocument();
+    expect(within(dialog).getByText('O que o chefe e os agentes fazem')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
 });

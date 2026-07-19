@@ -34,6 +34,8 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
         aria-label={t('board.card.open', { title: task.title })}
         className={cn(
           'flex min-h-touch w-full flex-col gap-2 rounded-lg border border-border bg-surface p-3 text-left transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+          // Arquivada (metaestado): indicação visual discreta.
+          task.archivedAt !== null && 'opacity-75',
           // Movimento em tempo real: flash discreto (200 ms) — desligado com prefers-reduced-motion.
           justMoved && 'motion-safe:bg-surface-elevated motion-safe:ring-2 motion-safe:ring-info motion-safe:transition-shadow motion-safe:duration-200',
         )}
@@ -46,6 +48,9 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
           <Badge variant={priorityVariant(task.priority)}>
             {t(`status.priority.${task.priority}`)}
           </Badge>
+          {task.archivedAt !== null && (
+            <Badge variant="outline">{t('board.card.archived')}</Badge>
+          )}
         </span>
         {task.state === 'blocked' && (
           <span className="flex items-start gap-1.5 text-xs text-error">

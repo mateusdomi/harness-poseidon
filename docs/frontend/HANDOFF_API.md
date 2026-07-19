@@ -147,6 +147,9 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 | `POST /backups` (FE-3) | — | `BackupHandle` (`{ id, createdAt, sizeBytes }`) | `audit.eventAppended` (`backup.created`) | settings |
 | `POST /backups/<id>/restore` (FE-3) | — | — | `audit.eventAppended` (`backup.restored`) | settings |
 | `GET /diagnostics` (FE-3) | — | `Diagnostics` (versão, codename, ambiente, contadores) | — | settings |
+| `POST /documents/<id>/versions` (FR-3) | `{ body }` — **nova versão por edição manual**; nasce `authorKind: "user"`, `version = currentVersion + 1` | `DocumentVersion` | — (ver pendência FR-3: sugestão `document.versionAdded`) | documents (revisão manual) |
+| `POST /tasks/<id>/archive` (FR-3) | — — **só `done`** (409 caso contrário; 409 se já arquivada) | `Task` (`archivedAt` preenchido) | — (ver pendência FR-3) | board (arquivar) |
+| `POST /tasks/<id>/unarchive` (FR-3) | — — sempre permitido em tarefa arquivada (409 se não arquivada) | `Task` (`archivedAt: null`) | — | board (desarquivar) |
 
 ### Campos adicionados na FE-2a
 
@@ -165,6 +168,18 @@ Schemas Zod em `contracts/commands.ts`. Todos retornam a entidade afetada e emit
 
 - `Project.prototyping: { mode: PrototypingMode, waiver: { reason, grantedAt } | null }` — cenário de prototipação do projeto (`externalPrototype | guidelinesOnly | autonomousGeneration | notApplicable`). Waiver **obrigatório** quando `mode = notApplicable` (o schema exige `reason` + `grantedAt` nesse caso).
 - `conversations` passou a ter PATCH: `UpdateInputMap.conversations = Partial<Pick<Conversation, "title" | "state">>` — renomear e arquivar/desarquivar pela tela de conversas (o chat também lê `?conversation=<id>` e inclui conversas arquivadas).
+
+### Campos adicionados na FR-3
+
+- `Task.archivedAt: string | null` — **arquivamento é metaestado**, NÃO entra na máquina de estados: a tarefa arquivada mantém `state`/histórico/attempts, some do quadro padrão (filtro "ativas") e permanece acessível pelo filtro "arquivadas" e pelo detalhe. Regra de domínio: arquivar só é permitido para `done` (o contrato não distingue "backlog cancelada" de backlog viva — ver D-073); desarquivar é sempre permitido. Comandos na tabela acima; tarefas continuam **sem PATCH**.
+- Comando `saveDocumentVersion` (`POST /documents/<id>/versions`, `{ body }`): edição manual cria versão nova com `authorKind: "user"` e `authorId = profile da sessão` — a origem (agente vs. humano) já era modelada pelo enum `authorKind` de `DocumentVersion` (`user | chief | agent`), nenhum campo novo foi necessário. Verificado na FR-3: `DocumentVersion` **já expõe `body`** (conteúdo da versão) — diff e edição usam o campo existente.
+
+### Pendências de contrato identificadas na FR-3 (não fabricadas na UI)
+
+- `Task`/`Demand` **não têm fase** — o filtro "por fase" pedido no item 7.1 NÃO existe na barra do quadro (seria filtro falso). Exigiria campo novo (ex.: `Task.phaseName`, como `Document.phaseName`). A exportação CSV igualmente omite a coluna "fase".
+- Arquivamento não tem **evento realtime** próprio — o mock atualiza a tarefa e a UI re-sincroniza por invalidação pós-mutation. Sugestão: emitir `task.archived`/`task.unarchived` (ou incluir `archivedAt` em `task.stateChanged`/um `task.updated`) no stream `project:<id>` para multi-janela.
+- `saveDocumentVersion` também não emite evento — sugestão: `document.versionAdded` (`{ documentId, version, authorKind }`) no stream `project:<id>`; hoje a tela invalida o prefixo `documents` após a mutação.
+- "Solicitar correção" de documento (item 6.4) é o **mesmo fluxo da reprovação com observação** já existente (`resolveApproval` rejected → documento volta a `inElaboration` no mock) — nenhum comando novo; a observação obrigatória é o pedido de correção.
 
 ### Pendências de contrato identificadas na FE-3 (não fabricadas na UI)
 

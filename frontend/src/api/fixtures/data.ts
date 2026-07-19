@@ -761,6 +761,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
           createdAt: tick(),
           updatedAt: tick(),
           dueAt: null,
+          // Exemplo de metaestado: uma tarefa concluída já arquivada.
+          archivedAt: titulo === 'Setup do Vite com TS strict' ? tick() : null,
         };
         tasks.push(task);
         taskInstructions.push({
@@ -801,6 +803,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       createdAt: tick(),
       updatedAt: tick(),
       dueAt: null,
+      archivedAt: null,
     };
     tasks.push(task);
     taskInstructions.push({

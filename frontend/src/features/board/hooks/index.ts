@@ -1,5 +1,7 @@
 export {
   boardKeys,
+  useArchiveCompletedTasks,
+  useArchiveTask,
   useBoardAgents,
   useBoardRealtime,
   useBoardTasks,
@@ -9,5 +11,6 @@ export {
   useSetTaskPriority,
   useTaskDetail,
   useTaskRealtime,
+  useUnarchiveTask,
 } from './use-board';
 export { useMediaQuery } from './use-media-query';

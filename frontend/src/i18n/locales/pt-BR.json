@@ -646,7 +646,8 @@
       "unassigned": "Sem responsável",
       "blocked": "Bloqueada: {{reason}}",
       "blockedUnknown": "motivo não informado",
-      "updated": "Atualizada {{time}}"
+      "updated": "Atualizada {{time}}",
+      "archived": "Arquivada"
     },
     "detail": {
       "back": "Voltar ao quadro",
@@ -707,7 +708,60 @@
         "pauseNote": "Pausada pelo usuário no quadro.",
         "cancelNote": "Cancelada pelo usuário no quadro; volta ao backlog para o chefe replanejar.",
         "reviewNote": "Revisão solicitada pelo usuário no quadro.",
-        "error": "Não foi possível concluir a ação. Tente novamente."
+        "error": "Não foi possível concluir a ação. Tente novamente.",
+        "archive": "Arquivar",
+        "unarchive": "Desarquivar",
+        "archiveOnlyDone": "Apenas tarefas concluídas podem ser arquivadas."
+      }
+    },
+    "filters": {
+      "search": "Buscar",
+      "searchPlaceholder": "Título ou ID da tarefa…",
+      "state": "Coluna",
+      "agent": "Responsável",
+      "priority": "Prioridade",
+      "period": "Última atividade",
+      "periodAll": "Tudo",
+      "periodToday": "Hoje",
+      "period7d": "Últimos 7 dias",
+      "period30d": "Últimos 30 dias",
+      "archive": "Arquivamento",
+      "archiveActive": "Ativas",
+      "archiveArchived": "Arquivadas",
+      "archiveAll": "Todas",
+      "all": "Todas",
+      "clear": "Limpar filtros",
+      "results": "{{count}} de {{total}} tarefas"
+    },
+    "export": {
+      "button": "Exportar CSV"
+    },
+    "archive": {
+      "batchButton": "Arquivar concluídas ({{count}})",
+      "batchTitle": "Arquivar tarefas concluídas",
+      "batchBody": "{{count}} tarefa(s) concluída(s) serão arquivadas. Elas saem do quadro padrão, mas o histórico é preservado e ficam acessíveis pelo filtro \"Arquivadas\".",
+      "batchConfirm": "Arquivar {{count}} tarefa(s)",
+      "error": "Não foi possível arquivar. Tente novamente."
+    },
+    "flow": {
+      "open": "Como o trabalho flui",
+      "title": "Como o trabalho flui",
+      "intro": "As tarefas avançam pelas colunas nesta ordem:",
+      "blockedNote": "é transversal: pode ocorrer a partir de qualquer coluna (dependência externa, pausa manual) e, ao ser resolvida, a tarefa retoma para a coluna de origem.",
+      "humanTitle": "O que você (humano) faz",
+      "human": {
+        "priority": "Alterar a prioridade de qualquer tarefa",
+        "pause": "Pausar (a tarefa vai para Bloqueada com nota de pausa)",
+        "cancel": "Cancelar (volta ao Backlog para o chefe replanejar)",
+        "requestReview": "Solicitar revisão (vai para Em revisão)",
+        "gate": "Aprovar ou reprovar gates e documentos (reprovação exige observação)"
+      },
+      "agentsTitle": "O que o chefe e os agentes fazem",
+      "agents": {
+        "create": "Criar tarefas a partir da cadeia solicitação → demanda → tarefa",
+        "move": "Mover entre as colunas conforme o trabalho avança",
+        "execute": "Executar o trabalho (tentativas com evidências, custo e tokens)",
+        "unblock": "Desbloquear e corrigir (Em correção) após reprovações"
       }
     }
   },
@@ -1017,6 +1071,17 @@
       "waiver": "Waiver: {{reason}} (concedido em {{date}})",
       "contentTitle": "Conteúdo",
       "noContent": "Versão vigente não encontrada.",
+      "copy": "Copiar conteúdo",
+      "copied": "Conteúdo copiado",
+      "edit": {
+        "open": "Editar",
+        "bodyLabel": "Conteúdo (markdown)",
+        "hint": "Salvar cria uma nova versão com a sua autoria (edição manual); as versões anteriores não mudam.",
+        "save": "Salvar nova versão",
+        "saveAndApprove": "Salvar e aprovar",
+        "saveApproveNote": "Aprovado após correção manual na tela de documentos.",
+        "error": "Não foi possível salvar. Tente novamente."
+      },
       "approvalTitle": "Aprovação",
       "requestHint": "Revisão concluída? Solicite a aprovação para o documento virar referência.",
       "requestApproval": "Solicitar aprovação",

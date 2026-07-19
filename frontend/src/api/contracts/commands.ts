@@ -55,6 +55,16 @@ export const transitionDocumentInputSchema = z.object({
 export type TransitionDocumentInput = z.infer<typeof transitionDocumentInputSchema>;
 
 /**
+ * Nova versão de documento por edição MANUAL (revisão humana): versões são
+ * imutáveis — salvar cria `currentVersion + 1` com `authorKind: 'user'`,
+ * nunca edita a anterior.
+ */
+export const saveDocumentVersionInputSchema = z.object({
+  body: z.string().min(1),
+});
+export type SaveDocumentVersionInput = z.infer<typeof saveDocumentVersionInputSchema>;
+
+/**
  * Classificação de documento (metadados — não é edição de conteúdo):
  * rótulos e vínculo de fase. Usada também para "adotar" documentos órfãos.
  */

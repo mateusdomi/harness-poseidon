@@ -163,6 +163,20 @@ export function useResolveDocumentApproval() {
   });
 }
 
+/**
+ * Edição manual: salva o conteúdo como NOVA versão (origem humana —
+ * `authorKind: 'user'`); as anteriores permanecem imutáveis no histórico.
+ */
+export function useSaveDocumentVersion() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ documentId, body }: { documentId: Ulid; body: string }) =>
+      api.saveDocumentVersion(documentId, { body }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: DOCUMENTS_PREFIX }),
+  });
+}
+
 /** Solicita aprovação: cria a aprovação pendente e move o documento para `awaitingApproval`. */
 export function useRequestDocumentApproval() {
   const api = useApi();

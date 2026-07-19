@@ -4,29 +4,42 @@ import { Info } from 'lucide-react';
 
 import { PRIORITIES, type Priority, type Task } from '@/api';
 import { Button, Field, Select } from '@/design-system';
-import { useMoveTask, useSetTaskPriority } from '@/features/board/hooks/use-board';
+import {
+  useArchiveTask,
+  useMoveTask,
+  useSetTaskPriority,
+  useUnarchiveTask,
+} from '@/features/board/hooks/use-board';
 
 export interface TaskActionsProps {
   task: Task;
 }
 
 /**
- * Ações humanas permitidas sobre a tarefa: repriorizar, pausar, cancelar
- * e solicitar revisão. O humano NÃO cria nem edita tarefa técnica — o
- * texto explicativo reforça a cadeia solicitação → demanda → tarefa e
- * aponta o chat como porta de entrada.
+ * Ações humanas permitidas sobre a tarefa: repriorizar, pausar, cancelar,
+ * solicitar revisão e arquivar/desarquivar (metaestado — arquivar só é
+ * permitido para concluídas; desarquivar sempre). O humano NÃO cria nem
+ * edita tarefa técnica — o texto explicativo reforça a cadeia
+ * solicitação → demanda → tarefa e aponta o chat como porta de entrada.
  *
  * Mapeamento com o contrato atual (ver DECISIONS):
  * - pausar → moveTask('blocked') com nota de pausa (vira bloqueio manual);
  * - cancelar → moveTask('backlog') com nota (sai do fluxo; chefe replaneja);
- * - solicitar revisão → moveTask('review') com nota.
+ * - solicitar revisão → moveTask('review') com nota;
+ * - arquivar/desarquivar → archiveTask/unarchiveTask (não muda `state`).
  */
 export function TaskActions({ task }: TaskActionsProps) {
   const { t } = useTranslation();
   const moveTask = useMoveTask();
   const setPriority = useSetTaskPriority();
-  const busy = moveTask.isPending || setPriority.isPending;
-  const failed = moveTask.isError || setPriority.isError;
+  const archiveTask = useArchiveTask();
+  const unarchiveTask = useUnarchiveTask();
+  const busy =
+    moveTask.isPending || setPriority.isPending || archiveTask.isPending ||
+    unarchiveTask.isPending;
+  const failed =
+    moveTask.isError || setPriority.isError || archiveTask.isError || unarchiveTask.isError;
+  const archived = task.archivedAt !== null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -106,6 +119,28 @@ export function TaskActions({ task }: TaskActionsProps) {
         >
           {t('board.detail.actions.cancel')}
         </Button>
+        {archived ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => unarchiveTask.mutate(task.id)}
+          >
+            {t('board.detail.actions.unarchive')}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || task.state !== 'done'}
+            title={task.state === 'done' ? undefined : t('board.detail.actions.archiveOnlyDone')}
+            onClick={() => archiveTask.mutate(task.id)}
+          >
+            {t('board.detail.actions.archive')}
+          </Button>
+        )}
       </div>
 
       {failed && (

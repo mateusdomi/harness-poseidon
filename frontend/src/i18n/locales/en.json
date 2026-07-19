@@ -646,7 +646,8 @@
       "unassigned": "Unassigned",
       "blocked": "Blocked: {{reason}}",
       "blockedUnknown": "no reason given",
-      "updated": "Updated {{time}}"
+      "updated": "Updated {{time}}",
+      "archived": "Archived"
     },
     "detail": {
       "back": "Back to the board",
@@ -707,7 +708,60 @@
         "pauseNote": "Paused by the user on the board.",
         "cancelNote": "Cancelled by the user on the board; back to the backlog for the chief to re-plan.",
         "reviewNote": "Review requested by the user on the board.",
-        "error": "Could not complete the action. Please try again."
+        "error": "Could not complete the action. Please try again.",
+        "archive": "Archive",
+        "unarchive": "Unarchive",
+        "archiveOnlyDone": "Only completed tasks can be archived."
+      }
+    },
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Task title or ID…",
+      "state": "Column",
+      "agent": "Assignee",
+      "priority": "Priority",
+      "period": "Last activity",
+      "periodAll": "All time",
+      "periodToday": "Today",
+      "period7d": "Last 7 days",
+      "period30d": "Last 30 days",
+      "archive": "Archiving",
+      "archiveActive": "Active",
+      "archiveArchived": "Archived",
+      "archiveAll": "All",
+      "all": "All",
+      "clear": "Clear filters",
+      "results": "{{count}} of {{total}} tasks"
+    },
+    "export": {
+      "button": "Export CSV"
+    },
+    "archive": {
+      "batchButton": "Archive completed ({{count}})",
+      "batchTitle": "Archive completed tasks",
+      "batchBody": "{{count}} completed task(s) will be archived. They leave the default board, but history is preserved and they remain accessible via the \"Archived\" filter.",
+      "batchConfirm": "Archive {{count}} task(s)",
+      "error": "Could not archive. Please try again."
+    },
+    "flow": {
+      "open": "How work flows",
+      "title": "How work flows",
+      "intro": "Tasks advance through the columns in this order:",
+      "blockedNote": "is transversal: it can happen from any column (external dependency, manual pause) and, once resolved, the task resumes to its origin column.",
+      "humanTitle": "What you (human) do",
+      "human": {
+        "priority": "Change any task's priority",
+        "pause": "Pause (the task goes to Blocked with a pause note)",
+        "cancel": "Cancel (returns to Backlog for the chief to re-plan)",
+        "requestReview": "Request review (moves to In review)",
+        "gate": "Approve or reject gates and documents (rejection requires a note)"
+      },
+      "agentsTitle": "What the chief and agents do",
+      "agents": {
+        "create": "Create tasks from the solicitation → demand → task chain",
+        "move": "Move tasks across columns as work progresses",
+        "execute": "Execute the work (attempts with evidence, cost and tokens)",
+        "unblock": "Unblock and fix (In corrections) after rejections"
       }
     }
   },
@@ -1017,6 +1071,17 @@
       "waiver": "Waiver: {{reason}} (granted on {{date}})",
       "contentTitle": "Content",
       "noContent": "Current version not found.",
+      "copy": "Copy content",
+      "copied": "Content copied",
+      "edit": {
+        "open": "Edit",
+        "bodyLabel": "Content (markdown)",
+        "hint": "Saving creates a new version under your authorship (manual edit); previous versions are unchanged.",
+        "save": "Save new version",
+        "saveAndApprove": "Save and approve",
+        "saveApproveNote": "Approved after manual correction in the documents screen.",
+        "error": "Could not save. Please try again."
+      },
       "approvalTitle": "Approval",
       "requestHint": "Review done? Request approval so the document becomes a reference.",
       "requestApproval": "Request approval",

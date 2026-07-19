@@ -9,6 +9,7 @@ import {
   moveTaskInputSchema,
   publishWorkflowVersionInputSchema,
   resolveApprovalInputSchema,
+  saveDocumentVersionInputSchema,
   setOperationModeInputSchema,
   setTaskPriorityInputSchema,
   startChatTurnInputSchema,
@@ -28,6 +29,7 @@ import {
   type Demand,
   type Diagnostics,
   type Document,
+  type DocumentVersion,
   type DrainChiefTasksInput,
   type HandoffChiefInput,
   type License,
@@ -46,6 +48,7 @@ import {
   type ResourceKind,
   type ResourceMap,
   type RunTarget,
+  type SaveDocumentVersionInput,
   type SetOperationModeInput,
   type SetTaskPriorityInput,
   type Solicitation,
@@ -292,6 +295,35 @@ export class MockApiClient implements ApiClient {
     return structuredClone(task);
   }
 
+  async archiveTask(taskId: Ulid): Promise<Task> {
+    await this.#simulate();
+    const task = this.#require('tasks', taskId);
+    if (task.archivedAt !== null) {
+      throw ApiError.of(409, 'Tarefa já arquivada', `Tarefa ${taskId} já está arquivada.`);
+    }
+    if (task.state !== 'done') {
+      throw ApiError.of(
+        409,
+        'Arquivamento não permitido',
+        'Apenas tarefas concluídas podem ser arquivadas.',
+      );
+    }
+    task.archivedAt = this.#options.now();
+    task.updatedAt = this.#options.now();
+    return structuredClone(task);
+  }
+
+  async unarchiveTask(taskId: Ulid): Promise<Task> {
+    await this.#simulate();
+    const task = this.#require('tasks', taskId);
+    if (task.archivedAt === null) {
+      throw ApiError.of(409, 'Tarefa não arquivada', `Tarefa ${taskId} não está arquivada.`);
+    }
+    task.archivedAt = null;
+    task.updatedAt = this.#options.now();
+    return structuredClone(task);
+  }
+
   async appendTaskInstruction(
     taskId: Ulid,
     input: AppendTaskInstructionInput,
@@ -399,6 +431,26 @@ export class MockApiClient implements ApiClient {
       to: parsed.toState,
     });
     return structuredClone(document);
+  }
+
+  async saveDocumentVersion(id: Ulid, input: SaveDocumentVersionInput): Promise<DocumentVersion> {
+    await this.#simulate();
+    const parsed = saveDocumentVersionInputSchema.parse(input);
+    const document = this.#require('documents', id);
+    // Edição manual: a versão nasce com origem humana (`authorKind: 'user'`).
+    const version: DocumentVersion = {
+      id: this.#options.nextId(),
+      documentId: document.id,
+      version: document.currentVersion + 1,
+      body: parsed.body,
+      authorKind: 'user',
+      authorId: this.#options.currentProfileId,
+      createdAt: this.#options.now(),
+    };
+    this.#table('document-versions').set(version.id, version);
+    document.currentVersion = version.version;
+    document.updatedAt = version.createdAt;
+    return structuredClone(version);
   }
 
   async classifyDocument(id: Ulid, input: ClassifyDocumentInput): Promise<Document> {
@@ -1079,6 +1131,7 @@ export class MockApiClient implements ApiClient {
           createdAt: now,
           updatedAt: now,
           dueAt: i.dueAt ?? null,
+          archivedAt: null,
         } satisfies Task) as unknown as ResourceMap[K];
       }
       case 'solicitations': {

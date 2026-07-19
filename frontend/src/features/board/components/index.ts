@@ -1,5 +1,7 @@
 export { KanbanBoard } from './kanban-board';
 export { BoardColumn } from './board-column';
+export { BoardFiltersBar } from './board-filters-bar';
+export { BoardFlowDialog } from './board-flow-dialog';
 export { TaskCard } from './task-card';
 export { TaskDetail } from './task-detail';
 export { TaskDrawer } from './task-drawer';

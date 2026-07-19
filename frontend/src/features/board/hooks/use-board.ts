@@ -210,6 +210,48 @@ export function useSetTaskPriority() {
   });
 }
 
+/** Arquiva uma tarefa concluída (metaestado — não muda a coluna). */
+export function useArchiveTask() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: Ulid) => api.archiveTask(taskId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: BOARD_PREFIX }),
+  });
+}
+
+/** Desarquiva uma tarefa (sempre permitido). */
+export function useUnarchiveTask() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: Ulid) => api.unarchiveTask(taskId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: BOARD_PREFIX }),
+  });
+}
+
+/**
+ * Ação em lote: arquiva todas as tarefas concluídas e ainda ativas
+ * (sequencial, para manter a ordem de erros determinística no mock).
+ * Retorna quantas foram arquivadas.
+ */
+export function useArchiveCompletedTasks() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (tasks: Task[]) => {
+      let archived = 0;
+      for (const task of tasks) {
+        if (task.state !== 'done' || task.archivedAt !== null) continue;
+        await api.archiveTask(task.id);
+        archived += 1;
+      }
+      return archived;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: BOARD_PREFIX }),
+  });
+}
+
 export function useResolveTaskApproval() {
   const api = useApi();
   const queryClient = useQueryClient();
