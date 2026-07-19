@@ -43,6 +43,7 @@ public sealed class ProviderCatalogApiTests
                     var routing = (await client.GetFromJsonAsync<RoutingPolicyPage>("/api/v1/routing-policies", timeout.Token))!;
                     var budgets = (await client.GetFromJsonAsync<BudgetPage>("/api/v1/budgets", timeout.Token))!;
                     Assert.Equal(3, providers.Items.Count); Assert.Equal(2, accounts.Items.Count); Assert.Equal(4, models.Items.Count);
+                    Assert.All(models.Items, model => Assert.Equal(["low", "medium", "high", "max"], model.EffortMappings.Select(value => value.Effort)));
                     Assert.Single(routing.Items); Assert.Equal(3, budgets.Items.Count);
                     Assert.DoesNotContain("keychain://", await client.GetStringAsync("/api/v1/accounts", timeout.Token), StringComparison.OrdinalIgnoreCase);
                     var definitions = (await client.GetFromJsonAsync<AgentDefinitionPage>("/api/v1/agent-definitions", timeout.Token))!;

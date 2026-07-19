@@ -47,6 +47,7 @@ public static class CatalogStoreBehavior
         Assert.NotEmpty(providerRows);
         var models = await providers.ListModelsAsync(tenantId, null, 50, cancellationToken);
         Assert.NotEmpty(models);
+        Assert.All(models, model => Assert.Equal(["low", "medium", "high", "max"], (model.EffortMappings ?? []).Select(value => value.Effort)));
         var budgets = await providers.ListBudgetsAsync(tenantId, null, 50, cancellationToken);
         Assert.Contains(budgets, budget => budget.Scope == "global");
         Assert.Contains(budgets, budget => budget.Scope == "account");

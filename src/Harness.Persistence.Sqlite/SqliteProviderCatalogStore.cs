@@ -52,11 +52,11 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
             INSERT OR IGNORE INTO provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd) VALUES
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FH1','01ARZ3NDEKTSV4RRFFQ69G5FG1','OpenAI account','active','keychain://harness/openai',100,0),
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FH2','01ARZ3NDEKTSV4RRFFQ69G5FG2','Anthropic account','disabled','keychain://harness/anthropic',100,0);
-            INSERT OR IGNORE INTO provider_models(tenant_id,id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled) VALUES
-              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ1','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5','GPT-5','["chat","code","vision"]',400000,0.00125,0.010,1),
-              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ2','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5-codex','GPT-5 Codex','["chat","code"]',400000,0.00125,0.010,1),
-              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ3','01ARZ3NDEKTSV4RRFFQ69G5FG2','claude-sonnet','Claude Sonnet','["chat","code","vision"]',200000,0.003,0.015,1),
-              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ4','01ARZ3NDEKTSV4RRFFQ69G5FG3','local-code','Local code model','["chat","code"]',32768,NULL,NULL,0);
+            INSERT OR IGNORE INTO provider_models(tenant_id,id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled,effort_mappings_json) VALUES
+              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ1','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5','GPT-5','["chat","code","vision"]',400000,0.00125,0.010,1,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"xhigh"}]'),
+              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ2','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5-codex','GPT-5 Codex','["chat","code"]',400000,0.00125,0.010,1,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"xhigh"}]'),
+              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ3','01ARZ3NDEKTSV4RRFFQ69G5FG2','claude-sonnet','Claude Sonnet','["chat","code","vision"]',200000,0.003,0.015,1,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"high"}]'),
+              ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FJ4','01ARZ3NDEKTSV4RRFFQ69G5FG3','local-code','Local code model','["chat","code"]',32768,NULL,NULL,0,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"high"}]');
             INSERT OR IGNORE INTO routing_policies(tenant_id,id,project_id,name,rules_json,active) VALUES
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FK1',NULL,'Default safe routing','[{"taskKind":"code","preferredModelId":"01ARZ3NDEKTSV4RRFFQ69G5FJ2","fallbackModelIds":["01ARZ3NDEKTSV4RRFFQ69G5FJ1"],"maxCostPerAttemptUsd":10.0},{"taskKind":null,"preferredModelId":"01ARZ3NDEKTSV4RRFFQ69G5FJ1","fallbackModelIds":[],"maxCostPerAttemptUsd":5.0}]',1);
             INSERT OR IGNORE INTO budgets(tenant_id,id,scope,scope_id,period,limit_usd,spent_usd,alert_threshold_pct) VALUES
@@ -353,12 +353,12 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         r.IsDBNull(6) ? null : r.GetString(6), r.GetString(7), r.GetString(8), r.GetString(9),
         r.GetString(10), r.IsDBNull(11) ? null : DateTimeOffset.Parse(r.GetString(11), CultureInfo.InvariantCulture),
         JsonSerializer.Deserialize<string[]>(r.GetString(12), JsonOptions) ?? []);
-    private static ModelRecord ReadModel(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), JsonSerializer.Deserialize<string[]>(r.GetString(4), JsonOptions) ?? [], r.GetInt32(5), r.IsDBNull(6) ? null : r.GetDecimal(6), r.IsDBNull(7) ? null : r.GetDecimal(7), r.GetInt32(8) == 1);
+    private static ModelRecord ReadModel(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), JsonSerializer.Deserialize<string[]>(r.GetString(4), JsonOptions) ?? [], r.GetInt32(5), r.IsDBNull(6) ? null : r.GetDecimal(6), r.IsDBNull(7) ? null : r.GetDecimal(7), r.GetInt32(8) == 1, JsonSerializer.Deserialize<EffortMappingRecord[]>(r.GetString(9), JsonOptions) ?? []);
     private static RoutingPolicyRecord ReadRouting(SqliteDataReader r) => new(r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1), r.GetString(2), JsonSerializer.Deserialize<RoutingRuleRecord[]>(r.GetString(3), JsonOptions) ?? [], r.GetInt32(4) == 1);
     private static BudgetRecord ReadBudget(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetString(3), r.GetDecimal(4), r.GetDecimal(5), r.GetDecimal(6));
     private const string ProviderSelect = "SELECT id,kind,name,base_url,enabled FROM providers";
     private const string AccountSelect = "SELECT id,provider_id,label,state,quota_limit_usd,quota_used_usd,identity_label,plan,authentication,health,quota_window,quota_resets_at,capabilities_json FROM provider_accounts";
-    private const string ModelSelect = "SELECT id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled FROM provider_models";
+    private const string ModelSelect = "SELECT id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled,effort_mappings_json FROM provider_models";
     private const string RoutingSelect = "SELECT id,project_id,name,rules_json,active FROM routing_policies";
     private const string BudgetSelect = "SELECT id,scope,scope_id,period,limit_usd,spent_usd,alert_threshold_pct FROM budgets";
     private static string Store(DateTimeOffset v) => v.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);

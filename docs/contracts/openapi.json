@@ -13832,6 +13832,21 @@
                     }
                 }
             },
+            "EffortMappingContract": {
+                "required": [
+                    "effort",
+                    "providerValue"
+                ],
+                "type": "object",
+                "properties": {
+                    "effort": {
+                        "type": "string"
+                    },
+                    "providerValue": {
+                        "type": "string"
+                    }
+                }
+            },
             "EntitlementContract": {
                 "required": [
                     "id",
@@ -14564,7 +14579,8 @@
                     "contextWindow",
                     "costPer1kInputUsd",
                     "costPer1kOutputUsd",
-                    "enabled"
+                    "enabled",
+                    "effortMappings"
                 ],
                 "type": "object",
                 "properties": {
@@ -14614,6 +14630,12 @@
                     },
                     "enabled": {
                         "type": "boolean"
+                    },
+                    "effortMappings": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EffortMappingContract"
+                        }
                     }
                 }
             },

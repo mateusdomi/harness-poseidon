@@ -124,7 +124,7 @@ public static class ProviderEndpoints
     private static AccountContract ToContract(AccountRecord x) => new(
         x.Id, x.ProviderId, x.Label, x.State, x.QuotaLimitUsd, x.QuotaUsedUsd, x.Identity,
         x.Plan, x.Authentication, x.Health, x.QuotaWindow, x.QuotaResetsAt, x.Capabilities ?? []);
-    private static ModelContract ToContract(ModelRecord x) => new(x.Id, x.ProviderId, x.Name, x.DisplayName, x.Capabilities, x.ContextWindow, x.CostPer1kInputUsd, x.CostPer1kOutputUsd, x.Enabled);
+    private static ModelContract ToContract(ModelRecord x) => new(x.Id, x.ProviderId, x.Name, x.DisplayName, x.Capabilities, x.ContextWindow, x.CostPer1kInputUsd, x.CostPer1kOutputUsd, x.Enabled, (x.EffortMappings ?? []).Select(value => new EffortMappingContract(value.Effort, value.ProviderValue)).ToArray());
     private static RoutingPolicyContract ToContract(RoutingPolicyRecord x) => new(x.Id, x.ProjectId, x.Name, x.Rules.Select(r => new RoutingRuleContract(r.TaskKind, r.PreferredModelId, r.FallbackModelIds, r.MaxCostPerAttemptUsd)).ToArray(), x.Active);
     private static BudgetContract ToContract(BudgetRecord x) => new(x.Id, x.Scope, x.ScopeId, x.Period, x.LimitUsd, x.SpentUsd, x.AlertThresholdPct);
     private static async Task<(Harness.Persistence.Abstractions.Identity.LocalProfileRecord? Profile, int Size, IResult? Error)> SessionAsync(string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, CancellationToken token)
@@ -154,7 +154,8 @@ public sealed record AccountContract(
     string Id, string ProviderId, string Label, string State, decimal? QuotaLimitUsd,
     decimal QuotaUsedUsd, string? Identity, string Plan, string Authentication, string Health,
     string QuotaWindow, DateTimeOffset? QuotaResetsAt, IReadOnlyList<string> Capabilities);
-public sealed record ModelContract(string Id, string ProviderId, string Name, string DisplayName, IReadOnlyList<string> Capabilities, int ContextWindow, decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd, bool Enabled);
+public sealed record EffortMappingContract(string Effort, string ProviderValue);
+public sealed record ModelContract(string Id, string ProviderId, string Name, string DisplayName, IReadOnlyList<string> Capabilities, int ContextWindow, decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd, bool Enabled, IReadOnlyList<EffortMappingContract> EffortMappings);
 public sealed record RoutingRuleContract(string? TaskKind, string PreferredModelId, IReadOnlyList<string> FallbackModelIds, decimal? MaxCostPerAttemptUsd);
 public sealed record RoutingPolicyContract(string Id, string? ProjectId, string Name, IReadOnlyList<RoutingRuleContract> Rules, bool Active);
 public sealed record BudgetContract(string Id, string Scope, string? ScopeId, string Period, decimal LimitUsd, decimal SpentUsd, decimal AlertThresholdPct);

@@ -19,7 +19,7 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
 
     private const string ModelSelect =
         "SELECT id,provider_id,model_name,display_name,capabilities_json::text," +
-        "context_window,cost_input,cost_output,enabled FROM harness.provider_models";
+        "context_window,cost_input,cost_output,enabled,effort_mappings_json::text FROM harness.provider_models";
 
     private const string RoutingSelect =
         "SELECT id,project_id,name,rules_json::text,active FROM harness.routing_policies";
@@ -45,11 +45,11 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         ON CONFLICT DO NOTHING;
         """,
         """
-        INSERT INTO harness.provider_models (tenant_id,id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled) VALUES
-          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ1','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5','GPT-5','["chat","code","vision"]',400000,0.00125,0.010,true),
-          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ2','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5-codex','GPT-5 Codex','["chat","code"]',400000,0.00125,0.010,true),
-          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ3','01ARZ3NDEKTSV4RRFFQ69G5FG2','claude-sonnet','Claude Sonnet','["chat","code","vision"]',200000,0.003,0.015,true),
-          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ4','01ARZ3NDEKTSV4RRFFQ69G5FG3','local-code','Local code model','["chat","code"]',32768,NULL,NULL,false)
+        INSERT INTO harness.provider_models (tenant_id,id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled,effort_mappings_json) VALUES
+          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ1','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5','GPT-5','["chat","code","vision"]',400000,0.00125,0.010,true,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"xhigh"}]'),
+          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ2','01ARZ3NDEKTSV4RRFFQ69G5FG1','gpt-5-codex','GPT-5 Codex','["chat","code"]',400000,0.00125,0.010,true,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"xhigh"}]'),
+          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ3','01ARZ3NDEKTSV4RRFFQ69G5FG2','claude-sonnet','Claude Sonnet','["chat","code","vision"]',200000,0.003,0.015,true,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"high"}]'),
+          ($1,'01ARZ3NDEKTSV4RRFFQ69G5FJ4','01ARZ3NDEKTSV4RRFFQ69G5FG3','local-code','Local code model','["chat","code"]',32768,NULL,NULL,false,'[{"effort":"low","providerValue":"low"},{"effort":"medium","providerValue":"medium"},{"effort":"high","providerValue":"high"},{"effort":"max","providerValue":"high"}]')
         ON CONFLICT DO NOTHING;
         """,
         """
@@ -963,7 +963,8 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             reader.GetInt32(5),
             reader.IsDBNull(6) ? null : reader.GetDecimal(6),
             reader.IsDBNull(7) ? null : reader.GetDecimal(7),
-            reader.GetBoolean(8));
+            reader.GetBoolean(8),
+            JsonSerializer.Deserialize<EffortMappingRecord[]>(reader.GetString(9), JsonOptions) ?? []);
 
     private static RoutingPolicyRecord ReadRouting(NpgsqlDataReader reader) =>
         new(

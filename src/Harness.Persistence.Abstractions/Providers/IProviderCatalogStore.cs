@@ -26,7 +26,8 @@ public sealed record AccountRecord(
     string Authentication = "apiKey", string Health = "unknown", string QuotaWindow = "monthly",
     DateTimeOffset? QuotaResetsAt = null, IReadOnlyList<string>? Capabilities = null)
     : ProviderCatalogRecord(Id);
-public sealed record ModelRecord(string Id, string ProviderId, string Name, string DisplayName, IReadOnlyList<string> Capabilities, int ContextWindow, decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd, bool Enabled) : ProviderCatalogRecord(Id);
+public sealed record EffortMappingRecord(string Effort, string ProviderValue);
+public sealed record ModelRecord(string Id, string ProviderId, string Name, string DisplayName, IReadOnlyList<string> Capabilities, int ContextWindow, decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd, bool Enabled, IReadOnlyList<EffortMappingRecord>? EffortMappings = null) : ProviderCatalogRecord(Id);
 public sealed record RoutingRuleRecord(string? TaskKind, string PreferredModelId, IReadOnlyList<string> FallbackModelIds, decimal? MaxCostPerAttemptUsd);
 public sealed record RoutingPolicyRecord(string Id, string? ProjectId, string Name, IReadOnlyList<RoutingRuleRecord> Rules, bool Active) : ProviderCatalogRecord(Id);
 public sealed record BudgetRecord(string Id, string Scope, string? ScopeId, string Period, decimal LimitUsd, decimal SpentUsd, decimal AlertThresholdPct) : ProviderCatalogRecord(Id);
