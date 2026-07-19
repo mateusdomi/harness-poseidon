@@ -15,6 +15,8 @@ import {
   type DueFilter,
 } from '@/features/approvals/lib/approvals-derive';
 import { useNow } from '@/features/board/hooks/use-board';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 /**
  * Fila consolidada de aprovações e decisões: gates, documentos, mudanças
@@ -43,6 +45,11 @@ export default function UapprovalsPage() {
     result = result.filter((approval) => matchesDueFilter(approval, dueFilter, now));
     return sortQueue(result);
   }, [approvals, projectFilter, priorityFilter, dueFilter, now]);
+
+  // Paginação client-side; reset ao mudar qualquer filtro.
+  const pagination = usePagination(queue.length, {
+    resetKey: `${projectFilter}:${priorityFilter}:${dueFilter}`,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -136,19 +143,22 @@ export default function UapprovalsPage() {
               </CardContent>
             </Card>
           ) : (
-            <ul className="flex flex-col gap-3" aria-label={t('approvals.queue.label')}>
-              {queue.map((approval) => (
-                <ApprovalItem
-                  key={approval.id}
-                  approval={approval}
-                  project={projects.find((project) => project.id === approval.projectId)}
-                  gate={gates.find((gate) => gate.id === approval.gateId)}
-                  document={documents.find((doc) => doc.id === approval.documentId)}
-                  task={tasks.find((task) => task.id === approval.taskId)}
-                  now={now}
-                />
-              ))}
-            </ul>
+            <>
+              <ul className="flex flex-col gap-3" aria-label={t('approvals.queue.label')}>
+                {pagination.paginate(queue).map((approval) => (
+                  <ApprovalItem
+                    key={approval.id}
+                    approval={approval}
+                    project={projects.find((project) => project.id === approval.projectId)}
+                    gate={gates.find((gate) => gate.id === approval.gateId)}
+                    document={documents.find((doc) => doc.id === approval.documentId)}
+                    task={tasks.find((task) => task.id === approval.taskId)}
+                    now={now}
+                  />
+                ))}
+              </ul>
+              <PaginationBar pagination={pagination} />
+            </>
           )}
         </>
       )}

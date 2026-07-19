@@ -6,6 +6,7 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Skelet
 import { prototypeStateVariant } from '@/lib/status';
 import { formatDate } from '@/lib/format';
 import { PrototypingModeDialog } from '@/features/prototypes/components/prototyping-mode-dialog';
+import { ReferenceImage } from '@/features/prototypes/components/reference-image';
 import { UploadReferenceDialog } from '@/features/prototypes/components/upload-reference-dialog';
 import {
   useOrganizations,
@@ -22,6 +23,8 @@ import {
   prefixedTagValue,
 } from '@/features/prototypes/lib/prototypes-derive';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 /**
  * Prototipação e referências visuais: cenário por projeto (protótipo
@@ -54,6 +57,14 @@ export default function UprototypesPage() {
     referencesQuery.isPending ||
     organizationsQuery.isPending;
   const errored = isError || prototypesQuery.isError || referencesQuery.isError;
+
+  // Galerias paginadas independentemente; reset ao trocar de projeto.
+  const prototypesPagination = usePagination((prototypesQuery.data ?? []).length, {
+    resetKey: projectId,
+  });
+  const referencesPagination = usePagination((referencesQuery.data ?? []).length, {
+    resetKey: projectId,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -197,8 +208,9 @@ export default function UprototypesPage() {
                 {(prototypesQuery.data ?? []).length === 0 ? (
                   <p className="text-sm text-foreground-muted">{t('prototypes.empty.prototypes')}</p>
                 ) : (
-                  <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {(prototypesQuery.data ?? []).map((prototype) => (
+                  <>
+                    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {prototypesPagination.paginate(prototypesQuery.data ?? []).map((prototype) => (
                       <li key={prototype.id}>
                         <Card className="h-full">
                           <CardContent className="flex h-full flex-col gap-2 p-4">
@@ -233,8 +245,10 @@ export default function UprototypesPage() {
                           </CardContent>
                         </Card>
                       </li>
-                    ))}
-                  </ul>
+                      ))}
+                    </ul>
+                    <PaginationBar pagination={prototypesPagination} />
+                  </>
                 )}
                 <p className="text-xs text-foreground-muted">{t('prototypes.versions.unavailable')}</p>
               </section>
@@ -246,8 +260,9 @@ export default function UprototypesPage() {
                 {(referencesQuery.data ?? []).length === 0 ? (
                   <p className="text-sm text-foreground-muted">{t('prototypes.empty.references')}</p>
                 ) : (
-                  <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    {(referencesQuery.data ?? []).map((reference) => {
+                  <>
+                    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {referencesPagination.paginate(referencesQuery.data ?? []).map((reference) => {
                       const briefing = prefixedTagValue(reference.tags, BRIEFING_TAG_PREFIX);
                       const flowMoment = prefixedTagValue(reference.tags, FLOW_MOMENT_TAG_PREFIX);
                       return (
@@ -260,7 +275,7 @@ export default function UprototypesPage() {
                                   <span className="text-xs">{t('prototypes.zipBadge')}</span>
                                 </div>
                               ) : (
-                                <img
+                                <ReferenceImage
                                   src={reference.imageUrl}
                                   alt={reference.title}
                                   className="h-24 w-full rounded object-cover"
@@ -295,8 +310,10 @@ export default function UprototypesPage() {
                           </Card>
                         </li>
                       );
-                    })}
-                  </ul>
+                      })}
+                    </ul>
+                    <PaginationBar pagination={referencesPagination} />
+                  </>
                 )}
               </section>
             </>

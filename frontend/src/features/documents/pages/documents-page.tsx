@@ -21,6 +21,8 @@ import {
   useWorkflowPhases,
 } from '@/features/documents/hooks/use-documents';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { useUrlPagination } from '@/features/shared/hooks/use-pagination';
 
 /**
  * Catálogo de documentos do projeto ativo: filtros por categoria, fase,
@@ -83,6 +85,12 @@ export default function UdocumentsPage() {
   }, [documentsQuery.data, kindFilter, phaseFilter, stateFilter, onlyInconsistent, onlyWaiver]);
 
   const orphans = (documentsQuery.data ?? []).filter((doc) => doc.phaseName === null);
+
+  // Paginação client-side com estado na URL (?page=/?pageSize=), preservando
+  // o deep-link ?doc=. Reset para a página 1 ao mudar filtros/projeto.
+  const pagination = useUrlPagination(documents.length, {
+    resetKey: `${projectId}:${kindFilter}:${phaseFilter}:${stateFilter}:${onlyInconsistent}:${onlyWaiver}`,
+  });
 
   // Deep-link: detalhe substitui o catálogo (mobile e desktop).
   if (openDocumentId && !loading && !errored && activeProject) {
@@ -239,7 +247,10 @@ export default function UdocumentsPage() {
               </CardContent>
             </Card>
           ) : (
-            <DocumentCatalog documents={documents} onOpen={openDocument} />
+            <>
+              <DocumentCatalog documents={pagination.paginate(documents)} onOpen={openDocument} />
+              <PaginationBar pagination={pagination} />
+            </>
           )}
         </>
       )}

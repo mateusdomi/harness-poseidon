@@ -21,6 +21,8 @@ import {
   type NotificationStatusFilter,
 } from '@/features/notifications/lib/notifications-derive';
 import { useNow } from '@/features/shared/hooks/use-now';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 /**
  * Central de notificações do perfil: itens ordenados por mais recente,
@@ -49,6 +51,11 @@ export default function UnotificationsPage() {
   const unreadIds = notifications
     .filter((notification) => effectiveStatus(notification, settings) === 'unread')
     .map((notification) => notification.id);
+
+  // Pagina sobre as ENTRADAS (após dedupe por groupKey); reset ao filtrar.
+  const pagination = usePagination(entries.length, {
+    resetKey: `${statusFilter}:${categoryFilter}`,
+  });
 
   const actionsPending = markRead.isPending || mute.isPending;
 
@@ -145,11 +152,12 @@ export default function UnotificationsPage() {
               </CardContent>
             </Card>
           ) : (
-            <ul
-              className="flex flex-col gap-3"
-              aria-label={t('notifications.center.label')}
-            >
-              {entries.map((entry) => (
+            <>
+              <ul
+                className="flex flex-col gap-3"
+                aria-label={t('notifications.center.label')}
+              >
+                {pagination.paginate(entries).map((entry) => (
                 <li
                   key={entry.kind === 'single' ? entry.notification.id : entry.groupKey}
                   className="rounded-xl border border-border bg-surface p-4"
@@ -174,8 +182,10 @@ export default function UnotificationsPage() {
                     />
                   )}
                 </li>
-              ))}
-            </ul>
+                ))}
+              </ul>
+              <PaginationBar pagination={pagination} />
+            </>
           )}
 
           {settings && <NotificationPreferences settings={settings} />}

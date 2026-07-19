@@ -27,6 +27,12 @@
       "phase": "Phase {{name}}",
       "agentsWorking": "{{count}} agents working",
       "agentsWorking_one": "{{count}} agent working"
+    },
+    "search": {
+      "open": "Search screens ({{shortcut}})",
+      "label": "Global screen search",
+      "placeholder": "Search screens…",
+      "noResults": "No screens found for \"{{query}}\"."
     }
   },
   "nav": {
@@ -56,6 +62,29 @@
       "orchestration": "Orchestration",
       "artifacts": "Artifacts & governance",
       "administration": "Administration"
+    },
+    "keywords": {
+      "cockpit": "overview dashboard operation status",
+      "chat": "talk chief message conversation ask",
+      "board": "tasks kanban cards columns",
+      "conversations": "history threads chats past",
+      "projects": "projects list repository",
+      "workflows": "pipelines automation flows phases",
+      "orchestrator": "coordination chief delegation agents",
+      "agents": "agents team specialists bots",
+      "run-project": "execute run start trigger",
+      "documents": "docs catalog files specification",
+      "prototypes": "mockups screens wireframes references gallery",
+      "approvals": "pending gates decisions review approve",
+      "governance": "audit trail policies limits timeline",
+      "organizations": "orgs company workspace brand",
+      "providers": "models llm integrations api",
+      "tools": "skills plugins mcp servers catalog",
+      "licenses": "plan licensing subscription",
+      "po-assistant": "requirements refinement product owner",
+      "onboarding": "setup getting started wizard first access",
+      "notifications": "alerts unread center bell",
+      "settings": "preferences configuration options"
     }
   },
   "placeholder": {
@@ -84,6 +113,15 @@
     "states": {
       "loading": "Loading…",
       "errorBody": "Could not load the data. Please try again."
+    },
+    "pagination": {
+      "label": "Pagination",
+      "range": "{{from}}–{{to}} of {{total}}",
+      "perPage": "Items per page",
+      "previous": "Previous page",
+      "next": "Next page",
+      "page": "Page {{page}}",
+      "pageOf": "Page {{page}} of {{total}}"
     },
     "validation": {
       "required": "Required field",

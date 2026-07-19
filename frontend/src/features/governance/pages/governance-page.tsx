@@ -21,6 +21,8 @@ import {
   downloadTextFile,
 } from '@/features/governance/lib/audit-export';
 import { useNow } from '@/features/shared/hooks/use-now';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 /**
  * Governança e auditoria: timeline pesquisável da trilha de auditoria com
@@ -43,6 +45,10 @@ export default function UgovernancePage() {
     () => filterAuditEvents(events, filters, catalog),
     [events, filters, catalog],
   );
+
+  // Paginação client-side sobre a timeline filtrada (a exportação JSON/CSV
+  // continua usando a lista COMPLETA). Reset ao mudar filtros.
+  const pagination = usePagination(timeline.length, { resetKey: filters });
 
   const exportJson = () =>
     downloadTextFile(AUDIT_EXPORT_FILENAMES.json, auditEventsToJson(timeline), 'application/json');
@@ -120,11 +126,14 @@ export default function UgovernancePage() {
               </CardContent>
             </Card>
           ) : (
-            <ul className="flex flex-col gap-3" aria-label={t('governance.timeline.label')}>
-              {timeline.map((event) => (
-                <AuditEventItem key={event.id} event={event} catalog={catalog} now={now} />
-              ))}
-            </ul>
+            <>
+              <ul className="flex flex-col gap-3" aria-label={t('governance.timeline.label')}>
+                {pagination.paginate(timeline).map((event) => (
+                  <AuditEventItem key={event.id} event={event} catalog={catalog} now={now} />
+                ))}
+              </ul>
+              <PaginationBar pagination={pagination} />
+            </>
           )}
         </>
       )}

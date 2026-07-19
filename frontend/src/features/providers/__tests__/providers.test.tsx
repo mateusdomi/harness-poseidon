@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import {
@@ -17,7 +18,7 @@ const fixtures = createTestBundle().fixtures.data;
 function renderPage() {
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={['/providers']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/providers']}>
       <Routes>
         <Route path="/providers" element={<ProvidersPage />} />
       </Routes>

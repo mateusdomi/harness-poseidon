@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import SettingsPage from '@/features/settings/pages/settings-page';
@@ -9,7 +10,7 @@ import { renderWithApi } from '@/test/render-with-providers';
 function renderPage() {
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/settings']}>
       <Routes>
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>

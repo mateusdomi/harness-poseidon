@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import {
@@ -21,7 +22,7 @@ const conversaArquivada = fixtures.conversations.find((c) => c.state === 'archiv
 function renderPage() {
   const testBundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={['/conversations']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/conversations']}>
       <Routes>
         <Route path="/conversations" element={<ConversationsPage />} />
         <Route path="/chat" element={<p>chat destino</p>} />

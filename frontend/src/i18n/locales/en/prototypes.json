@@ -29,6 +29,7 @@
     },
     "openExternal": "Open external prototype",
     "zipBadge": "ZIP (reference)",
+    "imageUnavailable": "Image unavailable",
     "metadata": {
       "briefing": "Briefing",
       "flowMoment": "Flow moment"

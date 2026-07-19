@@ -28,5 +28,16 @@ export default tseslint.config(
       'no-empty-pattern': 'off',
     },
   },
+  {
+    // Scripts Node (geração de assets etc.): globals de runtime do Node.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
   prettier,
 );

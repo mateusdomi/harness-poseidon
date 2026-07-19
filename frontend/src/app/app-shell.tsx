@@ -9,6 +9,7 @@ import { product } from '@/config/product';
 import { useUiStore } from '@/stores/ui-store';
 import { MOBILE_PRIMARY_ITEMS, NAV_GROUPS } from '@/app/navigation';
 import { AppNavLink } from '@/app/components/app-nav-link';
+import { CommandPalette } from '@/app/components/command-palette';
 import { HeaderContext } from '@/app/components/header-context';
 import { LanguageSelector } from '@/app/components/language-selector';
 import { NotificationsButton } from '@/app/components/notifications-button';
@@ -194,6 +195,7 @@ function Header() {
       </div>
       <HeaderContext />
       <div className="ml-auto flex items-center gap-1">
+        <CommandPalette />
         <LanguageSelector />
         <ThemeToggle />
         <NotificationsButton />

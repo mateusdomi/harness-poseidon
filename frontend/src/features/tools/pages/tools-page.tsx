@@ -17,6 +17,8 @@ import {
   sortByName,
   type CatalogTabId,
 } from '@/features/tools/lib/tools-derive';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 /**
  * Catálogo de ferramentas, skills, plugins e servidores MCP em abas
@@ -43,6 +45,9 @@ export default function UtoolsPage() {
     plugins: plugins.length,
     mcp: mcpServers.length,
   };
+
+  // Paginação por aba: volta para a página 1 ao trocar de aba.
+  const pagination = usePagination(lists[activeTab], { resetKey: activeTab });
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,22 +92,27 @@ export default function UtoolsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <ul className="flex flex-col gap-3" aria-label={t(`tools.list.${activeTab}`)}>
-                {activeTab === 'tools' &&
-                  sortByName(tools).map((tool) => (
-                    <ToolCard key={tool.id} tool={tool} plugins={plugins} />
-                  ))}
-                {activeTab === 'skills' &&
-                  sortByName(skills).map((skill) => <SkillCard key={skill.id} skill={skill} />)}
-                {activeTab === 'plugins' &&
-                  sortByName(plugins).map((plugin) => (
-                    <PluginCard key={plugin.id} plugin={plugin} tools={tools} />
-                  ))}
-                {activeTab === 'mcp' &&
-                  sortByName(mcpServers).map((server) => (
-                    <McpServerCard key={server.id} server={server} />
-                  ))}
-              </ul>
+              <>
+                <ul className="flex flex-col gap-3" aria-label={t(`tools.list.${activeTab}`)}>
+                  {activeTab === 'tools' &&
+                    pagination.paginate(sortByName(tools)).map((tool) => (
+                      <ToolCard key={tool.id} tool={tool} plugins={plugins} />
+                    ))}
+                  {activeTab === 'skills' &&
+                    pagination
+                      .paginate(sortByName(skills))
+                      .map((skill) => <SkillCard key={skill.id} skill={skill} />)}
+                  {activeTab === 'plugins' &&
+                    pagination.paginate(sortByName(plugins)).map((plugin) => (
+                      <PluginCard key={plugin.id} plugin={plugin} tools={tools} />
+                    ))}
+                  {activeTab === 'mcp' &&
+                    pagination.paginate(sortByName(mcpServers)).map((server) => (
+                      <McpServerCard key={server.id} server={server} />
+                    ))}
+                </ul>
+                <PaginationBar pagination={pagination} className="mt-3" />
+              </>
             )}
           </div>
         </>

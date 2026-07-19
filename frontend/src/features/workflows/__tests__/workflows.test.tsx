@@ -1,6 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import WorkflowsPage from '@/features/workflows/pages/workflows-page';
@@ -10,7 +11,7 @@ function renderWorkflows() {
   // Bundle novo por teste: o store do mock é mutável (modo, versões).
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={['/workflows']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/workflows']}>
       <Routes>
         <Route path="/workflows" element={<WorkflowsPage />} />
         <Route path="/documents" element={<p>DOCUMENTOS</p>} />

@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import NotificationsPage from '@/features/notifications/pages/notifications-page';
@@ -10,7 +11,7 @@ function renderNotifications() {
   // Bundle novo por teste: o store do mock é mutável (notificações/settings).
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={['/notifications']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/notifications']}>
       <Routes>
         <Route path="/notifications" element={<NotificationsPage />} />
       </Routes>

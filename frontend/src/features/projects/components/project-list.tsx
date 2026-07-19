@@ -10,6 +10,8 @@ import {
   filterProjects,
   type ProjectListFilters,
 } from '@/features/projects/components/project-filters';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 export interface ProjectListProps {
   projects: Project[];
@@ -31,6 +33,9 @@ export function ProjectList({ projects, organizations, onSelect, onCreateNew }: 
     [organizations],
   );
   const filtered = useMemo(() => filterProjects(projects, filters), [projects, filters]);
+
+  // Paginação client-side; volta para a página 1 ao mudar busca/filtros.
+  const pagination = usePagination(filtered.length, { resetKey: filters });
 
   function patch(partial: Partial<ProjectListFilters>) {
     setFilters((current) => ({ ...current, ...partial }));
@@ -123,17 +128,20 @@ export function ProjectList({ projects, organizations, onSelect, onCreateNew }: 
       ) : filtered.length === 0 ? (
         <p className="text-sm text-foreground-muted">{t('projects.emptySearch')}</p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((project) => (
-            <li key={project.id}>
-              <ProjectCard
-                project={project}
-                organizationName={organizationNames.get(project.organizationId)}
-                onSelect={onSelect}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {pagination.paginate(filtered).map((project) => (
+              <li key={project.id}>
+                <ProjectCard
+                  project={project}
+                  organizationName={organizationNames.get(project.organizationId)}
+                  onSelect={onSelect}
+                />
+              </li>
+            ))}
+          </ul>
+          <PaginationBar pagination={pagination} />
+        </>
       )}
     </div>
   );

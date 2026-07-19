@@ -17,6 +17,8 @@ import {
 } from '@/features/conversations/lib/conversations-derive';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useProfiles } from '@/features/shared/hooks/use-profiles';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 const PERIODS: PeriodFilter[] = ['', 'today', '7d', '30d', 'custom'];
 
@@ -53,6 +55,9 @@ export default function UconversationsPage() {
     () => sortByRecentActivity(filterConversations(conversationsQuery.data ?? [], filters)),
     [conversationsQuery.data, filters],
   );
+
+  // Paginação client-side; volta para a página 1 ao mudar qualquer filtro.
+  const pagination = usePagination(conversations.length, { resetKey: filters });
 
   function patchFilters(patch: Partial<typeof filters>) {
     setFilters((current) => ({ ...current, ...patch }));
@@ -214,8 +219,9 @@ export default function UconversationsPage() {
               </CardContent>
             </Card>
           ) : (
-            <ul className="flex flex-col gap-2" aria-label={t('conversations.listLabel')}>
-              {conversations.map((conversation) => (
+            <>
+              <ul className="flex flex-col gap-2" aria-label={t('conversations.listLabel')}>
+                {pagination.paginate(conversations).map((conversation) => (
                 <li key={conversation.id}>
                   <Card>
                     <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
@@ -299,7 +305,9 @@ export default function UconversationsPage() {
                   </Card>
                 </li>
               ))}
-            </ul>
+              </ul>
+              <PaginationBar pagination={pagination} />
+            </>
           )}
         </>
       )}

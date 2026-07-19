@@ -5,6 +5,7 @@ import { AppShell } from '@/app/app-shell';
 import { RequireProfile } from '@/app/components/require-profile';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
 import { NAV_ITEMS } from '@/app/navigation';
+import { ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 const pageModules = import.meta.glob<{ default: React.ComponentType }>(
   '../features/*/pages/*-page.tsx',
@@ -32,22 +33,25 @@ const featureRoutes: RouteObject[] = NAV_ITEMS.filter((item) => item.key !== 'on
 
 const OnboardingPage = featurePage('onboarding');
 
-export const router = createBrowserRouter([
-  {
-    path: '/onboarding',
-    element: (
-      <Suspense fallback={<RouteSkeleton />}>
-        <OnboardingPage />
-      </Suspense>
-    ),
-  },
-  {
-    path: '/',
-    element: (
-      <RequireProfile>
-        <AppShell />
-      </RequireProfile>
-    ),
-    children: [{ index: true, element: <Navigate to="/cockpit" replace /> }, ...featureRoutes],
-  },
-]);
+export const router = createBrowserRouter(
+  [
+    {
+      path: '/onboarding',
+      element: (
+        <Suspense fallback={<RouteSkeleton />}>
+          <OnboardingPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: '/',
+      element: (
+        <RequireProfile>
+          <AppShell />
+        </RequireProfile>
+      ),
+      children: [{ index: true, element: <Navigate to="/cockpit" replace /> }, ...featureRoutes],
+    },
+  ],
+  { future: ROUTER_FUTURE_FLAGS },
+);

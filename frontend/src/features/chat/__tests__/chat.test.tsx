@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { buildFixtures, type Message } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
@@ -104,7 +105,7 @@ describe('MessageBubble', () => {
     };
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
         <MessageBubble message={message} authorName="Iara" tasks={[]} documents={[]} />
       </MemoryRouter>,
     );
@@ -131,7 +132,7 @@ describe('ChatPage', () => {
   function renderChat() {
     const bundle = createTestBundle({ chatChunkDelayMs: 5 });
     const utils = renderWithApi(
-      <MemoryRouter>
+      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
         <ChatPage />
       </MemoryRouter>,
       bundle,

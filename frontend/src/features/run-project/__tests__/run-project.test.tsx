@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import {
@@ -15,7 +16,7 @@ import { renderWithApi } from '@/test/render-with-providers';
 function renderPage() {
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={['/run-project']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/run-project']}>
       <Routes>
         <Route path="/run-project" element={<RunProjectPage />} />
       </Routes>

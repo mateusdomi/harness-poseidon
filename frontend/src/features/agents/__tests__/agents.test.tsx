@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import {
@@ -15,7 +16,7 @@ import { renderWithApi } from '@/test/render-with-providers';
 function renderAgents() {
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={['/agents']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/agents']}>
       <Routes>
         <Route path="/agents" element={<AgentsPage />} />
       </Routes>

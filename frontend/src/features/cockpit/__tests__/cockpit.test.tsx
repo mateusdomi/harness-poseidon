@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { buildFixtures } from '@/api';
 import CockpitPage from '@/features/cockpit/pages/cockpit-page';
@@ -86,7 +87,7 @@ function ChatMarker() {
 
 function renderCockpit() {
   return renderWithApi(
-    <MemoryRouter initialEntries={['/cockpit']}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/cockpit']}>
       <Routes>
         <Route path="/cockpit" element={<CockpitPage />} />
         <Route path="/board" element={<BoardMarker />} />

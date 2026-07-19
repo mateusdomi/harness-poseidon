@@ -5,6 +5,8 @@ import { Building2 } from 'lucide-react';
 import type { Organization } from '@/api';
 import { Badge, Button, Card, CardContent, Input } from '@/design-system';
 import { useProjectCountsByOrganization } from '@/features/organizations/hooks/use-organizations';
+import { PaginationBar } from '@/features/shared/components/pagination';
+import { usePagination } from '@/features/shared/hooks/use-pagination';
 
 export interface OrganizationListProps {
   organizations: Organization[];
@@ -29,6 +31,9 @@ export function OrganizationList({ organizations, onSelect, onCreateNew }: Organ
           org.slug.toLocaleLowerCase().includes(normalized),
       )
     : organizations;
+
+  // Paginação client-side; volta para a página 1 ao mudar a busca.
+  const pagination = usePagination(filtered.length, { resetKey: normalized });
 
   return (
     <div className="flex flex-col gap-4">
@@ -65,8 +70,9 @@ export function OrganizationList({ organizations, onSelect, onCreateNew }: Organ
           {t('organizations.emptySearch', { query })}
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((org) => (
+        <>
+          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {pagination.paginate(filtered).map((org) => (
             <li key={org.id}>
               <button
                 type="button"
@@ -95,8 +101,10 @@ export function OrganizationList({ organizations, onSelect, onCreateNew }: Organ
                 </span>
               </button>
             </li>
-          ))}
-        </ul>
+            ))}
+          </ul>
+          <PaginationBar pagination={pagination} />
+        </>
       )}
     </div>
   );

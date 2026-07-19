@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { PO_ANALYSIS_QUESTION_DEADLINE } from '@/api';
@@ -95,7 +96,7 @@ describe('PoAssistantPage', () => {
   it('analisa texto, mostra painéis e cria demanda estruturada', async () => {
     const user = userEvent.setup();
     const { bundle } = renderWithApi(
-      <MemoryRouter initialEntries={['/po-assistant']}>
+      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/po-assistant']}>
         <Routes>
           <Route path="/po-assistant" element={<PoAssistantPage />} />
           <Route path="/board" element={<p>quadro</p>} />

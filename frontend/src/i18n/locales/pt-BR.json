@@ -27,6 +27,12 @@
       "phase": "Fase {{name}}",
       "agentsWorking": "{{count}} agentes trabalhando",
       "agentsWorking_one": "{{count}} agente trabalhando"
+    },
+    "search": {
+      "open": "Buscar telas ({{shortcut}})",
+      "label": "Busca global de telas",
+      "placeholder": "Buscar telas…",
+      "noResults": "Nenhuma tela encontrada para \"{{query}}\"."
     }
   },
   "nav": {
@@ -56,6 +62,29 @@
       "orchestration": "Orquestração",
       "artifacts": "Artefatos e governança",
       "administration": "Administração"
+    },
+    "keywords": {
+      "cockpit": "visão geral dashboard operação status painel",
+      "chat": "conversar chefe mensagem perguntar falar",
+      "board": "tarefas kanban cartões colunas",
+      "conversations": "histórico conversas antigas",
+      "projects": "projetos lista repositório",
+      "workflows": "fluxos pipeline automação fases",
+      "orchestrator": "coordenação chefe delegação agentes",
+      "agents": "agentes equipe especialistas robôs",
+      "run-project": "executar rodar iniciar disparar",
+      "documents": "docs catálogo arquivos especificação",
+      "prototypes": "telas mockups wireframes referências galeria",
+      "approvals": "pendências gates decisões revisar aprovar",
+      "governance": "auditoria trilha políticas limites timeline",
+      "organizations": "orgs empresa workspace marca",
+      "providers": "modelos llm integrações api",
+      "tools": "skills plugins mcp servidores catálogo",
+      "licenses": "plano licenciamento assinatura",
+      "po-assistant": "requisitos refinamento product owner",
+      "onboarding": "configuração inicial primeiro acesso assistente",
+      "notifications": "alertas não lidas central sino",
+      "settings": "preferências configuração opções ajustes"
     }
   },
   "placeholder": {
@@ -84,6 +113,15 @@
     "states": {
       "loading": "Carregando…",
       "errorBody": "Não foi possível carregar os dados. Tente novamente."
+    },
+    "pagination": {
+      "label": "Paginação",
+      "range": "{{from}}–{{to}} de {{total}}",
+      "perPage": "Itens por página",
+      "previous": "Página anterior",
+      "next": "Próxima página",
+      "page": "Página {{page}}",
+      "pageOf": "Página {{page}} de {{total}}"
     },
     "validation": {
       "required": "Campo obrigatório",

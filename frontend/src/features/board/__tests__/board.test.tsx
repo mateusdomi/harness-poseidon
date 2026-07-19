@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { streams } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
@@ -37,7 +38,7 @@ function renderBoard(initialEntry = '/board') {
   // Bundle novo por teste: o store do mock é mutável (aprovações, prioridade).
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter initialEntries={[initialEntry]}>
+    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/board" element={<BoardPage />} />
         <Route path="/chat" element={<p>CHAT</p>} />
