@@ -26,6 +26,84 @@ public sealed class SqliteAuditEventStore(SqliteWriteDispatcher dispatcher) : IA
     public Task<AuditIntegrityRecord> VerifyIntegrityAsync(string tenantId, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((connection, token) => VerifyCoreAsync(connection, tenantId, token), cancellationToken);
 
+    public Task<AuditEventRecord> AppendAsync(AuditEventAppendCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ActorKind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.Action);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.TargetType);
+        return _dispatcher.ExecuteAsync((connection, token) => AppendCoreAsync(connection, command, token), cancellationToken);
+    }
+
+    private static async Task<AuditEventRecord> AppendCoreAsync(SqliteConnection connection, AuditEventAppendCommand command, CancellationToken token)
+    {
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(token);
+        var eventId = UlidValue.New(command.OccurredAt).ToString();
+        var payload = JsonSerializer.Serialize(
+            new AppendedAuditEnvelope(new AppendedAuditEvent(
+                eventId, command.ActorKind, command.ActorId, command.Action,
+                command.TargetType, command.TargetId, command.Detail, command.OccurredAt)),
+            AppendJsonOptions);
+        await using (var tail = connection.CreateCommand())
+        {
+            tail.Transaction = transaction;
+            tail.CommandText = "SELECT sequence,event_hash FROM audit_ledger WHERE tenant_id=$tenant ORDER BY sequence DESC LIMIT 1;";
+            tail.Parameters.AddWithValue("$tenant", command.TenantId);
+            await using var reader = await tail.ExecuteReaderAsync(token);
+            var exists = await reader.ReadAsync(token);
+            var sequence = exists ? reader.GetInt64(0) + 1 : 1;
+            var previous = exists ? reader.GetString(1) : AuditLedgerHash.Genesis;
+            await reader.DisposeAsync();
+            var hash = AuditLedgerHash.Compute(previous, command.TenantId, sequence, "audit.eventAppended", payload, command.OccurredAt);
+            await using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText =
+                "INSERT INTO audit_ledger (id,tenant_id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at) " +
+                "VALUES ($id,$tenant,$sequence,$previous,$hash,'audit.eventAppended',$payload,$at);";
+            insert.Parameters.AddWithValue("$id", eventId);
+            insert.Parameters.AddWithValue("$tenant", command.TenantId);
+            insert.Parameters.AddWithValue("$sequence", sequence);
+            insert.Parameters.AddWithValue("$previous", previous);
+            insert.Parameters.AddWithValue("$hash", hash);
+            insert.Parameters.AddWithValue("$payload", payload);
+            insert.Parameters.AddWithValue("$at", command.OccurredAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync(token);
+        }
+
+        await using (var outbox = connection.CreateCommand())
+        {
+            outbox.Transaction = transaction;
+            outbox.CommandText =
+                "INSERT INTO outbox_messages (id,tenant_id,event_type,payload_json,occurred_at) " +
+                "VALUES ($id,$tenant,'audit.eventAppended',$payload,$at);";
+            outbox.Parameters.AddWithValue("$id", UlidValue.New(command.OccurredAt).ToString());
+            outbox.Parameters.AddWithValue("$tenant", command.TenantId);
+            outbox.Parameters.AddWithValue("$payload", payload);
+            outbox.Parameters.AddWithValue("$at", command.OccurredAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+            await outbox.ExecuteNonQueryAsync(token);
+        }
+
+        await transaction.CommitAsync(token);
+        return new AuditEventRecord(
+            eventId, command.ActorKind, command.ActorId, command.Action,
+            command.TargetType, command.TargetId, command.Detail, command.OccurredAt);
+    }
+
+    private static readonly JsonSerializerOptions AppendJsonOptions = new(JsonSerializerDefaults.Web);
+
+    private sealed record AppendedAuditEnvelope(AppendedAuditEvent AuditEvent);
+
+    private sealed record AppendedAuditEvent(
+        string Id,
+        string ActorKind,
+        string? ActorId,
+        string Action,
+        string TargetType,
+        string? TargetId,
+        string? Detail,
+        DateTimeOffset OccurredAt);
+
     private static async Task<AuditIntegrityRecord> VerifyCoreAsync(SqliteConnection connection, string tenantId, CancellationToken token)
     {
         var rows = await ReadRowsAsync(connection, tenantId, token, orderBySequence: true); var previous = AuditLedgerHash.Genesis; long expected = 1;

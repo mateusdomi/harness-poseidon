@@ -5,7 +5,18 @@ public interface IAuditEventStore
     Task<IReadOnlyList<AuditEventRecord>> ListAsync(AuditEventQuery query, CancellationToken cancellationToken = default);
     Task<AuditEventRecord?> GetAsync(string tenantId, string id, CancellationToken cancellationToken = default);
     Task<AuditIntegrityRecord> VerifyIntegrityAsync(string tenantId, CancellationToken cancellationToken = default);
+    Task<AuditEventRecord> AppendAsync(AuditEventAppendCommand command, CancellationToken cancellationToken = default);
 }
+
+public sealed record AuditEventAppendCommand(
+    string TenantId,
+    string ActorKind,
+    string? ActorId,
+    string Action,
+    string TargetType,
+    string? TargetId,
+    string? Detail,
+    DateTimeOffset OccurredAt);
 
 public sealed record AuditEventQuery(
     string TenantId,

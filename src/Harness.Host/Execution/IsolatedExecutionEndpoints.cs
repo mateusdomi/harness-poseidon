@@ -1,10 +1,14 @@
 using System.Text.Json.Serialization;
 using Harness.Host.Profiles;
+using Harness.Modules.Governance.Domain;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
+using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Execution;
 
@@ -30,6 +34,9 @@ public static class IsolatedExecutionEndpoints
         ILocalProfileStore profiles,
         IWorkBoardStore board,
         IProjectStore projects,
+        IProviderCatalogStore providerCatalog,
+        IAuditEventStore audit,
+        IClock clock,
         IsolatedExecutionSettings settings,
         IServiceProvider services,
         CancellationToken token)
@@ -108,6 +115,32 @@ public static class IsolatedExecutionEndpoints
                 409,
                 "repository_outside_controlled_root",
                 "The project repository must live inside the configured controlled root.");
+        }
+
+        var budgets = await providerCatalog.ListBudgetsAsync(profile.TenantId, null, 200, token);
+        var exceeded = budgets.FirstOrDefault(budget =>
+            budget.LimitUsd > 0 &&
+            budget.SpentUsd >= budget.LimitUsd &&
+            (budget.Scope == "global" || (budget.Scope == "project" && budget.ScopeId == task.ProjectId)));
+        if (exceeded is not null)
+        {
+            var decision = AutonomousActionGuard.Evaluate(new GuardedActionRequest(
+                GuardedActionKind.BudgetOverrun,
+                GuardedActorKind.System,
+                project.OperationMode));
+            await audit.AppendAsync(
+                new AuditEventAppendCommand(
+                    profile.TenantId,
+                    "system",
+                    null,
+                    "governance.actionBlocked",
+                    "attempt",
+                    attemptId,
+                    $"{decision.Code}: orçamento {exceeded.Id} atingiu " +
+                    $"{exceeded.SpentUsd}/{exceeded.LimitUsd} USD.",
+                    clock.UtcNow),
+                token);
+            return Problem(409, "guarded_action_blocked", decision.Detail);
         }
 
         var orchestrator = services.GetService<IsolatedAttemptOrchestrator>();

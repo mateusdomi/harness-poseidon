@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Harness.Host;
 using Harness.Host.Execution;
+using Harness.Host.Governance;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
@@ -14,6 +15,7 @@ using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.WorkChain;
+using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -160,6 +162,116 @@ public sealed class IsolatedExecutionEndpointTests
             finally
             {
                 await disabledApp.StopAsync(timeout.Token);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BudgetOverrunBlocksIsolatedExecutionAndAuditsTheAttempt()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "integration-artifacts",
+            $"guarded-budget-{Guid.NewGuid():N}");
+        var controlledRoot = Path.Combine(root, "controlled");
+        var repository = Path.Combine(controlledRoot, "external-repository");
+        var database = Path.Combine(root, "guarded.db");
+        var cookies = new CookieContainer();
+        Directory.CreateDirectory(controlledRoot);
+        await CreateFixtureRepositoryAsync(repository, timeout.Token);
+
+        try
+        {
+            await using var app = HostApplication.Build(
+            [
+                "--urls",
+                "http://127.0.0.1:0",
+                "--Harness:DatabasePath",
+                database,
+                "--Harness:IsolatedExecution:Mode",
+                "fake",
+                "--Harness:IsolatedExecution:ControlledRoot",
+                controlledRoot,
+            ]);
+            await app.StartAsync(timeout.Token);
+            try
+            {
+                using var handler = new HttpClientHandler { CookieContainer = cookies };
+                using var client = new HttpClient(handler) { BaseAddress = Address(app.Services) };
+                var profile = await CreateProfileAsync(client, timeout.Token);
+                var tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>()
+                    .GetAsync(profile.Id, timeout.Token))!.TenantId;
+                var organization = await CreateOrganizationAsync(client, timeout.Token);
+                var project = await CreateProjectAsync(
+                    client,
+                    organization.Id,
+                    repository,
+                    timeout.Token);
+                var (_, attemptId) = await CreateAttemptAsync(
+                    app.Services,
+                    client,
+                    tenantId,
+                    project.Id,
+                    "Blocked by budget overrun",
+                    DateTimeOffset.UtcNow,
+                    timeout.Token);
+
+                using (var materialize = await client.GetAsync(
+                    new Uri("/api/v1/budgets", UriKind.Relative), timeout.Token))
+                {
+                    materialize.EnsureSuccessStatusCode();
+                }
+
+                var dispatcher = app.Services.GetRequiredService<SqliteWriteDispatcher>();
+                await dispatcher.ExecuteAsync(async (connection, token) =>
+                {
+                    await using var update = connection.CreateCommand();
+                    update.CommandText =
+                        "UPDATE budgets SET spent_usd=limit_usd WHERE tenant_id=$tenant AND scope='global';";
+                    update.Parameters.AddWithValue("$tenant", tenantId);
+                    return await update.ExecuteNonQueryAsync(token);
+                }, timeout.Token);
+
+                using var blocked = await client.PostAsJsonAsync(
+                    $"/api/v1/attempts/{attemptId}/isolated-executions",
+                    new { instruction = "Run it.", scopeClaims = DefaultClaims },
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+                var audit = (await client.GetFromJsonAsync<AuditEventPage>(
+                    "/api/v1/audit-events?action=governance.actionBlocked&limit=50",
+                    timeout.Token))!;
+                var entry = Assert.Single(audit.Items);
+                Assert.Equal(attemptId, entry.TargetId);
+                Assert.Contains("budget_overrun", entry.Detail);
+
+                await dispatcher.ExecuteAsync(async (connection, token) =>
+                {
+                    await using var update = connection.CreateCommand();
+                    update.CommandText =
+                        "UPDATE budgets SET spent_usd=0 WHERE tenant_id=$tenant AND scope='global';";
+                    update.Parameters.AddWithValue("$tenant", tenantId);
+                    return await update.ExecuteNonQueryAsync(token);
+                }, timeout.Token);
+                using var allowed = await client.PostAsJsonAsync(
+                    $"/api/v1/attempts/{attemptId}/isolated-executions",
+                    new { instruction = "Run it.", scopeClaims = DefaultClaims },
+                    timeout.Token);
+                allowed.EnsureSuccessStatusCode();
+                var result = (await allowed.Content
+                    .ReadFromJsonAsync<IsolatedExecutionResponse>(timeout.Token))!;
+                Assert.Equal("completed", result.Status);
+            }
+            finally
+            {
+                await app.StopAsync(timeout.Token);
             }
         }
         finally
