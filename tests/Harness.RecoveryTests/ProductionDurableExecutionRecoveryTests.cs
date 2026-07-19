@@ -77,7 +77,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
             repositoryRoot,
             timeout.Token);
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
-        Assert.Equal(17, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
+        Assert.Equal(19, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
         await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
             ProductionDurableRecoveryScenario.ProvisionCommand(),
             timeout.Token);

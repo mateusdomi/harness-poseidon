@@ -139,6 +139,25 @@ public sealed class PostgresProjectStore(NpgsqlDataSource dataSource) : IProject
                 await insert.ExecuteNonQueryAsync(cancellationToken);
             }
 
+            await using (var chief = connection.CreateCommand())
+            {
+                chief.Transaction = transaction;
+                chief.CommandText =
+                    """
+                    INSERT INTO harness.agents
+                        (id,tenant_id,definition_id,project_id,name,state,lease_fencing_token,
+                         lease_expires_at,last_heartbeat_at,created_at)
+                    VALUES ($1,$2,'01ARZ3NDEKTSV4RRFFQ69G5FAV',$3,$4,'idle',1,$5,$6,$6);
+                    """;
+                chief.Parameters.Add(Text(project.ChiefAgentId));
+                chief.Parameters.Add(Text(command.TenantId));
+                chief.Parameters.Add(Text(project.Id));
+                chief.Parameters.Add(Text($"Chief — {project.Key}"));
+                chief.Parameters.Add(Timestamp(command.OccurredAt.AddMinutes(1)));
+                chief.Parameters.Add(Timestamp(command.OccurredAt));
+                await chief.ExecuteNonQueryAsync(cancellationToken);
+            }
+
             var payload = JsonSerializer.Serialize(new
             {
                 projectId = project.Id,

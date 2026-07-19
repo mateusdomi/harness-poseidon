@@ -34,6 +34,46 @@ public sealed class SqliteIdentityCoreStoreTests
                     new SqliteProviderCatalogStore(dispatcher),
                     profile.TenantId,
                     timeout.Token);
+                var organizations = new SqliteOrganizationStore(dispatcher);
+                var projects = new SqliteProjectStore(dispatcher);
+                var now = DateTimeOffset.UtcNow;
+                var organizationId = Harness.SharedKernel.Identifiers.UlidValue.New(now).ToString();
+                _ = await organizations.CreateAsync(
+                    new Harness.Persistence.Abstractions.Organizations.OrganizationCreateCommand(
+                        profile.TenantId, organizationId, "Chat", "chat", "personal",
+                        new Harness.Persistence.Abstractions.Organizations.OrganizationBrandRecord(null, null, null, null),
+                        now),
+                    timeout.Token);
+                var projectId = Harness.SharedKernel.Identifiers.UlidValue.New(now.AddMilliseconds(1)).ToString();
+                var chiefAgentId = Harness.SharedKernel.Identifiers.UlidValue.New(now.AddMilliseconds(2)).ToString();
+                _ = await projects.CreateAsync(
+                    new Harness.Persistence.Abstractions.Projects.ProjectCreateCommand(
+                        profile.TenantId,
+                        new Harness.Persistence.Abstractions.Projects.ProjectRecord(
+                            profile.TenantId, projectId, organizationId, "Chat", "CHAT", "Paridade",
+                            "active", "medium", null, "local", "main",
+                            [], new Harness.Persistence.Abstractions.Projects.ProjectBrandRecord(null, null, null, null),
+                            [profile.Id], 1, chiefAgentId, "manual", now, now, 0),
+                        now.AddMilliseconds(3)),
+                    timeout.Token);
+                var conversationStore = new SqliteConversationStore(dispatcher);
+                await ConversationChiefStoreBehavior.AssertAsync(
+                    conversationStore,
+                    conversationStore,
+                    profile.TenantId,
+                    projectId,
+                    profile.Id,
+                    chiefAgentId,
+                    tenant => dispatcher.ExecuteAsync(async (connection, ct) =>
+                    {
+                        await using var count = connection.CreateCommand();
+                        count.CommandText = "SELECT COUNT(*) FROM demands WHERE tenant_id=$tenant;";
+                        count.Parameters.AddWithValue("$tenant", tenant);
+                        return Convert.ToInt32(
+                            await count.ExecuteScalarAsync(ct),
+                            System.Globalization.CultureInfo.InvariantCulture);
+                    }, timeout.Token),
+                    timeout.Token);
             }
         }
         finally

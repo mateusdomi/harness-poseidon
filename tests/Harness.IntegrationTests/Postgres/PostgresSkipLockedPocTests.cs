@@ -20,7 +20,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(17, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(19, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -70,6 +70,7 @@ public sealed class PostgresSkipLockedPocTests
             new PostgresProviderCatalogStore(dataSource),
             catalogProfile.TenantId,
             timeout.Token);
+        await RunConversationChiefParityAsync(dataSource, catalogProfile, timeout.Token);
 
         var createdAt = DateTimeOffset.Parse(
             "2026-07-18T13:00:00Z",
@@ -187,6 +188,58 @@ public sealed class PostgresSkipLockedPocTests
         var exception = await Assert.ThrowsAsync<PostgresException>(
             () => command.ExecuteNonQueryAsync(cancellationToken));
         Assert.Equal("P0001", exception.SqlState);
+    }
+
+    private static async Task RunConversationChiefParityAsync(
+        NpgsqlDataSource dataSource,
+        Harness.Persistence.Abstractions.Identity.LocalProfileRecord profile,
+        CancellationToken token)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var organizations = new PostgresOrganizationStore(dataSource);
+        var projects = new PostgresProjectStore(dataSource);
+        var organizationId = Harness.SharedKernel.Identifiers.UlidValue.New(now).ToString();
+        var creation = await organizations.CreateAsync(
+            new Harness.Persistence.Abstractions.Organizations.OrganizationCreateCommand(
+                profile.TenantId, organizationId, $"Chat {organizationId[^6..]}",
+                $"chat-{organizationId[^6..].ToLowerInvariant()}", "personal",
+                new Harness.Persistence.Abstractions.Organizations.OrganizationBrandRecord(null, null, null, null),
+                now),
+            token);
+        Assert.Equal(
+            Harness.Persistence.Abstractions.Organizations.OrganizationMutationStatus.Applied,
+            creation.Status);
+        var projectId = Harness.SharedKernel.Identifiers.UlidValue.New(now.AddMilliseconds(1)).ToString();
+        var chiefAgentId = Harness.SharedKernel.Identifiers.UlidValue.New(now.AddMilliseconds(2)).ToString();
+        var project = await projects.CreateAsync(
+            new Harness.Persistence.Abstractions.Projects.ProjectCreateCommand(
+                profile.TenantId,
+                new Harness.Persistence.Abstractions.Projects.ProjectRecord(
+                    profile.TenantId, projectId, organizationId, "Chat", "CHAT", "Paridade",
+                    "active", "medium", null, "local", "main",
+                    [], new Harness.Persistence.Abstractions.Projects.ProjectBrandRecord(null, null, null, null),
+                    [profile.Id], 1, chiefAgentId, "manual", now, now, 0),
+                now.AddMilliseconds(3)),
+            token);
+        Assert.Equal(
+            Harness.Persistence.Abstractions.Projects.ProjectMutationStatus.Applied,
+            project.Status);
+        var conversations = new PostgresConversationStore(dataSource);
+        await ConversationChiefStoreBehavior.AssertAsync(
+            conversations,
+            conversations,
+            profile.TenantId,
+            projectId,
+            profile.Id,
+            chiefAgentId,
+            async tenant =>
+            {
+                await using var count = dataSource.CreateCommand(
+                    "SELECT COUNT(*) FROM harness.demands WHERE tenant_id=$1;");
+                count.Parameters.AddWithValue(tenant);
+                return Convert.ToInt32(await count.ExecuteScalarAsync(token), System.Globalization.CultureInfo.InvariantCulture);
+            },
+            token);
     }
 
     private static async Task ValidateFoundationSchemaAsync(
