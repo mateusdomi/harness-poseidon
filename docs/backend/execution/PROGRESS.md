@@ -105,4 +105,5 @@ Conclusão só será registrada após execução. Arquivo existente ou teste ape
 | F2-DOGFOOD-1a executor estruturado | verde | `IAgentExecutor`, Fake determinístico, protocolo Codex app-server V2, streaming, JSON Schema+validação+repair e prova obrigatória de sandbox; Host recompõe digest; gate 173/173; `evidence/F2-AGENT-EXECUTION.md` |
 | F2-DOGFOOD-1b mailbox/lease | verde | Inbox+mensagem antes do executor, mailbox e estado do Chief, lease/fencing, sessão/digest, conclusão transacional e restart; SQLite 27→0; gate 173/173; `evidence/F2-CHIEF-TURN-PIPELINE.md` |
 | F2-DOGFOOD-1c reconciliação | verde | endpoint enqueue-only, worker assíncrono, retries, restart com lease expirado, fencing 1→2 e token antigo recusado; gate 174/174; `evidence/F2-CHIEF-TURN-RECONCILIATION.md` |
-| F2-DOGFOOD-1d execução isolada | próximo | compor claims de escopo, worktree exclusiva, sandbox Docker e executor Codex em projeto externo |
+| F2-DOGFOOD-1d.1 sessão isolada | verde | app-server streaming via Docker, `/workspace` separado do host, proxy/rede interna, limites, encerramento gracioso e cleanup sem órfãos; gate 176/176; `evidence/F2-ISOLATED-CODEX-SESSION.md` |
+| F2-DOGFOOD-1d.2 tentativa externa | próximo | persistir claims e catálogo de workspace; compor worktree exclusiva + sessão isolada por tentativa de projeto externo |

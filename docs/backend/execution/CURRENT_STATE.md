@@ -1,19 +1,19 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-18T23:26:53Z
+Atualizado em: 2026-07-19T00:03:29Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-DOGFOOD-1d — compor claims, worktree, sandbox e executor Codex; reconciliação do Chief está verde.
+- Épico atual: F2-DOGFOOD-1d.2 — claims/workspace duráveis e composição por tentativa; a sessão Codex Docker streaming está verde.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `56abba2` (`develop`), contendo F2-DOGFOOD-1c com 174 testes backend e 270 testes frontend verdes.
-- Próximo passo exato: compor uma tentativa de projeto externo com claim de escopo, worktree exclusiva, sandbox Docker e `CodexCliAgentExecutor`, mantendo smoke real opt-in.
+- Último commit remoto validado: `5638840` (`develop`), contendo F2-DOGFOOD-1d.1 com 176 testes backend e 270 testes frontend verdes.
+- Próximo passo exato: persistir claims de escopo e o catálogo de workspace da tentativa; depois compor worktree exclusiva, sessão Docker e `CodexCliAgentExecutor` no projeto externo.
 - Bloqueios: nenhum.
 
 ## Suposições ativas
 
-- O conteúdo integral v1.3 fornecido pelo usuário é a única fonte de verdade. O arquivo `PROMPT_CODEX_BACKEND_HARNESS_POSEIDON_v1.3.md` não foi encontrado no filesystem.
+- O prompt v1.3 em `/Users/mateus/Downloads/PROMPT_ORIGINAL_CODEX_BACKEND_POSEIDON_v1.3_COM_ADENDO.md` é a fonte de verdade; o prompt de continuidade no mesmo diretório define a ordem de retomada.
 - O clone `/Users/mateus/Documents/harness-poseidon` está ativo com alterações não commitadas da Kimi e é somente leitura para o trabalho backend.
 - O trabalho Codex ocorre exclusivamente em `/Users/mateus/Documents/harness-poseidon-backend`.
 - Contratos em `frontend/src/api/contracts/**` e `docs/frontend/HANDOFF_API.md` são provisórios até reconciliação; não serão editados pelo backend.
@@ -35,7 +35,7 @@ Atualizado em: 2026-07-18T23:26:53Z
 - Fencing: token antigo não gravou nem renovou após aquisição do token crescente pelo novo owner.
 - Codex CLI: app-server real supervisionado com ambiente/estado isolados; heartbeat crescente, kill da árvore, retomada por `threadId` e sessão nova reidratada do commit Git, sem turno de modelo.
 - Git/claims: três fixtures criaram duas branches/worktrees de tentativa; claims disjuntos executaram em paralelo e claim ancestral bloqueou conflito; refs/worktrees oficiais ficaram idênticas antes/depois.
-- Sandbox: Docker provider validou CPU 0,5, memória 64 MiB, 64 PIDs, disk limit 8 MiB, worktree montada, proxy-only egress, rootfs read-only e cleanup label-guarded em seis execuções verdes.
+- Sandbox: além do probe one-shot, o provider abre app-server streaming por `docker run -i`, com `/workspace`, `CODEX_HOME` em volume, rede interna, proxy-only egress, rootfs read-only, limites e cleanup label-guarded; `CodexCliAgentExecutor` completou um turno estruturado real no container sem quota/rede externa.
 - Realtime: hub `/hubs/events`, sequência por stream, catálogo tipado, endpoint snapshot+delta e OpenAPI determinístico; lacuna 3–5 recuperada e live retomado em 6.
 - PostgreSQL: Npgsql/EF provider 10.0.3; 80 itens adquiridos uma vez por 12 workers, linha bloqueada pulada sem espera, token antigo rejeitado após lease expirada e migrations `1` depois `0`; imagem final Alpine/PostgreSQL 18.4 passou Scout com 0 crítica/alta/média e residual 2 baixas + 1 não classificada sem correção disponível.
 - IPC: Runner real envia heartbeat/checkpoint/conclusão a endpoint loopback autenticado; o Host persiste tentativa, versão, sequência, checkpoints, Inbox e Outbox via `IRunnerMessageStore`. Replay integral depois de reiniciar o Host não duplica estado/eventos; gap, owner conflitante, chave conflitante, tentativa concluída e token inválido são rejeitados. O assembly Runner continua sem referência a persistência.
