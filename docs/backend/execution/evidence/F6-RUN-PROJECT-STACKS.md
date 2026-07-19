@@ -11,4 +11,22 @@ O teste de integração executa **três stacks diferentes reais** — HttpListen
 
 Gate: format sem mudanças; build Release zero warnings/erros; backend 198/198 (`Unit 107`, `Integration 49`, `Contract 28`, `Recovery 5`, `Architecture 6`, `Concurrency 3`).
 
-Camadas restantes da detecção F6 (Dockerfile/Compose como alvos gerenciados sob as regras Docker 1.2, scripts registrados pelo usuário, heurísticas Java e agente como último recurso) permanecem no backlog da fase, registradas aqui como pendência consciente — exigem política de execução containerizada de projetos de usuário que conversa com o modo docker da execução isolada.
+Camadas restantes da detecção F6 (Dockerfile/Compose como alvos gerenciados sob as regras Docker 1.2, scripts registrados pelo usuário e agente como último recurso) permanecem no backlog da fase, registradas aqui como pendência consciente — exigem política de execução containerizada de projetos de usuário que conversa com o modo docker da execução isolada.
+
+## F6-2 — camada de manifesto Java (Maven/Gradle Spring Boot)
+
+Data: 2026-07-19.
+
+O detector passou a reconhecer a stack **Java** (item explícito da Fase 6), fechando essa lacuna:
+
+- **Maven** (`pom.xml`) e **Gradle** (`build.gradle`/`build.gradle.kts`) — registrado **apenas** quando o
+  manifesto declara Spring Boot (heurística: `spring-boot`/`org.springframework.boot`), para não criar
+  alvo que não sobe com URL/health. Porta livre alocada e injetada tanto por `SERVER_PORT` quanto pelo
+  argumento de execução (`-Dspring-boot.run.arguments=--server.port=` no Maven, `--args=--server.port=`
+  no Gradle). Prefere os wrappers `mvnw`/`gradlew` quando presentes (reprodutibilidade); senão usa
+  `mvn`/`gradle` via `/usr/bin/env`. Fingerprint SHA-256 por runtime+path como as demais camadas.
+- Teste `RunTargetJavaDetectionTests`: fixtures temporárias comprovam detecção de um alvo Maven e um
+  Gradle Spring Boot (porta, `SERVER_PORT`, arg de porta e URL loopback corretos) e que um `pom.xml`
+  **sem** Spring Boot **não** vira alvo executável.
+
+Gate: format sem mudanças; build Release zero warnings/erros; suíte integral 232/232.
