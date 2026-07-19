@@ -5556,6 +5556,168 @@
                 }
             }
         },
+        "/api/v1/licenses/signed": {
+            "get": {
+                "tags": [
+                    "licensing"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SignedLicenseContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/licenses/signed/activation": {
+            "post": {
+                "tags": [
+                    "licensing"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SignedLicenseActivationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SignedLicenseContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/licenses/signed/revocations": {
+            "post": {
+                "tags": [
+                    "licensing"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SignedRevocationImportRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                                    "type": [
+                                        "integer",
+                                        "string"
+                                    ],
+                                    "format": "int32"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/conversations": {
             "get": {
                 "tags": [
@@ -12221,6 +12383,68 @@
                     }
                 }
             },
+            "LicenseDocumentPayload": {
+                "required": [
+                    "licenseId",
+                    "product",
+                    "licensee",
+                    "deviceFingerprint",
+                    "issuedAt",
+                    "expiresAt",
+                    "graceDays",
+                    "entitlements",
+                    "version"
+                ],
+                "type": "object",
+                "properties": {
+                    "licenseId": {
+                        "type": "string"
+                    },
+                    "product": {
+                        "type": "string"
+                    },
+                    "licensee": {
+                        "type": "string"
+                    },
+                    "deviceFingerprint": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "issuedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "graceDays": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "entitlements": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                },
+                "additionalProperties": false
+            },
             "LicensePage": {
                 "required": [
                     "items",
@@ -13837,6 +14061,26 @@
                 },
                 "additionalProperties": false
             },
+            "RevocationListPayload": {
+                "required": [
+                    "revokedLicenseIds",
+                    "issuedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "revokedLicenseIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "issuedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "additionalProperties": false
+            },
             "RoutingPolicyContract": {
                 "required": [
                     "id",
@@ -14237,6 +14481,95 @@
                         }
                     },
                     "riskAcceptanceNote": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "SignedLicenseActivationRequest": {
+                "required": [
+                    "document",
+                    "signature"
+                ],
+                "type": "object",
+                "properties": {
+                    "document": {
+                        "$ref": "#/components/schemas/LicenseDocumentPayload"
+                    },
+                    "signature": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "SignedLicenseContract": {
+                "required": [
+                    "licenseId",
+                    "licensee",
+                    "deviceFingerprint",
+                    "state",
+                    "issuedAt",
+                    "expiresAt",
+                    "graceDays",
+                    "entitlements",
+                    "activatedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "licenseId": {
+                        "type": "string"
+                    },
+                    "licensee": {
+                        "type": "string"
+                    },
+                    "deviceFingerprint": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "issuedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "graceDays": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "entitlements": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "activatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "SignedRevocationImportRequest": {
+                "required": [
+                    "list",
+                    "signature"
+                ],
+                "type": "object",
+                "properties": {
+                    "list": {
+                        "$ref": "#/components/schemas/RevocationListPayload"
+                    },
+                    "signature": {
                         "type": "string"
                     }
                 },
@@ -15447,6 +15780,9 @@
         },
         {
             "name": "entitlements"
+        },
+        {
+            "name": "licensing"
         },
         {
             "name": "conversations"

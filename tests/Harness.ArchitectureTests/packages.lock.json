@@ -372,6 +372,7 @@
       "harness.modules.licensing": {
         "type": "Project",
         "dependencies": {
+          "BouncyCastle.Cryptography": "[2.6.2, )",
           "Harness.SharedKernel": "[1.0.0, )"
         }
       },
@@ -442,6 +443,12 @@
       },
       "harness.sharedkernel": {
         "type": "Project"
+      },
+      "BouncyCastle.Cryptography": {
+        "type": "CentralTransitive",
+        "requested": "[2.6.2, )",
+        "resolved": "2.6.2",
+        "contentHash": "7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w=="
       },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "CentralTransitive",
