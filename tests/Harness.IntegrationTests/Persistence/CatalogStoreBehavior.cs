@@ -105,5 +105,34 @@ public static class CatalogStoreBehavior
             Assert.Equal("max", selected.Effort);
             Assert.NotNull(selected.ProviderEffortValue);
         }
+
+        var definitionContent = new AgentDefinitionContent(
+            "provider-neutral-reviewer", "Provider-neutral Reviewer", "specialist", "Review",
+            "Reviews provider-neutral behavior.", models[0].Id, [], [], "Critical reviewer",
+            "Protect parity.", ["Compare providers"], ["Parity report"], ["Equivalent result"],
+            "Concise", ["No self approval"]);
+        const string customDefinitionId = "01ARZ3NDEKTSV4RRFFQ69G5FP1";
+        var customDefinition = await agents.CreateDefinitionAsync(new(
+            tenantId, tenantId, customDefinitionId, definitionContent,
+            DateTimeOffset.Parse("2026-07-19T12:05:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        Assert.Equal(1, customDefinition.Version);
+        customDefinition = await agents.UpdateDefinitionAsync(new(
+            tenantId, tenantId, customDefinitionId, 1,
+            definitionContent with { Name = "Provider-neutral Senior Reviewer" },
+            DateTimeOffset.Parse("2026-07-19T12:06:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        Assert.Equal(2, customDefinition.Version);
+        const string duplicateDefinitionId = "01ARZ3NDEKTSV4RRFFQ69G5FP2";
+        var duplicate = await agents.DuplicateDefinitionAsync(new(
+            tenantId, tenantId, customDefinitionId, duplicateDefinitionId,
+            "provider-neutral-reviewer-copy", "Provider-neutral Reviewer Copy",
+            DateTimeOffset.Parse("2026-07-19T12:07:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        Assert.Equal(1, duplicate.Version);
+        await agents.DeleteDefinitionAsync(new(
+            tenantId, tenantId, duplicateDefinitionId,
+            DateTimeOffset.Parse("2026-07-19T12:08:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        customDefinition = await agents.SetDefinitionLifecycleAsync(new(
+            tenantId, tenantId, customDefinitionId, "archive",
+            DateTimeOffset.Parse("2026-07-19T12:09:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        Assert.NotNull(customDefinition.ArchivedAt);
     }
 }

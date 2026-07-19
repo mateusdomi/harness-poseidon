@@ -99,6 +99,30 @@ public sealed class ChiefOrchestrationApiTests
 
                     var definitions = (await client.GetFromJsonAsync<AgentDefinitionPage>("/api/v1/agent-definitions?limit=10", timeout.Token))!;
                     var specialist = definitions.Items.Single(x => x.Name == "Software Engineer");
+                    string customDefinitionId;
+                    var custom = new AgentDefinitionWriteRequest(
+                        "security-reviewer", "Security Reviewer", "specialist", "Application security",
+                        "Reviews threats and evidence.", specialist.DefaultModelId, specialist.SkillIds,
+                        specialist.ToolIds, "Skeptical reviewer", "Prevent exploitable releases.",
+                        ["Verify evidence"], ["Threat report"], ["No unresolved critical risk"],
+                        "Direct and traceable", ["Cannot approve own work"]);
+                    using (var createDefinition = await client.PostAsJsonAsync("/api/v1/agent-definitions", custom, timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.Created, createDefinition.StatusCode);
+                        var created = (await createDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))!;
+                        customDefinitionId = created.Id; Assert.Equal(1, created.Version); Assert.True(created.Enabled);
+                    }
+                    using (var updateDefinition = await client.PatchAsJsonAsync($"/api/v1/agent-definitions/{customDefinitionId}", custom with { Name = "Senior Security Reviewer", ExpectedVersion = 1 }, timeout.Token))
+                    { updateDefinition.EnsureSuccessStatusCode(); Assert.Equal(2, (await updateDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))?.Version); }
+                    string duplicateId;
+                    using (var duplicateDefinition = await client.PostAsJsonAsync($"/api/v1/agent-definitions/{customDefinitionId}/duplicate", new AgentDefinitionDuplicateRequest("security-reviewer-copy", "Security Reviewer Copy"), timeout.Token))
+                    { Assert.Equal(HttpStatusCode.Created, duplicateDefinition.StatusCode); duplicateId = (await duplicateDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))!.Id; }
+                    using (var deleteDefinition = await client.DeleteAsync($"/api/v1/agent-definitions/{duplicateId}", timeout.Token)) Assert.Equal(HttpStatusCode.NoContent, deleteDefinition.StatusCode);
+                    using (var disableDefinition = await client.PostAsync($"/api/v1/agent-definitions/{customDefinitionId}/disable", null, timeout.Token)) { disableDefinition.EnsureSuccessStatusCode(); Assert.False((await disableDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))!.Enabled); }
+                    using (var enableDefinition = await client.PostAsync($"/api/v1/agent-definitions/{customDefinitionId}/enable", null, timeout.Token)) { enableDefinition.EnsureSuccessStatusCode(); Assert.True((await enableDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))!.Enabled); }
+                    using (var archiveDefinition = await client.PostAsync($"/api/v1/agent-definitions/{customDefinitionId}/archive", null, timeout.Token)) { archiveDefinition.EnsureSuccessStatusCode(); Assert.NotNull((await archiveDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))!.ArchivedAt); }
+                    Assert.DoesNotContain(customDefinitionId, (await client.GetFromJsonAsync<AgentDefinitionPage>("/api/v1/agent-definitions?limit=20", timeout.Token))!.Items.Select(value => value.Id));
+                    Assert.Contains(customDefinitionId, (await client.GetFromJsonAsync<AgentDefinitionPage>("/api/v1/agent-definitions?limit=20&includeArchived=true", timeout.Token))!.Items.Select(value => value.Id));
                     using (var invalid = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/chief/handoff",
                         new HandoffChiefRequest(specialist.Id, null, "Specialist cannot own the Chief lease."), timeout.Token))
                         Assert.Equal(HttpStatusCode.Conflict, invalid.StatusCode);

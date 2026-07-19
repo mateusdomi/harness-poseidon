@@ -7,6 +7,8 @@ public sealed class AgentContractDriftTests
     private static readonly string[] DefinitionFields =
     [
         "id", "key", "name", "role", "specialty", "description", "defaultModelId", "skillIds", "toolIds",
+        "persona", "mission", "operatingPrinciples", "deliverables", "qualityCriteria",
+        "communicationStyle", "limitations", "version", "enabled", "archivedAt",
     ];
 
     private static readonly string[] AgentFields =
@@ -25,6 +27,10 @@ public sealed class AgentContractDriftTests
         var paths = openApi.GetProperty("paths");
         Assert.True(paths.GetProperty("/api/v1/agent-definitions").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/agent-definitions").TryGetProperty("post", out _));
+        Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("patch", out _));
+        Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("delete", out _));
+        Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}/duplicate").TryGetProperty("post", out _));
         Assert.True(paths.GetProperty("/api/v1/agents").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents/{agentId}").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents/{agentId}/selection").TryGetProperty("patch", out _));
@@ -43,7 +49,7 @@ public sealed class AgentContractDriftTests
              "metrics"]);
 
         var frontend = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "agents.ts"));
-        AssertFrontendFields(frontend, "export const agentDefinitionSchema", "export type AgentDefinition", DefinitionFields);
+        AssertFrontendFields(frontend, "export const agentDefinitionSchema", "export type AgentDefinition", DefinitionFields.Take(9));
         AssertFrontendFields(frontend, "export const agentSchema", "export type Agent", AgentFields.Take(10));
     }
 

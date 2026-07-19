@@ -78,7 +78,7 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 Independentes (trabalho técnico que prossegue sem terceiros):
 
 1. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
-   `page/pageSize`, workflows por projeto, CRUD de definições de agentes e
+   `page/pageSize`, workflows por projeto e
    providers/contas/modelos/esforço. O ciclo administrativo de contas (criação por referência de
    segredo, identidade, plano, autenticação, saúde, capacidades, janela/reset, estado, limite de
    cota e remoção segura) já está verde nos dois providers; ainda faltam o catálogo/configuração
@@ -87,7 +87,8 @@ Independentes (trabalho técnico que prossegue sem terceiros):
    workflows está completo (draft, PATCH, validação,
    publicação, tombstones, exclusão, duplicação e vínculo por projeto). No quadro, arquivamento
    backend está verde e busca/filtros, paginação, lote e CSV Excel-compatible já são client-side;
-   falta auditar eventual filtro de fase.
+   falta auditar eventual filtro de fase. O CRUD/versionamento/lifecycle de definições de agentes
+   já está verde nos dois providers.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
