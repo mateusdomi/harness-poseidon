@@ -71,16 +71,46 @@ public sealed class IsolatedAttemptOrchestrator(
             ?? throw new InvalidOperationException("An acquired attempt workspace requires a snapshot.");
         if (AttemptWorkspaceLifecycle.IsTerminal(workspace.State))
         {
+            if (workspace.CleanupState == AttemptWorkspaceCleanupState.Pending)
+            {
+                var reclaimedTerminal = await EnsureLeaseAsync(command, workspace, cancellationToken);
+                if (reclaimedTerminal is null)
+                {
+                    return new IsolatedExecutionResult(
+                        IsolatedExecutionStatus.Rejected,
+                        workspace,
+                        [],
+                        null,
+                        workspace.FinalError);
+                }
+
+                var terminalManager = await GitWorktreeManager.OpenAsync(
+                    workspace.RepositoryRoot,
+                    workspace.ControlledRoot,
+                    cancellationToken);
+                workspace = await CleanupAndReleaseAsync(
+                    command,
+                    reclaimedTerminal,
+                    terminalManager,
+                    SandboxAttemptLabel(workspace.AttemptId),
+                    cancellationToken);
+            }
+
+            return TerminalResult(workspace);
+        }
+
+        var ensured = await EnsureLeaseAsync(command, workspace, cancellationToken);
+        if (ensured is null)
+        {
             return new IsolatedExecutionResult(
-                workspace.State == AttemptWorkspaceState.Completed
-                    ? IsolatedExecutionStatus.Completed
-                    : IsolatedExecutionStatus.Failed,
+                IsolatedExecutionStatus.Rejected,
                 workspace,
                 [],
                 null,
-                workspace.FinalError);
+                null);
         }
 
+        workspace = ensured;
         var sandboxLabel = SandboxAttemptLabel(workspace.AttemptId);
         GitWorktreeManager? manager = null;
         try
@@ -199,6 +229,37 @@ public sealed class IsolatedAttemptOrchestrator(
 
     public static string SandboxAttemptLabel(string attemptId) =>
         $"wsp-{attemptId[^20..].ToLowerInvariant()}";
+
+    private static IsolatedExecutionResult TerminalResult(AttemptWorkspaceSnapshot workspace) =>
+        new(
+            workspace.State == AttemptWorkspaceState.Completed
+                ? IsolatedExecutionStatus.Completed
+                : IsolatedExecutionStatus.Failed,
+            workspace,
+            [],
+            null,
+            workspace.FinalError);
+
+    private async Task<AttemptWorkspaceSnapshot?> EnsureLeaseAsync(
+        StartIsolatedExecutionCommand command,
+        AttemptWorkspaceSnapshot workspace,
+        CancellationToken cancellationToken)
+    {
+        if (OwnsLease(workspace, command.Owner) && workspace.LeaseExpiresAt > _clock.UtcNow)
+        {
+            return workspace;
+        }
+
+        var reclaimed = await _store.ReclaimExpiredAsync(
+            new AttemptWorkspaceReclaimCommand(
+                command.TenantId,
+                command.AttemptId,
+                command.Owner,
+                command.LeaseDuration,
+                _clock.UtcNow),
+            cancellationToken);
+        return reclaimed.Succeeded ? reclaimed.Workspace : null;
+    }
 
     private async Task<AttemptWorkspaceSnapshot> TransitionAsync(
         StartIsolatedExecutionCommand command,
