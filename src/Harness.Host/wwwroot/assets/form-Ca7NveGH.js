@@ -1,1 +1,0 @@
-function g(l){return async u=>{const r=l.safeParse(u);if(r.success)return{values:r.data,errors:{}};const a={};for(const s of r.error.issues){const t=s.path.length>0?s.path:["root"];let e=a;for(let n=0;n<t.length-1;n+=1){const o=String(t[n]);e[o]=e[o]??{},e=e[o]}const c=String(t[t.length-1]);e[c]||(e[c]={type:s.code,message:s.message})}return{values:{},errors:a}}}export{g as z};

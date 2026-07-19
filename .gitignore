@@ -25,3 +25,6 @@ storybook-static/
 # .NET build artifacts (backend)
 [Bb]in/
 [Oo]bj/
+
+# Frontend build output embarcado no Host (gerado por tools/backend/build-frontend.sh)
+src/Harness.Host/wwwroot/

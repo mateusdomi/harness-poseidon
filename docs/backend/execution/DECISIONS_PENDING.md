@@ -24,3 +24,13 @@ fluxo de publish da Kimi): **gitignore de `src/Harness.Host/wwwroot/**` + `git r
 o Host servir sempre o bundle recém-buildado (o publish self-contained já embarca o resultado de
 `build-frontend.sh`). Decidir com o usuário/Kimi antes de aplicar. Enquanto não decidido, o backend
 mantém o bundle consistente com o `frontend/**` de `origin/develop` a cada checkpoint de integração.
+
+### RESOLVIDO 2026-07-19 — bundle `wwwroot` desversionado
+
+Decisão (delegada pelo usuário ao backend, já que a Kimi atua majoritariamente no frontend):
+**desversionar** `src/Harness.Host/wwwroot/**` (adicionado ao `.gitignore` + `git rm --cached`). O
+bundle é build output puro, regenerado por `tools/backend/build-frontend.sh`, que roda em `verify.sh`
+e no publish self-contained (F7). Encerra o churn recorrente a cada tela nova da Kimi (FR-N), que
+alterava só `frontend/**` e deixava o bundle commitado stale. Pré-requisito consciente: rodar
+`build-frontend.sh` (ou `verify.sh`) antes de `dotnet test` isolado ou de `dotnet run`, senão o Host
+serve sem SPA (fallback API). O gate canônico `verify.sh` já garante isso.
