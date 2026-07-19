@@ -497,6 +497,29 @@ public static class AttemptWorkspaceCommandHash
     public static string Compute(AttemptWorkspaceAcquireCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+        return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
+            new AcquireIdentity(
+                command.TenantId,
+                command.ProjectId,
+                command.TaskId,
+                command.AttemptId,
+                command.RepositoryRoot,
+                command.ControlledRoot,
+                command.BaseReference,
+                command.BranchName,
+                command.WorktreePath,
+                command.ScopeClaims))));
     }
+
+    private sealed record AcquireIdentity(
+        string TenantId,
+        string ProjectId,
+        string TaskId,
+        string AttemptId,
+        string RepositoryRoot,
+        string ControlledRoot,
+        string BaseReference,
+        string BranchName,
+        string WorktreePath,
+        IReadOnlyList<string> ScopeClaims);
 }
