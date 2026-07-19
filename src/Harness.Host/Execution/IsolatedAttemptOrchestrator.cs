@@ -88,12 +88,11 @@ public sealed class IsolatedAttemptOrchestrator(
                     workspace.RepositoryRoot,
                     workspace.ControlledRoot,
                     cancellationToken);
-                workspace = await CleanupAndReleaseAsync(
+                workspace = await TryCleanupAndReleaseAsync(
                     command,
                     reclaimedTerminal,
                     terminalManager,
-                    SandboxAttemptLabel(workspace.AttemptId),
-                    cancellationToken);
+                    SandboxAttemptLabel(workspace.AttemptId)) ?? reclaimedTerminal;
             }
 
             return TerminalResult(workspace);
@@ -191,12 +190,11 @@ public sealed class IsolatedAttemptOrchestrator(
                 AttemptWorkspaceState.Completed,
                 sessionId: execution.SessionId,
                 cancellationToken: cancellationToken);
-            workspace = await CleanupAndReleaseAsync(
+            workspace = await TryCleanupAndReleaseAsync(
                 command,
                 workspace,
                 manager,
-                sandboxLabel,
-                cancellationToken);
+                sandboxLabel) ?? workspace;
             return new IsolatedExecutionResult(
                 IsolatedExecutionStatus.Completed,
                 workspace,
@@ -368,7 +366,15 @@ public sealed class IsolatedAttemptOrchestrator(
         }
         catch (Exception)
         {
-            return workspace;
+            try
+            {
+                return await _store.GetAsync(command.TenantId, command.AttemptId, CancellationToken.None)
+                    ?? workspace;
+            }
+            catch (Exception)
+            {
+                return workspace;
+            }
         }
     }
 
