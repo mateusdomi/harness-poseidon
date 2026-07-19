@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { MessagesSquare, Plus } from 'lucide-react';
+import { MessagesSquare, PanelRight, Plus } from 'lucide-react';
 
 import type { Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton } from '@/design-system';
+import { useMediaQuery } from '@/features/board/hooks/use-media-query';
 import { Composer, type ChatAttachment } from '@/features/chat/components/composer';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { MessageBubble } from '@/features/chat/components/message-bubble';
 import { QuickActions } from '@/features/chat/components/quick-actions';
+import { WorkflowPanel, WorkflowPanelDrawer } from '@/features/chat/components/workflow-panel';
 import {
   useChatModels,
   useChatReferences,
@@ -21,6 +23,7 @@ import {
 import { deriveQuickActions, isTurnActive, type QuickActionKey } from '@/features/chat/lib/chat-derive';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useActiveProjectStore } from '@/stores/active-project-store';
+import { useUiStore } from '@/stores/ui-store';
 
 export default function ChatPage() {
   const { t } = useTranslation();
@@ -57,6 +60,14 @@ export default function ChatPage() {
   const turn = useChatTurnStream(conversationId);
   const modelsQuery = useChatModels();
   const { tasks, documents, agents } = useChatReferences(projectId);
+
+  // Painel lateral de workflow (FR-2): aside recolhível no desktop (lg+,
+  // estado persistido na ui-store) e drawer no mobile — nunca as duas
+  // regiões escondidas por CSS; o matchMedia decide (mesmo padrão do quadro).
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const panelOpen = useUiStore((s) => s.chatWorkflowPanelOpen);
+  const togglePanel = useUiStore((s) => s.toggleChatWorkflowPanel);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Rascunho vindo do cockpit ("Executar no chat").
   const chatDraft = useActiveProjectStore((s) => s.chatDraft);
@@ -157,7 +168,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[70svh] w-full max-w-5xl flex-col gap-4 lg:h-[calc(100svh-10rem)]">
+    <div className="flex w-full gap-4 lg:gap-6">
+      <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-4 lg:h-[calc(100svh-10rem)]">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-semibold">{t('features.chat.title')}</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -189,6 +201,20 @@ export default function ChatPage() {
           >
             <Plus aria-hidden="true" />
             {t('chat.conversation.new')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-expanded={isDesktop ? panelOpen : drawerOpen}
+            aria-label={
+              (isDesktop && panelOpen) || (!isDesktop && drawerOpen)
+                ? t('chat.workflowPanel.close')
+                : t('chat.workflowPanel.open')
+            }
+            onClick={() => (isDesktop ? togglePanel() : setDrawerOpen(true))}
+          >
+            <PanelRight aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -277,6 +303,23 @@ export default function ChatPage() {
         onDraftConsumed={() => setDraft('')}
         onSend={send}
       />
+      </div>
+
+      {isDesktop && panelOpen && (
+        <aside
+          aria-label={t('chat.workflowPanel.title')}
+          className="hidden w-80 shrink-0 flex-col gap-3 lg:flex lg:h-[calc(100svh-10rem)]"
+        >
+          <h2 className="font-heading text-lg font-semibold">{t('chat.workflowPanel.title')}</h2>
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-surface p-3">
+            <WorkflowPanel projectId={projectId} />
+          </div>
+        </aside>
+      )}
+
+      {!isDesktop && drawerOpen && (
+        <WorkflowPanelDrawer projectId={projectId} onClose={() => setDrawerOpen(false)} />
+      )}
     </div>
   );
 }

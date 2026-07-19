@@ -610,7 +610,20 @@
     },
     "activity": {
       "title": "Atividade recente",
-      "empty": "Nenhum evento de auditoria ainda."
+      "empty": "Nenhum evento de auditoria ainda.",
+      "period": {
+        "label": "Período da atividade",
+        "options": {
+          "24h": "Últimas 24 horas",
+          "3d": "Últimos 3 dias",
+          "7d": "Últimos 7 dias"
+        }
+      },
+      "emptyPeriod": "Nenhuma atividade nas {{period}}.",
+      "emptyPeriodHint": "Amplie o período acima ou confira o histórico completo na Governança.",
+      "showing": "Exibindo {{shown}} de {{total}}",
+      "loadMore": "Carregar mais {{count}}",
+      "fullHistory": "Ver histórico completo"
     }
   },
   "board": {
@@ -711,6 +724,31 @@
       "newTitle": "Nova conversa"
     },
     "messagesLabel": "Mensagens da conversa",
+    "workflowPanel": {
+      "title": "Workflow do projeto",
+      "open": "Abrir painel do workflow",
+      "close": "Fechar painel do workflow",
+      "phaseProgress": "Progresso da fase {{phase}}",
+      "documentsLabel": "Documentos da fase {{phase}}",
+      "noDocuments": "Nenhum documento vinculado a esta fase.",
+      "noDocumentsFiltered": "Nenhum documento neste estado.",
+      "filters": {
+        "label": "Filtrar documentos da fase {{phase}}"
+      },
+      "health": {
+        "notProduced": "Não produzido",
+        "produced": "Produzido",
+        "awaitingApproval": "Aguardando aprovação",
+        "approved": "Aprovado",
+        "rejected": "Rejeitado/inconsistente",
+        "notApplicable": "Não aplicável"
+      },
+      "empty": {
+        "title": "Nenhum workflow ativo",
+        "body": "Vincule um workflow ao projeto para acompanhar fases, progresso e documentos sem sair da conversa.",
+        "cta": "Ver workflows"
+      }
+    },
     "noProject": {
       "body": "O chat conversa com o chefe de um projeto. Crie um projeto para começar.",
       "cta": "Criar projeto"

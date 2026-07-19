@@ -119,15 +119,20 @@ export function useCockpitWorkflow(projectId: Ulid | null) {
   };
 }
 
-/** Timeline de auditoria (mais recentes primeiro, limitada). */
-export function useCockpitActivity(limit = 8) {
+/**
+ * Timeline de auditoria COMPLETA (mais recentes primeiro). O recorte por
+ * período e o carregamento incremental ficam no ActivityFeed (D-070):
+ * filtrar/fatiar no cliente mantém o feed realtime (evento novo entra no
+ * topo sem refetch de página).
+ */
+export function useCockpitActivity() {
   const api = useApi();
   return useQuery({
     queryKey: cockpitKeys.audit,
     queryFn: async () =>
-      (await api.list('audit-events')).items
-        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
-        .slice(0, limit),
+      (await api.list('audit-events')).items.sort((a, b) =>
+        b.occurredAt.localeCompare(a.occurredAt),
+      ),
   });
 }
 

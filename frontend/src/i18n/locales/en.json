@@ -610,7 +610,20 @@
     },
     "activity": {
       "title": "Recent activity",
-      "empty": "No audit events yet."
+      "empty": "No audit events yet.",
+      "period": {
+        "label": "Activity period",
+        "options": {
+          "24h": "Last 24 hours",
+          "3d": "Last 3 days",
+          "7d": "Last 7 days"
+        }
+      },
+      "emptyPeriod": "No activity in the {{period}}.",
+      "emptyPeriodHint": "Widen the period above or check the full history in Governance.",
+      "showing": "Showing {{shown}} of {{total}}",
+      "loadMore": "Load {{count}} more",
+      "fullHistory": "View full history"
     }
   },
   "board": {
@@ -711,6 +724,31 @@
       "newTitle": "New conversation"
     },
     "messagesLabel": "Conversation messages",
+    "workflowPanel": {
+      "title": "Project workflow",
+      "open": "Open workflow panel",
+      "close": "Close workflow panel",
+      "phaseProgress": "Progress of phase {{phase}}",
+      "documentsLabel": "Documents of phase {{phase}}",
+      "noDocuments": "No documents linked to this phase.",
+      "noDocumentsFiltered": "No documents in this state.",
+      "filters": {
+        "label": "Filter documents of phase {{phase}}"
+      },
+      "health": {
+        "notProduced": "Not produced",
+        "produced": "Produced",
+        "awaitingApproval": "Awaiting approval",
+        "approved": "Approved",
+        "rejected": "Rejected/inconsistent",
+        "notApplicable": "Not applicable"
+      },
+      "empty": {
+        "title": "No active workflow",
+        "body": "Link a workflow to the project to track phases, progress and documents without leaving the conversation.",
+        "cta": "View workflows"
+      }
+    },
     "noProject": {
       "body": "The chat talks to a project's chief. Create a project to get started.",
       "cta": "Create project"

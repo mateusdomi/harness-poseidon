@@ -1,6 +1,7 @@
 import type {
   Agent,
   AgentState,
+  AuditEvent,
   Budget,
   Gate,
   Phase,
@@ -107,6 +108,31 @@ export type NextActionKey =
   | 'recoverAgents'
   | 'reviewQuotas'
   | 'reviewPhase';
+
+/* ---- Atividade recente: recorte por período (D-070) ---- */
+
+/** Períodos do feed de atividade (padrão: últimas 24 horas). */
+export const ACTIVITY_PERIODS = ['24h', '3d', '7d'] as const;
+export type ActivityPeriod = (typeof ACTIVITY_PERIODS)[number];
+
+const ACTIVITY_PERIOD_HOURS: Record<ActivityPeriod, number> = {
+  '24h': 24,
+  '3d': 72,
+  '7d': 168,
+};
+
+/**
+ * Filtra eventos de auditoria pelo período (janela móvel até `now`).
+ * Evento exatamente no corte entra (janela inclusiva).
+ */
+export function filterActivityByPeriod(
+  events: readonly AuditEvent[],
+  period: ActivityPeriod,
+  now: Date,
+): AuditEvent[] {
+  const cutoff = now.getTime() - ACTIVITY_PERIOD_HOURS[period] * 3_600_000;
+  return events.filter((event) => Date.parse(event.occurredAt) >= cutoff);
+}
 
 export interface NextActionInput {
   pendingApprovals: number;

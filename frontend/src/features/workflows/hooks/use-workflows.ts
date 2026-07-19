@@ -30,7 +30,7 @@ export const workflowKeys = {
 };
 
 /** Prefixo que cobre todas as queries da feature. */
-const WORKFLOWS_PREFIX = ['workflows'] as const;
+export const WORKFLOWS_PREFIX = ['workflows'] as const;
 
 /** Workflow vinculado ao projeto (versão ativa + modo de operação). */
 export function useProjectWorkflow(projectId: Ulid | null) {
