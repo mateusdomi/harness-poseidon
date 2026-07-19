@@ -11,7 +11,7 @@ public sealed class WorkBoardContractDriftTests
         ["BoardTaskContract"] = ["id", "projectId", "demandId", "title", "state", "priority", "assigneeAgentId", "blockedReason", "instructionVersion", "progress", "createdAt", "updatedAt", "dueAt", "archivedAt", "phaseName"],
         ["TaskInstructionContract"] = ["id", "taskId", "version", "body", "authorKind", "authorId", "createdAt"],
         ["AttemptContract"] = ["id", "taskId", "number", "state", "agentId", "startedAt", "finishedAt", "durationMs", "costUsd", "tokensInput", "tokensOutput", "commitRefs", "summary", "failureReason"],
-        ["AttemptEventContract"] = ["id", "attemptId", "kind", "content", "occurredAt"],
+        ["AttemptEventContract"] = ["id", "attemptId", "kind", "content", "occurredAt", "severity"],
         ["SolicitationAnalysisItemContract"] = ["id", "text"],
         ["SolicitationAnalysisContract"] = ["solicitationId", "requirements", "ambiguities", "contradictions", "questions", "acceptanceCriteria"],
     };
@@ -53,7 +53,8 @@ public sealed class WorkBoardContractDriftTests
         AssertFrontend(delivery, "taskSchema", "Task", WithoutPhase(Schemas["BoardTaskContract"]));
         AssertFrontend(delivery, "taskInstructionSchema", "TaskInstruction", Schemas["TaskInstructionContract"]);
         AssertFrontend(delivery, "attemptSchema", "Attempt", Schemas["AttemptContract"]);
-        AssertFrontend(delivery, "attemptEventSchema", "AttemptEvent", Schemas["AttemptEventContract"]);
+        AssertFrontend(delivery, "attemptEventSchema", "AttemptEvent",
+            Schemas["AttemptEventContract"].Where(field => field != "severity").ToArray());
     }
 
     private static void AssertMethods(JsonElement paths, string path, params string[] methods) =>

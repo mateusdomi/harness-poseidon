@@ -337,13 +337,14 @@ public sealed partial class PostgresWorkChainStore
             await ExecuteAsync(
                 connection, transaction,
                 """
-                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at)
-                VALUES ($1, $2, $3, $4, 'note', $5, $6);
+                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at, severity)
+                VALUES ($1, $2, $3, $4, 'note', $5, $6, $7);
                 """,
                 cancellationToken,
                 Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
                 Text(row.ProjectId), Text(command.AttemptId), Text(command.Rationale),
-                Timestamp(command.OccurredAt));
+                Timestamp(command.OccurredAt),
+                Text(command.Decision == "rejected" ? "error" : "info"));
             var taskState = command.Decision == "approved" ? "completed" : "ready";
             var nextVersion = row.Version + 1;
             await ExecuteAsync(

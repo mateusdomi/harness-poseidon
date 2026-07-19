@@ -265,6 +265,7 @@ public sealed class WorkBoardApiTests
                     var attemptEvents = await client.GetFromJsonAsync<AttemptEventPage>(
                         $"/api/v1/attempt-events?attemptId={firstAttemptId}", timeout.Token);
                     Assert.Equal(["log", "log", "note"], attemptEvents?.Items.Select(x => x.Kind));
+                    Assert.Equal(["info", "info", "error"], attemptEvents?.Items.Select(x => x.Severity));
                 }
                 finally { await app.StopAsync(timeout.Token); }
             }

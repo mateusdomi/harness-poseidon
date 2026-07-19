@@ -37,7 +37,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
                a.summary,a.failure_reason,a.operational_state FROM harness.work_attempts a
         """;
     private const string AttemptEventSelect =
-        "SELECT tenant_id,id,attempt_id,kind,content,occurred_at FROM harness.attempt_events";
+        "SELECT tenant_id,id,attempt_id,kind,content,occurred_at,severity FROM harness.attempt_events";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -651,7 +651,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
     private static BoardAttemptEventRecord ReadAttemptEvent(NpgsqlDataReader reader) => new(
         reader.GetString(0).TrimEnd(), reader.GetString(1).TrimEnd(),
         reader.GetString(2).TrimEnd(), reader.GetString(3), reader.GetString(4),
-        reader.GetFieldValue<DateTimeOffset>(5));
+        reader.GetFieldValue<DateTimeOffset>(5), reader.GetString(6));
 
     private static string DemandPayload(BoardDemandRecord demand) => JsonSerializer.Serialize(new
     {

@@ -29,7 +29,8 @@ public sealed record AttemptContract(
     string? FailureReason);
 
 public sealed record AttemptEventContract(
-    string Id, string AttemptId, string Kind, string Content, DateTimeOffset OccurredAt);
+    string Id, string AttemptId, string Kind, string Content, DateTimeOffset OccurredAt,
+    string Severity = "info");
 
 public sealed record SolicitationAnalysisItemContract(string Id, string Text);
 

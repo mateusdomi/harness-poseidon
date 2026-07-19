@@ -458,7 +458,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
     }
     private static BoardAttemptEventRecord ReadAttemptEvent(SqliteDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
-        Parse(r.GetString(5)));
+        Parse(r.GetString(5)), r.GetString(6));
 
     private static string DemandPayload(BoardDemandRecord d) => JsonSerializer.Serialize(new
     {
@@ -542,7 +542,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
                a.summary,a.failure_reason,a.operational_state FROM work_attempts a
         """;
     private const string AttemptEventSelect =
-        "SELECT tenant_id,id,attempt_id,kind,content,occurred_at FROM attempt_events";
+        "SELECT tenant_id,id,attempt_id,kind,content,occurred_at,severity FROM attempt_events";
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture);
     private static string Store(DateTimeOffset value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
 

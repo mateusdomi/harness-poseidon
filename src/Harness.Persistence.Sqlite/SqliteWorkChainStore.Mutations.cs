@@ -336,8 +336,9 @@ public sealed partial class SqliteWorkChainStore
                 UPDATE work_attempts SET state = $decision,
                     operational_state = CASE WHEN $decision='rejected' THEN 'failed' ELSE 'completed' END
                 WHERE id = $attemptId AND state = 'awaiting_review';
-                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
-                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'note',$rationale,$occurredAt);
+                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
+                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'note',$rationale,$occurredAt,
+                        CASE WHEN $decision='rejected' THEN 'error' ELSE 'info' END);
                 UPDATE work_tasks SET state = $taskState, version = $nextVersion,
                     updated_at = $occurredAt,
                     board_state=CASE WHEN $taskState='completed' THEN 'done' ELSE 'corrections' END,

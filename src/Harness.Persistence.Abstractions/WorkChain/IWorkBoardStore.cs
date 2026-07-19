@@ -96,7 +96,7 @@ public sealed record BoardAttemptRecord(
 
 public sealed record BoardAttemptEventRecord(
     string TenantId, string Id, string AttemptId, string Kind, string Content,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt, string Severity = "info");
 
 public sealed record BoardSolicitationCreateCommand(
     string TenantId, string Id, string ProjectId, string AuthorProfileId, string Kind,
