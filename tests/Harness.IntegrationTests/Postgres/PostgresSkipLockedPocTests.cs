@@ -49,6 +49,7 @@ public sealed class PostgresSkipLockedPocTests
         await ValidateDocumentSchemaAsync(dataSource, timeout.Token);
         await DocumentStoreBehavior.AssertAsync(
             new PostgresDocumentStore(dataSource),
+            new PostgresDocumentCatalogStore(dataSource),
             timeout.Token);
         var durableEngine = new PostgresDurableExecutionEngine(dataSource);
         await DurableExecutionWatchdogBehavior.AssertAsync(durableEngine, timeout.Token);

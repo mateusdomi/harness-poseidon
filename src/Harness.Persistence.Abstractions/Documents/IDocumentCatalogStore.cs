@@ -6,6 +6,10 @@ public interface IDocumentCatalogStore
         string tenantId, string? projectId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
 
+    Task<DocumentCatalogPageRecord> PageDocumentsAsync(
+        string tenantId, DocumentCatalogPageQuery query,
+        CancellationToken cancellationToken = default);
+
     Task<DocumentCatalogRecord?> GetDocumentAsync(
         string tenantId, string documentId, CancellationToken cancellationToken = default);
 
@@ -43,6 +47,13 @@ public sealed record DocumentCatalogRecord(
     string Id, string ProjectId, string Title, string Kind, string State, int CurrentVersion,
     IReadOnlyList<string> Classifications, string? PhaseName, bool Inconsistent,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, long AggregateVersion);
+
+public sealed record DocumentCatalogPageQuery(
+    string? ProjectId, string? SearchPattern, string? Kind, string? State, string? PhaseName,
+    string? Classification, bool OrphanOnly, bool? Inconsistent, int Offset, int Limit);
+
+public sealed record DocumentCatalogPageRecord(
+    IReadOnlyList<DocumentCatalogRecord> Items, int Total);
 
 public sealed record DocumentVersionCatalogRecord(
     string Id, string DocumentId, int Version, string CatalogPath, string ContentHash,

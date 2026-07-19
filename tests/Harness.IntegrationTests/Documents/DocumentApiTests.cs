@@ -63,6 +63,19 @@ public sealed class DocumentApiTests
                     }
                     var page = await client.GetFromJsonAsync<DocumentPage>($"/api/v1/documents?projectId={projectId}", timeout.Token);
                     Assert.Equal(documentId, Assert.Single(page!.Items).Id);
+                    Assert.Equal(1, page.Total); Assert.Equal(1, page.Page);
+                    Assert.Equal(15, page.PageSize); Assert.Null(page.NextCursor);
+                    var filteredPage = await client.GetFromJsonAsync<DocumentPage>(
+                        $"/api/v1/documents?projectId={projectId}&q=adr&kind=spec&state=inElaboration" +
+                        "&classification=arquitetura&orphan=true&page=1&pageSize=1", timeout.Token);
+                    Assert.Equal(documentId, Assert.Single(filteredPage!.Items).Id);
+                    Assert.Equal(1, filteredPage.Total); Assert.Equal(1, filteredPage.PageSize);
+                    using (var invalidPage = await client.GetAsync(
+                        $"/api/v1/documents?projectId={projectId}&pageSize=0", timeout.Token))
+                        Assert.Equal(HttpStatusCode.BadRequest, invalidPage.StatusCode);
+                    using (var mixedPage = await client.GetAsync(
+                        $"/api/v1/documents?projectId={projectId}&cursor={documentId}&page=1", timeout.Token))
+                        Assert.Equal(HttpStatusCode.BadRequest, mixedPage.StatusCode);
                     var versions = await client.GetFromJsonAsync<DocumentVersionPage>($"/api/v1/document-versions?documentId={documentId}", timeout.Token);
                     var first = Assert.Single(versions!.Items); firstVersionId = first.Id;
                     Assert.Equal("# v1", first.Body); Assert.Equal("user", first.AuthorKind); Assert.Equal(profileId, first.AuthorId);
@@ -81,6 +94,10 @@ public sealed class DocumentApiTests
                     using (var classify = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/classification",
                         new ClassifyDocumentRequest(["normativo", "arquitetura"], "Revisão"), timeout.Token))
                     { Assert.Equal(HttpStatusCode.OK, classify.StatusCode); var changed = await classify.Content.ReadFromJsonAsync<DocumentContract>(timeout.Token); Assert.Equal(["arquitetura", "normativo"], changed?.Classifications); Assert.Equal("Revisão", changed?.PhaseName); }
+                    var phasePage = await client.GetFromJsonAsync<DocumentPage>(
+                        $"/api/v1/documents?projectId={projectId}&phaseName={Uri.EscapeDataString("Revisão")}",
+                        timeout.Token);
+                    Assert.Equal(documentId, Assert.Single(phasePage!.Items).Id);
                     using (var review = await client.PostAsJsonAsync($"/api/v1/documents/{documentId}/transitions",
                         new TransitionDocumentRequest("inReview"), timeout.Token))
                     { Assert.Equal(HttpStatusCode.OK, review.StatusCode); Assert.Equal("inReview", (await review.Content.ReadFromJsonAsync<DocumentContract>(timeout.Token))?.State); }

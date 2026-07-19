@@ -8,6 +8,7 @@ internal static class DocumentStoreBehavior
 {
     public static async Task AssertAsync(
         IDocumentStore store,
+        IDocumentCatalogStore catalog,
         CancellationToken cancellationToken)
     {
         var command = Command();
@@ -200,6 +201,11 @@ internal static class DocumentStoreBehavior
         Assert.True(classified.Inconsistent);
         Assert.Equal(metadata.Classifications, classified.Classifications);
         Assert.Empty(classified.StateTransitions);
+        var catalogPage = await catalog.PageDocumentsAsync(command.TenantId, new(
+            command.ProjectId, "%architecture%", command.Kind, "in_elaboration", "Review",
+            "governance", false, true, 0, 15), cancellationToken);
+        Assert.Single(catalogPage.Items); Assert.Equal(1, catalogPage.Total);
+        Assert.Equal(command.DocumentId, catalogPage.Items[0].Id);
 
         var transition = new DocumentTransitionCommand(
             command.TenantId,

@@ -11,6 +11,9 @@ namespace Harness.Host.Documents;
 
 public static class DocumentEndpoints
 {
+    private static readonly HashSet<string> DocumentKinds = new(
+        ["prd", "spec", "design", "runbook", "note", "report"], StringComparer.Ordinal);
+
     public static IEndpointRouteBuilder MapDocumentCatalog(this IEndpointRouteBuilder endpoints)
     {
         var documents = endpoints.MapGroup("/api/v1/documents").WithTags("documents");
@@ -34,16 +37,38 @@ public static class DocumentEndpoints
     }
 
     private static async Task<IResult> ListDocumentsAsync(
-        string? projectId, string? cursor, int? limit, HttpRequest request,
+        string? projectId, string? q, string? kind, string? state, string? phaseName,
+        string? classification, bool? orphan, bool? inconsistent, int? page, int? pageSize,
+        string? cursor, int? limit, HttpRequest request,
         ILocalProfileStore profiles, IDocumentCatalogStore store, CancellationToken token)
     {
-        var invalid = Page(cursor, limit, projectId); if (invalid is not null) return invalid;
+        var invalid = DocumentPageValidation(projectId, q, kind, state, phaseName, classification,
+            orphan, inconsistent, page, pageSize, cursor, limit);
+        if (invalid is not null) return invalid;
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
-        var size = limit ?? 100;
-        var rows = await store.ListDocumentsAsync(profile.TenantId, projectId, cursor, size + 1, token);
-        var more = rows.Count > size; var selected = rows.Take(size).ToArray();
-        return Results.Ok(new DocumentPage(selected.Select(ToContract).ToArray(),
-            more ? selected[^1].Id : null));
+        if (cursor is not null || limit is not null)
+        {
+            var size = limit ?? 100;
+            var rows = await store.ListDocumentsAsync(
+                profile.TenantId, projectId, cursor, size + 1, token);
+            var more = rows.Count > size; var selected = rows.Take(size).ToArray();
+            return Results.Ok(new DocumentPage(selected.Select(ToContract).ToArray(),
+                more ? selected[^1].Id : null, selected.Length, 1, size));
+        }
+
+        string? storeState = null;
+        try { if (state is not null) storeState = DocumentApiApplicationService.ToStoreState(state); }
+        catch (ArgumentException exception)
+        { return Problem(400, "invalid_document_page", exception.Message); }
+        var requestedPage = page ?? 1; var requestedSize = pageSize ?? 15;
+        var search = string.IsNullOrWhiteSpace(q)
+            ? null
+            : $"%{EscapeLike(q.Trim().ToLowerInvariant())}%";
+        var result = await store.PageDocumentsAsync(profile.TenantId, new(
+            projectId, search, kind, storeState, phaseName, classification, orphan == true,
+            inconsistent, checked((requestedPage - 1) * requestedSize), requestedSize), token);
+        return Results.Ok(new DocumentPage(result.Items.Select(ToContract).ToArray(), null,
+            result.Total, requestedPage, requestedSize));
     }
 
     private static async Task<IResult> GetDocumentAsync(
@@ -339,6 +364,36 @@ public static class DocumentEndpoints
         ((cursor is not null && !Valid(cursor)) || limit is < 1 or > 200 ||
          filters.Any(value => value is not null && !Valid(value)))
             ? Problem(400, "invalid_cursor", "Filter, cursor, or limit is invalid.") : null;
+    private static IResult? DocumentPageValidation(
+        string? projectId, string? query, string? kind, string? state, string? phaseName,
+        string? classification, bool? orphan, bool? inconsistent, int? page, int? pageSize,
+        string? cursor, int? limit)
+    {
+        if (projectId is not null && !Valid(projectId) || (query?.Length ?? 0) > 200 ||
+            kind is not null && !DocumentKinds.Contains(kind) || (phaseName?.Length ?? 0) > 200 ||
+            (classification?.Length ?? 0) > 100 || orphan == true && phaseName is not null ||
+            page is < 1 or > 100_000 || pageSize is < 1 or > 200)
+            return Problem(400, "invalid_document_page", "Document filters or pagination bounds are invalid.");
+        if (state is not null)
+        {
+            try { _ = DocumentApiApplicationService.ToStoreState(state); }
+            catch (ArgumentException exception)
+            { return Problem(400, "invalid_document_page", exception.Message); }
+        }
+        if (cursor is not null || limit is not null)
+        {
+            if (page is not null || pageSize is not null || query is not null || kind is not null ||
+                state is not null || phaseName is not null || classification is not null ||
+                orphan is not null || inconsistent is not null)
+                return Problem(400, "mixed_document_pagination", "Cursor and page pagination cannot be combined.");
+            return Page(cursor, limit, projectId);
+        }
+        return null;
+    }
+    private static string EscapeLike(string value) => value
+        .Replace("\\", "\\\\", StringComparison.Ordinal)
+        .Replace("%", "\\%", StringComparison.Ordinal)
+        .Replace("_", "\\_", StringComparison.Ordinal);
     private static IResult MutationProblem(DocumentMutationStatus status) => status switch
     {
         DocumentMutationStatus.NotFound => NotFound("document"),
@@ -354,6 +409,8 @@ public static class DocumentEndpoints
         Results.Problem(statusCode: status, title: title, detail: detail);
 }
 
-public sealed record DocumentPage(IReadOnlyList<DocumentContract> Items, string? NextCursor);
+public sealed record DocumentPage(
+    IReadOnlyList<DocumentContract> Items, string? NextCursor, int Total = 0,
+    int Page = 1, int PageSize = 15);
 public sealed record DocumentVersionPage(IReadOnlyList<DocumentVersionContract> Items, string? NextCursor);
 public sealed record ApprovalPage(IReadOnlyList<ApprovalContract> Items, string? NextCursor);

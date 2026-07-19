@@ -38,6 +38,46 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
             return rows;
         }, cancellationToken);
 
+    public Task<DocumentCatalogPageRecord> PageDocumentsAsync(
+        string tenantId, DocumentCatalogPageQuery query,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            const string filters =
+                "d.tenant_id=$tenant " +
+                "AND ($project IS NULL OR d.project_id=$project) " +
+                "AND ($search IS NULL OR lower(d.title) LIKE $search ESCAPE '\\' OR lower(d.id) LIKE $search ESCAPE '\\') " +
+                "AND ($kind IS NULL OR d.kind=$kind) " +
+                "AND ($state IS NULL OR d.state=$state) " +
+                "AND ($phase IS NULL OR d.phase_name=$phase) " +
+                "AND ($orphan=0 OR d.phase_name IS NULL) " +
+                "AND ($inconsistent IS NULL OR d.inconsistent=$inconsistent) " +
+                "AND ($classification IS NULL OR EXISTS (SELECT 1 FROM document_classifications dc " +
+                "WHERE dc.tenant_id=d.tenant_id AND dc.document_id=d.id AND dc.label=$classification))";
+
+            await using var count = connection.CreateCommand();
+            count.CommandText = $"SELECT COUNT(*) FROM documents d WHERE {filters};";
+            AddDocumentPageParameters(count, tenantId, query);
+            var total = Convert.ToInt32(
+                await count.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
+
+            var ids = new List<string>();
+            await using (var page = connection.CreateCommand())
+            {
+                page.CommandText = $"SELECT d.id FROM documents d WHERE {filters} " +
+                    "ORDER BY d.updated_at DESC,d.id DESC LIMIT $limit OFFSET $offset;";
+                AddDocumentPageParameters(page, tenantId, query);
+                Add(page, "$limit", query.Limit); Add(page, "$offset", query.Offset);
+                await using var reader = await page.ExecuteReaderAsync(token);
+                while (await reader.ReadAsync(token)) ids.Add(reader.GetString(0));
+            }
+
+            var rows = new List<DocumentCatalogRecord>();
+            foreach (var id in ids)
+                rows.Add((await ReadDocumentAsync(connection, tenantId, id, token))!);
+            return new DocumentCatalogPageRecord(rows, total);
+        }, cancellationToken);
+
     public Task<DocumentCatalogRecord?> GetDocumentAsync(
         string tenantId, string documentId, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync(
@@ -170,6 +210,15 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
 
     private static DateTimeOffset Parse(string value) =>
         DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+    private static void AddDocumentPageParameters(
+        SqliteCommand command, string tenantId, DocumentCatalogPageQuery query)
+    {
+        Add(command, "$tenant", tenantId); AddNullable(command, "$project", query.ProjectId);
+        AddNullable(command, "$search", query.SearchPattern); AddNullable(command, "$kind", query.Kind);
+        AddNullable(command, "$state", query.State); AddNullable(command, "$phase", query.PhaseName);
+        Add(command, "$orphan", query.OrphanOnly); AddNullable(command, "$inconsistent", query.Inconsistent);
+        AddNullable(command, "$classification", query.Classification);
+    }
     private static void Add(SqliteCommand command, string name, object value) =>
         command.Parameters.AddWithValue(name, value);
     private static void AddNullable(SqliteCommand command, string name, object? value) =>

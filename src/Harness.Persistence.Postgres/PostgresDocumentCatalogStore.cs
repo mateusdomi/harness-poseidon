@@ -1,3 +1,5 @@
+using System.Data;
+using System.Globalization;
 using Harness.Persistence.Abstractions.Documents;
 using Npgsql;
 using NpgsqlTypes;
@@ -49,6 +51,52 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         }
 
         return rows;
+    }
+
+    public async Task<DocumentCatalogPageRecord> PageDocumentsAsync(
+        string tenantId, DocumentCatalogPageQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        const string filters =
+            "d.tenant_id=$1 " +
+            "AND ($2 IS NULL OR d.project_id=$2) " +
+            "AND ($3 IS NULL OR d.title ILIKE $3 ESCAPE '\\' OR d.id ILIKE $3 ESCAPE '\\') " +
+            "AND ($4 IS NULL OR d.kind=$4) " +
+            "AND ($5 IS NULL OR d.state=$5) " +
+            "AND ($6 IS NULL OR d.phase_name=$6) " +
+            "AND (NOT $7 OR d.phase_name IS NULL) " +
+            "AND ($8 IS NULL OR d.inconsistent=$8) " +
+            "AND ($9 IS NULL OR EXISTS (SELECT 1 FROM harness.document_classifications dc " +
+            "WHERE dc.tenant_id=d.tenant_id AND dc.document_id=d.id AND dc.label=$9))";
+
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, cancellationToken);
+        await using var count = connection.CreateCommand();
+        count.Transaction = transaction;
+        count.CommandText = $"SELECT COUNT(*) FROM harness.documents d WHERE {filters};";
+        AddDocumentPageParameters(count, tenantId, query);
+        var total = Convert.ToInt32(
+            await count.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+
+        var ids = new List<string>();
+        await using (var pageCommand = connection.CreateCommand())
+        {
+            pageCommand.Transaction = transaction;
+            pageCommand.CommandText = $"SELECT d.id FROM harness.documents d WHERE {filters} " +
+                "ORDER BY d.updated_at DESC,d.id DESC LIMIT $10 OFFSET $11;";
+            AddDocumentPageParameters(pageCommand, tenantId, query);
+            pageCommand.Parameters.Add(Integer(query.Limit));
+            pageCommand.Parameters.Add(Integer(query.Offset));
+            await using var reader = await pageCommand.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) ids.Add(reader.GetString(0).TrimEnd());
+        }
+
+        var rows = new List<DocumentCatalogRecord>();
+        foreach (var id in ids)
+            rows.Add((await ReadDocumentAsync(connection, tenantId, id, cancellationToken))!);
+        await transaction.CommitAsync(cancellationToken);
+        return new DocumentCatalogPageRecord(rows, total);
     }
 
     public async Task<DocumentCatalogRecord?> GetDocumentAsync(
@@ -191,6 +239,8 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
 
     private static NpgsqlParameter<int> Integer(int value) => new() { TypedValue = value };
 
+    private static NpgsqlParameter<bool> Boolean(bool value) => new() { TypedValue = value };
+
     private static NpgsqlParameter<long> Bigint(long value) => new() { TypedValue = value };
 
     private static NpgsqlParameter<DateTimeOffset> Timestamp(DateTimeOffset value) =>
@@ -208,11 +258,27 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         Value = (object?)value ?? DBNull.Value,
     };
 
+    private static NpgsqlParameter NullableBoolean(bool? value) => new()
+    {
+        NpgsqlDbType = NpgsqlDbType.Boolean,
+        Value = (object?)value ?? DBNull.Value,
+    };
+
     private static NpgsqlParameter<string> Json(string value) => new()
     {
         NpgsqlDbType = NpgsqlDbType.Jsonb,
         TypedValue = value,
     };
+
+    private static void AddDocumentPageParameters(
+        NpgsqlCommand command, string tenantId, DocumentCatalogPageQuery query)
+    {
+        command.Parameters.Add(Text(tenantId)); command.Parameters.Add(NullableText(query.ProjectId));
+        command.Parameters.Add(NullableText(query.SearchPattern)); command.Parameters.Add(NullableText(query.Kind));
+        command.Parameters.Add(NullableText(query.State)); command.Parameters.Add(NullableText(query.PhaseName));
+        command.Parameters.Add(Boolean(query.OrphanOnly)); command.Parameters.Add(NullableBoolean(query.Inconsistent));
+        command.Parameters.Add(NullableText(query.Classification));
+    }
 
     private sealed record DocumentHeader(
         string Id, string ProjectId, string Title, string Kind, string State, int CurrentVersion,
