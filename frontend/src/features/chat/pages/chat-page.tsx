@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Loader2, Plus } from 'lucide-react';
+import { MessagesSquare, Plus } from 'lucide-react';
 
 import type { Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton } from '@/design-system';
@@ -111,17 +111,21 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
-        <Skeleton className="h-11 w-full" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-24 w-full" />
+      <div
+        className="mx-auto flex w-full max-w-5xl flex-col gap-3"
+        role="status"
+        aria-label={t('common.states.loading')}
+      >
+        <Skeleton className="h-11 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
       </div>
     );
   }
 
   if (errored) {
     return (
-      <div className="flex flex-col items-start gap-3">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-3">
         <p role="alert" className="text-sm text-error">
           {t('common.states.errorBody')}
         </p>
@@ -141,7 +145,7 @@ export default function ChatPage() {
 
   if (!activeProject) {
     return (
-      <Card>
+      <Card className="mx-auto w-full max-w-5xl">
         <CardContent className="flex flex-col items-start gap-3 p-6">
           <p className="text-sm text-foreground-muted">{t('chat.noProject.body')}</p>
           <Button asChild>
@@ -153,7 +157,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex min-h-[70svh] flex-col gap-4 lg:h-[calc(100svh-10rem)]">
+    <div className="mx-auto flex min-h-[70svh] w-full max-w-5xl flex-col gap-4 lg:h-[calc(100svh-10rem)]">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-semibold">{t('features.chat.title')}</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -191,14 +195,24 @@ export default function ChatPage() {
 
       <div
         ref={scrollRef}
-        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-background p-4"
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 sm:p-5"
         aria-live="polite"
         aria-label={t('chat.messagesLabel')}
       >
         {!conversation || (messagesQuery.data ?? []).length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-            <p className="font-heading text-lg font-semibold">{t('chat.empty.title')}</p>
-            <p className="max-w-prose text-sm text-foreground-muted">{t('chat.empty.body')}</p>
+          <div className="relative flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden text-center">
+            {/* Aurora de marca MUITO discreta — permitida apenas em área vazia. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-1/2 top-1/2 size-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[image:var(--gradient-brand)] opacity-[0.07] blur-3xl"
+            />
+            <div className="relative flex size-12 items-center justify-center rounded-full bg-primary/10 text-brand-strong">
+              <MessagesSquare aria-hidden="true" className="size-6" />
+            </div>
+            <p className="relative font-heading text-lg font-semibold">{t('chat.empty.title')}</p>
+            <p className="relative max-w-prose text-sm text-foreground-muted">
+              {t('chat.empty.body')}
+            </p>
           </div>
         ) : (
           <>
@@ -212,11 +226,20 @@ export default function ChatPage() {
               />
             ))}
             {turnActive && (
-              <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-lg border border-border bg-surface p-3 lg:max-w-[70%]">
+              <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-xl border border-border bg-surface-elevated p-3 shadow-card lg:max-w-[70%]">
                 <header className="flex items-center gap-2 text-xs text-foreground-muted">
                   <Badge variant="info">{t('chat.authors.chief')}</Badge>
                   <span className="flex items-center gap-1.5" role="status">
-                    <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+                    {/* Três pontos pulsantes — só renderizados durante o turno real. */}
+                    <span aria-hidden="true" className="flex items-center gap-1">
+                      {[0, 1, 2].map((dot) => (
+                        <span
+                          key={dot}
+                          className="size-1.5 rounded-full bg-brand-strong motion-safe:animate-pulse"
+                          style={{ animationDelay: `${dot * 150}ms` }}
+                        />
+                      ))}
+                    </span>
                     {t('chat.turn.coordinating')}
                     {turn.phase && turn.phase !== 'streaming' && (
                       <span>· {t(`chat.turn.states.${turn.phase}`)}</span>

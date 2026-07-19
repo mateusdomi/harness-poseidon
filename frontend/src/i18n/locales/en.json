@@ -715,6 +715,10 @@
     "references": {
       "label": "Mentioned references"
     },
+    "message": {
+      "copy": "Copy message",
+      "copied": "Message copied"
+    },
     "composer": {
       "messageLabel": "Message to the chief",
       "placeholder": "Write to the project's chief…",

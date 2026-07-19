@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Paperclip, SendHorizonal, X } from 'lucide-react';
+import { Loader2, Paperclip, SendHorizonal, X } from 'lucide-react';
 
 import type { Model } from '@/api';
 import { Button, Select, Textarea } from '@/design-system';
@@ -92,13 +92,13 @@ export function Composer({
   const uploading = attachments.some((a) => a.progress < 100);
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border pt-3">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-card motion-safe:transition-colors motion-safe:duration-base focus-within:border-primary/40">
       {attachments.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label={t('chat.composer.attachments')}>
           {attachments.map((attachment) => (
             <li
               key={attachment.id}
-              className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2"
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface-elevated px-3 py-2"
             >
               <Paperclip aria-hidden="true" className="size-4 shrink-0 text-foreground-muted" />
               <span className="min-w-0 flex-1 truncate text-sm">{attachment.name}</span>
@@ -150,7 +150,7 @@ export function Composer({
           }}
           placeholder={t('chat.composer.placeholder')}
           aria-label={t('chat.composer.messageLabel')}
-          className="min-h-touch flex-1"
+          className="min-h-touch flex-1 border-border bg-background"
           rows={2}
           disabled={disabled}
         />
@@ -183,7 +183,11 @@ export function Composer({
           onClick={send}
           disabled={disabled || sending || uploading || content.trim() === ''}
         >
-          <SendHorizonal aria-hidden="true" />
+          {sending ? (
+            <Loader2 aria-hidden="true" className="animate-spin" />
+          ) : (
+            <SendHorizonal aria-hidden="true" />
+          )}
         </Button>
       </div>
 
@@ -193,7 +197,7 @@ export function Composer({
         </label>
         <Select
           id="chat-model"
-          className="h-9 min-h-touch w-auto text-xs"
+          className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
           value={modelId}
           onChange={(event) => setModelId(event.target.value)}
           disabled={disabled}
@@ -210,7 +214,7 @@ export function Composer({
         </label>
         <Select
           id="chat-effort"
-          className="h-9 min-h-touch w-auto text-xs"
+          className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
           value={effort}
           onChange={(event) => setEffort(event.target.value as EffortLevel)}
           disabled={disabled}

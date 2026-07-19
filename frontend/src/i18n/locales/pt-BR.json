@@ -715,6 +715,10 @@
     "references": {
       "label": "Referências citadas"
     },
+    "message": {
+      "copy": "Copiar mensagem",
+      "copied": "Mensagem copiada"
+    },
     "composer": {
       "messageLabel": "Mensagem para o chefe",
       "placeholder": "Escreva para o chefe do projeto…",

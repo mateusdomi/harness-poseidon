@@ -6,8 +6,10 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         // Ação primária (CTA) — gradiente violeta→magenta da marca (tokens AA).
+        // Hover/active via overlay (::before atrás do conteúdo): background-image
+        // não transiciona, então a troca de gradiente é uma fade de opacidade.
         primary:
-          'bg-primary bg-[image:var(--gradient-primary)] text-primary-foreground hover:bg-[image:var(--gradient-primary-hover)] active:bg-[image:var(--gradient-primary-active)]',
+          'relative isolate overflow-hidden bg-primary bg-[image:var(--gradient-primary)] text-primary-foreground before:absolute before:inset-0 before:-z-10 before:content-[""] before:bg-[image:var(--gradient-primary-hover)] before:opacity-0 motion-safe:before:transition-opacity motion-safe:before:duration-base hover:before:opacity-100 active:before:bg-[image:var(--gradient-primary-active)]',
         brand: 'bg-brand text-white hover:bg-brand/90',
         secondary: 'bg-surface-elevated text-foreground hover:bg-surface-elevated/70',
         outline: 'border border-border-strong bg-transparent text-foreground hover:bg-surface',

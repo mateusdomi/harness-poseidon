@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
-import { buildFixtures } from '@/api';
+import { buildFixtures, type Message } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
+import { MessageBubble } from '@/features/chat/components/message-bubble';
 import {
   deriveQuickActions,
   extractReferences,
@@ -81,6 +82,36 @@ describe('chat-derive', () => {
       'approvalStatus',
       'planNewDemand',
     ]);
+  });
+});
+
+describe('MessageBubble', () => {
+  it('copia o conteúdo e mostra feedback i18n', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+    const message: Message = {
+      id: 'm1',
+      conversationId: 'c1',
+      authorRole: 'chief',
+      authorProfileId: null,
+      authorAgentId: null,
+      content: 'Resposta do chefe.',
+      tokenCount: 10,
+      createdAt: '2026-07-17T12:00:00Z',
+    };
+
+    render(
+      <MemoryRouter>
+        <MessageBubble message={message} authorName="Iara" tasks={[]} documents={[]} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar mensagem' }));
+    expect(writeText).toHaveBeenCalledWith('Resposta do chefe.');
+    expect(await screen.findByText('Mensagem copiada')).toBeInTheDocument();
   });
 });
 
