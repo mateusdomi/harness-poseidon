@@ -100,12 +100,20 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         if (await ReadOneAsync(c, tx, command.TenantId, ProviderSelect, command.ProviderId,
                 ReadProvider, token) is null)
             throw new ProviderCatalogNotFoundException("provider");
+        var capabilities = NormalizeCapabilities(command.Capabilities ?? []);
+        ValidateAccountMetadata(command.Identity, command.Plan, command.Authentication, "unknown",
+            command.QuotaWindow, command.QuotaResetsAt, capabilities);
         await ExecuteAsync(c, tx,
-            "INSERT INTO provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd) VALUES($tenant,$id,$provider,$label,'disabled',$credential,$limit,0);",
+            "INSERT INTO provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd,identity_label,plan,authentication,health,quota_window,quota_resets_at,capabilities_json) VALUES($tenant,$id,$provider,$label,'disabled',$credential,$limit,0,$identity,$plan,$authentication,'unknown',$window,$reset,$capabilities);",
             token, ("$tenant", command.TenantId), ("$id", command.Id),
             ("$provider", command.ProviderId), ("$label", command.Label.Trim()),
             ("$credential", command.CredentialReference.Trim()),
-            ("$limit", command.QuotaLimitUsd ?? (object)DBNull.Value));
+            ("$limit", command.QuotaLimitUsd ?? (object)DBNull.Value),
+            ("$identity", command.Identity?.Trim() ?? (object)DBNull.Value),
+            ("$plan", command.Plan), ("$authentication", command.Authentication),
+            ("$window", command.QuotaWindow),
+            ("$reset", command.QuotaResetsAt is null ? DBNull.Value : Store(command.QuotaResetsAt.Value)),
+            ("$capabilities", JsonSerializer.Serialize(capabilities, JsonOptions)));
         var payload = JsonSerializer.Serialize(new
         {
             auditEvent = new
@@ -189,6 +197,35 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
             throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
     }
 
+    private static void ValidateAccountMetadata(
+        string? identity, string plan, string authentication, string health, string quotaWindow,
+        DateTimeOffset? quotaResetsAt, IReadOnlyList<string> capabilities)
+    {
+        if (identity is not null && (string.IsNullOrWhiteSpace(identity) || identity.Trim().Length > 320))
+            throw new ProviderCatalogValidationException("Account identity is invalid.");
+        if (plan is not ("unknown" or "free" or "pro" or "team" or "enterprise" or "payAsYouGo" or "local"))
+            throw new ProviderCatalogValidationException("Account plan is invalid.");
+        if (authentication is not ("apiKey" or "oauth" or "local"))
+            throw new ProviderCatalogValidationException("Account authentication is invalid.");
+        if (health is not ("unknown" or "healthy" or "degraded" or "unavailable"))
+            throw new ProviderCatalogValidationException("Account health is invalid.");
+        if (quotaWindow is not ("daily" or "weekly" or "monthly" or "none"))
+            throw new ProviderCatalogValidationException("Account quota window is invalid.");
+        if (quotaWindow == "none" && quotaResetsAt is not null)
+            throw new ProviderCatalogValidationException("An account without a quota window cannot have a reset instant.");
+        _ = NormalizeCapabilities(capabilities);
+    }
+
+    private static string[] NormalizeCapabilities(IReadOnlyList<string> capabilities)
+    {
+        string[] allowed = ["audio", "chat", "code", "embeddings", "reasoning", "tools", "vision"];
+        var values = capabilities.Select(x => x?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (values.Length > allowed.Length || values.Any(x => !allowed.Contains(x, StringComparer.Ordinal)))
+            throw new ProviderCatalogValidationException("Account capabilities are invalid.");
+        return values;
+    }
+
     private static async Task<ProviderRecord> UpdateProviderAsync(SqliteConnection c, SqliteTransaction tx, ProviderCatalogUpdateCommand cmd, JsonElement p, CancellationToken token)
     {
         var current = await ReadOneAsync(c, tx, cmd.TenantId, ProviderSelect, cmd.Id, ReadProvider, token) ?? throw new ProviderCatalogNotFoundException("provider");
@@ -210,11 +247,36 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     {
         var current = await ReadOneAsync(c, tx, cmd.TenantId, AccountSelect, cmd.Id, ReadAccount, token) ?? throw new ProviderCatalogNotFoundException("account");
         var label = ReadString(p, "label", current.Label, false); var state = ReadString(p, "state", current.State, false); var quotaLimit = ReadNullableDecimal(p, "quotaLimitUsd", current.QuotaLimitUsd);
+        var identity = ReadOptionalString(p, "identity", current.Identity);
+        var plan = ReadString(p, "plan", current.Plan, false);
+        var authentication = ReadString(p, "authentication", current.Authentication, false);
+        var health = ReadString(p, "health", current.Health, false);
+        var quotaWindow = ReadString(p, "quotaWindow", current.QuotaWindow, false);
+        var quotaResetsAt = ReadNullableInstant(p, "quotaResetsAt", current.QuotaResetsAt);
+        var capabilities = ReadCapabilities(p, current.Capabilities ?? []);
         if (state is not ("active" or "disabled" or "quotaExceeded")) throw new ProviderCatalogValidationException("Account state is invalid.");
         if (quotaLimit < 0) throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
-        await ExecuteAsync(c, tx, "UPDATE provider_accounts SET label=$label,state=$state,quota_limit_usd=$limit WHERE tenant_id=$tenant AND id=$id;", token,
-            ("$label", label), ("$state", state), ("$limit", quotaLimit ?? (object)DBNull.Value), ("$tenant", cmd.TenantId), ("$id", cmd.Id));
-        return current with { Label = label, State = state, QuotaLimitUsd = quotaLimit };
+        ValidateAccountMetadata(identity, plan, authentication, health, quotaWindow, quotaResetsAt, capabilities);
+        await ExecuteAsync(c, tx, "UPDATE provider_accounts SET label=$label,state=$state,quota_limit_usd=$limit,identity_label=$identity,plan=$plan,authentication=$authentication,health=$health,quota_window=$window,quota_resets_at=$reset,capabilities_json=$capabilities WHERE tenant_id=$tenant AND id=$id;", token,
+            ("$label", label), ("$state", state), ("$limit", quotaLimit ?? (object)DBNull.Value),
+            ("$identity", identity ?? (object)DBNull.Value), ("$plan", plan),
+            ("$authentication", authentication), ("$health", health), ("$window", quotaWindow),
+            ("$reset", quotaResetsAt is null ? DBNull.Value : Store(quotaResetsAt.Value)),
+            ("$capabilities", JsonSerializer.Serialize(capabilities, JsonOptions)),
+            ("$tenant", cmd.TenantId), ("$id", cmd.Id));
+        return current with
+        {
+            Label = label,
+            State = state,
+            QuotaLimitUsd = quotaLimit,
+            Identity = identity,
+            Plan = plan,
+            Authentication = authentication,
+            Health = health,
+            QuotaWindow = quotaWindow,
+            QuotaResetsAt = quotaResetsAt,
+            Capabilities = capabilities
+        };
     }
 
     private static async Task<RoutingPolicyRecord> UpdateRoutingAsync(SqliteConnection c, SqliteTransaction tx, ProviderCatalogUpdateCommand cmd, JsonElement p, CancellationToken token)
@@ -267,9 +329,12 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     }
     private static string ReadString(JsonElement p, string key, string current, bool nullable) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.String || (!nullable && string.IsNullOrWhiteSpace(n.GetString()))) throw new ProviderCatalogValidationException($"{key} is invalid."); return n.GetString()!.Trim(); }
     private static string? ReadNullableString(JsonElement p, string key, string? current) { if (!p.TryGetProperty(key, out var n)) return current; if (n.ValueKind == JsonValueKind.Null) return null; if (n.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(n.GetString())) throw new ProviderCatalogValidationException($"{key} is invalid."); return n.GetString()!.Trim(); }
+    private static string? ReadOptionalString(JsonElement p, string key, string? current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(n.GetString())) throw new ProviderCatalogValidationException($"{key} is invalid."); return n.GetString()!.Trim(); }
     private static bool ReadBool(JsonElement p, string key, bool current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new ProviderCatalogValidationException($"{key} is invalid."); return n.GetBoolean(); }
     private static decimal ReadDecimal(JsonElement p, string key, decimal current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Number || !n.TryGetDecimal(out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value; }
     private static decimal? ReadNullableDecimal(JsonElement p, string key, decimal? current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Number || !n.TryGetDecimal(out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value; }
+    private static DateTimeOffset? ReadNullableInstant(JsonElement p, string key, DateTimeOffset? current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.String || !DateTimeOffset.TryParse(n.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value.ToUniversalTime(); }
+    private static IReadOnlyList<string> ReadCapabilities(JsonElement p, IReadOnlyList<string> current) { if (!p.TryGetProperty("capabilities", out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Array) throw new ProviderCatalogValidationException("capabilities is invalid."); return NormalizeCapabilities(JsonSerializer.Deserialize<string[]>(n.GetRawText(), JsonOptions) ?? []); }
 
     private static async Task<T?> ReadOneAsync<T>(SqliteConnection c, SqliteTransaction? tx, string tenant, string select, string id, Func<SqliteDataReader, T> read, CancellationToken token) where T : class
     { await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText = $"{select} WHERE tenant_id=$tenant AND id=$id;"; Add(q, "$tenant", tenant); Add(q, "$id", id); await using var r = await q.ExecuteReaderAsync(token); return await r.ReadAsync(token) ? read(r) : null; }
@@ -282,12 +347,17 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     private static Task AppendOutboxAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token) => ExecuteAsync(c, tx, "INSERT INTO outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($id,$tenant,$type,$payload,$at);", token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", type), ("$payload", payload), ("$at", Store(at)));
 
     private static ProviderRecord ReadProvider(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), r.GetInt32(4) == 1);
-    private static AccountRecord ReadAccount(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.IsDBNull(4) ? null : r.GetDecimal(4), r.GetDecimal(5));
+    private static AccountRecord ReadAccount(SqliteDataReader r) => new(
+        r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
+        r.IsDBNull(4) ? null : r.GetDecimal(4), r.GetDecimal(5),
+        r.IsDBNull(6) ? null : r.GetString(6), r.GetString(7), r.GetString(8), r.GetString(9),
+        r.GetString(10), r.IsDBNull(11) ? null : DateTimeOffset.Parse(r.GetString(11), CultureInfo.InvariantCulture),
+        JsonSerializer.Deserialize<string[]>(r.GetString(12), JsonOptions) ?? []);
     private static ModelRecord ReadModel(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), JsonSerializer.Deserialize<string[]>(r.GetString(4), JsonOptions) ?? [], r.GetInt32(5), r.IsDBNull(6) ? null : r.GetDecimal(6), r.IsDBNull(7) ? null : r.GetDecimal(7), r.GetInt32(8) == 1);
     private static RoutingPolicyRecord ReadRouting(SqliteDataReader r) => new(r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1), r.GetString(2), JsonSerializer.Deserialize<RoutingRuleRecord[]>(r.GetString(3), JsonOptions) ?? [], r.GetInt32(4) == 1);
     private static BudgetRecord ReadBudget(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetString(3), r.GetDecimal(4), r.GetDecimal(5), r.GetDecimal(6));
     private const string ProviderSelect = "SELECT id,kind,name,base_url,enabled FROM providers";
-    private const string AccountSelect = "SELECT id,provider_id,label,state,quota_limit_usd,quota_used_usd FROM provider_accounts";
+    private const string AccountSelect = "SELECT id,provider_id,label,state,quota_limit_usd,quota_used_usd,identity_label,plan,authentication,health,quota_window,quota_resets_at,capabilities_json FROM provider_accounts";
     private const string ModelSelect = "SELECT id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled FROM provider_models";
     private const string RoutingSelect = "SELECT id,project_id,name,rules_json,active FROM routing_policies";
     private const string BudgetSelect = "SELECT id,scope,scope_id,period,limit_usd,spent_usd,alert_threshold_pct FROM budgets";

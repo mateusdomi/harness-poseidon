@@ -94,7 +94,9 @@ public static class ProviderEndpoints
         {
             var now = clock.UtcNow; var id = UlidValue.New(now).ToString();
             var value = await store.CreateAccountAsync(new(profile.TenantId, profile.Id, id,
-                input.ProviderId, input.Label, input.CredentialReference, input.QuotaLimitUsd, now), token);
+                input.ProviderId, input.Label, input.CredentialReference, input.QuotaLimitUsd, now,
+                input.Identity, input.Plan, input.Authentication, input.QuotaWindow,
+                input.QuotaResetsAt, input.Capabilities), token);
             return Results.Created($"/api/v1/accounts/{id}", ToContract(value));
         }
         catch (ProviderCatalogNotFoundException e) { return NotFound(e.Resource); }
@@ -119,7 +121,9 @@ public static class ProviderEndpoints
 
     private static object ToContract(ProviderCatalogRecord value) => value switch { ProviderRecord x => ToContract(x), AccountRecord x => ToContract(x), ModelRecord x => ToContract(x), RoutingPolicyRecord x => ToContract(x), BudgetRecord x => ToContract(x), _ => throw new InvalidOperationException() };
     private static ProviderContract ToContract(ProviderRecord x) => new(x.Id, x.Kind, x.Name, x.BaseUrl, x.Enabled);
-    private static AccountContract ToContract(AccountRecord x) => new(x.Id, x.ProviderId, x.Label, x.State, x.QuotaLimitUsd, x.QuotaUsedUsd);
+    private static AccountContract ToContract(AccountRecord x) => new(
+        x.Id, x.ProviderId, x.Label, x.State, x.QuotaLimitUsd, x.QuotaUsedUsd, x.Identity,
+        x.Plan, x.Authentication, x.Health, x.QuotaWindow, x.QuotaResetsAt, x.Capabilities ?? []);
     private static ModelContract ToContract(ModelRecord x) => new(x.Id, x.ProviderId, x.Name, x.DisplayName, x.Capabilities, x.ContextWindow, x.CostPer1kInputUsd, x.CostPer1kOutputUsd, x.Enabled);
     private static RoutingPolicyContract ToContract(RoutingPolicyRecord x) => new(x.Id, x.ProjectId, x.Name, x.Rules.Select(r => new RoutingRuleContract(r.TaskKind, r.PreferredModelId, r.FallbackModelIds, r.MaxCostPerAttemptUsd)).ToArray(), x.Active);
     private static BudgetContract ToContract(BudgetRecord x) => new(x.Id, x.Scope, x.ScopeId, x.Period, x.LimitUsd, x.SpentUsd, x.AlertThresholdPct);
@@ -132,14 +136,24 @@ public static class ProviderEndpoints
 }
 
 public sealed record ProviderPatchRequest(string? Name, string? BaseUrl, bool? Enabled);
-public sealed record AccountPatchRequest(string? Label, string? State, decimal? QuotaLimitUsd);
+public sealed record AccountPatchRequest(
+    string? Label, string? State, decimal? QuotaLimitUsd, string? Identity = null,
+    string? Plan = null, string? Authentication = null, string? Health = null,
+    string? QuotaWindow = null, DateTimeOffset? QuotaResetsAt = null,
+    IReadOnlyList<string>? Capabilities = null);
 public sealed record CreateProviderAccountRequest(
-    string ProviderId, string Label, string CredentialReference, decimal? QuotaLimitUsd = null);
+    string ProviderId, string Label, string CredentialReference, decimal? QuotaLimitUsd = null,
+    string? Identity = null, string Plan = "unknown", string Authentication = "apiKey",
+    string QuotaWindow = "monthly", DateTimeOffset? QuotaResetsAt = null,
+    IReadOnlyList<string>? Capabilities = null);
 public sealed record ModelPatchRequest(string? DisplayName, bool? Enabled);
 public sealed record RoutingPolicyPatchRequest(string? Name, IReadOnlyList<RoutingRuleContract>? Rules, bool? Active);
 public sealed record BudgetPatchRequest(decimal? LimitUsd, decimal? AlertThresholdPct);
 public sealed record ProviderContract(string Id, string Kind, string Name, string? BaseUrl, bool Enabled);
-public sealed record AccountContract(string Id, string ProviderId, string Label, string State, decimal? QuotaLimitUsd, decimal QuotaUsedUsd);
+public sealed record AccountContract(
+    string Id, string ProviderId, string Label, string State, decimal? QuotaLimitUsd,
+    decimal QuotaUsedUsd, string? Identity, string Plan, string Authentication, string Health,
+    string QuotaWindow, DateTimeOffset? QuotaResetsAt, IReadOnlyList<string> Capabilities);
 public sealed record ModelContract(string Id, string ProviderId, string Name, string DisplayName, IReadOnlyList<string> Capabilities, int ContextWindow, decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd, bool Enabled);
 public sealed record RoutingRuleContract(string? TaskKind, string PreferredModelId, IReadOnlyList<string> FallbackModelIds, decimal? MaxCostPerAttemptUsd);
 public sealed record RoutingPolicyContract(string Id, string? ProjectId, string Name, IReadOnlyList<RoutingRuleContract> Rules, bool Active);

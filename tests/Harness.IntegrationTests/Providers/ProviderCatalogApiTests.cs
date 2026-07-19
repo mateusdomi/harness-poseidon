@@ -52,11 +52,18 @@ public sealed class ProviderCatalogApiTests
                     using (var invalid = await client.PostAsJsonAsync("/api/v1/accounts", new CreateProviderAccountRequest(providerId, "Unsafe", "https://example.test/secret", 10m), timeout.Token))
                         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
                     string disposableAccountId;
-                    using (var created = await client.PostAsJsonAsync("/api/v1/accounts", new CreateProviderAccountRequest(providerId, "Disposable account", "keychain://harness/disposable", 25m), timeout.Token))
+                    using (var created = await client.PostAsJsonAsync("/api/v1/accounts", new CreateProviderAccountRequest(
+                        providerId, "Disposable account", "keychain://harness/disposable", 25m,
+                        "mateus@example.test", "pro", "apiKey", "monthly",
+                        DateTimeOffset.Parse("2026-08-01T00:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+                        ["chat", "code"]), timeout.Token))
                     {
                         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
                         var value = (await created.Content.ReadFromJsonAsync<AccountContract>(timeout.Token))!;
                         disposableAccountId = value.Id; Assert.Equal("disabled", value.State);
+                        Assert.Equal("mateus@example.test", value.Identity); Assert.Equal("pro", value.Plan);
+                        Assert.Equal("apiKey", value.Authentication); Assert.Equal("unknown", value.Health);
+                        Assert.Equal(["chat", "code"], value.Capabilities);
                         Assert.DoesNotContain("keychain://", await created.Content.ReadAsStringAsync(timeout.Token), StringComparison.OrdinalIgnoreCase);
                     }
                     using (var activated = await client.PatchAsJsonAsync($"/api/v1/accounts/{disposableAccountId}", new AccountPatchRequest(null, "active", null), timeout.Token))
@@ -70,11 +77,17 @@ public sealed class ProviderCatalogApiTests
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/providers/{providerId}", new ProviderPatchRequest("OpenAI managed", null, true), timeout.Token))
                     { patch.EnsureSuccessStatusCode(); Assert.Equal("OpenAI managed", (await patch.Content.ReadFromJsonAsync<ProviderContract>(timeout.Token))?.Name); }
                     accountId = accounts.Items.Single(x => x.ProviderId == providerId).Id;
-                    using (var patch = await client.PatchAsJsonAsync($"/api/v1/accounts/{accountId}", new AccountPatchRequest("Primary account", "active", 175m), timeout.Token))
+                    using (var patch = await client.PatchAsJsonAsync($"/api/v1/accounts/{accountId}", new AccountPatchRequest(
+                        "Primary account", "active", 175m, "primary@example.test", "enterprise",
+                        "oauth", "healthy", "weekly",
+                        DateTimeOffset.Parse("2026-07-26T00:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+                        ["chat", "reasoning", "tools"]), timeout.Token))
                     {
                         patch.EnsureSuccessStatusCode();
                         var value = await patch.Content.ReadFromJsonAsync<AccountContract>(timeout.Token);
                         Assert.Equal("Primary account", value?.Label); Assert.Equal(175m, value?.QuotaLimitUsd);
+                        Assert.Equal("enterprise", value?.Plan); Assert.Equal("healthy", value?.Health);
+                        Assert.Equal(["chat", "reasoning", "tools"], value?.Capabilities);
                     }
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/accounts/{accountId}", new AccountPatchRequest("Renamed account", null, null), timeout.Token))
                     {
@@ -111,6 +124,9 @@ public sealed class ProviderCatalogApiTests
                 Assert.Equal("OpenAI managed", (await client.GetFromJsonAsync<ProviderContract>($"/api/v1/providers/{providerId}", timeout.Token))?.Name);
                 var account = await client.GetFromJsonAsync<AccountContract>($"/api/v1/accounts/{accountId}", timeout.Token);
                 Assert.Equal("Renamed account", account?.Label); Assert.Equal(175m, account?.QuotaLimitUsd);
+                Assert.Equal("primary@example.test", account?.Identity); Assert.Equal("enterprise", account?.Plan);
+                Assert.Equal("oauth", account?.Authentication); Assert.Equal("healthy", account?.Health);
+                Assert.Equal("weekly", account?.QuotaWindow); Assert.Equal(["chat", "reasoning", "tools"], account?.Capabilities);
                 Assert.Equal("Codex primary", (await client.GetFromJsonAsync<ModelContract>($"/api/v1/models/{modelId}", timeout.Token))?.DisplayName);
                 Assert.Equal(250m, (await client.GetFromJsonAsync<BudgetContract>($"/api/v1/budgets/{budgetId}", timeout.Token))?.LimitUsd);
             }

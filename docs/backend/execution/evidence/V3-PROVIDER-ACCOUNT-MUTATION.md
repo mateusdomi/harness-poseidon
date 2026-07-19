@@ -15,6 +15,13 @@ sempre em estado `disabled` e nunca devolve a referência no response. URLs e se
 recusados. A exclusão é fail-closed: somente conta desabilitada e sem budget associado pode ser
 removida; conta ativa ou referenciada retorna 409.
 
+A migration dual `0037_provider_account_metadata` acrescenta identidade/e-mail ou apelido, plano,
+método de autenticação, saúde, janela e instante de reset da cota e capacidades. Plano,
+autenticação, saúde, janela e capacidades possuem vocabulários fechados na API e constraints no
+banco. PATCH parcial preserva campos omitidos ou nulos; o cenário de regressão verificou isso
+explicitamente após reiniciar o Host. `credential_reference` continua fora de todos os contratos
+de leitura.
+
 SQLite e PostgreSQL aplicam a mudança na mesma transação que o ledger encadeado, o evento de
 auditoria e `quota.updated`. O comportamento provider-neutral alterou conta nos dois bancos. O
 cenário HTTP comprovou criação sem vazamento da referência, edição, rejeição de esquema/estado
@@ -27,6 +34,7 @@ Gates executados:
 - teste focado HTTP: 1/1;
 - drift do catálogo: 5/5;
 - comportamento provider-neutral em SQLite e PostgreSQL gerenciado: 2/2;
+- upgrades históricos SQLite `10/22/33→37` e reaplicação idempotente PostgreSQL `37→0`;
 - `tools/backend/verify.sh`: exit 0, frontend 362/362, build Release 0 avisos/0 erros e backend
   248/248 (`Unit 123`, `Integration 82`, `Contract 28`, `Recovery 5`, `Architecture 7`,
   `Concurrency 3`);

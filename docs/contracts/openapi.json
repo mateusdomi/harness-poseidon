@@ -11450,7 +11450,14 @@
                     "label",
                     "state",
                     "quotaLimitUsd",
-                    "quotaUsedUsd"
+                    "quotaUsedUsd",
+                    "identity",
+                    "plan",
+                    "authentication",
+                    "health",
+                    "quotaWindow",
+                    "quotaResetsAt",
+                    "capabilities"
                 ],
                 "type": "object",
                 "properties": {
@@ -11482,6 +11489,37 @@
                             "string"
                         ],
                         "format": "double"
+                    },
+                    "identity": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "plan": {
+                        "type": "string"
+                    },
+                    "authentication": {
+                        "type": "string"
+                    },
+                    "health": {
+                        "type": "string"
+                    },
+                    "quotaWindow": {
+                        "type": "string"
+                    },
+                    "quotaResetsAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "capabilities": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },
@@ -11534,6 +11572,52 @@
                             "string"
                         ],
                         "format": "double"
+                    },
+                    "identity": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "plan": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "authentication": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "health": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "quotaWindow": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "quotaResetsAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "capabilities": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },
@@ -13205,6 +13289,40 @@
                             "string"
                         ],
                         "format": "double"
+                    },
+                    "identity": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "plan": {
+                        "type": "string",
+                        "default": "unknown"
+                    },
+                    "authentication": {
+                        "type": "string",
+                        "default": "apiKey"
+                    },
+                    "quotaWindow": {
+                        "type": "string",
+                        "default": "monthly"
+                    },
+                    "quotaResetsAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "capabilities": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },

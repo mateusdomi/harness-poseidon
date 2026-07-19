@@ -20,7 +20,12 @@ public interface IProviderCatalogStore
 
 public abstract record ProviderCatalogRecord(string Id);
 public sealed record ProviderRecord(string Id, string Kind, string Name, string? BaseUrl, bool Enabled) : ProviderCatalogRecord(Id);
-public sealed record AccountRecord(string Id, string ProviderId, string Label, string State, decimal? QuotaLimitUsd, decimal QuotaUsedUsd) : ProviderCatalogRecord(Id);
+public sealed record AccountRecord(
+    string Id, string ProviderId, string Label, string State, decimal? QuotaLimitUsd,
+    decimal QuotaUsedUsd, string? Identity = null, string Plan = "unknown",
+    string Authentication = "apiKey", string Health = "unknown", string QuotaWindow = "monthly",
+    DateTimeOffset? QuotaResetsAt = null, IReadOnlyList<string>? Capabilities = null)
+    : ProviderCatalogRecord(Id);
 public sealed record ModelRecord(string Id, string ProviderId, string Name, string DisplayName, IReadOnlyList<string> Capabilities, int ContextWindow, decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd, bool Enabled) : ProviderCatalogRecord(Id);
 public sealed record RoutingRuleRecord(string? TaskKind, string PreferredModelId, IReadOnlyList<string> FallbackModelIds, decimal? MaxCostPerAttemptUsd);
 public sealed record RoutingPolicyRecord(string Id, string? ProjectId, string Name, IReadOnlyList<RoutingRuleRecord> Rules, bool Active) : ProviderCatalogRecord(Id);
@@ -31,7 +36,10 @@ public sealed record ProviderCatalogUpdateCommand(string TenantId, string ActorP
 public sealed record ProviderCatalogSyncCommand(string TenantId, string ActorProfileId, string ProviderId, DateTimeOffset OccurredAt);
 public sealed record ProviderAccountCreateCommand(
     string TenantId, string ActorProfileId, string Id, string ProviderId, string Label,
-    string CredentialReference, decimal? QuotaLimitUsd, DateTimeOffset OccurredAt);
+    string CredentialReference, decimal? QuotaLimitUsd, DateTimeOffset OccurredAt,
+    string? Identity = null, string Plan = "unknown", string Authentication = "apiKey",
+    string QuotaWindow = "monthly", DateTimeOffset? QuotaResetsAt = null,
+    IReadOnlyList<string>? Capabilities = null);
 public sealed record ProviderAccountDeleteCommand(
     string TenantId, string ActorProfileId, string Id, DateTimeOffset OccurredAt);
 public sealed class ProviderCatalogNotFoundException(string resource) : Exception(resource) { public string Resource { get; } = resource; }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Abstractions.Providers;
@@ -13,7 +14,8 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         "SELECT id,kind,name,base_url,enabled FROM harness.providers";
 
     private const string AccountSelect =
-        "SELECT id,provider_id,label,state,quota_limit_usd,quota_used_usd FROM harness.provider_accounts";
+        "SELECT id,provider_id,label,state,quota_limit_usd,quota_used_usd,identity_label,plan," +
+        "authentication,health,quota_window,quota_resets_at,capabilities_json::text FROM harness.provider_accounts";
 
     private const string ModelSelect =
         "SELECT id,provider_id,model_name,display_name,capabilities_json::text," +
@@ -286,11 +288,17 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         if (await ReadOneAsync(connection, transaction, command.TenantId, ProviderSelect,
                 command.ProviderId, ReadProvider, cancellationToken) is null)
             throw new ProviderCatalogNotFoundException("provider");
+        var capabilities = NormalizeCapabilities(command.Capabilities ?? []);
+        ValidateAccountMetadata(command.Identity, command.Plan, command.Authentication, "unknown",
+            command.QuotaWindow, command.QuotaResetsAt, capabilities);
         await ExecuteAsync(connection, transaction,
-            "INSERT INTO harness.provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd) VALUES($1,$2,$3,$4,'disabled',$5,$6,0);",
+            "INSERT INTO harness.provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd,identity_label,plan,authentication,health,quota_window,quota_resets_at,capabilities_json) VALUES($1,$2,$3,$4,'disabled',$5,$6,0,$7,$8,$9,'unknown',$10,$11,$12);",
             cancellationToken, Text(command.TenantId), Text(command.Id), Text(command.ProviderId),
             Text(command.Label.Trim()), Text(command.CredentialReference.Trim()),
-            command.QuotaLimitUsd is null ? NullableNumeric() : Numeric(command.QuotaLimitUsd.Value));
+            command.QuotaLimitUsd is null ? NullableNumeric() : Numeric(command.QuotaLimitUsd.Value),
+            NullableText(command.Identity?.Trim()), Text(command.Plan), Text(command.Authentication),
+            Text(command.QuotaWindow), NullableTimestamp(command.QuotaResetsAt),
+            Json(JsonSerializer.Serialize(capabilities, JsonOptions)));
         var payload = JsonSerializer.Serialize(new
         {
             auditEvent = new
@@ -378,6 +386,35 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
     }
 
+    private static void ValidateAccountMetadata(
+        string? identity, string plan, string authentication, string health, string quotaWindow,
+        DateTimeOffset? quotaResetsAt, IReadOnlyList<string> capabilities)
+    {
+        if (identity is not null && (string.IsNullOrWhiteSpace(identity) || identity.Trim().Length > 320))
+            throw new ProviderCatalogValidationException("Account identity is invalid.");
+        if (plan is not ("unknown" or "free" or "pro" or "team" or "enterprise" or "payAsYouGo" or "local"))
+            throw new ProviderCatalogValidationException("Account plan is invalid.");
+        if (authentication is not ("apiKey" or "oauth" or "local"))
+            throw new ProviderCatalogValidationException("Account authentication is invalid.");
+        if (health is not ("unknown" or "healthy" or "degraded" or "unavailable"))
+            throw new ProviderCatalogValidationException("Account health is invalid.");
+        if (quotaWindow is not ("daily" or "weekly" or "monthly" or "none"))
+            throw new ProviderCatalogValidationException("Account quota window is invalid.");
+        if (quotaWindow == "none" && quotaResetsAt is not null)
+            throw new ProviderCatalogValidationException("An account without a quota window cannot have a reset instant.");
+        _ = NormalizeCapabilities(capabilities);
+    }
+
+    private static string[] NormalizeCapabilities(IReadOnlyList<string> capabilities)
+    {
+        string[] allowed = ["audio", "chat", "code", "embeddings", "reasoning", "tools", "vision"];
+        var values = capabilities.Select(x => x?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (values.Length > allowed.Length || values.Any(x => !allowed.Contains(x, StringComparer.Ordinal)))
+            throw new ProviderCatalogValidationException("Account capabilities are invalid.");
+        return values;
+    }
+
     private static async Task<ProviderRecord> UpdateProviderAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -444,6 +481,13 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         var label = ReadString(patch, "label", current.Label, false);
         var state = ReadString(patch, "state", current.State, false);
         var quotaLimit = ReadNullableDecimal(patch, "quotaLimitUsd", current.QuotaLimitUsd);
+        var identity = ReadNullableString(patch, "identity", current.Identity);
+        var plan = ReadString(patch, "plan", current.Plan, false);
+        var authentication = ReadString(patch, "authentication", current.Authentication, false);
+        var health = ReadString(patch, "health", current.Health, false);
+        var quotaWindow = ReadString(patch, "quotaWindow", current.QuotaWindow, false);
+        var quotaResetsAt = ReadNullableInstant(patch, "quotaResetsAt", current.QuotaResetsAt);
+        var capabilities = ReadCapabilities(patch, current.Capabilities ?? []);
         if (state is not ("active" or "disabled" or "quotaExceeded"))
         {
             throw new ProviderCatalogValidationException("Account state is invalid.");
@@ -454,17 +498,33 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             throw new ProviderCatalogValidationException("Account quota limit cannot be negative.");
         }
 
+        ValidateAccountMetadata(identity, plan, authentication, health, quotaWindow,
+            quotaResetsAt, capabilities);
+
         await ExecuteAsync(
             connection,
             transaction,
-            "UPDATE harness.provider_accounts SET label=$1,state=$2,quota_limit_usd=$3 WHERE tenant_id=$4 AND id=$5;",
+            "UPDATE harness.provider_accounts SET label=$1,state=$2,quota_limit_usd=$3,identity_label=$4,plan=$5,authentication=$6,health=$7,quota_window=$8,quota_resets_at=$9,capabilities_json=$10 WHERE tenant_id=$11 AND id=$12;",
             cancellationToken,
             Text(label),
             Text(state),
             quotaLimit is null ? NullableNumeric() : Numeric(quotaLimit.Value),
-            Text(command.TenantId),
-            Text(command.Id));
-        return current with { Label = label, State = state, QuotaLimitUsd = quotaLimit };
+            NullableText(identity), Text(plan), Text(authentication), Text(health), Text(quotaWindow),
+            NullableTimestamp(quotaResetsAt), Json(JsonSerializer.Serialize(capabilities, JsonOptions)),
+            Text(command.TenantId), Text(command.Id));
+        return current with
+        {
+            Label = label,
+            State = state,
+            QuotaLimitUsd = quotaLimit,
+            Identity = identity,
+            Plan = plan,
+            Authentication = authentication,
+            Health = health,
+            QuotaWindow = quotaWindow,
+            QuotaResetsAt = quotaResetsAt,
+            Capabilities = capabilities
+        };
     }
 
     private static async Task<RoutingPolicyRecord> UpdateRoutingAsync(
@@ -718,6 +778,29 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         return value;
     }
 
+    private static DateTimeOffset? ReadNullableInstant(
+        JsonElement patch, string key, DateTimeOffset? current)
+    {
+        if (!patch.TryGetProperty(key, out var node) || node.ValueKind == JsonValueKind.Null)
+            return current;
+        if (node.ValueKind != JsonValueKind.String ||
+            !DateTimeOffset.TryParse(node.GetString(), CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var value))
+            throw new ProviderCatalogValidationException($"{key} is invalid.");
+        return value.ToUniversalTime();
+    }
+
+    private static IReadOnlyList<string> ReadCapabilities(
+        JsonElement patch, IReadOnlyList<string> current)
+    {
+        if (!patch.TryGetProperty("capabilities", out var node) || node.ValueKind == JsonValueKind.Null)
+            return current;
+        if (node.ValueKind != JsonValueKind.Array)
+            throw new ProviderCatalogValidationException("capabilities is invalid.");
+        return NormalizeCapabilities(
+            JsonSerializer.Deserialize<string[]>(node.GetRawText(), JsonOptions) ?? []);
+    }
+
     private static async Task<T?> ReadOneAsync<T>(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
@@ -861,7 +944,14 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             reader.GetString(2),
             reader.GetString(3),
             reader.IsDBNull(4) ? null : reader.GetDecimal(4),
-            reader.GetDecimal(5));
+            reader.GetDecimal(5),
+            reader.IsDBNull(6) ? null : reader.GetString(6),
+            reader.GetString(7),
+            reader.GetString(8),
+            reader.GetString(9),
+            reader.GetString(10),
+            reader.IsDBNull(11) ? null : reader.GetFieldValue<DateTimeOffset>(11),
+            JsonSerializer.Deserialize<string[]>(reader.GetString(12), JsonOptions) ?? []);
 
     private static ModelRecord ReadModel(NpgsqlDataReader reader) =>
         new(
@@ -911,6 +1001,12 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
 
     private static NpgsqlParameter<DateTimeOffset> Timestamp(DateTimeOffset value) =>
         new() { TypedValue = value };
+
+    private static NpgsqlParameter NullableTimestamp(DateTimeOffset? value) => new()
+    {
+        NpgsqlDbType = NpgsqlDbType.TimestampTz,
+        Value = value is null ? DBNull.Value : value.Value,
+    };
 
     private static NpgsqlParameter NullableText(string? value) => new()
     {

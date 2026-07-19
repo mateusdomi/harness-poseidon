@@ -72,9 +72,17 @@ public static class CatalogStoreBehavior
             new ProviderAccountCreateCommand(
                 tenantId, tenantId, disposableAccountId, providerRows[0].Id,
                 "Provider-neutral disposable", "secret://providers/disposable", 50m,
-                DateTimeOffset.Parse("2026-07-19T12:01:00Z", System.Globalization.CultureInfo.InvariantCulture)),
+                DateTimeOffset.Parse("2026-07-19T12:01:00Z", System.Globalization.CultureInfo.InvariantCulture),
+                "automation@example.test", "team", "oauth", "weekly",
+                DateTimeOffset.Parse("2026-07-26T00:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+                ["chat", "code", "tools"]),
             cancellationToken);
         Assert.Equal("disabled", created.State);
+        Assert.Equal("automation@example.test", created.Identity);
+        Assert.Equal("team", created.Plan);
+        Assert.Equal("oauth", created.Authentication);
+        Assert.Equal("weekly", created.QuotaWindow);
+        Assert.Equal(["chat", "code", "tools"], created.Capabilities);
         await providers.DeleteAccountAsync(
             new ProviderAccountDeleteCommand(
                 tenantId, tenantId, disposableAccountId,

@@ -80,9 +80,10 @@ Independentes (trabalho técnico que prossegue sem terceiros):
 1. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
    `page/pageSize`, workflows por projeto, CRUD de definições de agentes e
    providers/contas/modelos/esforço. O ciclo administrativo de contas (criação por referência de
-   segredo, `label`, estado, limite de cota e remoção segura) já está verde nos dois providers;
-   ainda faltam metadados operacionais da conta, os demais comandos de configuração e o modelo
-   tipado de esforço. O ciclo FR-4 de workflows está completo (draft, PATCH, validação,
+   segredo, identidade, plano, autenticação, saúde, capacidades, janela/reset, estado, limite de
+   cota e remoção segura) já está verde nos dois providers; ainda faltam o catálogo/configuração
+   avançada de modelos, a seleção por agente e o modelo tipado de esforço. O ciclo FR-4 de
+   workflows está completo (draft, PATCH, validação,
    publicação, tombstones, exclusão, duplicação e vínculo por projeto). No quadro, arquivamento
    backend está verde e busca/filtros, paginação, lote e CSV Excel-compatible já são client-side;
    falta auditar eventual filtro de fase.
@@ -105,8 +106,8 @@ v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão
 **implementados/validados/integrados** no backend; busca, filtros, paginação, lote e CSV do quadro
 são client-side por D-063/D-073/D-075. O read-model tenant-scoped de organograma v3 §8.10 também
 está **implementado/validado/integrado**. Em §8.13, criação, PATCH e remoção segura de contas estão
-**implementados/validados/integrados** com paridade SQLite/PostgreSQL; metadados operacionais,
-providers/modelos/esforço continuam parciais. O FR-4 de workflows (draft, cópia, edição,
+**implementados/validados/integrados** com paridade SQLite/PostgreSQL, incluindo os metadados
+operacionais. Providers/modelos/seleção/esforço continuam parciais. O FR-4 de workflows (draft, cópia, edição,
 validação, publicação imutável,
 tombstones, exclusão restrita, duplicação e vínculo por projeto) está
 **implementado/validado/integrado** nos dois providers. Os demais itens seguem em auditoria
