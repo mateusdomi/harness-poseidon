@@ -74,6 +74,14 @@ public sealed class SqliteIdentityCoreStoreTests
                             System.Globalization.CultureInfo.InvariantCulture);
                     }, timeout.Token),
                     timeout.Token);
+                await BoardWorkflowProjectionBehavior.AssertAsync(
+                    new SqliteWorkBoardStore(dispatcher),
+                    new SqliteWorkflowStore(dispatcher),
+                    new SqliteWorkflowCatalogStore(dispatcher),
+                    profile.TenantId,
+                    projectId,
+                    profile.Id,
+                    timeout.Token);
             }
         }
         finally

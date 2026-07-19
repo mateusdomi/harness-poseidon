@@ -20,7 +20,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(19, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(23, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -239,6 +239,14 @@ public sealed class PostgresSkipLockedPocTests
                 count.Parameters.AddWithValue(tenant);
                 return Convert.ToInt32(await count.ExecuteScalarAsync(token), System.Globalization.CultureInfo.InvariantCulture);
             },
+            token);
+        await BoardWorkflowProjectionBehavior.AssertAsync(
+            new PostgresWorkBoardStore(dataSource),
+            new PostgresWorkflowStore(dataSource),
+            new PostgresWorkflowCatalogStore(dataSource),
+            profile.TenantId,
+            projectId,
+            profile.Id,
             token);
     }
 

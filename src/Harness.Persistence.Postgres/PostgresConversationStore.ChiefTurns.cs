@@ -386,8 +386,8 @@ public sealed partial class PostgresConversationStore
                 connection, transaction,
                 """
                 INSERT INTO harness.solicitations
-                    (id,tenant_id,project_id,user_id,content,created_at)
-                VALUES ($1,$2,$3,$4,$5,$6);
+                    (id,tenant_id,project_id,user_id,content,created_at,kind,title,state,supersedes_id,is_internal)
+                VALUES ($1,$2,$3,$4,$5,$6,'request',$7,'open',NULL,true);
                 """,
                 cancellationToken,
                 Text(seed.BackingSolicitationId),
@@ -395,13 +395,15 @@ public sealed partial class PostgresConversationStore
                 Text(project),
                 Text(author),
                 Text(seed.Description),
-                Timestamp(occurredAt));
+                Timestamp(occurredAt),
+                Text(seed.Title));
             await ExecuteAsync(
                 connection, transaction,
                 """
                 INSERT INTO harness.demands
-                    (id,tenant_id,project_id,solicitation_id,title,acceptance_criteria_json,created_at)
-                VALUES ($1,$2,$3,$4,$5,$6,$7);
+                    (id,tenant_id,project_id,solicitation_id,title,acceptance_criteria_json,created_at,
+                     description,state,priority,source_solicitation_id,is_internal)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'open',$9,NULL,false);
                 """,
                 cancellationToken,
                 Text(seed.DemandId),
@@ -410,7 +412,9 @@ public sealed partial class PostgresConversationStore
                 Text(seed.BackingSolicitationId),
                 Text(seed.Title),
                 Json(JsonSerializer.Serialize(seed.AcceptanceCriteria, JsonOptions)),
-                Timestamp(occurredAt));
+                Timestamp(occurredAt),
+                Text(seed.Description),
+                Text(seed.RiskTier));
             var payload = JsonSerializer.Serialize(new ChiefDemandCreatedPayload(
                 project,
                 new ChiefDemandPayload(

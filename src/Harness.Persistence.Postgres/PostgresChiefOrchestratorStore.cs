@@ -230,8 +230,8 @@ public sealed class PostgresChiefOrchestratorStore(NpgsqlDataSource dataSource) 
         {
             query.Transaction = transaction;
             query.CommandText =
-                "SELECT id,state FROM harness.work_tasks WHERE tenant_id=$1 AND project_id=$2 " +
-                "AND state IN ('running','awaiting_review') ORDER BY id FOR UPDATE;";
+                "SELECT id,board_state FROM harness.work_tasks WHERE tenant_id=$1 AND project_id=$2 " +
+                "AND board_state IN ('development','review','corrections','testsGates') ORDER BY id FOR UPDATE;";
             query.Parameters.Add(Text(command.TenantId));
             query.Parameters.Add(Text(command.ProjectId));
             await using var reader = await query.ExecuteReaderAsync(cancellationToken);
@@ -246,7 +246,7 @@ public sealed class PostgresChiefOrchestratorStore(NpgsqlDataSource dataSource) 
         {
             await ExecuteAsync(
                 connection, transaction,
-                "UPDATE harness.work_tasks SET state='ready',version=version+1,updated_at=$1 WHERE tenant_id=$2 AND id=$3;",
+                "UPDATE harness.work_tasks SET state='ready',board_state='ready',blocked_reason=NULL,version=version+1,updated_at=$1 WHERE tenant_id=$2 AND id=$3;",
                 cancellationToken,
                 Timestamp(command.OccurredAt), Text(command.TenantId), Text(task.Id));
             var payload = JsonSerializer.Serialize(new
@@ -268,7 +268,9 @@ public sealed class PostgresChiefOrchestratorStore(NpgsqlDataSource dataSource) 
 
         await ExecuteAsync(
             connection, transaction,
-            "UPDATE harness.work_attempts SET state='rejected',completed_at=$1 WHERE tenant_id=$2 AND project_id=$3 AND state='running';",
+            "UPDATE harness.work_attempts SET state='rejected',operational_state='cancelled',completed_at=$1," +
+            "duration_ms=GREATEST(0,trunc(EXTRACT(EPOCH FROM ($1 - started_at))*1000)::bigint)," +
+            "failure_reason='Cancelled by Chief drain.' WHERE tenant_id=$2 AND project_id=$3 AND operational_state='running';",
             cancellationToken,
             Timestamp(command.OccurredAt), Text(command.TenantId), Text(command.ProjectId));
 
