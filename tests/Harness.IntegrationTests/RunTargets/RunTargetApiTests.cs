@@ -35,12 +35,27 @@ public sealed class RunTargetApiTests
         const http = require('http'); const port = Number(process.env.PORT);
         http.createServer((_req, res) => { res.end('node-ok'); }).listen(port, '127.0.0.1', () => console.log(`node-ready ${port}`));
         """;
+    private const string PythonProgram = """
+        import http.server, os
+        port = int(os.environ["PORT"])
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                body = b"python-ok"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            def log_message(self, *args):
+                pass
+        print(f"python-ready {port}", flush=True)
+        http.server.HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+        """;
 
     [Fact]
     public async Task DetectsRunsRestartsStopsAndCleansRealDotNetAndNodeTargets()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2)); var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"run-targets-{Guid.NewGuid():N}"); var workspace = Path.Combine(root, "workspace"); var database = Path.Combine(root, "run-targets.db"); Directory.CreateDirectory(Path.Combine(workspace, "dotnet")); Directory.CreateDirectory(Path.Combine(workspace, "node"));
-        await File.WriteAllTextAsync(Path.Combine(workspace, "dotnet", "FixtureApi.csproj"), DotNetProject, timeout.Token); await File.WriteAllTextAsync(Path.Combine(workspace, "dotnet", "Program.cs"), DotNetProgram, timeout.Token); await File.WriteAllTextAsync(Path.Combine(workspace, "node", "package.json"), NodePackage, timeout.Token); await File.WriteAllTextAsync(Path.Combine(workspace, "node", "server.js"), NodeProgram, timeout.Token);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2)); var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"run-targets-{Guid.NewGuid():N}"); var workspace = Path.Combine(root, "workspace"); var database = Path.Combine(root, "run-targets.db"); Directory.CreateDirectory(Path.Combine(workspace, "dotnet")); Directory.CreateDirectory(Path.Combine(workspace, "node")); Directory.CreateDirectory(Path.Combine(workspace, "python"));
+        await File.WriteAllTextAsync(Path.Combine(workspace, "dotnet", "FixtureApi.csproj"), DotNetProject, timeout.Token); await File.WriteAllTextAsync(Path.Combine(workspace, "dotnet", "Program.cs"), DotNetProgram, timeout.Token); await File.WriteAllTextAsync(Path.Combine(workspace, "node", "package.json"), NodePackage, timeout.Token); await File.WriteAllTextAsync(Path.Combine(workspace, "node", "server.js"), NodeProgram, timeout.Token); await File.WriteAllTextAsync(Path.Combine(workspace, "python", "main.py"), PythonProgram, timeout.Token);
         var cookies = new CookieContainer(); string profileId; string projectId; string dotnetId; string nodeId;
         try
         {
@@ -56,23 +71,31 @@ public sealed class RunTargetApiTests
                     using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Runtime", Key = "RUNTIME", Description = "Runtime fixtures", RepositoryProvider = "local", RepositoryUrl = workspace }, timeout.Token)) { response.EnsureSuccessStatusCode(); projectId = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!.Id; }
                     using (var response = await client.PatchAsJsonAsync($"/api/v1/settings/{profileId}", new { workingDirectory = workspace, unsafeModeAcceptedAt = "2026-07-18T22:50:00Z" }, timeout.Token)) response.EnsureSuccessStatusCode();
 
-                    var page = (await client.GetFromJsonAsync<RunTargetPage>($"/api/v1/run-targets?projectId={projectId}", timeout.Token))!; Assert.Equal(2, page.Items.Count); var dotnet = page.Items.Single(x => x.Name.EndsWith("(.NET)", StringComparison.Ordinal)); var node = page.Items.Single(x => x.Name.EndsWith("(Node)", StringComparison.Ordinal)); dotnetId = dotnet.Id; nodeId = node.Id; Assert.All(page.Items, target => { Assert.Equal("http", target.Kind); Assert.Equal("stopped", target.State); Assert.NotNull(target.Port); });
+                    var page = (await client.GetFromJsonAsync<RunTargetPage>($"/api/v1/run-targets?projectId={projectId}", timeout.Token))!; Assert.Equal(3, page.Items.Count); var dotnet = page.Items.Single(x => x.Name.EndsWith("(.NET)", StringComparison.Ordinal)); var node = page.Items.Single(x => x.Name.EndsWith("(Node)", StringComparison.Ordinal)); var python = page.Items.Single(x => x.Name.EndsWith("(Python)", StringComparison.Ordinal)); dotnetId = dotnet.Id; nodeId = node.Id; var pythonId = python.Id; Assert.All(page.Items, target => { Assert.Equal("http", target.Kind); Assert.Equal("stopped", target.State); Assert.NotNull(target.Port); });
 
                     using (var response = await client.PostAsync($"/api/v1/run-targets/{nodeId}/start", null, timeout.Token)) { response.EnsureSuccessStatusCode(); Assert.Equal("running", (await response.Content.ReadFromJsonAsync<RunTargetContract>(timeout.Token))?.State); }
                     await WaitForBodyAsync(node.Url!, "node-ok", timeout.Token);
                     using (var response = await client.PostAsync($"/api/v1/run-targets/{dotnetId}/start", null, timeout.Token)) { response.EnsureSuccessStatusCode(); Assert.Equal("running", (await response.Content.ReadFromJsonAsync<RunTargetContract>(timeout.Token))?.State); }
                     await WaitForBodyAsync(dotnet.Url!, "dotnet-ok", timeout.Token);
+                    using (var response = await client.PostAsync($"/api/v1/run-targets/{pythonId}/start", null, timeout.Token)) { response.EnsureSuccessStatusCode(); Assert.Equal("running", (await response.Content.ReadFromJsonAsync<RunTargetContract>(timeout.Token))?.State); }
+                    await WaitForBodyAsync(python.Url!, "python-ok", timeout.Token);
+                    foreach (var runningId in new[] { nodeId, dotnetId, pythonId })
+                    {
+                        var health = (await client.GetFromJsonAsync<RunTargetHealthContract>($"/api/v1/run-targets/{runningId}/health", timeout.Token))!;
+                        Assert.True(health.Healthy); Assert.Equal(200, health.StatusCode); Assert.Equal("http_endpoint_responded", health.Detail);
+                    }
                     using (var response = await client.PostAsync($"/api/v1/run-targets/{nodeId}/restart", null, timeout.Token)) { response.EnsureSuccessStatusCode(); Assert.Equal("running", (await response.Content.ReadFromJsonAsync<RunTargetContract>(timeout.Token))?.State); }
                     await WaitForBodyAsync(node.Url!, "node-ok", timeout.Token);
                     using (var response = await client.PostAsync($"/api/v1/run-targets/{dotnetId}/stop", null, timeout.Token)) { response.EnsureSuccessStatusCode(); Assert.Equal("stopped", (await response.Content.ReadFromJsonAsync<RunTargetContract>(timeout.Token))?.State); }
-                    using (var response = await client.PostAsync($"/api/v1/projects/{projectId}/run-environment/cleanup", null, timeout.Token)) { response.EnsureSuccessStatusCode(); Assert.Equal(1, await response.Content.ReadFromJsonAsync<int>(timeout.Token)); }
+                    var stoppedHealth = (await client.GetFromJsonAsync<RunTargetHealthContract>($"/api/v1/run-targets/{dotnetId}/health", timeout.Token))!; Assert.False(stoppedHealth.Healthy); Assert.Equal("process_not_running", stoppedHealth.Detail);
+                    using (var response = await client.PostAsync($"/api/v1/projects/{projectId}/run-environment/cleanup", null, timeout.Token)) { response.EnsureSuccessStatusCode(); Assert.Equal(2, await response.Content.ReadFromJsonAsync<int>(timeout.Token)); }
 
                     var stopped = (await client.GetFromJsonAsync<RunTargetPage>($"/api/v1/run-targets?projectId={projectId}", timeout.Token))!; Assert.All(stopped.Items, target => Assert.Equal("stopped", target.State)); var snapshots = await WaitForEventsAsync(client, projectId, timeout.Token); Assert.Contains(snapshots.Project.Delta, item => item.Type == "run.logAppended" && item.Payload.GetProperty("line").GetString()!.Contains("node-ready", StringComparison.Ordinal)); Assert.Contains(snapshots.Global.Delta, item => item.Type == "audit.eventAppended" && item.Payload.GetProperty("auditEvent").GetProperty("action").GetString() == "run.environmentCleaned");
                 }
                 finally { await app.StopAsync(timeout.Token); }
             }
             await using var restarted = CreateHost(database); await restarted.StartAsync(timeout.Token);
-            try { using var client = new HttpClient { BaseAddress = Address(restarted.Services) }; client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}"); var values = (await client.GetFromJsonAsync<RunTargetPage>($"/api/v1/run-targets?projectId={projectId}", timeout.Token))!; Assert.Equal(2, values.Items.Count); Assert.All(values.Items, value => Assert.Equal("stopped", value.State)); Assert.Contains(values.Items, value => value.Id == dotnetId); Assert.Contains(values.Items, value => value.Id == nodeId); }
+            try { using var client = new HttpClient { BaseAddress = Address(restarted.Services) }; client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}"); var values = (await client.GetFromJsonAsync<RunTargetPage>($"/api/v1/run-targets?projectId={projectId}", timeout.Token))!; Assert.Equal(3, values.Items.Count); Assert.All(values.Items, value => Assert.Equal("stopped", value.State)); Assert.Contains(values.Items, value => value.Id == dotnetId); Assert.Contains(values.Items, value => value.Id == nodeId); }
             finally { await restarted.StopAsync(timeout.Token); }
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }

@@ -18,6 +18,7 @@ public static class RunTargetEndpoints
         targets.MapPost("/{id}/start", StartAsync).Produces<RunTargetContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         targets.MapPost("/{id}/stop", StopAsync).Produces<RunTargetContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         targets.MapPost("/{id}/restart", RestartAsync).Produces<RunTargetContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        targets.MapGet("/{id}/health", HealthAsync).Produces<RunTargetHealthContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         endpoints.MapPost("/api/v1/projects/{projectId}/run-environment/cleanup", CleanupAsync).WithTags("run-project").Produces<int>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         return endpoints;
     }
@@ -88,6 +89,70 @@ public static class RunTargetEndpoints
     private static async Task<IResult> CleanupAsync(string projectId, HttpRequest request, ILocalProfileStore profiles, IProjectStore projects, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token)
     { if (!UlidValue.TryParse(projectId, out _)) return Invalid("invalid_project_id", "Project ID must be a ULID."); var session = await LocalProfileSession.ResolveAsync(request, profiles, token); if (session is null) return Unauthorized(); if (await projects.GetAsync(session.TenantId, projectId, token) is null) return Missing("project"); await supervisor.StopProjectAsync(projectId, token); return Results.Ok(await store.CleanupAsync(new(session.TenantId, session.Id, projectId, clock.UtcNow), token)); }
 
+    private static async Task<IResult> HealthAsync(
+        string id,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IRunTargetStore store,
+        RunTargetProcessSupervisor supervisor,
+        IClock clock,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(id, out _)) return InvalidId();
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        var target = await store.GetAsync(session.TenantId, id, token);
+        if (target is null) return Missing("run_target");
+        var checkedAt = clock.UtcNow;
+        RunTargetHealthContract health;
+        if (target.State != "running" || !supervisor.IsRunning(target.Id))
+        {
+            health = new RunTargetHealthContract(
+                target.Id, target.Url, false, null, "process_not_running", checkedAt);
+        }
+        else if (target.Kind != "http" || string.IsNullOrWhiteSpace(target.Url))
+        {
+            health = new RunTargetHealthContract(
+                target.Id, target.Url, true, null, "process_alive_without_http_probe", checkedAt);
+        }
+        else
+        {
+            health = await ProbeAsync(target, checkedAt, token);
+        }
+
+        await store.MarkCheckedAsync(session.TenantId, target.Id, checkedAt, token);
+        return Results.Ok(health);
+    }
+
+    private static async Task<RunTargetHealthContract> ProbeAsync(
+        RunTargetRecord target,
+        DateTimeOffset checkedAt,
+        CancellationToken token)
+    {
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        try
+        {
+            using var response = await client.GetAsync(new Uri(target.Url!), token);
+            return new RunTargetHealthContract(
+                target.Id,
+                target.Url,
+                true,
+                (int)response.StatusCode,
+                "http_endpoint_responded",
+                checkedAt);
+        }
+        catch (HttpRequestException)
+        {
+            return new RunTargetHealthContract(
+                target.Id, target.Url, false, null, "http_endpoint_unreachable", checkedAt);
+        }
+        catch (TaskCanceledException) when (!token.IsCancellationRequested)
+        {
+            return new RunTargetHealthContract(
+                target.Id, target.Url, false, null, "http_endpoint_timeout", checkedAt);
+        }
+    }
+
     private static IResult? Authorize(SettingsRecord? settings, RunTargetLaunchRecord launch)
     {
         if (settings?.UnsafeModeAcceptedAt is null) return Problem(409, "unsafe_mode_acceptance_required", "Local project execution requires explicit unsafe-mode acceptance until a sandbox is configured.");
@@ -114,3 +179,4 @@ public static class RunTargetEndpoints
 
 public sealed record RunTargetContract(string Id, string ProjectId, string Name, string Kind, string? Url, int? Port, string State, DateTimeOffset DetectedAt, DateTimeOffset? LastCheckAt);
 public sealed record RunTargetPage(IReadOnlyList<RunTargetContract> Items, string? NextCursor);
+public sealed record RunTargetHealthContract(string TargetId, string? Url, bool Healthy, int? StatusCode, string Detail, DateTimeOffset CheckedAt);

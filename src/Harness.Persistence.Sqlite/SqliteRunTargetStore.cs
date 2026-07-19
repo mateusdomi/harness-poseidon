@@ -27,6 +27,14 @@ public sealed class SqliteRunTargetStore(SqliteWriteDispatcher dispatcher) : IRu
         _dispatcher.ExecuteAsync<object?>(async (connection, token) => { await AppendLogCoreAsync(connection, null, command, token); return null; }, cancellationToken);
     public Task<int> CleanupAsync(RunTargetCleanupCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((connection, token) => CleanupCoreAsync(connection, command, token), cancellationToken);
+    public Task MarkCheckedAsync(string tenantId, string id, DateTimeOffset checkedAt, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<object?>(async (connection, token) =>
+        {
+            await using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE run_targets SET last_check_at=$at WHERE tenant_id=$tenant AND id=$id;";
+            Add(update, "$at", Store(checkedAt)); Add(update, "$tenant", tenantId); Add(update, "$id", id);
+            await update.ExecuteNonQueryAsync(token); return null;
+        }, cancellationToken);
 
     private static async Task<IReadOnlyList<RunTargetRecord>> SynchronizeCoreAsync(SqliteConnection connection, RunTargetSynchronizationCommand command, CancellationToken token)
     {

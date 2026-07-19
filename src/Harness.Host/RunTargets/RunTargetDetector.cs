@@ -35,6 +35,10 @@ public sealed class RunTargetDetector
             {
                 definitions.Add(node);
             }
+            else if (IsPythonEntry(file))
+            {
+                definitions.Add(Python(file));
+            }
         }
 
         return Task.FromResult<IReadOnlyList<RunTargetDefinition>>(
@@ -73,39 +77,89 @@ public sealed class RunTargetDetector
             using var document = JsonDocument.Parse(File.ReadAllText(packageFile));
             var root = document.RootElement;
             var directory = Path.GetDirectoryName(packageFile)!;
+            var name = root.TryGetProperty("name", out var nameNode) && nameNode.ValueKind == JsonValueKind.String
+                ? nameNode.GetString()
+                : Path.GetFileName(directory);
+            var port = FreePort();
+            var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            };
             var entry = root.TryGetProperty("main", out var main) && main.ValueKind == JsonValueKind.String
                 ? main.GetString()
                 : null;
             entry = string.IsNullOrWhiteSpace(entry) ? "server.js" : entry;
             var entryPath = Path.GetFullPath(Path.Combine(directory, entry!));
-            if (!entryPath.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
-                !File.Exists(entryPath))
+            if (entryPath.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
+                File.Exists(entryPath))
             {
-                definition = null!;
-                return false;
+                definition = new(
+                    Fingerprint("node", packageFile),
+                    $"{name} (Node)",
+                    "http",
+                    $"http://127.0.0.1:{port}",
+                    port,
+                    directory,
+                    "/usr/bin/env",
+                    ["node", entryPath],
+                    environment);
+                return true;
             }
 
-            var name = root.TryGetProperty("name", out var nameNode) && nameNode.ValueKind == JsonValueKind.String
-                ? nameNode.GetString()
-                : Path.GetFileName(directory);
-            var port = FreePort();
-            definition = new(
-                Fingerprint("node", packageFile),
-                $"{name} (Node)",
-                "http",
-                $"http://127.0.0.1:{port}",
-                port,
-                directory,
-                "/usr/bin/env",
-                ["node", entryPath],
-                new Dictionary<string, string>(StringComparer.Ordinal) { ["PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture) });
-            return true;
+            if (root.TryGetProperty("scripts", out var scripts) &&
+                scripts.ValueKind == JsonValueKind.Object &&
+                scripts.TryGetProperty("start", out var start) &&
+                start.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(start.GetString()))
+            {
+                definition = new(
+                    Fingerprint("npm-start", packageFile),
+                    $"{name} (npm start)",
+                    "http",
+                    $"http://127.0.0.1:{port}",
+                    port,
+                    directory,
+                    "/usr/bin/env",
+                    ["npm", "start"],
+                    environment);
+                return true;
+            }
+
+            definition = null!;
+            return false;
         }
         catch (JsonException)
         {
             definition = null!;
             return false;
         }
+    }
+
+    private static bool IsPythonEntry(string file)
+    {
+        var name = Path.GetFileName(file);
+        return string.Equals(name, "main.py", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name, "app.py", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static RunTargetDefinition Python(string entryFile)
+    {
+        var directory = Path.GetDirectoryName(entryFile)!;
+        var port = FreePort();
+        return new(
+            Fingerprint("python", entryFile),
+            $"{Path.GetFileName(directory)} (Python)",
+            "http",
+            $"http://127.0.0.1:{port}",
+            port,
+            directory,
+            "/usr/bin/env",
+            ["python3", entryFile],
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["PYTHONUNBUFFERED"] = "1",
+            });
     }
 
     private static IEnumerable<string> EnumerateFiles(string root, int maximumDepth, CancellationToken token)

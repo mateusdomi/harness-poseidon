@@ -25,6 +25,11 @@ public interface IRunTargetStore
     Task AppendLogAsync(
         RunTargetLogCommand command,
         CancellationToken cancellationToken = default);
+    Task MarkCheckedAsync(
+        string tenantId,
+        string id,
+        DateTimeOffset checkedAt,
+        CancellationToken cancellationToken = default);
     Task<int> CleanupAsync(
         RunTargetCleanupCommand command,
         CancellationToken cancellationToken = default);
