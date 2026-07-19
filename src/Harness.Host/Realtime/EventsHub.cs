@@ -8,7 +8,7 @@ public sealed class EventsHub(IRealtimeEventStore store) : Hub
     private readonly IRealtimeEventStore _store =
         store ?? throw new ArgumentNullException(nameof(store));
 
-    public async Task<EventSubscriptionAck> Subscribe(IReadOnlyList<string> streams)
+    public async Task<EventSubscriptionAck> SubscribeToStreams(IReadOnlyList<string> streams)
     {
         ArgumentNullException.ThrowIfNull(streams);
         var normalized = streams.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
@@ -25,7 +25,7 @@ public sealed class EventsHub(IRealtimeEventStore store) : Hub
         return new EventSubscriptionAck(normalized);
     }
 
-    public async Task Unsubscribe(IReadOnlyList<string> streams)
+    public async Task UnsubscribeFromStreams(IReadOnlyList<string> streams)
     {
         ArgumentNullException.ThrowIfNull(streams);
         foreach (var stream in streams.Where(EventStreamName.IsValid).Distinct(StringComparer.Ordinal))

@@ -80,3 +80,7 @@ Não foi inventado evento público de organização: o catálogo normativo e o T
 O frontend compõe o cockpit por listagens dos recursos canônicos; essas rotas serão abertas nas respectivas fatias de tarefas, approvals, agentes, providers e workflows. O backend acrescenta, sem substituir essas listagens, `GET /projects/{id}/status-digest`, necessário pelo pipeline normativo do chefe e útil como snapshot coerente do cockpit.
 
 O contrato explicita sinais ainda indisponíveis para impedir zeros enganosos de agentes/budgets. O evento interno `workChain.created` foi reconciliado nos dois providers para `task.created` e ganhou `projectId`; o nome anterior não existia em nenhum catálogo público e seria rejeitado pelo sink do Host. A mudança elimina o drift sem editar a Kimi.
+
+## 2026-07-19 — métodos do hub `/hubs/events`
+
+Divergência encontrada na homologação humana do GNG-3: o frontend final (`frontend/src/api/realtime/signalr-client.ts`) invoca `SubscribeToStreams(string[])`/`UnsubscribeFromStreams(string[])`, enquanto o Host expunha `Subscribe`/`Unsubscribe` (`HubException: Method does not exist` na tela de chat). Resolução: o contrato mockado do frontend prevalece como especificação do ponto de encontro — o `EventsHub` foi renomeado para `SubscribeToStreams`/`UnsubscribeFromStreams` (assinaturas, ack, `GetStreamSnapshot` e o evento `event` já coincidiam). Nenhuma alteração em `frontend/**`.

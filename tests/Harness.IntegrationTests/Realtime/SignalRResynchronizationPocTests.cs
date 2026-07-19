@@ -63,7 +63,7 @@ public sealed class SignalRResynchronizationPocTests
             {
                 await connection.StartAsync(cancellationToken);
                 var acknowledgement = await connection.InvokeAsync<EventSubscriptionAck>(
-                    "Subscribe",
+                    "SubscribeToStreams",
                     new[] { Stream },
                     cancellationToken);
                 Assert.Equal([Stream], acknowledgement.Streams);
@@ -150,7 +150,7 @@ public sealed class SignalRResynchronizationPocTests
             await using var connection = CreateConnection(baseAddress, received);
             await connection.StartAsync(cancellationToken);
             await connection.InvokeAsync<EventSubscriptionAck>(
-                "Subscribe",
+                "SubscribeToStreams",
                 new[] { Stream },
                 cancellationToken);
 
