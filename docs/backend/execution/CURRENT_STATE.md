@@ -5,10 +5,10 @@ Atualizado em: 2026-07-19T02:00:00Z
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
-- Épico atual: F2-DOGFOOD-2 concluído (2a/2b verdes) — o pipeline dogfood técnico está comprovado; próximo é F2-DOGFOOD-3 (preparação do GNG-3).
+- Épico atual: Fase 3 tecnicamente concluída (F3-1..F3-4 verdes: templates canônicos, guard inviolável, verificação em camadas, semiautônomo completo); F2-DOGFOOD-3 (GNG-3) aguarda validações humanas.
 - Branch obrigatória: `develop`.
-- Último commit remoto validado: `d8d0ad5` (`develop`); 2b nesta working tree com 183 testes verdes e verify.sh integral exit 0.
-- Próximo passo exato: F2-DOGFOOD-3 — smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`, Host em modo docker, consome cota — decidir momento com o usuário), executar E2E do frontend contra a API real e preparar a homologação humana do GNG-3; o GNG-3 não é declarado sem aceite humano registrado. Trabalho independente pode continuar pelo roadmap (F3/F6/F4/F5) enquanto o aceite estiver pendente.
+- Último commit remoto validado: `e464005` (`develop`); F3-4 nesta working tree com 198 testes verdes e verify.sh integral exit 0.
+- Próximo passo exato: (a) validações humanas pendentes — smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`, Host em modo docker, consome cota — decidir momento com o usuário), executar E2E do frontend contra a API real e preparar a homologação humana do GNG-3; o GNG-3 não é declarado sem aceite humano registrado. Trabalho independente pode continuar pelo roadmap (F3/F6/F4/F5) enquanto o aceite estiver pendente.
 - Bloqueios: nenhum técnico; homologação humana do GNG-3 aguarda o usuário.
 
 ## Suposições ativas
