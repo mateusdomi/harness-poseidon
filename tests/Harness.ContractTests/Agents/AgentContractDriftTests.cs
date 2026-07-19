@@ -26,6 +26,7 @@ public sealed class AgentContractDriftTests
         Assert.True(paths.GetProperty("/api/v1/agent-definitions/{definitionId}").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/agents/{agentId}").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/agent-org-chart").TryGetProperty("get", out _));
         Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/pause").TryGetProperty("post", out _));
         Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/resume").TryGetProperty("post", out _));
         Assert.True(paths.GetProperty("/api/v1/projects/{projectId}/chief/handoff").TryGetProperty("post", out _));
@@ -33,6 +34,11 @@ public sealed class AgentContractDriftTests
 
         AssertFields(openApi, "AgentDefinitionContract", DefinitionFields);
         AssertFields(openApi, "AgentContract", AgentFields);
+        AssertFields(openApi, "AgentOrgChartContract", ["projectId", "rootAgentId", "nodes"]);
+        AssertFields(openApi, "AgentOrgChartNodeContract",
+            ["agentId", "definitionId", "parentAgentId", "level", "order", "name", "role",
+             "specialty", "state", "currentTaskId", "effectiveModelId", "skillIds", "toolIds",
+             "metrics"]);
 
         var frontend = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "agents.ts"));
         AssertFrontendFields(frontend, "export const agentDefinitionSchema", "export type AgentDefinition", DefinitionFields);

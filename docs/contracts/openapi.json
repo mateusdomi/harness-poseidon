@@ -1486,6 +1486,75 @@
                 }
             }
         },
+        "/api/v1/projects/{projectId}/agent-org-chart": {
+            "get": {
+                "tags": [
+                    "agents"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentOrgChartContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectId}/chief/pause": {
             "post": {
                 "tags": [
@@ -10788,6 +10857,122 @@
                             "string"
                         ],
                         "format": "int64"
+                    }
+                }
+            },
+            "AgentOrgChartContract": {
+                "required": [
+                    "projectId",
+                    "rootAgentId",
+                    "nodes"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "rootAgentId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "nodes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AgentOrgChartNodeContract"
+                        }
+                    }
+                }
+            },
+            "AgentOrgChartNodeContract": {
+                "required": [
+                    "agentId",
+                    "definitionId",
+                    "parentAgentId",
+                    "level",
+                    "order",
+                    "name",
+                    "role",
+                    "specialty",
+                    "state",
+                    "currentTaskId",
+                    "effectiveModelId",
+                    "skillIds",
+                    "toolIds",
+                    "metrics"
+                ],
+                "type": "object",
+                "properties": {
+                    "agentId": {
+                        "type": "string"
+                    },
+                    "definitionId": {
+                        "type": "string"
+                    },
+                    "parentAgentId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "level": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "order": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "specialty": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "currentTaskId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "effectiveModelId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "skillIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "toolIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "metrics": {
+                        "$ref": "#/components/schemas/AgentMetricsContract"
                     }
                 }
             },

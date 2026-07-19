@@ -2,6 +2,7 @@ using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Projects;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -18,6 +19,11 @@ public static class AgentEndpoints
         var agents = endpoints.MapGroup("/api/v1/agents").WithTags("agents");
         agents.MapGet("/", ListAgentsAsync).Produces<AgentPage>().ProducesProblem(400).ProducesProblem(401);
         agents.MapGet("/{agentId}", GetAgentAsync).Produces<AgentContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+
+        var organization = endpoints.MapGroup("/api/v1/projects").WithTags("agents");
+        organization.MapGet("/{projectId}/agent-org-chart", GetOrgChartAsync)
+            .Produces<AgentOrgChartContract>().ProducesProblem(400).ProducesProblem(401)
+            .ProducesProblem(404).ProducesProblem(409);
 
         var chief = endpoints.MapGroup("/api/v1/projects/{projectId}/chief").WithTags("agents");
         chief.MapPost("/pause", PauseChiefAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
@@ -137,6 +143,61 @@ public static class AgentEndpoints
         return value is null ? NotFound("agent") : Results.Ok(ToContract(value));
     }
 
+    private static async Task<IResult> GetOrgChartAsync(
+        string projectId, HttpRequest request, ILocalProfileStore profiles,
+        IProjectStore projects, IAgentCatalogStore agents, CancellationToken token)
+    {
+        if (!UlidValue.TryParse(projectId, out _)) return InvalidId("project");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        var project = await projects.GetAsync(profile.TenantId, projectId, token);
+        if (project is null) return NotFound("project");
+
+        var team = new List<AgentRecord>();
+        string? cursor = null;
+        do
+        {
+            var page = await agents.ListAgentsAsync(
+                profile.TenantId, projectId, cursor, 200, token);
+            team.AddRange(page);
+            if (team.Count > 2_000)
+                return Problem(409, "agent_org_chart_too_large", "Project team exceeds the organogram safety limit.");
+            cursor = page.Count == 200 ? page[^1].Id : null;
+        } while (cursor is not null);
+
+        var definitions = new Dictionary<string, AgentDefinitionRecord>(StringComparer.Ordinal);
+        foreach (var definitionId in team.Select(value => value.DefinitionId).Distinct(StringComparer.Ordinal))
+        {
+            var definition = await agents.GetDefinitionAsync(definitionId, token);
+            if (definition is null)
+                return Problem(409, "agent_definition_missing", "An agent references a missing definition.");
+            definitions.Add(definitionId, definition);
+        }
+
+        var root = team.FirstOrDefault(value => value.Id == project.ChiefAgentId);
+        var ordered = team
+            .OrderBy(value => value.Id == project.ChiefAgentId ? 0 : 1)
+            .ThenBy(value => definitions[value.DefinitionId].Role == "chief" ? 0 : 1)
+            .ThenBy(value => value.Name, StringComparer.Ordinal)
+            .ThenBy(value => value.Id, StringComparer.Ordinal)
+            .ToArray();
+        var nodes = ordered.Select((agent, index) =>
+        {
+            var definition = definitions[agent.DefinitionId];
+            var isRoot = root is not null && agent.Id == root.Id;
+            return new AgentOrgChartNodeContract(
+                agent.Id, agent.DefinitionId, isRoot || root is null ? null : root.Id,
+                isRoot || root is null ? 0 : 1, index, agent.Name, definition.Role,
+                definition.Specialty, agent.State, agent.CurrentTaskId,
+                agent.ModelId ?? definition.DefaultModelId, definition.SkillIds,
+                definition.ToolIds,
+                new AgentMetricsContract(agent.Metrics.TasksCompleted, agent.Metrics.TokensInput,
+                    agent.Metrics.TokensOutput, agent.Metrics.CostUsd, agent.Metrics.UptimeMs));
+        }).ToArray();
+        return Results.Ok(new AgentOrgChartContract(
+            project.Id, root?.Id, nodes));
+    }
+
     private static bool TryPage(string? cursor, int? limit, out int size)
     {
         size = limit ?? 50;
@@ -173,5 +234,12 @@ public sealed record AgentContract(
     string? CurrentTaskId, string? ModelId, AgentLeaseContract? Lease,
     AgentMetricsContract Metrics, DateTimeOffset? LastHeartbeatAt);
 public sealed record AgentPage(IReadOnlyList<AgentContract> Items, string? NextCursor);
+public sealed record AgentOrgChartContract(
+    string ProjectId, string? RootAgentId, IReadOnlyList<AgentOrgChartNodeContract> Nodes);
+public sealed record AgentOrgChartNodeContract(
+    string AgentId, string DefinitionId, string? ParentAgentId, int Level, int Order,
+    string Name, string Role, string? Specialty, string State, string? CurrentTaskId,
+    string? EffectiveModelId, IReadOnlyList<string> SkillIds, IReadOnlyList<string> ToolIds,
+    AgentMetricsContract Metrics);
 public sealed record HandoffChiefRequest(string? TargetDefinitionId, string? TargetModelId, string Note);
 public sealed record DrainChiefRequest(string? Note);
