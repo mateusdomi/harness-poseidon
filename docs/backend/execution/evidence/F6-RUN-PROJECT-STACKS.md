@@ -59,3 +59,28 @@ Gate focado: 2/2 testes reais verdes em 3 s. Gate integral: 236/236 backend
 (`Unit 121`, `Integration 72`, `Contract 28`, `Recovery 5`, `Architecture 7`, `Concurrency 3`),
 331/331 frontend, build Release e format verdes, zero warning/erro e zero recurso Docker Harness
 órfão.
+
+## F6-4 — agente como último recurso
+
+Data: 2026-07-19.
+
+`RunTargetAgentFallback` fecha a última camada da ordem F6 sem transformar saída de modelo em shell:
+
+- só é invocado quando manifestos, arquivos de projeto, Dockerfile e Compose não detectam nada e
+  quando o usuário já registrou o aceite de modo inseguro; o Host o fia ao `IAgentExecutor` existente;
+- recebe inventário read-only limitado a 200 paths/profundidade 4 e exige JSON v1 dentro da resposta
+  estruturada do Chief, com no máximo cinco alvos `http|process`;
+- aceita `/usr/bin/env` somente com runtime allowlisted ou executável regular confinado ao projeto;
+  recusa shell, `npx`, path traversal, symlinks, chaves de ambiente semelhantes a segredo, campos
+  desconhecidos e HTTP sem `{port}` dinâmica;
+- substitui `{port}` sem shell, preserva `kind=http|process` do contrato frontend, marca a origem em
+  metadata privado, registra `runTarget.agentDetectionCompleted` no ledger/auditoria e mantém cache
+  por projeto durante cinco minutos para evitar custo duplicado;
+- falha do agente ou saída inválida resulta em lista vazia e log somente com o tipo do erro, sem
+  derrubar a descoberta determinística e sem registrar a resposta potencialmente sensível.
+
+`RunTargetAgentFallbackTests` prova seis cenários: proposta tipada executada de verdade por Python e
+health HTTP `agent-ok`, replay de cache sem segunda chamada, precedência determinística, rejeição de
+shell, variável de segredo, traversal e escape por symlink. Gate integral: 242/242 backend
+(`Unit 121`, `Integration 78`, `Contract 28`, `Recovery 5`, `Architecture 7`, `Concurrency 3`),
+331/331 frontend e build Release zero warnings/erros.

@@ -7,13 +7,19 @@ using Harness.Persistence.Abstractions.RunTargets;
 
 namespace Harness.Host.RunTargets;
 
-public sealed class RunTargetDetector
+public sealed class RunTargetDetector(RunTargetAgentFallback? agentFallback = null)
 {
     private static readonly HashSet<string> IgnoredDirectories =
         new([".git", ".idea", ".vs", ".vscode", "bin", "obj", "node_modules", "dist", "build"], StringComparer.OrdinalIgnoreCase);
 
+    public Task<IReadOnlyList<RunTargetDefinition>> DetectAsync(
+        string rootPath,
+        CancellationToken cancellationToken = default) =>
+        DetectAsync(rootPath, null, cancellationToken);
+
     public async Task<IReadOnlyList<RunTargetDefinition>> DetectAsync(
         string rootPath,
+        RunTargetDetectionContext? context,
         CancellationToken cancellationToken = default)
     {
         var root = Path.GetFullPath(rootPath);
@@ -64,10 +70,12 @@ public sealed class RunTargetDetector
             if (compose is not null) definitions.Add(compose);
         }
 
-        return definitions.GroupBy(value => value.Fingerprint, StringComparer.Ordinal)
+        var detected = definitions.GroupBy(value => value.Fingerprint, StringComparer.Ordinal)
                 .Select(group => group.First())
                 .OrderBy(value => value.Name, StringComparer.Ordinal)
                 .ToArray();
+        if (detected.Length > 0 || context is null || agentFallback is null) return detected;
+        return await agentFallback.InferAsync(root, context, cancellationToken);
     }
 
     private static RunTargetDefinition DotNet(string projectFile)

@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(236/236 testes backend, build Release 0 warnings/0 erros, 331/331 frontend) reproduzida nesta sessão.
+(242/242 testes backend, build Release 0 warnings/0 erros, 331/331 frontend) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -43,7 +43,7 @@ Total: **100**.
 | F3 | 100 | 100 | 100 | 0 | Templates canônicos, guarda de ações invioláveis, verificação em 3 camadas e run semiautônomo completo provados via API/anti-burla. Gate da fase (automático) verde. |
 | F4 | 100 | 100 | 100 | 0 | Segurança de upload (allowlist/magic bytes/anti zip-bomb/traversal/quarentena) + demanda de documento real, via API e migration 0029. |
 | F5 | 100 | 100 | 100 | 0 | Upload inspecionado de referências (PNG/JPEG/ZIP), galeria, waiver; migration 0030. |
-| F6 | 94 | 94 | 92 | 0 | .NET/Node/Python via API, Java Maven/Gradle e agora **Dockerfile/Compose reais** com porta dinâmica, ownership §1.2, health e cleanup sem órfãos. **Falta** fallback por agente como último recurso. |
+| F6 | 100 | 100 | 96 | 0 | .NET/Node/Python via API, Java, Dockerfile/Compose reais e **fallback por agente** policy-gated/JSON fechado, com execução real e probes adversariais. Lacuna de integração: smoke com executor/modelo real (externo); composição Host e fake tipado estão verdes. |
 | F7 | 85 | 85 | 85 | 0 | Launcher + publish self-contained com frontend embarcado + smoke do binário sem IDE verdes. Backup/restore existe (F2-OPS). **Parciais**: atualização e desinstalação segura. |
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
 | F9 | 72 | 72 | 75 | 0 | Gateway (terminal) + adaptador Telegram (long polling, dedupe, linking, resposta na origem) verdes com fake **e smoke real do bot `@SystemPoseidon_bot`** (getMe ok, link `5774120296`, sendMessage entregue). **Falta** Teams (ordem terminal→Telegram→Teams). |
@@ -55,14 +55,14 @@ Total: **100**.
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·0.94)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.75)`
-`= 5+12+25+8+6+5+7.52+5.95+6+3.60+8+3.75 = 95.82` → **95.8% (num 95.82 / den 100)**
+`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(7·0.85)+(6·1.00)+(5·0.72)+(8·1.00)+(5·0.75)`
+`= 5+12+25+8+6+5+8+5.95+6+3.60+8+3.75 = 96.30` → **96.3% (num 96.30 / den 100)**
 
 ### Validado
-`5+12+25+8+6+5+7.52+5.95+6+3.60+(8·0.97=7.76)+3.75 = 95.58` → **95.6% (num 95.58 / den 100)**
+`5+12+25+8+6+5+8+5.95+6+3.60+(8·0.97=7.76)+3.75 = 96.06` → **96.1% (num 96.06 / den 100)**
 
 ### Integrado
-`5+12+(25·0.92=23.00)+8+6+5+(8·0.92=7.36)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+3.75 = 93.41` → **93.4% (num 93.41 / den 100)**
+`5+12+(25·0.92=23.00)+8+6+5+(8·0.96=7.68)+5.95+6+(5·0.75=3.75)+(8·0.95=7.60)+3.75 = 93.73` → **93.7% (num 93.73 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -70,8 +70,8 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·95.58 + 0.30·93.41 + 0.20·0 = 47.79 + 28.023 + 0.00 = 75.813`
-→ **≈ 75.8%**
+`= 0.50·96.06 + 0.30·93.73 + 0.20·0 = 48.03 + 28.119 + 0.00 = 76.149`
+→ **≈ 76.1%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
@@ -80,20 +80,19 @@ Independentes (trabalho técnico que prossegue sem terceiros):
 1. **F11** (25% aberto): a11y/E2E real e DoD global/GNG-6. Publicação servidor,
    instalação/operação, runbook, headers/cookies/CORS, scanning, auditoria de dependências,
    migração SQLite→PostgreSQL e matriz de resiliência já estão verdes.
-2. **F6**: fallback por agente como último recurso. Dockerfile/Compose e Java já estão verdes.
-3. **F9**: adaptador Teams + testes fake (Telegram real já validado).
-4. **F7**: fluxo de atualização e desinstalação segura.
-5. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
+2. **F9**: adaptador Teams + testes fake (Telegram real já validado).
+3. **F7**: fluxo de atualização e desinstalação segura.
+4. **Refinamentos v3 §8** (backlog desta rodada, fora do peso do roadmap base): paginação
    `page/pageSize`, arquivar/CSV do quadro, workflows por projeto, CRUD de definições de agentes,
    organograma read-model, providers/contas/modelos/esforço.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
-6. **Homologação humana GNG-3** (visual, em navegador) — desbloqueia os 20% de Homologado do F2 e
+5. **Homologação humana GNG-3** (visual, em navegador) — desbloqueia os 20% de Homologado do F2 e
    dependentes.
-7. **Smoke OIDC com Entra ID real** — Tenant ID + Client ID da app registration.
-8. ~~Smoke real do bot Telegram~~ — **feito** (`@SystemPoseidon_bot`, F9-3); só o Host precisa estar no ar com o token em env var.
-9. **Smoke de agente real que consuma cota**, se exigido na homologação.
+6. **Smoke OIDC com Entra ID real** — Tenant ID + Client ID da app registration.
+7. ~~Smoke real do bot Telegram~~ — **feito** (`@SystemPoseidon_bot`, F9-3); só o Host precisa estar no ar com o token em env var.
+8. **Smoke do fallback F6 com executor/modelo real que consuma cota**, se exigido na homologação.
 
 ## 6. Backlog de refinamentos desta rodada (separado do roadmap base)
 

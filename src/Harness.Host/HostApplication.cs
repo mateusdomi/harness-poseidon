@@ -214,6 +214,7 @@ public static class HostApplication
             .GetSection("Harness:Channels:Telegram")
             .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());
         builder.Services.AddHostedService<TelegramChannelBackgroundService>();
+        builder.Services.AddSingleton<RunTargetAgentFallback>();
         builder.Services.AddSingleton<RunTargetDetector>();
         builder.Services.AddSingleton<DockerRunTargetLifecycle>();
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();

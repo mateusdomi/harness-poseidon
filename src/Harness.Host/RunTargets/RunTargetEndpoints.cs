@@ -48,7 +48,16 @@ public static class RunTargetEndpoints
                 try
                 {
                     var root = ResolveProjectRoot(settings.WorkingDirectory, project);
-                    var definitions = await detector.DetectAsync(root, token);
+                    var definitions = await detector.DetectAsync(
+                        root,
+                        settings.UnsafeModeAcceptedAt is null
+                            ? null
+                            : new RunTargetDetectionContext(
+                                session.TenantId,
+                                projectId,
+                                UlidValue.New(clock.UtcNow).ToString(),
+                                "chief"),
+                        token);
                     var synchronized = await store.SynchronizeAsync(new(session.TenantId, session.Id, projectId, definitions, clock.UtcNow), token);
                     foreach (var stale in synchronized.Where(value => value.State == "running" && !supervisor.IsRunning(value.Id)))
                         await store.SetStateAsync(new(session.TenantId, session.Id, stale.Id, "unknown", "A persisted running service has no live supervised process after restart.", clock.UtcNow), token);
