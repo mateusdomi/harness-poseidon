@@ -215,6 +215,7 @@ public static class HostApplication
             .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());
         builder.Services.AddHostedService<TelegramChannelBackgroundService>();
         builder.Services.AddSingleton<RunTargetDetector>();
+        builder.Services.AddSingleton<DockerRunTargetLifecycle>();
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();
         builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<RunTargetProcessSupervisor>());
         if (serverMode)

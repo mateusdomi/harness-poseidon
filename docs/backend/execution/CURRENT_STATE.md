@@ -1,15 +1,15 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-19T18:59:00Z
+Atualizado em: 2026-07-19T19:33:18Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Último commit remoto auditado: `3f4b12f` (`origin/develop`). Nesta sessão: recuperada e endurecida F11-4 (migração SQLite→PostgreSQL), com introspecção das 80 tabelas, ordem de FKs/self-references, OCC/tenant/ledger preservados, replay idêntico e conflito divergente fail-closed. A worktree/branch `worktree-agent-*` herdada foi removida sem perder o trabalho; a regra exclusiva `main`/`develop` e seu teste permanecem intactos. O gate também revelou e corrigiu a corrida de ownership/disposal no supervisor de run targets. `verify.sh` verde com 234/234 testes backend, 331/331 frontend, build Release zero warnings e zero Docker órfão.
-- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 94,9% · Validado 94,6% · Integrado 92,5% · Homologado 0% · Geral ≈75,0%.
-- Próximo passo exato: continuar F11 por a11y/E2E real e DoD global; depois F6 Docker/Compose, F9 Teams e F7 atualização/desinstalação. Gates focados: `verify-resilience.sh` e `verify-operations.sh`. Dependências externas isoladas (não bloqueiam): homologação visual GNG-3, smoke OIDC com Entra ID real e eventual smoke de agente que consuma cota. Telegram real exige rotação do token antes de nova ativação (R-013).
+- Último commit remoto auditado: `1fc8224` (`origin/develop`). F11-4..6 estão verdes (migração SQLite→PostgreSQL, matriz de resiliência e operação/incident response). F6-3 está verde: Dockerfile/Compose gerenciados com porta dinâmica, ownership estrito §1.2 e zero órfão no Docker Engine real; gate integral 236/236 backend + 331/331 frontend, build zero warnings/erros. A fatia aguarda somente commit/push.
+- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 95,8% · Validado 95,6% · Integrado 93,4% · Homologado 0% · Geral ≈75,8%.
+- Próximo passo exato: fechar o fallback por agente da F6; depois F9 Teams, F7 atualização/desinstalação e F11 a11y/E2E/DoD. O navegador embutido segue sem sessão disponível apesar de Chrome/Edge instalados, mas isso não bloqueia os itens independentes. Dependências externas isoladas: homologação visual GNG-3 e smoke OIDC com Entra ID real. Telegram real exige rotação do token antes de nova ativação (R-013).
 - Bloqueios: nenhum técnico — há trabalho independente de F11/F6/F9/F7 em andamento. Apenas os smokes externos (GNG-3 visual, Entra ID real) aguardam terceiros e não travam o roadmap técnico. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
 ## Suposições ativas

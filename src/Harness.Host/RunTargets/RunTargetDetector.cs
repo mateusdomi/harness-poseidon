@@ -12,7 +12,7 @@ public sealed class RunTargetDetector
     private static readonly HashSet<string> IgnoredDirectories =
         new([".git", ".idea", ".vs", ".vscode", "bin", "obj", "node_modules", "dist", "build"], StringComparer.OrdinalIgnoreCase);
 
-    public Task<IReadOnlyList<RunTargetDefinition>> DetectAsync(
+    public async Task<IReadOnlyList<RunTargetDefinition>> DetectAsync(
         string rootPath,
         CancellationToken cancellationToken = default)
     {
@@ -23,7 +23,8 @@ public sealed class RunTargetDetector
         }
 
         var definitions = new List<RunTargetDefinition>();
-        foreach (var file in EnumerateFiles(root, 4, cancellationToken).Take(500))
+        var files = EnumerateFiles(root, 4, cancellationToken).Take(500).ToArray();
+        foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
@@ -48,13 +49,25 @@ public sealed class RunTargetDetector
             {
                 definitions.Add(gradle);
             }
+            else if (IsDockerfile(file) && TryDockerfile(file, out var dockerfile))
+            {
+                definitions.Add(dockerfile);
+            }
         }
 
-        return Task.FromResult<IReadOnlyList<RunTargetDefinition>>(
-            definitions.GroupBy(value => value.Fingerprint, StringComparer.Ordinal)
+        foreach (var composeFile in files
+                     .Where(IsComposeFile)
+                     .GroupBy(Path.GetDirectoryName, StringComparer.Ordinal)
+                     .Select(group => group.OrderBy(ComposeFilePriority).First()))
+        {
+            var compose = await TryComposeAsync(composeFile, cancellationToken);
+            if (compose is not null) definitions.Add(compose);
+        }
+
+        return definitions.GroupBy(value => value.Fingerprint, StringComparer.Ordinal)
                 .Select(group => group.First())
                 .OrderBy(value => value.Name, StringComparer.Ordinal)
-                .ToArray());
+                .ToArray();
     }
 
     private static RunTargetDefinition DotNet(string projectFile)
@@ -242,6 +255,191 @@ public sealed class RunTargetDetector
         return string.Equals(name, "main.py", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(name, "app.py", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool IsDockerfile(string file) =>
+        string.Equals(Path.GetFileName(file), "Dockerfile", StringComparison.OrdinalIgnoreCase) ||
+        Path.GetFileName(file).StartsWith("Dockerfile.", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryDockerfile(string dockerfile, out RunTargetDefinition definition)
+    {
+        try
+        {
+            var containerPort = File.ReadLines(dockerfile)
+                .Select(line => line.Trim())
+                .Where(line => line.StartsWith("EXPOSE ", StringComparison.OrdinalIgnoreCase))
+                .SelectMany(line => line[7..].Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Select(TryContainerPort)
+                .FirstOrDefault(port => port is not null);
+            if (containerPort is null)
+            {
+                definition = null!;
+                return false;
+            }
+
+            var directory = Path.GetDirectoryName(dockerfile)!;
+            var hostPort = FreePort();
+            definition = new(
+                Fingerprint("dockerfile", dockerfile),
+                $"{Path.GetFileName(directory)} (Dockerfile)",
+                "docker",
+                $"http://127.0.0.1:{hostPort}",
+                hostPort,
+                directory,
+                ResolveDocker(),
+                [],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["HARNESS_RUN_DOCKER_MODE"] = "dockerfile",
+                    ["HARNESS_RUN_DOCKER_FILE"] = Path.GetFullPath(dockerfile),
+                    ["HARNESS_RUN_CONTAINER_PORT"] = containerPort.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+            return true;
+        }
+        catch (IOException)
+        {
+            definition = null!;
+            return false;
+        }
+    }
+
+    private static bool IsComposeFile(string file)
+    {
+        var name = Path.GetFileName(file);
+        return name.Equals("compose.yaml", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("compose.yml", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("docker-compose.yaml", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("docker-compose.yml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int ComposeFilePriority(string file) =>
+        Path.GetFileName(file).ToLowerInvariant() switch
+        {
+            "compose.yaml" => 0,
+            "compose.yml" => 1,
+            "docker-compose.yaml" => 2,
+            _ => 3,
+        };
+
+    private static async Task<RunTargetDefinition?> TryComposeAsync(
+        string composeFile,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await RunAsync(
+                ResolveDocker(),
+                ["compose", "--file", composeFile, "config", "--format", "json"],
+                Path.GetDirectoryName(composeFile)!,
+                cancellationToken);
+            if (result.ExitCode != 0) return null;
+
+            using var document = JsonDocument.Parse(result.StandardOutput);
+            if (!document.RootElement.TryGetProperty("services", out var services) ||
+                services.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            string? selectedService = null;
+            int? containerPort = null;
+            foreach (var service in services.EnumerateObject().OrderBy(value => value.Name, StringComparer.Ordinal))
+            {
+                if (service.Value.TryGetProperty("ports", out var ports) &&
+                    ports.ValueKind == JsonValueKind.Array && ports.GetArrayLength() > 0)
+                {
+                    // Existing host publications could collide with another project. The managed
+                    // runtime only accepts container-only ports and publishes a free loopback port.
+                    return null;
+                }
+
+                if (selectedService is null &&
+                    service.Value.TryGetProperty("expose", out var exposed) &&
+                    exposed.ValueKind == JsonValueKind.Array)
+                {
+                    containerPort = exposed.EnumerateArray()
+                        .Select(value => value.ValueKind == JsonValueKind.String ? TryContainerPort(value.GetString()) : null)
+                        .FirstOrDefault(value => value is not null);
+                    if (containerPort is not null) selectedService = service.Name;
+                }
+            }
+
+            if (selectedService is null || containerPort is null) return null;
+            var directory = Path.GetDirectoryName(composeFile)!;
+            var hostPort = FreePort();
+            return new(
+                Fingerprint("compose", directory),
+                $"{Path.GetFileName(directory)} (Compose)",
+                "compose",
+                $"http://127.0.0.1:{hostPort}",
+                hostPort,
+                directory,
+                ResolveDocker(),
+                [],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["HARNESS_RUN_DOCKER_MODE"] = "compose",
+                    ["HARNESS_RUN_DOCKER_FILE"] = Path.GetFullPath(composeFile),
+                    ["HARNESS_RUN_COMPOSE_SERVICE"] = selectedService,
+                    ["HARNESS_RUN_CONTAINER_PORT"] = containerPort.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
+    }
+
+    private static int? TryContainerPort(string? value)
+    {
+        var token = value?.Split('/', 2, StringSplitOptions.TrimEntries)[0];
+        return int.TryParse(token, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var port) &&
+            port is > 0 and <= 65535
+                ? port
+                : null;
+    }
+
+    private static async Task<ProcessResult> RunAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        CancellationToken cancellationToken)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = executable,
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        using var process = System.Diagnostics.Process.Start(start)
+            ?? throw new RunTargetValidationException("The Docker CLI could not be started.");
+        var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        return new(process.ExitCode, await standardOutput, await standardError);
+    }
+
+    private static string ResolveDocker()
+    {
+        var configured = Environment.GetEnvironmentVariable("HARNESS_DOCKER_PATH");
+        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured)) return configured;
+        foreach (var candidate in new[] { "/usr/local/bin/docker", "/opt/homebrew/bin/docker", "/usr/bin/docker" })
+            if (File.Exists(candidate)) return candidate;
+        return "docker";
+    }
+
+    private sealed record ProcessResult(int ExitCode, string StandardOutput, string StandardError);
 
     private static RunTargetDefinition Python(string entryFile)
     {
