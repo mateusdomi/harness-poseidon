@@ -38,7 +38,7 @@ gate de resiliência e smoke HTTP contra o destino restaurado.
 4. No desktop, execute `Harness.Launcher update --install-dir <destino> --data-dir <dados>` a partir
    do pacote novo. O comando valida integridade, cria backup offline, troca a instalação por rename
    e preserva o data dir. No servidor, substitua somente os binários pelo procedimento do supervisor.
-5. Inicie a nova versão; migrations são idempotentes e avançam até 0034.
+5. Inicie a nova versão; migrations são idempotentes e avançam até 0035.
 6. Confirme `/health`, diagnóstico, login, um read model e SignalR snapshot/delta.
 7. Em falha, pare a nova versão, restaure backup/binário anterior e siga o runbook de incidente.
 

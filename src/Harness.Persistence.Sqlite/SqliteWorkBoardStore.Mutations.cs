@@ -20,6 +20,10 @@ public sealed partial class SqliteWorkBoardStore
         BoardTaskPriorityCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => SetTaskPriorityCoreAsync(c, command, t), cancellationToken);
 
+    public Task<BoardTaskRecord> SetTaskArchivedAsync(
+        BoardTaskArchiveCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync((c, t) => SetTaskArchivedCoreAsync(c, command, t), cancellationToken);
+
     public Task<BoardInstructionRecord> AppendInstructionAsync(
         BoardInstructionAppendCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => AppendInstructionCoreAsync(c, command, t), cancellationToken);
@@ -58,6 +62,8 @@ public sealed partial class SqliteWorkBoardStore
         await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
         var current = await ReadTaskAsync(c, tx, command.TenantId, command.TaskId, token)
             ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (current.ArchivedAt is not null)
+            throw new WorkBoardInvalidStateException("An archived task cannot change board state.");
         if (command.ToState == "done" && current.InternalState != "completed")
             throw new WorkBoardInvalidStateException("Only a completed task can move to done.");
         if (command.ToState == "blocked" && string.IsNullOrWhiteSpace(command.Note) &&
@@ -122,6 +128,55 @@ public sealed partial class SqliteWorkBoardStore
         return current with
         {
             Priority = command.Priority,
+            UpdatedAt = command.OccurredAt,
+            Version = current.Version + 1,
+        };
+    }
+
+    private static async Task<BoardTaskRecord> SetTaskArchivedCoreAsync(
+        SqliteConnection c, BoardTaskArchiveCommand command, CancellationToken token)
+    {
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        var current = await ReadTaskAsync(c, tx, command.TenantId, command.TaskId, token)
+            ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (command.Archived)
+        {
+            if (current.ArchivedAt is not null)
+                throw new WorkBoardInvalidStateException("Task is already archived.");
+            if (current.State != "done")
+                throw new WorkBoardInvalidStateException("Only a done task can be archived.");
+        }
+        else if (current.ArchivedAt is null)
+        {
+            throw new WorkBoardInvalidStateException("Task is not archived.");
+        }
+
+        var archivedAt = command.Archived ? command.OccurredAt : (DateTimeOffset?)null;
+        await using var mutation = c.CreateCommand(); mutation.Transaction = tx;
+        mutation.CommandText =
+            "UPDATE work_tasks SET archived_at=$archived,version=version+1,updated_at=$at " +
+            "WHERE tenant_id=$tenant AND id=$id;";
+        AddNullable(mutation, "$archived", archivedAt is null ? null : Store(archivedAt.Value));
+        Add(mutation, "$at", Store(command.OccurredAt)); Add(mutation, "$tenant", command.TenantId);
+        Add(mutation, "$id", command.TaskId); await mutation.ExecuteNonQueryAsync(token);
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = current.ProjectId,
+            taskId = current.Id,
+            from = current.State,
+            to = current.State,
+            changedByKind = command.ChangedByKind,
+            note = command.Archived ? "archived" : "unarchived",
+            archivedAt,
+        }, JsonOptions);
+        await AppendAuditAsync(c, tx, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return current with
+        {
+            ArchivedAt = archivedAt,
             UpdatedAt = command.OccurredAt,
             Version = current.Version + 1,
         };

@@ -8,7 +8,7 @@ public sealed class WorkBoardContractDriftTests
     {
         ["SolicitationContract"] = ["id", "projectId", "authorProfileId", "kind", "title", "body", "state", "supersedesId", "createdAt"],
         ["DemandContract"] = ["id", "projectId", "solicitationId", "title", "description", "state", "priority", "createdAt"],
-        ["BoardTaskContract"] = ["id", "projectId", "demandId", "title", "state", "priority", "assigneeAgentId", "blockedReason", "instructionVersion", "progress", "createdAt", "updatedAt", "dueAt"],
+        ["BoardTaskContract"] = ["id", "projectId", "demandId", "title", "state", "priority", "assigneeAgentId", "blockedReason", "instructionVersion", "progress", "createdAt", "updatedAt", "dueAt", "archivedAt"],
         ["TaskInstructionContract"] = ["id", "taskId", "version", "body", "authorKind", "authorId", "createdAt"],
         ["AttemptContract"] = ["id", "taskId", "number", "state", "agentId", "startedAt", "finishedAt", "durationMs", "costUsd", "tokensInput", "tokensOutput", "commitRefs", "summary", "failureReason"],
         ["AttemptEventContract"] = ["id", "attemptId", "kind", "content", "occurredAt"],
@@ -32,6 +32,8 @@ public sealed class WorkBoardContractDriftTests
         AssertMethods(paths, "/api/v1/tasks/{id}", "get");
         AssertMethods(paths, "/api/v1/tasks/{id}/moves", "post");
         AssertMethods(paths, "/api/v1/tasks/{id}/priority", "post");
+        AssertMethods(paths, "/api/v1/tasks/{id}/archive", "post");
+        AssertMethods(paths, "/api/v1/tasks/{id}/unarchive", "post");
         AssertMethods(paths, "/api/v1/tasks/{id}/instructions", "post");
         AssertMethods(paths, "/api/v1/task-instructions", "get", "post");
         AssertMethods(paths, "/api/v1/task-instructions/{id}", "get");

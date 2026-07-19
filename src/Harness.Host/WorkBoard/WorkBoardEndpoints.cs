@@ -30,6 +30,8 @@ public static class WorkBoardEndpoints
         tasks.MapPost("/", CreateTaskAsync).Produces<BoardTaskContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         tasks.MapPost("/{id}/moves", MoveTaskAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         tasks.MapPost("/{id}/priority", SetTaskPriorityAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        tasks.MapPost("/{id}/archive", ArchiveTaskAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        tasks.MapPost("/{id}/unarchive", UnarchiveTaskAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         tasks.MapPost("/{id}/instructions", AppendTaskInstructionAsync).Produces<TaskInstructionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
 
         var instructions = endpoints.MapGroup("/api/v1/task-instructions").WithTags("task-instructions");
@@ -235,6 +237,36 @@ public static class WorkBoardEndpoints
         catch (ArgumentException e) { return Invalid("task", e.Message); }
     }
 
+    private static Task<IResult> ArchiveTaskAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token) =>
+        SetTaskArchivedAsync(id, true, request, profiles, store, clock, token);
+
+    private static Task<IResult> UnarchiveTaskAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token) =>
+        SetTaskArchivedAsync(id, false, request, profiles, store, clock, token);
+
+    private static async Task<IResult> SetTaskArchivedAsync(string id, bool archived,
+        HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId("task");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var row = await store.SetTaskArchivedAsync(new(
+                profile.TenantId, id, archived, "user", clock.UtcNow), token);
+            return Results.Ok(ToContract(row));
+        }
+        catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
+        catch (WorkBoardInvalidStateException e)
+        {
+            return Conflict("task_archive_state_conflict", e.Message);
+        }
+    }
+
     private static async Task<IResult> AppendTaskInstructionAsync(string id,
         AppendTaskInstructionRequest input, HttpRequest request, ILocalProfileStore profiles,
         IWorkBoardStore store, IClock clock, CancellationToken token)
@@ -339,7 +371,7 @@ public static class WorkBoardEndpoints
 
     private static SolicitationContract ToContract(BoardSolicitationRecord x) => new(x.Id, x.ProjectId, x.AuthorProfileId, x.Kind, x.Title, x.Body, x.State, x.SupersedesId, x.CreatedAt);
     private static DemandContract ToContract(BoardDemandRecord x) => new(x.Id, x.ProjectId, x.SolicitationId, x.Title, x.Description, x.State, x.Priority, x.CreatedAt);
-    private static BoardTaskContract ToContract(BoardTaskRecord x) => new(x.Id, x.ProjectId, x.DemandId, x.Title, x.State, x.Priority, x.AssigneeAgentId, x.BlockedReason, x.InstructionVersion, new(x.Progress.Executed, x.Progress.Validated, x.Progress.Approved), x.CreatedAt, x.UpdatedAt, x.DueAt);
+    private static BoardTaskContract ToContract(BoardTaskRecord x) => new(x.Id, x.ProjectId, x.DemandId, x.Title, x.State, x.Priority, x.AssigneeAgentId, x.BlockedReason, x.InstructionVersion, new(x.Progress.Executed, x.Progress.Validated, x.Progress.Approved), x.CreatedAt, x.UpdatedAt, x.DueAt, x.ArchivedAt);
     private static TaskInstructionContract ToContract(BoardInstructionRecord x) => new(x.Id, x.TaskId, x.Version, x.Body, x.AuthorKind, x.AuthorId, x.CreatedAt);
     private static AttemptContract ToContract(BoardAttemptRecord x) => new(x.Id, x.TaskId, x.Number, x.State, x.AgentId, x.StartedAt, x.FinishedAt, x.DurationMs, x.CostUsd, x.TokensInput, x.TokensOutput, x.CommitRefs, x.Summary, x.FailureReason);
     private static AttemptEventContract ToContract(BoardAttemptEventRecord x) => new(x.Id, x.AttemptId, x.Kind, x.Content, x.OccurredAt);

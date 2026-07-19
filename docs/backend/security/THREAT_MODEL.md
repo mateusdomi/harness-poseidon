@@ -37,7 +37,7 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 - **Tampering/malware**: `AttachmentIngestPolicy` — allowlist de extensões, magic bytes de executáveis rejeitados, anti zip-bomb (razão de expansão), path traversal bloqueado, quarentena confinada, hash SHA-256 e auditoria de aceite/rejeição.
 
 ### Persistência
-- **Tampering**: migrations embutidas idempotentes (34→0) com upgrade de qualquer prefixo histórico testado; backup/restore locais respondem 409 no modo servidor (PostgreSQL gerenciado é a autoridade); `signed_licenses.document_json` em `json` puro para preservar a assinatura.
+- **Tampering**: migrations embutidas idempotentes (35→0) com upgrade de qualquer prefixo histórico testado; backup/restore locais respondem 409 no modo servidor (PostgreSQL gerenciado é a autoridade); `signed_licenses.document_json` em `json` puro para preservar a assinatura.
 - **Information disclosure**: senha do PG de teste via secret file com permissão 600; connection string só por configuração.
 
 ### Licenciamento

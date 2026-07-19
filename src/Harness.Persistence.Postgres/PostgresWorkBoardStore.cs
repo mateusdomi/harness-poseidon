@@ -20,7 +20,8 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         SELECT t.tenant_id,t.id,t.project_id,t.source_demand_id,t.title,t.board_state,t.priority,
                t.assignee_agent_id,t.blocked_reason,
                (SELECT MAX(i.version) FROM harness.instruction_versions i WHERE i.task_id=t.id),
-               t.created_at,t.updated_at,t.due_at,t.version,d.solicitation_id,t.demand_id,t.state
+               t.created_at,t.updated_at,t.due_at,t.archived_at,t.version,
+               d.solicitation_id,t.demand_id,t.state
         FROM harness.work_tasks t JOIN harness.demands d ON d.id=t.demand_id
         """;
     private const string InstructionSelect =
@@ -408,7 +409,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             command.TenantId, command.Id, command.ProjectId, command.DemandId, command.Title,
             "backlog", command.Priority, command.AssigneeAgentId, null, 1,
             new BoardProgressRecord(0, 0, 0), command.OccurredAt, command.OccurredAt,
-            command.DueAt, 1, "ready", backingSolicitation, backingDemand);
+            command.DueAt, null, 1, "ready", backingSolicitation, backingDemand);
         var instruction = new BoardInstructionRecord(
             command.TenantId, command.InstructionId, command.Id, 1, command.InstructionBody,
             "chief", null, command.OccurredAt);
@@ -549,7 +550,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
 
     private static BoardTaskRecord ReadTask(NpgsqlDataReader reader)
     {
-        var internalState = reader.GetString(16);
+        var internalState = reader.GetString(17);
         var progress = internalState switch
         {
             "awaiting_review" => new BoardProgressRecord(100, 0, 0),
@@ -565,8 +566,9 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             reader.IsDBNull(8) ? null : reader.GetString(8), reader.GetInt32(9), progress,
             reader.GetFieldValue<DateTimeOffset>(10), reader.GetFieldValue<DateTimeOffset>(11),
             reader.IsDBNull(12) ? null : reader.GetFieldValue<DateTimeOffset>(12),
-            reader.GetInt64(13), internalState, reader.GetString(14).TrimEnd(),
-            reader.GetString(15).TrimEnd());
+            reader.IsDBNull(13) ? null : reader.GetFieldValue<DateTimeOffset>(13),
+            reader.GetInt64(14), internalState, reader.GetString(15).TrimEnd(),
+            reader.GetString(16).TrimEnd());
     }
 
     private static BoardInstructionRecord ReadInstruction(NpgsqlDataReader reader) => new(
@@ -634,6 +636,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             task.CreatedAt,
             task.UpdatedAt,
             task.DueAt,
+            task.ArchivedAt,
         },
     }, JsonOptions);
 

@@ -118,6 +118,12 @@ public sealed class WorkBoardApiTests
                     using (var impossibleDone = await client.PostAsJsonAsync($"/api/v1/tasks/{taskId}/moves",
                         new MoveTaskRequest("done"), timeout.Token))
                         Assert.Equal(HttpStatusCode.Conflict, impossibleDone.StatusCode);
+                    using (var prematureArchive = await client.PostAsync(
+                        $"/api/v1/tasks/{taskId}/archive", null, timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, prematureArchive.StatusCode);
+                    using (var prematureUnarchive = await client.PostAsync(
+                        $"/api/v1/tasks/{taskId}/unarchive", null, timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, prematureUnarchive.StatusCode);
                     using (var priorityResponse = await client.PostAsJsonAsync($"/api/v1/tasks/{taskId}/priority",
                         new SetTaskPriorityRequest("critical"), timeout.Token))
                     {
@@ -198,6 +204,36 @@ public sealed class WorkBoardApiTests
                     Assert.Equal("done", finalTask?.State);
                     Assert.Equal((100m, 100m, 100m),
                         (finalTask!.Progress.Executed, finalTask.Progress.Validated, finalTask.Progress.Approved));
+                    Assert.Null(finalTask.ArchivedAt);
+                    BoardTaskContract archived;
+                    using (var archiveResponse = await client.PostAsync(
+                        $"/api/v1/tasks/{taskId}/archive", null, timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.OK, archiveResponse.StatusCode);
+                        archived = (await archiveResponse.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token))!;
+                        Assert.Equal("done", archived.State);
+                        Assert.NotNull(archived.ArchivedAt);
+                    }
+                    using (var duplicateArchive = await client.PostAsync(
+                        $"/api/v1/tasks/{taskId}/archive", null, timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, duplicateArchive.StatusCode);
+                    using (var moveArchived = await client.PostAsJsonAsync(
+                        $"/api/v1/tasks/{taskId}/moves", new MoveTaskRequest("backlog"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, moveArchived.StatusCode);
+                    using (var unarchiveResponse = await client.PostAsync(
+                        $"/api/v1/tasks/{taskId}/unarchive", null, timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.OK, unarchiveResponse.StatusCode);
+                        var unarchived = await unarchiveResponse.Content.ReadFromJsonAsync<BoardTaskContract>(timeout.Token);
+                        Assert.Null(unarchived?.ArchivedAt);
+                        Assert.Equal("done", unarchived?.State);
+                    }
+                    using (var duplicateUnarchive = await client.PostAsync(
+                        $"/api/v1/tasks/{taskId}/unarchive", null, timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, duplicateUnarchive.StatusCode);
+                    using (var finalArchive = await client.PostAsync(
+                        $"/api/v1/tasks/{taskId}/archive", null, timeout.Token))
+                        Assert.Equal(HttpStatusCode.OK, finalArchive.StatusCode);
                     var finalAttempts = await client.GetFromJsonAsync<AttemptPage>(
                         $"/api/v1/attempts?taskId={taskId}", timeout.Token);
                     Assert.Equal(["failed", "completed"], finalAttempts?.Items.Select(x => x.State));
@@ -215,6 +251,7 @@ public sealed class WorkBoardApiTests
                 client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
                 var recovered = await client.GetFromJsonAsync<BoardTaskContract>($"/api/v1/tasks/{taskId}", timeout.Token);
                 Assert.Equal("done", recovered?.State); Assert.Equal(projectId, recovered?.ProjectId);
+                Assert.NotNull(recovered?.ArchivedAt);
                 Assert.Equal(2, recovered?.InstructionVersion);
                 var page = await client.GetFromJsonAsync<TaskPage>($"/api/v1/tasks?projectId={projectId}", timeout.Token);
                 Assert.Equal(2, page?.Items.Count);
