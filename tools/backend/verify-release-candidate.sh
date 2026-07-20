@@ -15,6 +15,7 @@ readonly TEST_REPORT="${RELEASE_ROOT}/TEST_REPORT.md"
 readonly FRONTEND_WORK="${RELEASE_ROOT}/.frontend"
 SMOKE_PARENT="${TMPDIR:-/tmp}"
 SMOKE_PARENT="${SMOKE_PARENT%/}"
+SMOKE_PARENT="$(cd "${SMOKE_PARENT}" && pwd -P)"
 readonly SMOKE_PARENT
 SMOKE_ROOT="$(mktemp -d "${SMOKE_PARENT}/poseidon-rc-${SHORT_SHA}.XXXXXX")"
 readonly SMOKE_ROOT
