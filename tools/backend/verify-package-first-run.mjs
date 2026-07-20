@@ -26,13 +26,14 @@ const consoleIssues = [];
 const assetFailures = [];
 const webSockets = [];
 const startedAt = new WeakMap();
+const harPath = path.join(evidenceDirectory, `${phase}.har`);
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
   locale: 'pt-BR',
   viewport: { width: 1280, height: 800 },
   recordHar: {
-    path: path.join(evidenceDirectory, `${phase}.har`),
+    path: harPath,
     content: 'omit',
   },
 });
@@ -81,6 +82,13 @@ async function expectNoSkeleton(route) {
 
 async function completeOnboarding() {
   await page.goto(`${baseURL}/`, { waitUntil: 'networkidle' });
+  const faviconHref = await page.locator('link[rel~="icon"]').first().getAttribute('href');
+  if (!faviconHref) throw new Error('frontend empacotado não declarou favicon.');
+  const favicon = await context.request.get(new URL(faviconHref, baseURL).toString());
+  await expectStatus(favicon, 200, 'favicon empacotado');
+  if (!favicon.headers()['content-type']?.startsWith('image/')) {
+    throw new Error('favicon empacotado não retornou Content-Type de imagem.');
+  }
   await page.waitForURL(/\/onboarding$/);
   await page.getByRole('form', { name: 'Configuração inicial' }).waitFor();
   await page.screenshot({
@@ -151,6 +159,44 @@ async function verifyInvalidCookieRecovery() {
   }
 }
 
+async function verifyGovernance() {
+  await page.goto(`${baseURL}/governance`);
+  await page.getByRole('heading', { name: 'Governança de agentes' }).waitFor();
+  await page.getByRole('tab', { name: 'Bundles e receipts' }).click();
+  await page.getByRole('tab', { name: 'Documentos e saúde' }).click();
+  await page.getByRole('tab', { name: 'Aprendizado P2' }).click();
+  await page.getByText('Learning candidates').waitFor();
+  await page.screenshot({
+    path: path.join(evidenceDirectory, 'first-run-04-governance-p1-p2.png'),
+    fullPage: true,
+  });
+}
+
+async function sanitizeHar(file) {
+  const har = JSON.parse(await fs.readFile(file, 'utf8'));
+  const visit = (value, parentKey = '') => {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (parentKey === 'cookies' && item && typeof item === 'object' && 'value' in item) {
+          item.value = '[REDACTED]';
+        }
+        visit(item, parentKey);
+      }
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    if (typeof value.name === 'string' &&
+        ['authorization', 'cookie', 'set-cookie'].includes(value.name.toLowerCase()) &&
+        'value' in value) {
+      value.value = '[REDACTED]';
+    }
+    for (const [key, child] of Object.entries(value)) visit(child, key);
+  };
+  visit(har);
+  await fs.writeFile(file, `${JSON.stringify(har)}\n`, { mode: 0o600 });
+  await fs.chmod(file, 0o600);
+}
+
 let phaseFailure = null;
 try {
   if (phase === 'first-run') {
@@ -161,6 +207,7 @@ try {
     await completeOnboarding();
     await createOrganizationAndProject();
     await verifyInvalidCookieRecovery();
+    await verifyGovernance();
   } else {
     await page.goto(`${baseURL}/onboarding`, { waitUntil: 'networkidle' });
     await page.getByText(PROFILE_NAME, { exact: true }).waitFor();
@@ -202,6 +249,7 @@ const result = {
 };
 await context.close();
 await browser.close();
+await sanitizeHar(harPath);
 await fs.writeFile(
   path.join(evidenceDirectory, `${phase}.json`),
   `${JSON.stringify(result, null, 2)}\n`,
