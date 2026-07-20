@@ -1,0 +1,9 @@
+[
+  { "name": "duplicate-id", "expectedCode": "GOV002" },
+  { "name": "broken-link", "expectedCode": "GOV015" },
+  { "name": "absolute-path", "expectedCode": "GOV011" },
+  { "name": "missing-dependency", "expectedCode": "GOV017" },
+  { "name": "canonical-conflict", "expectedCode": "GOV016" },
+  { "name": "superseded-loadable", "expectedCode": "GOV010" },
+  { "name": "contains-secret-flag", "expectedCode": "GOV001" }
+]

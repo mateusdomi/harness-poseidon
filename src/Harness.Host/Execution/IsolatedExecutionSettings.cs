@@ -13,6 +13,11 @@ public enum IsolatedExecutionMode
 
 public sealed record IsolatedExecutionSettings
 {
+    public bool PathScopePolicyEnabled { get; init; } = true;
+
+    public IReadOnlyList<string> KimiAgentDefinitionKeys { get; init; } =
+        ["kimi", "kimi-code", "frontend-kimi"];
+
     public IsolatedExecutionMode Mode { get; init; } = IsolatedExecutionMode.Disabled;
 
     public string? ControlledRoot { get; init; }

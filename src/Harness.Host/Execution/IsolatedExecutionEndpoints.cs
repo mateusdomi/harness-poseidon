@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 using Harness.Host.Profiles;
+using Harness.Modules.Governance.Coordination;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Modules.Governance.Domain;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Governance;
@@ -34,6 +36,7 @@ public static class IsolatedExecutionEndpoints
         ILocalProfileStore profiles,
         IWorkBoardStore board,
         IProjectStore projects,
+        IAgentCatalogStore agents,
         IProviderCatalogStore providerCatalog,
         IAuditEventStore audit,
         IClock clock,
@@ -89,6 +92,14 @@ public static class IsolatedExecutionEndpoints
             return NotFound("project");
         }
 
+        var agent = await agents.GetAgentAsync(profile.TenantId, attempt.AgentId, token);
+        var definition = agent is null
+            ? null
+            : await agents.GetDefinitionForTenantAsync(
+                profile.TenantId,
+                agent.DefinitionId,
+                token);
+
         var controlledRoot = Path.GetFullPath(settings.ControlledRoot);
         if (string.IsNullOrWhiteSpace(project.RepositoryUrl))
         {
@@ -105,6 +116,16 @@ public static class IsolatedExecutionEndpoints
                 409,
                 "project_repository_missing",
                 "The declared project repository does not exist on this machine.");
+        }
+
+        var enforcePoseidonPathPolicy = settings.PathScopePolicyEnabled &&
+            File.Exists(Path.Combine(repositoryRoot, "governance", "manifest.yaml"));
+        if (enforcePoseidonPathPolicy && definition is null)
+        {
+            return Problem(
+                409,
+                "agent_scope_identity_missing",
+                "Poseidon path policy requires a resolvable agent definition.");
         }
 
         if (!repositoryRoot.StartsWith(
@@ -157,6 +178,12 @@ public static class IsolatedExecutionEndpoints
             var result = await orchestrator.ExecuteAsync(
                 new StartIsolatedExecutionCommand
                 {
+                    PathScopeKind = settings.KimiAgentDefinitionKeys.Contains(
+                        definition?.Key ?? string.Empty,
+                        StringComparer.OrdinalIgnoreCase)
+                        ? AgentPathScopeKind.Kimi
+                        : AgentPathScopeKind.Backend,
+                    EnforcePoseidonPathPolicy = enforcePoseidonPathPolicy,
                     TenantId = profile.TenantId,
                     ProjectId = task.ProjectId,
                     TaskId = task.Id,

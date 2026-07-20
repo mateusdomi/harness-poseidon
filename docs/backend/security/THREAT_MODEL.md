@@ -31,7 +31,8 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 
 ### Execução isolada
 - **Elevation/escape**: sandbox Docker com `no-new-privileges`, limites de memória/CPU/pids, rede dedicada, worktree por tentativa; cleanup preserva worktree suja (sem perda de trabalho) e claims usam lease+fencing token (owner antigo recusado — provado em recovery).
-- **Tampering**: inbox idempotente por SHA-256; branch ativa única por repositório e worktree única por tenant (constraints do banco).
+- **Tampering**: inbox idempotente por SHA-256; branch ativa única por repositório e worktree única por tenant (constraints do banco). Em repositórios Poseidon, a policy do runtime rejeita o turno antes de adquirir workspace quando o agent kind não pode reivindicar o path; CI rejeita diff misto ou fora da área proprietária.
+- **Information disclosure**: argumentos de execução controláveis rejeitam switches de credencial e valores de alta precisão; o scanner cobre Git, staged diff, artefatos de log e tabela de processos sem imprimir o valor. A regressão R-013 constrói um token sintético em memória e prova detecção/redaction.
 
 ### Uploads
 - **Tampering/malware**: `AttachmentIngestPolicy` — allowlist de extensões, magic bytes de executáveis rejeitados, anti zip-bomb (razão de expansão), path traversal bloqueado, quarentena confinada, hash SHA-256 e auditoria de aceite/rejeição.

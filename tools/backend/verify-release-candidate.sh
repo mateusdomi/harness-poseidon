@@ -25,6 +25,7 @@ for document in \
 done
 
 "${TOOLS_DIR}/verify.sh"
+"${TOOLS_DIR}/verify-governance.sh"
 "${TOOLS_DIR}/verify-sast.sh"
 "${TOOLS_DIR}/verify-resilience.sh"
 "${TOOLS_DIR}/verify-operations.sh"

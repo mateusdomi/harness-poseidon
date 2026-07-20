@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Harness.SharedKernel.Security;
 using Harness.Persistence.Abstractions.RunTargets;
 using Harness.SharedKernel.Time;
 
@@ -201,6 +202,7 @@ public sealed class RunTargetProcessSupervisor(
 
     private static ProcessStartInfo CreateProcessStartInfo(RunTargetLaunchRecord launch)
     {
+        SecretTextProtector.ThrowIfSensitiveCommandArguments(launch.Arguments, nameof(launch));
         var start = new ProcessStartInfo
         {
             FileName = launch.Executable,

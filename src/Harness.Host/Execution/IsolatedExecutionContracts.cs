@@ -1,5 +1,6 @@
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Execution.Application.Sandbox;
+using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 
 namespace Harness.Host.Execution;
@@ -14,6 +15,10 @@ public enum IsolatedExecutionStatus
 
 public sealed record StartIsolatedExecutionCommand
 {
+    public AgentPathScopeKind PathScopeKind { get; init; } = AgentPathScopeKind.Backend;
+
+    public bool EnforcePoseidonPathPolicy { get; init; }
+
     public required string TenantId { get; init; }
 
     public required string ProjectId { get; init; }

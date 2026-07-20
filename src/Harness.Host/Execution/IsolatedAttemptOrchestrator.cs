@@ -1,6 +1,7 @@
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Execution.Application.Sandbox;
 using Harness.Modules.Execution.Infrastructure.Git;
+using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.SharedKernel.Time;
 
@@ -28,6 +29,22 @@ public sealed class IsolatedAttemptOrchestrator(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (command.EnforcePoseidonPathPolicy)
+        {
+            var scopeDecision = AgentPathScopePolicy.Evaluate(
+                command.PathScopeKind,
+                command.ScopeClaims);
+            if (!scopeDecision.Allowed)
+            {
+                return new IsolatedExecutionResult(
+                    IsolatedExecutionStatus.Rejected,
+                    null,
+                    [],
+                    null,
+                    scopeDecision.Code);
+            }
+        }
+
         var acquired = await _store.AcquireAsync(
             new AttemptWorkspaceAcquireCommand
             {

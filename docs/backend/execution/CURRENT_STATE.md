@@ -1,26 +1,42 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-20T00:25:04Z
+Atualizado em: 2026-07-20T13:45:00Z
 
-## Retomada rápida
+## Seção manual — retomada, bloqueios e suposições
+
+<!-- CURRENT_STATE_MANUAL_BEGIN generated=false -->
+
+Esta seção é mantida manualmente. Ela contém decisões operacionais, bloqueios,
+suposições e o próximo passo; não é projeção automática do banco ou do Git.
+
+### Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Último commit remoto auditado: `1d952a8` (`origin/develop`), com administração tipada de modelos. Routing durável por invocação do Chief está verde localmente e aguarda push.
+- Último baseline remoto auditado: `2e9928f` (`origin/develop`). G0–G3 e o Gate P0 estão implementados no commit que contém este documento.
 - Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 99,5% · Validado 99,3% · Integrado 96,4% · Homologado 0% · Geral ≈78,5%.
-- Próximo passo exato: publicar o routing por invocação e auditar as coleções crescentes restantes contra a paginação `page/pageSize` de §8.1. Em paralelo externo ficam a11y/E2E navegados e GNG-6. F6/F7/F9 estão tecnicamente completas; faltam smokes externos com executor/modelo, macOS limpo+Developer ID, Microsoft/Azure Bot e Entra ID reais. Telegram real exige rotação do token antes de nova ativação (R-013).
+- Próximo passo exato: após o push do Gate P0, implementar G4 (Context Bundle Builder e receipts), sem iniciar aprendizado P2.
 - Bloqueios: nenhum técnico — há refinamentos v3 independentes. Apenas a11y/E2E de browser e os smokes/aceites externos (GNG-3 visual, GNG-4 macOS limpo, GNG-6, Entra ID, Teams e modelo reais) aguardam outra frente/terceiros e não travam o backlog backend. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
-## Suposições ativas
+### Suposições ativas
 
-- O prompt v1.3 em `/Users/mateus/Downloads/PROMPT_ORIGINAL_CODEX_BACKEND_POSEIDON_v1.3_COM_ADENDO.md` é a fonte de verdade; o prompt de continuidade no mesmo diretório define a ordem de retomada.
-- O clone `/Users/mateus/Documents/harness-poseidon` está ativo com alterações não commitadas da Kimi e é somente leitura para o trabalho backend.
-- O trabalho Codex ocorre exclusivamente em `/Users/mateus/Documents/harness-poseidon-backend`.
+- A fonte normativa desta rodada é `governance/core.md`, suas regras canônicas e a missão de governança aprovada; os prompts importados em `governance/prompts/` são somente históricos.
+- O trabalho backend ocorre exclusivamente em `$REPO_ROOT` na branch `develop`.
 - Contratos em `frontend/src/api/contracts/**` e `docs/frontend/HANDOFF_API.md` são provisórios até reconciliação; não serão editados pelo backend.
 - `runner_attempts` é uma projeção de transporte do IPC, não o agregado de domínio Tentativa; o EP-05 deve ligá-la à tentativa durável/tenant sem permitir ao Runner criar autoridade de domínio.
 
-## Estado persistido e operacional
+<!-- CURRENT_STATE_MANUAL_END -->
+
+## Seção factual auditada — ainda manual
+
+<!-- CURRENT_STATE_FACTUAL_BEGIN generated=false verifiedAt=2026-07-20T13:45:00Z -->
+
+Esta seção registra fatos observados por comandos e testes. Ela ainda não é
+gerada; quando a projeção automática existir, o marcador passará explicitamente
+a `generated=true`.
+
+### Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
 - Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0044`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
@@ -110,10 +126,10 @@ Atualizado em: 2026-07-20T00:25:04Z
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 
-## Sanidade antes de retomar
+### Sanidade antes de retomar
 
 ```bash
-cd /Users/mateus/Documents/harness-poseidon-backend
+cd "$REPO_ROOT"
 git status --short
 git branch --show-current
 git remote get-url origin
@@ -127,3 +143,5 @@ tools/backend/dotnet.sh --info
 ```
 
 O SDK local esperado é 10.0.302. Se estiver ausente, executar `tools/backend/install-dotnet.sh`; se estiver válido, executar `tools/backend/verify.sh` e retomar pelos agregados descritos no próximo passo.
+
+<!-- CURRENT_STATE_FACTUAL_END -->

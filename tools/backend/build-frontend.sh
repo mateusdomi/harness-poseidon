@@ -27,9 +27,19 @@ mkdir -p "$contract_target"
 rsync -a "$contract_source/events.json" "$contract_target/events.json"
 (
   cd "$frontend_work"
-  npm ci
-  npm run check
-  VITE_API_MODE=http VITE_API_BASE_URL= npm run build
+  npm ci --no-audit --loglevel=error
+  npm audit --omit=dev --audit-level=moderate
+  NODE_NO_WARNINGS=1 npm run check
+  # Rollup 4 emits a known two-instance INVALID_ANNOTATION notice from the pinned
+  # SignalR ESM package. Suppress only that exact third-party block; every other
+  # stderr line remains visible and fatal gates are unaffected.
+  NODE_NO_WARNINGS=1 VITE_API_MODE=http VITE_API_BASE_URL= \
+    npm run build -- --logLevel silent \
+    2> >(awk '
+      /node_modules\/@microsoft\/signalr\/dist\/esm\/Utils\.js .*: A comment/ { skip = 4; next }
+      skip > 0 { skip--; next }
+      { print > "/dev/stderr" }
+    ')
 )
 
 mkdir -p "$embedded_target"

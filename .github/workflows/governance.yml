@@ -1,0 +1,43 @@
+name: Governance
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  documentation-governance:
+    name: Manifest, adapters and documentation policy
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce agent path ownership
+        env:
+          HARNESS_SCOPE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: tools/backend/verify-agent-scope.sh
+
+      - name: Install pinned .NET SDK
+        run: tools/backend/install-dotnet.sh
+
+      - name: Restore locked dependencies
+        run: tools/backend/dotnet.sh restore Harness.sln --locked-mode
+
+      - name: Run authoritative governance linter
+        run: tools/backend/verify-governance.sh
+
+      - name: Scan repository, staged diff, logs and process arguments
+        run: tools/backend/scan-secrets.sh
+
+      - name: Run governance unit and integration tests
+        run: |
+          tools/backend/dotnet.sh test tests/Harness.UnitTests/Harness.UnitTests.csproj --configuration Release --filter FullyQualifiedName~Governance --no-restore
+          tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj --configuration Release --filter FullyQualifiedName~GovernanceRepositoryIntegrationTests --no-restore

@@ -12,6 +12,7 @@ using Harness.Modules.Agents.Infrastructure.Fake;
 using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Execution.Application.Sandbox;
 using Harness.Modules.Execution.Infrastructure.Git;
+using Harness.Modules.Governance.Coordination;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
@@ -128,6 +129,20 @@ public sealed class IsolatedAttemptOrchestrationTests
                 Assert.Equal(IsolatedExecutionStatus.Completed, replay.Status);
                 Assert.Null(replay.Execution);
                 Assert.Equal(AttemptWorkspaceCleanupState.Completed, replay.Workspace!.CleanupState);
+                Assert.Equal(1, sandbox.OpenCounts.GetValueOrDefault(successLabel));
+
+                var denied = await orchestrator.ExecuteAsync(
+                    successCommand with
+                    {
+                        EnforcePoseidonPathPolicy = true,
+                        PathScopeKind = AgentPathScopeKind.Backend,
+                        ScopeClaims = ["frontend/**"],
+                        IdempotencyKey = "orchestrate-denied-scope",
+                    },
+                    timeout.Token);
+                Assert.Equal(IsolatedExecutionStatus.Rejected, denied.Status);
+                Assert.Equal("agent_path_scope_denied", denied.FinalError);
+                Assert.Null(denied.Workspace);
                 Assert.Equal(1, sandbox.OpenCounts.GetValueOrDefault(successLabel));
 
                 var failureCommand = CreateCommand(
