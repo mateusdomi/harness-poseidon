@@ -11,6 +11,12 @@ readonly LAUNCHER_DLL="${REPOSITORY_ROOT}/src/Harness.Launcher/bin/Release/net10
 
 cd "${REPOSITORY_ROOT}"
 
+source_version="$(git rev-parse HEAD)"
+if [[ -n "$(git status --porcelain)" ]]; then
+  source_version="${source_version}-dirty"
+fi
+readonly source_version
+
 restore_canonical_locks() {
   local status=$?
   trap - EXIT
@@ -45,14 +51,10 @@ cp "${REPOSITORY_ROOT}/docs/backend/operations/INSTALLATION.md" "${OUTPUT}/docs/
 cp "${REPOSITORY_ROOT}/docs/backend/operations/HOMOLOGATION.md" "${OUTPUT}/docs/HOMOLOGATION.md"
 cp "${REPOSITORY_ROOT}/docs/backend/release/RELEASE_NOTES.md" "${OUTPUT}/docs/RELEASE_NOTES.md"
 
-version="$(git rev-parse HEAD)"
-if [[ -n "$(git status --porcelain)" ]]; then
-  version="${version}-dirty"
-fi
 "${DOTNET}" "${LAUNCHER_DLL}" package-manifest \
   --package-dir "${OUTPUT}" \
   --rid "${RID}" \
-  --version "${version}"
+  --version "${source_version}"
 
 echo "Publicado em ${OUTPUT}"
 echo "Instale: ${OUTPUT}/Harness.Launcher install --install-dir <destino> [--data-dir <dados>]"

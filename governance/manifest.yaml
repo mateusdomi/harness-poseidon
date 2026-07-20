@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-20T20:26:51.1655100+00:00
+lastGeneratedAt: 2026-07-20T23:10:29.2579510+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -204,7 +204,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 6843
+  tokenEstimate: 6873
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -217,7 +217,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4e9a8564fd76dd1102e078d058b95802ac4711aa7566a802d3cf61957f701211
+  checksum: sha256:af323f1125bc5509f10091e9071f618efaee39b1a80c583e34b5ffa74571a22f
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -10269,6 +10269,56 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GOVERNANCE-GATE-P2.md
+- id: evidence-rc-first-run-p1
+  path: docs/backend/execution/evidence/RC-FIRST-RUN-P1.md
+  title: Incidente P1 — first-run da Release Candidate
+  category: evidence
+  topic: release-first-run-incident
+  authority: evidence
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - release
+  phases:
+  - release-candidate
+  taskTypes:
+  - incident-response
+  - validation
+  riskTiers:
+  - critical
+  pathGlobs:
+  - docs/backend/**
+  - src/**
+  - tests/**
+  - tools/backend/**
+  - poseidon
+  loadPolicy: on-demand
+  priority: 850
+  tokenEstimate: 845
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T20:15:00-03:00
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - rule-testing
+  - rule-security
+  related:
+  - doc-backend-operations-homologation
+  - doc-backend-release-report
+  enforcedBy:
+  - tools/backend/verify-release-candidate.sh
+  checksum: sha256:6f02b4f0814bbf8d8fcfc132bbed5f11fc13d139851e92cb855db520c54f650a
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/RC-FIRST-RUN-P1.md
 - id: doc-backend-operations-homologation
   path: docs/backend/operations/HOMOLOGATION.md
   title: Roteiro de homologação da Release Candidate
@@ -10295,7 +10345,7 @@ documents:
   - '**'
   loadPolicy: on-demand
   priority: 800
-  tokenEstimate: 945
+  tokenEstimate: 1098
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -10308,7 +10358,7 @@ documents:
   related: []
   enforcedBy:
   - tools/backend/verify-release-candidate.sh
-  checksum: sha256:1ea6966dd6d74f927f5a6d44d743c7d696169059ffb3da57ade11cac614b5edf
+  checksum: sha256:c6e1ac3b969d1b9c72cda5feda9e7cca2d9e962577dd72957169c66ec0f7cd16
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/operations/HOMOLOGATION.md

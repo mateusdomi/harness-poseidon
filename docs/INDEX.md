@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:fba14de75e27eb1b3295484a134e178cae9a32e9b5ac23b1b0d497b95c96c34c -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:48f8b9ed3c4c386bd06d4e0a164b01435879480a3f8b0736a52b5360bd80395b -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 18
-- `Evidence`: 129
+- `Evidence`: 130
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 13
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 16
 - `entrypoint`: 1
-- `evidence`: 129
+- `evidence`: 130
 - `execution`: 8
 - `frontend`: 5
 - `governance`: 1
@@ -43,12 +43,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `p0`: 1
 - `p1`: 1
 - `p2`: 1
-- `release-candidate`: 3
+- `release-candidate`: 4
 - `runtime`: 2
 
 ## By status
 
-- `Active`: 187
+- `Active`: 188
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 10
 - `Product Security`: 6
-- `Quality Engineering`: 128
+- `Quality Engineering`: 129
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 173
+- `OnDemand`: 174
 
 ## Documents by authority and domain
 
@@ -170,7 +170,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Roteiro de homologação da Release Candidate](backend/operations/HOMOLOGATION.md) | release-candidate | Active | Quality Engineering | OnDemand | 945 |
+| [Roteiro de homologação da Release Candidate](backend/operations/HOMOLOGATION.md) | release-candidate | Active | Quality Engineering | OnDemand | 1098 |
 | [Poseidon Release Candidate — notas de release](backend/release/RELEASE_NOTES.md) | release-candidate | Active | Operations | OnDemand | 369 |
 | [Runbook de incidentes](backend/operations/INCIDENT_RUNBOOK.md) | * | Active | Operations | OnDemand | 774 |
 | [Instalação do Harness Poseidon](backend/operations/INSTALLATION.md) | * | Active | Operations | OnDemand | 810 |
@@ -245,6 +245,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
+| [Incidente P1 — first-run da Release Candidate](backend/execution/evidence/RC-FIRST-RUN-P1.md) | release-candidate | Active | Quality Engineering | OnDemand | 845 |
 | [Evidência — Governance Gate P1](backend/execution/evidence/GOVERNANCE-GATE-P1.md) | p1 | Active | Platform Governance | OnDemand | 875 |
 | [Evidência — Governance Gate P2](backend/execution/evidence/GOVERNANCE-GATE-P2.md) | p2 | Active | Platform Governance | OnDemand | 333 |
 | [Relatório da Release Candidate](backend/release/RELEASE_REPORT.md) | release-candidate | Active | Operations | OnDemand | 470 |

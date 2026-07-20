@@ -17,6 +17,7 @@ for script in publish-desktop.sh publish-server.sh verify-resilience.sh verify-s
 done
 
 bash -n "${REPOSITORY_ROOT}/poseidon"
+node --check "${TOOLS_DIR}/verify-package-first-run.mjs"
 [[ -x "${REPOSITORY_ROOT}/poseidon" ]] || {
   echo "verify-operations: comando poseidon não é executável." >&2
   exit 1

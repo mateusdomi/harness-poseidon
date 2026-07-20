@@ -22,13 +22,20 @@ substituem os aceites GNG-3, GNG-4 e GNG-6.
 Registre: versão do macOS, arquitetura, resultado dos checksums e qualquer alerta do Gatekeeper. A
 assinatura Developer ID/notarização é dependência externa; não contorne o Gatekeeper sem registrar.
 
-## 2. Primeiro start e sessão limpa (5 minutos)
+## 2. Primeiro start e sessão limpa (10 minutos)
 
-1. Execute `./poseidon start` e confirme que o navegador abre na URL loopback impressa.
-2. Em navegador sem cookies, crie perfil local, organização e projeto.
-3. Rode `./poseidon status`; confirme PIDs distintos de Launcher e Runner e health saudável.
-4. Recarregue a página, abra um deep link e confirme que a sessão e os dados permanecem.
-5. Confira `./poseidon logs` e `<data-dir>/logs/runner.log`: não deve haver segredo, stack trace não
+1. Use um data dir novo, um perfil de navegador sem cookies e **não** use `--demo`. Execute
+   `./poseidon start` e confirme que o navegador só abre depois da mensagem `readiness: onboarding`.
+2. Confirme que o onboarding real aparece. Nos logs, a conclusão das migrations deve preceder
+   `Now listening`, `Application started` e o primeiro request do frontend.
+3. Crie **somente o perfil**. Antes de criar organização ou projeto, confirme em até 10 segundos
+   que o Cockpit trocou os skeletons por estado vazio acionável; loading infinito reprova a RC.
+4. Crie organização e projeto. Rode `./poseidon status` e `./poseidon doctor`; ambos devem reportar
+   `readiness: personal-session`, APIs essenciais operacionais e PIDs distintos de Launcher/Runner.
+5. Limpe os cookies em outro perfil de navegador e entre novamente; confirme recuperação da sessão.
+   O gate automatizado também injeta um cookie ULID válido, mas inexistente, e exige substituição.
+6. Recarregue a página, abra um deep link e confirme que a sessão e os dados permanecem.
+7. Confira `./poseidon logs` e `<data-dir>/logs/runner.log`: não deve haver segredo, stack trace não
    tratado, erro de migration ou repetição agressiva.
 
 ## 3. Jornada de produto (15–25 minutos)
@@ -69,7 +76,7 @@ erro no console nem asset 404.
 
 ## 6. Ciclo operacional e decisão
 
-1. Rode `./poseidon restart --no-browser`; confirme mesmos dados e novo health saudável.
+1. Rode `./poseidon restart --no-browser`; confirme mesmos dados e novo readiness operacional.
 2. Rode `./poseidon stop`; confirme `./poseidon status` como parado e ausência de Host/Runner.
 3. Inicie novamente e confirme persistência; teste backup/restore em janela controlada se a RC for
    candidata a GNG-4.

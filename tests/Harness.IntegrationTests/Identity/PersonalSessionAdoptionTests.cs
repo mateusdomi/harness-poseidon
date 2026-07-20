@@ -80,6 +80,60 @@ public sealed class PersonalSessionAdoptionTests
         }
     }
 
+    [Fact]
+    public async Task StaleButWellFormedCookieIsReplacedByTheExistingPersonalProfile()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var root = Path.Combine(
+            AppContext.BaseDirectory, "integration-artifacts", $"personal-stale-{Guid.NewGuid():N}");
+        var database = Path.Combine(root, "stale.db");
+        Directory.CreateDirectory(root);
+        try
+        {
+            await using var app = HostApplication.Build(
+                ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
+            await app.StartAsync(timeout.Token);
+            try
+            {
+                var address = Address(app.Services);
+                using (var onboarding = new HttpClient { BaseAddress = address })
+                using (var created = await onboarding.PostAsJsonAsync(
+                           "/api/v1/profiles",
+                           new CreateProfileRequest("Mateus", null, null, "pt-BR"),
+                           timeout.Token))
+                {
+                    Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+                }
+
+                using var staleBrowser = new HttpClient { BaseAddress = address };
+                staleBrowser.DefaultRequestHeaders.Add(
+                    "Cookie", "harness.profile=01ARZ3NDEKTSV4RRFFQ69G5FAV");
+                using (var current = await staleBrowser.GetAsync(
+                           "/api/v1/profiles/current", timeout.Token))
+                {
+                    Assert.Equal(HttpStatusCode.OK, current.StatusCode);
+                    Assert.True(current.Headers.Contains("Set-Cookie"));
+                    var profile = await current.Content.ReadFromJsonAsync<ProfileResponse>(timeout.Token);
+                    Assert.Equal("Mateus", profile?.DisplayName);
+                }
+
+                using var projects = await staleBrowser.GetAsync("/api/v1/projects", timeout.Token);
+                Assert.Equal(HttpStatusCode.OK, projects.StatusCode);
+            }
+            finally
+            {
+                await app.StopAsync(timeout.Token);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static Uri Address(IServiceProvider services)
     {
         var addresses = services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses

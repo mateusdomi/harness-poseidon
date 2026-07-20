@@ -68,6 +68,7 @@ public sealed class LauncherHandle(
     WebApplication host,
     Uri address,
     string dataDirectory,
+    LauncherReadiness readiness,
     LauncherProcessLease processLease,
     Process runner,
     CancellationTokenSource runnerOutputCancellation,
@@ -79,6 +80,8 @@ public sealed class LauncherHandle(
     public Uri Address { get; } = address;
 
     public string DataDirectory { get; } = dataDirectory;
+
+    public LauncherReadiness Readiness { get; } = readiness;
 
     public Task WaitForShutdownAsync(CancellationToken cancellationToken = default) =>
         host.WaitForShutdownAsync(cancellationToken);
@@ -171,19 +174,22 @@ public static class LauncherApplication
                 PumpAsync(runner.StandardOutput, runnerLog, runnerOutputCancellation.Token),
                 PumpAsync(runner.StandardError, runnerLog, runnerOutputCancellation.Token),
             };
-            await Task.Delay(200, cancellationToken);
-            if (runner.HasExited) throw new InvalidOperationException("O Runner encerrou durante a inicialização.");
+            var readiness = await LauncherReadinessProbe.WaitAsync(
+                address, tokenValue, runner, cancellationToken);
             await WriteRuntimeStateAsync(runtimeFile, new
             {
-                schemaVersion = 1,
+                schemaVersion = 2,
                 launcherPid = Environment.ProcessId,
                 runnerPid = runner.Id,
                 address = address.ToString(),
                 dataDirectory,
                 logsDirectory,
                 startedAt = DateTimeOffset.UtcNow,
+                readinessMode = readiness.Mode,
+                readyAt = readiness.ReadyAt,
+                verifiedEndpoints = readiness.VerifiedEndpoints,
             }, cancellationToken);
-            return new LauncherHandle(host, address, dataDirectory, processLease, runner,
+            return new LauncherHandle(host, address, dataDirectory, readiness, processLease, runner,
                 runnerOutputCancellation, runnerOutputTasks, tokenFile, runtimeFile);
         }
         catch

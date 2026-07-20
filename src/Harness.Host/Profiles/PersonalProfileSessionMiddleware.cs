@@ -17,7 +17,9 @@ public sealed class PersonalProfileSessionMiddleware(RequestDelegate next)
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(profiles);
 
-        if (!LocalProfileSession.TryGetProfileId(context.Request, out _))
+        var hasSession = LocalProfileSession.TryGetProfileId(context.Request, out var profileId) &&
+                         await profiles.GetAsync(profileId, context.RequestAborted) is not null;
+        if (!hasSession)
         {
             var existing = await profiles.ListAsync(context.RequestAborted);
             if (existing.Count > 0)

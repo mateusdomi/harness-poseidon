@@ -34,17 +34,32 @@ internal static class LauncherProgram
             return 2;
         }
 
-        await using var handle = await LauncherApplication.StartAsync(options);
-        Console.WriteLine($"Harness disponível em {handle.Address}");
-        Console.WriteLine($"Dados locais em {handle.DataDirectory}");
-        if (options.OpenBrowser && !LauncherApplication.TryOpenBrowser(handle.Address))
+        LauncherHandle handle;
+        try
         {
-            Console.WriteLine(
-                "Não foi possível abrir o navegador automaticamente; abra a URL acima manualmente.");
+            handle = await LauncherApplication.StartAsync(options);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or TimeoutException)
+        {
+            Console.Error.WriteLine($"Falha de readiness; o navegador não será aberto. {exception.Message}");
+            return 2;
         }
 
-        Console.WriteLine("Pressione Ctrl+C para encerrar.");
-        await handle.WaitForShutdownAsync();
+        await using (handle)
+        {
+            Console.WriteLine(
+                $"Harness disponível em {handle.Address} (readiness: {handle.Readiness.Mode}, " +
+                $"{handle.Readiness.VerifiedEndpoints.Count} verificações)");
+            Console.WriteLine($"Dados locais em {handle.DataDirectory}");
+            if (options.OpenBrowser && !LauncherApplication.TryOpenBrowser(handle.Address))
+            {
+                Console.WriteLine(
+                    "Não foi possível abrir o navegador automaticamente; abra a URL acima manualmente.");
+            }
+
+            Console.WriteLine("Pressione Ctrl+C para encerrar.");
+            await handle.WaitForShutdownAsync();
+        }
         return 0;
     }
 }

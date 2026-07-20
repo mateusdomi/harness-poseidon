@@ -12,8 +12,12 @@ readonly PACKAGE_DIR="${RELEASE_ROOT}/${PACKAGE_NAME}"
 readonly ARCHIVE="${RELEASE_ROOT}/${PACKAGE_NAME}.tar.gz"
 readonly GATE_LOG="${RELEASE_ROOT}/gates.log"
 readonly TEST_REPORT="${RELEASE_ROOT}/TEST_REPORT.md"
-readonly SMOKE_ROOT="${RELEASE_ROOT}/.smoke"
 readonly FRONTEND_WORK="${RELEASE_ROOT}/.frontend"
+SMOKE_PARENT="${TMPDIR:-/tmp}"
+SMOKE_PARENT="${SMOKE_PARENT%/}"
+readonly SMOKE_PARENT
+SMOKE_ROOT="$(mktemp -d "${SMOKE_PARENT}/poseidon-rc-${SHORT_SHA}.XXXXXX")"
+readonly SMOKE_ROOT
 
 cd "${REPOSITORY_ROOT}"
 
@@ -51,7 +55,7 @@ cleanup() {
     POSEIDON_DATA_DIR="${SMOKE_ROOT}/data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
     POSEIDON_DATA_DIR="${SMOKE_ROOT}/demo-data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
   fi
-  case "${SMOKE_ROOT}" in "${RELEASE_ROOT}/.smoke") rm -rf "${SMOKE_ROOT}" ;; esac
+  case "${SMOKE_ROOT}" in "${SMOKE_PARENT}/poseidon-rc-${SHORT_SHA}."*) rm -rf "${SMOKE_ROOT}" ;; esac
   case "${FRONTEND_WORK}" in "${RELEASE_ROOT}/.frontend") rm -rf "${FRONTEND_WORK}" ;; esac
 }
 trap cleanup EXIT
@@ -105,6 +109,11 @@ rsync -a --exclude node_modules --exclude dist "${REPOSITORY_ROOT}/frontend/" "$
 
 run_gate "publish self-contained" "${TOOLS_DIR}/publish-desktop.sh" "${RID}"
 rsync -a "${REPOSITORY_ROOT}/.artifacts/desktop/${RID}/" "${PACKAGE_DIR}/"
+package_version="$(node -e \
+  'const fs=require("node:fs"); console.log(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).version)' \
+  "${PACKAGE_DIR}/.harness-desktop-package.json")"
+[[ "${package_version}" == "${SHA}" ]] ||
+  fail "manifesto do pacote não corresponde ao commit limpo: ${package_version}."
 
 mkdir -p "${SMOKE_ROOT}/install" "${SMOKE_ROOT}/data"
 rmdir "${SMOKE_ROOT}/install"
@@ -115,14 +124,26 @@ export POSEIDON_DATA_DIR="${SMOKE_ROOT}/data"
 run_gate "package start" "${SMOKE_ROOT}/install/poseidon" start --no-browser --port 5090
 run_gate "package status" "${SMOKE_ROOT}/install/poseidon" status
 mkdir -p "${RELEASE_ROOT}/screenshots"
+POSEIDON_PACKAGE_URL=http://127.0.0.1:5090 \
+  POSEIDON_PLAYWRIGHT_ROOT="${FRONTEND_WORK}" \
+  POSEIDON_EVIDENCE_DIR="${RELEASE_ROOT}/screenshots" \
+  run_gate "package first-run real sem demo" node \
+    "${TOOLS_DIR}/verify-package-first-run.mjs" first-run
 (
   cd "${FRONTEND_WORK}"
   POSEIDON_BACKEND_URL=http://127.0.0.1:5090 \
     POSEIDON_EVIDENCE_DIR="${RELEASE_ROOT}/screenshots" \
     run_gate "frontend E2E API real" frontend_browser_gate npm run test:e2e:real
 )
+run_gate "package doctor em execução" "${SMOKE_ROOT}/install/poseidon" doctor
+run_gate "package logs" "${SMOKE_ROOT}/install/poseidon" logs
 run_gate "package restart" "${SMOKE_ROOT}/install/poseidon" restart --no-browser --port 5090
 run_gate "package status pós-restart" "${SMOKE_ROOT}/install/poseidon" status
+POSEIDON_PACKAGE_URL=http://127.0.0.1:5090 \
+  POSEIDON_PLAYWRIGHT_ROOT="${FRONTEND_WORK}" \
+  POSEIDON_EVIDENCE_DIR="${RELEASE_ROOT}/screenshots" \
+  run_gate "package persistência pós-restart" node \
+    "${TOOLS_DIR}/verify-package-first-run.mjs" post-restart
 run_gate "package stop" "${SMOKE_ROOT}/install/poseidon" stop
 run_gate "package doctor" "${SMOKE_ROOT}/install/poseidon" doctor
 export POSEIDON_DATA_DIR="${SMOKE_ROOT}/demo-data"
@@ -155,7 +176,9 @@ cat >"${TEST_REPORT}" <<EOF
 - governance linter, SAST, secret scanning e SBOM;
 - SQLite/PostgreSQL, concorrência, recovery e resiliência;
 - E2E frontend mock, a11y e build Storybook;
-- pacote self-contained: instalação limpa, start, status, E2E contra API real, restart, stop e doctor;
+- pacote self-contained em diretório externo: data dir vazio, navegador limpo, first-run real sem demo,
+  onboarding, Cockpit sem skeleton, cookie inválido, APIs essenciais, SignalR, logs, restart,
+  persistência, stop e doctor;
 - inventário final sem recurso Docker gerenciado órfão;
 - working tree e áreas protegidas limpas.
 
