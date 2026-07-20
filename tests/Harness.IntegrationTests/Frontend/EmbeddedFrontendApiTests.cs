@@ -33,6 +33,14 @@ public sealed partial class EmbeddedFrontendApiTests
                 assetResponse.EnsureSuccessStatusCode();
                 var javascript = await assetResponse.Content.ReadAsStringAsync(timeout.Token);
                 Assert.DoesNotMatch(AbsoluteApiDefault(), javascript);
+                using var favicon = await client.GetAsync("/favicon.ico", timeout.Token);
+                favicon.EnsureSuccessStatusCode();
+                Assert.Equal("image/png", favicon.Content.Headers.ContentType?.MediaType);
+                var faviconBytes = await favicon.Content.ReadAsByteArrayAsync(timeout.Token);
+                Assert.True(faviconBytes.Length > 8);
+                Assert.Equal(
+                    new byte[] { 0x89, 0x50, 0x4E, 0x47 },
+                    faviconBytes[..4]);
                 using var missingApi = await client.GetAsync("/api/v1/does-not-exist", timeout.Token);
                 Assert.Equal(HttpStatusCode.NotFound, missingApi.StatusCode);
                 Assert.NotEqual("text/html", missingApi.Content.Headers.ContentType?.MediaType);

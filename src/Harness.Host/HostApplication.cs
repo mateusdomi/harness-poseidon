@@ -408,6 +408,20 @@ public static class HostApplication
         }
         app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy")))
             .WithTags("system");
+        var frontendAssets = frontendPath is null ? null : Path.Combine(frontendPath, "assets");
+        var fallbackFavicon = frontendAssets is null || !Directory.Exists(frontendAssets)
+            ? null
+            : Directory.EnumerateFiles(
+                    frontendAssets,
+                    "logo-icon-*.png",
+                    SearchOption.TopDirectoryOnly)
+                .Order(StringComparer.Ordinal)
+                .FirstOrDefault();
+        if (fallbackFavicon is not null)
+        {
+            app.MapGet("/favicon.ico", () => Results.File(fallbackFavicon, "image/png"))
+                .ExcludeFromDescription();
+        }
         app.MapOpenApi("/openapi/{documentName}.json");
         if (oidc.Enabled)
         {

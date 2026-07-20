@@ -82,8 +82,7 @@ async function expectNoSkeleton(route) {
 
 async function completeOnboarding() {
   await page.goto(`${baseURL}/`, { waitUntil: 'networkidle' });
-  const faviconHref = await page.locator('link[rel~="icon"]').first().getAttribute('href');
-  if (!faviconHref) throw new Error('frontend empacotado não declarou favicon.');
+  const faviconHref = await page.locator('link[rel~="icon"]').first().getAttribute('href') ?? '/favicon.ico';
   const favicon = await context.request.get(new URL(faviconHref, baseURL).toString());
   await expectStatus(favicon, 200, 'favicon empacotado');
   if (!favicon.headers()['content-type']?.startsWith('image/')) {
