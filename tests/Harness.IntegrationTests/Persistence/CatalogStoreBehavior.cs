@@ -91,6 +91,38 @@ public static class CatalogStoreBehavior
             cancellationToken);
         Assert.Null(await providers.GetAccountAsync(tenantId, disposableAccountId, cancellationToken));
 
+        const string disposableModelId = "01ARZ3NDEKTSV4RRFFQ69G5FN2";
+        var createdModel = await providers.CreateModelAsync(new ProviderModelCreateCommand(
+            tenantId, tenantId, disposableModelId, providerRows[0].Id, "parity-model",
+            "Parity model", ["code", "chat"], 131072, 0.002m, 0.008m,
+            [new("high", "provider-high"), new("low", "provider-low")],
+            DateTimeOffset.Parse("2026-07-19T12:02:10Z", System.Globalization.CultureInfo.InvariantCulture)),
+            cancellationToken);
+        Assert.False(createdModel.Enabled);
+        Assert.Equal(["chat", "code"], createdModel.Capabilities);
+        Assert.Equal(["low", "high"], createdModel.EffortMappings!.Select(x => x.Effort));
+        var updatedModel = Assert.IsType<ModelRecord>(await providers.UpdateAsync(
+            new ProviderCatalogUpdateCommand(tenantId, tenantId, "models", disposableModelId,
+                "{\"displayName\":\"Parity model v2\",\"enabled\":true,\"capabilities\":[\"embeddings\",\"chat\"],\"contextWindow\":262144,\"costPer1kInputUsd\":0.003,\"costPer1kOutputUsd\":0.009,\"effortMappings\":[{\"effort\":\"medium\",\"providerValue\":\"balanced\"}]}",
+                DateTimeOffset.Parse("2026-07-19T12:02:20Z", System.Globalization.CultureInfo.InvariantCulture)),
+            cancellationToken));
+        Assert.Equal("Parity model v2", updatedModel.DisplayName);
+        Assert.Equal(262144, updatedModel.ContextWindow);
+        Assert.Equal(["chat", "embeddings"], updatedModel.Capabilities);
+        Assert.Equal("balanced", Assert.Single(updatedModel.EffortMappings!).ProviderValue);
+        await Assert.ThrowsAsync<ProviderCatalogLifecycleException>(() => providers.DeleteModelAsync(
+            new ProviderModelDeleteCommand(tenantId, tenantId, disposableModelId,
+                DateTimeOffset.Parse("2026-07-19T12:02:30Z", System.Globalization.CultureInfo.InvariantCulture)),
+            cancellationToken));
+        _ = await providers.UpdateAsync(new ProviderCatalogUpdateCommand(
+            tenantId, tenantId, "models", disposableModelId, "{\"enabled\":false}",
+            DateTimeOffset.Parse("2026-07-19T12:02:40Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        await providers.DeleteModelAsync(new ProviderModelDeleteCommand(
+            tenantId, tenantId, disposableModelId,
+            DateTimeOffset.Parse("2026-07-19T12:02:50Z", System.Globalization.CultureInfo.InvariantCulture)),
+            cancellationToken);
+        Assert.Null(await providers.GetModelAsync(tenantId, disposableModelId, cancellationToken));
+
         _ = await providers.UpdateAsync(new ProviderCatalogUpdateCommand(
             tenantId, tenantId, "accounts", account.Id, "{\"state\":\"active\"}",
             DateTimeOffset.Parse("2026-07-19T12:03:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);

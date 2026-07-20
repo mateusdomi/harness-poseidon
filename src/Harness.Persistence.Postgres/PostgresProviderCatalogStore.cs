@@ -107,6 +107,20 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         string tenantId, string id, CancellationToken cancellationToken = default) =>
         GetCoreAsync(tenantId, ModelSelect, id, ReadModel, cancellationToken);
 
+    public Task<ModelRecord> CreateModelAsync(
+        ProviderModelCreateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return CreateModelCoreAsync(command, cancellationToken);
+    }
+
+    public Task DeleteModelAsync(
+        ProviderModelDeleteCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return DeleteModelCoreAsync(command, cancellationToken);
+    }
+
     public Task<IReadOnlyList<RoutingPolicyRecord>> ListRoutingPoliciesAsync(
         string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) =>
         ListAsync(tenantId, RoutingSelect, afterId, limit, ReadRouting, cancellationToken);
@@ -372,6 +386,106 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         await transaction.CommitAsync(cancellationToken);
     }
 
+    private async Task<ModelRecord> CreateModelCoreAsync(
+        ProviderModelCreateCommand command, CancellationToken cancellationToken)
+    {
+        var capabilities = NormalizeModelCapabilities(command.Capabilities);
+        var mappings = NormalizeEffortMappings(command.EffortMappings);
+        ValidateModel(command.Id, command.ProviderId, command.Name, command.DisplayName,
+            command.ContextWindow, command.CostPer1kInputUsd, command.CostPer1kOutputUsd);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await EnsureAsync(connection, command.TenantId, cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await ExecuteAsync(connection, transaction,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));", cancellationToken,
+            Text($"audit-ledger:{command.TenantId}"));
+        if (await ReadOneAsync(connection, transaction, command.TenantId, ProviderSelect,
+                command.ProviderId, ReadProvider, cancellationToken) is null)
+            throw new ProviderCatalogNotFoundException("provider");
+        await using (var duplicate = connection.CreateCommand())
+        {
+            duplicate.Transaction = transaction;
+            duplicate.CommandText = "SELECT 1 FROM harness.provider_models WHERE tenant_id=$1 AND provider_id=$2 AND model_name=$3 LIMIT 1;";
+            duplicate.Parameters.Add(Text(command.TenantId));
+            duplicate.Parameters.Add(Text(command.ProviderId));
+            duplicate.Parameters.Add(Text(command.Name.Trim()));
+            if (await duplicate.ExecuteScalarAsync(cancellationToken) is not null)
+                throw new ProviderCatalogValidationException("A model with this provider name already exists.");
+        }
+        await ExecuteAsync(connection, transaction,
+            "INSERT INTO harness.provider_models(tenant_id,id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled,effort_mappings_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10);",
+            cancellationToken, Text(command.TenantId), Text(command.Id), Text(command.ProviderId),
+            Text(command.Name.Trim()), Text(command.DisplayName.Trim()),
+            Json(JsonSerializer.Serialize(capabilities, JsonOptions)), Integer(command.ContextWindow),
+            command.CostPer1kInputUsd is null ? NullableNumeric() : Numeric(command.CostPer1kInputUsd.Value),
+            command.CostPer1kOutputUsd is null ? NullableNumeric() : Numeric(command.CostPer1kOutputUsd.Value),
+            Json(JsonSerializer.Serialize(mappings, JsonOptions)));
+        var payload = ModelAuditPayload(command.ActorProfileId, command.Id, "providerModel.created",
+            $"Disabled model created for provider {command.ProviderId}.", command.OccurredAt);
+        await AppendLedgerAsync(connection, transaction, command.TenantId, "providerModel.created",
+            payload, command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(connection, transaction, command.TenantId, "audit.eventAppended",
+            payload, command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (await ReadOneAsync(connection, null, command.TenantId, ModelSelect, command.Id,
+            ReadModel, cancellationToken))!;
+    }
+
+    private async Task DeleteModelCoreAsync(
+        ProviderModelDeleteCommand command, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await EnsureAsync(connection, command.TenantId, cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await ExecuteAsync(connection, transaction,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));", cancellationToken,
+            Text($"audit-ledger:{command.TenantId}"));
+        await using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText = """
+                SELECT m.enabled,
+                  EXISTS(SELECT 1 FROM harness.agent_definitions d WHERE d.tenant_id=m.tenant_id AND (d.default_model_id=m.id OR d.fallback_model_ids_json ? m.id::text)),
+                  EXISTS(SELECT 1 FROM harness.agents a WHERE a.tenant_id=m.tenant_id AND (a.model_id=m.id OR a.fallback_model_ids_json ? m.id::text)),
+                  EXISTS(SELECT 1 FROM harness.routing_policies p WHERE p.tenant_id=m.tenant_id AND EXISTS(SELECT 1 FROM jsonb_array_elements(p.rules_json) r WHERE r->>'preferredModelId'=m.id::text OR (r->'fallbackModelIds') ? m.id::text))
+                FROM harness.provider_models m WHERE m.tenant_id=$1 AND m.id=$2 FOR UPDATE;
+                """;
+            query.Parameters.Add(Text(command.TenantId)); query.Parameters.Add(Text(command.Id));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken)) throw new ProviderCatalogNotFoundException("model");
+            if (reader.GetBoolean(0))
+                throw new ProviderCatalogLifecycleException("Only a disabled provider model can be removed.");
+            if (reader.GetBoolean(1) || reader.GetBoolean(2) || reader.GetBoolean(3))
+                throw new ProviderCatalogLifecycleException("A provider model referenced by routing or an agent cannot be removed.");
+        }
+        await ExecuteAsync(connection, transaction,
+            "DELETE FROM harness.provider_models WHERE tenant_id=$1 AND id=$2;",
+            cancellationToken, Text(command.TenantId), Text(command.Id));
+        var payload = ModelAuditPayload(command.ActorProfileId, command.Id, "providerModel.deleted",
+            "Disabled and unreferenced provider model removed.", command.OccurredAt);
+        await AppendLedgerAsync(connection, transaction, command.TenantId, "providerModel.deleted",
+            payload, command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(connection, transaction, command.TenantId, "audit.eventAppended",
+            payload, command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static string ModelAuditPayload(string actorId, string modelId, string action,
+        string detail, DateTimeOffset occurredAt) => JsonSerializer.Serialize(new
+        {
+            auditEvent = new
+            {
+                id = UlidValue.New(occurredAt).ToString(),
+                actorKind = "user",
+                actorId,
+                action,
+                targetType = "models",
+                targetId = modelId,
+                detail,
+                occurredAt,
+            },
+        }, JsonOptions);
+
     private static void ValidateAccountCreate(ProviderAccountCreateCommand command)
     {
         if (!UlidValue.TryParse(command.Id, out _) || !UlidValue.TryParse(command.ProviderId, out _))
@@ -457,16 +571,35 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             ?? throw new ProviderCatalogNotFoundException("model");
         var name = ReadString(patch, "displayName", current.DisplayName, false);
         var enabled = ReadBool(patch, "enabled", current.Enabled);
+        var capabilities = ReadModelCapabilities(patch, current.Capabilities);
+        var contextWindow = ReadInt(patch, "contextWindow", current.ContextWindow);
+        var inputCost = ReadNullableDecimal(patch, "costPer1kInputUsd", current.CostPer1kInputUsd);
+        var outputCost = ReadNullableDecimal(patch, "costPer1kOutputUsd", current.CostPer1kOutputUsd);
+        var mappings = ReadEffortMappings(patch, current.EffortMappings ?? []);
+        ValidateModel(command.Id, current.ProviderId, current.Name, name, contextWindow, inputCost, outputCost);
         await ExecuteAsync(
             connection,
             transaction,
-            "UPDATE harness.provider_models SET display_name=$1,enabled=$2 WHERE tenant_id=$3 AND id=$4;",
+            "UPDATE harness.provider_models SET display_name=$1,enabled=$2,capabilities_json=$3,context_window=$4,cost_input=$5,cost_output=$6,effort_mappings_json=$7 WHERE tenant_id=$8 AND id=$9;",
             cancellationToken,
             Text(name),
             Boolean(enabled),
-            Text(command.TenantId),
-            Text(command.Id));
-        return current with { DisplayName = name, Enabled = enabled };
+            Json(JsonSerializer.Serialize(capabilities, JsonOptions)),
+            Integer(contextWindow),
+            inputCost is null ? NullableNumeric() : Numeric(inputCost.Value),
+            outputCost is null ? NullableNumeric() : Numeric(outputCost.Value),
+            Json(JsonSerializer.Serialize(mappings, JsonOptions)),
+            Text(command.TenantId), Text(command.Id));
+        return current with
+        {
+            DisplayName = name,
+            Enabled = enabled,
+            Capabilities = capabilities,
+            ContextWindow = contextWindow,
+            CostPer1kInputUsd = inputCost,
+            CostPer1kOutputUsd = outputCost,
+            EffortMappings = mappings
+        };
     }
 
     private static async Task<AccountRecord> UpdateAccountAsync(
@@ -767,10 +900,7 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             return current;
         }
 
-        if (node.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
+        if (node.ValueKind == JsonValueKind.Null) return current;
 
         if (node.ValueKind != JsonValueKind.Number || !node.TryGetDecimal(out var value))
         {
@@ -801,6 +931,71 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
             throw new ProviderCatalogValidationException("capabilities is invalid.");
         return NormalizeCapabilities(
             JsonSerializer.Deserialize<string[]>(node.GetRawText(), JsonOptions) ?? []);
+    }
+
+    private static IReadOnlyList<string> ReadModelCapabilities(
+        JsonElement patch, IReadOnlyList<string> current)
+    {
+        if (!patch.TryGetProperty("capabilities", out var node) || node.ValueKind == JsonValueKind.Null)
+            return current;
+        if (node.ValueKind != JsonValueKind.Array)
+            throw new ProviderCatalogValidationException("capabilities is invalid.");
+        return NormalizeModelCapabilities(
+            JsonSerializer.Deserialize<string[]>(node.GetRawText(), JsonOptions) ?? []);
+    }
+
+    private static int ReadInt(JsonElement patch, string key, int current)
+    {
+        if (!patch.TryGetProperty(key, out var node) || node.ValueKind == JsonValueKind.Null)
+            return current;
+        if (node.ValueKind != JsonValueKind.Number || !node.TryGetInt32(out var value))
+            throw new ProviderCatalogValidationException($"{key} is invalid.");
+        return value;
+    }
+
+    private static IReadOnlyList<EffortMappingRecord> ReadEffortMappings(
+        JsonElement patch, IReadOnlyList<EffortMappingRecord> current)
+    {
+        if (!patch.TryGetProperty("effortMappings", out var node) || node.ValueKind == JsonValueKind.Null)
+            return current;
+        if (node.ValueKind != JsonValueKind.Array)
+            throw new ProviderCatalogValidationException("effortMappings is invalid.");
+        return NormalizeEffortMappings(
+            JsonSerializer.Deserialize<EffortMappingRecord[]>(node.GetRawText(), JsonOptions) ?? []);
+    }
+
+    private static string[] NormalizeModelCapabilities(IReadOnlyList<string> capabilities)
+    {
+        string[] allowed = ["chat", "code", "embeddings", "vision"];
+        var values = capabilities.Select(x => x?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (values.Length == 0 || values.Length > allowed.Length ||
+            values.Any(x => !allowed.Contains(x, StringComparer.Ordinal)))
+            throw new ProviderCatalogValidationException("Model capabilities are invalid.");
+        return values;
+    }
+
+    private static EffortMappingRecord[] NormalizeEffortMappings(IReadOnlyList<EffortMappingRecord> mappings)
+    {
+        string[] allowed = ["low", "medium", "high", "max"];
+        var values = mappings.Select(x => new EffortMappingRecord(x.Effort?.Trim() ?? string.Empty,
+                x.ProviderValue?.Trim() ?? string.Empty)).ToArray();
+        if (values.Length is < 1 or > 4 ||
+            values.Select(x => x.Effort).Distinct(StringComparer.Ordinal).Count() != values.Length ||
+            values.Any(x => !allowed.Contains(x.Effort, StringComparer.Ordinal) ||
+                x.ProviderValue.Length is < 1 or > 100))
+            throw new ProviderCatalogValidationException("Model effort mappings are invalid.");
+        return values.OrderBy(x => Array.IndexOf(allowed, x.Effort)).ToArray();
+    }
+
+    private static void ValidateModel(string id, string providerId, string name, string displayName,
+        int contextWindow, decimal? inputCost, decimal? outputCost)
+    {
+        if (!UlidValue.TryParse(id, out _) || !UlidValue.TryParse(providerId, out _) ||
+            string.IsNullOrWhiteSpace(name) || name.Trim().Length > 200 ||
+            string.IsNullOrWhiteSpace(displayName) || displayName.Trim().Length > 200 ||
+            contextWindow <= 0 || inputCost < 0 || outputCost < 0)
+            throw new ProviderCatalogValidationException("Provider model values are invalid.");
     }
 
     private static async Task<T?> ReadOneAsync<T>(

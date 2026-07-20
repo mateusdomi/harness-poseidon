@@ -10,6 +10,8 @@ public interface IProviderCatalogStore
     Task DeleteAccountAsync(ProviderAccountDeleteCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ModelRecord>> ListModelsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default);
     Task<ModelRecord?> GetModelAsync(string tenantId, string id, CancellationToken cancellationToken = default);
+    Task<ModelRecord> CreateModelAsync(ProviderModelCreateCommand command, CancellationToken cancellationToken = default);
+    Task DeleteModelAsync(ProviderModelDeleteCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RoutingPolicyRecord>> ListRoutingPoliciesAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default);
     Task<RoutingPolicyRecord?> GetRoutingPolicyAsync(string tenantId, string id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<BudgetRecord>> ListBudgetsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default);
@@ -42,6 +44,13 @@ public sealed record ProviderAccountCreateCommand(
     string QuotaWindow = "monthly", DateTimeOffset? QuotaResetsAt = null,
     IReadOnlyList<string>? Capabilities = null);
 public sealed record ProviderAccountDeleteCommand(
+    string TenantId, string ActorProfileId, string Id, DateTimeOffset OccurredAt);
+public sealed record ProviderModelCreateCommand(
+    string TenantId, string ActorProfileId, string Id, string ProviderId, string Name,
+    string DisplayName, IReadOnlyList<string> Capabilities, int ContextWindow,
+    decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd,
+    IReadOnlyList<EffortMappingRecord> EffortMappings, DateTimeOffset OccurredAt);
+public sealed record ProviderModelDeleteCommand(
     string TenantId, string ActorProfileId, string Id, DateTimeOffset OccurredAt);
 public sealed class ProviderCatalogNotFoundException(string resource) : Exception(resource) { public string Resource { get; } = resource; }
 public sealed class ProviderCatalogValidationException(string detail) : Exception(detail);

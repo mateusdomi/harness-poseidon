@@ -15,9 +15,9 @@ public sealed class ProviderContractDriftTests
         var root = FindRepositoryRoot(); using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "contracts", "openapi.json")));
         var api = document.RootElement; var paths = api.GetProperty("paths"); Assert.True(paths.GetProperty($"/api/v1/{route}").TryGetProperty("get", out _));
         var item = paths.GetProperty($"/api/v1/{route}/{{id}}"); Assert.True(item.TryGetProperty("get", out _)); Assert.Equal(patch, item.TryGetProperty("patch", out _));
-        if (route == "accounts")
+        if (route is "accounts" or "models")
         {
-            Assert.True(paths.GetProperty("/api/v1/accounts").TryGetProperty("post", out _));
+            Assert.True(paths.GetProperty($"/api/v1/{route}").TryGetProperty("post", out _));
             Assert.True(item.TryGetProperty("delete", out _));
         }
         var fields = csv.Split(','); var actual = api.GetProperty("components").GetProperty("schemas").GetProperty(schema).GetProperty("properties").EnumerateObject().Select(x => x.Name).Order(StringComparer.Ordinal).ToArray(); Assert.Equal(fields.Order(StringComparer.Ordinal), actual);

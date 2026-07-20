@@ -20,6 +20,8 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     public Task DeleteAccountAsync(ProviderAccountDeleteCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync((c, t) => DeleteAccountCoreAsync(c, command, t), cancellationToken);
     public Task<IReadOnlyList<ModelRecord>> ListModelsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) => ListAsync(tenantId, ModelSelect, afterId, limit, ReadModel, cancellationToken);
     public Task<ModelRecord?> GetModelAsync(string tenantId, string id, CancellationToken cancellationToken = default) => GetAsync(tenantId, ModelSelect, id, ReadModel, cancellationToken);
+    public Task<ModelRecord> CreateModelAsync(ProviderModelCreateCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync((c, t) => CreateModelCoreAsync(c, command, t), cancellationToken);
+    public Task DeleteModelAsync(ProviderModelDeleteCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync((c, t) => DeleteModelCoreAsync(c, command, t), cancellationToken);
     public Task<IReadOnlyList<RoutingPolicyRecord>> ListRoutingPoliciesAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) => ListAsync(tenantId, RoutingSelect, afterId, limit, ReadRouting, cancellationToken);
     public Task<RoutingPolicyRecord?> GetRoutingPolicyAsync(string tenantId, string id, CancellationToken cancellationToken = default) => GetAsync(tenantId, RoutingSelect, id, ReadRouting, cancellationToken);
     public Task<IReadOnlyList<BudgetRecord>> ListBudgetsAsync(string tenantId, string? afterId, int limit, CancellationToken cancellationToken = default) => ListAsync(tenantId, BudgetSelect, afterId, limit, ReadBudget, cancellationToken);
@@ -183,6 +185,93 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         await tx.CommitAsync(token);
     }
 
+    private static async Task<ModelRecord> CreateModelCoreAsync(
+        SqliteConnection c, ProviderModelCreateCommand command, CancellationToken token)
+    {
+        await EnsureAsync(c, command.TenantId, token);
+        var capabilities = NormalizeModelCapabilities(command.Capabilities);
+        var mappings = NormalizeEffortMappings(command.EffortMappings);
+        ValidateModel(command.Id, command.ProviderId, command.Name, command.DisplayName,
+            command.ContextWindow, command.CostPer1kInputUsd, command.CostPer1kOutputUsd);
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        if (await ReadOneAsync(c, tx, command.TenantId, ProviderSelect, command.ProviderId,
+                ReadProvider, token) is null)
+            throw new ProviderCatalogNotFoundException("provider");
+        await using (var duplicate = c.CreateCommand())
+        {
+            duplicate.Transaction = tx;
+            duplicate.CommandText = "SELECT 1 FROM provider_models WHERE tenant_id=$tenant AND provider_id=$provider AND model_name=$name LIMIT 1;";
+            Add(duplicate, "$tenant", command.TenantId); Add(duplicate, "$provider", command.ProviderId);
+            Add(duplicate, "$name", command.Name.Trim());
+            if (await duplicate.ExecuteScalarAsync(token) is not null)
+                throw new ProviderCatalogValidationException("A model with this provider name already exists.");
+        }
+        await ExecuteAsync(c, tx,
+            "INSERT INTO provider_models(tenant_id,id,provider_id,model_name,display_name,capabilities_json,context_window,cost_input,cost_output,enabled,effort_mappings_json) VALUES($tenant,$id,$provider,$name,$display,$capabilities,$context,$input,$output,0,$mappings);",
+            token, ("$tenant", command.TenantId), ("$id", command.Id),
+            ("$provider", command.ProviderId), ("$name", command.Name.Trim()),
+            ("$display", command.DisplayName.Trim()),
+            ("$capabilities", JsonSerializer.Serialize(capabilities, JsonOptions)),
+            ("$context", command.ContextWindow),
+            ("$input", command.CostPer1kInputUsd ?? (object)DBNull.Value),
+            ("$output", command.CostPer1kOutputUsd ?? (object)DBNull.Value),
+            ("$mappings", JsonSerializer.Serialize(mappings, JsonOptions)));
+        var payload = ModelAuditPayload(command.ActorProfileId, command.Id, "providerModel.created",
+            $"Disabled model created for provider {command.ProviderId}.", command.OccurredAt);
+        await AppendLedgerAsync(c, tx, command.TenantId, "providerModel.created", payload, command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "audit.eventAppended", payload, command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return (await ReadOneAsync(c, null, command.TenantId, ModelSelect, command.Id, ReadModel, token))!;
+    }
+
+    private static async Task DeleteModelCoreAsync(
+        SqliteConnection c, ProviderModelDeleteCommand command, CancellationToken token)
+    {
+        await EnsureAsync(c, command.TenantId, token);
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        await using (var query = c.CreateCommand())
+        {
+            query.Transaction = tx;
+            query.CommandText = """
+                SELECT m.enabled,
+                  EXISTS(SELECT 1 FROM agent_definitions d WHERE d.tenant_id=m.tenant_id AND (d.default_model_id=m.id OR EXISTS(SELECT 1 FROM json_each(d.fallback_model_ids_json) WHERE value=m.id))),
+                  EXISTS(SELECT 1 FROM agents a WHERE a.tenant_id=m.tenant_id AND (a.model_id=m.id OR EXISTS(SELECT 1 FROM json_each(a.fallback_model_ids_json) WHERE value=m.id))),
+                  EXISTS(SELECT 1 FROM routing_policies p WHERE p.tenant_id=m.tenant_id AND EXISTS(SELECT 1 FROM json_each(p.rules_json) r WHERE json_extract(r.value,'$.preferredModelId')=m.id OR EXISTS(SELECT 1 FROM json_each(r.value,'$.fallbackModelIds') WHERE value=m.id)))
+                FROM provider_models m WHERE m.tenant_id=$tenant AND m.id=$id;
+                """;
+            Add(query, "$tenant", command.TenantId); Add(query, "$id", command.Id);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            if (!await reader.ReadAsync(token)) throw new ProviderCatalogNotFoundException("model");
+            if (reader.GetInt64(0) != 0)
+                throw new ProviderCatalogLifecycleException("Only a disabled provider model can be removed.");
+            if (reader.GetInt64(1) != 0 || reader.GetInt64(2) != 0 || reader.GetInt64(3) != 0)
+                throw new ProviderCatalogLifecycleException("A provider model referenced by routing or an agent cannot be removed.");
+        }
+        await ExecuteAsync(c, tx, "DELETE FROM provider_models WHERE tenant_id=$tenant AND id=$id;",
+            token, ("$tenant", command.TenantId), ("$id", command.Id));
+        var payload = ModelAuditPayload(command.ActorProfileId, command.Id, "providerModel.deleted",
+            "Disabled and unreferenced provider model removed.", command.OccurredAt);
+        await AppendLedgerAsync(c, tx, command.TenantId, "providerModel.deleted", payload, command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "audit.eventAppended", payload, command.OccurredAt, token);
+        await tx.CommitAsync(token);
+    }
+
+    private static string ModelAuditPayload(string actorId, string modelId, string action,
+        string detail, DateTimeOffset occurredAt) => JsonSerializer.Serialize(new
+        {
+            auditEvent = new
+            {
+                id = UlidValue.New(occurredAt).ToString(),
+                actorKind = "user",
+                actorId,
+                action,
+                targetType = "models",
+                targetId = modelId,
+                detail,
+                occurredAt,
+            },
+        }, JsonOptions);
+
     private static void ValidateAccountCreate(ProviderAccountCreateCommand command)
     {
         if (!UlidValue.TryParse(command.Id, out _) || !UlidValue.TryParse(command.ProviderId, out _))
@@ -240,9 +329,31 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     private static async Task<ModelRecord> UpdateModelAsync(SqliteConnection c, SqliteTransaction tx, ProviderCatalogUpdateCommand cmd, JsonElement p, CancellationToken token)
     {
         var current = await ReadOneAsync(c, tx, cmd.TenantId, ModelSelect, cmd.Id, ReadModel, token) ?? throw new ProviderCatalogNotFoundException("model");
-        var name = ReadString(p, "displayName", current.DisplayName, false); var enabled = ReadBool(p, "enabled", current.Enabled);
-        await ExecuteAsync(c, tx, "UPDATE provider_models SET display_name=$name,enabled=$enabled WHERE tenant_id=$tenant AND id=$id;", token,
-            ("$name", name), ("$enabled", enabled ? 1 : 0), ("$tenant", cmd.TenantId), ("$id", cmd.Id)); return current with { DisplayName = name, Enabled = enabled };
+        var name = ReadString(p, "displayName", current.DisplayName, false);
+        var enabled = ReadBool(p, "enabled", current.Enabled);
+        var capabilities = ReadModelCapabilities(p, current.Capabilities);
+        var contextWindow = ReadInt(p, "contextWindow", current.ContextWindow);
+        var inputCost = ReadNullableDecimal(p, "costPer1kInputUsd", current.CostPer1kInputUsd);
+        var outputCost = ReadNullableDecimal(p, "costPer1kOutputUsd", current.CostPer1kOutputUsd);
+        var mappings = ReadEffortMappings(p, current.EffortMappings ?? []);
+        ValidateModel(cmd.Id, current.ProviderId, current.Name, name, contextWindow, inputCost, outputCost);
+        await ExecuteAsync(c, tx, "UPDATE provider_models SET display_name=$name,enabled=$enabled,capabilities_json=$capabilities,context_window=$context,cost_input=$input,cost_output=$output,effort_mappings_json=$mappings WHERE tenant_id=$tenant AND id=$id;", token,
+            ("$name", name), ("$enabled", enabled ? 1 : 0),
+            ("$capabilities", JsonSerializer.Serialize(capabilities, JsonOptions)),
+            ("$context", contextWindow), ("$input", inputCost ?? (object)DBNull.Value),
+            ("$output", outputCost ?? (object)DBNull.Value),
+            ("$mappings", JsonSerializer.Serialize(mappings, JsonOptions)),
+            ("$tenant", cmd.TenantId), ("$id", cmd.Id));
+        return current with
+        {
+            DisplayName = name,
+            Enabled = enabled,
+            Capabilities = capabilities,
+            ContextWindow = contextWindow,
+            CostPer1kInputUsd = inputCost,
+            CostPer1kOutputUsd = outputCost,
+            EffortMappings = mappings
+        };
     }
 
     private static async Task<AccountRecord> UpdateAccountAsync(SqliteConnection c, SqliteTransaction tx, ProviderCatalogUpdateCommand cmd, JsonElement p, CancellationToken token)
@@ -337,6 +448,40 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     private static decimal? ReadNullableDecimal(JsonElement p, string key, decimal? current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Number || !n.TryGetDecimal(out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value; }
     private static DateTimeOffset? ReadNullableInstant(JsonElement p, string key, DateTimeOffset? current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.String || !DateTimeOffset.TryParse(n.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value.ToUniversalTime(); }
     private static IReadOnlyList<string> ReadCapabilities(JsonElement p, IReadOnlyList<string> current) { if (!p.TryGetProperty("capabilities", out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Array) throw new ProviderCatalogValidationException("capabilities is invalid."); return NormalizeCapabilities(JsonSerializer.Deserialize<string[]>(n.GetRawText(), JsonOptions) ?? []); }
+    private static IReadOnlyList<string> ReadModelCapabilities(JsonElement p, IReadOnlyList<string> current) { if (!p.TryGetProperty("capabilities", out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Array) throw new ProviderCatalogValidationException("capabilities is invalid."); return NormalizeModelCapabilities(JsonSerializer.Deserialize<string[]>(n.GetRawText(), JsonOptions) ?? []); }
+    private static int ReadInt(JsonElement p, string key, int current) { if (!p.TryGetProperty(key, out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Number || !n.TryGetInt32(out var value)) throw new ProviderCatalogValidationException($"{key} is invalid."); return value; }
+    private static IReadOnlyList<EffortMappingRecord> ReadEffortMappings(JsonElement p, IReadOnlyList<EffortMappingRecord> current) { if (!p.TryGetProperty("effortMappings", out var n) || n.ValueKind == JsonValueKind.Null) return current; if (n.ValueKind != JsonValueKind.Array) throw new ProviderCatalogValidationException("effortMappings is invalid."); return NormalizeEffortMappings(JsonSerializer.Deserialize<EffortMappingRecord[]>(n.GetRawText(), JsonOptions) ?? []); }
+
+    private static string[] NormalizeModelCapabilities(IReadOnlyList<string> capabilities)
+    {
+        string[] allowed = ["chat", "code", "embeddings", "vision"];
+        var values = capabilities.Select(x => x?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (values.Length == 0 || values.Length > allowed.Length || values.Any(x => !allowed.Contains(x, StringComparer.Ordinal)))
+            throw new ProviderCatalogValidationException("Model capabilities are invalid.");
+        return values;
+    }
+
+    private static EffortMappingRecord[] NormalizeEffortMappings(IReadOnlyList<EffortMappingRecord> mappings)
+    {
+        string[] allowed = ["low", "medium", "high", "max"];
+        var values = mappings.Select(x => new EffortMappingRecord(x.Effort?.Trim() ?? string.Empty,
+                x.ProviderValue?.Trim() ?? string.Empty)).ToArray();
+        if (values.Length is < 1 or > 4 || values.Select(x => x.Effort).Distinct(StringComparer.Ordinal).Count() != values.Length ||
+            values.Any(x => !allowed.Contains(x.Effort, StringComparer.Ordinal) || x.ProviderValue.Length is < 1 or > 100))
+            throw new ProviderCatalogValidationException("Model effort mappings are invalid.");
+        return values.OrderBy(x => Array.IndexOf(allowed, x.Effort)).ToArray();
+    }
+
+    private static void ValidateModel(string id, string providerId, string name, string displayName,
+        int contextWindow, decimal? inputCost, decimal? outputCost)
+    {
+        if (!UlidValue.TryParse(id, out _) || !UlidValue.TryParse(providerId, out _) ||
+            string.IsNullOrWhiteSpace(name) || name.Trim().Length > 200 ||
+            string.IsNullOrWhiteSpace(displayName) || displayName.Trim().Length > 200 ||
+            contextWindow <= 0 || inputCost < 0 || outputCost < 0)
+            throw new ProviderCatalogValidationException("Provider model values are invalid.");
+    }
 
     private static async Task<T?> ReadOneAsync<T>(SqliteConnection c, SqliteTransaction? tx, string tenant, string select, string id, Func<SqliteDataReader, T> read, CancellationToken token) where T : class
     { await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText = $"{select} WHERE tenant_id=$tenant AND id=$id;"; Add(q, "$tenant", tenant); Add(q, "$id", id); await using var r = await q.ExecuteReaderAsync(token); return await r.ReadAsync(token) ? read(r) : null; }

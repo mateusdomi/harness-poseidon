@@ -101,6 +101,36 @@ public sealed class ProviderCatalogApiTests
                     modelId = models.Items.Single(x => x.Name == "gpt-5-codex").Id;
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/models/{modelId}", new ModelPatchRequest("Codex primary", true), timeout.Token))
                     { patch.EnsureSuccessStatusCode(); Assert.Equal("Codex primary", (await patch.Content.ReadFromJsonAsync<ModelContract>(timeout.Token))?.DisplayName); }
+                    using (var invalid = await client.PostAsJsonAsync("/api/v1/models", new CreateProviderModelRequest(
+                        providerId, "bad-model", "Bad model", ["shell"], 0, null, null,
+                        [new("extreme", "unsafe")]), timeout.Token))
+                        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+                    string disposableModelId;
+                    using (var created = await client.PostAsJsonAsync("/api/v1/models", new CreateProviderModelRequest(
+                        providerId, "custom-codex", "Custom Codex", ["code", "chat"], 128000,
+                        0.002m, 0.007m, [new("low", "low"), new("high", "xhigh")]), timeout.Token))
+                    {
+                        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+                        var value = (await created.Content.ReadFromJsonAsync<ModelContract>(timeout.Token))!;
+                        disposableModelId = value.Id; Assert.False(value.Enabled);
+                        Assert.Equal(["chat", "code"], value.Capabilities);
+                    }
+                    using (var patch = await client.PatchAsJsonAsync($"/api/v1/models/{disposableModelId}",
+                        new ModelPatchRequest("Custom Codex v2", true, ["chat", "embeddings"],
+                            256000, 0.003m, 0.009m, [new("medium", "balanced")]), timeout.Token))
+                    {
+                        patch.EnsureSuccessStatusCode();
+                        var value = (await patch.Content.ReadFromJsonAsync<ModelContract>(timeout.Token))!;
+                        Assert.True(value.Enabled); Assert.Equal(256000, value.ContextWindow);
+                        Assert.Equal("balanced", Assert.Single(value.EffortMappings).ProviderValue);
+                    }
+                    using (var blocked = await client.DeleteAsync($"/api/v1/models/{disposableModelId}", timeout.Token))
+                        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+                    using (var disabled = await client.PatchAsJsonAsync($"/api/v1/models/{disposableModelId}",
+                        new ModelPatchRequest(null, false), timeout.Token))
+                        Assert.Equal(HttpStatusCode.OK, disabled.StatusCode);
+                    using (var deleted = await client.DeleteAsync($"/api/v1/models/{disposableModelId}", timeout.Token))
+                        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
                     var policy = routing.Items.Single();
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/routing-policies/{policy.Id}",
                         new RoutingPolicyPatchRequest("Cost bounded", [new("code", modelId, [], 7.5m)], true), timeout.Token))

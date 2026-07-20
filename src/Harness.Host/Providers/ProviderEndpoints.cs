@@ -26,8 +26,10 @@ public static class ProviderEndpoints
         accounts.MapDelete("/{id}", DeleteAccountAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         var models = endpoints.MapGroup("/api/v1/models").WithTags("providers");
         models.MapGet("/", ListModelsAsync).Produces<ModelPage>().ProducesProblem(400).ProducesProblem(401);
+        models.MapPost("/", CreateModelAsync).Produces<ModelContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         models.MapGet("/{id}", GetModelAsync).Produces<ModelContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         models.MapPatch("/{id}", PatchModelAsync).Produces<ModelContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        models.MapDelete("/{id}", DeleteModelAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         var routing = endpoints.MapGroup("/api/v1/routing-policies").WithTags("providers");
         routing.MapGet("/", ListRoutingAsync).Produces<RoutingPolicyPage>().ProducesProblem(400).ProducesProblem(401);
         routing.MapGet("/{id}", GetRoutingAsync).Produces<RoutingPolicyContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
@@ -119,6 +121,43 @@ public static class ProviderEndpoints
         catch (ProviderCatalogLifecycleException e) { return Problem(409, "provider_account_in_use", e.Message); }
     }
 
+    private static async Task<IResult> CreateModelAsync(CreateProviderModelRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(input.ProviderId, out _)) return InvalidId();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            var now = clock.UtcNow; var id = UlidValue.New(now).ToString();
+            var value = await store.CreateModelAsync(new(profile.TenantId, profile.Id, id,
+                input.ProviderId, input.Name, input.DisplayName, input.Capabilities,
+                input.ContextWindow, input.CostPer1kInputUsd, input.CostPer1kOutputUsd,
+                input.EffortMappings.Select(x => new EffortMappingRecord(x.Effort, x.ProviderValue)).ToArray(),
+                now), token);
+            return Results.Created($"/api/v1/models/{id}", ToContract(value));
+        }
+        catch (ProviderCatalogNotFoundException e) { return NotFound(e.Resource); }
+        catch (ProviderCatalogValidationException e) { return Problem(400, "invalid_provider_model", e.Message); }
+    }
+
+    private static async Task<IResult> DeleteModelAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IProviderCatalogStore store, IClock clock,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(id, out _)) return InvalidId();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        try
+        {
+            await store.DeleteModelAsync(new(profile.TenantId, profile.Id, id, clock.UtcNow), token);
+            return Results.NoContent();
+        }
+        catch (ProviderCatalogNotFoundException e) { return NotFound(e.Resource); }
+        catch (ProviderCatalogLifecycleException e) { return Problem(409, "provider_model_in_use", e.Message); }
+    }
+
     private static object ToContract(ProviderCatalogRecord value) => value switch { ProviderRecord x => ToContract(x), AccountRecord x => ToContract(x), ModelRecord x => ToContract(x), RoutingPolicyRecord x => ToContract(x), BudgetRecord x => ToContract(x), _ => throw new InvalidOperationException() };
     private static ProviderContract ToContract(ProviderRecord x) => new(x.Id, x.Kind, x.Name, x.BaseUrl, x.Enabled);
     private static AccountContract ToContract(AccountRecord x) => new(
@@ -146,7 +185,14 @@ public sealed record CreateProviderAccountRequest(
     string? Identity = null, string Plan = "unknown", string Authentication = "apiKey",
     string QuotaWindow = "monthly", DateTimeOffset? QuotaResetsAt = null,
     IReadOnlyList<string>? Capabilities = null);
-public sealed record ModelPatchRequest(string? DisplayName, bool? Enabled);
+public sealed record CreateProviderModelRequest(
+    string ProviderId, string Name, string DisplayName, IReadOnlyList<string> Capabilities,
+    int ContextWindow, decimal? CostPer1kInputUsd, decimal? CostPer1kOutputUsd,
+    IReadOnlyList<EffortMappingContract> EffortMappings);
+public sealed record ModelPatchRequest(
+    string? DisplayName, bool? Enabled, IReadOnlyList<string>? Capabilities = null,
+    int? ContextWindow = null, decimal? CostPer1kInputUsd = null,
+    decimal? CostPer1kOutputUsd = null, IReadOnlyList<EffortMappingContract>? EffortMappings = null);
 public sealed record RoutingPolicyPatchRequest(string? Name, IReadOnlyList<RoutingRuleContract>? Rules, bool? Active);
 public sealed record BudgetPatchRequest(decimal? LimitUsd, decimal? AlertThresholdPct);
 public sealed record ProviderContract(string Id, string Kind, string Name, string? BaseUrl, bool Enabled);

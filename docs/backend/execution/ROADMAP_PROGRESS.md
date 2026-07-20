@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(248/248 testes backend, build Release 0 warnings/0 erros, 362/362 frontend) reproduzida nesta sessão.
+(248/248 testes backend, build Release 0 warnings/0 erros, 410/410 frontend) reproduzida nesta sessão.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -112,7 +112,8 @@ tenant-scoped de organograma v3 §8.10 também
 está **implementado/validado/integrado**. Em §8.13, criação, PATCH e remoção segura de contas estão
 **implementados/validados/integrados** com paridade SQLite/PostgreSQL, incluindo os metadados
 operacionais. O catálogo de effort tipado, a seleção por agente e os defaults avançados das
-definições estão verdes; CRUD avançado de modelos continua parcial. O FR-4 de workflows (draft,
+definições estão verdes. A administração de modelos também está completa: criação desabilitada
+por padrão, edição integral tipada e remoção segura com bloqueio por referências. O FR-4 de workflows (draft,
 cópia, edição,
 validação, publicação imutável,
 tombstones, exclusão restrita, duplicação e vínculo por projeto) está
