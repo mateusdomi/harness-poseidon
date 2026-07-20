@@ -151,3 +151,192 @@ export interface GovernanceReceiptQuery {
   cursor?: string;
   limit?: number;
 }
+
+export const learningCandidateTypeSchema = z.enum([
+  'rule',
+  'skill',
+  'persona_refinement',
+  'workflow_refinement',
+  'tool_routing_recommendation',
+  'documentation_correction',
+  'provider_model_routing_recommendation',
+]);
+export type LearningCandidateType = z.infer<typeof learningCandidateTypeSchema>;
+
+export const learningCandidateStateSchema = z.enum([
+  'candidate',
+  'in_review',
+  'awaiting_evaluation',
+  'evaluated',
+  'shadow',
+  'approved',
+  'rejected',
+  'promoted',
+  'rolled_back',
+  'deprecated',
+]);
+export type LearningCandidateState = z.infer<typeof learningCandidateStateSchema>;
+
+export const learningCandidateActionSchema = z.enum([
+  'request_review',
+  'request_evaluation',
+  'complete_evaluation',
+  'start_shadow',
+  'approve',
+  'reject',
+  'promote',
+  'rollback',
+  'deprecate',
+]);
+export type LearningCandidateAction = z.infer<typeof learningCandidateActionSchema>;
+
+export const learningEvidenceRecordSchema = z.object({
+  kind: z.string().min(1),
+  reference: z.string().min(1),
+  checksum: z.string().min(1),
+  summary: z.string(),
+});
+export type LearningEvidenceRecord = z.infer<typeof learningEvidenceRecordSchema>;
+
+export const learningCandidatePayloadSchema = z.object({
+  title: z.string().min(1),
+  statement: z.string().nullable(),
+  instructions: z.string().nullable(),
+  personaId: z.string().nullable(),
+  workflowId: z.string().nullable(),
+  toolId: z.string().nullable(),
+  documentId: z.string().nullable(),
+  providerId: z.string().nullable(),
+  modelId: z.string().nullable(),
+  refinement: z.string().nullable(),
+  recommendation: z.string().nullable(),
+  correction: z.string().nullable(),
+});
+export type LearningCandidatePayload = z.infer<typeof learningCandidatePayloadSchema>;
+
+export const learningShadowResultSchema = z.object({
+  sampleSize: wireIntegerSchema,
+  firstPassSuccessDelta: z.coerce.number(),
+  repeatedErrorRateDelta: z.coerce.number(),
+  tokenImpact: wireIntegerSchema,
+  costPerAcceptedTaskDelta: z.coerce.number(),
+  regressions: wireIntegerSchema,
+  evidenceReference: z.string().min(1),
+});
+export type LearningShadowResult = z.infer<typeof learningShadowResultSchema>;
+
+export const learningCandidateSchema = z.object({
+  organizationId: contractIdSchema,
+  projectId: contractIdSchema,
+  candidateId: contractIdSchema,
+  type: learningCandidateTypeSchema,
+  state: learningCandidateStateSchema,
+  fingerprint: z.string().min(1),
+  observation: z.string(),
+  evidence: z.array(learningEvidenceRecordSchema),
+  payload: learningCandidatePayloadSchema,
+  actorAgentId: contractIdSchema,
+  actorProvider: z.string().min(1),
+  actorModel: z.string().nullable(),
+  baselineVersion: z.string().min(1),
+  proposedVersion: z.string().min(1),
+  evaluatorAgentId: z.string().nullable(),
+  evaluatorProvider: z.string().nullable(),
+  evaluatorModel: z.string().nullable(),
+  evaluationVerdict: z.string().nullable(),
+  shadowResult: learningShadowResultSchema.nullable(),
+  reviewerProfileId: z.string().nullable(),
+  decisionNote: z.string().nullable(),
+  activeVersion: z.string().nullable(),
+  previousVersion: z.string().nullable(),
+  createdAt: isoDateTimeSchema,
+  updatedAt: isoDateTimeSchema,
+  version: wireIntegerSchema,
+});
+export type LearningCandidate = z.infer<typeof learningCandidateSchema>;
+
+export const learningCandidatePageSchema = z.object({
+  items: z.array(learningCandidateSchema),
+  nextCursor: z.string().nullable(),
+  total: wireIntegerSchema.nonnegative(),
+});
+export type LearningCandidatePage = z.infer<typeof learningCandidatePageSchema>;
+
+export const learningCandidateComparisonSchema = z.object({
+  baselineVersion: z.string().min(1),
+  proposedVersion: z.string().min(1),
+  proposedPayload: learningCandidatePayloadSchema,
+  activeVersion: z.string().nullable(),
+  previousVersion: z.string().nullable(),
+});
+export type LearningCandidateComparison = z.infer<typeof learningCandidateComparisonSchema>;
+
+const historyStateSchema = z.union([learningCandidateStateSchema, wireIntegerSchema]);
+const historyActionSchema = z.union([learningCandidateActionSchema, wireIntegerSchema]).nullable();
+export const learningCandidateHistoryRecordSchema = z.object({
+  eventId: contractIdSchema,
+  candidateId: contractIdSchema,
+  fromState: historyStateSchema,
+  toState: historyStateSchema,
+  action: historyActionSchema,
+  actorId: contractIdSchema,
+  note: z.string().nullable(),
+  occurredAt: isoDateTimeSchema,
+  candidateVersion: wireIntegerSchema,
+});
+export type LearningCandidateHistoryRecord = z.infer<typeof learningCandidateHistoryRecordSchema>;
+
+export const learningCandidateMetricsSchema = z.object({
+  created: wireIntegerSchema,
+  deduplicated: wireIntegerSchema,
+  rejected: wireIntegerSchema,
+  approved: wireIntegerSchema,
+  promoted: wireIntegerSchema,
+  rolledBack: wireIntegerSchema,
+  averageFirstPassSuccessDelta: z.coerce.number(),
+  averageRepeatedErrorRateDelta: z.coerce.number(),
+  tokenImpact: wireIntegerSchema,
+  averageCostPerAcceptedTaskDelta: z.coerce.number(),
+  regressionsAfterPromotion: wireIntegerSchema,
+});
+export type LearningCandidateMetrics = z.infer<typeof learningCandidateMetricsSchema>;
+
+export const learningTransitionInputSchema = z.object({
+  expectedVersion: wireIntegerSchema,
+  note: z.string().nullable(),
+});
+export type LearningTransitionInput = z.infer<typeof learningTransitionInputSchema>;
+
+export const learningEvaluationInputSchema = learningTransitionInputSchema.extend({
+  evaluatorAgentId: contractIdSchema,
+  evaluatorProvider: z.string().min(1),
+  evaluatorModel: z.string().nullable(),
+  verdict: z.string().min(1),
+});
+export type LearningEvaluationInput = z.infer<typeof learningEvaluationInputSchema>;
+
+export const learningShadowInputSchema = learningTransitionInputSchema.extend({
+  result: learningShadowResultSchema,
+});
+export type LearningShadowInput = z.infer<typeof learningShadowInputSchema>;
+
+export const learningDecisionInputSchema = learningTransitionInputSchema.extend({
+  approved: z.boolean(),
+});
+export type LearningDecisionInput = z.infer<typeof learningDecisionInputSchema>;
+
+export interface LearningCandidateQuery {
+  organizationId?: string;
+  projectId?: string;
+  type?: LearningCandidateType;
+  state?: LearningCandidateState;
+  cursor?: string;
+  limit?: number;
+}
+
+export type LearningTransition =
+  | 'review'
+  | 'evaluation-request'
+  | 'promotion'
+  | 'rollback'
+  | 'deprecation';

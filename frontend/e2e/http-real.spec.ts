@@ -73,6 +73,7 @@ async function ensureSession(page: Page) {
   const profilesResponse = await page.request.get('/api/v1/profiles?limit=100');
   expect(profilesResponse.ok()).toBe(true);
   const profiles = (await profilesResponse.json()) as { items: Array<{ displayName: string }> };
+  let selectedName = PROFILE_NAME;
   if (profiles.items.length === 0) {
     await expect(wizard).toBeVisible();
     await page.getByLabel('Nome de exibição').fill(PROFILE_NAME);
@@ -84,12 +85,15 @@ async function ensureSession(page: Page) {
     await page.getByLabel('Entendo os riscos').check();
     await page.getByRole('button', { name: 'Concluir' }).click();
   } else {
-    const profile = page.getByText(PROFILE_NAME, { exact: true });
+    selectedName = profiles.items.find((item) => item.displayName === PROFILE_NAME)?.displayName
+      ?? profiles.items[0].displayName;
+    const profile = page.getByText(selectedName, { exact: true });
     await expect(profile).toBeVisible();
     await profile.locator('xpath=ancestor::li').getByRole('button', { name: 'Entrar' }).click();
   }
 
   await expect(page).toHaveURL(/\/cockpit$/);
+  return selectedName;
 }
 
 async function ensureWorkingDirectory(page: Page) {
@@ -115,7 +119,7 @@ async function ensureOrganization(page: Page) {
   await expect(page.getByText(ORGANIZATION_NAME, { exact: true })).toBeVisible();
 }
 
-async function ensureProject(page: Page) {
+async function ensureProject(page: Page, profileName: string) {
   await page.goto('/projects');
   await expect(page.getByRole('heading', { name: 'Projetos' })).toBeVisible();
   if (await page.getByRole('button', { name: PROJECT_NAME, exact: false }).isVisible()) return;
@@ -125,7 +129,7 @@ async function ensureProject(page: Page) {
   await page.getByLabel('Slug (sigla)').fill('HOMOLOG');
   await page.getByLabel('Descrição').fill('Validação técnica do frontend contra o Host real.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
-  await page.getByLabel(new RegExp(PROFILE_NAME)).check();
+  await page.getByLabel(new RegExp(profileName)).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
   await expect(page.getByRole('button', { name: PROJECT_NAME, exact: false })).toBeVisible();
 }
@@ -151,6 +155,104 @@ async function captureEvidence(page: Page, testInfo: TestInfo, route: string) {
     ? path.join(evidenceDirectory, name)
     : testInfo.outputPath(name);
   await page.screenshot({ path: screenshotPath, fullPage: true });
+}
+
+async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
+  if (testInfo.project.name !== 'desktop-13-dark') return;
+  const projectsResponse = await page.request.get('/api/v1/projects?limit=100');
+  expect(projectsResponse.ok()).toBe(true);
+  const projects = (await projectsResponse.json()) as { items: Array<{ id: string; name: string }> };
+  const project = projects.items.find((item) => item.name === PROJECT_NAME);
+  expect(project).toBeDefined();
+  const agentsResponse = await page.request.get(`/api/v1/agents?projectId=${project!.id}&limit=100`);
+  expect(agentsResponse.ok()).toBe(true);
+  const agents = (await agentsResponse.json()) as { items: Array<{ id: string }> };
+  expect(agents.items.length).toBeGreaterThan(0);
+  const actorId = agents.items[0].id;
+  const marker = Date.now();
+  const title = `Candidate P2 E2E ${marker}`;
+  const create = await page.request.post('/api/v1/governance-runtime/learning-candidates', {
+    headers: { 'Idempotency-Key': `e2e-create-${marker}` },
+    data: {
+      projectId: project!.id,
+      type: 'rule',
+      observation: `Falha transitória observada ${marker}.`,
+      evidence: [{ kind: 'test', reference: `evidence://e2e/${marker}`, checksum: `sha256:${String(marker).padEnd(64, '0').slice(0, 64)}`, summary: 'Evidência descartável do E2E real.' }],
+      payload: { title, statement: 'Retry somente falhas transitórias com limite.' },
+      actorAgentId: actorId,
+      actorProvider: 'e2e-actor',
+      actorModel: 'actor-model',
+      baselineVersion: 'rule/1',
+      proposedVersion: 'rule/2',
+    },
+  });
+  expect(create.ok()).toBe(true);
+  const created = (await create.json()) as { candidate: { candidateId: string } };
+
+  await page.goto('/governance');
+  await page.getByRole('tab', { name: 'Aprendizado P2' }).click();
+  await page.getByLabel('Projeto', { exact: true }).selectOption(project!.id);
+  await expect(page.getByRole('button', { name: new RegExp(title) })).toBeVisible();
+  await page.getByRole('button', { name: new RegExp(title) }).click();
+  await expect(page.getByText('Comparação de versões')).toBeVisible();
+  await expect(page.getByText('Evidência descartável do E2E real.')).toBeVisible();
+  const expectState = async (state: string) => {
+    const header = page.getByRole('heading', { name: title, exact: true }).locator('..');
+    await expect(header.getByText(state, { exact: true })).toBeVisible();
+  };
+
+  const transition = async (button: string, expectedState: string, note?: string) => {
+    await page.getByRole('button', { name: button, exact: true }).click();
+    if (note !== undefined) await page.getByLabel('Justificativa').fill(note);
+    await page.getByRole('button', { name: 'Confirmar transição' }).click();
+    await expectState(expectedState);
+  };
+
+  await transition('Solicitar revisão', 'in_review', 'Revisão humana solicitada.');
+  await transition('Solicitar avaliação', 'awaiting_evaluation', 'Avaliação independente solicitada.');
+
+  const handoff = await page.request.post(`/api/v1/projects/${project!.id}/chief/handoff`, {
+    data: { targetDefinitionId: null, targetModelId: null, note: 'Evaluator independente para homologação P2.' },
+  });
+  expect(handoff.ok()).toBe(true);
+  const evaluator = (await handoff.json()) as { id: string };
+  expect(evaluator.id).not.toBe(actorId);
+
+  await page.getByRole('button', { name: 'Registrar avaliação independente' }).click();
+  await page.getByLabel('Agente avaliador').fill(evaluator.id);
+  await page.getByLabel('Provider avaliador').fill('e2e-independent');
+  await page.getByLabel('Modelo avaliador').fill('critic-model');
+  await page.getByLabel('Justificativa').fill('Avaliação independente aprovada.');
+  await page.getByRole('button', { name: 'Confirmar transição' }).click();
+  await expectState('evaluated');
+
+  await page.getByRole('button', { name: 'Registrar shadow validation' }).click();
+  await page.getByLabel('Amostra').fill('30');
+  await page.getByLabel('Delta first-pass').fill('0.12');
+  await page.getByLabel('Delta de erro repetido').fill('-0.08');
+  await page.getByLabel('Impacto em tokens').fill('-120');
+  await page.getByLabel('Delta de custo').fill('-0.05');
+  await page.getByLabel('Regressões').fill('0');
+  await page.getByLabel('Referência da evidência').fill(`evidence://shadow/${created.candidate.candidateId}`);
+  await page.getByLabel('Justificativa').fill('Shadow sem regressões.');
+  await page.getByRole('button', { name: 'Confirmar transição' }).click();
+  await expectState('shadow');
+  await expect(page.getByText('Monitoramento do shadow')).toBeVisible();
+
+  await transition('Aprovar', 'approved', 'Aprovação humana após shadow.');
+  await page.getByRole('button', { name: 'Promover manualmente' }).click();
+  const promotion = page.getByRole('button', { name: 'Confirmar transição' });
+  await expect(promotion).toBeDisabled();
+  await page.getByText(/Confirmo a promoção manual/).click();
+  await promotion.click();
+  await expectState('promoted');
+
+  await transition('Executar rollback', 'rolled_back', 'Regressão simulada no E2E.');
+  await transition('Depreciar', 'deprecated', 'Versão substituída com segurança.');
+  await expect(page.getByText('Histórico imutável')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Histórico imutável' }).getByText('deprecate', { exact: true })).toBeVisible();
+  await assertA11y(page, 'governança P2 — lifecycle completo');
+  await page.screenshot({ path: testInfo.outputPath('desktop-13-dark-governance-p2.png'), fullPage: true });
 }
 
 async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
@@ -271,7 +373,7 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   await expect(page.getByText('Catálogo canônico não publicado')).toBeVisible();
   await assertA11y(page, 'governança P1 — documentos');
   await page.getByRole('tab', { name: 'Aprendizado P2' }).click();
-  await expect(page.getByText('Contratos P2 ainda não publicados')).toBeVisible();
+  await expect(page.getByText('Learning candidates')).toBeVisible();
   await page.getByRole('tab', { name: 'Auditoria' }).click();
   const csvDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Exportar CSV' }).click();
@@ -284,10 +386,10 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
   test.setTimeout(180_000);
   const runtime = watchRuntime(page);
   await setTheme(page, testInfo.project.name.includes('light'));
-  await ensureSession(page);
+  const profileName = await ensureSession(page);
   await ensureWorkingDirectory(page);
   await ensureOrganization(page);
-  await ensureProject(page);
+  await ensureProject(page, profileName);
 
   for (const route of ROUTES) {
     await page.goto(route);
@@ -299,6 +401,7 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
   }
 
   await exerciseRealtimeAndAudit(page, testInfo);
+  await exerciseLearningP2(page, testInfo);
 
   await page.goto('/cockpit');
   await expect(page.getByRole('main')).toBeVisible();

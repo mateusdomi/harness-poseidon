@@ -16,6 +16,17 @@ const receipt = {
   bundleChecksum: 'sha256:bundle', state: 'completed', gateResult: 'passed', version: 1,
 };
 
+const candidate = {
+  organizationId: 'org-1', projectId: 'project-1', candidateId: 'candidate-1', type: 'rule' as const, state: 'candidate' as const,
+  fingerprint: 'sha256:fingerprint', observation: 'Falhas transitórias recorrentes.',
+  evidence: [{ kind: 'test', reference: 'evidence://test/1', checksum: 'sha256:evidence', summary: 'Teste isolado.' }],
+  payload: { title: 'Retry seguro', statement: 'Retry limitado.', instructions: null, personaId: null, workflowId: null, toolId: null, documentId: null, providerId: null, modelId: null, refinement: null, recommendation: null, correction: null },
+  actorAgentId: 'actor-1', actorProvider: 'provider-a', actorModel: 'actor-model', baselineVersion: 'rule/1', proposedVersion: 'rule/2',
+  evaluatorAgentId: null, evaluatorProvider: null, evaluatorModel: null, evaluationVerdict: null, shadowResult: null,
+  reviewerProfileId: null, decisionNote: null, activeVersion: null, previousVersion: null,
+  createdAt: '2026-07-20T12:00:00Z', updatedAt: '2026-07-20T12:00:00Z', version: 1,
+};
+
 function renderContractPage(options?: { staleError?: Error }) {
   const bundle = createTestBundle();
   vi.spyOn(bundle.api, 'listGovernanceReceipts').mockResolvedValue([receipt]);
@@ -32,10 +43,16 @@ function renderContractPage(options?: { staleError?: Error }) {
     product: { name: 'Poseidon', version: '1.0', codename: 'Poseidon' }, apiMode: 'http', realtimeState: 'connected',
     checks: [{ key: 'api', state: 'ok', detail: 'respondendo' }], generatedAt: '2026-07-20T12:00:00Z',
   });
+  vi.spyOn(bundle.api, 'listLearningCandidates').mockResolvedValue({ items: [candidate], nextCursor: null, total: 1 });
+  vi.spyOn(bundle.api, 'getLearningCandidate').mockResolvedValue(candidate);
+  vi.spyOn(bundle.api, 'listLearningCandidateEvidence').mockResolvedValue(candidate.evidence);
+  vi.spyOn(bundle.api, 'compareLearningCandidate').mockResolvedValue({ baselineVersion: 'rule/1', proposedVersion: 'rule/2', proposedPayload: candidate.payload, activeVersion: null, previousVersion: null });
+  vi.spyOn(bundle.api, 'listLearningCandidateHistory').mockResolvedValue([]);
+  vi.spyOn(bundle.api, 'getLearningCandidateMetrics').mockResolvedValue({ created: 1, deduplicated: 0, rejected: 0, approved: 0, promoted: 0, rolledBack: 0, averageFirstPassSuccessDelta: 0, averageRepeatedErrorRateDelta: 0, tokenImpact: 0, averageCostPerAcceptedTaskDelta: 0, regressionsAfterPromotion: 0 });
   return renderWithApi(<GovernanceContractPage />, bundle);
 }
 
-describe('GovernanceContractPage P1', () => {
+describe('GovernanceContractPage P1/P2', () => {
   it('mostra sinal operacional, receipt reproduzível, métricas e a distinção do catálogo', async () => {
     const user = userEvent.setup();
     renderContractPage();
@@ -54,7 +71,32 @@ describe('GovernanceContractPage P1', () => {
     expect(screen.getByText('ReviewOverdue')).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Aprendizado P2' }));
-    expect(screen.getByText('Contratos P2 ainda não publicados')).toBeInTheDocument();
+    expect(await screen.findByText('Learning candidates')).toBeInTheDocument();
+    expect(await screen.findByText('Retry seguro')).toBeInTheDocument();
+  });
+
+  it('abre evidência/comparação e só promove por confirmação manual', async () => {
+    const user = userEvent.setup();
+    const { bundle, queryClient } = renderContractPage();
+    const transition = vi.spyOn(bundle.api, 'transitionLearningCandidate').mockResolvedValue({ ...candidate, state: 'promoted', version: 7 });
+
+    await user.click(screen.getByRole('tab', { name: 'Aprendizado P2' }));
+    await user.click(await screen.findByRole('button', { name: /Retry seguro/ }));
+    expect(await screen.findByText('Evidências')).toBeInTheDocument();
+    expect(screen.getByText('Comparação de versões')).toBeInTheDocument();
+    expect(screen.getByText('Retry limitado.')).toBeInTheDocument();
+
+    vi.spyOn(bundle.api, 'getLearningCandidate').mockResolvedValue({ ...candidate, state: 'approved', version: 6 });
+    await queryClient.invalidateQueries({ queryKey: ['governance-runtime', 'learning-candidates'] });
+    expect(await screen.findByText('approved')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Promover manualmente' }));
+    const confirm = screen.getByRole('button', { name: 'Confirmar transição' });
+    expect(confirm).toBeDisabled();
+    await user.click(screen.getByText(/Confirmo a promoção manual/));
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => expect(transition).toHaveBeenCalledWith('candidate-1', 'promotion', { expectedVersion: 6, note: null }));
   });
 
   it('submete o evaluator e identifica o resultado como apenas desta sessão', async () => {

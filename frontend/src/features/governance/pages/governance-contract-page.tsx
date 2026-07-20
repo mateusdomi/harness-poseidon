@@ -46,6 +46,7 @@ import {
 } from '@/features/governance/hooks/use-governance-runtime';
 import AuditTimelinePanel from '@/features/governance/pages/audit-timeline-page';
 import { maskSecrets } from '@/lib/secrets';
+import { LearningCandidatesPanel } from '@/features/governance/components/learning-candidates-panel';
 
 type TabId = 'overview' | 'receipts' | 'documents' | 'evaluation' | 'audit' | 'learning';
 
@@ -575,11 +576,6 @@ function HashlinePatchPanel() {
   );
 }
 
-function LearningPanel() {
-  const { t } = useTranslation();
-  return <ContractUnavailable title={t('governance.runtime.learning.title')} body={t('governance.runtime.learning.body')} />;
-}
-
 export default function GovernanceContractPage() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<TabId>('overview');
@@ -599,7 +595,7 @@ export default function GovernanceContractPage() {
         {tab === 'documents' && <DocumentsPanel receipts={data.receipts.data ?? []} findings={data.staleFindings.data ?? []} />}
         {tab === 'evaluation' && <EvaluationPanel />}
         {tab === 'audit' && <AuditTimelinePanel />}
-        {tab === 'learning' && <LearningPanel />}
+        {tab === 'learning' && <LearningCandidatesPanel />}
       </section>
     </div>
   );

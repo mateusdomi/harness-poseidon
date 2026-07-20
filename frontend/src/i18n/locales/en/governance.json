@@ -53,8 +53,8 @@
     },
     "runtime": {
       "title": "Agent governance",
-      "subtitle": "Operational view based exclusively on the P1 contracts published by the backend.",
-      "gate": "P1",
+      "subtitle": "Operational view based exclusively on the P1 and P2 contracts published by the backend.",
+      "gate": "P1 + P2",
       "unknown": "unknown",
       "empty": "No data published by the runtime.",
       "enabled": "enabled",
@@ -126,8 +126,67 @@
         "confirm": "I confirm that I re-read the file, validated the relative path, and understand this action can write to the project.", "checksums": "actual: {{actual}} · applied: {{applied}}", "apply": "Apply protected patch"
       },
       "learning": {
-        "title": "P2 contracts are not published yet",
-        "body": "Learning candidates, shadow, approval, promotion, rollback, and deprecation remain fail-closed until they exist in OpenAPI. No endpoint or state was anticipated."
+        "title": "Governed P2 learning",
+        "body": "Manual, auditable lifecycle from canonical OpenAPI and event catalog 1.1."
+      }
+    },
+    "learning": {
+      "title": "Learning candidates",
+      "body": "Paginated, tenant-scoped governed queue. Promotion is never automatic.",
+      "empty": "No candidate matches the current filters.",
+      "select": "Select a candidate to inspect evidence, comparison, actions, and history.",
+      "loadMore": "Load next page",
+      "loaded": "{{loaded}} loaded of {{total}}",
+      "candidateMetadata": "{{id}} · version {{version}} · {{date}}",
+      "actorMetadata": "{{id}} · {{provider}}/{{model}}",
+      "historyMetadata": "{{actor}} · version {{version}}",
+      "listMetadata": "{{type}} · {{date}} · version {{version}}",
+      "periodNote": "The contract has no period query: dates filter loaded pages only; project, type, and state are server-side filters.",
+      "evidence": "Evidence",
+      "comparison": "Version comparison",
+      "history": "Immutable history",
+      "monitoring": "Shadow monitoring",
+      "adminRequired": "admin required",
+      "independentEvaluator": "The evaluator must differ from the actor and return pass for approval; the server enforces the authoritative policy.",
+      "manualPromotion": "I confirm this manual promotion after human review of evidence, independent evaluation, and shadow results.",
+      "permissionDenied": "Your profile is not authorized for this transition.",
+      "verdicts": { "pass": "pass", "fail": "fail" },
+      "labels": { "actor": "Actor", "fingerprint": "Fingerprint", "reviewer": "Reviewer", "verdict": "Verdict", "active": "Active version", "previous": "Previous version" },
+      "saving": "Applying…",
+      "confirm": "Confirm transition",
+      "filters": { "project": "Project", "type": "Type", "state": "State", "from": "Created from", "to": "Created through" },
+      "fields": {
+        "note": "Rationale",
+        "evaluatorAgentId": "Evaluator agent",
+        "evaluatorProvider": "Evaluator provider",
+        "evaluatorModel": "Evaluator model",
+        "verdict": "Verdict",
+        "sampleSize": "Sample size",
+        "firstPassSuccessDelta": "First-pass delta",
+        "repeatedErrorRateDelta": "Repeated error delta",
+        "tokenImpact": "Token impact",
+        "costPerAcceptedTaskDelta": "Cost delta",
+        "regressions": "Regressions",
+        "evidenceReference": "Evidence reference"
+      },
+      "actions": {
+        "review": "Request review",
+        "evaluation-request": "Request evaluation",
+        "evaluation": "Record independent evaluation",
+        "shadow": "Record shadow validation",
+        "approve": "Approve",
+        "reject": "Reject",
+        "promotion": "Promote manually",
+        "rollback": "Run rollback",
+        "deprecation": "Deprecate"
+      },
+      "metrics": {
+        "title": "Metrics and monitoring",
+        "body": "Real aggregates for the current tenant/project.",
+        "created": "Created", "deduplicated": "Deduplicated", "approved": "Approved",
+        "promoted": "Promoted", "rejected": "Rejected", "rolledBack": "Rollbacks",
+        "successDelta": "First-pass delta", "errorDelta": "Repeated error delta",
+        "tokenImpact": "Token impact", "costDelta": "Cost delta", "regressions": "Post-promotion regressions"
       }
     }
   }

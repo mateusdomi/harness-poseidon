@@ -213,22 +213,25 @@ As contas usam o CRUD REST publicado pelo backend: `POST /accounts`, `PATCH /acc
 - O backend já publica `GET /projects/<projectId>/agent-org-chart`, mas a tela atual deriva o mesmo organograma das coleções `agents` + `agent-definitions` para manter compatibilidade com o mock. Uma futura troca para o endpoint agregado não exige mudança visual.
 - Não há tipo específico no catálogo canônico para create/update/lifecycle de definição. O backend grava ledger/outbox e a UI invalida queries após a mutation; para atualização multi-janela direcionada, sugere-se `agentDefinition.changed` no stream `global`.
 
-### Gate P1 — necessidades da UI de governança ainda não publicadas
+### Governança P1/P2 — contratos integrados e lacunas explícitas
 
-Reconciliação feita em 2026-07-20 contra `docs/contracts/openapi.json` SHA-256 `b19554b7a97782c1516e27859b245aabfcbd0178684b2bd30254b43bf3d46ae4` e `docs/contracts/events.json` SHA-256 `1b860f0adc82e19aa802e1b277f7e7e1e641114666afab7b799d8202a6c3d5db`. Nenhum dos domínios abaixo está presente. A UI contratual permanece fail-closed com `VITE_GOVERNANCE_CONTRACT_UI=off`; a auditoria existente em `/governance` continua sendo a única superfície de governança e será estendida, nunca duplicada na navegação.
+Reconciliação feita em 2026-07-20 contra `docs/contracts/openapi.json` SHA-256 `271ca1dfa7be947783e71793333989e1a4d2bbc2287d0de9da8c35503482763d` e `docs/contracts/events.json` 1.1 SHA-256 `093d8c9c9d85db4fa17551085060478a6e23149a01b4e1684760936c8ed6a554`.
 
-O backend precisa publicar no OpenAPI os recursos, vocabulários fechados, paginação, autorização e redaction aplicáveis. Este documento descreve informação necessária, não propõe nomes de endpoint:
+- A UI P1 consome receipts/métricas, evaluation independente, stale findings, hashline/benchmark, executores e diagnóstico.
+- A UI P2 consome exclusivamente os paths publicados sob `/api/v1/governance-runtime/learning-candidates`: lista/criação, métricas, detalhe, evidência, comparação, histórico e transições de review, evaluation-request, evaluations, shadow, decision, promotion, rollback e deprecation.
+- Lista P2 usa paginação real por `cursor`/`limit` e filtros server-side de organização, projeto, tipo e estado. O contrato não oferece período; `from`/`to` são refinamento local das páginas carregadas, identificado como tal na tela.
+- Promoção é manual e idempotente. A UI envia `expectedVersion` para OCC e `Idempotency-Key` opaco nas transições; não existe encadeamento automático após evaluation/shadow/approval.
+- `events.json` 1.1 não publica eventos exclusivos de learning candidates. A integração realtime usa somente `audit.eventAppended` no stream `global` para invalidar dados P2.
+- Autorização e redaction continuam autoritativas no Host. A UI trata 401/403 e faz masking defensivo, sem apresentar isso como substituto da sanitização do servidor.
+- O `MockApiClient` rejeita operações P2 com 501; não há fixture de learning candidate nem fallback simulado. Homologação exige `VITE_API_MODE=http`.
 
-- **Catálogo documental:** identidade, categoria, autoridade, escopo, owner, status, versão, load policy, token estimate, last verified, review due, checksum, source of truth, supersedes, enforcement e findings. Listagem paginada/filtrável e detalhe separado são necessários para progressive disclosure; o manifest completo não será descarregado numa tabela.
-- **Saúde/findings:** contagens e itens correlacionáveis para órfãos, stale, conflitos, links quebrados, adapters divergentes, regras sem enforcement, paths absolutos e documentos acima do budget. Cada finding precisa de severidade, evidência, alvo, estado, timestamps e conjunto de ações/capabilities autorizado ao perfil.
-- **Context bundle/receipt por turno:** Chief/agente, projeto/tarefa/tentativa, provider/model, documentos selecionados e razão, checksum por documento, tokens estimados/reais, truncamentos, cache, conflitos e checksum do bundle. A resposta deve vir redigida no servidor: nenhum segredo pode depender apenas de máscara visual. Replay precisa informar elegibilidade, comando autorizado, idempotência e resultado auditável.
-- **Evaluations:** actor, evaluator, provider/model de ambos, independência calculável, findings P0–P3 com confidence/evidência, verdict, gate resultante e histórico imutável. O contrato deve distinguir avaliação em andamento, concluída e falha.
-- **Learning candidates (P2 somente):** observation → candidate → review → eval → shadow → approved/promoted → deprecated/rolled back, com transições permitidas e capabilities humanas. Nenhuma promoção automática será inferida pela UI.
-- **Integrações:** relações estáveis com persona/definition/políticas em Agentes, skills/tools/MCP em Ferramentas, alertas críticos no Cockpit, receipt do turno no Chat e proveniência na auditoria atual.
-- **Tempo real:** catálogo canônico dos eventos, stream de cada agregado, payload integral no `events.json`/OpenAPI e compatibilidade com snapshot/delta/sequence. A UI só adicionará schemas Zod, handlers e drift tests depois desses eventos existirem.
-- **Autorização e paginação:** 401/403 já são status canônicos do Host. Os novos recursos precisam declarar leitura, drill-down, replay e ações por capability; paginação/cursor, filtros e ordenação precisam ser server-side para manifests/findings extensos.
+Lacunas que permanecem no contrato e não foram fabricadas:
 
-Ao publicar o Gate P1, a próxima reconciliação deve: registrar novos SHA-256, gerar/adaptar tipos e Zod, comparar enums e nulabilidade, criar drift tests, ligar React Query/SignalR, implementar estados loading/empty/error/permission/stale/reconexão e só então habilitar a flag em ambiente controlado. Não serão criados mocks com aparência de dado real antes disso.
+- parâmetros server-side para período/ordenação da lista;
+- security scheme/capabilities por operação e documentação uniforme de 403;
+- header `Idempotency-Key` descrito no OpenAPI das mutações, embora o Host o exija operacionalmente;
+- eventos P2 dedicados e schemas dos respectivos payloads;
+- endpoint de monitoring separado: a UI apresenta métricas agregadas e o resultado persistido do shadow/histórico.
 
 ### Pendências de contrato identificadas na FR-4 (não fabricadas na UI)
 

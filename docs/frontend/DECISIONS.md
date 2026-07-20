@@ -380,3 +380,18 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 
 - **Decisão:** `VITE_GOVERNANCE_CONTRACT_UI=off` é a flag operacional; apenas o literal `on` habilita. Enquanto OpenAPI/eventos não trouxerem manifest, findings, receipts e evaluations, nenhum componente novo entra na navegação e nenhuma fixture simula funcionamento. As necessidades estão registradas no HANDOFF; a implementação futura estenderá `/governance` e as telas existentes.
 - **Justificativa:** evita uma UI enganosa e mantém a sequência contract-first exigida, sem transformar preparação de produção em protótipo.
+
+## D-092 — P2 estende a aba Aprendizado e promoção continua estritamente manual
+
+- **Decisão:** os contratos publicados em `94061f4` habilitam a implementação P2 dentro da feature `/governance`, sem rota paralela. A mesma superfície cobre candidate → review → independent evaluation → shadow → approval/rejection → manual promotion → rollback/deprecation. O botão de promoção só aparece no estado permitido, exige perfil administrativo no Host e uma confirmação humana adicional; nenhuma resposta de avaliação ou shadow dispara promoção.
+- **Justificativa:** preserva a máquina de estados autoritativa, a auditabilidade e a regra de que aprendizado sugere, mas não altera produção sozinho.
+
+## D-093 — Realtime P2 usa somente `audit.eventAppended`
+
+- **Decisão:** `events.json` 1.1 não contém tipos exclusivos de learning candidates. O hook assina o stream `global`, aceita apenas o evento canônico `audit.eventAppended` e invalida lista, detalhe, evidência, comparação, histórico e métricas. O contract drift falha se a UI passar a depender de nomes P2 não publicados.
+- **Justificativa:** atualização por invalidação mantém consistência multi-janela sem fabricar payload ou evento fora do catálogo.
+
+## D-094 — Filtro de período é local às páginas carregadas; autorização permanece no servidor
+
+- **Decisão:** `projectId`, `type`, `state`, `cursor` e `limit` são enviados ao endpoint de listagem. Como o OpenAPI P2 não publica `from`/`to`, o período filtra somente as páginas já recebidas e essa abrangência aparece na UI. Também não se inferem capabilities: 401/403 do Host governam leitura e transições; a UI apenas comunica ações administrativas e mascara valores antes de exibir.
+- **Justificativa:** evita parâmetros e permissões fictícios e deixa explícita a diferença entre filtro server-side e refinamento local.

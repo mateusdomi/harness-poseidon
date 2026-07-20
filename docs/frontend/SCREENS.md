@@ -164,10 +164,10 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 ## 18. governance — `/governance`
 
-- **Dados:** `audit-events` + 12 listas de correlação (`projects`, `tasks`, `attempts`, `approvals`, `documents`, `demands`, `solicitations`, `workflows`, `profiles`, `agents`, `models`, `tools`).
-- **Realtime:** stream `global` — `audit.eventAppended`.
-- **Ações:** nenhuma mutation — filtros client-side e exportação JSON/CSV. Read-only.
-- **Estados:** vazio com orientação (contexto de filtros); skeleton; erro com retry (13 queries).
+- **Dados:** auditoria + correlações; P1 (receipts/métricas, avaliação independente, stale docs, hashline/benchmark, executores e diagnóstico); P2 (learning candidates, evidência, comparação, histórico e métricas).
+- **Realtime:** stream `global` — somente o evento canônico `audit.eventAppended`, que invalida auditoria e queries P2. O catálogo 1.1 ainda não publica evento específico de learning.
+- **Ações:** exportação JSON/CSV da auditoria; no P2, revisão, solicitação/registro da avaliação independente, shadow validation, aprovação/rejeição, promoção manual confirmada, rollback e depreciação.
+- **Estados:** vazio orientado, skeleton, erro com retry, permissão negada, masking e reconexão global. A lista P2 é cursor-paginada; o período atua somente sobre páginas carregadas porque o contrato não possui esse parâmetro.
 
 ## 19. licenses — `/licenses`
 
@@ -194,7 +194,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 # Roteiro humano de homologação final
 
-Este roteiro complementa os gates automatizados e não declara aceite humano. O homologador registra aprovado/reprovado, evidência e observação por etapa. Execute com backend real, `VITE_API_MODE=http`, navegador limpo e `VITE_GOVERNANCE_CONTRACT_UI=off`.
+Este roteiro complementa os gates automatizados e não declara aceite humano. O homologador registra aprovado/reprovado, evidência e observação por etapa. Execute com backend real, `VITE_API_MODE=http`, navegador limpo e `VITE_GOVERNANCE_CONTRACT_UI=on`.
 
 ## Preparação
 
@@ -223,7 +223,7 @@ Este roteiro complementa os gates automatizados e não declara aceite humano. O 
 16. **Provedores:** sincronize catálogo; crie conta só com referência segura, edite/habilite/desabilite/remova quando permitido. Confira saúde/cota/reset/capabilities, modelos/effort e roteamento.
 17. **Licenças:** valide estado, expiração/grace/offline e entitlements; tente chave inválida e ativação válida apenas em ambiente descartável.
 18. **Assistente de PO:** envie texto/anexo, revise os cinco painéis, edite/descarte itens e crie demanda; confirme-a no Quadro/Cockpit.
-19. **Governança atual:** combine filtros, expanda correlações, verifique masking/paginação e exporte JSON/CSV filtrados. Confirme ausência de navegação paralela para a Parte B com a flag off.
+19. **Governança P1/P2:** valide auditoria e painéis P1; na aba Aprendizado, combine projeto/tipo/estado/período, carregue outra página e confira a nota de abrangência do período. Abra detalhe/evidência/comparação e execute, com dados descartáveis: revisão → solicitação de avaliação → avaliação por agente independente → shadow → aprovação. Confirme que nada promove sozinho; marque a confirmação e promova manualmente. Confira métricas, monitoramento e histórico; depois faça rollback e depreciação com justificativa. Repita uma ação sem permissão e valide o 403 contextual; inspecione masking e atualização por `audit.eventAppended`.
 20. **Notificações:** marque item/grupo/todas como lidas, silencie e altere preferências; confira badge/realtime.
 21. **Configurações:** altere idioma/tema/diretório, revogue modo inseguro, gere backup descartável e confira diagnóstico/licença. Não restaure sobre dados valiosos.
 

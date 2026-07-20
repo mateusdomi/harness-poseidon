@@ -53,8 +53,8 @@
     },
     "runtime": {
       "title": "Governança de agentes",
-      "subtitle": "Visão operacional baseada exclusivamente nos contratos P1 publicados pelo backend.",
-      "gate": "P1",
+      "subtitle": "Visão operacional baseada exclusivamente nos contratos P1 e P2 publicados pelo backend.",
+      "gate": "P1 + P2",
       "unknown": "desconhecido",
       "empty": "Nenhum dado publicado pelo runtime.",
       "enabled": "habilitado",
@@ -172,8 +172,67 @@
         "apply": "Aplicar patch protegido"
       },
       "learning": {
-        "title": "Contratos P2 ainda não publicados",
-        "body": "Learning candidates, shadow, aprovação, promoção, rollback e depreciação permanecerão fail-closed até existirem no OpenAPI. Nenhum endpoint ou estado foi antecipado."
+        "title": "Aprendizado governado P2",
+        "body": "Lifecycle manual e auditável conforme OpenAPI e eventos canônicos 1.1."
+      }
+    },
+    "learning": {
+      "title": "Learning candidates",
+      "body": "Fila paginada, tenant-scoped e governada. Nenhuma promoção é automática.",
+      "empty": "Nenhum candidate encontrado para os filtros atuais.",
+      "select": "Selecione um candidate para ver evidência, comparação, ações e histórico.",
+      "loadMore": "Carregar próxima página",
+      "loaded": "{{loaded}} carregados de {{total}}",
+      "candidateMetadata": "{{id}} · versão {{version}} · {{date}}",
+      "actorMetadata": "{{id}} · {{provider}}/{{model}}",
+      "historyMetadata": "{{actor}} · versão {{version}}",
+      "listMetadata": "{{type}} · {{date}} · versão {{version}}",
+      "periodNote": "O contrato não publica período como query: datas filtram somente as páginas já carregadas; projeto, tipo e estado são filtros server-side.",
+      "evidence": "Evidências",
+      "comparison": "Comparação de versões",
+      "history": "Histórico imutável",
+      "monitoring": "Monitoramento do shadow",
+      "adminRequired": "admin obrigatório",
+      "independentEvaluator": "O evaluator deve ser diferente do actor e, para aprovação, devolver verdict pass; o servidor aplica a política autoritativa.",
+      "manualPromotion": "Confirmo a promoção manual desta versão após revisão humana das evidências, avaliação independente e shadow.",
+      "permissionDenied": "Seu perfil não possui permissão para esta transição.",
+      "verdicts": { "pass": "aprovado", "fail": "reprovado" },
+      "labels": { "actor": "Actor", "fingerprint": "Fingerprint", "reviewer": "Revisor", "verdict": "Veredito", "active": "Versão ativa", "previous": "Versão anterior" },
+      "saving": "Aplicando…",
+      "confirm": "Confirmar transição",
+      "filters": { "project": "Projeto", "type": "Tipo", "state": "Estado", "from": "Criado desde", "to": "Criado até" },
+      "fields": {
+        "note": "Justificativa",
+        "evaluatorAgentId": "Agente avaliador",
+        "evaluatorProvider": "Provider avaliador",
+        "evaluatorModel": "Modelo avaliador",
+        "verdict": "Verdict",
+        "sampleSize": "Amostra",
+        "firstPassSuccessDelta": "Delta first-pass",
+        "repeatedErrorRateDelta": "Delta de erro repetido",
+        "tokenImpact": "Impacto em tokens",
+        "costPerAcceptedTaskDelta": "Delta de custo",
+        "regressions": "Regressões",
+        "evidenceReference": "Referência da evidência"
+      },
+      "actions": {
+        "review": "Solicitar revisão",
+        "evaluation-request": "Solicitar avaliação",
+        "evaluation": "Registrar avaliação independente",
+        "shadow": "Registrar shadow validation",
+        "approve": "Aprovar",
+        "reject": "Rejeitar",
+        "promotion": "Promover manualmente",
+        "rollback": "Executar rollback",
+        "deprecation": "Depreciar"
+      },
+      "metrics": {
+        "title": "Métricas e monitoramento",
+        "body": "Agregados reais do tenant/projeto selecionado.",
+        "created": "Criados", "deduplicated": "Deduplicados", "approved": "Aprovados",
+        "promoted": "Promovidos", "rejected": "Rejeitados", "rolledBack": "Rollbacks",
+        "successDelta": "Delta first-pass", "errorDelta": "Delta erro repetido",
+        "tokenImpact": "Impacto tokens", "costDelta": "Delta custo", "regressions": "Regressões pós-promoção"
       }
     }
   }

@@ -92,6 +92,12 @@ import {
   type HashlinePatchResult,
   type PatchBenchmark,
   type StaleDocumentFinding,
+  type LearningCandidate,
+  type LearningCandidateComparison,
+  type LearningCandidateHistoryRecord,
+  type LearningCandidateMetrics,
+  type LearningCandidatePage,
+  type LearningEvidenceRecord,
 } from '../contracts';
 import { streams } from '../contracts';
 import { product } from '@/config/product';
@@ -1577,11 +1583,51 @@ export class MockApiClient implements ApiClient {
     return this.#governanceRequiresHttp();
   }
 
+  listLearningCandidates(): Promise<LearningCandidatePage> {
+    return this.#governanceRequiresHttp();
+  }
+
+  getLearningCandidate(): Promise<LearningCandidate> {
+    return this.#governanceRequiresHttp();
+  }
+
+  listLearningCandidateEvidence(): Promise<LearningEvidenceRecord[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  compareLearningCandidate(): Promise<LearningCandidateComparison> {
+    return this.#governanceRequiresHttp();
+  }
+
+  listLearningCandidateHistory(): Promise<LearningCandidateHistoryRecord[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  getLearningCandidateMetrics(): Promise<LearningCandidateMetrics> {
+    return this.#governanceRequiresHttp();
+  }
+
+  transitionLearningCandidate(): Promise<LearningCandidate> {
+    return this.#governanceRequiresHttp();
+  }
+
+  evaluateLearningCandidate(): Promise<LearningCandidate> {
+    return this.#governanceRequiresHttp();
+  }
+
+  shadowLearningCandidate(): Promise<LearningCandidate> {
+    return this.#governanceRequiresHttp();
+  }
+
+  decideLearningCandidate(): Promise<LearningCandidate> {
+    return this.#governanceRequiresHttp();
+  }
+
   #governanceRequiresHttp<T>(): Promise<T> {
     return Promise.reject(
       ApiError.of(
         501,
-        'Governança P1 requer backend real',
+        'Governança P1/P2 requer backend real',
         'Ative VITE_API_MODE=http; o perfil mock não simula contratos de governança.',
       ),
     );

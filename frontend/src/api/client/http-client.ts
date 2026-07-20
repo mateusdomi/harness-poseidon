@@ -65,6 +65,16 @@ import {
   hashlinePatchResultSchema,
   patchBenchmarkSchema,
   staleDocumentFindingSchema,
+  learningCandidateComparisonSchema,
+  learningCandidateHistoryRecordSchema,
+  learningCandidateMetricsSchema,
+  learningCandidatePageSchema,
+  learningCandidateSchema,
+  learningDecisionInputSchema,
+  learningEvaluationInputSchema,
+  learningEvidenceRecordSchema,
+  learningShadowInputSchema,
+  learningTransitionInputSchema,
   type AgentExecutor,
   type EvaluationResult,
   type FreshContextEvaluationInput,
@@ -75,6 +85,18 @@ import {
   type HashlinePatchResult,
   type PatchBenchmark,
   type StaleDocumentFinding,
+  type LearningCandidate,
+  type LearningCandidateComparison,
+  type LearningCandidateHistoryRecord,
+  type LearningCandidateMetrics,
+  type LearningCandidatePage,
+  type LearningCandidateQuery,
+  type LearningDecisionInput,
+  type LearningEvaluationInput,
+  type LearningEvidenceRecord,
+  type LearningShadowInput,
+  type LearningTransition,
+  type LearningTransitionInput,
 } from '../contracts';
 import type { ApiClient } from './api-client';
 
@@ -460,11 +482,80 @@ export class HttpApiClient implements ApiClient {
     return agentExecutorSchema.array().parse(response);
   }
 
-  async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async listLearningCandidates(query?: LearningCandidateQuery): Promise<LearningCandidatePage> {
+    const params = new URLSearchParams();
+    if (query?.organizationId) params.set('organizationId', query.organizationId);
+    if (query?.projectId) params.set('projectId', query.projectId);
+    if (query?.type) params.set('type', query.type);
+    if (query?.state) params.set('state', query.state);
+    if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.limit !== undefined) params.set('limit', String(query.limit));
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates${suffix}`);
+    return learningCandidatePageSchema.parse(response);
+  }
+
+  async getLearningCandidate(candidateId: string): Promise<LearningCandidate> {
+    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}`);
+    return learningCandidateSchema.parse(response);
+  }
+
+  async listLearningCandidateEvidence(candidateId: string): Promise<LearningEvidenceRecord[]> {
+    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/evidence`);
+    return learningEvidenceRecordSchema.array().parse(response);
+  }
+
+  async compareLearningCandidate(candidateId: string): Promise<LearningCandidateComparison> {
+    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/compare`);
+    return learningCandidateComparisonSchema.parse(response);
+  }
+
+  async listLearningCandidateHistory(candidateId: string): Promise<LearningCandidateHistoryRecord[]> {
+    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/history`);
+    return learningCandidateHistoryRecordSchema.array().parse(response);
+  }
+
+  async getLearningCandidateMetrics(query?: Pick<LearningCandidateQuery, 'organizationId' | 'projectId'>): Promise<LearningCandidateMetrics> {
+    const params = new URLSearchParams();
+    if (query?.organizationId) params.set('organizationId', query.organizationId);
+    if (query?.projectId) params.set('projectId', query.projectId);
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/metrics${suffix}`);
+    return learningCandidateMetricsSchema.parse(response);
+  }
+
+  async transitionLearningCandidate(candidateId: string, transition: LearningTransition, input: LearningTransitionInput): Promise<LearningCandidate> {
+    return this.#learningMutation(candidateId, transition, learningTransitionInputSchema.parse(input));
+  }
+
+  async evaluateLearningCandidate(candidateId: string, input: LearningEvaluationInput): Promise<LearningCandidate> {
+    return this.#learningMutation(candidateId, 'evaluations', learningEvaluationInputSchema.parse(input));
+  }
+
+  async shadowLearningCandidate(candidateId: string, input: LearningShadowInput): Promise<LearningCandidate> {
+    return this.#learningMutation(candidateId, 'shadow', learningShadowInputSchema.parse(input));
+  }
+
+  async decideLearningCandidate(candidateId: string, input: LearningDecisionInput): Promise<LearningCandidate> {
+    return this.#learningMutation(candidateId, 'decision', learningDecisionInputSchema.parse(input));
+  }
+
+  async #learningMutation(candidateId: string, action: string, body: unknown): Promise<LearningCandidate> {
+    const key = `ui-${action}-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
+    const response = await this.#request<unknown>(
+      'POST',
+      `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/${action}`,
+      body,
+      { 'Idempotency-Key': key },
+    );
+    return learningCandidateSchema.parse(response);
+  }
+
+  async #request<T>(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
     const response = await this.#fetch(`${this.#baseUrl}${path}`, {
       method,
       credentials: 'include',
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      headers: body !== undefined ? { 'Content-Type': 'application/json', ...headers } : headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 

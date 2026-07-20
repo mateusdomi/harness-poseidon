@@ -64,6 +64,18 @@ import type {
   HashlinePatchResult,
   PatchBenchmark,
   StaleDocumentFinding,
+  LearningCandidate,
+  LearningCandidateComparison,
+  LearningCandidateHistoryRecord,
+  LearningCandidateMetrics,
+  LearningCandidatePage,
+  LearningCandidateQuery,
+  LearningDecisionInput,
+  LearningEvaluationInput,
+  LearningEvidenceRecord,
+  LearningShadowInput,
+  LearningTransition,
+  LearningTransitionInput,
 } from '../contracts';
 
 /**
@@ -305,4 +317,17 @@ export interface ApiClient {
   applyHashlinePatch(projectId: string, input: HashlinePatchInput): Promise<HashlinePatchResult>;
   listHashlineBenchmark(): Promise<PatchBenchmark[]>;
   listAgentExecutors(): Promise<AgentExecutor[]>;
+
+  /* ---- governança de aprendizado P2 ---- */
+
+  listLearningCandidates(query?: LearningCandidateQuery): Promise<LearningCandidatePage>;
+  getLearningCandidate(candidateId: string): Promise<LearningCandidate>;
+  listLearningCandidateEvidence(candidateId: string): Promise<LearningEvidenceRecord[]>;
+  compareLearningCandidate(candidateId: string): Promise<LearningCandidateComparison>;
+  listLearningCandidateHistory(candidateId: string): Promise<LearningCandidateHistoryRecord[]>;
+  getLearningCandidateMetrics(query?: Pick<LearningCandidateQuery, 'organizationId' | 'projectId'>): Promise<LearningCandidateMetrics>;
+  transitionLearningCandidate(candidateId: string, transition: LearningTransition, input: LearningTransitionInput): Promise<LearningCandidate>;
+  evaluateLearningCandidate(candidateId: string, input: LearningEvaluationInput): Promise<LearningCandidate>;
+  shadowLearningCandidate(candidateId: string, input: LearningShadowInput): Promise<LearningCandidate>;
+  decideLearningCandidate(candidateId: string, input: LearningDecisionInput): Promise<LearningCandidate>;
 }
