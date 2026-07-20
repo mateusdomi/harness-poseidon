@@ -95,3 +95,19 @@ A Kimi publicou `e2b17f2` (FR-2: cockpit com seletor 24h/3d/7d + carregamento in
 workflow no chat com acordeões de fase, progresso, documentos por estado, deep-links, realtime e drawer
 mobile). Bundle embarcado regenerado por `build-frontend.sh` e servido pelo Host; CSP `script-src 'self'`
 compatível (sem inline script); suíte 232/232. Ver DECISIONS_PENDING sobre versionar o bundle.
+
+## 2026-07-20 — Governance P2
+
+Após aprovação explícita do Gate P1, o backend publicou o recurso canônico
+`/api/v1/governance-runtime/learning-candidates` no OpenAPI real. O contrato cobre listagem
+paginada/filtrada, criação com payload fechado e evidência, detalhe, evidência, comparação,
+histórico, métricas e comandos explícitos de review, avaliação independente, shadow, decisão,
+promoção, rollback e depreciação. O catálogo de eventos foi versionado como 1.1. As transições P2
+usam o evento realtime já canônico `audit.eventAppended`, com `action` fechado
+(`learning.candidateCreated`, `learning.candidateStateChanged`, `learning.candidatePromoted` ou
+`learning.candidateRolledBack`) e versão do candidate no payload. Isso estende a governança/auditoria
+existente, evita um segundo canal e mantém o consumidor frontend atual compatível.
+
+Nenhum endpoint foi inferido do frontend e nenhum arquivo em `frontend/**` ou `docs/frontend/**`
+foi alterado. O OpenAPI exportado e o catálogo de eventos são bloqueados por contract drift tests;
+a UI pode gerar seus tipos a partir destes artefatos reais.

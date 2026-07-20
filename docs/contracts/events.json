@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "hub": "/hubs/events",
   "clientMethod": "event",
   "snapshotEndpoint": "/api/v1/event-streams/snapshot?stream={stream}&afterSequence={sequence}",

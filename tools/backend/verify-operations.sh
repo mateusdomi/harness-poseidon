@@ -16,7 +16,13 @@ for script in publish-desktop.sh publish-server.sh verify-resilience.sh verify-s
   }
 done
 
-for document in INSTALLATION.md OPERATIONS.md INCIDENT_RUNBOOK.md; do
+bash -n "${REPOSITORY_ROOT}/poseidon"
+[[ -x "${REPOSITORY_ROOT}/poseidon" ]] || {
+  echo "verify-operations: comando poseidon não é executável." >&2
+  exit 1
+}
+
+for document in INSTALLATION.md OPERATIONS.md INCIDENT_RUNBOOK.md HOMOLOGATION.md; do
   [[ -s "docs/backend/operations/${document}" ]] || {
     echo "verify-operations: documentação ausente: ${document}." >&2
     exit 1

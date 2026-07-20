@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly POSEIDON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly POSEIDON_DATA_DIR="${POSEIDON_DATA_DIR:-${HOME}/.harness-poseidon}"
+readonly POSEIDON_RUNTIME_DIR="${POSEIDON_DATA_DIR}/runtime"
+readonly POSEIDON_STATE_FILE="${POSEIDON_RUNTIME_DIR}/poseidon.json"
+readonly POSEIDON_LOG_DIR="${POSEIDON_DATA_DIR}/logs"
+readonly POSEIDON_HOST_LOG="${POSEIDON_LOG_DIR}/poseidon.log"
+
+usage() {
+  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|release-candidate} [opções]"
+  echo "  start [--no-browser] [--port PORT] [--demo]"
+  echo "  logs [--follow]"
+}
+
+json_number() {
+  sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "${POSEIDON_STATE_FILE}" | head -1
+}
+
+json_string() {
+  sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "${POSEIDON_STATE_FILE}" | head -1
+}
+
+launcher_pid() {
+  [[ -s "${POSEIDON_STATE_FILE}" ]] && json_number launcherPid || true
+}
+
+is_running() {
+  local pid
+  pid="$(launcher_pid)"
+  [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null
+}
+
+recover_stale_state() {
+  if [[ -f "${POSEIDON_STATE_FILE}" ]] && ! is_running; then
+    unlink "${POSEIDON_STATE_FILE}"
+    [[ ! -f "${POSEIDON_RUNTIME_DIR}/runner.token" ]] || unlink "${POSEIDON_RUNTIME_DIR}/runner.token"
+  fi
+}
+
+resolve_launcher() {
+  if [[ -x "${POSEIDON_ROOT}/Harness.Launcher" ]]; then
+    echo "${POSEIDON_ROOT}/Harness.Launcher"
+    return
+  fi
+  [[ -x "${POSEIDON_ROOT}/tools/backend/dotnet.sh" ]] || {
+    echo "Pacote inválido: Harness.Launcher não encontrado." >&2
+    exit 2
+  }
+  command -v node >/dev/null || { echo "Node.js é obrigatório no modo de desenvolvimento." >&2; exit 2; }
+  "${POSEIDON_ROOT}/tools/backend/dotnet.sh" --info >/dev/null || {
+    echo "SDK .NET versionado inválido." >&2
+    exit 2
+  }
+  "${POSEIDON_ROOT}/tools/backend/build-frontend.sh" >/dev/null || {
+    echo "Os gates do frontend falharam; a inicialização foi cancelada." >&2
+    exit 2
+  }
+  "${POSEIDON_ROOT}/tools/backend/dotnet.sh" build \
+    "${POSEIDON_ROOT}/src/Harness.Launcher/Harness.Launcher.csproj" --configuration Release >/dev/null || {
+      echo "Falha ao compilar o Launcher." >&2
+      exit 2
+    }
+  "${POSEIDON_ROOT}/tools/backend/dotnet.sh" build \
+    "${POSEIDON_ROOT}/src/Harness.Runner/Harness.Runner.csproj" --configuration Release >/dev/null || {
+      echo "Falha ao compilar o Runner." >&2
+      exit 2
+    }
+  local candidate="${POSEIDON_ROOT}/src/Harness.Launcher/bin/Release/net10.0/Harness.Launcher"
+  [[ -x "${candidate}" ]] || { echo "Falha ao preparar o Launcher." >&2; exit 2; }
+  echo "${candidate}"
+}
+
+start_poseidon() {
+  [[ "$(uname -s)" == "Darwin" ]] || { echo "Este candidato suporta inicialização local no macOS." >&2; exit 2; }
+  recover_stale_state
+  if is_running; then
+    echo "Poseidon já está em execução em $(json_string address)"
+    return
+  fi
+  local open_browser=true port="" demo=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-browser) open_browser=false ;;
+      --demo) demo=true ;;
+      --port) [[ $# -ge 2 ]] || { echo "--port exige um valor." >&2; exit 2; }; port="$2"; shift ;;
+      *) echo "Opção desconhecida: $1" >&2; exit 2 ;;
+    esac
+    shift
+  done
+  [[ -z "${port}" || "${port}" =~ ^[0-9]+$ ]] || { echo "Porta inválida." >&2; exit 2; }
+  if [[ -n "${port}" ]] && lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "A porta ${port} já está em uso." >&2
+    exit 2
+  fi
+  mkdir -p "${POSEIDON_RUNTIME_DIR}" "${POSEIDON_LOG_DIR}"
+  local launcher
+  launcher="$(resolve_launcher)"
+  local args=(--data-dir "${POSEIDON_DATA_DIR}" --no-browser)
+  [[ -z "${port}" ]] || args+=(--port "${port}")
+  if [[ "${demo}" == true ]]; then
+    Harness__Demo__Enabled=true nohup "${launcher}" "${args[@]}" >>"${POSEIDON_HOST_LOG}" 2>&1 &
+  else
+    nohup "${launcher}" "${args[@]}" >>"${POSEIDON_HOST_LOG}" 2>&1 &
+  fi
+  local process_id=$!
+  for _ in {1..120}; do
+    if [[ -s "${POSEIDON_STATE_FILE}" ]]; then
+      local address
+      address="$(json_string address)"
+      if curl --silent --fail --max-time 2 "${address}health" >/dev/null; then
+        echo "Poseidon disponível em ${address}"
+        echo "Dados: ${POSEIDON_DATA_DIR}"
+        echo "Logs: ${POSEIDON_LOG_DIR}"
+        [[ "${open_browser}" != true ]] || /usr/bin/open "${address}"
+        return
+      fi
+    fi
+    if ! kill -0 "${process_id}" 2>/dev/null; then
+      echo "O Launcher encerrou durante a inicialização. Consulte ${POSEIDON_HOST_LOG}." >&2
+      exit 2
+    fi
+    sleep 0.25
+  done
+  kill "${process_id}" 2>/dev/null || true
+  echo "Timeout ao iniciar. Consulte ${POSEIDON_HOST_LOG}." >&2
+  exit 2
+}
+
+stop_poseidon() {
+  recover_stale_state
+  if ! is_running; then echo "Poseidon já está parado."; return; fi
+  local pid
+  pid="$(launcher_pid)"
+  kill -TERM "${pid}"
+  for _ in {1..80}; do
+    kill -0 "${pid}" 2>/dev/null || { echo "Poseidon encerrado."; return; }
+    sleep 0.25
+  done
+  echo "O shutdown gracioso excedeu 20 segundos; processo preservado para diagnóstico." >&2
+  exit 2
+}
+
+status_poseidon() {
+  recover_stale_state
+  if ! is_running; then echo "Poseidon: parado"; return 1; fi
+  local address
+  address="$(json_string address)"
+  if curl --silent --fail --max-time 2 "${address}health" >/dev/null; then
+    echo "Poseidon: saudável em ${address}"
+    echo "Launcher PID: $(json_number launcherPid); Runner PID: $(json_number runnerPid)"
+  else
+    echo "Poseidon: processo ativo, health indisponível" >&2
+    return 2
+  fi
+}
+
+doctor_poseidon() {
+  local failures=0
+  echo "Poseidon doctor"
+  [[ "$(uname -s)" == "Darwin" ]] && echo "[ok] macOS $(sw_vers -productVersion)" || { echo "[erro] macOS obrigatório"; failures=$((failures+1)); }
+  [[ -d "${POSEIDON_DATA_DIR}" || -w "$(dirname "${POSEIDON_DATA_DIR}")" ]] && echo "[ok] diretório de dados gravável" || { echo "[erro] diretório de dados sem escrita"; failures=$((failures+1)); }
+  if [[ -x "${POSEIDON_ROOT}/Harness.Launcher" ]]; then
+    [[ -x "${POSEIDON_ROOT}/runner/Harness.Runner" ]] && echo "[ok] pacote self-contained completo" || { echo "[erro] Runner ausente"; failures=$((failures+1)); }
+    [[ -s "${POSEIDON_ROOT}/wwwroot/index.html" ]] && echo "[ok] frontend empacotado" || { echo "[erro] frontend ausente"; failures=$((failures+1)); }
+  else
+    [[ -x "${POSEIDON_ROOT}/tools/backend/dotnet.sh" ]] && echo "[ok] SDK .NET versionado" || { echo "[erro] SDK .NET ausente"; failures=$((failures+1)); }
+    command -v node >/dev/null && echo "[ok] Node $(node --version)" || { echo "[erro] Node ausente"; failures=$((failures+1)); }
+    if command -v docker >/dev/null && docker info >/dev/null 2>&1; then echo "[ok] Docker/Colima disponível"; else echo "[info] Docker/Colima indisponível; recursos isolados ficam desabilitados"; fi
+  fi
+  df -h "$(dirname "${POSEIDON_DATA_DIR}")" | tail -1 | awk '{print "[info] disco disponível: "$4}'
+  if is_running; then status_poseidon || failures=$((failures+1)); else echo "[info] Poseidon parado"; fi
+  echo "[info] dados: ${POSEIDON_DATA_DIR}"
+  echo "[info] logs: ${POSEIDON_LOG_DIR}"
+  [[ ${failures} -eq 0 ]]
+}
+
+case "${1:-}" in
+  start) shift; start_poseidon "$@" ;;
+  status) status_poseidon ;;
+  stop) stop_poseidon ;;
+  restart) shift; stop_poseidon; start_poseidon "$@" ;;
+  doctor) doctor_poseidon ;;
+  logs) mkdir -p "${POSEIDON_LOG_DIR}"; [[ "${2:-}" == "--follow" ]] && exec tail -f "${POSEIDON_HOST_LOG}" || { echo "Logs: ${POSEIDON_LOG_DIR}"; tail -n 200 "${POSEIDON_HOST_LOG}" 2>/dev/null || true; } ;;
+  release-candidate) [[ -x "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ]] || { echo "Comando disponível apenas no checkout de desenvolvimento." >&2; exit 2; }; exec "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ;;
+  *) usage; exit 2 ;;
+esac

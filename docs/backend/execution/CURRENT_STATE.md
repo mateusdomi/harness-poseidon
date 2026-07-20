@@ -11,12 +11,12 @@ suposições e o próximo passo; não é projeção automática do banco ou do G
 
 ### Retomada rápida
 
-- Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
+- Fase atual: fechamento técnico da Release Candidate; P2 autorizado e implementado após Gate P1.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Base remota integrada antes do fechamento P1: `b0474dd` (`origin/develop`); o baseline recuperável permanece `2e9928f` e o Gate P0 permanece `1865381`.
-- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 99,5% · Validado 99,3% · Integrado 96,4% · Homologado 0% · Geral ≈78,5%.
-- Próximo passo exato: revisão humana do Gate P1; não iniciar aprendizado P2 sem autorização explícita.
+- Base remota integrada antes do P2: `a6baa28075cacee5883a3fc0e949c48b97ed6e57` (`origin/develop`); o baseline recuperável permanece `2e9928f` e o Gate P0 permanece `1865381`.
+- Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — percentuais do roadmap base permanecem separados do incremento Governance P2/RC até o gate integral final.
+- Próximo passo exato: gerar a RC de working tree limpa, executar o roteiro humano de 30–60 minutos e registrar GNG-3/GNG-4/GNG-6 sem confundi-los com gates automáticos.
 - Bloqueios: nenhum técnico — há refinamentos v3 independentes. Apenas a11y/E2E de browser e os smokes/aceites externos (GNG-3 visual, GNG-4 macOS limpo, GNG-6, Entra ID, Teams e modelo reais) aguardam outra frente/terceiros e não travam o backlog backend. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
 ### Suposições ativas
@@ -25,6 +25,7 @@ suposições e o próximo passo; não é projeção automática do banco ou do G
 - O trabalho backend ocorre exclusivamente em `$REPO_ROOT` na branch `develop`.
 - Contratos em `frontend/src/api/contracts/**` e `docs/frontend/HANDOFF_API.md` são provisórios até reconciliação; não serão editados pelo backend.
 - `runner_attempts` é uma projeção de transporte do IPC, não o agregado de domínio Tentativa; o EP-05 deve ligá-la à tentativa durável/tenant sem permitir ao Runner criar autoridade de domínio.
+- Learning candidate nunca integra bundle normativo por criação: review humano autorizado, avaliação independente, shadow, aprovação e promoção explícita são gates separados; rollback restaura a versão anterior.
 
 <!-- CURRENT_STATE_MANUAL_END -->
 
@@ -39,7 +40,7 @@ a `generated=true`.
 ### Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0045`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
+- Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0046`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
@@ -129,6 +130,15 @@ a `generated=true`.
 - Migrations: SQLite `28→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
 - Pipeline: `tools/backend/verify.sh` integral exit 0 após rebase em `b0474dd` — frontend lint/typecheck/build e 413/413; backend restore locked, secret/governance gates, format sem mudanças, build Release `0 Aviso(s)`/zero erros e 288/288 testes verdes (`Unit 153`, `Integration 90`, `Contract 29`, `Recovery 6`, `Architecture 7`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
+- Governance P2: sete candidate types fechados, lifecycle até depreciação/rollback, métricas, API real,
+  OpenAPI e realtime por `audit.eventAppended` implementados com paridade SQLite/PostgreSQL. Backend
+  está em 298/298 testes, build Release sem warnings, governance/SAST/resiliência/operações verdes.
+- Integração frontend: a UI P1 publicada em `7a27caf` foi incorporada sem edição local. Seus 428
+  testes compatíveis passam; o único teste restante declara deliberadamente que P2 não existe e deve
+  ser reconciliado pela frente proprietária agora que o OpenAPI real foi publicado.
+- Produto local: `./poseidon` supervisiona Launcher/Host/Runner, oferece start/status/stop/restart,
+  doctor/logs, demo opt-in e geração fechada da RC. O smoke final do pacote aguarda somente a
+  reconciliação frontend P2 para que a árvore possa ser limpa e o agregador executado.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 
 ### Sanidade antes de retomar

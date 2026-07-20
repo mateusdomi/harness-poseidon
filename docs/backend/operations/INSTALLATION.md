@@ -9,7 +9,37 @@
 
 Use somente artefatos produzidos de um commit validado por `tools/backend/verify.sh`.
 
-## Pacote pessoal
+## Release Candidate pessoal
+
+O mantenedor gera a candidata, a partir de `develop` limpo, com:
+
+```bash
+./poseidon release-candidate
+```
+
+O comando para no primeiro warning, segredo, drift, recurso Docker órfão ou alteração versionada e
+grava pacote, checksums, manifesto, SBOM e relatórios em
+`.artifacts/release-candidate/<sha>-osx-arm64/`. Envie ao usuário o `.tar.gz` e os arquivos irmãos
+`SHA256SUMS`, `INSTALLATION.md`, `HOMOLOGATION.md`, `RELEASE_NOTES.md` e `TEST_REPORT.md`.
+
+No Mac de destino, sem IDE, Node ou SDK .NET:
+
+```bash
+shasum -a 256 -c SHA256SUMS
+tar -xzf poseidon-<sha>-osx-arm64.tar.gz
+cd poseidon-<sha>-osx-arm64
+./Harness.Launcher install --install-dir "$PWD/../Poseidon"
+cd ../Poseidon
+./poseidon doctor
+./poseidon start
+```
+
+O navegador abre automaticamente e a URL também é impressa. Para uma base descartável de
+homologação, use `./poseidon start --demo`; a carga demo é opcional, idempotente, não contém segredo
+e só ocorre em banco vazio. Pare com `./poseidon stop`. Dados ficam em `~/.harness-poseidon` e logs
+em `~/.harness-poseidon/logs` por padrão; defina `POSEIDON_DATA_DIR` para isolar outra instalação.
+
+## Publicação manual do pacote pessoal
 
 No checkout de release:
 
@@ -23,6 +53,9 @@ instalação gerenciada. Depois execute o binário instalado com `--no-browser` 
 interface ou sem a opção para abrir o navegador. O data dir padrão é `~/.harness-poseidon`; o
 pacote nunca pode ser instalado dentro do data dir. O worker self-contained fica em
 `runner/Harness.Runner` (ou `.exe` no RID Windows) e também é coberto pelo manifesto.
+
+O diretório `docs/` do pacote contém as notas e os roteiros. O manifesto rejeita arquivo ausente,
+extra, symlink, tamanho ou SHA-256 divergente antes de instalar.
 
 ## Pacote servidor
 
@@ -55,5 +88,6 @@ sem essa borda.
 tools/backend/verify-operations.sh
 ```
 
-O gate valida sintaxe/permissões dos publicadores e exercita Launcher, Host PostgreSQL e
-backup/restore reais. O smoke Entra ID real continua separado porque depende da app registration.
+O gate valida sintaxe/permissões dos publicadores, comando raiz, Launcher, Host PostgreSQL e
+backup/restore reais. O agregador da RC acrescenta E2E/a11y/Storybook e o lifecycle do pacote. O
+smoke Entra ID real continua separado porque depende da app registration.

@@ -25,6 +25,22 @@
               "resolvedVersion": "2.6.2"
             },
             {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
+            },
+            {
               "id": "Microsoft.Bcl.Cryptography",
               "resolvedVersion": "10.0.2"
             },
@@ -115,6 +131,10 @@
             {
               "id": "System.IdentityModel.Tokens.Jwt",
               "resolvedVersion": "8.19.2"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -129,6 +149,22 @@
             {
               "id": "BouncyCastle.Cryptography",
               "resolvedVersion": "2.6.2"
+            },
+            {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
             },
             {
               "id": "Microsoft.AspNetCore.Authentication.JwtBearer",
@@ -265,6 +301,10 @@
             {
               "id": "System.IdentityModel.Tokens.Jwt",
               "resolvedVersion": "8.19.2"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -509,7 +549,33 @@
       "path": "/Users/mateus/Documents/harness-poseidon-backend/src/Modules/Harness.Modules.Governance/Harness.Modules.Governance.csproj",
       "frameworks": [
         {
-          "framework": "net10.0"
+          "framework": "net10.0",
+          "topLevelPackages": [
+            {
+              "id": "JsonSchema.Net",
+              "requestedVersion": "9.3.0",
+              "resolvedVersion": "9.3.0"
+            },
+            {
+              "id": "YamlDotNet",
+              "requestedVersion": "18.1.0",
+              "resolvedVersion": "18.1.0"
+            }
+          ],
+          "transitivePackages": [
+            {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            }
+          ]
         }
       ]
     },
@@ -634,8 +700,24 @@
               "resolvedVersion": "2.0.0"
             },
             {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
               "id": "JetBrains.Annotations",
               "resolvedVersion": "2025.2.2"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
             },
             {
               "id": "Microsoft.AspNetCore.Authentication.JwtBearer",
@@ -824,6 +906,10 @@
             {
               "id": "xunit.extensibility.execution",
               "resolvedVersion": "2.9.3"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -862,6 +948,22 @@
               "resolvedVersion": "2.6.2"
             },
             {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
+            },
+            {
               "id": "Microsoft.AspNetCore.Authentication.JwtBearer",
               "resolvedVersion": "10.0.10"
             },
@@ -1036,6 +1138,10 @@
             {
               "id": "xunit.extensibility.execution",
               "resolvedVersion": "2.9.3"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -1074,6 +1180,22 @@
               "resolvedVersion": "2.6.2"
             },
             {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
+            },
+            {
               "id": "Microsoft.AspNetCore.Authentication.JwtBearer",
               "resolvedVersion": "10.0.10"
             },
@@ -1248,6 +1370,10 @@
             {
               "id": "xunit.extensibility.execution",
               "resolvedVersion": "2.9.3"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -1289,6 +1415,22 @@
             {
               "id": "BouncyCastle.Cryptography",
               "resolvedVersion": "2.6.2"
+            },
+            {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
             },
             {
               "id": "Microsoft.AspNetCore.Authentication.JwtBearer",
@@ -1493,6 +1635,10 @@
             {
               "id": "xunit.extensibility.execution",
               "resolvedVersion": "2.9.3"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -1529,6 +1675,22 @@
             {
               "id": "BouncyCastle.Cryptography",
               "resolvedVersion": "2.6.2"
+            },
+            {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
             },
             {
               "id": "Microsoft.AspNetCore.Authentication.JwtBearer",
@@ -1705,6 +1867,10 @@
             {
               "id": "xunit.extensibility.execution",
               "resolvedVersion": "2.9.3"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -1741,6 +1907,22 @@
             {
               "id": "BouncyCastle.Cryptography",
               "resolvedVersion": "2.6.2"
+            },
+            {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
             },
             {
               "id": "Microsoft.CodeCoverage",
@@ -1781,6 +1963,10 @@
             {
               "id": "xunit.extensibility.execution",
               "resolvedVersion": "2.9.3"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
             }
           ]
         }
@@ -1885,6 +2071,44 @@
               "resolvedVersion": "2.1.11"
             }
           ]
+        }
+      ]
+    },
+    {
+      "path": "/Users/mateus/Documents/harness-poseidon-backend/tools/Harness.Governance.Tool/Harness.Governance.Tool.csproj",
+      "frameworks": [
+        {
+          "framework": "net10.0",
+          "transitivePackages": [
+            {
+              "id": "Humanizer.Core",
+              "resolvedVersion": "3.0.10"
+            },
+            {
+              "id": "Json.More.Net",
+              "resolvedVersion": "3.0.1"
+            },
+            {
+              "id": "JsonPointer.Net",
+              "resolvedVersion": "7.0.1"
+            },
+            {
+              "id": "JsonSchema.Net",
+              "resolvedVersion": "9.3.0"
+            },
+            {
+              "id": "YamlDotNet",
+              "resolvedVersion": "18.1.0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/Users/mateus/Documents/harness-poseidon-backend/tests/Harness.OmpRpcFakeServer/Harness.OmpRpcFakeServer.csproj",
+      "frameworks": [
+        {
+          "framework": "net10.0"
         }
       ]
     }

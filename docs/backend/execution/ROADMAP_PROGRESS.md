@@ -1,8 +1,9 @@
 # Progresso auditável do roadmap — Harness Poseidon backend
 
-Atualizado em: 2026-07-19. Fonte: `git` (`develop`), evidências em
-`docs/backend/execution/evidence/**`, `PROGRESS.md`, e execução verde de `tools/backend/verify.sh`
-(248/248 testes backend, build Release 0 warnings/0 erros, 410/410 frontend) reproduzida nesta sessão.
+Atualizado em: 2026-07-20. Fonte: `git` (`develop`), evidências em
+`docs/backend/execution/evidence/**`, `PROGRESS.md` e gates automatizados. O backend P2 está em
+298/298 testes e build Release sem warnings; a linha de base frontend recém-incorporada passa
+428/429 e aguarda a troca do teste que declara P2 ausente pelo contrato/UI P2 agora publicado.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -103,6 +104,14 @@ Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 8. **Smoke do fallback F6 com executor/modelo real que consuma cota**, se exigido na homologação.
 
 ## 6. Backlog de refinamentos desta rodada (separado do roadmap base)
+
+### Governance P2 e Release Candidate
+
+O backend P2 está **100% implementado, validado e integrado à API/realtime** nos dois providers; ver
+`GOVERNANCE-GATE-P2.md`. O comando único, supervisão Host/Runner, demo opt-in, diagnóstico, logs,
+documentação e gerador determinístico da RC também estão implementados e possuem smoke parcial
+verde. O gate integral e o pacote final permanecem abertos até a frente proprietária reconciliar o
+teste/UI P2 com o OpenAPI publicado; esse trabalho não é contado como aceite humano.
 
 Peso não incluído nos 100 pontos do roadmap base (v3 §6 manda manter separados). Estado auditado:
 v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão

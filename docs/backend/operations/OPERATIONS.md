@@ -2,6 +2,21 @@
 
 ## Rotina de start e saúde
 
+No desktop instalado, a rotina suportada é:
+
+```bash
+./poseidon start
+./poseidon status
+./poseidon doctor
+./poseidon logs
+./poseidon restart --no-browser
+./poseidon stop
+```
+
+O estado fica em `<data-dir>/runtime/poseidon.json`; o token IPC efêmero fica separado, com modo
+`0600`, e é removido no shutdown. `doctor` valida compatibilidade sem revelar valores. Não edite os
+arquivos de runtime enquanto o Launcher estiver ativo.
+
 1. Confirme que somente `main` e `develop` existem no repositório do produto.
 2. No servidor, confirme PostgreSQL saudável e um backup recente antes de atualizar.
 3. Inicie o binário com configuração injetada pelo supervisor.
@@ -38,7 +53,7 @@ gate de resiliência e smoke HTTP contra o destino restaurado.
 4. No desktop, execute `Harness.Launcher update --install-dir <destino> --data-dir <dados>` a partir
    do pacote novo. O comando valida integridade, cria backup offline, troca a instalação por rename
    e preserva o data dir. No servidor, substitua somente os binários pelo procedimento do supervisor.
-5. Inicie a nova versão; migrations são idempotentes e avançam até 0035.
+5. Inicie a nova versão; migrations são idempotentes e avançam até 0046.
 6. Confirme `/health`, diagnóstico, login, um read model e SignalR snapshot/delta.
 7. Em falha, pare a nova versão, restaure backup/binário anterior e siga o runbook de incidente.
 

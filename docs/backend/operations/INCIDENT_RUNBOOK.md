@@ -41,6 +41,20 @@ e R-013 exige rotação antes de nova ativação real.
 5. Use a compensação idempotente do Harness; não use `docker system prune`/`volume prune`.
 6. Confirme claim liberado, cleanup completo, ledger preservado e zero recurso gerenciado órfão.
 
+No modo pessoal, comece com `./poseidon status`, `./poseidon doctor` e `./poseidon logs`. O arquivo
+`<data-dir>/runtime/poseidon.json` contém apenas PIDs, paths e URL; nunca copie `runner.token`. Se o
+estado estiver stale, o próximo `start` o reconcilia sem apagar o banco.
+
+## Learning candidate ou promoção regressiva
+
+1. Suspenda novas promoções; não apague candidate, histórico ou evidência.
+2. Identifique tenant/projeto, candidate, versão promovida e métricas posteriores sem copiar segredo.
+3. Execute rollback autorizado para restaurar a versão anterior e confirme o evento realtime.
+4. Compare first-pass success, repeated error rate, tokens, custo e regressões pré/pós-promoção.
+5. Depreque a versão defeituosa somente após preservar a investigação; candidate rejeitado/deprecado
+   nunca deve reaparecer em bundle normativo.
+6. Verifique ledger, Inbox e Outbox nos dois providers afetados e rode os gates P2/contrato.
+
 ## Realtime com lacuna
 
 1. Registre stream e última sequência aplicada.

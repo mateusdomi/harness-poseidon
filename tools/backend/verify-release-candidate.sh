@@ -3,13 +3,29 @@ set -euo pipefail
 
 readonly TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPOSITORY_ROOT="$(cd "${TOOLS_DIR}/../.." && pwd)"
+readonly RID="${POSEIDON_RELEASE_RID:-osx-arm64}"
+readonly SHA="$(git -C "${REPOSITORY_ROOT}" rev-parse HEAD)"
+readonly SHORT_SHA="${SHA:0:12}"
+readonly RELEASE_ROOT="${REPOSITORY_ROOT}/.artifacts/release-candidate/${SHORT_SHA}-${RID}"
+readonly PACKAGE_NAME="poseidon-${SHORT_SHA}-${RID}"
+readonly PACKAGE_DIR="${RELEASE_ROOT}/${PACKAGE_NAME}"
+readonly ARCHIVE="${RELEASE_ROOT}/${PACKAGE_NAME}.tar.gz"
+readonly GATE_LOG="${RELEASE_ROOT}/gates.log"
+readonly TEST_REPORT="${RELEASE_ROOT}/TEST_REPORT.md"
+readonly SMOKE_ROOT="${RELEASE_ROOT}/.smoke"
+readonly FRONTEND_WORK="${RELEASE_ROOT}/.frontend"
 
 cd "${REPOSITORY_ROOT}"
 
-[[ "$(git branch --show-current)" == "develop" ]] || {
-  echo "verify-release-candidate: execute somente em develop." >&2
+fail() {
+  echo "release-candidate: $*" >&2
   exit 1
 }
+
+[[ "$(git branch --show-current)" == "develop" ]] || fail "execute somente em develop."
+[[ -z "$(git status --porcelain)" ]] || fail "working tree deve estar limpa antes do gate."
+[[ "$(uname -s)" == "Darwin" ]] || fail "o RC desktop atual exige macOS."
+[[ "${RID}" == osx-* ]] || fail "RID desktop inválido para este host: ${RID}."
 
 for document in \
   docs/backend/security/THREAT_MODEL.md \
@@ -17,35 +33,147 @@ for document in \
   docs/backend/operations/INSTALLATION.md \
   docs/backend/operations/OPERATIONS.md \
   docs/backend/operations/INCIDENT_RUNBOOK.md \
+  docs/backend/operations/HOMOLOGATION.md \
+  docs/backend/release/RELEASE_NOTES.md \
   docs/backend/execution/ROADMAP_PROGRESS.md; do
-  [[ -s "${document}" ]] || {
-    echo "verify-release-candidate: documento obrigatório ausente: ${document}." >&2
-    exit 1
-  }
+  [[ -s "${document}" ]] || fail "documento obrigatório ausente: ${document}."
 done
 
-"${TOOLS_DIR}/verify.sh"
-"${TOOLS_DIR}/verify-governance.sh"
-"${TOOLS_DIR}/verify-sast.sh"
-"${TOOLS_DIR}/verify-resilience.sh"
-"${TOOLS_DIR}/verify-operations.sh"
-"${TOOLS_DIR}/sbom.sh"
-"${TOOLS_DIR}/scan-secrets.sh"
+case "${RELEASE_ROOT}" in
+  "${REPOSITORY_ROOT}/.artifacts/release-candidate/"*) rm -rf "${RELEASE_ROOT}" ;;
+  *) fail "diretório de saída inesperado." ;;
+esac
+mkdir -p "${RELEASE_ROOT}"
+touch "${GATE_LOG}"
+
+cleanup() {
+  if [[ -x "${SMOKE_ROOT}/install/poseidon" ]]; then
+    POSEIDON_DATA_DIR="${SMOKE_ROOT}/data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
+  fi
+  case "${SMOKE_ROOT}" in "${RELEASE_ROOT}/.smoke") rm -rf "${SMOKE_ROOT}" ;; esac
+  case "${FRONTEND_WORK}" in "${RELEASE_ROOT}/.frontend") rm -rf "${FRONTEND_WORK}" ;; esac
+}
+trap cleanup EXIT
+
+run_gate() {
+  local label="$1"
+  shift
+  echo "== ${label} ==" | tee -a "${GATE_LOG}"
+  "$@" 2>&1 | tee -a "${GATE_LOG}"
+}
+
+run_gate "verify integral" "${TOOLS_DIR}/verify.sh"
+run_gate "governance" "${TOOLS_DIR}/verify-governance.sh"
+run_gate "SAST" "${TOOLS_DIR}/verify-sast.sh"
+run_gate "resiliência" "${TOOLS_DIR}/verify-resilience.sh"
+run_gate "operações" "${TOOLS_DIR}/verify-operations.sh"
+run_gate "SBOM" "${TOOLS_DIR}/sbom.sh"
+run_gate "segredos" "${TOOLS_DIR}/scan-secrets.sh"
+
+[[ -z "$(git status --porcelain)" ]] || fail "um gate alterou arquivos versionados; revise e faça commit antes de repetir."
+
+rsync -a --exclude node_modules --exclude dist "${REPOSITORY_ROOT}/frontend/" "${FRONTEND_WORK}/"
+(
+  cd "${FRONTEND_WORK}"
+  run_gate "frontend npm ci" npm ci --no-audit --loglevel=error
+  run_gate "frontend E2E" npm run test:e2e
+  run_gate "frontend a11y" npm run test:a11y
+  run_gate "frontend Storybook" npm run build-storybook
+)
+
+run_gate "publish self-contained" "${TOOLS_DIR}/publish-desktop.sh" "${RID}"
+rsync -a "${REPOSITORY_ROOT}/.artifacts/desktop/${RID}/" "${PACKAGE_DIR}/"
+
+mkdir -p "${SMOKE_ROOT}/install" "${SMOKE_ROOT}/data"
+rmdir "${SMOKE_ROOT}/install"
+run_gate "instalação limpa" "${PACKAGE_DIR}/Harness.Launcher" install \
+  --install-dir "${SMOKE_ROOT}/install" --data-dir "${SMOKE_ROOT}/data"
+
+export POSEIDON_DATA_DIR="${SMOKE_ROOT}/data"
+run_gate "package start" "${SMOKE_ROOT}/install/poseidon" start --no-browser --port 5090 --demo
+run_gate "package status" "${SMOKE_ROOT}/install/poseidon" status
+(
+  cd "${FRONTEND_WORK}"
+  POSEIDON_BACKEND_URL=http://127.0.0.1:5090 run_gate "frontend E2E API real" npm run test:e2e:real
+)
+run_gate "package restart" "${SMOKE_ROOT}/install/poseidon" restart --no-browser --port 5090
+run_gate "package status pós-restart" "${SMOKE_ROOT}/install/poseidon" status
+run_gate "package stop" "${SMOKE_ROOT}/install/poseidon" stop
+run_gate "package doctor" "${SMOKE_ROOT}/install/poseidon" doctor
 
 for resource in \
   "$(docker ps -aq --filter label=com.harness.managed=true)" \
   "$(docker volume ls -q --filter label=com.harness.managed=true)" \
   "$(docker network ls -q --filter label=com.harness.managed=true)"; do
-  [[ -z "${resource}" ]] || {
-    echo "verify-release-candidate: recurso Docker Harness órfão: ${resource}." >&2
-    exit 1
-  }
+  [[ -z "${resource}" ]] || fail "recurso Docker Harness órfão: ${resource}."
 done
 
-[[ -z "$(git status --short -- frontend docs/frontend)" ]] || {
-  echo "verify-release-candidate: área frontend protegida contém alterações locais." >&2
-  exit 1
-}
+[[ -z "$(git status --short -- frontend docs/frontend)" ]] || fail "área frontend protegida contém alterações locais."
+[[ -z "$(git status --porcelain)" ]] || fail "working tree ficou suja durante a geração do RC."
 
-echo "verify-release-candidate: critérios técnicos automatizados verdes."
-echo "GNG-6 permanece pendente até a11y/E2E real e aceites humanos registrados."
+cat >"${TEST_REPORT}" <<EOF
+# Relatório técnico da Release Candidate
+
+- Commit: \`${SHA}\`
+- RID: \`${RID}\`
+- Gerado em UTC: \`$(date -u +%Y-%m-%dT%H:%M:%SZ)\`
+- Resultado: todos os gates automatizados abaixo terminaram com exit 0.
+
+## Gates executados
+
+- regressão integral backend/frontend, build sem warnings e contract drift;
+- governance linter, SAST, secret scanning e SBOM;
+- SQLite/PostgreSQL, concorrência, recovery e resiliência;
+- E2E frontend mock, a11y e build Storybook;
+- pacote self-contained: instalação limpa, start, status, E2E contra API real, restart, stop e doctor;
+- inventário final sem recurso Docker gerenciado órfão;
+- working tree e áreas protegidas limpas.
+
+O log bruto reproduzível está em \`gates.log\`. Aceites humanos continuam separados.
+EOF
+
+cp docs/backend/security/sbom.json "${RELEASE_ROOT}/sbom.json"
+cp docs/backend/release/RELEASE_NOTES.md "${RELEASE_ROOT}/RELEASE_NOTES.md"
+cp docs/backend/operations/INSTALLATION.md "${RELEASE_ROOT}/INSTALLATION.md"
+cp docs/backend/operations/HOMOLOGATION.md "${RELEASE_ROOT}/HOMOLOGATION.md"
+
+# Normalizar metadados e ordenar entradas torna o arquivo estável para o mesmo commit/toolchain.
+find "${PACKAGE_DIR}" -exec touch -t 202001010000 {} +
+(
+  cd "${PACKAGE_DIR}"
+  find . -type f -print | LC_ALL=C sort >"${RELEASE_ROOT}/package-files.txt"
+  COPYFILE_DISABLE=1 tar --format ustar -cf - -T "${RELEASE_ROOT}/package-files.txt"
+) | gzip -n >"${ARCHIVE}"
+rm "${RELEASE_ROOT}/package-files.txt"
+
+archive_sha="$(shasum -a 256 "${ARCHIVE}" | awk '{print $1}')"
+archive_size="$(stat -f %z "${ARCHIVE}")"
+cat >"${RELEASE_ROOT}/release-manifest.json" <<EOF
+{
+  "schemaVersion": 1,
+  "product": "Poseidon",
+  "commit": "${SHA}",
+  "rid": "${RID}",
+  "archive": "${PACKAGE_NAME}.tar.gz",
+  "archiveBytes": ${archive_size},
+  "archiveSha256": "${archive_sha}",
+  "packageManifest": "${PACKAGE_NAME}/.harness-desktop-package.json"
+}
+EOF
+
+(
+  cd "${RELEASE_ROOT}"
+  shasum -a 256 \
+    "${PACKAGE_NAME}.tar.gz" \
+    "${PACKAGE_NAME}/.harness-desktop-package.json" \
+    HOMOLOGATION.md INSTALLATION.md RELEASE_NOTES.md TEST_REPORT.md gates.log \
+    release-manifest.json sbom.json >SHA256SUMS
+  shasum -a 256 -c SHA256SUMS
+)
+
+trap - EXIT
+cleanup
+echo "release-candidate: todos os critérios técnicos automatizados estão verdes."
+echo "Release Candidate: ${RELEASE_ROOT}"
+echo "Pacote: ${ARCHIVE}"
+echo "GNG-3, GNG-4, GNG-6 e integrações externas continuam sujeitos a aceite humano/credenciais."

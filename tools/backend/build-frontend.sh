@@ -11,6 +11,7 @@ contract_target="$artifact_root/docs/contracts"
 test -f "$frontend_source/package.json"
 test -f "$frontend_source/package-lock.json"
 test -f "$contract_source/events.json"
+test -f "$contract_source/openapi.json"
 mkdir -p "$artifact_root"
 frontend_work="$(mktemp -d "$artifact_root/frontend-build.XXXXXX")"
 
@@ -25,6 +26,7 @@ trap cleanup EXIT
 rsync -a --exclude node_modules --exclude dist "$frontend_source/" "$frontend_work/"
 mkdir -p "$contract_target"
 rsync -a "$contract_source/events.json" "$contract_target/events.json"
+rsync -a "$contract_source/openapi.json" "$contract_target/openapi.json"
 (
   cd "$frontend_work"
   npm ci --no-audit --loglevel=error

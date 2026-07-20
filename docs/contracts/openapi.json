@@ -5579,6 +5579,640 @@
                 }
             }
         },
+        "/api/v1/governance-runtime/learning-candidates": {
+            "get": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidatePageContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningCandidateCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateMutationContract"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateMutationContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/metrics": {
+            "get": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateMetrics"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}": {
+            "get": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/evidence": {
+            "get": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/LearningEvidenceRecord"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/compare": {
+            "get": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateComparisonContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/history": {
+            "get": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/LearningCandidateHistoryRecord"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/review": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningTransitionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/evaluation-request": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningTransitionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/evaluations": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningEvaluationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/shadow": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningShadowRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/decision": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningDecisionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/promotion": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningTransitionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/rollback": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningTransitionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/learning-candidates/{candidateId}/deprecation": {
+            "post": {
+                "tags": [
+                    "governance-learning"
+                ],
+                "parameters": [
+                    {
+                        "name": "candidateId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LearningTransitionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LearningCandidateContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/prototypes": {
             "get": {
                 "tags": [
@@ -16688,6 +17322,764 @@
                 }
             },
             "JsonElement": {},
+            "LearningCandidateAction": {
+                "type": "integer"
+            },
+            "LearningCandidateComparisonContract": {
+                "required": [
+                    "baselineVersion",
+                    "proposedVersion",
+                    "proposedPayload",
+                    "activeVersion",
+                    "previousVersion"
+                ],
+                "type": "object",
+                "properties": {
+                    "baselineVersion": {
+                        "type": "string"
+                    },
+                    "proposedVersion": {
+                        "type": "string"
+                    },
+                    "proposedPayload": {
+                        "$ref": "#/components/schemas/LearningCandidatePayload"
+                    },
+                    "activeVersion": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "previousVersion": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "LearningCandidateContract": {
+                "required": [
+                    "organizationId",
+                    "projectId",
+                    "candidateId",
+                    "type",
+                    "state",
+                    "fingerprint",
+                    "observation",
+                    "evidence",
+                    "payload",
+                    "actorAgentId",
+                    "actorProvider",
+                    "actorModel",
+                    "baselineVersion",
+                    "proposedVersion",
+                    "evaluatorAgentId",
+                    "evaluatorProvider",
+                    "evaluatorModel",
+                    "evaluationVerdict",
+                    "shadowResult",
+                    "reviewerProfileId",
+                    "decisionNote",
+                    "activeVersion",
+                    "previousVersion",
+                    "createdAt",
+                    "updatedAt",
+                    "version"
+                ],
+                "type": "object",
+                "properties": {
+                    "organizationId": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "candidateId": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "fingerprint": {
+                        "type": "string"
+                    },
+                    "observation": {
+                        "type": "string"
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LearningEvidenceRecord"
+                        }
+                    },
+                    "payload": {
+                        "$ref": "#/components/schemas/LearningCandidatePayload"
+                    },
+                    "actorAgentId": {
+                        "type": "string"
+                    },
+                    "actorProvider": {
+                        "type": "string"
+                    },
+                    "actorModel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "baselineVersion": {
+                        "type": "string"
+                    },
+                    "proposedVersion": {
+                        "type": "string"
+                    },
+                    "evaluatorAgentId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "evaluatorProvider": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "evaluatorModel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "evaluationVerdict": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "shadowResult": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/LearningShadowResult"
+                            }
+                        ]
+                    },
+                    "reviewerProfileId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "decisionNote": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "activeVersion": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "previousVersion": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
+            "LearningCandidateCreateRequest": {
+                "required": [
+                    "projectId",
+                    "type",
+                    "observation",
+                    "evidence",
+                    "payload",
+                    "actorAgentId",
+                    "actorProvider",
+                    "actorModel",
+                    "baselineVersion",
+                    "proposedVersion"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "observation": {
+                        "type": "string"
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LearningEvidenceRecord"
+                        }
+                    },
+                    "payload": {
+                        "$ref": "#/components/schemas/LearningCandidatePayload"
+                    },
+                    "actorAgentId": {
+                        "type": "string"
+                    },
+                    "actorProvider": {
+                        "type": "string"
+                    },
+                    "actorModel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "baselineVersion": {
+                        "type": "string"
+                    },
+                    "proposedVersion": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "LearningCandidateHistoryRecord": {
+                "required": [
+                    "eventId",
+                    "candidateId",
+                    "fromState",
+                    "toState",
+                    "action",
+                    "actorId",
+                    "note",
+                    "occurredAt",
+                    "candidateVersion"
+                ],
+                "type": "object",
+                "properties": {
+                    "eventId": {
+                        "type": "string"
+                    },
+                    "candidateId": {
+                        "type": "string"
+                    },
+                    "fromState": {
+                        "$ref": "#/components/schemas/LearningCandidateState"
+                    },
+                    "toState": {
+                        "$ref": "#/components/schemas/LearningCandidateState"
+                    },
+                    "action": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/LearningCandidateAction"
+                            }
+                        ]
+                    },
+                    "actorId": {
+                        "type": "string"
+                    },
+                    "note": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "occurredAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "candidateVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
+            "LearningCandidateMetrics": {
+                "required": [
+                    "created",
+                    "deduplicated",
+                    "rejected",
+                    "approved",
+                    "promoted",
+                    "rolledBack",
+                    "averageFirstPassSuccessDelta",
+                    "averageRepeatedErrorRateDelta",
+                    "tokenImpact",
+                    "averageCostPerAcceptedTaskDelta",
+                    "regressionsAfterPromotion"
+                ],
+                "type": "object",
+                "properties": {
+                    "created": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "deduplicated": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "rejected": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "approved": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "promoted": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "rolledBack": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "averageFirstPassSuccessDelta": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "averageRepeatedErrorRateDelta": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "tokenImpact": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "averageCostPerAcceptedTaskDelta": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "regressionsAfterPromotion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "LearningCandidateMutationContract": {
+                "required": [
+                    "candidate",
+                    "deduplicated"
+                ],
+                "type": "object",
+                "properties": {
+                    "candidate": {
+                        "$ref": "#/components/schemas/LearningCandidateContract"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "LearningCandidatePageContract": {
+                "required": [
+                    "items",
+                    "nextCursor",
+                    "total"
+                ],
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LearningCandidateContract"
+                        }
+                    },
+                    "nextCursor": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "LearningCandidatePayload": {
+                "required": [
+                    "title",
+                    "statement",
+                    "instructions",
+                    "personaId",
+                    "workflowId",
+                    "toolId",
+                    "documentId",
+                    "providerId",
+                    "modelId",
+                    "refinement",
+                    "recommendation",
+                    "correction"
+                ],
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "statement": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "instructions": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "personaId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "workflowId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "toolId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "documentId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "providerId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "modelId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "refinement": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "recommendation": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "correction": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "LearningCandidateState": {
+                "type": "integer"
+            },
+            "LearningDecisionRequest": {
+                "required": [
+                    "expectedVersion",
+                    "approved",
+                    "note"
+                ],
+                "type": "object",
+                "properties": {
+                    "expectedVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "approved": {
+                        "type": "boolean"
+                    },
+                    "note": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "LearningEvaluationRequest": {
+                "required": [
+                    "expectedVersion",
+                    "evaluatorAgentId",
+                    "evaluatorProvider",
+                    "evaluatorModel",
+                    "verdict",
+                    "note"
+                ],
+                "type": "object",
+                "properties": {
+                    "expectedVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "evaluatorAgentId": {
+                        "type": "string"
+                    },
+                    "evaluatorProvider": {
+                        "type": "string"
+                    },
+                    "evaluatorModel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "verdict": {
+                        "type": "string"
+                    },
+                    "note": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "LearningEvidenceRecord": {
+                "required": [
+                    "kind",
+                    "reference",
+                    "checksum",
+                    "summary"
+                ],
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "checksum": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    }
+                }
+            },
+            "LearningShadowRequest": {
+                "required": [
+                    "expectedVersion",
+                    "result",
+                    "note"
+                ],
+                "type": "object",
+                "properties": {
+                    "expectedVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "result": {
+                        "$ref": "#/components/schemas/LearningShadowResult"
+                    },
+                    "note": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "LearningShadowResult": {
+                "required": [
+                    "sampleSize",
+                    "firstPassSuccessDelta",
+                    "repeatedErrorRateDelta",
+                    "tokenImpact",
+                    "costPerAcceptedTaskDelta",
+                    "regressions",
+                    "evidenceReference"
+                ],
+                "type": "object",
+                "properties": {
+                    "sampleSize": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "firstPassSuccessDelta": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "repeatedErrorRateDelta": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "tokenImpact": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "costPerAcceptedTaskDelta": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "regressions": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "evidenceReference": {
+                        "type": "string"
+                    }
+                }
+            },
+            "LearningTransitionRequest": {
+                "required": [
+                    "expectedVersion",
+                    "note"
+                ],
+                "type": "object",
+                "properties": {
+                    "expectedVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "note": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
             "LicenseContract": {
                 "required": [
                     "id",
@@ -20678,6 +22070,9 @@
         },
         {
             "name": "governance-runtime"
+        },
+        {
+            "name": "governance-learning"
         },
         {
             "name": "prototyping"

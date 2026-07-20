@@ -3,6 +3,7 @@ using Harness.Host.Agents;
 using Harness.Host.Auth;
 using Harness.Host.Conversations;
 using Harness.Host.Documents;
+using Harness.Host.Demo;
 using Harness.Host.Execution;
 using Harness.Host.Ipc;
 using Harness.Host.Licensing;
@@ -188,6 +189,7 @@ public static class HostApplication
             builder.Services.AddSingleton<INotificationStore, PostgresNotificationStore>();
             builder.Services.AddSingleton<IAuditEventStore, PostgresAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, PostgresGovernanceRuntimeStore>();
+            builder.Services.AddSingleton<ILearningCandidateStore, PostgresLearningCandidateStore>();
             builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
@@ -211,6 +213,7 @@ public static class HostApplication
             builder.Services.AddSingleton<INotificationStore, SqliteNotificationStore>();
             builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, SqliteGovernanceRuntimeStore>();
+            builder.Services.AddSingleton<ILearningCandidateStore, SqliteLearningCandidateStore>();
             builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
@@ -379,6 +382,10 @@ public static class HostApplication
         builder.Services.AddSingleton<AgentExecutorCatalog>();
         builder.Services.AddSingleton<ChiefInvocationRoutingService>();
         builder.Services.AddHostedService<ChiefTurnBackgroundService>();
+        if (builder.Configuration.GetValue<bool>("Harness:Demo:Enabled"))
+        {
+            builder.Services.AddHostedService<DemoDataHostedService>();
+        }
         builder.Services.AddSingleton<EventPublisher>();
         builder.Services.AddSingleton<RunnerIpcMessageProcessor>();
         builder.Services.AddSignalR(options => options.EnableDetailedErrors = builder.Environment.IsDevelopment());
@@ -432,6 +439,7 @@ public static class HostApplication
         app.MapNotifications();
         app.MapGovernance();
         app.MapGovernanceRuntime();
+        app.MapLearningCandidates();
         app.MapPrototypes();
         app.MapVisualReferenceAssets();
         app.MapRunTargets();

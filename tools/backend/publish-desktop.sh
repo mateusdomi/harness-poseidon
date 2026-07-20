@@ -38,6 +38,12 @@ rm -rf "${OUTPUT}"
   -p:PublishSingleFile=false \
   --output "${OUTPUT}/runner"
 rsync -a --delete "${REPOSITORY_ROOT}/src/Harness.Host/wwwroot/" "${OUTPUT}/wwwroot/"
+cp "${REPOSITORY_ROOT}/poseidon" "${OUTPUT}/poseidon"
+chmod 0755 "${OUTPUT}/poseidon"
+mkdir -p "${OUTPUT}/docs"
+cp "${REPOSITORY_ROOT}/docs/backend/operations/INSTALLATION.md" "${OUTPUT}/docs/INSTALLATION.md"
+cp "${REPOSITORY_ROOT}/docs/backend/operations/HOMOLOGATION.md" "${OUTPUT}/docs/HOMOLOGATION.md"
+cp "${REPOSITORY_ROOT}/docs/backend/release/RELEASE_NOTES.md" "${OUTPUT}/docs/RELEASE_NOTES.md"
 
 version="$(git rev-parse HEAD)"
 if [[ -n "$(git status --porcelain)" ]]; then

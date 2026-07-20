@@ -1,6 +1,6 @@
 # Threat model — Harness Poseidon backend (release 1.0)
 
-Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada de agentes, canais externos, persistência SQLite/PostgreSQL, licenciamento e modo servidor multiusuário/OIDC.
+Data: 2026-07-20. Escopo: Host (.NET 10), Launcher desktop, execução isolada de agentes, governança/aprendizado, canais externos, persistência SQLite/PostgreSQL, licenciamento e modo servidor multiusuário/OIDC.
 
 ## Superfícies e ativos
 
@@ -12,6 +12,7 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 | Uploads (anexos de solicitação, referências visuais) | sistema de arquivos, integridade do pipeline |
 | Persistência (SQLite local / PostgreSQL gerenciado) | todos os dados, trilha de auditoria |
 | Licenciamento assinado | modelo comercial, integridade offline |
+| Learning candidates | guardrails, versões normativas, evidências e métricas |
 
 ## STRIDE por superfície (mitigações implementadas)
 
@@ -38,15 +39,21 @@ Data: 2026-07-19. Escopo: Host (.NET 10), Launcher desktop, execução isolada d
 - **Tampering/malware**: `AttachmentIngestPolicy` — allowlist de extensões, magic bytes de executáveis rejeitados, anti zip-bomb (razão de expansão), path traversal bloqueado, quarentena confinada, hash SHA-256 e auditoria de aceite/rejeição.
 
 ### Persistência
-- **Tampering**: migrations embutidas idempotentes (35→0) com upgrade de qualquer prefixo histórico testado; backup/restore locais respondem 409 no modo servidor (PostgreSQL gerenciado é a autoridade); `signed_licenses.document_json` em `json` puro para preservar a assinatura.
+- **Tampering**: migrations embutidas idempotentes (46→0) com upgrade de qualquer prefixo histórico testado; backup/restore locais respondem 409 no modo servidor (PostgreSQL gerenciado é a autoridade); `signed_licenses.document_json` em `json` puro para preservar a assinatura.
 - **Information disclosure**: senha do PG de teste via secret file com permissão 600; connection string só por configuração.
+
+### Aprendizado seguro
+- **Elevation/tampering**: candidate nunca entra no bundle normativo antes de review, avaliação independente, shadow, aprovação administrativa e promoção explícita. Promoção/rollback/depreciação exigem RBAC e OCC; não existe auto-promoção.
+- **Poisoning/repudiation**: evidência é obrigatória, fingerprint determinístico deduplica observações, Inbox torna comandos idempotentes e ledger/histórico/Outbox registram cada transição nos dois providers.
+- **Information disclosure**: borda rejeita texto com aparência de segredo; evidência e métricas usam schemas fechados, sem armazenar credential values. O token IPC Launcher→Runner é aleatório por start, arquivo `0600`, não entra em estado/log e é removido no shutdown.
+- **Guardrail bypass**: tipos fechados não podem ampliar permissão, liberar segredo ou remover guardrail; avaliação própria e mesmo provider/modelo são recusados; shadow não altera comportamento normativo; rollback restaura a versão anterior.
 
 ### Licenciamento
 - **Spoofing/tampering**: Ed25519 sobre payload canônico; validação offline pela chave pública; revogação por lista assinada idempotente; dados permanecem legíveis pós-expiração (sem reféns).
 
 ## Riscos aceitos / residuais (registrados)
 
-1. **Semântica divergente PG×SQLite em WorkChain** (`gate.changed` vs `task.stateChanged`, payload do Finalize) — registrada na onda 5; unificação planejada.
+1. **Duas autoridades deliberadas de tentativa**: WorkChain representa tentativa/revisão de negócio; Durable Execution/Runner representa lease, fencing e checkpoints técnicos. Elas não são intercambiáveis. Eventos públicos usam `task.stateChanged`; eventos técnicos permanecem no stream da tentativa. A correlação por tenant/projeto/tarefa/tentativa e a reconciliação devem ser preservadas para evitar conclusão aparente sem evidência de execução.
 2. **Hub de eventos no modo pessoal é aberto no loopback** — aceitável para desktop single-user; no modo OIDC o hub exige bearer.
 3. **SAST/dependências**: analisadores .NET (CA*/IDE*) com `TreatWarningsAsErrors`, `NuGetAudit=all` e Semgrep dedicado via `verify-sast.sh`. O rule comunitário C# de SQL é excluído porque marcou 85 usos de SQL constante/parametrizado na DAL; uma regra local proíbe SQL interpolado fora de persistência/migração. Essa exceção deve ser reavaliada se a fronteira de SQL mudar.
 4. **Flakiness de containers PG concorrentes** — mitigada com janela de health dobrada (60s); reavaliar se recorrer.

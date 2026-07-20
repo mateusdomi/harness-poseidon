@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-20T15:06:23.4323050+00:00
+lastGeneratedAt: 2026-07-20T18:52:30.4203640+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -204,7 +204,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 6726
+  tokenEstimate: 6843
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -217,7 +217,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:09e0b82403fe9b2fce140f44783851ebee99cebab1c111a2d13149c829829dc5
+  checksum: sha256:c05c225ee94ce2513863181274c1ede95c0aefae832593ffe09964d9870468d6
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -413,7 +413,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 6588
+  tokenEstimate: 6819
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -423,7 +423,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:93742089a5b77b42b5523e499259d933b443c37b30f70abd77aab36cb37354f5
+  checksum: sha256:7885661e7f8d81fc7041dbefe48a329142dbcb4f2e536b98d3aca2b0e3d9ae96
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -806,7 +806,7 @@ documents:
   - docs/testing/**
   loadPolicy: on-demand
   priority: 450
-  tokenEstimate: 849
+  tokenEstimate: 987
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -817,7 +817,7 @@ documents:
   related: []
   enforcedBy:
   - tools/backend/verify-governance.sh
-  checksum: sha256:8edd97f6826644ba12d6150b693c776c6b9b5bff5d94ca01761a6e6a79ad7f52
+  checksum: sha256:c34e6955a5c07aaa35f141f66db3542ce1fcf77439f964867cbeff36409e3e19
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/RISKS.md
@@ -863,7 +863,7 @@ documents:
   - docs/testing/**
   loadPolicy: on-demand
   priority: 450
-  tokenEstimate: 1935
+  tokenEstimate: 2076
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -873,7 +873,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:e00e24e8d5d4207700f89b1a38ced2aead244f832afae1c671dbc0a20d48e17d
+  checksum: sha256:a3ded67e7e5d37f77de877c25be98c996617856f4ba1d9f032219f28098cee48
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/ROADMAP_PROGRESS.md
@@ -7794,7 +7794,7 @@ documents:
   - docs/testing/**
   loadPolicy: on-demand
   priority: 550
-  tokenEstimate: 587
+  tokenEstimate: 774
   owner: Operations
   status: active
   version: 1.0.0
@@ -7804,7 +7804,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:7b12109e24fea36cef00180791ad367d98fce80ddbb19b82fadd0034e2e716b6
+  checksum: sha256:71338793c83d3f773b765f9b5d1e6d7b800af0a5d2bd9196be0b3e40077ac557
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/operations/INCIDENT_RUNBOOK.md
@@ -7850,7 +7850,7 @@ documents:
   - docs/testing/**
   loadPolicy: on-demand
   priority: 550
-  tokenEstimate: 534
+  tokenEstimate: 810
   owner: Operations
   status: active
   version: 1.0.0
@@ -7860,7 +7860,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:5bece10a67f29192d287c92565c9e8259f2990ab2939196bbc880879e17c7666
+  checksum: sha256:3d1a616f7a13c4de50ec568e54fd9fe5723a0e599920194146855260c7c09c96
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/operations/INSTALLATION.md
@@ -7906,7 +7906,7 @@ documents:
   - docs/testing/**
   loadPolicy: on-demand
   priority: 550
-  tokenEstimate: 632
+  tokenEstimate: 719
   owner: Operations
   status: active
   version: 1.0.0
@@ -7916,7 +7916,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:2ff0cad0456923aed1540515d1bea45853b6618d0aac91e9680d40695d837d4e
+  checksum: sha256:3e7a7fbc9733c5465e99216bc0f1ad615114349f4591729c7eee107125dea629
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/operations/OPERATIONS.md
@@ -8018,7 +8018,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 700
-  tokenEstimate: 557
+  tokenEstimate: 614
   owner: Product Security
   status: active
   version: 1.0.0
@@ -8031,7 +8031,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-sast.sh
   - tools/backend/verify-release-candidate.sh
-  checksum: sha256:897d06992ab7c06d10cfccb2af39e953b389b07ded0a94a9dd00c1c045bcfa70
+  checksum: sha256:a5ac40507b215fd07204cd864cb06f09e39e04fa80f25a981362fc2d63f24e05
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/security/RELEASE_CHECKLIST.md
@@ -8077,7 +8077,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 950
-  tokenEstimate: 1220
+  tokenEstimate: 1469
   owner: Product Security
   status: active
   version: 1.0.0
@@ -8091,7 +8091,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - tools/backend/verify-sast.sh
-  checksum: sha256:465e54ce52cd58229baca26ef6e9c299bba7e33fcee48b30ff515cb601d01572
+  checksum: sha256:7ddf18148fd12b5beb17528ca00549357662f45ddaac66f2cff72790f9849033
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/security/THREAT_MODEL.md
@@ -8128,7 +8128,7 @@ documents:
   - '**'
   loadPolicy: on-demand
   priority: 650
-  tokenEstimate: 2082
+  tokenEstimate: 2289
   owner: API Platform
   status: active
   version: 1.0.0
@@ -8138,7 +8138,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:2482e31f8ed7fb9cf7c7673988ba4b67dbba998c20d67a6ac897c842fd284fcb
+  checksum: sha256:00ed4dcb054023865bcd38c3efc6201237ca537a51b4ed744c444d8a42d5c7c8
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/contracts/CONTRACT_RECONCILIATION.md
@@ -10220,3 +10220,182 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GOVERNANCE-GATE-P1.md
+- id: evidence-governance-gate-p2
+  path: docs/backend/execution/evidence/GOVERNANCE-GATE-P2.md
+  title: Evidência — Governance Gate P2
+  category: evidence
+  topic: governance-gate-p2
+  authority: evidence
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  agents:
+  - chief
+  workflows:
+  - governance
+  phases:
+  - p2
+  taskTypes:
+  - governance
+  riskTiers:
+  - high
+  pathGlobs:
+  - governance/**
+  - docs/backend/**
+  - src/**
+  - tests/**
+  loadPolicy: on-demand
+  priority: 750
+  tokenEstimate: 285
+  owner: Platform Governance
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T00:00:00-03:00
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  - rule-testing
+  - evidence-governance-gate-p1
+  related:
+  - doc-agent-governance-runtime
+  enforcedBy:
+  - tools/backend/verify.sh
+  - tools/backend/verify-governance.sh
+  checksum: sha256:7ee0801312d43dd55c698f5910311dee41820579226744516ab1cae0c2b0d25c
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GOVERNANCE-GATE-P2.md
+- id: doc-backend-operations-homologation
+  path: docs/backend/operations/HOMOLOGATION.md
+  title: Roteiro de homologação da Release Candidate
+  category: operations
+  topic: homologation
+  authority: operational
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - release
+  phases:
+  - release-candidate
+  taskTypes:
+  - validation
+  riskTiers:
+  - high
+  pathGlobs:
+  - '**'
+  loadPolicy: on-demand
+  priority: 800
+  tokenEstimate: 908
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T00:00:00-03:00
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - rule-testing
+  - evidence-governance-gate-p2
+  related: []
+  enforcedBy:
+  - tools/backend/verify-release-candidate.sh
+  checksum: sha256:0840b66d8e1393f4ca350b580edb38b192919ffd6f1311babe80896cbc924c93
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/operations/HOMOLOGATION.md
+- id: doc-backend-release-notes
+  path: docs/backend/release/RELEASE_NOTES.md
+  title: Poseidon Release Candidate — notas de release
+  category: operations
+  topic: release-notes
+  authority: operational
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - release
+  phases:
+  - release-candidate
+  taskTypes:
+  - release
+  riskTiers:
+  - high
+  pathGlobs:
+  - '**'
+  loadPolicy: on-demand
+  priority: 700
+  tokenEstimate: 369
+  owner: Operations
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T00:00:00-03:00
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - evidence-governance-gate-p2
+  related:
+  - doc-backend-operations-homologation
+  enforcedBy:
+  - tools/backend/verify-release-candidate.sh
+  checksum: sha256:146f094aa8203e19da1fcfc7ce6e7c7e2a72a49e3e4df7116ed0d7266456df1d
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/release/RELEASE_NOTES.md
+- id: doc-backend-release-report
+  path: docs/backend/release/RELEASE_REPORT.md
+  title: Relatório da Release Candidate
+  category: evidence
+  topic: release-report
+  authority: evidence
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - release
+  phases:
+  - release-candidate
+  taskTypes:
+  - release
+  riskTiers:
+  - high
+  pathGlobs:
+  - '**'
+  loadPolicy: on-demand
+  priority: 700
+  tokenEstimate: 246
+  owner: Operations
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T00:00:00-03:00
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - evidence-governance-gate-p2
+  related:
+  - doc-backend-release-notes
+  - doc-backend-operations-homologation
+  enforcedBy:
+  - tools/backend/verify-release-candidate.sh
+  checksum: sha256:98743e083fbca86a85ac4434aea968f52bd907ef99ed3fdc261249a5bccd86cf
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/release/RELEASE_REPORT.md

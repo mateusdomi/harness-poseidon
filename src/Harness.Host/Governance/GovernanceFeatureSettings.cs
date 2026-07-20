@@ -9,4 +9,6 @@ public sealed record GovernanceFeatureSettings
     public bool HashlinePatchesEnabled { get; init; } = true;
 
     public bool StaleDocumentDetectorEnabled { get; init; } = true;
+
+    public bool LearningCandidatesEnabled { get; init; } = true;
 }

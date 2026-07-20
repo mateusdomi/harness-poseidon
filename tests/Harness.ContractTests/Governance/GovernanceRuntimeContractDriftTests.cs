@@ -20,6 +20,12 @@ public sealed class GovernanceRuntimeContractDriftTests
             "/api/v1/governance-runtime/projects/{projectId}/hashline-patches",
             "/api/v1/governance-runtime/hashline-benchmark",
             "/api/v1/governance-runtime/executors",
+            "/api/v1/governance-runtime/learning-candidates",
+            "/api/v1/governance-runtime/learning-candidates/metrics",
+            "/api/v1/governance-runtime/learning-candidates/{candidateId}/evaluations",
+            "/api/v1/governance-runtime/learning-candidates/{candidateId}/shadow",
+            "/api/v1/governance-runtime/learning-candidates/{candidateId}/promotion",
+            "/api/v1/governance-runtime/learning-candidates/{candidateId}/rollback",
         })
         {
             Assert.True(paths.TryGetProperty(path, out _), $"Missing OpenAPI path: {path}");

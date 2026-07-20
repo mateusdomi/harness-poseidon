@@ -21,7 +21,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(45, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(46, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -76,7 +76,10 @@ public sealed class PostgresSkipLockedPocTests
             new PostgresGovernanceRuntimeStore(dataSource),
             catalogProfile.TenantId,
             timeout.Token);
-        await RunConversationChiefParityAsync(dataSource, catalogProfile, timeout.Token);
+        var learningScope = await RunConversationChiefParityAsync(dataSource, catalogProfile, timeout.Token);
+        await LearningCandidateStoreBehavior.AssertAsync(
+            new PostgresLearningCandidateStore(dataSource), catalogProfile.TenantId,
+            learningScope.OrganizationId, learningScope.ProjectId, catalogProfile.Id, timeout.Token);
 
         var createdAt = DateTimeOffset.Parse(
             "2026-07-18T13:00:00Z",
@@ -196,7 +199,7 @@ public sealed class PostgresSkipLockedPocTests
         Assert.Equal("P0001", exception.SqlState);
     }
 
-    private static async Task RunConversationChiefParityAsync(
+    private static async Task<(string OrganizationId, string ProjectId)> RunConversationChiefParityAsync(
         NpgsqlDataSource dataSource,
         Harness.Persistence.Abstractions.Identity.LocalProfileRecord profile,
         CancellationToken token)
@@ -254,6 +257,7 @@ public sealed class PostgresSkipLockedPocTests
             projectId,
             profile.Id,
             token);
+        return (organizationId, projectId);
     }
 
     private static async Task ValidateFoundationSchemaAsync(

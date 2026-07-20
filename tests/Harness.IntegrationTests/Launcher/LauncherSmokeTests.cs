@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using Harness.Launcher;
 
 namespace Harness.IntegrationTests.Launcher;
@@ -25,6 +26,14 @@ public sealed class LauncherSmokeTests
             Assert.Equal(Path.GetFullPath(root), handle.DataDirectory);
             Assert.True(File.Exists(Path.Combine(root, "harness.db")));
             Assert.True(File.Exists(Path.Combine(root, DesktopLifecycleManager.ProcessLeaseFileName)));
+            var runtimePath = Path.Combine(root, "runtime", "poseidon.json");
+            Assert.True(File.Exists(runtimePath));
+            using (var runtime = JsonDocument.Parse(await File.ReadAllTextAsync(runtimePath, timeout.Token)))
+            {
+                var runnerPid = runtime.RootElement.GetProperty("runnerPid").GetInt32();
+                Assert.False(System.Diagnostics.Process.GetProcessById(runnerPid).HasExited);
+            }
+            Assert.True(File.Exists(Path.Combine(root, "runtime", "runner.token")));
             await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await LauncherApplication.StartAsync(options, timeout.Token));
 

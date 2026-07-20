@@ -60,6 +60,9 @@ public sealed class SqliteIdentityCoreStoreTests
                             [profile.Id], 1, chiefAgentId, "manual", now, now, 0),
                         now.AddMilliseconds(3)),
                     timeout.Token);
+                await LearningCandidateStoreBehavior.AssertAsync(
+                    new SqliteLearningCandidateStore(dispatcher), profile.TenantId, organizationId,
+                    projectId, profile.Id, timeout.Token);
                 var conversationStore = new SqliteConversationStore(dispatcher);
                 await ConversationChiefStoreBehavior.AssertAsync(
                     conversationStore,

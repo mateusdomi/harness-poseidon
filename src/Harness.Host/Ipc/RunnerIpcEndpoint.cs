@@ -7,6 +7,15 @@ public static class RunnerIpcEndpoint
 {
     public static IEndpointRouteBuilder MapRunnerIpc(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/_runner/ipc/status", (HttpContext context, RunnerIpcToken token) =>
+        {
+            if (!IPAddress.IsLoopback(context.Connection.RemoteIpAddress ?? IPAddress.None)) return Results.NotFound();
+            var authorization = context.Request.Headers.Authorization.ToString();
+            return authorization.StartsWith("Bearer ", StringComparison.Ordinal) &&
+                   token.Matches(authorization["Bearer ".Length..])
+                ? Results.Ok(new { status = "ready" })
+                : Results.Unauthorized();
+        }).ExcludeFromDescription();
         endpoints.MapPost(
                 "/api/v1/internal/runner/messages",
                 async (HttpContext context,
