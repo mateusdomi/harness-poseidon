@@ -21,7 +21,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(44, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(45, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -70,6 +70,10 @@ public sealed class PostgresSkipLockedPocTests
             new PostgresAgentCatalogStore(dataSource),
             new PostgresToolCatalogStore(dataSource),
             new PostgresProviderCatalogStore(dataSource),
+            catalogProfile.TenantId,
+            timeout.Token);
+        await GovernanceRuntimeStoreBehavior.AssertAsync(
+            new PostgresGovernanceRuntimeStore(dataSource),
             catalogProfile.TenantId,
             timeout.Token);
         await RunConversationChiefParityAsync(dataSource, catalogProfile, timeout.Token);

@@ -1,6 +1,6 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-20T13:45:00Z
+Atualizado em: 2026-07-20T14:47:50Z
 
 ## Seção manual — retomada, bloqueios e suposições
 
@@ -14,9 +14,9 @@ suposições e o próximo passo; não é projeção automática do banco ou do G
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Último baseline remoto auditado: `2e9928f` (`origin/develop`). G0–G3 e o Gate P0 estão implementados no commit que contém este documento.
+- Base remota integrada antes do fechamento P1: `b0474dd` (`origin/develop`); o baseline recuperável permanece `2e9928f` e o Gate P0 permanece `1865381`.
 - Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 99,5% · Validado 99,3% · Integrado 96,4% · Homologado 0% · Geral ≈78,5%.
-- Próximo passo exato: após o push do Gate P0, implementar G4 (Context Bundle Builder e receipts), sem iniciar aprendizado P2.
+- Próximo passo exato: revisão humana do Gate P1; não iniciar aprendizado P2 sem autorização explícita.
 - Bloqueios: nenhum técnico — há refinamentos v3 independentes. Apenas a11y/E2E de browser e os smokes/aceites externos (GNG-3 visual, GNG-4 macOS limpo, GNG-6, Entra ID, Teams e modelo reais) aguardam outra frente/terceiros e não travam o backlog backend. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
 ### Suposições ativas
@@ -30,7 +30,7 @@ suposições e o próximo passo; não é projeção automática do banco ou do G
 
 ## Seção factual auditada — ainda manual
 
-<!-- CURRENT_STATE_FACTUAL_BEGIN generated=false verifiedAt=2026-07-20T13:45:00Z -->
+<!-- CURRENT_STATE_FACTUAL_BEGIN generated=false verifiedAt=2026-07-20T14:47:50Z -->
 
 Esta seção registra fatos observados por comandos e testes. Ela ainda não é
 gerada; quando a projeção automática existir, o marcador passará explicitamente
@@ -39,13 +39,13 @@ a `generated=true`.
 ### Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0044`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
+- Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0045`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.
 - Containers em execução: nenhum do Harness; os 11 containers de terceiros permanecem parados.
 - Recursos Docker com `com.harness.managed=true`: nenhum container, volume ou network.
-- Solução: 23 projetos de produção (Host, Runner, Launcher, SharedKernel, três projetos de persistência + migração e 15 módulos) e 6 projetos de teste em `Harness.sln`.
+- Solução: 23 projetos de produção (Host, Runner, Launcher, SharedKernel, três projetos de persistência + migração e 15 módulos) e 7 projetos de teste em `Harness.sln`, incluindo o fake OMP RPC determinístico.
 - SharedKernel: ULID canônico, `EntityId<TTag>`, `IClock`, `SystemClock`, `ErrorDescriptor` e `Result`/`Result<T>` implementados.
 - SQLite: EF Core SQLite 10.0.10; native SQLite pinado em 3.53.3 por segurança; dispatcher único validado em WAL.
 - Recuperação: processo fixture sofreu SIGKILL real após 3/6 checkpoints; nova instância reconciliou e concluiu com 6 checkpoints únicos.
@@ -113,6 +113,11 @@ a `generated=true`.
 - F2 frontend integrado: `build-frontend.sh` copia a árvore protegida para `.artifacts`, executa `npm ci`, lint, typecheck, 270 testes e build HTTP same-origin, e publica 127 arquivos em `Harness.Host/wwwroot`. O Host serve arquivos estáticos e fallback SPA sem mascarar 404 de API/hub; o publish Release contém o bundle. O proxy dev também usa cópia isolada. Smoke HTTP real está verde; a sessão não expôs navegador, portanto a homologação visual/humana continua pendente e GNG-3 não foi promovido.
 - F2 executor de agentes: `IAgentExecutor` possui Fake determinístico e `CodexCliAgentExecutor`. A implementação Codex segue o protocolo app-server V2 da CLI 0.144.5, processa deltas/conclusão, impõe JSON Schema do Chief, valida propriedades e bounds e tenta um repair único. O construtor falha fechado sem prova completa de sandbox externo; por isso o Host usa Fake em testes/execução padrão até a composição Docker. O endpoint de turnos já reconstrói `StatusDigest` e passa pela interface, sem chamada de modelo nos testes.
 - F2 pipeline durável do Chief: migration 0027 adiciona estado por tenant/projeto e mailbox. O endpoint persiste Inbox, mensagem humana e item pendente antes do executor; a aquisição serializa o projeto com lease/fencing e marca agente working. A conclusão só aceita owner/token não expirado, grava mensagem/resposta/eventos, sessão e digest, libera lease e retorna o agente a idle. Restart preservou mailbox completed, sessão, digest, Inbox e fencing.
+- Governança G4: todo turno adquirido pelo Chief cria receipt dual-provider, seleciona bundle determinístico por manifest/checksum, preserva os quatro segmentos obrigatórios e bloqueia conflito/segredo antes do actor. O dogfood real do Host comprova receipt completed, documentos selecionados e gate pass.
+- Governança G5: evaluator fresh-context separado do actor é read-only, Default-FAIL e ativo para medium/high/critical; saída 1.0.0 contém P0–P3, confidence, evidence, path/range, rule e ação. Autoaprovação é recusada.
+- Governança G6/G7: hashline rejeita stale antes da escrita, escreve atomicamente e audita; benchmark de 100 fixtures compara a edição anterior. O detector de stale docs cobre os nove sinais definidos e somente gera findings/tarefas.
+- Governança G8: `OmpRpcAgentExecutor` é o quarto executor do catálogo, opcional e desabilitado por padrão. NDJSON tipado, timeout, heartbeat, cancelamento/cleanup, sandbox Docker equivalente, detecção multiplataforma e atribuição MIT estão implementados; CI usa fake e o smoke real exige `HARNESS_RUN_REAL_AGENT_TESTS=true`.
+- Contratos de governança: OpenAPI expõe receipts, métricas, evaluations, stale findings, hashline/benchmark e catálogo de executores. Persistência SQLite/PostgreSQL compartilha o mesmo behavior; recovery reinicia o store entre seleção e completion com OCC.
 - F2 reconciliação do Chief: o endpoint apenas enfileira e retorna 202. `ChiefTurnBackgroundService` drena pendências, isola falhas, limita retries e reaquece `processing` após lease expirar. Um cenário deixou owner/token 1 morrer, reiniciou o Host, concluiu automaticamente com token 2 e recusou o lease antigo.
 - Claims/workspace duráveis F2-DOGFOOD-1d.2a: `IAttemptWorkspaceStore` persiste catálogo por tentativa com estados fechados, ClaimId ULID, owner/fencing/lease/heartbeat, cleanup lifecycle separado, erro final sanitizado, Inbox idempotente por SHA-256, reclaim determinístico de lease expirada, `ListExpiredAsync` para reconciliação, ledger encadeado e Outbox `attempt.started/completed/failed`. Migration 0028 impõe FKs compostas contra `work_tasks`/`work_attempts`, branch ativa única por repositório e worktree única por tenant. Restart real preservou claims/lease; owner antigo é recusado após reclaim.
 - Composição F2-DOGFOOD-1d.2b: `IsolatedAttemptOrchestrator` (Host) compõe claim persistente → `GitWorktreeManager` (branch/worktree reais) → `ISandboxProvider` → executor via `ISandboxAgentExecutorFactory` → conclusão → cleanup → liberação, com heartbeat/fencing em background, falha sanitizada compensada, replay terminal curto-circuitado e `ScopeConflict` tipado. `CodexCliSandboxExecutorFactory` produz o executor Codex real a partir do plano de sandbox; a fiação DI/endpoint e o smoke Docker/Codex real ficam para a fatia do dogfood.
@@ -122,7 +127,7 @@ a `generated=true`.
 - Demandas do Chief F2-DOGFOOD-2a: propostas estruturadas do turno materializam solicitação interna + demanda + `demand.created` na mesma transação da completion, com autor humano resolvido da mensagem, risk tier fechado como prioridade e critérios de aceite reais; `FakeAgentExecutor` emite propostas determinísticas via marcador `DEMANDA:`.
 - Dogfood F2-DOGFOOD-2b: fluxo único comprovado — chat→Chief→demanda materializada→tarefa da demanda→tentativa→execução isolada via API (claim, branch/worktree reais, sandbox, executor, cleanup, liberação)→evidência `workspace:<branch>@<commit>`→critic independente aprova→tarefa `done`→trilha de auditoria completa via `GET /api/v1/audit-events`.
 - Migrations: SQLite `28→0` e PostgreSQL `11→0`, idempotentes e sem estado parcial.
-- Pipeline: `tools/backend/verify.sh` integral exit 0 — frontend lint/typecheck/build e 270/270; backend restore locked, format sem mudanças, build Release `0 Aviso(s)`/zero erros e 183/183 testes verdes (`Unit 96`, `Integration 45`, `Contract 28`, `Recovery 5`, `Architecture 6`, `Concurrency 3`).
+- Pipeline: `tools/backend/verify.sh` integral exit 0 após rebase em `b0474dd` — frontend lint/typecheck/build e 413/413; backend restore locked, secret/governance gates, format sem mudanças, build Release `0 Aviso(s)`/zero erros e 288/288 testes verdes (`Unit 153`, `Integration 90`, `Contract 29`, `Recovery 6`, `Architecture 7`, `Concurrency 3`).
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Evidências: PoCs 1–9, fundação dual, IPC relacional, motor durável, prova abrupta, cadeia Solicitação→Revisão, workflow completo/progresso, documentos/versionamento/aprovações F1, realtime persistido, watchdog e os incrementos funcionais/técnicos F2 até a integração frontend estão verdes e catalogados. GNG-1 e GNG-2 estão verdes; próximo incremento é dogfood do pipeline Chief→Codex CLI→sandbox.
 

@@ -5224,6 +5224,361 @@
                 }
             }
         },
+        "/api/v1/governance-runtime/receipts": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/GovernanceReceiptContract"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/receipts/{turnId}": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "turnId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GovernanceReceiptContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/receipts/{turnId}/metrics": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "turnId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/GovernanceMetricContract"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/evaluations": {
+            "post": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FreshContextEvaluationApiRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EvaluationResultContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/stale-doc-findings": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/StaleDocumentFindingContract"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/projects/{projectId}/hashline-patches": {
+            "post": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HashlinePatchApiRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HashlinePatchContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/hashline-benchmark": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PatchBenchmarkContract"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/executors": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AgentExecutorContract"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/prototypes": {
             "get": {
                 "tags": [
@@ -13162,6 +13517,40 @@
                     }
                 }
             },
+            "AgentExecutorContract": {
+                "required": [
+                    "id",
+                    "available",
+                    "enabled",
+                    "executableName",
+                    "license",
+                    "availabilityReason"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "available": {
+                        "type": "boolean"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "executableName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "license": {
+                        "type": "string"
+                    },
+                    "availabilityReason": {
+                        "type": "string"
+                    }
+                }
+            },
             "AgentLeaseContract": {
                 "required": [
                     "fencingToken",
@@ -15494,6 +15883,121 @@
                 },
                 "additionalProperties": false
             },
+            "EvaluationFindingContract": {
+                "required": [
+                    "priority",
+                    "confidence",
+                    "evidence",
+                    "path",
+                    "range",
+                    "ruleId",
+                    "recommendedAction"
+                ],
+                "type": "object",
+                "properties": {
+                    "priority": {
+                        "type": "string"
+                    },
+                    "confidence": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "evidence": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "range": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "ruleId": {
+                        "type": "string"
+                    },
+                    "recommendedAction": {
+                        "type": "string"
+                    }
+                }
+            },
+            "EvaluationResultContract": {
+                "required": [
+                    "schemaVersion",
+                    "evaluationId",
+                    "verdict",
+                    "findings",
+                    "provider",
+                    "model",
+                    "readOnly",
+                    "cleanContext",
+                    "evaluatedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "schemaVersion": {
+                        "type": "string"
+                    },
+                    "evaluationId": {
+                        "type": "string"
+                    },
+                    "verdict": {
+                        "type": "string"
+                    },
+                    "findings": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EvaluationFindingContract"
+                        }
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "model": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "readOnly": {
+                        "type": "boolean"
+                    },
+                    "cleanContext": {
+                        "type": "boolean"
+                    },
+                    "evaluatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "EvaluationTestContract": {
+                "required": [
+                    "name",
+                    "passed",
+                    "evidenceReference"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "passed": {
+                        "type": "boolean"
+                    },
+                    "evidenceReference": {
+                        "type": "string"
+                    }
+                }
+            },
             "EventStreamSnapshot": {
                 "required": [
                     "stream",
@@ -15527,6 +16031,71 @@
                         }
                     }
                 }
+            },
+            "FreshContextEvaluationApiRequest": {
+                "required": [
+                    "evaluationId",
+                    "projectId",
+                    "taskId",
+                    "attemptId",
+                    "turnId",
+                    "actorAgentId",
+                    "evaluatorAgentId",
+                    "riskTier",
+                    "acceptanceCriteria",
+                    "diff",
+                    "evidence",
+                    "testResults"
+                ],
+                "type": "object",
+                "properties": {
+                    "evaluationId": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "taskId": {
+                        "type": "string"
+                    },
+                    "attemptId": {
+                        "type": "string"
+                    },
+                    "turnId": {
+                        "type": "string"
+                    },
+                    "actorAgentId": {
+                        "type": "string"
+                    },
+                    "evaluatorAgentId": {
+                        "type": "string"
+                    },
+                    "riskTier": {
+                        "type": "string"
+                    },
+                    "acceptanceCriteria": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "diff": {
+                        "type": "string"
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "testResults": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EvaluationTestContract"
+                        }
+                    }
+                },
+                "additionalProperties": false
             },
             "GateContract": {
                 "required": [
@@ -15602,6 +16171,217 @@
                     }
                 }
             },
+            "GovernanceMetricContract": {
+                "required": [
+                    "projectId",
+                    "turnId",
+                    "eventId",
+                    "kind",
+                    "documentId",
+                    "ruleId",
+                    "detailCode",
+                    "tokenCount",
+                    "occurredAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "turnId": {
+                        "type": "string"
+                    },
+                    "eventId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "documentId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "ruleId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "detailCode": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "tokenCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "occurredAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "GovernanceReceiptContract": {
+                "required": [
+                    "projectId",
+                    "taskId",
+                    "attemptId",
+                    "turnId",
+                    "agentId",
+                    "manifestVersion",
+                    "documents",
+                    "estimatedTokens",
+                    "actualPromptTokens",
+                    "truncated",
+                    "conflicts",
+                    "cacheHits",
+                    "provider",
+                    "model",
+                    "timestamp",
+                    "bundleChecksum",
+                    "state",
+                    "gateResult",
+                    "version"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "taskId": {
+                        "type": "string"
+                    },
+                    "attemptId": {
+                        "type": "string"
+                    },
+                    "turnId": {
+                        "type": "string"
+                    },
+                    "agentId": {
+                        "type": "string"
+                    },
+                    "manifestVersion": {
+                        "type": "string"
+                    },
+                    "documents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/GovernanceReceiptDocumentContract"
+                        }
+                    },
+                    "estimatedTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "actualPromptTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "truncated": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "conflicts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "cacheHits": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "model": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "bundleChecksum": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "gateResult": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
+            "GovernanceReceiptDocumentContract": {
+                "required": [
+                    "documentId",
+                    "checksum",
+                    "selectionReason",
+                    "loadPolicy",
+                    "estimatedTokens"
+                ],
+                "type": "object",
+                "properties": {
+                    "documentId": {
+                        "type": "string"
+                    },
+                    "checksum": {
+                        "type": "string"
+                    },
+                    "selectionReason": {
+                        "type": "string"
+                    },
+                    "loadPolicy": {
+                        "type": "string"
+                    },
+                    "estimatedTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
             "HandoffChiefRequest": {
                 "required": [
                     "targetDefinitionId",
@@ -15623,6 +16403,64 @@
                         ]
                     },
                     "note": {
+                        "type": "string"
+                    }
+                }
+            },
+            "HashlinePatchApiRequest": {
+                "required": [
+                    "turnId",
+                    "relativePath",
+                    "expectedChecksum",
+                    "newContent"
+                ],
+                "type": "object",
+                "properties": {
+                    "turnId": {
+                        "type": "string"
+                    },
+                    "relativePath": {
+                        "type": "string"
+                    },
+                    "expectedChecksum": {
+                        "type": "string"
+                    },
+                    "newContent": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "HashlinePatchContract": {
+                "required": [
+                    "status",
+                    "relativePath",
+                    "expectedChecksum",
+                    "actualChecksum",
+                    "appliedChecksum",
+                    "action"
+                ],
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "relativePath": {
+                        "type": "string"
+                    },
+                    "expectedChecksum": {
+                        "type": "string"
+                    },
+                    "actualChecksum": {
+                        "type": "string"
+                    },
+                    "appliedChecksum": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "action": {
                         "type": "string"
                     }
                 }
@@ -16599,6 +17437,71 @@
                     "createdAt": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "PatchBenchmarkContract": {
+                "required": [
+                    "strategy",
+                    "editSuccesses",
+                    "staleRejections",
+                    "retries",
+                    "estimatedTokens",
+                    "durationMicroseconds",
+                    "regressions"
+                ],
+                "type": "object",
+                "properties": {
+                    "strategy": {
+                        "type": "string"
+                    },
+                    "editSuccesses": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "staleRejections": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "retries": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "estimatedTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "durationMicroseconds": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "regressions": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     }
                 }
             },
@@ -18438,6 +19341,38 @@
                     }
                 }
             },
+            "StaleDocumentFindingContract": {
+                "required": [
+                    "findingId",
+                    "documentId",
+                    "kind",
+                    "detail",
+                    "recommendedTask",
+                    "detectedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "findingId": {
+                        "type": "string"
+                    },
+                    "documentId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "recommendedTask": {
+                        "type": "string"
+                    },
+                    "detectedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
             "StartChatTurnRequest": {
                 "required": [
                     "content"
@@ -19740,6 +20675,9 @@
         },
         {
             "name": "governance"
+        },
+        {
+            "name": "governance-runtime"
         },
         {
             "name": "prototyping"

@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:68d69bca43e1be338d54ac222fcdbabe9d26c3570f784b27ea87baf693654402 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:482d16bbf92bcf3e2f20fd0dcf932072588e972b5548df347c4aeadcab28acbb -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,8 +6,8 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 16
-- `Evidence`: 126
+- `Canonical`: 18
+- `Evidence`: 127
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 11
@@ -16,12 +16,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By domain
 
 - `adapter`: 2
-- `architecture`: 3
+- `architecture`: 4
 - `backend`: 1
 - `contract`: 1
-- `decision`: 15
+- `decision`: 16
 - `entrypoint`: 1
-- `evidence`: 126
+- `evidence`: 127
 - `execution`: 8
 - `frontend`: 5
 - `governance`: 1
@@ -41,22 +41,24 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `*`: 186
 - `incident-response`: 1
 - `p0`: 1
+- `p1`: 1
+- `runtime`: 2
 
 ## By status
 
-- `Active`: 180
+- `Active`: 183
 - `Historical`: 7
 - `Superseded`: 1
 
 ## By owner
 
 - `API Platform`: 1
-- `Agent Platform`: 1
+- `Agent Platform`: 3
 - `Architecture`: 18
 - `Frontend`: 6
 - `Operations`: 3
 - `Platform Engineering`: 12
-- `Platform Governance`: 8
+- `Platform Governance`: 9
 - `Product Security`: 6
 - `Quality Engineering`: 127
 - `Research`: 4
@@ -68,7 +70,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 166
+- `OnDemand`: 169
 
 ## Documents by authority and domain
 
@@ -78,9 +80,16 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
+| [Runtime de governança de agentes](backend/architecture/AGENT_GOVERNANCE_RUNTIME.md) | runtime | Active | Agent Platform | OnDemand | 663 |
 | [Mapa de contexto](architecture/CONTEXT_MAP.md) | * | Active | Architecture | Bundle | 120 |
 | [Invariantes arquiteturais e de domínio](architecture/INVARIANTS.md) | * | Active | Architecture | Bundle | 272 |
 | [Catálogo de módulos](architecture/MODULE_CATALOG.md) | * | Active | Architecture | Bundle | 278 |
+
+#### decision
+
+| Document | Phase | Status | Owner | Load policy | Tokens |
+|---|---|---|---|---|---:|
+| [ADR-016 — Executor opcional OMP RPC](decisions/ADR-016-omp-rpc-agent-executor.md) | runtime | Active | Agent Platform | OnDemand | 425 |
 
 #### execution
 
@@ -167,7 +176,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 6315 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 6588 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 1599 |
 
 ### Reference
@@ -195,7 +204,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-005 — Motor durável específico atrás de interface](decisions/ADR-005-durable-engine.md) | * | Active | Architecture | OnDemand | 528 |
 | [ADR-006 — Chefe como ator lógico persistido](decisions/ADR-006-chief-logical-actor.md) | * | Active | Architecture | OnDemand | 107 |
 | [ADR-007 — IPC loopback autenticado e filas internas](decisions/ADR-007-local-ipc-and-queues.md) | * | Active | Architecture | OnDemand | 317 |
-| [ADR-008 — Estratégia de executores de agente](decisions/ADR-008-agent-executors.md) | * | Active | Architecture | OnDemand | 311 |
+| [ADR-008 — Estratégia de executores de agente](decisions/ADR-008-agent-executors.md) | * | Active | Architecture | OnDemand | 332 |
 | [ADR-009 — Ferramentas tipadas e MCP estável](decisions/ADR-009-tools-and-mcp.md) | * | Active | Architecture | OnDemand | 101 |
 | [ADR-010 — Estratégia Git do produto e do repositório oficial](decisions/ADR-010-git-strategy.md) | * | Active | Architecture | OnDemand | 305 |
 | [ADR-011 — Sandbox Docker no macOS](decisions/ADR-011-sandbox-docker.md) | * | Active | Architecture | OnDemand | 323 |
@@ -232,6 +241,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
+| [Evidência — Governance Gate P1](backend/execution/evidence/GOVERNANCE-GATE-P1.md) | p1 | Active | Platform Governance | OnDemand | 875 |
 | [Evidência — Governance Gate P0](backend/execution/evidence/GOVERNANCE-GATE-P0.md) | p0 | Active | Platform Governance | OnDemand | 666 |
 | [Evidência F0 PoC-1 — SQLite WAL e dispatcher único](backend/execution/evidence/F0-POC-1.md) | * | Active | Quality Engineering | OnDemand | 335 |
 | [Evidência F0 PoC-2 — kill -9 e retomada durável](backend/execution/evidence/F0-POC-2.md) | * | Active | Quality Engineering | OnDemand | 405 |

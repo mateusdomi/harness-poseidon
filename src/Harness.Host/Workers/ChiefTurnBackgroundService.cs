@@ -2,9 +2,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
+using Harness.Modules.Governance.Context;
+using Harness.Modules.Governance.Evaluation;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Governance;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -13,6 +16,9 @@ namespace Harness.Host.Workers;
 public sealed partial class ChiefTurnBackgroundService(
     IChiefTurnStore turns,
     ICockpitDigestStore digests,
+    IGovernanceRuntimeStore governance,
+    ContextBundleBuilder bundleBuilder,
+    IFreshContextEvaluator evaluator,
     IAgentExecutor executor,
     IClock clock,
     ChiefTurnWorkerOptions options,
@@ -42,11 +48,74 @@ public sealed partial class ChiefTurnBackgroundService(
         var lease = await turns.AcquireNextAsync(
             _ownerId, clock.UtcNow, options.LeaseDuration, cancellationToken);
         if (lease is null) return false;
+        GovernanceTurnReceiptRecord? receipt = null;
         try
         {
             var digest = await digests.ReadAsync(
                 lease.Turn.TenantId, lease.Turn.ProjectId, 20, cancellationToken);
             var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
+            var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
+                lease.Turn.TenantId,
+                lease.Turn.ProjectId,
+                lease.Turn.TurnId,
+                lease.Turn.TurnId,
+                lease.ChiefAgentId,
+                "poseidon",
+                lease.Turn.Selection?.ModelName,
+                "chief-turn",
+                "execution",
+                "orchestration",
+                "medium",
+                [],
+                digestJson,
+                ["Return a schema-valid Chief response.", "Persist durable completion evidence."],
+                ["Domain writes only through typed Host stores."],
+                [],
+                ["Stop on canonical conflict, secret risk, invalid output or failed gate."],
+                options.ContextBundlesEnabled ? options.ContextTokenBudget : 256));
+            receipt = await governance.CreateReceiptAsync(
+                new GovernanceTurnReceiptCreateCommand(
+                    lease.Turn.TenantId,
+                    lease.Turn.ProjectId,
+                    lease.Turn.TurnId,
+                    lease.Turn.TurnId,
+                    lease.Turn.TurnId,
+                    lease.ChiefAgentId,
+                    bundle.ManifestVersion,
+                    bundle.Documents.Select(document => new GovernanceReceiptDocumentRecord(
+                        document.DocumentId,
+                        document.Checksum,
+                        document.SelectionReason,
+                        document.LoadPolicy.ToString(),
+                        document.EstimatedTokens)).ToArray(),
+                    bundle.EstimatedTokens,
+                    bundle.Truncated,
+                    bundle.Conflicts,
+                    bundle.CacheHits,
+                    lease.Turn.Selection?.Source ?? "poseidon",
+                    lease.Turn.Selection?.ModelName,
+                    clock.UtcNow,
+                    bundle.BundleChecksum),
+                cancellationToken);
+            await AppendBundleMetricsAsync(governance, lease, bundle, clock.UtcNow, cancellationToken);
+            if (bundle.Conflicts.Count > 0)
+            {
+                throw new ContextBundleConflictException(bundle.Conflicts);
+            }
+
+            receipt = await governance.CompleteReceiptAsync(
+                new GovernanceTurnReceiptCompleteCommand(
+                    lease.Turn.TenantId,
+                    lease.Turn.TurnId,
+                    receipt.Version,
+                    null,
+                    GovernanceReceiptState.Delivered,
+                    null,
+                    clock.UtcNow),
+                cancellationToken);
+            var governedDigestJson = JsonSerializer.Serialize(
+                new ChiefGovernanceContext(digestJson, bundle.RenderedContext, bundle.BundleChecksum),
+                JsonOptions);
             var execution = await executor.ExecuteAsync(
                 new AgentExecutionRequest(
                     lease.Turn.TenantId,
@@ -54,13 +123,36 @@ public sealed partial class ChiefTurnBackgroundService(
                     lease.Turn.ConversationId,
                     lease.ChiefAgentId,
                     lease.Instruction,
-                    digestJson,
+                    governedDigestJson,
                     AppContext.BaseDirectory,
                     lease.SessionId,
                     lease.Turn.Selection?.ModelName,
                     lease.Turn.Selection?.ProviderEffortValue),
                 cancellationToken);
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
+            var evaluation = evaluator.Evaluate(
+                new FreshContextEvaluationRequest(
+                    $"evaluation:{lease.Turn.TurnId}",
+                    lease.Turn.TenantId,
+                    lease.Turn.ProjectId,
+                    lease.Turn.TurnId,
+                    lease.Turn.TurnId,
+                    lease.ChiefAgentId,
+                    $"{lease.ChiefAgentId}:critic",
+                    "medium",
+                    ["Chief output must conform to the structured contract."],
+                    execution.StructuredOutput,
+                    [$"executor={execution.Executor};durationMs={execution.DurationMs}"],
+                    [new EvaluationTestResult("structured-output", true, "ChiefTurnOutputContract.Parse")]),
+                clock.UtcNow);
+            await governance.AppendMetricAsync(
+                Metric(lease, GovernanceMetricKind.EvaluatorVerdict, null, null,
+                    evaluation.Verdict.ToString().ToLowerInvariant(), clock.UtcNow),
+                cancellationToken);
+            if (evaluation.Verdict == EvaluationVerdict.Fail)
+            {
+                throw new AgentOutputValidationException("Independent evaluator returned Default-FAIL.");
+            }
             var chunks = execution.Chunks.Count == 0 ? new[] { output.Response } : execution.Chunks;
             var occurredAt = clock.UtcNow;
             var message = ConversationApplicationService.CreateChiefMessage(
@@ -91,6 +183,19 @@ public sealed partial class ChiefTurnBackgroundService(
                     occurredAt,
                     demandSeeds),
                 cancellationToken);
+            receipt = await governance.CompleteReceiptAsync(
+                new GovernanceTurnReceiptCompleteCommand(
+                    lease.Turn.TenantId,
+                    lease.Turn.TurnId,
+                    receipt.Version,
+                    null,
+                    GovernanceReceiptState.Completed,
+                    "pass",
+                    clock.UtcNow),
+                cancellationToken);
+            await governance.AppendMetricAsync(
+                Metric(lease, GovernanceMetricKind.GateResult, null, null, "pass", clock.UtcNow),
+                cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -98,6 +203,22 @@ public sealed partial class ChiefTurnBackgroundService(
         }
         catch (Exception exception)
         {
+            if (receipt is not null && receipt.State is not GovernanceReceiptState.Completed and not GovernanceReceiptState.Failed)
+            {
+                receipt = await governance.CompleteReceiptAsync(
+                    new GovernanceTurnReceiptCompleteCommand(
+                        lease.Turn.TenantId,
+                        lease.Turn.TurnId,
+                        receipt.Version,
+                        null,
+                        GovernanceReceiptState.Failed,
+                        "fail",
+                        clock.UtcNow),
+                    cancellationToken);
+                await governance.AppendMetricAsync(
+                    Metric(lease, GovernanceMetricKind.GateResult, null, null, "fail", clock.UtcNow),
+                    cancellationToken);
+            }
             var retryable = exception is not AgentOutputValidationException;
             await turns.FailAsync(
                 new ChiefTurnFailCommand(
@@ -112,6 +233,56 @@ public sealed partial class ChiefTurnBackgroundService(
 
         return true;
     }
+
+    private static async Task AppendBundleMetricsAsync(
+        IGovernanceRuntimeStore store,
+        ChiefTurnLease lease,
+        ContextBundle bundle,
+        DateTimeOffset now,
+        CancellationToken token)
+    {
+        var index = 0;
+        foreach (var document in bundle.Documents)
+        {
+            await store.AppendMetricAsync(
+                Metric(lease, GovernanceMetricKind.Selected, document.DocumentId, null, null,
+                    now.AddTicks(index++)), token);
+        }
+
+        foreach (var documentId in bundle.Truncated)
+        {
+            await store.AppendMetricAsync(
+                Metric(lease, GovernanceMetricKind.ItemTruncated, documentId, null, null,
+                    now.AddTicks(index++)), token);
+        }
+
+        await store.AppendMetricAsync(
+            Metric(lease, GovernanceMetricKind.Delivered, null, null, bundle.BundleChecksum,
+                now.AddTicks(index)), token);
+    }
+
+    private static GovernanceMetricAppendCommand Metric(
+        ChiefTurnLease lease,
+        GovernanceMetricKind kind,
+        string? documentId,
+        string? ruleId,
+        string? detail,
+        DateTimeOffset at) => new(
+        lease.Turn.TenantId,
+        lease.Turn.ProjectId,
+        lease.Turn.TurnId,
+        UlidValue.New(at).ToString(),
+        kind,
+        documentId,
+        ruleId,
+        detail,
+        null,
+        at);
+
+    private sealed record ChiefGovernanceContext(
+        string StatusDigestJson,
+        string ContextBundle,
+        string BundleChecksum);
 
     [LoggerMessage(
         EventId = 2101,

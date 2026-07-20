@@ -2,4 +2,9 @@ namespace Harness.Host.Workers;
 
 public sealed record ChiefTurnWorkerOptions(
     TimeSpan PollInterval,
-    TimeSpan LeaseDuration);
+    TimeSpan LeaseDuration)
+{
+    public bool ContextBundlesEnabled { get; init; } = true;
+
+    public int ContextTokenBudget { get; init; } = 12000;
+}

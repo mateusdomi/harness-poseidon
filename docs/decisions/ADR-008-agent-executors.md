@@ -15,4 +15,4 @@ Referências oficiais verificadas na PoC-4: [Codex app-server](https://developer
 
 ## Consequências
 
-Automação não consome rede/cota por padrão. A prova automatizada inicia threads e persiste um item de marcador, mas nunca inicia um turno de modelo. Smoke com turno real permanece explicitamente opt-in. Sessão ausente é reidratada por persistência, instrução, Git e artefatos. Outros adapters permanecem backlog até GNG-3 ou falha medida da integração real.
+Automação não consome rede/cota por padrão. A prova automatizada inicia threads e persiste um item de marcador, mas nunca inicia um turno de modelo. Smoke com turno real permanece explicitamente opt-in. Sessão ausente é reidratada por persistência, instrução, Git e artefatos. O quarto executor opcional `OmpRpcAgentExecutor` foi promovido em 2026-07-20 pela missão de governança e é detalhado no ADR-016. Outros adapters permanecem backlog até medição e autorização.

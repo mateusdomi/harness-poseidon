@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-20T14:42:02.4353210+00:00
+lastGeneratedAt: 2026-07-20T15:06:23.4323050+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -204,7 +204,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 6609
+  tokenEstimate: 6726
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -217,7 +217,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:985ae3a7aa1f738fc410a3e82416429b09b67f9a6a53b418d7617fb240319fcd
+  checksum: sha256:09e0b82403fe9b2fce140f44783851ebee99cebab1c111a2d13149c829829dc5
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -413,7 +413,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 6315
+  tokenEstimate: 6588
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -423,7 +423,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:c86d336ab7d831514040c0efaa2593935835650da2e15c3fc1669624b1d73281
+  checksum: sha256:93742089a5b77b42b5523e499259d933b443c37b30f70abd77aab36cb37354f5
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -8504,7 +8504,7 @@ documents:
   - '**'
   loadPolicy: on-demand
   priority: 500
-  tokenEstimate: 311
+  tokenEstimate: 332
   owner: Architecture
   status: active
   version: 1.0.0
@@ -8514,7 +8514,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:075e1b87aebeabff282ad17fb078712953b89b2c22efe2edad1b2c0acfcdbdfc
+  checksum: sha256:b3ca42eaea30738cae374e1d570551b3572b47ceb7fe8d6b24af42412f7bab1c
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/decisions/ADR-008-agent-executors.md
@@ -10063,3 +10063,160 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GOVERNANCE-GATE-P0.md
+- id: doc-agent-governance-runtime
+  path: docs/backend/architecture/AGENT_GOVERNANCE_RUNTIME.md
+  title: Runtime de governança de agentes
+  category: architecture
+  topic: agent-governance-runtime
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - poseidon
+  agents:
+  - chief
+  - evaluator
+  workflows:
+  - governance
+  phases:
+  - runtime
+  taskTypes:
+  - governance
+  - implementation
+  riskTiers:
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 850
+  tokenEstimate: 663
+  owner: Agent Platform
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T14:47:50Z
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  - rule-coordination
+  - rule-security
+  related:
+  - adr-016-omp-rpc-agent-executor
+  - evidence-governance-gate-p1
+  enforcedBy:
+  - runtime:governance-policy
+  - tools/backend/verify.sh
+  - ci:governance
+  checksum: sha256:d3167053d5d4ad1a0cb121b2afe33d82ae0c0b3e59345a1d13bfeab6eb001bdc
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/architecture/AGENT_GOVERNANCE_RUNTIME.md
+- id: adr-016-omp-rpc-agent-executor
+  path: docs/decisions/ADR-016-omp-rpc-agent-executor.md
+  title: ADR-016 — Executor opcional OMP RPC
+  category: decision
+  topic: omp-rpc-agent-executor
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - poseidon
+  - omp
+  agents:
+  - chief
+  workflows:
+  - agent-execution
+  phases:
+  - runtime
+  taskTypes:
+  - architecture
+  - implementation
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  - src/Harness.Host/Execution/**
+  - tests/Harness.IntegrationTests/Agents/**
+  loadPolicy: on-demand
+  priority: 800
+  tokenEstimate: 425
+  owner: Agent Platform
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T14:47:50Z
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  - doc-docs-decisions-adr-008-agent-executors
+  related:
+  - doc-agent-governance-runtime
+  - evidence-governance-gate-p1
+  enforcedBy:
+  - runtime:governance-policy
+  - tools/backend/verify.sh
+  checksum: sha256:8da079c3dd70922371c2e9eb423e579a1056a346cba058ebbee8c32e2faa9306
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-016-omp-rpc-agent-executor.md
+- id: evidence-governance-gate-p1
+  path: docs/backend/execution/evidence/GOVERNANCE-GATE-P1.md
+  title: Evidência — Governance Gate P1
+  category: evidence
+  topic: governance-gate-p1
+  authority: evidence
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  agents:
+  - chief
+  workflows:
+  - governance
+  phases:
+  - p1
+  taskTypes:
+  - governance
+  riskTiers:
+  - high
+  pathGlobs:
+  - governance/**
+  - docs/backend/**
+  - src/**
+  - tests/**
+  loadPolicy: on-demand
+  priority: 750
+  tokenEstimate: 875
+  owner: Platform Governance
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-20T14:47:50Z
+  reviewDueAt: 2026-10-20T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  - rule-testing
+  - doc-agent-governance-runtime
+  related:
+  - evidence-governance-gate-p0
+  - adr-016-omp-rpc-agent-executor
+  enforcedBy:
+  - tools/backend/verify.sh
+  - tools/backend/verify-governance.sh
+  checksum: sha256:562ac16b3f5551b46fed7181a74983b160738d633db0c44d6c55f9e75116b003
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GOVERNANCE-GATE-P1.md

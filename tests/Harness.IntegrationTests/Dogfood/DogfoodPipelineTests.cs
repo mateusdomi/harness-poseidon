@@ -17,6 +17,7 @@ using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
@@ -91,6 +92,16 @@ public sealed class DogfoodPipelineTests
                 var handle = (await turnResponse.Content
                     .ReadFromJsonAsync<ChatTurnHandle>(timeout.Token))!;
                 await WaitForTurnAsync(client, conversationId, handle.TurnId, timeout.Token);
+                var governance = app.Services.GetRequiredService<IGovernanceRuntimeStore>();
+                var chiefReceipt = await governance.GetReceiptAsync(
+                    tenantId, handle.TurnId, timeout.Token);
+                Assert.NotNull(chiefReceipt);
+                Assert.Equal(GovernanceReceiptState.Completed, chiefReceipt.State);
+                Assert.NotEmpty(chiefReceipt.Documents);
+                Assert.Equal("pass", chiefReceipt.GateResult);
+                Assert.Contains(
+                    await governance.ListMetricsAsync(tenantId, handle.TurnId, timeout.Token),
+                    metric => metric.Kind == GovernanceMetricKind.EvaluatorVerdict);
                 var demand = Assert.Single((await client.GetFromJsonAsync<DemandPage>(
                     $"/api/v1/demands?projectId={project.Id}", timeout.Token))!.Items);
                 Assert.Equal("Implementar endpoint de status", demand.Title);

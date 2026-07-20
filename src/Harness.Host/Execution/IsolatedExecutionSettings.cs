@@ -30,6 +30,8 @@ public sealed record IsolatedExecutionSettings
 
     public string ContainerExecutable { get; init; } = "codex";
 
+    public string ExecutorId { get; init; } = "codex-cli";
+
     public decimal CpuLimit { get; init; } = 1.0m;
 
     public long MemoryBytes { get; init; } = 1L << 30;

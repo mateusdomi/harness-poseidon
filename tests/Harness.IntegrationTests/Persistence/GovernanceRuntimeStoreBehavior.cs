@@ -1,0 +1,46 @@
+using Harness.Persistence.Abstractions.Governance;
+
+namespace Harness.IntegrationTests.Persistence;
+
+public static class GovernanceRuntimeStoreBehavior
+{
+    public static async Task AssertAsync(
+        IGovernanceRuntimeStore store,
+        string tenantId,
+        CancellationToken token)
+    {
+        const string projectId = "01ARZ3NDEKTSV4RRFFQ69G5FQ1";
+        const string turnId = "01ARZ3NDEKTSV4RRFFQ69G5FQ2";
+        var at = DateTimeOffset.Parse("2026-07-20T15:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var create = new GovernanceTurnReceiptCreateCommand(
+            tenantId, projectId, turnId, turnId, turnId, "chief", "1.0.0",
+            [new GovernanceReceiptDocumentRecord("governance-core", "sha256:" + new string('a', 64), "always", "Always", 900)],
+            900, [], [], 0, "fake", "fake-model", at, new string('b', 64));
+        var receipt = await store.CreateReceiptAsync(create, token);
+        Assert.Equal(GovernanceReceiptState.Selected, receipt.State);
+        Assert.Equal(1, receipt.Version);
+        var replay = await store.CreateReceiptAsync(create, token);
+        Assert.Equal(receipt.BundleChecksum, replay.BundleChecksum);
+        Assert.Equal(receipt.Version, replay.Version);
+        receipt = await store.CompleteReceiptAsync(
+            new GovernanceTurnReceiptCompleteCommand(
+                tenantId, turnId, 1, 1100, GovernanceReceiptState.Completed, "pass", at.AddSeconds(1)), token);
+        Assert.Equal(2, receipt.Version);
+        Assert.Equal(1100, receipt.ActualPromptTokens);
+        await Assert.ThrowsAsync<GovernanceRuntimeConflictException>(() => store.CompleteReceiptAsync(
+            new GovernanceTurnReceiptCompleteCommand(
+                tenantId, turnId, 2, null, GovernanceReceiptState.Delivered, null, at.AddSeconds(2)), token));
+        await Assert.ThrowsAsync<GovernanceRuntimeConflictException>(() => store.CompleteReceiptAsync(
+            new GovernanceTurnReceiptCompleteCommand(
+                tenantId, turnId, 1, null, GovernanceReceiptState.Failed, "fail", at.AddSeconds(2)), token));
+        await store.AppendMetricAsync(new GovernanceMetricAppendCommand(
+            tenantId, projectId, turnId, "01ARZ3NDEKTSV4RRFFQ69G5FQ3",
+            GovernanceMetricKind.Selected, "governance-core", null, null, 900, at), token);
+        await store.AppendMetricAsync(new GovernanceMetricAppendCommand(
+            tenantId, projectId, turnId, "01ARZ3NDEKTSV4RRFFQ69G5FQ4",
+            GovernanceMetricKind.GateResult, null, null, "pass", null, at.AddSeconds(1)), token);
+        var metrics = await store.ListMetricsAsync(tenantId, turnId, token);
+        Assert.Equal(2, metrics.Count);
+        Assert.Single(await store.ListReceiptsAsync(tenantId, projectId, null, 10, token));
+    }
+}

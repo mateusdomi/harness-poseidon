@@ -34,6 +34,10 @@ public sealed class SqliteIdentityCoreStoreTests
                     new SqliteProviderCatalogStore(dispatcher),
                     profile.TenantId,
                     timeout.Token);
+                await GovernanceRuntimeStoreBehavior.AssertAsync(
+                    new SqliteGovernanceRuntimeStore(dispatcher),
+                    profile.TenantId,
+                    timeout.Token);
                 var organizations = new SqliteOrganizationStore(dispatcher);
                 var projects = new SqliteProjectStore(dispatcher);
                 var now = DateTimeOffset.UtcNow;

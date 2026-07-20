@@ -1,0 +1,375 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
+using Harness.Modules.Governance.Documentation;
+using Harness.SharedKernel.Security;
+
+namespace Harness.Modules.Governance.Context;
+
+public enum ContextSegmentKind
+{
+    Core,
+    Organization,
+    Project,
+    WorkflowPhase,
+    Persona,
+    Skill,
+    PathConstraint,
+    StatusDigest,
+    AcceptanceCriteria,
+    ToolPermission,
+    Evidence,
+    StopCondition,
+    Budget,
+}
+
+public sealed record ContextBundleRequest(
+    string TenantId,
+    string ProjectId,
+    string TaskId,
+    string AttemptId,
+    string AgentId,
+    string Provider,
+    string? Model,
+    string Workflow,
+    string Phase,
+    string TaskType,
+    string RiskTier,
+    IReadOnlyList<string> Paths,
+    string StatusDigestJson,
+    IReadOnlyList<string> AcceptanceCriteria,
+    IReadOnlyList<string> ToolPermissions,
+    IReadOnlyList<string> Evidence,
+    IReadOnlyList<string> StopConditions,
+    int TokenBudget);
+
+public sealed record ContextBundleDocument(
+    string DocumentId,
+    string Checksum,
+    string SelectionReason,
+    DocumentLoadPolicy LoadPolicy,
+    int EstimatedTokens,
+    bool Truncated);
+
+public sealed record ContextBundleSegment(
+    ContextSegmentKind Kind,
+    string SourceId,
+    string Content,
+    int EstimatedTokens,
+    bool Mandatory);
+
+public sealed record ContextBundle(
+    string ManifestVersion,
+    IReadOnlyList<ContextBundleDocument> Documents,
+    IReadOnlyList<ContextBundleSegment> Segments,
+    int EstimatedTokens,
+    IReadOnlyList<string> Truncated,
+    IReadOnlyList<string> Conflicts,
+    int CacheHits,
+    string BundleChecksum,
+    string RenderedContext);
+
+public sealed class ContextBundleConflictException(IReadOnlyList<string> conflicts)
+    : Exception("Canonical context bundle conflicts prevent delivery.")
+{
+    public IReadOnlyList<string> Conflicts { get; } = conflicts;
+}
+
+public sealed class ContextBundleBuilder
+{
+    private static readonly ConcurrentDictionary<string, ContextBundle> Cache =
+        new(StringComparer.Ordinal);
+
+    private readonly string _repositoryRoot;
+    private readonly GovernanceManifestService _manifestService;
+
+    public ContextBundleBuilder(string repositoryRoot)
+    {
+        _repositoryRoot = Path.GetFullPath(repositoryRoot);
+        _manifestService = new GovernanceManifestService(_repositoryRoot);
+    }
+
+    public ContextBundle Build(ContextBundleRequest request)
+    {
+        Validate(request);
+        var manifest = _manifestService.LoadAndValidate();
+        var documents = SelectDocuments(manifest, request);
+        var conflicts = DetectConflicts(documents);
+        var segments = LoadDocumentSegments(documents, conflicts);
+        AddRuntimeSegments(segments, request);
+        if (conflicts.Count > 0)
+        {
+            return BlockedBundle(manifest, documents, segments, conflicts, request);
+        }
+
+        var selected = ApplyBudget(segments, request.TokenBudget, out var truncated);
+        var rendered = Render(selected);
+        if (SecretTextProtector.ContainsSecret(rendered))
+        {
+            conflicts.Add("bundle_contains_secret");
+            return BlockedBundle(manifest, documents, segments, conflicts, request);
+        }
+
+        var checksum = Sha256(rendered);
+        var cacheKey = $"{request.TenantId}:{request.ProjectId}:{checksum}";
+        if (Cache.TryGetValue(cacheKey, out var cached))
+        {
+            return cached with { CacheHits = cached.CacheHits + 1 };
+        }
+
+        var includedIds = selected.Select(segment => segment.SourceId).ToHashSet(StringComparer.Ordinal);
+        var result = new ContextBundle(
+            manifest.ManifestVersion,
+            documents.Select(document => new ContextBundleDocument(
+                document.Id,
+                document.Checksum,
+                SelectionReason(document, request),
+                document.LoadPolicy,
+                document.TokenEstimate,
+                !includedIds.Contains(document.Id))).ToArray(),
+            selected,
+            selected.Sum(segment => segment.EstimatedTokens),
+            truncated,
+            [],
+            0,
+            checksum,
+            rendered);
+        Cache[cacheKey] = result;
+        return result;
+    }
+
+    public ContextBundle BuildOrFallback(ContextBundleRequest request)
+    {
+        try
+        {
+            return Build(request);
+        }
+        catch (Exception exception) when (exception is GovernanceManifestException or IOException or UnauthorizedAccessException)
+        {
+            Validate(request);
+            var segments = new List<ContextBundleSegment>();
+            AddRuntimeSegments(segments, request);
+            var fallback = segments.Where(segment => segment.Mandatory).OrderBy(segment => segment.Kind).ToArray();
+            var rendered = Render(fallback);
+            return new ContextBundle(
+                "0.0.0",
+                [],
+                fallback,
+                fallback.Sum(segment => segment.EstimatedTokens),
+                [],
+                [$"bundle_build_failed:{exception.GetType().Name}"],
+                0,
+                Sha256(rendered),
+                rendered);
+        }
+    }
+
+    private static ContextBundle BlockedBundle(
+        GovernanceManifest manifest,
+        IReadOnlyList<GovernanceDocument> documents,
+        IReadOnlyList<ContextBundleSegment> segments,
+        IReadOnlyList<string> conflicts,
+        ContextBundleRequest request)
+    {
+        var fallback = segments.Where(segment => segment.Mandatory).OrderBy(segment => segment.Kind).ToArray();
+        var rendered = Render(fallback);
+        return new ContextBundle(
+            manifest.ManifestVersion,
+            documents.Select(document => new ContextBundleDocument(
+                document.Id,
+                document.Checksum,
+                SelectionReason(document, request),
+                document.LoadPolicy,
+                document.TokenEstimate,
+                !fallback.Any(segment => segment.SourceId == document.Id))).ToArray(),
+            fallback,
+            fallback.Sum(segment => segment.EstimatedTokens),
+            documents.Select(document => document.Id).Where(id => fallback.All(segment => segment.SourceId != id)).ToArray(),
+            conflicts,
+            0,
+            Sha256(rendered),
+            rendered);
+    }
+
+    private static void Validate(ContextBundleRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ProjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TaskId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.AttemptId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.AgentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Provider);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.StatusDigestJson);
+        ArgumentNullException.ThrowIfNull(request.Paths);
+        if (request.TokenBudget < 256)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request), "Context budget must be at least 256 tokens.");
+        }
+    }
+
+    private static GovernanceDocument[] SelectDocuments(
+        GovernanceManifest manifest,
+        ContextBundleRequest request) => manifest.Documents
+        .Where(document => document.Status == DocumentStatus.Active &&
+            document.LoadPolicy is DocumentLoadPolicy.Always or DocumentLoadPolicy.Entry or DocumentLoadPolicy.Bundle &&
+            Matches(document.Providers, request.Provider) &&
+            Matches(document.Agents, request.AgentId) &&
+            Matches(document.Workflows, request.Workflow) &&
+            Matches(document.Phases, request.Phase) &&
+            Matches(document.TaskTypes, request.TaskType) &&
+            Matches(document.RiskTiers, request.RiskTier) &&
+            MatchesPaths(document.PathGlobs, request.Paths))
+        .OrderBy(document => Order(document))
+        .ThenByDescending(document => document.Priority)
+        .ThenBy(document => document.Id, StringComparer.Ordinal)
+        .ToArray();
+
+    private static List<string> DetectConflicts(IReadOnlyList<GovernanceDocument> documents) =>
+        documents
+            .Where(document => document.Authority == DocumentAuthority.Canonical)
+            .GroupBy(document => $"{document.Topic}:{document.Scope}", StringComparer.Ordinal)
+            .Where(group => group.Count() > 1 && !group.Any(candidate =>
+                group.Any(other => candidate.Supersedes.Contains(other.Id, StringComparer.Ordinal))))
+            .Select(group => $"canonical_conflict:{group.Key}")
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+    private List<ContextBundleSegment> LoadDocumentSegments(
+        IReadOnlyList<GovernanceDocument> documents,
+        List<string> conflicts)
+    {
+        var segments = new List<ContextBundleSegment>();
+        foreach (var document in documents)
+        {
+            var path = Path.Combine(_repositoryRoot, document.Path.Replace('/', Path.DirectorySeparatorChar));
+            var content = File.ReadAllText(path);
+            if (!string.Equals($"sha256:{Sha256(content)}", document.Checksum, StringComparison.Ordinal))
+            {
+                conflicts.Add($"checksum_drift:{document.Id}");
+                continue;
+            }
+
+            if (SecretTextProtector.ContainsSecret(content))
+            {
+                conflicts.Add($"document_contains_secret:{document.Id}");
+                continue;
+            }
+
+            segments.Add(new ContextBundleSegment(
+                DocumentKind(document),
+                document.Id,
+                content,
+                document.TokenEstimate,
+                document.Id == "governance-core"));
+        }
+
+        return segments;
+    }
+
+    private static void AddRuntimeSegments(
+        ICollection<ContextBundleSegment> segments,
+        ContextBundleRequest request)
+    {
+        Add(segments, ContextSegmentKind.PathConstraint, "runtime:path-constraints", request.Paths, false);
+        Add(segments, ContextSegmentKind.StatusDigest, "runtime:status-digest", [request.StatusDigestJson], false);
+        Add(segments, ContextSegmentKind.AcceptanceCriteria, "runtime:acceptance-criteria", request.AcceptanceCriteria, true);
+        Add(segments, ContextSegmentKind.ToolPermission, "runtime:tool-permissions", request.ToolPermissions, false);
+        Add(segments, ContextSegmentKind.Evidence, "runtime:evidence", request.Evidence, false);
+        Add(segments, ContextSegmentKind.StopCondition, "runtime:stop-conditions", request.StopConditions, true);
+        Add(segments, ContextSegmentKind.Budget, "runtime:budget", [$"tokenBudget={request.TokenBudget}"], true);
+    }
+
+    private static void Add(
+        ICollection<ContextBundleSegment> segments,
+        ContextSegmentKind kind,
+        string source,
+        IReadOnlyList<string> values,
+        bool mandatory)
+    {
+        var content = values.Count == 0 ? "(none declared)" : string.Join('\n', values);
+        segments.Add(new ContextBundleSegment(
+            kind,
+            source,
+            content,
+            GovernanceManifestSynchronizer.EstimateTokens(content),
+            mandatory));
+    }
+
+    private static ContextBundleSegment[] ApplyBudget(
+        IReadOnlyList<ContextBundleSegment> segments,
+        int budget,
+        out string[] truncated)
+    {
+        var selected = new List<ContextBundleSegment>();
+        var omitted = new List<string>();
+        var used = 0;
+        foreach (var segment in segments.OrderBy(segment => segment.Kind).ThenBy(segment => segment.SourceId, StringComparer.Ordinal))
+        {
+            if (segment.Mandatory || used + segment.EstimatedTokens <= budget)
+            {
+                selected.Add(segment);
+                used += segment.EstimatedTokens;
+            }
+            else
+            {
+                omitted.Add(segment.SourceId);
+            }
+        }
+
+        truncated = omitted.ToArray();
+        return selected.ToArray();
+    }
+
+    private static string Render(IEnumerable<ContextBundleSegment> segments)
+    {
+        var builder = new StringBuilder();
+        foreach (var segment in segments)
+        {
+            builder.Append("## ").Append(segment.Kind).Append(" — ").AppendLine(segment.SourceId)
+                .AppendLine(segment.Content.Trim()).AppendLine();
+        }
+
+        return builder.ToString().TrimEnd() + "\n";
+    }
+
+    private static string SelectionReason(GovernanceDocument document, ContextBundleRequest request) =>
+        $"{document.LoadPolicy};provider={request.Provider};workflow={request.Workflow};phase={request.Phase};risk={request.RiskTier}";
+
+    private static int Order(GovernanceDocument document) => document.Id == "governance-core" ? 0 : document.Category switch
+    {
+        "organization" => 1,
+        "project" => 2,
+        "workflow" => 3,
+        "persona" => 4,
+        "skill" => 5,
+        "rule" when document.Topic == "coordination" => 6,
+        _ => 7,
+    };
+
+    private static ContextSegmentKind DocumentKind(GovernanceDocument document) => document.Id == "governance-core"
+        ? ContextSegmentKind.Core
+        : document.Category switch
+        {
+            "organization" => ContextSegmentKind.Organization,
+            "project" => ContextSegmentKind.Project,
+            "workflow" => ContextSegmentKind.WorkflowPhase,
+            "persona" => ContextSegmentKind.Persona,
+            "skill" => ContextSegmentKind.Skill,
+            "rule" when document.Topic == "coordination" => ContextSegmentKind.PathConstraint,
+            _ => ContextSegmentKind.Project,
+        };
+
+    private static bool Matches(IReadOnlyList<string> values, string expected) =>
+        values.Contains("*", StringComparer.Ordinal) || values.Contains(expected, StringComparer.OrdinalIgnoreCase);
+
+    private static bool MatchesPaths(IReadOnlyList<string> globs, IReadOnlyList<string> paths) =>
+        globs.Contains("**", StringComparer.Ordinal) || paths.Count == 0 || paths.Any(path => globs.Any(glob =>
+            glob.EndsWith("/**", StringComparison.Ordinal)
+                ? path.StartsWith(glob[..^3].TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(path, glob[..^3].TrimEnd('/'), StringComparison.OrdinalIgnoreCase)
+                : string.Equals(path, glob, StringComparison.OrdinalIgnoreCase)));
+
+    private static string Sha256(string content) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+}

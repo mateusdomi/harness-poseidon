@@ -25,8 +25,13 @@ using Harness.Host.Workflows;
 using Harness.Host.Tools;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.Fake;
+using Harness.Modules.Agents.Infrastructure.OmpRpc;
 using Harness.Modules.Execution.Application.Sandbox;
 using Harness.Modules.Execution.Infrastructure.Sandbox;
+using Harness.Modules.Governance.Context;
+using Harness.Modules.Governance.Evaluation;
+using Harness.Modules.Governance.Documentation;
+using Harness.Modules.Governance.Patching;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Agents;
@@ -182,6 +187,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IProviderCatalogStore, PostgresProviderCatalogStore>();
             builder.Services.AddSingleton<INotificationStore, PostgresNotificationStore>();
             builder.Services.AddSingleton<IAuditEventStore, PostgresAuditEventStore>();
+            builder.Services.AddSingleton<IGovernanceRuntimeStore, PostgresGovernanceRuntimeStore>();
             builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
@@ -204,6 +210,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IProviderCatalogStore, SqliteProviderCatalogStore>();
             builder.Services.AddSingleton<INotificationStore, SqliteNotificationStore>();
             builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
+            builder.Services.AddSingleton<IGovernanceRuntimeStore, SqliteGovernanceRuntimeStore>();
             builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
@@ -260,9 +267,18 @@ public static class HostApplication
             else
             {
                 builder.Services.AddSingleton<ISandboxProvider>(_ => new DockerSandboxProvider());
-                builder.Services.AddSingleton<ISandboxAgentExecutorFactory>(services =>
-                    new CodexCliSandboxExecutorFactory(
-                        services.GetRequiredService<IsolatedExecutionOptions>()));
+                if (string.Equals(isolatedSettings.ExecutorId, "omp-rpc", StringComparison.Ordinal))
+                {
+                    builder.Services.AddSingleton<ISandboxAgentExecutorFactory>(services =>
+                        new OmpRpcSandboxExecutorFactory(
+                            services.GetRequiredService<OmpRpcAgentExecutorOptions>()));
+                }
+                else
+                {
+                    builder.Services.AddSingleton<ISandboxAgentExecutorFactory>(services =>
+                        new CodexCliSandboxExecutorFactory(
+                            services.GetRequiredService<IsolatedExecutionOptions>()));
+                }
             }
 
             builder.Services.AddSingleton(services => new IsolatedAttemptOrchestrator(
@@ -329,10 +345,38 @@ public static class HostApplication
                 TimeSpan.FromSeconds(1),
                 TimeSpan.FromMinutes(2)));
         builder.Services.AddHostedService<DurableExecutionWatchdogBackgroundService>();
+        var governanceFeatures = builder.Configuration
+            .GetSection("Harness:Governance:Features")
+            .Get<GovernanceFeatureSettings>() ?? new GovernanceFeatureSettings();
+        builder.Services.AddSingleton(governanceFeatures);
         builder.Services.AddSingleton(
             new ChiefTurnWorkerOptions(
                 TimeSpan.FromMilliseconds(100),
-                TimeSpan.FromMinutes(2)));
+                TimeSpan.FromMinutes(2))
+            {
+                ContextBundlesEnabled = governanceFeatures.ContextBundlesEnabled,
+                ContextTokenBudget = governanceFeatures.ContextTokenBudget,
+            });
+        var governanceRoot = ResolveGovernanceRoot(builder.Environment.ContentRootPath)
+            ?? throw new DirectoryNotFoundException("governance/manifest.yaml is required by the Chief runtime.");
+        builder.Services.AddSingleton(new ContextBundleBuilder(governanceRoot));
+        builder.Services.AddSingleton(new StaleDocumentDetector(
+            governanceRoot,
+            new StaleDocumentDetectorOptions { Enabled = governanceFeatures.StaleDocumentDetectorEnabled }));
+        builder.Services.AddSingleton(new HashlinePatchOptions
+        {
+            Enabled = governanceFeatures.HashlinePatchesEnabled,
+        });
+        var evaluatorOptions = builder.Configuration
+            .GetSection("Harness:Governance:Evaluator")
+            .Get<FreshContextEvaluatorOptions>() ?? new FreshContextEvaluatorOptions();
+        builder.Services.AddSingleton(evaluatorOptions);
+        builder.Services.AddSingleton<IFreshContextEvaluator, FreshContextEvaluator>();
+        var ompOptions = builder.Configuration
+            .GetSection("Harness:AgentExecutors:OmpRpc")
+            .Get<OmpRpcAgentExecutorOptions>() ?? new OmpRpcAgentExecutorOptions();
+        builder.Services.AddSingleton(ompOptions);
+        builder.Services.AddSingleton<AgentExecutorCatalog>();
         builder.Services.AddSingleton<ChiefInvocationRoutingService>();
         builder.Services.AddHostedService<ChiefTurnBackgroundService>();
         builder.Services.AddSingleton<EventPublisher>();
@@ -387,6 +431,7 @@ public static class HostApplication
         app.MapProviders();
         app.MapNotifications();
         app.MapGovernance();
+        app.MapGovernanceRuntime();
         app.MapPrototypes();
         app.MapVisualReferenceAssets();
         app.MapRunTargets();
@@ -484,6 +529,23 @@ public static class HostApplication
             candidates.Add(Path.Combine(directory.FullName, "src", "Harness.Host", "wwwroot"));
             candidates.Add(Path.Combine(directory.FullName, "wwwroot"));
         }
+    }
+
+    private static string? ResolveGovernanceRoot(string contentRoot)
+    {
+        foreach (var start in new[] { contentRoot, AppContext.BaseDirectory })
+        {
+            for (var directory = new DirectoryInfo(Path.GetFullPath(start)); directory is not null;
+                 directory = directory.Parent)
+            {
+                if (File.Exists(Path.Combine(directory.FullName, "governance", "manifest.yaml")))
+                {
+                    return directory.FullName;
+                }
+            }
+        }
+
+        return null;
     }
 
     private sealed record HealthResponse(string Status);
