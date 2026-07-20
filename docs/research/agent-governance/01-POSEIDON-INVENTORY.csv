@@ -1,0 +1,28 @@
+path,categoria,autoridade,tipo,autoload_hoje,linhas,tokens_est,ultimo_commit,recomendacao
+docs/backend/execution/CURRENT_STATE.md,estado/handoff,projecao_manual,operacional,nao,129,1400,2026-07-19,tornar projecao gerada; banir paths absolutos
+docs/backend/execution/PROGRESS.md,progresso,projecao,operacional,nao,153,1700,2026-07-19,gerar de evidencias
+docs/backend/execution/ROADMAP_PROGRESS.md,progresso,projecao,operacional,nao,103,1100,2026-07-19,manter
+docs/backend/execution/MASTER_PLAN.md,plano,normativo,operacional,nao,96,1050,2026-07-18,manter
+docs/backend/execution/RISKS.md,risco,normativo,operacional,nao,~60,650,2026-07-19,manter
+docs/backend/execution/DECISIONS_PENDING.md,decisao,operacional,operacional,nao,~40,450,2026-07-19,manter
+docs/backend/execution/ENVIRONMENT.md,ambiente,descritivo,operacional,nao,96,1050,2026-07-19,manter
+docs/backend/execution/evidence/* (113 arquivos),evidencia,evidencia,gerado,nao,~2000,22000,2026-07-*,padronizar minimo por gate
+docs/decisions/ADR-001..014,decisao,normativo,historico,nao,~500,5500,2026-07-*,indexar no manifest
+docs/architecture/CONTEXT_MAP.md,arquitetura,normativo,referencia,nao,~50,550,2026-07-18,carregar por bundle
+docs/architecture/INVARIANTS.md,arquitetura,normativo,referencia,nao,~50,550,2026-07-18,Camada 0/1
+docs/architecture/MODULE_CATALOG.md,arquitetura,normativo,referencia,nao,~60,650,2026-07-18,carregar por bundle
+docs/security/THREAT_MODEL.md,seguranca,CONCORRENTE,normativo,nao,~70,770,2026-07-18,consolidar (duplicado divergente)
+docs/backend/security/THREAT_MODEL.md,seguranca,CONCORRENTE,normativo,nao,~70,770,2026-07-19,consolidar (duplicado divergente)
+docs/backend/security/RELEASE_CHECKLIST.md,seguranca,normativo,operacional,nao,~50,550,2026-07-19,manter
+docs/backend/operations/INCIDENT_RUNBOOK.md,operacao,normativo,runbook,nao,~60,650,2026-07-*,manter
+docs/frontend/CURRENT_STATE.md,estado/handoff,projecao_manual,operacional,nao,~90,1000,2026-07-18,converter regra de git em hook
+docs/frontend/HANDOFF_API.md,contrato,provisorio,referencia,nao,302,3300,2026-07-19,OpenAPI canonico apos reconciliacao
+docs/frontend/DECISIONS.md,decisao,normativo,historico,nao,337,3700,2026-07-18,manter
+docs/frontend/SCREENS.md,referencia,descritivo,referencia,nao,191,2100,2026-07-18,manter
+docs/contracts/CONTRACT_RECONCILIATION.md,contrato,operacional,operacional,nao,97,1050,2026-07-19,manter
+docs/testing/STRATEGY.md,teste,normativo,referencia,nao,~50,550,2026-07-*,manter
+README.md,entrada humana,descritivo,referencia,nao,~40,450,2026-07-17,manter curto
+tools/backend/* (17 scripts),enforcement,operacional,operacional,n/a,~800,codigo,2026-07-*,ancorar doc-linter aqui
+(AUSENTE) CLAUDE.md / AGENTS.md / .claude/ / .codex/,entrypoint agente,-,-,-,0,0,-,CRIAR via canonico+adapters gerados
+(AUSENTE) MANIFEST/INDEX,indice,-,-,-,0,0,-,CRIAR docs/MANIFEST.yaml + linter
+(EXTERNO) ~/Downloads/PROMPT..._v1.3_COM_ADENDO.md + continuidade + v3,fonte de verdade,normativo,FORA DO GIT,manual,?,?,?,IMPORTAR para governance/prompts/ versionado

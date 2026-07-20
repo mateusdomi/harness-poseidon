@@ -1,0 +1,16 @@
+capacidade,reduz_erro,reduz_tokens,velocidade,debugging,seguranca,governanca,complexidade_adocao,licenca,decisao_poseidon,prioridade
+hashline/stale-patch-rejection,alto,alto,alto,medio,baixo,medio,baixa (conceito reimplementavel),MIT,reimplementar no executor .NET,P0
+rpc-ndjson-stdio,medio,medio,alto,alto,medio,alto,media,MIT,adapter OmpRpcAgentExecutor,P0-P1
+lsp-integrado,alto,medio,alto,alto,baixo,medio,alta se nativo; baixa via RPC,MIT,sidecar via RPC,P1
+dap-debugger,alto,baixo,medio,muito alto,baixo,medio,alta se nativo; baixa via RPC,MIT,sidecar via RPC,P1
+typed-subagent-output,alto,medio,medio,medio,medio,alto,ja decidido no produto,MIT,verificar aplicacao universal,P0
+advisor-second-model,alto,negativo (custo),baixo,alto,medio,alto,media,MIT,adaptar como critic em-turno opcional,P2
+hindsight-memoria-projeto,medio,medio,medio,baixo,medio,alto,media,MIT,inspiracao p/ pipeline candidate->promoted,P1
+checkpoint-rewind,baixo,alto,medio,baixo,baixo,baixo,media,MIT,inspiracao (rotacao+digest ja cobrem),P2
+stream-rules,medio,alto,medio,baixo,medio,alto,media,MIT,inspiracao (regras dormentes),P2
+review-P0-P3-veredito,medio,baixo,medio,medio,baixo,alto,baixa (formato),MIT,adaptar formato no critic,P1
+ast-edit-preview-accept,medio,medio,medio,baixo,medio,medio,alta,MIT,futuro,P3
+atomic-commit-splitting,baixo,baixo,medio,baixo,baixo,medio,alta,MIT,inspiracao,P3
+conflict-uri-resolution,baixo,baixo,medio,baixo,baixo,baixo,media,MIT,inspiracao,P3
+browser-cdp,baixo,baixo,medio,medio,ALTO RISCO,baixo,alta,MIT,rejeitar por ora (superficie),P3
+round-robin-credenciais,-,-,-,-,-,-,-,MIT,rejeitar p/ multiusuario; ok multiplas chaves do mesmo titular,-
