@@ -148,7 +148,7 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
         await using (var query = c.CreateCommand())
         {
             query.Transaction = tx;
-            query.CommandText = "SELECT a.state,EXISTS(SELECT 1 FROM budgets b WHERE b.tenant_id=a.tenant_id AND b.scope='account' AND b.scope_id=a.id) FROM provider_accounts a WHERE a.tenant_id=$tenant AND a.id=$id;";
+            query.CommandText = "SELECT a.state,EXISTS(SELECT 1 FROM budgets b WHERE b.tenant_id=a.tenant_id AND b.scope='account' AND b.scope_id=a.id),EXISTS(SELECT 1 FROM agent_definitions d WHERE d.tenant_id=a.tenant_id AND d.preferred_account_id=a.id) FROM provider_accounts a WHERE a.tenant_id=$tenant AND a.id=$id;";
             Add(query, "$tenant", command.TenantId); Add(query, "$id", command.Id);
             await using var reader = await query.ExecuteReaderAsync(token);
             if (!await reader.ReadAsync(token)) throw new ProviderCatalogNotFoundException("account");
@@ -156,6 +156,8 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
                 throw new ProviderCatalogLifecycleException("Only a disabled provider account can be removed.");
             if (reader.GetInt64(1) != 0)
                 throw new ProviderCatalogLifecycleException("A provider account referenced by a budget cannot be removed.");
+            if (reader.GetInt64(2) != 0)
+                throw new ProviderCatalogLifecycleException("A provider account referenced by an agent definition cannot be removed.");
         }
         await ExecuteAsync(c, tx,
             "DELETE FROM provider_accounts WHERE tenant_id=$tenant AND id=$id;", token,

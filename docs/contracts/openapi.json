@@ -12488,7 +12488,14 @@
                     "limitations",
                     "version",
                     "enabled",
-                    "archivedAt"
+                    "archivedAt",
+                    "stacks",
+                    "defaultEffort",
+                    "preferredAccountId",
+                    "fallbackModelIds",
+                    "team",
+                    "actorCritic",
+                    "risk"
                 ],
                 "type": "object",
                 "properties": {
@@ -12590,6 +12597,48 @@
                             "string"
                         ],
                         "format": "date-time"
+                    },
+                    "stacks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "defaultEffort": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAccountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "fallbackModelIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "team": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "actorCritic": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "risk": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -12645,7 +12694,14 @@
                     "deliverables",
                     "qualityCriteria",
                     "communicationStyle",
-                    "limitations"
+                    "limitations",
+                    "stacks",
+                    "defaultEffort",
+                    "preferredAccountId",
+                    "fallbackModelIds",
+                    "team",
+                    "actorCritic",
+                    "risk"
                 ],
                 "type": "object",
                 "properties": {
@@ -12726,6 +12782,48 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "stacks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "defaultEffort": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAccountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "fallbackModelIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "team": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "actorCritic": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "risk": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -12887,6 +12985,54 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "stacks": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "defaultEffort": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAccountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "fallbackModelIds": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "team": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "actorCritic": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "risk": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     },
                     "expectedVersion": {
                         "pattern": "^-?(?:0|[1-9]\\d*)$",

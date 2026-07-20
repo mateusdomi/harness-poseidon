@@ -106,16 +106,24 @@ public static class CatalogStoreBehavior
             Assert.NotNull(selected.ProviderEffortValue);
         }
 
+        var definitionModels = models.Where(value => value.ProviderId == account.ProviderId && value.Enabled).ToArray();
         var definitionContent = new AgentDefinitionContent(
             "provider-neutral-reviewer", "Provider-neutral Reviewer", "specialist", "Review",
-            "Reviews provider-neutral behavior.", models[0].Id, [], [], "Critical reviewer",
+            "Reviews provider-neutral behavior.", definitionModels[0].Id, [], [], "Critical reviewer",
             "Protect parity.", ["Compare providers"], ["Parity report"], ["Equivalent result"],
-            "Concise", ["No self approval"]);
+            "Concise", ["No self approval"], ["dotnet", "postgres"], "high", account.Id,
+            [definitionModels[1].Id], "Platform", "critic", "high");
         const string customDefinitionId = "01ARZ3NDEKTSV4RRFFQ69G5FP1";
         var customDefinition = await agents.CreateDefinitionAsync(new(
             tenantId, tenantId, customDefinitionId, definitionContent,
             DateTimeOffset.Parse("2026-07-19T12:05:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
         Assert.Equal(1, customDefinition.Version);
+        Assert.Equal(["dotnet", "postgres"], customDefinition.Stacks);
+        Assert.Equal("high", customDefinition.DefaultEffort);
+        Assert.Equal(account.Id, customDefinition.PreferredAccountId);
+        Assert.Equal([definitionModels[1].Id], customDefinition.FallbackModelIds);
+        Assert.Equal(("Platform", "critic", "high"),
+            (customDefinition.Team, customDefinition.ActorCritic, customDefinition.Risk));
         customDefinition = await agents.UpdateDefinitionAsync(new(
             tenantId, tenantId, customDefinitionId, 1,
             definitionContent with { Name = "Provider-neutral Senior Reviewer" },
@@ -125,6 +133,8 @@ public static class CatalogStoreBehavior
             tenantId, customDefinitionId, null, 1, cancellationToken));
         Assert.Equal(2, latestDefinitionVersion.Version);
         Assert.Equal("Provider-neutral Senior Reviewer", latestDefinitionVersion.Snapshot.Name);
+        Assert.Equal(["dotnet", "postgres"], latestDefinitionVersion.Snapshot.Stacks);
+        Assert.Equal(account.Id, latestDefinitionVersion.Snapshot.PreferredAccountId);
         var initialDefinitionVersion = Assert.Single(await agents.ListDefinitionVersionsAsync(
             tenantId, customDefinitionId, 2, 1, cancellationToken));
         Assert.Equal(1, initialDefinitionVersion.Version);

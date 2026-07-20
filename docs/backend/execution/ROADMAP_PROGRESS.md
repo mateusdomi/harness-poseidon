@@ -88,7 +88,8 @@ Independentes (trabalho técnico que prossegue sem terceiros):
    publicação, tombstones, exclusão, duplicação e vínculo por projeto). No quadro, arquivamento,
    paginação server-side das tarefas e filtro de fase persistido estão verdes; lote e CSV
    Excel-compatible permanecem client-side. O CRUD/versionamento/lifecycle de definições de
-   agentes e seu histórico de revisões tipado já estão verdes nos dois providers.
+   agentes, seus defaults operacionais avançados e o histórico de revisões tipado já estão verdes
+   nos dois providers.
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
@@ -110,8 +111,9 @@ v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão
 tenant-scoped de organograma v3 §8.10 também
 está **implementado/validado/integrado**. Em §8.13, criação, PATCH e remoção segura de contas estão
 **implementados/validados/integrados** com paridade SQLite/PostgreSQL, incluindo os metadados
-operacionais. O catálogo de effort tipado e a seleção por agente estão verdes; CRUD avançado de
-modelos continua parcial. O FR-4 de workflows (draft, cópia, edição,
+operacionais. O catálogo de effort tipado, a seleção por agente e os defaults avançados das
+definições estão verdes; CRUD avançado de modelos continua parcial. O FR-4 de workflows (draft,
+cópia, edição,
 validação, publicação imutável,
 tombstones, exclusão restrita, duplicação e vínculo por projeto) está
 **implementado/validado/integrado** nos dois providers. Os demais itens seguem em auditoria

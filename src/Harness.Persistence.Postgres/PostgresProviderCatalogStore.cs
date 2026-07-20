@@ -337,7 +337,7 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         await using (var query = connection.CreateCommand())
         {
             query.Transaction = transaction;
-            query.CommandText = "SELECT a.state,EXISTS(SELECT 1 FROM harness.budgets b WHERE b.tenant_id=a.tenant_id AND b.scope='account' AND b.scope_id=a.id) FROM harness.provider_accounts a WHERE a.tenant_id=$1 AND a.id=$2 FOR UPDATE;";
+            query.CommandText = "SELECT a.state,EXISTS(SELECT 1 FROM harness.budgets b WHERE b.tenant_id=a.tenant_id AND b.scope='account' AND b.scope_id=a.id),EXISTS(SELECT 1 FROM harness.agent_definitions d WHERE d.tenant_id=a.tenant_id AND d.preferred_account_id=a.id) FROM harness.provider_accounts a WHERE a.tenant_id=$1 AND a.id=$2 FOR UPDATE;";
             query.Parameters.Add(Text(command.TenantId)); query.Parameters.Add(Text(command.Id));
             await using var reader = await query.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken)) throw new ProviderCatalogNotFoundException("account");
@@ -345,6 +345,8 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
                 throw new ProviderCatalogLifecycleException("Only a disabled provider account can be removed.");
             if (reader.GetBoolean(1))
                 throw new ProviderCatalogLifecycleException("A provider account referenced by a budget cannot be removed.");
+            if (reader.GetBoolean(2))
+                throw new ProviderCatalogLifecycleException("A provider account referenced by an agent definition cannot be removed.");
         }
         await ExecuteAsync(connection, transaction,
             "DELETE FROM harness.provider_accounts WHERE tenant_id=$1 AND id=$2;",

@@ -9,6 +9,8 @@ public sealed class AgentContractDriftTests
         "id", "key", "name", "role", "specialty", "description", "defaultModelId", "skillIds", "toolIds",
         "persona", "mission", "operatingPrinciples", "deliverables", "qualityCriteria",
         "communicationStyle", "limitations", "version", "enabled", "archivedAt",
+        "stacks", "defaultEffort", "preferredAccountId", "fallbackModelIds", "team",
+        "actorCritic", "risk",
     ];
 
     private static readonly string[] AgentFields =

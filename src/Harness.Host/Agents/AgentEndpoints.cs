@@ -152,7 +152,7 @@ public static class AgentEndpoints
     private static async Task<IResult> DuplicateDefinitionAsync(string definitionId, AgentDefinitionDuplicateRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var value = await store.DuplicateDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, id, input.Key, input.Name, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static async Task<IResult> SetDefinitionLifecycleAsync(string definitionId, string action, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { return Results.Ok(ToContract(await store.SetDefinitionLifecycleAsync(new(profile.TenantId, profile.Id, definitionId, action, clock.UtcNow), token))); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static async Task<IResult> DeleteDefinitionAsync(string definitionId, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { await store.DeleteDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, clock.UtcNow), token); return Results.NoContent(); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
-    private static AgentDefinitionContent ToContent(AgentDefinitionWriteRequest value) => new(value.Key, value.Name, value.Role, value.Specialty, value.Description, value.DefaultModelId, value.SkillIds, value.ToolIds, value.Persona, value.Mission, value.OperatingPrinciples, value.Deliverables, value.QualityCriteria, value.CommunicationStyle, value.Limitations);
+    private static AgentDefinitionContent ToContent(AgentDefinitionWriteRequest value) => new(value.Key, value.Name, value.Role, value.Specialty, value.Description, value.DefaultModelId, value.SkillIds, value.ToolIds, value.Persona, value.Mission, value.OperatingPrinciples, value.Deliverables, value.QualityCriteria, value.CommunicationStyle, value.Limitations, value.Stacks, value.DefaultEffort, value.PreferredAccountId, value.FallbackModelIds, value.Team, value.ActorCritic, value.Risk);
 
     private static async Task<IResult> ListAgentsAsync(
         string? projectId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles,
@@ -268,7 +268,9 @@ public static class AgentEndpoints
         value.Id, value.Key, value.Name, value.Role, value.Specialty, value.Description,
         value.DefaultModelId, value.SkillIds, value.ToolIds, value.Persona, value.Mission,
         value.OperatingPrinciples ?? [], value.Deliverables ?? [], value.QualityCriteria ?? [],
-        value.CommunicationStyle, value.Limitations ?? [], value.Version, value.Enabled, value.ArchivedAt);
+        value.CommunicationStyle, value.Limitations ?? [], value.Version, value.Enabled, value.ArchivedAt,
+        value.Stacks ?? [], value.DefaultEffort, value.PreferredAccountId,
+        value.FallbackModelIds ?? [], value.Team, value.ActorCritic, value.Risk);
 
     private static AgentDefinitionVersionContract ToContract(AgentDefinitionVersionRecord value) => new(
         value.Id, value.DefinitionId, value.Version,
@@ -277,7 +279,10 @@ public static class AgentEndpoints
             value.Snapshot.SkillIds, value.Snapshot.ToolIds, value.Snapshot.Persona,
             value.Snapshot.Mission, value.Snapshot.OperatingPrinciples,
             value.Snapshot.Deliverables, value.Snapshot.QualityCriteria,
-            value.Snapshot.CommunicationStyle, value.Snapshot.Limitations),
+            value.Snapshot.CommunicationStyle, value.Snapshot.Limitations,
+            value.Snapshot.Stacks ?? [], value.Snapshot.DefaultEffort,
+            value.Snapshot.PreferredAccountId, value.Snapshot.FallbackModelIds ?? [],
+            value.Snapshot.Team, value.Snapshot.ActorCritic, value.Snapshot.Risk),
         value.ActorProfileId, value.CreatedAt);
 
     private static AgentContract ToContract(AgentRecord value) => new(
@@ -302,14 +307,18 @@ public sealed record AgentDefinitionContract(
     string? Persona, string? Mission, IReadOnlyList<string> OperatingPrinciples,
     IReadOnlyList<string> Deliverables, IReadOnlyList<string> QualityCriteria,
     string? CommunicationStyle, IReadOnlyList<string> Limitations, int Version, bool Enabled,
-    DateTimeOffset? ArchivedAt);
+    DateTimeOffset? ArchivedAt, IReadOnlyList<string> Stacks, string? DefaultEffort,
+    string? PreferredAccountId, IReadOnlyList<string> FallbackModelIds, string? Team,
+    string? ActorCritic, string? Risk);
 public sealed record AgentDefinitionPage(IReadOnlyList<AgentDefinitionContract> Items, string? NextCursor);
 public sealed record AgentDefinitionSnapshotContract(
     string Key, string Name, string Role, string? Specialty, string Description,
     string? DefaultModelId, IReadOnlyList<string> SkillIds, IReadOnlyList<string> ToolIds,
     string? Persona, string? Mission, IReadOnlyList<string> OperatingPrinciples,
     IReadOnlyList<string> Deliverables, IReadOnlyList<string> QualityCriteria,
-    string? CommunicationStyle, IReadOnlyList<string> Limitations);
+    string? CommunicationStyle, IReadOnlyList<string> Limitations,
+    IReadOnlyList<string> Stacks, string? DefaultEffort, string? PreferredAccountId,
+    IReadOnlyList<string> FallbackModelIds, string? Team, string? ActorCritic, string? Risk);
 public sealed record AgentDefinitionVersionContract(
     string Id, string DefinitionId, int Version, AgentDefinitionSnapshotContract Snapshot,
     string ActorProfileId, DateTimeOffset CreatedAt);
@@ -341,5 +350,9 @@ public sealed record AgentDefinitionWriteRequest(
     string? DefaultModelId, IReadOnlyList<string> SkillIds, IReadOnlyList<string> ToolIds,
     string? Persona, string? Mission, IReadOnlyList<string> OperatingPrinciples,
     IReadOnlyList<string> Deliverables, IReadOnlyList<string> QualityCriteria,
-    string? CommunicationStyle, IReadOnlyList<string> Limitations, int ExpectedVersion = 0);
+    string? CommunicationStyle, IReadOnlyList<string> Limitations,
+    IReadOnlyList<string>? Stacks = null, string? DefaultEffort = null,
+    string? PreferredAccountId = null, IReadOnlyList<string>? FallbackModelIds = null,
+    string? Team = null, string? ActorCritic = null, string? Risk = null,
+    int ExpectedVersion = 0);
 public sealed record AgentDefinitionDuplicateRequest(string Key, string Name);

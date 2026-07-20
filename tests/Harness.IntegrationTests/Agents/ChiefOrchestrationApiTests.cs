@@ -105,12 +105,16 @@ public sealed class ChiefOrchestrationApiTests
                         "Reviews threats and evidence.", specialist.DefaultModelId, specialist.SkillIds,
                         specialist.ToolIds, "Skeptical reviewer", "Prevent exploitable releases.",
                         ["Verify evidence"], ["Threat report"], ["No unresolved critical risk"],
-                        "Direct and traceable", ["Cannot approve own work"]);
+                        "Direct and traceable", ["Cannot approve own work"],
+                        ["dotnet", "security"], "high", null, [], "Platform", "critic", "high");
                     using (var createDefinition = await client.PostAsJsonAsync("/api/v1/agent-definitions", custom, timeout.Token))
                     {
                         Assert.Equal(HttpStatusCode.Created, createDefinition.StatusCode);
                         var created = (await createDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))!;
                         customDefinitionId = created.Id; Assert.Equal(1, created.Version); Assert.True(created.Enabled);
+                        Assert.Equal(["dotnet", "security"], created.Stacks);
+                        Assert.Equal(("high", "Platform", "critic", "high"),
+                            (created.DefaultEffort, created.Team, created.ActorCritic, created.Risk));
                     }
                     using (var updateDefinition = await client.PatchAsJsonAsync($"/api/v1/agent-definitions/{customDefinitionId}", custom with { Name = "Senior Security Reviewer", ExpectedVersion = 1 }, timeout.Token))
                     { updateDefinition.EnsureSuccessStatusCode(); Assert.Equal(2, (await updateDefinition.Content.ReadFromJsonAsync<AgentDefinitionContract>(timeout.Token))?.Version); }

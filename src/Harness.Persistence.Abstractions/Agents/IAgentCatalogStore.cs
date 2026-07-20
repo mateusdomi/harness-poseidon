@@ -53,14 +53,20 @@ public sealed record AgentDefinitionRecord(
     IReadOnlyList<string>? OperatingPrinciples = null, IReadOnlyList<string>? Deliverables = null,
     IReadOnlyList<string>? QualityCriteria = null, string? CommunicationStyle = null,
     IReadOnlyList<string>? Limitations = null, int Version = 1, bool Enabled = true,
-    DateTimeOffset? ArchivedAt = null);
+    DateTimeOffset? ArchivedAt = null, IReadOnlyList<string>? Stacks = null,
+    string? DefaultEffort = null, string? PreferredAccountId = null,
+    IReadOnlyList<string>? FallbackModelIds = null, string? Team = null,
+    string? ActorCritic = null, string? Risk = null);
 
 public sealed record AgentDefinitionContent(
     string Key, string Name, string Role, string? Specialty, string Description,
     string? DefaultModelId, IReadOnlyList<string> SkillIds, IReadOnlyList<string> ToolIds,
     string? Persona, string? Mission, IReadOnlyList<string> OperatingPrinciples,
     IReadOnlyList<string> Deliverables, IReadOnlyList<string> QualityCriteria,
-    string? CommunicationStyle, IReadOnlyList<string> Limitations);
+    string? CommunicationStyle, IReadOnlyList<string> Limitations,
+    IReadOnlyList<string>? Stacks = null, string? DefaultEffort = null,
+    string? PreferredAccountId = null, IReadOnlyList<string>? FallbackModelIds = null,
+    string? Team = null, string? ActorCritic = null, string? Risk = null);
 public sealed record AgentDefinitionVersionRecord(
     string Id, string DefinitionId, int Version, AgentDefinitionContent Snapshot,
     string ActorProfileId, DateTimeOffset CreatedAt);
