@@ -105,9 +105,9 @@ export function useCockpitWorkflow(projectId: Ulid | null) {
     phases: phasesQuery.data ?? [],
     gates: gatesQuery.data ?? [],
     isPending:
-      workflowsQuery.isPending ||
-      (workflow !== null && runsQuery.isPending) ||
-      (run !== null && (phasesQuery.isPending || gatesQuery.isPending)),
+      workflowsQuery.isLoading ||
+      (workflow !== null && runsQuery.isLoading) ||
+      (run !== null && (phasesQuery.isLoading || gatesQuery.isLoading)),
     isError:
       workflowsQuery.isError || runsQuery.isError || phasesQuery.isError || gatesQuery.isError,
     refetch: () => {

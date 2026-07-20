@@ -9,6 +9,7 @@ import { buildFixtures, DeterministicUlidGenerator, FIXTURE_SEED } from './fixtu
 export * from './contracts';
 export * from './client';
 export * from './realtime';
+export * from './request-observability';
 export {
   buildFixtures,
   createTickClock,

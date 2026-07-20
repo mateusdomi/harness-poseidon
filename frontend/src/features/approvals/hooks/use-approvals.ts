@@ -63,11 +63,11 @@ export function useApprovalsQueue() {
     documents: documentsQuery.data ?? [],
     tasks: tasksQuery.data ?? [],
     isPending:
-      approvalsQuery.isPending ||
-      projectsQuery.isPending ||
-      gatesQuery.isPending ||
-      documentsQuery.isPending ||
-      tasksQuery.isPending,
+      approvalsQuery.isLoading ||
+      projectsQuery.isLoading ||
+      gatesQuery.isLoading ||
+      documentsQuery.isLoading ||
+      tasksQuery.isLoading,
     isError:
       approvalsQuery.isError ||
       projectsQuery.isError ||

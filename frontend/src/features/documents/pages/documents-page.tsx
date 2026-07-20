@@ -72,7 +72,7 @@ export default function UdocumentsPage() {
     );
   }
 
-  const loading = isPending || documentsQuery.isPending;
+  const loading = isPending || documentsQuery.isLoading;
   const errored = isError || documentsQuery.isError;
   const documents = useMemo(() => {
     let result = documentsQuery.data ?? [];

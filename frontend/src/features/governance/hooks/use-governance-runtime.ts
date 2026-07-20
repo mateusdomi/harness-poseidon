@@ -57,7 +57,7 @@ export function useGovernanceRuntimeOverview(query: GovernanceReceiptQuery = { l
   const queries = { receipts, staleFindings, benchmark, executors, diagnostics };
   return {
     ...queries,
-    isPending: Object.values(queries).some((item) => item.isPending),
+    isPending: Object.values(queries).some((item) => item.isLoading),
     isError: Object.values(queries).some((item) => item.isError),
     refetch: () => {
       for (const item of Object.values(queries)) void item.refetch();
@@ -126,7 +126,7 @@ export function useLearningCandidateDetail(candidateId: string | null) {
   const queries = { detail, evidence, comparison, history };
   return {
     ...queries,
-    isPending: enabled && Object.values(queries).some((item) => item.isPending),
+    isPending: enabled && Object.values(queries).some((item) => item.isLoading),
     error: Object.values(queries).find((item) => item.error)?.error ?? null,
     refetch: () => {
       for (const item of Object.values(queries)) void item.refetch();

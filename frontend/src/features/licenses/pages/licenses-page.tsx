@@ -38,7 +38,7 @@ export default function UlicensesPage() {
   });
 
   const license = licenseQuery.data ?? null;
-  const loading = licenseQuery.isPending || entitlementsQuery.isPending;
+  const loading = licenseQuery.isLoading || entitlementsQuery.isLoading;
   const errored = licenseQuery.isError || entitlementsQuery.isError;
 
   async function submit(values: ActivationFormValues) {

@@ -93,7 +93,7 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
             <CardTitle>{t('organizations.detail.workflows')}</CardTitle>
           </CardHeader>
           <CardContent>
-            {templatesQuery.isPending ? (
+            {templatesQuery.isLoading ? (
               <Skeleton className="h-6 w-full" />
             ) : templatesQuery.isError ? (
               <div className="flex flex-col items-start gap-2">
@@ -180,7 +180,7 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
           <CardTitle>{t('organizations.detail.projects')}</CardTitle>
         </CardHeader>
         <CardContent>
-          {projectsQuery.isPending ? (
+          {projectsQuery.isLoading ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-14 w-full" />
               <Skeleton className="h-14 w-full" />
@@ -194,11 +194,11 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
                 {t('common.actions.retry')}
               </Button>
             </div>
-          ) : projectsQuery.data.length === 0 ? (
+          ) : (projectsQuery.data ?? []).length === 0 ? (
             <p className="text-sm text-foreground-muted">{t('organizations.detail.noProjects')}</p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
-              {projectsQuery.data.map((project) => (
+              {(projectsQuery.data ?? []).map((project) => (
                 <li
                   key={project.id}
                   className="flex flex-col gap-2 rounded-md border border-border bg-surface-elevated p-4"

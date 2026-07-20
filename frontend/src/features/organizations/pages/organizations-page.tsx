@@ -72,7 +72,7 @@ export default function OrganizationsPage() {
 
       {view.kind === 'list' && (
         <>
-          {organizationsQuery.isPending ? (
+          {organizationsQuery.isLoading ? (
             <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
               <Skeleton className="h-11 w-full" />
               <Skeleton className="h-24 w-full" />
@@ -93,7 +93,7 @@ export default function OrganizationsPage() {
             </div>
           ) : (
             <OrganizationList
-              organizations={organizationsQuery.data}
+              organizations={organizationsQuery.data ?? []}
               onSelect={(organization) => setView({ kind: 'detail', organization })}
               onCreateNew={() => setView({ kind: 'create' })}
             />

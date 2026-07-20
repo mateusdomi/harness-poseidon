@@ -395,3 +395,18 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 
 - **Decisão:** `projectId`, `type`, `state`, `cursor` e `limit` são enviados ao endpoint de listagem. Como o OpenAPI P2 não publica `from`/`to`, o período filtra somente as páginas já recebidas e essa abrangência aparece na UI. Também não se inferem capabilities: 401/403 do Host governam leitura e transições; a UI apenas comunica ações administrativas e mascara valores antes de exibir.
 - **Justificativa:** evita parâmetros e permissões fictícios e deixa explícita a diferença entre filtro server-side e refinamento local.
+
+## D-095 — Query desabilitada é estado contextual, não carregamento
+
+- **Decisão:** toda leitura usa `isLoading` para exibir skeleton; agregadores próprios também exigem contexto habilitador antes de considerar uma query pendente. Em TanStack Query v5, `isPending` sem `isFetching` pode significar somente que a query está `enabled: false`; ausência de perfil, organização ou projeto deve produzir onboarding ou vazio orientado.
+- **Justificativa:** no pacote da RC, queries de projeto nunca iniciadas mantinham `isPending: true` e bloqueavam o Cockpit indefinidamente mesmo com toda a rede encerrada.
+
+## D-096 — Leitura lenta é visível e termina explicitamente; escrita não é abortada
+
+- **Decisão:** o cliente HTTP publica eventos locais redigidos (`started`, `slow`, `settled`) sem query string, payload ou cookies; após 4 s mostra aviso global. GETs excedendo 10 s são abortados com erro 504 e retry visível. POST/PATCH/DELETE nunca são abortados automaticamente. Rotas lazy têm fallback terminal após 10 s.
+- **Justificativa:** nenhum carregamento pode ficar sem estado terminal; ao mesmo tempo, operações mutáveis legítimas não podem ser canceladas silenciosamente.
+
+## D-097 — Regressão da primeira abertura roda no self-contained, sem demo
+
+- **Decisão:** `test:e2e:package` exige um diretório de pacote explícito, cria data dir temporário vazio, inicia o launcher sem `--demo`, usa browser isolado/sem service worker e remove processo/dados no `finally`. O gate falha se qualquer `.animate-pulse` persistir além de 12 s sem operação real, se uma API sair do origin do pacote, se houver URL compilada 5090/5173, request pendente, erro de aplicação ou asset quebrado.
+- **Justificativa:** Vite e MockApiClient não reproduzem bootstrap, cookies, Host estático ou configuração compilada do artefato entregue.

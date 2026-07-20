@@ -73,7 +73,7 @@ export default function UrunProjectPage() {
     : 'generic';
   const guideSteps = t(`runProject.guide.${contentKey}`).split('\n');
 
-  const loading = isPending || targetsQuery.isPending;
+  const loading = isPending || targetsQuery.isLoading;
   const errored = isError || targetsQuery.isError;
 
   return (
@@ -355,7 +355,7 @@ export default function UrunProjectPage() {
                       })}
                     </dd>
                   </div>
-                  {!settingsQuery.isPending && (
+                  {!settingsQuery.isLoading && (
                     <div className="flex flex-wrap gap-2">
                       <dt className="font-medium">{t('runProject.localMode.workingDirectoryLabel')}</dt>
                       <dd className="text-foreground-muted">

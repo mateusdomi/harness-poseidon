@@ -61,7 +61,7 @@ export function useDocumentDetail(documentId: Ulid | null) {
   return {
     document: documentQuery.data ?? null,
     versions: versionsQuery.data ?? [],
-    isPending: documentQuery.isPending || versionsQuery.isPending,
+    isPending: documentQuery.isLoading || versionsQuery.isLoading,
     isError: documentQuery.isError || versionsQuery.isError,
     refetch: () => {
       void documentQuery.refetch();
@@ -104,7 +104,7 @@ export function useWorkflowPhases(projectId: Ulid | null) {
 
   return {
     phases: activeVersion?.phases ?? [],
-    isPending: workflowQuery.isPending || versionsQuery.isPending,
+    isPending: workflowQuery.isLoading || versionsQuery.isLoading,
     isError: workflowQuery.isError || versionsQuery.isError,
   };
 }

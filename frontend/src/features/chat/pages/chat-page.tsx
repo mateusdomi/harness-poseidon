@@ -116,8 +116,8 @@ export default function ChatPage() {
 
   const loading =
     projectsPending ||
-    conversationsQuery.isPending ||
-    (conversationId !== null && messagesQuery.isPending);
+    conversationsQuery.isLoading ||
+    (conversationId !== null && messagesQuery.isLoading);
   const errored = conversationsQuery.isError || messagesQuery.isError;
 
   if (loading) {

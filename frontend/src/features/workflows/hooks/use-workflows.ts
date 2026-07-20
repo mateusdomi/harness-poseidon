@@ -89,7 +89,7 @@ export function useRunDetails(runId: Ulid | null) {
   return {
     phases: phasesQuery.data ?? [],
     gates: gatesQuery.data ?? [],
-    isPending: phasesQuery.isPending || gatesQuery.isPending,
+    isPending: phasesQuery.isLoading || gatesQuery.isLoading,
     isError: phasesQuery.isError || gatesQuery.isError,
     refetch: () => {
       void phasesQuery.refetch();
@@ -115,7 +115,7 @@ export function useWorkflowTemplates() {
   return {
     templates: templatesQuery.data ?? [],
     versions: versionsQuery.data ?? [],
-    isPending: templatesQuery.isPending || versionsQuery.isPending,
+    isPending: templatesQuery.isLoading || versionsQuery.isLoading,
     isError: templatesQuery.isError || versionsQuery.isError,
     refetch: () => {
       void templatesQuery.refetch();
@@ -173,7 +173,7 @@ export function useWorkflowUsage() {
   return {
     usedTemplateIds,
     usedVersionIds,
-    isPending: workflowsQuery.isPending || runsQuery.isPending,
+    isPending: workflowsQuery.isLoading || runsQuery.isLoading,
     isError: workflowsQuery.isError || runsQuery.isError,
   };
 }

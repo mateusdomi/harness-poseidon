@@ -59,7 +59,7 @@ export function HandoffWizard({ projectId, currentModel, onClose }: HandoffWizar
     <ModalDialog label={t('orchestrator.handoff.title')} onClose={onClose}>
       <h2 className="font-heading text-lg font-semibold">{t('orchestrator.handoff.title')}</h2>
 
-      {modelsQuery.isPending ? (
+      {modelsQuery.isLoading ? (
         <div className="flex flex-col gap-2" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-24 w-full" />

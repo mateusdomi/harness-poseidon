@@ -72,11 +72,11 @@ export default function UprovidersPage() {
     id === null ? null : (accounts.find((account) => account.id === id)?.label ?? id);
 
   const loading =
-    providersQuery.isPending ||
-    accountsQuery.isPending ||
-    modelsQuery.isPending ||
-    budgetsQuery.isPending ||
-    routingQuery.isPending;
+    providersQuery.isLoading ||
+    accountsQuery.isLoading ||
+    modelsQuery.isLoading ||
+    budgetsQuery.isLoading ||
+    routingQuery.isLoading;
   const errored =
     providersQuery.isError ||
     accountsQuery.isError ||

@@ -46,11 +46,11 @@ export default function CockpitPage() {
 
   const loading =
     isPending ||
-    tasksQuery.isPending ||
-    approvalsQuery.isPending ||
-    agentsQuery.isPending ||
-    budgetsQuery.isPending ||
-    activityQuery.isPending ||
+    tasksQuery.isLoading ||
+    approvalsQuery.isLoading ||
+    agentsQuery.isLoading ||
+    budgetsQuery.isLoading ||
+    activityQuery.isLoading ||
     workflowData.isPending;
   const errored =
     isError ||

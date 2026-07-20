@@ -114,6 +114,13 @@
       "loading": "Loading…",
       "errorBody": "Could not load the data. Please try again."
     },
+    "requests": {
+      "slow": "The API is taking longer than expected at {{path}} ({{count}} request(s)). The operation is still monitored.",
+      "routeTimeout": "This screen exceeded the safe loading time. Try again."
+    },
+    "session": {
+      "validationError": "The local session could not be validated."
+    },
     "permission": {
       "title": "Access not allowed",
       "body": "Your profile does not have permission to view this screen. Ask the owner for access or try again after the permission is updated."

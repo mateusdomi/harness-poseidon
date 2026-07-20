@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { HttpApiClient } from '../client';
+import { API_REQUEST_EVENT, type ApiRequestTelemetry } from '../request-observability';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const account = {
   id: '01ARZ3NDEKTSV4RRFFQ69G5FH2',
@@ -24,6 +29,48 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { 'content-type': 'application/json' },
   });
 }
+
+describe('HttpApiClient — término seguro e observabilidade', () => {
+  it('encerra GET travado com 504, publica slow/settled e não expõe query string', async () => {
+    vi.useFakeTimers();
+    const telemetry: ApiRequestTelemetry[] = [];
+    const listener = (event: Event) => telemetry.push((event as CustomEvent<ApiRequestTelemetry>).detail);
+    window.addEventListener(API_REQUEST_EVENT, listener);
+    const fetchFn = vi.fn<typeof fetch>().mockImplementation((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+    }));
+    const client = new HttpApiClient({ baseUrl: '', fetchFn, slowRequestMs: 5, readTimeoutMs: 10 });
+
+    const assertion = expect(client.list('projects', { filter: { secret: 'never-log-this' } }))
+      .rejects.toMatchObject({ problem: { status: 504 } });
+    await vi.advanceTimersByTimeAsync(11);
+    await assertion;
+
+    expect(telemetry.map((item) => item.phase)).toEqual(['started', 'slow', 'settled']);
+    expect(telemetry.every((item) => item.path === '/api/v1/projects')).toBe(true);
+    expect(telemetry.at(-1)?.status).toBe(504);
+    window.removeEventListener(API_REQUEST_EVENT, listener);
+  });
+
+  it('não aborta escrita longa e a conclui normalmente', async () => {
+    vi.useFakeTimers();
+    const fetchFn = vi.fn<typeof fetch>().mockImplementation((_input, init) => new Promise((resolve) => {
+      expect(init?.signal).toBeUndefined();
+      setTimeout(() => resolve(new Response(null, { status: 204 })), 20);
+    }));
+    const client = new HttpApiClient({ baseUrl: '', fetchFn, slowRequestMs: 5, readTimeoutMs: 10 });
+
+    const removal = client.remove('projects', account.id);
+    await vi.advanceTimersByTimeAsync(21);
+    await expect(removal).resolves.toBeUndefined();
+  });
+
+  it('converte JSON inválido em erro explícito 502', async () => {
+    const response = new Response('{', { status: 200, headers: { 'content-type': 'application/json' } });
+    const client = new HttpApiClient({ baseUrl: '', fetchFn: vi.fn<typeof fetch>().mockResolvedValue(response) });
+    await expect(client.list('projects')).rejects.toMatchObject({ problem: { status: 502 } });
+  });
+});
 
 describe('HttpApiClient — lifecycle de contas', () => {
   it.each([

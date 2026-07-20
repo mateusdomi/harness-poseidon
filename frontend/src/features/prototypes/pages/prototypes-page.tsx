@@ -53,9 +53,9 @@ export default function UprototypesPage() {
 
   const loading =
     isPending ||
-    prototypesQuery.isPending ||
-    referencesQuery.isPending ||
-    organizationsQuery.isPending;
+    prototypesQuery.isLoading ||
+    referencesQuery.isLoading ||
+    organizationsQuery.isLoading;
   const errored = isError || prototypesQuery.isError || referencesQuery.isError;
 
   // Galerias paginadas independentemente; reset ao trocar de projeto.

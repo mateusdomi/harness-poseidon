@@ -10,6 +10,25 @@
 - **Design:** o design system, tokens, temas, logo, cores, tipografia e padrões responsivos existentes foram preservados. O trabalho foi incremental.
 - **Integração:** contas/providers/modelos e o lifecycle V3 de `agent-definitions` estão reconciliados com `docs/contracts/openapi.json`; o catálogo de eventos e o snapshot realtime têm validação de contrato. Alguns metadados complementares do refinamento (time, stacks, effort/account/fallback padrão, actor/critic, risco e histórico legível) ainda são mock-only e estão registrados em `HANDOFF_API.md`.
 
+## Correção da RC `d11df77` — skeleton infinito na primeira abertura
+
+- **Causa comprovada no pacote:** com data dir vazio, `GET /api/v1/projects` retornava `200` e lista vazia. As queries dependentes de projeto (`tasks`, `approvals`, `agents`, workflows e equivalentes nas demais features) não eram iniciadas por `enabled: false`, mas o TanStack Query v5 mantém `isPending: true` nesse estado. A UI agregava `isPending` como se houvesse fetch ativo e renderizava skeleton para sempre.
+- **Reprodução controlada:** pacote self-contained em `127.0.0.1:5097`, contexto Chromium limpo e sem extensões. Após selecionar o perfil, todas as seis requests observadas terminaram em 2–15 ms (`profiles`, `projects`, `notifications/unread`, `profiles/current`, `budgets`, `audit-events`), nenhuma ficou pending e quatro skeletons permaneceram. A mensagem “Receiving end does not exist” não apareceu no perfil limpo e não é a causa.
+- **Correção:** agregadores de leitura usam `isLoading` (pending **e** fetching); query desabilitada produz estado vazio/onboarding, nunca loading. O guard valida `profiles/current`, recupera 401/404 ou divergência para onboarding e apresenta 403/erro com retry. GETs lentos emitem telemetria local redigida após 4 s e terminam explicitamente em 504 após 10 s; escritas não são canceladas pelo frontend. O fallback de rota troca skeleton por erro com retry após 10 s.
+- **Pacote limpo:** `npm run test:e2e:package` inicia o self-contained sem `--demo`, cria e remove um data dir temporário vazio e usa Chromium novo com service workers bloqueados. O spec cobre primeira abertura, perfil, organização, projeto, 21 rotas, ausência de skeleton após 12 s, same-origin, build sem 5090/5173, cookie inexistente, API indisponível, 401/403/404/409/500, JSON inválido, reconnect, zero erro da aplicação e zero asset 404.
+- **Limite de contrato:** o cookie `harness.profile` é HttpOnly e o OpenAPI não publica comando para selecionar/revogar perfil. Um cookie válido no formato, mas apontando para perfil inexistente, recupera para onboarding; reutilizar outro perfil já existente depende de contrato backend adicional, registrado em `HANDOFF_API.md`.
+
+### Evidência técnica desta correção
+
+- `npm run check`: lint/typecheck verdes; 53 arquivos e 444 testes unitários/componentes verdes.
+- `npm run build`: verde; apenas os dois avisos conhecidos do Rollup sobre anotação PURE do SignalR.
+- `npm run build-storybook`: verde; avisos conhecidos do toolchain sobre `eval` e chunks grandes.
+- `npm run test:e2e`: 56/56 verdes no mock, após excluir explicitamente o spec exclusivo do pacote.
+- `npm run test:a11y`: 42/42 verdes (21 telas em mobile/dark e desktop/light).
+- `npm run test:e2e:real`: 3/3 verdes contra Host self-contained isolado em `127.0.0.1:5100`.
+- `npm run test:e2e:package`: 1/1 verde em 38,1 s contra o pacote self-contained final, sem demo e com data dir efêmero vazio.
+- `npm audit --omit=dev`: 0 vulnerabilidades de produção. Portas temporárias 5098/5099/5100 encerradas e data dirs de teste removidos.
+
 ## Integração de governança P2 — 2026-07-20
 
 - **Base sincronizada:** `origin/develop` em `94061f4`, incluindo os contratos P2 dos commits `f2b35a6` e `94061f4`.

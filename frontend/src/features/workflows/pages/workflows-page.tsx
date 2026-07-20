@@ -52,8 +52,8 @@ export default function UworkflowsPage() {
 
   const loading =
     isPending ||
-    workflowQuery.isPending ||
-    (workflow !== null && (runQuery.isPending || runPending)) ||
+    workflowQuery.isLoading ||
+    (workflow !== null && (runQuery.isLoading || runPending)) ||
     templatesPending;
   const errored =
     isError || workflowQuery.isError || runQuery.isError || runError || templatesError;

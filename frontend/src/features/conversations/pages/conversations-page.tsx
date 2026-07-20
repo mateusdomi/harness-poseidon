@@ -71,7 +71,7 @@ export default function UconversationsPage() {
     navigate(`/chat?conversation=${conversation.id}`);
   }
 
-  const loading = isPending || conversationsQuery.isPending;
+  const loading = isPending || conversationsQuery.isLoading;
   const errored = isError || conversationsQuery.isError;
 
   return (

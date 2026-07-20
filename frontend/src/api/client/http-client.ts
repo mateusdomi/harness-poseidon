@@ -99,12 +99,22 @@ import {
   type LearningTransitionInput,
 } from '../contracts';
 import type { ApiClient } from './api-client';
+import {
+  API_READ_TIMEOUT_MS,
+  API_SLOW_REQUEST_MS,
+  publishApiRequestTelemetry,
+  safeRequestPath,
+} from '../request-observability';
 
 export interface HttpApiClientOptions {
   /** Base URL do backend (ex.: `https://localhost:5001`). Rotas em `/api/v1`. */
   baseUrl: string;
   /** fetch injetável (testes). Padrão: fetch global com credentials de sessão. */
   fetchFn?: typeof fetch;
+  /** Limite explícito somente para leituras; escritas nunca são abortadas pelo cliente. */
+  readTimeoutMs?: number;
+  /** Janela para sinalizar request anormalmente longo sem cancelá-lo. */
+  slowRequestMs?: number;
 }
 
 /**
@@ -115,10 +125,14 @@ export interface HttpApiClientOptions {
 export class HttpApiClient implements ApiClient {
   readonly #baseUrl: string;
   readonly #fetch: typeof fetch;
+  readonly #readTimeoutMs: number;
+  readonly #slowRequestMs: number;
 
   constructor(options: HttpApiClientOptions) {
     this.#baseUrl = `${options.baseUrl.replace(/\/$/, '')}/api/v1`;
     this.#fetch = options.fetchFn ?? ((input, init) => fetch(input, init));
+    this.#readTimeoutMs = options.readTimeoutMs ?? API_READ_TIMEOUT_MS;
+    this.#slowRequestMs = options.slowRequestMs ?? API_SLOW_REQUEST_MS;
   }
 
   list<K extends ResourceKind>(resource: K, query?: ListQuery): Promise<Page<ResourceMap[K]>> {
@@ -552,18 +566,50 @@ export class HttpApiClient implements ApiClient {
   }
 
   async #request<T>(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
-    const response = await this.#fetch(`${this.#baseUrl}${path}`, {
-      method,
-      credentials: 'include',
-      headers: body !== undefined ? { 'Content-Type': 'application/json', ...headers } : headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const url = `${this.#baseUrl}${path}`;
+    const requestId = globalThis.crypto?.randomUUID?.() ?? `request-${Date.now()}-${Math.random()}`;
+    const requestPath = safeRequestPath(url);
+    const startedAt = performance.now();
+    const controller = method === 'GET' ? new AbortController() : null;
+    let status: number | undefined;
+    publishApiRequestTelemetry({ requestId, method, path: requestPath, phase: 'started', durationMs: 0 });
+    const slowTimer = setTimeout(() => publishApiRequestTelemetry({
+      requestId, method, path: requestPath, phase: 'slow', durationMs: performance.now() - startedAt,
+    }), this.#slowRequestMs);
+    const timeoutTimer = controller === null ? null : setTimeout(() => controller.abort(), this.#readTimeoutMs);
 
-    if (!response.ok) {
-      throw await this.#toApiError(response);
+    try {
+      const response = await this.#fetch(url, {
+        method,
+        credentials: 'include',
+        headers: body !== undefined ? { 'Content-Type': 'application/json', ...headers } : headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller?.signal,
+      });
+      status = response.status;
+      if (!response.ok) throw await this.#toApiError(response);
+      if (response.status === 204) return undefined as T;
+      try {
+        return (await response.json()) as T;
+      } catch {
+        status = 502;
+        throw ApiError.of(502, 'Resposta inválida da API', 'A API retornou JSON inválido.');
+      }
+    } catch (error) {
+      if (controller?.signal.aborted) {
+        status = 504;
+        throw ApiError.of(504, 'Tempo limite da API', 'A leitura excedeu o limite seguro e pode ser tentada novamente.');
+      }
+      if (error instanceof ApiError) throw error;
+      status = 503;
+      throw ApiError.of(503, 'API indisponível', error instanceof Error ? error.message : undefined);
+    } finally {
+      clearTimeout(slowTimer);
+      if (timeoutTimer !== null) clearTimeout(timeoutTimer);
+      publishApiRequestTelemetry({
+        requestId, method, path: requestPath, phase: 'settled', durationMs: performance.now() - startedAt, status,
+      });
     }
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
   }
 
   async #toApiError(response: Response): Promise<ApiError> {

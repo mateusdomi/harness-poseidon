@@ -410,7 +410,7 @@ export function ProjectForm({ organizations, initial, started = false, submittin
           >
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-medium">{t('projects.form.people.label')}</legend>
-              {profilesQuery.isPending ? (
+              {profilesQuery.isLoading ? (
                 <p className="text-sm text-foreground-muted">{t('common.states.loading')}</p>
               ) : (profilesQuery.data ?? []).length === 0 ? (
                 <p className="text-sm text-foreground-muted">{t('projects.form.people.empty')}</p>

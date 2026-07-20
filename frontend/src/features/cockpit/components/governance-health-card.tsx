@@ -14,7 +14,7 @@ export function GovernanceHealthCard({ projectId }: { projectId: string }) {
     queryKey: ['cockpit', 'governance-runtime', projectId],
     queryFn: () => api.listGovernanceReceipts({ projectId, limit: 25 }),
   });
-  if (query.isPending) return <Skeleton className="h-40 w-full lg:col-span-2" />;
+  if (query.isLoading) return <Skeleton className="h-40 w-full lg:col-span-2" />;
   if (query.isError) {
     return (
       <Card className="border-warning lg:col-span-2">

@@ -46,7 +46,7 @@ export function useActiveProject(): ActiveProjectResult {
     projects,
     activeProject,
     setActiveProject,
-    isPending: query.isPending,
+    isPending: query.isLoading,
     isError: query.isError,
     refetch: () => void query.refetch(),
   };

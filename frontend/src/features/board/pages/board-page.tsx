@@ -98,7 +98,7 @@ export default function UboardPage() {
     });
   }
 
-  const loading = isPending || tasksQuery.isPending || agentsQuery.isPending;
+  const loading = isPending || tasksQuery.isLoading || agentsQuery.isLoading;
   const errored = isError || tasksQuery.isError || agentsQuery.isError;
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
   const agents = agentsQuery.data ?? [];

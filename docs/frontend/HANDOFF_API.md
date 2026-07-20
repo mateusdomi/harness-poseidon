@@ -225,6 +225,12 @@ Reconciliação feita em 2026-07-20 contra `docs/contracts/openapi.json` SHA-256
 - Autorização e redaction continuam autoritativas no Host. A UI trata 401/403 e faz masking defensivo, sem apresentar isso como substituto da sanitização do servidor.
 - O `MockApiClient` rejeita operações P2 com 501; não há fixture de learning candidate nem fallback simulado. Homologação exige `VITE_API_MODE=http`.
 
+### Sessão local — recuperação de cookie de perfil inexistente
+
+- O Host define `harness.profile` como cookie HttpOnly na criação do perfil, e `GET /profiles/current` retorna 404 quando o ID do cookie já não existe.
+- O OpenAPI atual não publica comando para selecionar/trocar perfil, revogar a sessão ou limpar esse cookie. O frontend pode detectar 401/404/divergência e voltar ao onboarding, mas JavaScript não pode substituir nem remover um cookie HttpOnly.
+- Contrato necessário para recuperação completa de uma instalação com perfis existentes: comando local para selecionar perfil e renovar a sessão (ou endpoint de logout/revogação que expire o cookie), com proteção CSRF e sem receber token em payload. Até sua publicação canônica, a UI não inventa endpoint e orienta pelo onboarding; limpeza dos dados do site pelo usuário continua sendo a saída operacional.
+
 Lacunas que permanecem no contrato e não foram fabricadas:
 
 - parâmetros server-side para período/ordenação da lista;

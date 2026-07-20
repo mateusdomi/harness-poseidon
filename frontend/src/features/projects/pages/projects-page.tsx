@@ -58,7 +58,7 @@ export default function ProjectsPage() {
   }
 
   const organizations = organizationsQuery.data ?? [];
-  const loading = projectsQuery.isPending || organizationsQuery.isPending;
+  const loading = projectsQuery.isLoading || organizationsQuery.isLoading;
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,7 +113,7 @@ export default function ProjectsPage() {
             </div>
           ) : (
             <ProjectList
-              projects={projectsQuery.data}
+              projects={projectsQuery.data ?? []}
               organizations={organizations}
               onSelect={(project) => setView({ kind: 'edit', project })}
               onCreateNew={() => setView({ kind: 'create' })}

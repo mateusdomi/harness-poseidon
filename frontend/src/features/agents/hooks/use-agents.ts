@@ -97,7 +97,7 @@ export function useAgentsData() {
     tasks: tasksQuery.data ?? [],
     attempts: attemptsQuery.data ?? [],
     auditEvents: auditEventsQuery.data ?? [],
-    isPending: queries.some((query) => query.isPending),
+    isPending: queries.some((query) => query.isLoading),
     isError: queries.some((query) => query.isError),
     refetch: () => {
       for (const query of queries) void query.refetch();

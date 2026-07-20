@@ -79,7 +79,7 @@ export default function UsettingsPage() {
     update({ theme });
   }
 
-  const loading = settingsQuery.isPending;
+  const loading = settingsQuery.isLoading;
   const errored = settingsQuery.isError;
 
   if (loading) {
@@ -246,7 +246,7 @@ export default function UsettingsPage() {
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {diagnosticsQuery.isPending ? (
+          {diagnosticsQuery.isLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : diagnosticsQuery.isError ? (
             <p role="alert" className="text-sm text-error">

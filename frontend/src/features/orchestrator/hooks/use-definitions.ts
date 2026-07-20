@@ -88,7 +88,7 @@ export function useDefinitionsData() {
     providers: providersQuery.data ?? [],
     skills: skillsQuery.data ?? [],
     tools: toolsQuery.data ?? [],
-    isPending: queries.some((query) => query.isPending),
+    isPending: queries.some((query) => query.isLoading),
     isError: queries.some((query) => query.isError),
     refetch: () => queries.forEach((query) => void query.refetch()),
   };

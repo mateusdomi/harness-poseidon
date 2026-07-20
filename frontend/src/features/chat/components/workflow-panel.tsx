@@ -73,10 +73,10 @@ function useWorkflowPanel(projectId: Ulid | null) {
     gates: runDetails.gates,
     documents: documentsQuery.data ?? [],
     isPending:
-      workflowQuery.isPending ||
-      (workflow !== null && runQuery.isPending) ||
+      workflowQuery.isLoading ||
+      (workflow !== null && runQuery.isLoading) ||
       (run !== null && runDetails.isPending) ||
-      documentsQuery.isPending,
+      documentsQuery.isLoading,
     isError:
       workflowQuery.isError || runQuery.isError || runDetails.isError || documentsQuery.isError,
     refetch: () => {

@@ -280,7 +280,7 @@ function ReceiptDetails({ receipt }: { receipt: GovernanceReceipt }) {
       </div>
       <div>
         <h4 className="text-sm font-semibold">{t('governance.runtime.receipts.metrics')}</h4>
-        {metrics.isPending ? <Skeleton className="mt-2 h-24 w-full" /> : metrics.isError ? (
+        {metrics.isLoading ? <Skeleton className="mt-2 h-24 w-full" /> : metrics.isError ? (
           <p role="alert" className="mt-2 text-xs text-error">{errorMessage(metrics.error, t('common.states.errorBody'))}</p>
         ) : metrics.data?.length ? (
           <ul className="mt-2 flex max-h-80 flex-col gap-2 overflow-auto" tabIndex={0} aria-label={t('governance.runtime.receipts.metrics')}>
@@ -591,7 +591,7 @@ export default function GovernanceContractPage() {
       </div>
       <section role="tabpanel" aria-label={t(`governance.runtime.tabs.${tab}`)}>
         {tab === 'overview' && <div className="flex flex-col gap-4"><OverviewPanel data={data} /><HashlinePatchPanel /></div>}
-        {tab === 'receipts' && <ReceiptsPanel receipts={data.receipts.data ?? []} pending={data.receipts.isPending} error={data.receipts.error} retry={() => void data.receipts.refetch()} />}
+        {tab === 'receipts' && <ReceiptsPanel receipts={data.receipts.data ?? []} pending={data.receipts.isLoading} error={data.receipts.error} retry={() => void data.receipts.refetch()} />}
         {tab === 'documents' && <DocumentsPanel receipts={data.receipts.data ?? []} findings={data.staleFindings.data ?? []} />}
         {tab === 'evaluation' && <EvaluationPanel />}
         {tab === 'audit' && <AuditTimelinePanel />}

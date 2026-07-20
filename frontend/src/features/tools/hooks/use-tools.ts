@@ -58,10 +58,10 @@ export function useToolsCatalog() {
     plugins: pluginsQuery.data ?? [],
     mcpServers: mcpServersQuery.data ?? [],
     isPending:
-      toolsQuery.isPending ||
-      skillsQuery.isPending ||
-      pluginsQuery.isPending ||
-      mcpServersQuery.isPending,
+      toolsQuery.isLoading ||
+      skillsQuery.isLoading ||
+      pluginsQuery.isLoading ||
+      mcpServersQuery.isLoading,
     isError:
       toolsQuery.isError ||
       skillsQuery.isError ||

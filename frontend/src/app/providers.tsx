@@ -8,9 +8,10 @@ import {
 
 import '@/i18n';
 
-import { createApi } from '@/api';
+import { ApiError, createApi } from '@/api';
 import { ApiContext } from '@/app/api-context';
 import { publishApiAuthorizationError } from '@/app/api-error-events';
+import { RequestStatusBanner } from '@/app/components/request-status-banner';
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -21,7 +22,12 @@ const queryClient = new QueryClient({
   }),
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && [401, 403, 404, 409, 422, 504].includes(error.problem.status)) {
+          return false;
+        }
+        return failureCount < 1;
+      },
       staleTime: 30_000,
     },
   },
@@ -42,7 +48,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <ApiContext.Provider value={apiBundle}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <RequestStatusBanner />
+        {children}
+      </QueryClientProvider>
     </ApiContext.Provider>
   );
 }

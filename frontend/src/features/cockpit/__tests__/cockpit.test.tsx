@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom';
+import { vi } from 'vitest';
 import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { buildFixtures, type AuditEvent } from '@/api';
@@ -17,6 +18,7 @@ import {
   tasksOfPhase,
 } from '@/features/cockpit/lib/cockpit-derive';
 import { renderWithApi } from '@/test/render-with-providers';
+import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
 
 const fixtures = buildFixtures(42);
 const tasks = fixtures.data.tasks;
@@ -88,7 +90,7 @@ function ChatMarker() {
   return <p>CHAT</p>;
 }
 
-function renderCockpit() {
+function renderCockpit(bundle?: TestBundle) {
   return renderWithApi(
     <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/cockpit']}>
       <Routes>
@@ -99,10 +101,24 @@ function renderCockpit() {
         <Route path="/projects" element={<p>PROJECTS</p>} />
       </Routes>
     </MemoryRouter>,
+    bundle,
   );
 }
 
 describe('CockpitPage', () => {
+  it('encerra o loading e orienta criar projeto quando a base está vazia', async () => {
+    const bundle = createTestBundle();
+    const originalList = bundle.api.list.bind(bundle.api);
+    vi.spyOn(bundle.api, 'list').mockImplementation((resource, query) => {
+      if (resource === 'projects') return Promise.resolve({ items: [], nextCursor: null });
+      return originalList(resource, query);
+    });
+    renderCockpit(bundle);
+
+    expect(await screen.findByText(/crie o primeiro projeto/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/carregando/i)).not.toBeInTheDocument();
+  });
+
   it('renderiza as três trilhas separadas na fase e no global', async () => {
     renderCockpit();
 

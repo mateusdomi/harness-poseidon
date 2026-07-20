@@ -123,7 +123,7 @@ export function useOrchestratorData(projectId: Ulid | null) {
     models: modelsQuery.data ?? [],
     accounts: accountsQuery.data ?? [],
     budgets: budgetsQuery.data ?? [],
-    isPending: queries.some((query) => query.isPending),
+    isPending: queries.some((query) => query.isLoading),
     isError: queries.some((query) => query.isError),
     refetch: () => queries.forEach((query) => void query.refetch()),
   };

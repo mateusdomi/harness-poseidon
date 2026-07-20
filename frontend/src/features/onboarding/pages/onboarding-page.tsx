@@ -33,7 +33,7 @@ export default function OnboardingPage() {
   }
 
   let content: React.ReactNode;
-  if (profilesQuery.isPending) {
+  if (profilesQuery.isLoading) {
     content = (
       <div
         className="flex w-full max-w-xl flex-col gap-3"
@@ -56,17 +56,17 @@ export default function OnboardingPage() {
         </Button>
       </div>
     );
-  } else if (creating || profilesQuery.data.length === 0) {
+  } else if (creating || (profilesQuery.data ?? []).length === 0) {
     content = (
       <OnboardingWizard
         onCompleted={handleProfileReady}
-        onCancel={profilesQuery.data.length > 0 ? () => setCreating(false) : undefined}
+        onCancel={(profilesQuery.data ?? []).length > 0 ? () => setCreating(false) : undefined}
       />
     );
   } else {
     content = (
       <ProfilePicker
-        profiles={profilesQuery.data}
+        profiles={profilesQuery.data ?? []}
         onSelect={handleProfileReady}
         onCreateNew={() => setCreating(true)}
       />

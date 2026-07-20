@@ -49,7 +49,7 @@ export function AttemptDialog({ attempt, onClose }: AttemptDialogProps) {
         {t('orchestrator.attempt.title', { number: attempt.number })}
       </h2>
 
-      {eventsQuery.isPending ? (
+      {eventsQuery.isLoading ? (
         <div className="flex flex-col gap-2" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-24 w-full" />

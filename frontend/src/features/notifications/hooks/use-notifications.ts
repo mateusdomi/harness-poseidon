@@ -51,8 +51,8 @@ export function useNotificationsCenter() {
     notifications: notificationsQuery.data ?? [],
     settings: settingsQuery.data,
     isPending:
-      profileQuery.isPending ||
-      (profileId !== undefined && (notificationsQuery.isPending || settingsQuery.isPending)),
+      profileQuery.isLoading ||
+      (profileId !== undefined && (notificationsQuery.isLoading || settingsQuery.isLoading)),
     isError: profileQuery.isError || notificationsQuery.isError || settingsQuery.isError,
     refetch: () => {
       void profileQuery.refetch();

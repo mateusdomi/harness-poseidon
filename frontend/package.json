@@ -14,6 +14,7 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:real": "playwright test --config playwright.real.config.ts",
+    "test:e2e:package": "node scripts/run-package-e2e.mjs",
     "test:a11y": "playwright test e2e/a11y.spec.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

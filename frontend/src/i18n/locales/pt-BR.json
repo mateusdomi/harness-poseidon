@@ -114,6 +114,13 @@
       "loading": "Carregando…",
       "errorBody": "Não foi possível carregar os dados. Tente novamente."
     },
+    "requests": {
+      "slow": "A API está demorando para responder em {{path}} ({{count}} requisição(ões)). A operação continua monitorada.",
+      "routeTimeout": "A tela excedeu o tempo seguro de carregamento. Tente novamente."
+    },
+    "session": {
+      "validationError": "Não foi possível validar a sessão local."
+    },
     "permission": {
       "title": "Acesso não permitido",
       "body": "Seu perfil não tem permissão para consultar esta tela. Solicite acesso ao responsável ou tente novamente após a permissão ser atualizada."

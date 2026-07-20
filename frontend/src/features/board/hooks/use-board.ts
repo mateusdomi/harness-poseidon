@@ -168,8 +168,8 @@ export function useTaskDetail(taskId: Ulid | null) {
     approvals: approvalsQuery.data ?? [],
     demand: demandQuery.data ?? null,
     isPending:
-      taskQuery.isPending || instructionsQuery.isPending || attemptsQuery.isPending ||
-      approvalsQuery.isPending,
+      taskQuery.isLoading || instructionsQuery.isLoading || attemptsQuery.isLoading ||
+      approvalsQuery.isLoading,
     isError:
       taskQuery.isError || instructionsQuery.isError || attemptsQuery.isError ||
       attemptEventsQuery.isError || approvalsQuery.isError,

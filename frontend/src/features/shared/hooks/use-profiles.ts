@@ -5,6 +5,7 @@ import { useApi } from '@/app/api-context';
 
 export const profileKeys = {
   all: ['profiles'] as const,
+  current: (expectedProfileId: string) => ['profiles', 'current', expectedProfileId] as const,
 };
 
 /** Lista de perfis locais do dispositivo. */

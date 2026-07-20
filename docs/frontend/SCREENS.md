@@ -190,6 +190,12 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Ações:** `update('settings')` (idioma, tema, diretório, revogação do modo inseguro com confirmação); `createBackup` / `restoreBackup` com confirmação.
 - **Estados:** vazio ➖ (formulários; card de licença com fallback + link); skeleton (settings + diagnóstico); erro com retry (settings; diagnóstico via botão de refresh do card).
 
+## Regra transversal de término de carregamento
+
+- Skeleton representa somente uma operação realmente em andamento (`isLoading`/fetch ativo), nunca uma query desabilitada por falta de perfil, organização ou projeto.
+- Toda tela termina em conteúdo, vazio orientado, onboarding, permissão negada ou erro com retry. Requests GET acima de 4 s exibem aviso redigido e acima de 10 s terminam em erro explícito; escritas longas continuam monitoradas sem aborto automático.
+- O gate do pacote self-contained usa limite de 12 s para `.animate-pulse`, percorre todas as rotas e inclui data dir vazio, browser limpo, cookie antigo/inválido, API indisponível, 401/403, reconnect, console e assets.
+
 ---
 
 # Roteiro humano de homologação final
