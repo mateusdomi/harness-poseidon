@@ -18446,6 +18446,39 @@
                 "properties": {
                     "content": {
                         "type": "string"
+                    },
+                    "accountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "modelId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "effort": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "fallbackModelIds": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "selectionReason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 },
                 "additionalProperties": false

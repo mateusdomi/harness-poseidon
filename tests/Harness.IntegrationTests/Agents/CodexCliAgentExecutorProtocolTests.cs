@@ -50,7 +50,10 @@ public sealed class CodexCliAgentExecutorProtocolTests
                     "01ARZ3NDEKTSV4RRFFQ69G5FAY",
                     "Return the fixture result.",
                     "{}",
-                    worktree),
+                    worktree,
+                    null,
+                    "gpt-5",
+                    "high"),
                 timeout.Token);
 
             Assert.Equal("codex-cli", result.Executor);
@@ -145,7 +148,7 @@ public sealed class CodexCliAgentExecutorProtocolTests
             *'"method":"thread/start"'*)
               echo '{"id":2,"result":{"thread":{"id":"thr_fixture","ephemeral":false}}}'
               ;;
-            *'"method":"turn/start"'*)
+            *'"method":"turn/start"'*'"model":"gpt-5"'*'"effort":"high"'*)
               turn_count=$((turn_count + 1))
               if [ "$turn_count" -eq 1 ]; then
                 echo '{"id":3,"result":{"turn":{"id":"turn_invalid","items":[],"status":"inProgress"}}}'

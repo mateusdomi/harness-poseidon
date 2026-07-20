@@ -56,7 +56,9 @@ public sealed partial class ChiefTurnBackgroundService(
                     lease.Instruction,
                     digestJson,
                     AppContext.BaseDirectory,
-                    lease.SessionId),
+                    lease.SessionId,
+                    lease.Turn.Selection?.ModelName,
+                    lease.Turn.Selection?.ProviderEffortValue),
                 cancellationToken);
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
             var chunks = execution.Chunks.Count == 0 ? new[] { output.Response } : execution.Chunks;

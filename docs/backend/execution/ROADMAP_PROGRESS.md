@@ -113,7 +113,9 @@ está **implementado/validado/integrado**. Em §8.13, criação, PATCH e remoç�
 **implementados/validados/integrados** com paridade SQLite/PostgreSQL, incluindo os metadados
 operacionais. O catálogo de effort tipado, a seleção por agente e os defaults avançados das
 definições estão verdes. A administração de modelos também está completa: criação desabilitada
-por padrão, edição integral tipada e remoção segura com bloqueio por referências. O FR-4 de workflows (draft,
+por padrão, edição integral tipada e remoção segura com bloqueio por referências. Override por
+invocação e decisão automática do Chief agora persistem conta/modelo/effort/fallback, motivo,
+custo e cota estimados e encaminham o valor traduzido ao executor. O FR-4 de workflows (draft,
 cópia, edição,
 validação, publicação imutável,
 tombstones, exclusão restrita, duplicação e vínculo por projeto) está

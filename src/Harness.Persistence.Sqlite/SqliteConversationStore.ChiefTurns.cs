@@ -86,13 +86,51 @@ public sealed partial class SqliteConversationStore
             token, ("$tenant", command.TenantId), ("$project", command.ProjectId),
             ("$agent", command.ChiefAgentId), ("$at", Store(command.OccurredAt)));
         await ExecuteChiefAsync(connection, tx,
-            "INSERT INTO chief_turn_mailbox (id,tenant_id,project_id,conversation_id,user_message_id,state,created_at) " +
-            "VALUES ($id,$tenant,$project,$conversation,$message,'pending',$at);",
+            "INSERT INTO chief_turn_mailbox (id,tenant_id,project_id,conversation_id,user_message_id,state,created_at,account_id,model_id,model_name,effort,provider_effort_value,fallback_model_ids_json,selection_source,selection_reason,estimated_cost_usd,quota_remaining_usd) " +
+            "VALUES ($id,$tenant,$project,$conversation,$message,'pending',$at,$account,$model,$modelName,$effort,$providerEffort,$fallbacks,$source,$reason,$cost,$quota);",
             token, ("$id", command.TurnId), ("$tenant", command.TenantId), ("$project", command.ProjectId),
-            ("$conversation", command.ConversationId), ("$message", command.UserMessage.Id), ("$at", Store(command.OccurredAt)));
+            ("$conversation", command.ConversationId), ("$message", command.UserMessage.Id), ("$at", Store(command.OccurredAt)),
+            ("$account", command.Selection?.AccountId ?? (object)DBNull.Value),
+            ("$model", command.Selection?.ModelId ?? (object)DBNull.Value),
+            ("$modelName", command.Selection?.ModelName ?? (object)DBNull.Value),
+            ("$effort", command.Selection?.Effort ?? (object)DBNull.Value),
+            ("$providerEffort", command.Selection?.ProviderEffortValue ?? (object)DBNull.Value),
+            ("$fallbacks", JsonSerializer.Serialize(command.Selection?.FallbackModelIds ?? [], JsonOptions)),
+            ("$source", command.Selection?.Source ?? (object)DBNull.Value),
+            ("$reason", command.Selection?.Reason ?? (object)DBNull.Value),
+            ("$cost", command.Selection?.EstimatedCostUsd ?? (object)DBNull.Value),
+            ("$quota", command.Selection?.QuotaRemainingUsd ?? (object)DBNull.Value));
         var payload = MessagePayload(command.UserMessage);
         await AppendAuditAsync(connection, tx, command.TenantId, "message.appended", payload, command.OccurredAt, token);
         await AppendOutboxAsync(connection, tx, command.TenantId, "message.appended", payload, command.OccurredAt, command.OccurredAt, token);
+        if (command.Selection is not null)
+        {
+            var selectionPayload = JsonSerializer.Serialize(new
+            {
+                auditEvent = new
+                {
+                    id = Harness.SharedKernel.Identifiers.UlidValue.New(command.OccurredAt).ToString(),
+                    actorKind = "user",
+                    actorId = command.UserMessage.AuthorProfileId,
+                    action = "chief.invocationRouted",
+                    targetType = "models",
+                    targetId = command.Selection.ModelId,
+                    detail = command.Selection.Reason,
+                    occurredAt = command.OccurredAt,
+                },
+                turnId = command.TurnId,
+                command.Selection.AccountId,
+                command.Selection.ModelId,
+                command.Selection.Effort,
+                command.Selection.ProviderEffortValue,
+                command.Selection.EstimatedCostUsd,
+                command.Selection.QuotaRemainingUsd,
+            }, JsonOptions);
+            await AppendAuditAsync(connection, tx, command.TenantId, "chief.invocationRouted",
+                selectionPayload, command.OccurredAt, token);
+            await AppendOutboxAsync(connection, tx, command.TenantId, "audit.eventAppended",
+                selectionPayload, command.OccurredAt.AddTicks(1), command.OccurredAt, token);
+        }
         await tx.CommitAsync(token);
         return (await ReadChiefTurnAsync(connection, null, command.TenantId, command.TurnId, token))!;
     }
@@ -273,9 +311,15 @@ public sealed partial class SqliteConversationStore
     private static async Task<ChiefTurnRecord?> ReadChiefTurnAsync(SqliteConnection connection, SqliteTransaction? tx, string tenant, string turn, CancellationToken token)
     {
         await using var query = connection.CreateCommand(); query.Transaction = tx;
-        query.CommandText = "SELECT tenant_id,project_id,conversation_id,id,user_message_id,state,attempt_count,session_id,response_message_id,last_error_code,created_at,completed_at FROM chief_turn_mailbox WHERE tenant_id=$tenant AND id=$turn;";
+        query.CommandText = "SELECT tenant_id,project_id,conversation_id,id,user_message_id,state,attempt_count,session_id,response_message_id,last_error_code,created_at,completed_at,account_id,model_id,model_name,effort,provider_effort_value,fallback_model_ids_json,selection_source,selection_reason,estimated_cost_usd,quota_remaining_usd FROM chief_turn_mailbox WHERE tenant_id=$tenant AND id=$turn;";
         Add(query, "$tenant", tenant); Add(query, "$turn", turn); await using var reader = await query.ExecuteReaderAsync(token);
-        return await reader.ReadAsync(token) ? new ChiefTurnRecord(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetInt32(6), reader.IsDBNull(7) ? null : reader.GetString(7), reader.IsDBNull(8) ? null : reader.GetString(8), reader.IsDBNull(9) ? null : reader.GetString(9), Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : Parse(reader.GetString(11))) : null;
+        if (!await reader.ReadAsync(token)) return null;
+        var selection = reader.IsDBNull(12) ? null : new ChiefInvocationSelection(
+            reader.GetString(12), reader.GetString(13), reader.GetString(14), reader.GetString(15),
+            reader.GetString(16), JsonSerializer.Deserialize<string[]>(reader.GetString(17), JsonOptions) ?? [],
+            reader.GetString(18), reader.GetString(19), reader.IsDBNull(20) ? null : reader.GetDecimal(20),
+            reader.IsDBNull(21) ? null : reader.GetDecimal(21));
+        return new ChiefTurnRecord(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetInt32(6), reader.IsDBNull(7) ? null : reader.GetString(7), reader.IsDBNull(8) ? null : reader.GetString(8), reader.IsDBNull(9) ? null : reader.GetString(9), Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : Parse(reader.GetString(11)), selection);
     }
 
     private static async Task ExecuteChiefAsync(SqliteConnection connection, SqliteTransaction tx, string sql, CancellationToken token, params (string Name, object Value)[] values)

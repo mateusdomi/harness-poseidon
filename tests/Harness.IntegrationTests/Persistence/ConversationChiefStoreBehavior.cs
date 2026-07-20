@@ -51,9 +51,16 @@ public static class ConversationChiefStoreBehavior
                 profileId, null, "Planeje a entrega de paridade.", null,
                 now.AddMilliseconds(2)),
             $"chief-turn:{turnId}",
-            now.AddMilliseconds(3));
+            now.AddMilliseconds(3),
+            new ChiefInvocationSelection(
+                "01ARZ3NDEKTSV4RRFFQ69G5FH1", "01ARZ3NDEKTSV4RRFFQ69G5FJ1", "gpt-5",
+                "high", "high", ["01ARZ3NDEKTSV4RRFFQ69G5FJ2"], "explicit",
+                "Provider-neutral invocation routing.", 0.011m, 100m));
         var enqueued = await chiefTurns.EnqueueAsync(Enqueue(), cancellationToken);
         Assert.Equal(turnId, enqueued.TurnId);
+        Assert.Equal(("gpt-5", "high", "explicit"),
+            (enqueued.Selection?.ModelName, enqueued.Selection?.Effort, enqueued.Selection?.Source));
+        Assert.Equal(0.011m, enqueued.Selection?.EstimatedCostUsd);
         var replayed = await chiefTurns.EnqueueAsync(Enqueue(), cancellationToken);
         Assert.Equal(turnId, replayed.TurnId);
         Assert.Single(

@@ -33,6 +33,8 @@ public sealed class ConversationContractDriftTests
         AssertSchema(openApi, "ConversationResponse", ConversationFields);
         AssertSchema(openApi, "MessageResponse", MessageFields);
         AssertSchema(openApi, "ChatTurnHandle", ["turnId", "conversationId"]);
+        AssertSchema(openApi, "StartChatTurnRequest",
+            ["content", "accountId", "modelId", "effort", "fallbackModelIds", "selectionReason"]);
 
         var frontend = File.ReadAllText(
             Path.Combine(root, "frontend", "src", "api", "contracts", "core.ts"));

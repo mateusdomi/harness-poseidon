@@ -1,15 +1,15 @@
 # Estado atual do backend
 
-Atualizado em: 2026-07-20T00:12:58Z
+Atualizado em: 2026-07-20T00:25:04Z
 
 ## Retomada rápida
 
 - Fase atual: Fase 2 — MVP pessoal; Fase 1/GNG-2 formalmente verdes.
 - Épico atual: F3 completa; F4/F5/F6/F7/F8/F9 com fatias principais verdes; paridade PostgreSQL F10-1..F10-5 completa (31 interfaces duais, 32 migrations PG, Host em modo servidor); F10-6 multiusuário + rate limit + carga 30 usuários F10-7 RBAC/ABAC (admin/member) e F10-8 maquinaria OIDC (IdP fake, migration 0034) verdes; smoke com agente real (agy) verde; GNG-3 aguarda somente homologação visual humana (Host em http://127.0.0.1:5090).
 - Branch obrigatória: `develop`.
-- Último commit remoto auditado: `0d7ecb3` (`origin/develop`), com defaults operacionais avançados de definições. Administração tipada de modelos está verde localmente e aguarda push.
+- Último commit remoto auditado: `1d952a8` (`origin/develop`), com administração tipada de modelos. Routing durável por invocação do Chief está verde localmente e aguarda push.
 - Progresso auditável: `docs/backend/execution/ROADMAP_PROGRESS.md` — Implementado 99,5% · Validado 99,3% · Integrado 96,4% · Homologado 0% · Geral ≈78,5%.
-- Próximo passo exato: publicar a administração completa de modelos e fechar override por invocação/decisão automática do Chief (§8.13). Em paralelo externo ficam a11y/E2E navegados e GNG-6. F6/F7/F9 estão tecnicamente completas; faltam smokes externos com executor/modelo, macOS limpo+Developer ID, Microsoft/Azure Bot e Entra ID reais. Telegram real exige rotação do token antes de nova ativação (R-013).
+- Próximo passo exato: publicar o routing por invocação e auditar as coleções crescentes restantes contra a paginação `page/pageSize` de §8.1. Em paralelo externo ficam a11y/E2E navegados e GNG-6. F6/F7/F9 estão tecnicamente completas; faltam smokes externos com executor/modelo, macOS limpo+Developer ID, Microsoft/Azure Bot e Entra ID reais. Telegram real exige rotação do token antes de nova ativação (R-013).
 - Bloqueios: nenhum técnico — há refinamentos v3 independentes. Apenas a11y/E2E de browser e os smokes/aceites externos (GNG-3 visual, GNG-4 macOS limpo, GNG-6, Entra ID, Teams e modelo reais) aguardam outra frente/terceiros e não travam o backlog backend. O token Telegram observado em linha de comando herdada deve ser rotacionado antes de novo smoke real (R-013); a árvore de processos foi encerrada.
 
 ## Suposições ativas
@@ -23,7 +23,7 @@ Atualizado em: 2026-07-20T00:12:58Z
 ## Estado persistido e operacional
 
 - Banco de dados: nenhum persistente no workspace; bancos temporários SQLite e containers/volumes PostgreSQL das PoCs foram removidos após os testes.
-- Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0043`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
+- Migrations: SQLite e PostgreSQL possuem históricos separados e idempotentes até `0044`; upgrades de prefixos históricos e reexecução foram validados; não há migration parcialmente aplicada.
 - Worktrees vinculadas a este clone: somente a raiz em `develop`; nenhuma worktree adicional.
 - Branches locais/remotas observadas: somente `main` e `develop`.
 - Processos `Harness.Host`, `Harness.Runner` ou `Harness.Launcher`: nenhum.

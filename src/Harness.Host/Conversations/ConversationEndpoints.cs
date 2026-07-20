@@ -223,6 +223,7 @@ public static class ConversationEndpoints
         IConversationStore conversations,
         IChiefTurnStore chiefTurns,
         IProjectStore projects,
+        ChiefInvocationRoutingService routing,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -243,6 +244,8 @@ public static class ConversationEndpoints
             var user = ConversationApplicationService.CreateUserMessage(
                 UlidValue.New(userAt).ToString(), profile.Id,
                 new CreateMessageRequest(conversationId, input.Content), userAt);
+            var selection = await routing.ResolveAsync(
+                profile.TenantId, project.ChiefAgentId, input, cancellationToken);
             await chiefTurns.EnqueueAsync(
                 new ChiefTurnEnqueueCommand(
                     profile.TenantId,
@@ -252,7 +255,8 @@ public static class ConversationEndpoints
                     project.ChiefAgentId,
                     ToRecord(profile.TenantId, conversation.ProjectId, user),
                     $"chief-turn:{turnId}",
-                    now),
+                    now,
+                    selection),
                 cancellationToken);
             return Results.Accepted(value: new ChatTurnHandle(turnId, conversationId));
         }
@@ -263,6 +267,10 @@ public static class ConversationEndpoints
         catch (ChiefTurnConflictException exception)
         {
             return Problem(409, "chief_turn_conflict", exception.Message);
+        }
+        catch (ChiefInvocationSelectionException exception)
+        {
+            return Problem(400, "invalid_chief_invocation_selection", exception.Message);
         }
     }
 

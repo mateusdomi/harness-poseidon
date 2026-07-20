@@ -42,6 +42,8 @@ public sealed class CodexCliAgentExecutor : IAgentExecutor
             thread.ThreadId,
             request.Instruction,
             ChiefTurnOutputContract.JsonSchema,
+            request.Model,
+            request.Effort,
             cancellationToken);
         try
         {
@@ -57,6 +59,8 @@ public sealed class CodexCliAgentExecutor : IAgentExecutor
                 Return only a corrected JSON object matching the supplied schema.
                 """,
                 ChiefTurnOutputContract.JsonSchema,
+                request.Model,
+                request.Effort,
                 cancellationToken);
             _ = ChiefTurnOutputContract.Parse(turn.FinalMessage);
         }

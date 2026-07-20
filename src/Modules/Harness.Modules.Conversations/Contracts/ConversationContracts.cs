@@ -29,6 +29,8 @@ public sealed record CreateConversationRequest(string ProjectId, string Title);
 public sealed record CreateMessageRequest(string ConversationId, string Content);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record StartChatTurnRequest(string Content);
+public sealed record StartChatTurnRequest(
+    string Content, string? AccountId = null, string? ModelId = null, string? Effort = null,
+    IReadOnlyList<string>? FallbackModelIds = null, string? SelectionReason = null);
 
 public sealed record ChatTurnHandle(string TurnId, string ConversationId);

@@ -177,6 +177,8 @@ public sealed class CodexCliAppServer : IAsyncDisposable
         string threadId,
         string instruction,
         JsonElement outputSchema,
+        string? model = null,
+        string? effort = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(threadId);
@@ -196,6 +198,8 @@ public sealed class CodexCliAppServer : IAsyncDisposable
                     threadId,
                     input = new[] { new { type = "text", text = instruction } },
                     outputSchema,
+                    model,
+                    effort,
                     approvalPolicy = "never",
                     sandboxPolicy = new { type = "externalSandbox", networkAccess = "restricted" },
                 },

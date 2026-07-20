@@ -333,6 +333,7 @@ public static class HostApplication
             new ChiefTurnWorkerOptions(
                 TimeSpan.FromMilliseconds(100),
                 TimeSpan.FromMinutes(2)));
+        builder.Services.AddSingleton<ChiefInvocationRoutingService>();
         builder.Services.AddHostedService<ChiefTurnBackgroundService>();
         builder.Services.AddSingleton<EventPublisher>();
         builder.Services.AddSingleton<RunnerIpcMessageProcessor>();

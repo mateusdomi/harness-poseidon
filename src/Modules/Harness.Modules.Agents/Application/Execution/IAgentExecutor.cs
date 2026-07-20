@@ -15,7 +15,9 @@ public sealed record AgentExecutionRequest(
     string Instruction,
     string StatusDigestJson,
     string WorkingDirectory,
-    string? SessionId = null);
+    string? SessionId = null,
+    string? Model = null,
+    string? Effort = null);
 
 public sealed record AgentExecutionResult(
     string Executor,

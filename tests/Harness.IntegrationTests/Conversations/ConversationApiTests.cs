@@ -4,6 +4,7 @@ using Harness.Host;
 using Harness.Host.Conversations;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
+using Harness.Host.Providers;
 using Harness.Host.Projects;
 using Harness.Host.Realtime;
 using Harness.Modules.Conversations.Contracts;
@@ -160,9 +161,19 @@ public sealed class ConversationApiTests
                     Assert.Equal(profileId, direct?.AuthorProfileId);
                     Assert.Null(direct?.AuthorAgentId);
 
+                    var accounts = (await client.GetFromJsonAsync<AccountPage>(
+                        "/api/v1/accounts", timeout.Token))!;
+                    var models = (await client.GetFromJsonAsync<ModelPage>(
+                        "/api/v1/models", timeout.Token))!;
+                    var account = accounts.Items.Single(x => x.State == "active");
+                    var compatibleModels = models.Items.Where(x =>
+                        x.ProviderId == account.ProviderId && x.Enabled &&
+                        x.Capabilities.Contains("chat")).ToArray();
                     using var turnResponse = await client.PostAsJsonAsync(
                         $"/api/v1/conversations/{conversationId}/turns",
-                        new StartChatTurnRequest("Continue com segurança"),
+                        new StartChatTurnRequest("Continue com segurança", account.Id,
+                            compatibleModels[0].Id, "high", [compatibleModels[1].Id],
+                            "Override explícito do teste integrado."),
                         timeout.Token);
                     Assert.Equal(HttpStatusCode.Accepted, turnResponse.StatusCode);
                     var handle = await turnResponse.Content
@@ -203,6 +214,17 @@ public sealed class ConversationApiTests
                     var pipeline = await ReadChiefPipelineAsync(
                         app.Services, handle.TurnId, timeout.Token);
                     Assert.Equal("completed", pipeline.MailboxState);
+                    var tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>()
+                        .GetAsync(profileId, timeout.Token))!.TenantId;
+                    var persistedTurn = await app.Services.GetRequiredService<IChiefTurnStore>()
+                        .GetAsync(tenantId, handle.TurnId, timeout.Token);
+                    Assert.NotNull(persistedTurn?.Selection);
+                    Assert.Equal((account.Id, compatibleModels[0].Id, "high", "explicit"),
+                        (persistedTurn!.Selection!.AccountId, persistedTurn.Selection.ModelId,
+                            persistedTurn.Selection.Effort, persistedTurn.Selection.Source));
+                    Assert.Equal([compatibleModels[1].Id], persistedTurn.Selection.FallbackModelIds);
+                    Assert.NotNull(persistedTurn.Selection.EstimatedCostUsd);
+                    Assert.NotNull(persistedTurn.Selection.QuotaRemainingUsd);
                     Assert.Equal(1, pipeline.AttemptCount);
                     Assert.NotNull(pipeline.ResponseMessageId);
                     Assert.Equal($"fake:{project.Id}", pipeline.SessionId);

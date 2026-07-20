@@ -18,12 +18,17 @@ public sealed record ChiefTurnRecord(
     string TenantId, string ProjectId, string ConversationId, string TurnId,
     string UserMessageId, string State, int AttemptCount, string? SessionId,
     string? ResponseMessageId, string? LastErrorCode, DateTimeOffset CreatedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt, ChiefInvocationSelection? Selection = null);
+
+public sealed record ChiefInvocationSelection(
+    string AccountId, string ModelId, string ModelName, string Effort,
+    string ProviderEffortValue, IReadOnlyList<string> FallbackModelIds,
+    string Source, string Reason, decimal? EstimatedCostUsd, decimal? QuotaRemainingUsd);
 
 public sealed record ChiefTurnEnqueueCommand(
     string TenantId, string ProjectId, string ConversationId, string TurnId,
     string ChiefAgentId, MessageRecord UserMessage, string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt, ChiefInvocationSelection? Selection = null);
 
 public sealed record ChiefTurnAcquireCommand(
     string TenantId, string TurnId, string OwnerId, DateTimeOffset Now, TimeSpan LeaseDuration);

@@ -2,13 +2,14 @@ using System.Text.Json;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace Harness.Persistence.Postgres;
 
 public sealed partial class PostgresConversationStore
 {
     private const string ChiefTurnSelect =
-        "SELECT tenant_id,project_id,conversation_id,id,user_message_id,state,attempt_count,session_id,response_message_id,last_error_code,created_at,completed_at FROM harness.chief_turn_mailbox";
+        "SELECT tenant_id,project_id,conversation_id,id,user_message_id,state,attempt_count,session_id,response_message_id,last_error_code,created_at,completed_at,account_id,model_id,model_name,effort,provider_effort_value,fallback_model_ids_json::text,selection_source,selection_reason,estimated_cost_usd,quota_remaining_usd FROM harness.chief_turn_mailbox";
 
     public Task<ChiefTurnRecord> EnqueueAsync(
         ChiefTurnEnqueueCommand command, CancellationToken cancellationToken = default)
@@ -149,8 +150,11 @@ public sealed partial class PostgresConversationStore
             connection, transaction,
             """
             INSERT INTO harness.chief_turn_mailbox
-                (id,tenant_id,project_id,conversation_id,user_message_id,state,created_at)
-            VALUES ($1,$2,$3,$4,$5,'pending',$6);
+                (id,tenant_id,project_id,conversation_id,user_message_id,state,created_at,
+                 account_id,model_id,model_name,effort,provider_effort_value,
+                 fallback_model_ids_json,selection_source,selection_reason,
+                 estimated_cost_usd,quota_remaining_usd)
+            VALUES ($1,$2,$3,$4,$5,'pending',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16);
             """,
             cancellationToken,
             Text(command.TurnId),
@@ -158,7 +162,17 @@ public sealed partial class PostgresConversationStore
             Text(command.ProjectId),
             Text(command.ConversationId),
             Text(command.UserMessage.Id),
-            Timestamp(command.OccurredAt));
+            Timestamp(command.OccurredAt),
+            NullableText(command.Selection?.AccountId),
+            NullableText(command.Selection?.ModelId),
+            NullableText(command.Selection?.ModelName),
+            NullableText(command.Selection?.Effort),
+            NullableText(command.Selection?.ProviderEffortValue),
+            Json(JsonSerializer.Serialize(command.Selection?.FallbackModelIds ?? [], JsonOptions)),
+            NullableText(command.Selection?.Source),
+            NullableText(command.Selection?.Reason),
+            NullableSelectionNumeric(command.Selection?.EstimatedCostUsd),
+            NullableSelectionNumeric(command.Selection?.QuotaRemainingUsd));
         var payload = MessagePayload(command.UserMessage);
         await AppendAuditAsync(
             connection, transaction, command.TenantId, "message.appended", payload,
@@ -166,6 +180,35 @@ public sealed partial class PostgresConversationStore
         await AppendOutboxAsync(
             connection, transaction, command.TenantId, "message.appended", payload,
             command.OccurredAt, command.OccurredAt, cancellationToken);
+        if (command.Selection is not null)
+        {
+            var selectionPayload = JsonSerializer.Serialize(new
+            {
+                auditEvent = new
+                {
+                    id = Harness.SharedKernel.Identifiers.UlidValue.New(command.OccurredAt).ToString(),
+                    actorKind = "user",
+                    actorId = command.UserMessage.AuthorProfileId,
+                    action = "chief.invocationRouted",
+                    targetType = "models",
+                    targetId = command.Selection.ModelId,
+                    detail = command.Selection.Reason,
+                    occurredAt = command.OccurredAt,
+                },
+                turnId = command.TurnId,
+                command.Selection.AccountId,
+                command.Selection.ModelId,
+                command.Selection.Effort,
+                command.Selection.ProviderEffortValue,
+                command.Selection.EstimatedCostUsd,
+                command.Selection.QuotaRemainingUsd,
+            }, JsonOptions);
+            await AppendAuditAsync(connection, transaction, command.TenantId,
+                "chief.invocationRouted", selectionPayload, command.OccurredAt, cancellationToken);
+            await AppendOutboxAsync(connection, transaction, command.TenantId,
+                "audit.eventAppended", selectionPayload, command.OccurredAt.AddTicks(1),
+                command.OccurredAt, cancellationToken);
+        }
         await transaction.CommitAsync(cancellationToken);
         return await ReadChiefTurnAsync(
                 connection, null, command.TenantId, command.TurnId, forUpdate: false,
@@ -589,8 +632,15 @@ public sealed partial class PostgresConversationStore
         query.Parameters.Add(Text(tenantId));
         query.Parameters.Add(Text(turnId));
         await using var reader = await query.ExecuteReaderAsync(cancellationToken);
-        return await reader.ReadAsync(cancellationToken)
-            ? new ChiefTurnRecord(
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+        var selection = reader.IsDBNull(12) ? null : new ChiefInvocationSelection(
+            reader.GetString(12).TrimEnd(), reader.GetString(13).TrimEnd(), reader.GetString(14),
+            reader.GetString(15), reader.GetString(16),
+            JsonSerializer.Deserialize<string[]>(reader.GetString(17), JsonOptions) ?? [],
+            reader.GetString(18), reader.GetString(19),
+            reader.IsDBNull(20) ? null : reader.GetDecimal(20),
+            reader.IsDBNull(21) ? null : reader.GetDecimal(21));
+        return new ChiefTurnRecord(
                 reader.GetString(0).TrimEnd(),
                 reader.GetString(1).TrimEnd(),
                 reader.GetString(2).TrimEnd(),
@@ -602,7 +652,13 @@ public sealed partial class PostgresConversationStore
                 reader.IsDBNull(8) ? null : reader.GetString(8).TrimEnd(),
                 reader.IsDBNull(9) ? null : reader.GetString(9),
                 reader.GetFieldValue<DateTimeOffset>(10),
-                reader.IsDBNull(11) ? null : reader.GetFieldValue<DateTimeOffset>(11))
-            : null;
+                reader.IsDBNull(11) ? null : reader.GetFieldValue<DateTimeOffset>(11),
+                selection);
     }
+
+    private static NpgsqlParameter NullableSelectionNumeric(decimal? value) => new()
+    {
+        NpgsqlDbType = NpgsqlDbType.Numeric,
+        Value = value is null ? DBNull.Value : value.Value,
+    };
 }
