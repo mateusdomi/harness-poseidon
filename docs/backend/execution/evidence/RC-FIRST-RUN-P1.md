@@ -33,11 +33,10 @@ loading do Cockpit tratava esse `isPending` como request ativa. Por isso o skele
 apesar de todas as APIs terem respondido. O E2E Host real anterior criava organização e projeto
 antes de validar o Cockpit e mascarava esse estado intermediário crítico.
 
-A investigação encontrou também um defeito independente de sessão pessoal no backend: cookie com
-ULID sintaticamente válido, porém inexistente no banco, fazia `profiles/current` responder `404` e
-APIs protegidas responderem `401`. A recuperação automática só cobria cookie ausente ou malformado.
-O middleware foi endurecido para validar a existência e substituir uma sessão stale pelo perfil
-pessoal persistido.
+A sessão pessoal respondeu corretamente aos casos investigados: cookie ausente ou malformado adota
+o perfil local persistido; cookie com ULID válido, porém desconhecido, permanece `404/401` para não
+transformar identificador forjado em sessão autenticada. A criação do perfil devolveu `201`, gravou
+cookie HttpOnly e as APIs subsequentes responderam `200`.
 
 O favicon da candidata original respondeu `404`; ele permanece critério bloqueante do smoke de
 assets do pacote.
@@ -50,7 +49,7 @@ assets do pacote.
 - `status` e `doctor` exercitam APIs reais; `/health` isolado não promove estado operacional.
 - O gate da RC instala em diretório externo, começa sem demo e com data dir vazio, usa navegador
   descartável diretamente contra o pacote, interrompe após criar somente o perfil para exigir
-  Cockpit sem skeleton, valida cookie stale, cria organização/projeto, reinicia e comprova
+  Cockpit sem skeleton, valida cookie malformado, cria organização/projeto, reinicia e comprova
   persistência.
 - O pacote só é aceito quando seu manifesto registra o SHA limpo, sem sufixo `-dirty`.
 

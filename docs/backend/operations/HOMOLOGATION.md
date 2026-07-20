@@ -33,7 +33,8 @@ assinatura Developer ID/notarização é dependência externa; não contorne o G
 4. Crie organização e projeto. Rode `./poseidon status` e `./poseidon doctor`; ambos devem reportar
    `readiness: personal-session`, APIs essenciais operacionais e PIDs distintos de Launcher/Runner.
 5. Limpe os cookies em outro perfil de navegador e entre novamente; confirme recuperação da sessão.
-   O gate automatizado também injeta um cookie ULID válido, mas inexistente, e exige substituição.
+   O gate automatizado também injeta um cookie malformado e exige substituição; um ULID válido,
+   porém desconhecido, deve continuar sem autorização.
 6. Recarregue a página, abra um deep link e confirme que a sessão e os dados permanecem.
 7. Confira `./poseidon logs` e `<data-dir>/logs/runner.log`: não deve haver segredo, stack trace não
    tratado, erro de migration ou repetição agressiva.

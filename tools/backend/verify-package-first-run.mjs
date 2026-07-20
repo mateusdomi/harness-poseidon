@@ -138,24 +138,24 @@ async function createOrganizationAndProject() {
 }
 
 async function verifyInvalidCookieRecovery() {
-  const stale = await browser.newContext();
+  const invalid = await browser.newContext();
   try {
-    await stale.addCookies([{
+    await invalid.addCookies([{
       name: 'harness.profile',
-      value: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+      value: 'not-a-valid-ulid',
       url: baseURL,
       httpOnly: true,
       sameSite: 'Strict',
     }]);
-    const response = await stale.request.get(`${baseURL}/api/v1/profiles/current`);
-    await expectStatus(response, 200, 'cookie stale deve recuperar sessão pessoal');
-    const cookies = await stale.cookies(baseURL);
+    const response = await invalid.request.get(`${baseURL}/api/v1/profiles/current`);
+    await expectStatus(response, 200, 'cookie inválido deve recuperar sessão pessoal');
+    const cookies = await invalid.cookies(baseURL);
     const recovered = cookies.find((cookie) => cookie.name === 'harness.profile');
-    if (!recovered || recovered.value === '01ARZ3NDEKTSV4RRFFQ69G5FAV') {
-      throw new Error('cookie stale não foi substituído pela sessão pessoal existente.');
+    if (!recovered || recovered.value === 'not-a-valid-ulid') {
+      throw new Error('cookie inválido não foi substituído pela sessão pessoal existente.');
     }
   } finally {
-    await stale.close();
+    await invalid.close();
   }
 }
 

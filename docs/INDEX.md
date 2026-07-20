@@ -170,7 +170,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Roteiro de homologação da Release Candidate](backend/operations/HOMOLOGATION.md) | release-candidate | Active | Quality Engineering | OnDemand | 1098 |
+| [Roteiro de homologação da Release Candidate](backend/operations/HOMOLOGATION.md) | release-candidate | Active | Quality Engineering | OnDemand | 1107 |
 | [Poseidon Release Candidate — notas de release](backend/release/RELEASE_NOTES.md) | release-candidate | Active | Operations | OnDemand | 369 |
 | [Runbook de incidentes](backend/operations/INCIDENT_RUNBOOK.md) | * | Active | Operations | OnDemand | 774 |
 | [Instalação do Harness Poseidon](backend/operations/INSTALLATION.md) | * | Active | Operations | OnDemand | 810 |
@@ -245,7 +245,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Incidente P1 — first-run da Release Candidate](backend/execution/evidence/RC-FIRST-RUN-P1.md) | release-candidate | Active | Quality Engineering | OnDemand | 845 |
+| [Incidente P1 — first-run da Release Candidate](backend/execution/evidence/RC-FIRST-RUN-P1.md) | release-candidate | Active | Quality Engineering | OnDemand | 833 |
 | [Evidência — Governance Gate P1](backend/execution/evidence/GOVERNANCE-GATE-P1.md) | p1 | Active | Platform Governance | OnDemand | 875 |
 | [Evidência — Governance Gate P2](backend/execution/evidence/GOVERNANCE-GATE-P2.md) | p2 | Active | Platform Governance | OnDemand | 333 |
 | [Relatório da Release Candidate](backend/release/RELEASE_REPORT.md) | release-candidate | Active | Operations | OnDemand | 470 |

@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-20T23:10:29.2579510+00:00
+lastGeneratedAt: 2026-07-20T23:20:47.8478470+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -217,7 +217,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:af323f1125bc5509f10091e9071f618efaee39b1a80c583e34b5ffa74571a22f
+  checksum: sha256:3dc9c3204a2f9459ce4088dddb7af47fe4f4ab96c932f442712e07144aa0abb5
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -10300,7 +10300,7 @@ documents:
   - poseidon
   loadPolicy: on-demand
   priority: 850
-  tokenEstimate: 845
+  tokenEstimate: 833
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -10315,7 +10315,7 @@ documents:
   - doc-backend-release-report
   enforcedBy:
   - tools/backend/verify-release-candidate.sh
-  checksum: sha256:6f02b4f0814bbf8d8fcfc132bbed5f11fc13d139851e92cb855db520c54f650a
+  checksum: sha256:442171c7c4c339eafa9978ddb71ba0d550b44831672d2b59a42e6f3c4bb8009b
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/RC-FIRST-RUN-P1.md
@@ -10345,7 +10345,7 @@ documents:
   - '**'
   loadPolicy: on-demand
   priority: 800
-  tokenEstimate: 1098
+  tokenEstimate: 1107
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -10358,7 +10358,7 @@ documents:
   related: []
   enforcedBy:
   - tools/backend/verify-release-candidate.sh
-  checksum: sha256:c6e1ac3b969d1b9c72cda5feda9e7cca2d9e962577dd72957169c66ec0f7cd16
+  checksum: sha256:e425b67f437332b21691adaf78e9e19b7dcdc32a71ad33f8d66ed77dd23517eb
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/operations/HOMOLOGATION.md

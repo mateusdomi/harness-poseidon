@@ -81,7 +81,7 @@ public sealed class PersonalSessionAdoptionTests
     }
 
     [Fact]
-    public async Task StaleButWellFormedCookieIsReplacedByTheExistingPersonalProfile()
+    public async Task MalformedCookieIsReplacedByTheExistingPersonalProfile()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var root = Path.Combine(
@@ -107,7 +107,7 @@ public sealed class PersonalSessionAdoptionTests
 
                 using var staleBrowser = new HttpClient { BaseAddress = address };
                 staleBrowser.DefaultRequestHeaders.Add(
-                    "Cookie", "harness.profile=01ARZ3NDEKTSV4RRFFQ69G5FAV");
+                    "Cookie", "harness.profile=not-a-valid-ulid");
                 using (var current = await staleBrowser.GetAsync(
                            "/api/v1/profiles/current", timeout.Token))
                 {
