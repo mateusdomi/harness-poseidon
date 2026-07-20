@@ -29,7 +29,12 @@ launcher_pid() {
 is_running() {
   local pid
   pid="$(launcher_pid)"
-  [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null
+  [[ -n "${pid}" ]] || return 1
+  kill -0 "${pid}" 2>/dev/null || return 1
+  case "$(ps -p "${pid}" -o command= 2>/dev/null)" in
+    *Harness.Launcher*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 recover_stale_state() {
@@ -74,6 +79,10 @@ resolve_launcher() {
 
 start_poseidon() {
   [[ "$(uname -s)" == "Darwin" ]] || { echo "Este candidato suporta inicialização local no macOS." >&2; exit 2; }
+  if [[ -x "${POSEIDON_ROOT}/Harness.Launcher" && "$(uname -m)" != "arm64" ]]; then
+    echo "Pacote incompatível: esta candidata osx-arm64 exige Mac Apple Silicon." >&2
+    exit 2
+  fi
   recover_stale_state
   if is_running; then
     echo "Poseidon já está em execução em $(json_string address)"
@@ -162,12 +171,18 @@ doctor_poseidon() {
   [[ "$(uname -s)" == "Darwin" ]] && echo "[ok] macOS $(sw_vers -productVersion)" || { echo "[erro] macOS obrigatório"; failures=$((failures+1)); }
   [[ -d "${POSEIDON_DATA_DIR}" || -w "$(dirname "${POSEIDON_DATA_DIR}")" ]] && echo "[ok] diretório de dados gravável" || { echo "[erro] diretório de dados sem escrita"; failures=$((failures+1)); }
   if [[ -x "${POSEIDON_ROOT}/Harness.Launcher" ]]; then
+    [[ "$(uname -m)" == "arm64" ]] && echo "[ok] arquitetura Apple Silicon" || { echo "[erro] pacote osx-arm64 incompatível com $(uname -m)"; failures=$((failures+1)); }
     [[ -x "${POSEIDON_ROOT}/runner/Harness.Runner" ]] && echo "[ok] pacote self-contained completo" || { echo "[erro] Runner ausente"; failures=$((failures+1)); }
     [[ -s "${POSEIDON_ROOT}/wwwroot/index.html" ]] && echo "[ok] frontend empacotado" || { echo "[erro] frontend ausente"; failures=$((failures+1)); }
   else
     [[ -x "${POSEIDON_ROOT}/tools/backend/dotnet.sh" ]] && echo "[ok] SDK .NET versionado" || { echo "[erro] SDK .NET ausente"; failures=$((failures+1)); }
     command -v node >/dev/null && echo "[ok] Node $(node --version)" || { echo "[erro] Node ausente"; failures=$((failures+1)); }
     if command -v docker >/dev/null && docker info >/dev/null 2>&1; then echo "[ok] Docker/Colima disponível"; else echo "[info] Docker/Colima indisponível; recursos isolados ficam desabilitados"; fi
+  fi
+  if command -v omp >/dev/null; then
+    echo "[info] executor OMP disponível, mas só é ativado por configuração explícita"
+  else
+    echo "[info] executor OMP opcional indisponível; o Poseidon continua funcional"
   fi
   df -h "$(dirname "${POSEIDON_DATA_DIR}")" | tail -1 | awk '{print "[info] disco disponível: "$4}'
   if is_running; then status_poseidon || failures=$((failures+1)); else echo "[info] Poseidon parado"; fi

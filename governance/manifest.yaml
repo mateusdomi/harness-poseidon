@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-20T18:52:30.4203640+00:00
+lastGeneratedAt: 2026-07-20T19:10:09.3091230+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -217,7 +217,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:c05c225ee94ce2513863181274c1ede95c0aefae832593ffe09964d9870468d6
+  checksum: sha256:e6afa6b00ebc286e662fe5030c3e94781196e726ece003bb9fbd91735c5eab47
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -423,7 +423,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:7885661e7f8d81fc7041dbefe48a329142dbcb4f2e536b98d3aca2b0e3d9ae96
+  checksum: sha256:6f8e198da37477aa893c80bcd9d7219ebb7d3fc858b1f51a9ec4bcc35c4bfca7
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -873,7 +873,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:a3ded67e7e5d37f77de877c25be98c996617856f4ba1d9f032219f28098cee48
+  checksum: sha256:b0e4a4d772198271641b04947e047a8efd2f5d2e750eb1a41b23ba311c9c108c
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/ROADMAP_PROGRESS.md
@@ -10249,7 +10249,7 @@ documents:
   - tests/**
   loadPolicy: on-demand
   priority: 750
-  tokenEstimate: 285
+  tokenEstimate: 333
   owner: Platform Governance
   status: active
   version: 1.0.0
@@ -10265,7 +10265,7 @@ documents:
   enforcedBy:
   - tools/backend/verify.sh
   - tools/backend/verify-governance.sh
-  checksum: sha256:7ee0801312d43dd55c698f5910311dee41820579226744516ab1cae0c2b0d25c
+  checksum: sha256:a2452463b947b1a48f2be3d2e55283b874affefe4fad585f5685f5c07e4c8b7b
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GOVERNANCE-GATE-P2.md

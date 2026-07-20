@@ -1,0 +1,94 @@
+{
+  "candidate": {
+    "organizationId": "01J00000000000000000000003",
+    "projectId": "01J00000000000000000000004",
+    "candidateId": "01J00000000000000000000006",
+    "type": "rule",
+    "state": "shadow",
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "observation": "Transient failures repeat without a bounded retry rule.",
+    "evidence": [
+      {
+        "kind": "evaluation",
+        "reference": "evidence://evaluations/retry-01",
+        "checksum": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "summary": "Thirty isolated attempts compared with the current version."
+      }
+    ],
+    "payload": {
+      "title": "Retry transient failures",
+      "statement": "Retry only classified transient failures with a bounded policy.",
+      "instructions": null,
+      "personaId": null,
+      "workflowId": null,
+      "toolId": null,
+      "documentId": null,
+      "providerId": null,
+      "modelId": null,
+      "refinement": null,
+      "recommendation": null,
+      "correction": null
+    },
+    "actorAgentId": "01J00000000000000000000005",
+    "actorProvider": "provider-a",
+    "actorModel": "actor-model",
+    "baselineVersion": "rule/1",
+    "proposedVersion": "rule/2",
+    "evaluatorAgentId": "01J00000000000000000000007",
+    "evaluatorProvider": "provider-b",
+    "evaluatorModel": "critic-model",
+    "evaluationVerdict": "pass",
+    "shadowResult": {
+      "sampleSize": 30,
+      "firstPassSuccessDelta": 0.12,
+      "repeatedErrorRateDelta": -0.08,
+      "tokenImpact": -120,
+      "costPerAcceptedTaskDelta": -0.05,
+      "regressions": 0,
+      "evidenceReference": "evidence://shadow/retry-01"
+    },
+    "reviewerProfileId": "01J00000000000000000000002",
+    "decisionNote": "Shadow result accepted for manual promotion review.",
+    "activeVersion": null,
+    "previousVersion": null,
+    "createdAt": "2026-07-20T18:00:00Z",
+    "updatedAt": "2026-07-20T18:10:00Z",
+    "version": 5
+  },
+  "metrics": {
+    "created": 12,
+    "deduplicated": 3,
+    "rejected": 2,
+    "approved": 4,
+    "promoted": 2,
+    "rolledBack": 1,
+    "averageFirstPassSuccessDelta": 0.09,
+    "averageRepeatedErrorRateDelta": -0.04,
+    "tokenImpact": -340,
+    "averageCostPerAcceptedTaskDelta": -0.03,
+    "regressionsAfterPromotion": 1
+  },
+  "realtime": {
+    "stream": "global",
+    "sequence": 42,
+    "type": "audit.eventAppended",
+    "occurredAt": "2026-07-20T18:10:00Z",
+    "payload": {
+      "projectId": "01J00000000000000000000004",
+      "candidateId": "01J00000000000000000000006",
+      "type": "rule",
+      "state": "promoted",
+      "version": 7,
+      "auditEvent": {
+        "id": "01J00000000000000000000008",
+        "actorKind": "user",
+        "actorId": "01J00000000000000000000002",
+        "action": "learning.candidatePromoted",
+        "targetType": "learning-candidate",
+        "targetId": "01J00000000000000000000006",
+        "detail": "Manual promotion approved after independent evaluation and shadow.",
+        "occurredAt": "2026-07-20T18:10:00Z"
+      }
+    }
+  }
+}

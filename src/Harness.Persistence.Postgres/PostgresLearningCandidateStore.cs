@@ -58,7 +58,7 @@ public sealed class PostgresLearningCandidateStore(NpgsqlDataSource dataSource) 
         await AppendHistoryAsync(connection, tx, created, created.State, null, command.ActorAgentId,
             "candidate_created", command.OccurredAt, cancellationToken);
         await AppendMetricAsync(connection, tx, created, "created", command.OccurredAt, cancellationToken);
-        await AppendAuditAndOutboxAsync(connection, tx, created, "learning.candidateCreated", command.ActorAgentId,
+        await AppendAuditAndOutboxAsync(connection, tx, created, "learning.candidateCreated", "agent", command.ActorAgentId,
             "Candidate created from observation and evidence.", command.OccurredAt, cancellationToken);
         await AppendInboxAsync(connection, tx, command.TenantId, command.IdempotencyKey, command.PayloadHash,
             created.CandidateId, false, command.OccurredAt, cancellationToken);
@@ -127,7 +127,7 @@ public sealed class PostgresLearningCandidateStore(NpgsqlDataSource dataSource) 
             LearningCandidateAction.Rollback => "learning.candidateRolledBack",
             _ => "learning.candidateStateChanged"
         };
-        await AppendAuditAndOutboxAsync(connection, tx, updated, eventType, command.ActorProfileId,
+        await AppendAuditAndOutboxAsync(connection, tx, updated, eventType, "user", command.ActorProfileId,
             command.Note ?? command.Action.ToString(), command.OccurredAt, cancellationToken);
         await AppendInboxAsync(connection, tx, command.TenantId, command.IdempotencyKey, command.PayloadHash,
             updated.CandidateId, false, command.OccurredAt, cancellationToken);
@@ -241,7 +241,9 @@ public sealed class PostgresLearningCandidateStore(NpgsqlDataSource dataSource) 
     private static Task AppendHistoryAsync(NpgsqlConnection c, NpgsqlTransaction tx, LearningCandidateRecord v, LearningCandidateState from, LearningCandidateAction? action, string actor, string? note, DateTimeOffset at, CancellationToken token) => ExecuteAsync(c, tx,
         "INSERT INTO harness.learning_candidate_history(tenant_id,event_id,candidate_id,from_state,to_state,action,actor_id,note,occurred_at,candidate_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);", token,
         Text(v.TenantId), Text(UlidValue.New(at).ToString()), Text(v.CandidateId), Text(State(from)), Text(State(v.State)), Text(action?.ToString()), Text(actor), Text(note), Timestamp(at), Bigint(v.Version));
-    private static async Task AppendAuditAndOutboxAsync(NpgsqlConnection c, NpgsqlTransaction tx, LearningCandidateRecord v, string eventType, string actor, string detail, DateTimeOffset at, CancellationToken token)
+    private static async Task AppendAuditAndOutboxAsync(NpgsqlConnection c, NpgsqlTransaction tx,
+        LearningCandidateRecord v, string eventType, string actorKind, string actor, string detail,
+        DateTimeOffset at, CancellationToken token)
     {
         var auditId = UlidValue.New(at).ToString(); var payload = JsonSerializer.Serialize(new
         {
@@ -250,7 +252,7 @@ public sealed class PostgresLearningCandidateStore(NpgsqlDataSource dataSource) 
             type = Type(v.Type),
             state = State(v.State),
             version = v.Version,
-            auditEvent = new { id = auditId, actorKind = "user", actorId = actor, action = eventType, targetType = "learning-candidate", targetId = v.CandidateId, detail, occurredAt = at }
+            auditEvent = new { id = auditId, actorKind, actorId = actor, action = eventType, targetType = "learning-candidate", targetId = v.CandidateId, detail, occurredAt = at }
         }, JsonOptions);
         var (sequence, previous) = await ReadTailAsync(c, tx, v.TenantId, token); var hash = AuditLedgerHash.Compute(previous, v.TenantId, sequence, eventType, payload, at);
         await ExecuteAsync(c, tx, "INSERT INTO harness.audit_ledger(id,tenant_id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8);", token,

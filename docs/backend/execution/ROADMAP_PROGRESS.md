@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-07-20. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md` e gates automatizados. O backend P2 está em
-298/298 testes e build Release sem warnings; a linha de base frontend recém-incorporada passa
+299/299 testes e build Release sem warnings; a linha de base frontend recém-incorporada passa
 428/429 e aguarda a troca do teste que declara P2 ausente pelo contrato/UI P2 agora publicado.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência

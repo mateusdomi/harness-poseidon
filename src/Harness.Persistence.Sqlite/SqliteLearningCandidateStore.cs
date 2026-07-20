@@ -97,7 +97,7 @@ public sealed class SqliteLearningCandidateStore(SqliteWriteDispatcher dispatche
             "candidate_created", command.OccurredAt, token);
         await AppendMetricAsync(connection, tx, created, "created", command.OccurredAt, token);
         await AppendAuditAndOutboxAsync(connection, tx, created, "learning.candidateCreated",
-            command.ActorAgentId, "Candidate created from observation and evidence.", command.OccurredAt, token);
+            "agent", command.ActorAgentId, "Candidate created from observation and evidence.", command.OccurredAt, token);
         await AppendInboxAsync(connection, tx, command.TenantId, command.IdempotencyKey,
             command.PayloadHash, created.CandidateId, false, command.OccurredAt, token);
         await tx.CommitAsync(token);
@@ -173,7 +173,7 @@ public sealed class SqliteLearningCandidateStore(SqliteWriteDispatcher dispatche
             LearningCandidateAction.Rollback => "learning.candidateRolledBack",
             _ => "learning.candidateStateChanged",
         };
-        await AppendAuditAndOutboxAsync(connection, tx, updated!, eventType, command.ActorProfileId,
+        await AppendAuditAndOutboxAsync(connection, tx, updated!, eventType, "user", command.ActorProfileId,
             command.Note ?? command.Action.ToString(), command.OccurredAt, token);
         await AppendInboxAsync(connection, tx, command.TenantId, command.IdempotencyKey,
             command.PayloadHash, updated!.CandidateId, false, command.OccurredAt, token);
@@ -325,7 +325,8 @@ public sealed class SqliteLearningCandidateStore(SqliteWriteDispatcher dispatche
         ("$actor", actor), ("$note", note), ("$at", Store(at)), ("$version", value.Version));
 
     private static async Task AppendAuditAndOutboxAsync(SqliteConnection c, SqliteTransaction tx,
-        LearningCandidateRecord value, string eventType, string actor, string detail, DateTimeOffset at, CancellationToken token)
+        LearningCandidateRecord value, string eventType, string actorKind, string actor, string detail,
+        DateTimeOffset at, CancellationToken token)
     {
         var auditId = UlidValue.New(at).ToString();
         var payload = JsonSerializer.Serialize(new
@@ -338,7 +339,7 @@ public sealed class SqliteLearningCandidateStore(SqliteWriteDispatcher dispatche
             auditEvent = new
             {
                 id = auditId,
-                actorKind = "user",
+                actorKind,
                 actorId = actor,
                 action = eventType,
                 targetType = "learning-candidate",

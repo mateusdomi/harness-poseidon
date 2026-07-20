@@ -132,7 +132,7 @@ a `generated=true`.
 - Host smoke: `/health` respondeu `{"status":"healthy"}` em porta loopback dinâmica 53906; processo finalizado com exit code 0.
 - Governance P2: sete candidate types fechados, lifecycle até depreciação/rollback, métricas, API real,
   OpenAPI e realtime por `audit.eventAppended` implementados com paridade SQLite/PostgreSQL. Backend
-  está em 298/298 testes, build Release sem warnings, governance/SAST/resiliência/operações verdes.
+  está em 299/299 testes, build Release sem warnings, governance/SAST/resiliência/operações verdes.
 - Integração frontend: a UI P1 publicada em `7a27caf` foi incorporada sem edição local. Seus 428
   testes compatíveis passam; o único teste restante declara deliberadamente que P2 não existe e deve
   ser reconciliado pela frente proprietária agora que o OpenAPI real foi publicado.

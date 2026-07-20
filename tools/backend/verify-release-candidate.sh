@@ -49,6 +49,7 @@ touch "${GATE_LOG}"
 cleanup() {
   if [[ -x "${SMOKE_ROOT}/install/poseidon" ]]; then
     POSEIDON_DATA_DIR="${SMOKE_ROOT}/data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
+    POSEIDON_DATA_DIR="${SMOKE_ROOT}/demo-data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
   fi
   case "${SMOKE_ROOT}" in "${RELEASE_ROOT}/.smoke") rm -rf "${SMOKE_ROOT}" ;; esac
   case "${FRONTEND_WORK}" in "${RELEASE_ROOT}/.frontend") rm -rf "${FRONTEND_WORK}" ;; esac
@@ -60,6 +61,27 @@ run_gate() {
   shift
   echo "== ${label} ==" | tee -a "${GATE_LOG}"
   "$@" 2>&1 | tee -a "${GATE_LOG}"
+}
+
+storybook_gate() {
+  env -u FORCE_COLOR NODE_NO_WARNINGS=1 npm run build-storybook -- --disable-telemetry 2>&1 | awk '
+    /node_modules\/@storybook\/core\/dist\/preview\/runtime\.js .*Use of eval/ { next }
+    /^\(!\) Some chunks are larger than 500 kB after minification/ { known_chunk = 4; next }
+    known_chunk > 0 { known_chunk--; next }
+    /[Ww]arning|\(!\)/ { print > "/dev/stderr"; unexpected = 1; next }
+    { print }
+    END { if (unexpected) exit 3 }
+  '
+}
+
+frontend_browser_gate() {
+  env -u FORCE_COLOR NODE_NO_WARNINGS=1 "$@" 2>&1 | awk '
+    /node_modules\/@microsoft\/signalr\/dist\/esm\/Utils\.js .*: A comment/ { known_signalr = 4; next }
+    known_signalr > 0 { known_signalr--; next }
+    /[Ww]arning|\(!\)/ { print > "/dev/stderr"; unexpected = 1; next }
+    { print }
+    END { if (unexpected) exit 3 }
+  '
 }
 
 run_gate "verify integral" "${TOOLS_DIR}/verify.sh"
@@ -76,9 +98,9 @@ rsync -a --exclude node_modules --exclude dist "${REPOSITORY_ROOT}/frontend/" "$
 (
   cd "${FRONTEND_WORK}"
   run_gate "frontend npm ci" npm ci --no-audit --loglevel=error
-  run_gate "frontend E2E" npm run test:e2e
-  run_gate "frontend a11y" npm run test:a11y
-  run_gate "frontend Storybook" npm run build-storybook
+  run_gate "frontend E2E" frontend_browser_gate npm run test:e2e
+  run_gate "frontend a11y" frontend_browser_gate npm run test:a11y
+  run_gate "frontend Storybook" storybook_gate
 )
 
 run_gate "publish self-contained" "${TOOLS_DIR}/publish-desktop.sh" "${RID}"
@@ -90,16 +112,24 @@ run_gate "instalação limpa" "${PACKAGE_DIR}/Harness.Launcher" install \
   --install-dir "${SMOKE_ROOT}/install" --data-dir "${SMOKE_ROOT}/data"
 
 export POSEIDON_DATA_DIR="${SMOKE_ROOT}/data"
-run_gate "package start" "${SMOKE_ROOT}/install/poseidon" start --no-browser --port 5090 --demo
+run_gate "package start" "${SMOKE_ROOT}/install/poseidon" start --no-browser --port 5090
 run_gate "package status" "${SMOKE_ROOT}/install/poseidon" status
+mkdir -p "${RELEASE_ROOT}/screenshots"
 (
   cd "${FRONTEND_WORK}"
-  POSEIDON_BACKEND_URL=http://127.0.0.1:5090 run_gate "frontend E2E API real" npm run test:e2e:real
+  POSEIDON_BACKEND_URL=http://127.0.0.1:5090 \
+    POSEIDON_EVIDENCE_DIR="${RELEASE_ROOT}/screenshots" \
+    run_gate "frontend E2E API real" frontend_browser_gate npm run test:e2e:real
 )
 run_gate "package restart" "${SMOKE_ROOT}/install/poseidon" restart --no-browser --port 5090
 run_gate "package status pós-restart" "${SMOKE_ROOT}/install/poseidon" status
 run_gate "package stop" "${SMOKE_ROOT}/install/poseidon" stop
 run_gate "package doctor" "${SMOKE_ROOT}/install/poseidon" doctor
+export POSEIDON_DATA_DIR="${SMOKE_ROOT}/demo-data"
+run_gate "first-run demo" "${SMOKE_ROOT}/install/poseidon" start --no-browser --port 5090 --demo
+run_gate "first-run demo status" "${SMOKE_ROOT}/install/poseidon" status
+run_gate "first-run demo stop" "${SMOKE_ROOT}/install/poseidon" stop
+export POSEIDON_DATA_DIR="${SMOKE_ROOT}/data"
 
 for resource in \
   "$(docker ps -aq --filter label=com.harness.managed=true)" \
@@ -148,6 +178,7 @@ rm "${RELEASE_ROOT}/package-files.txt"
 
 archive_sha="$(shasum -a 256 "${ARCHIVE}" | awk '{print $1}')"
 archive_size="$(stat -f %z "${ARCHIVE}")"
+screenshot_count="$(find "${RELEASE_ROOT}/screenshots" -type f | wc -l | tr -d ' ')"
 cat >"${RELEASE_ROOT}/release-manifest.json" <<EOF
 {
   "schemaVersion": 1,
@@ -157,17 +188,22 @@ cat >"${RELEASE_ROOT}/release-manifest.json" <<EOF
   "archive": "${PACKAGE_NAME}.tar.gz",
   "archiveBytes": ${archive_size},
   "archiveSha256": "${archive_sha}",
+  "screenshots": ${screenshot_count},
   "packageManifest": "${PACKAGE_NAME}/.harness-desktop-package.json"
 }
 EOF
 
 (
   cd "${RELEASE_ROOT}"
-  shasum -a 256 \
-    "${PACKAGE_NAME}.tar.gz" \
-    "${PACKAGE_NAME}/.harness-desktop-package.json" \
-    HOMOLOGATION.md INSTALLATION.md RELEASE_NOTES.md TEST_REPORT.md gates.log \
-    release-manifest.json sbom.json >SHA256SUMS
+  {
+    shasum -a 256 \
+      "${PACKAGE_NAME}.tar.gz" \
+      "${PACKAGE_NAME}/.harness-desktop-package.json" \
+      HOMOLOGATION.md INSTALLATION.md RELEASE_NOTES.md TEST_REPORT.md gates.log \
+      release-manifest.json sbom.json
+    while IFS= read -r screenshot; do shasum -a 256 "${screenshot}"; done \
+      < <(find screenshots -type f -print | LC_ALL=C sort)
+  } >SHA256SUMS
   shasum -a 256 -c SHA256SUMS
 )
 

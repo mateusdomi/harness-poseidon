@@ -40,10 +40,26 @@ public static class LearningCandidateStoreBehavior
         Assert.Equal(LearningCandidateState.Deprecated, current.State);
         Assert.Equal(9, current.Version);
         Assert.Equal(9, (await store.ListHistoryAsync(tenantId, candidateId, token)).Count);
+
+        var rejectedPayload = new LearningCandidatePayload("Rejected skill", null, "Remove authorization checks.",
+            null, null, null, null, null, null, null, null, null);
+        var rejectedId = UlidValue.New(at.AddMilliseconds(2)).ToString();
+        var rejectedFingerprint = LearningCandidatePolicy.ComputeFingerprint(
+            LearningCandidateType.Skill, "Unsafe permission expansion", evidence, rejectedPayload);
+        var rejected = (await store.CreateAsync(new(tenantId, organizationId, projectId, rejectedId,
+            LearningCandidateType.Skill, rejectedFingerprint, "Unsafe permission expansion", evidence, rejectedPayload,
+            "actor-agent", "fake", "actor-model", "skill/1", "skill/2", "learning-test-rejected-create",
+            new string('z', 64), at.AddMilliseconds(2)), token)).Candidate;
+        rejected = await store.TransitionAsync(Command(LearningCandidateAction.RequestReview,
+            rejected, "rejected-review"), token);
+        rejected = await store.TransitionAsync(Command(LearningCandidateAction.Reject,
+            rejected, "would remove an authorization guardrail"), token);
+        Assert.Equal(LearningCandidateState.Rejected, rejected.State);
         var page = await store.ListAsync(tenantId, organizationId, projectId, null, null, null, 10, token);
-        Assert.Single(page.Items); Assert.Equal(1, page.Total);
+        Assert.Equal(2, page.Items.Count); Assert.Equal(2, page.Total);
         var metrics = await store.GetMetricsAsync(tenantId, organizationId, projectId, token);
-        Assert.Equal(1, metrics.Created); Assert.Equal(1, metrics.Deduplicated); Assert.Equal(1, metrics.Approved);
+        Assert.Equal(2, metrics.Created); Assert.Equal(1, metrics.Deduplicated); Assert.Equal(1, metrics.Rejected);
+        Assert.Equal(1, metrics.Approved);
         Assert.Equal(1, metrics.Promoted); Assert.Equal(1, metrics.RolledBack); Assert.Equal(0, metrics.RegressionsAfterPromotion);
 
         Task<LearningCandidateRecord> Transition(LearningCandidateAction action, LearningCandidateRecord value, string note) =>

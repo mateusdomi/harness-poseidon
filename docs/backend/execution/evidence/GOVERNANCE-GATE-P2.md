@@ -14,8 +14,11 @@ publica listagem/filtros/paginação, evidência, comparação, review, avaliaç
 promoção, rollback, depreciação, histórico e métricas. O OpenAPI e o catálogo realtime 1.1 estão
 protegidos pelo teste de drift. As quatro ações de domínio P2 trafegam pelo evento canônico
 `audit.eventAppended`, estendendo a governança existente sem criar navegação ou canal paralelo.
+Exemplos fechados de candidate, métricas e envelope realtime estão em
+`docs/contracts/examples/governance-learning.json` e são lidos pelo contract test.
 
 Evidência automatizada: testes unitários cobrem política/tipos; o cenário provider-neutral percorre
 o lifecycle completo nos dois bancos e prova replay, dedupe, independência, RBAC, rollback,
-histórico e métricas; o smoke HTTP usa Host e SQLite reais. O gate integral e os números finais são
-registrados no `TEST_REPORT.md` gerado pela Release Candidate.
+histórico e métricas. O cenário HTTP usa Host e SQLite reais e percorre criação, review, avaliador
+independente, shadow, decisão humana, promoção, métricas, rollback, depreciação e histórico. O gate
+integral e os números finais são registrados no `TEST_REPORT.md` gerado pela Release Candidate.

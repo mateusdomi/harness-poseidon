@@ -32,6 +32,24 @@ public sealed class GovernanceRuntimeContractDriftTests
         }
     }
 
+    [Fact]
+    public void LearningResponseExamplesStayAlignedWithPublishedContract()
+    {
+        using var example = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(), "docs", "contracts", "examples", "governance-learning.json")));
+        var candidate = example.RootElement.GetProperty("candidate");
+        Assert.Equal("rule", candidate.GetProperty("type").GetString());
+        Assert.Equal("shadow", candidate.GetProperty("state").GetString());
+        Assert.Equal(64, candidate.GetProperty("fingerprint").GetString()!.Length);
+        Assert.True(candidate.GetProperty("shadowResult").GetProperty("sampleSize").GetInt32() > 0);
+        var metrics = example.RootElement.GetProperty("metrics");
+        Assert.True(metrics.TryGetProperty("regressionsAfterPromotion", out _));
+        var realtime = example.RootElement.GetProperty("realtime");
+        Assert.Equal("audit.eventAppended", realtime.GetProperty("type").GetString());
+        Assert.Equal("learning.candidatePromoted",
+            realtime.GetProperty("payload").GetProperty("auditEvent").GetProperty("action").GetString());
+    }
+
     private static string FindRepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
