@@ -85,6 +85,13 @@ import {
   type WorkflowDraftInput,
   type WorkflowTemplate,
   type WorkflowVersion,
+  type AgentExecutor,
+  type EvaluationResult,
+  type GovernanceMetric,
+  type GovernanceReceipt,
+  type HashlinePatchResult,
+  type PatchBenchmark,
+  type StaleDocumentFinding,
 } from '../contracts';
 import { streams } from '../contracts';
 import { product } from '@/config/product';
@@ -1536,6 +1543,48 @@ export class MockApiClient implements ApiClient {
       ],
       generatedAt: now,
     };
+  }
+
+  listGovernanceReceipts(): Promise<GovernanceReceipt[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  getGovernanceReceipt(): Promise<GovernanceReceipt> {
+    return this.#governanceRequiresHttp();
+  }
+
+  listGovernanceMetrics(): Promise<GovernanceMetric[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  createFreshContextEvaluation(): Promise<EvaluationResult> {
+    return this.#governanceRequiresHttp();
+  }
+
+  listStaleDocumentFindings(): Promise<StaleDocumentFinding[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  applyHashlinePatch(): Promise<HashlinePatchResult> {
+    return this.#governanceRequiresHttp();
+  }
+
+  listHashlineBenchmark(): Promise<PatchBenchmark[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  listAgentExecutors(): Promise<AgentExecutor[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  #governanceRequiresHttp<T>(): Promise<T> {
+    return Promise.reject(
+      ApiError.of(
+        501,
+        'Governança P1 requer backend real',
+        'Ative VITE_API_MODE=http; o perfil mock não simula contratos de governança.',
+      ),
+    );
   }
 
   /* ---- internos ---- */

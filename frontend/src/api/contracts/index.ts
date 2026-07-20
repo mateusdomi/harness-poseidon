@@ -16,3 +16,4 @@ export * from './commands';
 export * from './workflow-validation';
 export * from './registry';
 export * from './streams';
+export * from './governance-runtime';

@@ -45,7 +45,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 ## 1. cockpit — `/cockpit`
 
-- **Dados:** `projects` (seletor de projeto ativo), `tasks`, `approvals`, `agents`, `budgets`, `workflows`, `workflow-runs`, `phases`, `gates`, `audit-events` (`hooks/use-cockpit.ts`).
+- **Dados:** `projects` (seletor de projeto ativo), `tasks`, `approvals`, `agents`, `budgets`, `workflows`, `workflow-runs`, `phases`, `gates`, `audit-events`; com a flag P1 ligada, `governance-runtime/receipts?projectId=` alimenta o resumo verificável de saúde da governança.
 - **Realtime:** streams `project:<id>` + `global` — `task.created`, `task.stateChanged`, `progress.updated`, `approval.requested`, `approval.resolved`, `gate.changed`, `notification.created`, `agent.statusChanged`, `quota.updated`, `audit.eventAppended`.
 - **Ações:** trocar projeto ativo (store); CTA "Executar no chat" (grava `chatDraft` e navega). Sem mutations.
 - **Estados:** vazio sem projeto com CTA p/ `/projects`; skeleton; erro com `retryAll` das queries.
@@ -164,10 +164,10 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 ## 18. governance — `/governance`
 
-- **Dados:** `audit-events` + 12 listas de correlação (`projects`, `tasks`, `attempts`, `approvals`, `documents`, `demands`, `solicitations`, `workflows`, `profiles`, `agents`, `models`, `tools`).
-- **Realtime:** stream `global` — `audit.eventAppended`.
-- **Ações:** nenhuma mutation — filtros client-side e exportação JSON/CSV. Read-only.
-- **Estados:** vazio com orientação (contexto de filtros); skeleton; erro com retry (13 queries).
+- **Dados P1:** receipts e métricas por turno, stale-doc findings, benchmark hashline, executores e diagnóstico. O catálogo de documentos é explicitamente “observado em receipts”; manifest/linter completos não estão no OpenAPI. A aba Auditoria mantém `audit-events` + 12 listas de correlação.
+- **Realtime:** somente a aba Auditoria assina `global` — `audit.eventAppended`. O catálogo canônico de eventos ainda não publica eventos de governança P1; receipts/findings usam fetch/refetch.
+- **Ações:** `POST /governance-runtime/evaluations` para fresh-context evaluator e `POST /governance-runtime/projects/{projectId}/hashline-patches` com confirmação reforçada. Auditoria filtra/exporta JSON/CSV. Histórico/replay de evaluations e ações P2 ficam indisponíveis.
+- **Estados:** skeleton agregado; vazio orientado sem receipt; erro/401/403 com retry; progressive disclosure do bundle/métricas; contratos ausentes rotulados; rollback pela flag para a auditoria anterior.
 
 ## 19. licenses — `/licenses`
 
@@ -194,11 +194,11 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 # Roteiro humano de homologação final
 
-Este roteiro complementa os gates automatizados e não declara aceite humano. O homologador registra aprovado/reprovado, evidência e observação por etapa. Execute com backend real, `VITE_API_MODE=http`, navegador limpo e `VITE_GOVERNANCE_CONTRACT_UI=off`.
+Este roteiro de 30–60 minutos complementa os gates automatizados e não declara aceite humano. O homologador registra aprovado/reprovado, evidência e observação por etapa. Execute com backend real, navegador limpo e a UI P1 ligada pelo perfil `npm run dev:real` (ou `VITE_GOVERNANCE_CONTRACT_UI=on`).
 
 ## Preparação
 
-1. Confirme que o Host responde no endereço configurado e abra o frontend sem cookies/localStorage anteriores.
+1. Na raiz do repositório, inicie o Host pelo Launcher/comando publicado pelo backend. Em outro terminal execute `cd frontend && POSEIDON_BACKEND_URL=http://127.0.0.1:5090 npm run dev:real`; abra `http://127.0.0.1:5173`.
 2. Abra DevTools em Console e Network com “Preserve log”. Ao final de cada bloco confirme zero erro não tratado, zero asset 404 e nenhuma resposta com segredo.
 3. Execute em desktop 13" (aprox. 1280×800), tablet (820×1180) e mobile (360×800). Repita os pontos visuais em dark/light, zoom 200% e somente teclado.
 4. Em toda tela observe skeleton sem layout quebrado, vazio orientado, erro com retry e, com perfil sem acesso, “Acesso não permitido”. Sessão expirada deve voltar ao onboarding.
@@ -223,7 +223,7 @@ Este roteiro complementa os gates automatizados e não declara aceite humano. O 
 16. **Provedores:** sincronize catálogo; crie conta só com referência segura, edite/habilite/desabilite/remova quando permitido. Confira saúde/cota/reset/capabilities, modelos/effort e roteamento.
 17. **Licenças:** valide estado, expiração/grace/offline e entitlements; tente chave inválida e ativação válida apenas em ambiente descartável.
 18. **Assistente de PO:** envie texto/anexo, revise os cinco painéis, edite/descarte itens e crie demanda; confirme-a no Quadro/Cockpit.
-19. **Governança atual:** combine filtros, expanda correlações, verifique masking/paginação e exporte JSON/CSV filtrados. Confirme ausência de navegação paralela para a Parte B com a flag off.
+19. **Governança P1:** no Cockpit confirme o card por projeto; em `/governance`, verifique GO/NO-GO, executores e benchmark. Abra “Bundles e receipts”, filtre o lote, expanda um turno e compare IDs/checksums/tokens/métricas com a resposta Network. Em “Documentos e saúde”, confirme stale findings e o aviso de que não é catálogo canônico. Submeta uma avaliação apenas com IDs/evidências descartáveis e confira `readOnly`, `cleanContext`, P0–P3 e verdict. Teste hashline somente em projeto descartável: primeiro checksum stale (deve rejeitar sem escrever), depois checksum atual após reler. Confirme que histórico/replay e P2 aparecem indisponíveis; na aba Auditoria, filtre e exporte JSON/CSV mascarados.
 20. **Notificações:** marque item/grupo/todas como lidas, silencie e altere preferências; confira badge/realtime.
 21. **Configurações:** altere idioma/tema/diretório, revogue modo inseguro, gere backup descartável e confira diagnóstico/licença. Não restaure sobre dados valiosos.
 
@@ -235,3 +235,11 @@ Este roteiro complementa os gates automatizados e não declara aceite humano. O 
 - Tempo real: snapshot/delta em ordem, sem duplicata, banner durante interrupção, reconexão e atualização posterior sem reload.
 
 Registre o resultado por tela e anexe screenshot/trace ao reprovar. Problema de backend/contrato vai para o HANDOFF; correções permanecem limitadas aos paths do frontend.
+
+## Registro, restart e encerramento
+
+- Registre defeito com rota/aba, horário, viewport/tema, passos, resultado esperado/obtido, status + `traceId` de Problem Details, screenshot e trace do Playwright. Nunca anexe cookie, secret reference, conteúdo classificado ou corpo sem sanitizar.
+- Colete logs pelo Launcher/Host conforme o runbook do backend e remova tokens, cookies, caminhos pessoais e conteúdo de prompts antes de anexar. No navegador, exporte HAR somente após sanitização.
+- Para reiniciar o frontend, encerre o Vite com `Ctrl+C` e repita o comando da preparação. Reinicie Host/Runner apenas pelo Launcher/comando oficial; a API atual não publica ações administrativas de restart/shutdown na UI.
+- Para parar, encerre Vite com `Ctrl+C` e use o shutdown do Launcher/Host. Confirme que `http://127.0.0.1:5173` deixou de responder e que nenhum processo/contêiner de homologação ficou órfão.
+- Resultado final humano: marque cada item **Aprovado**, **Reprovado** ou **Bloqueado por contrato**, cite a evidência e registre a decisão de aceite separadamente. O frontend não se autodeclara homologado.

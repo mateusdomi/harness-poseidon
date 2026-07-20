@@ -138,3 +138,65 @@ describe('HttpApiClient — definições de agentes V3', () => {
     );
   });
 });
+
+describe('HttpApiClient — governança P1', () => {
+  const receipt = {
+    projectId: 'project-1', taskId: 'task-1', attemptId: 'attempt-1', turnId: 'turn-1', agentId: 'agent-1',
+    manifestVersion: '1.0.0', documents: [], estimatedTokens: 120, actualPromptTokens: null,
+    truncated: [], conflicts: [], cacheHits: 1, provider: 'claude', model: null,
+    timestamp: '2026-07-20T12:00:00Z', bundleChecksum: 'sha256:bundle', state: 'completed', gateResult: 'passed', version: 1,
+  };
+
+  it('lista receipts com os nomes de query publicados e valida a resposta', async () => {
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([receipt]));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+
+    const result = await client.listGovernanceReceipts({ projectId: 'project-1', cursor: 'cursor-1', limit: 25 });
+
+    expect(result[0].estimatedTokens).toBe(120);
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://api.example.test/api/v1/governance-runtime/receipts?projectId=project-1&cursor=cursor-1&limit=25',
+      expect.objectContaining({ method: 'GET', credentials: 'include' }),
+    );
+  });
+
+  it('consulta métricas e executores nos paths exatos do contrato', async () => {
+    const fetchFn = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+
+    await client.listGovernanceMetrics('turn/encoded');
+    await client.listAgentExecutors();
+
+    expect(fetchFn.mock.calls[0][0]).toBe('https://api.example.test/api/v1/governance-runtime/receipts/turn%2Fencoded/metrics');
+    expect(fetchFn.mock.calls[1][0]).toBe('https://api.example.test/api/v1/governance-runtime/executors');
+  });
+
+  it('envia avaliação tipada sem campos adicionais', async () => {
+    const response = {
+      schemaVersion: '1.0', evaluationId: 'evaluation-1', verdict: 'PASS', findings: [],
+      provider: 'claude', model: null, readOnly: true, cleanContext: true, evaluatedAt: '2026-07-20T12:00:00Z',
+    };
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(response));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+    const input = {
+      evaluationId: 'evaluation-1', projectId: 'project-1', taskId: 'task-1', attemptId: 'attempt-1', turnId: 'turn-1',
+      actorAgentId: 'actor-1', evaluatorAgentId: 'evaluator-1', riskTier: 'medium',
+      acceptanceCriteria: ['sem regressão'], diff: '+ mudança', evidence: ['testes'], testResults: [],
+    };
+
+    await client.createFreshContextEvaluation(input);
+
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://api.example.test/api/v1/governance-runtime/evaluations',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify(input) }),
+    );
+  });
+
+  it('falha fechado quando a resposta diverge do schema P1', async () => {
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([{ turnId: 'incompleto' }]));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+    await expect(client.listGovernanceReceipts()).rejects.toThrow();
+  });
+});

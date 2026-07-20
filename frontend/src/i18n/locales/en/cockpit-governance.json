@@ -1,0 +1,12 @@
+{
+  "cockpitGovernance": {
+    "title": "Governance health",
+    "healthy": "no conflicts",
+    "attention": "attention",
+    "receipts": "Receipts",
+    "conflicts": "Conflicts",
+    "truncated": "Truncated",
+    "open": "Open governance",
+    "error": "The P1 governance status for this project could not be loaded."
+  }
+}

@@ -40,6 +40,7 @@ export default defineConfig({
     env: {
       VITE_API_MODE: 'http',
       VITE_API_BASE_URL: '',
+      VITE_GOVERNANCE_CONTRACT_UI: 'on',
       POSEIDON_BACKEND_URL: backendUrl,
     },
   },

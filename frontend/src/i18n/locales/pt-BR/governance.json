@@ -50,6 +50,131 @@
     "export": {
       "json": "Exportar JSON",
       "csv": "Exportar CSV"
+    },
+    "runtime": {
+      "title": "Governança de agentes",
+      "subtitle": "Visão operacional baseada exclusivamente nos contratos P1 publicados pelo backend.",
+      "gate": "P1",
+      "unknown": "desconhecido",
+      "empty": "Nenhum dado publicado pelo runtime.",
+      "enabled": "habilitado",
+      "disabled": "desabilitado",
+      "available": "disponível",
+      "unavailable": "indisponível",
+      "labels": {
+        "api": "API",
+        "manifest": "Manifest",
+        "checksum": "Checksum",
+        "provider": "Provider",
+        "tokens": "Tokens",
+        "cacheHits": "Cache hits",
+        "gate": "Gate",
+        "tokenCount": "{{count}} tokens",
+        "truncatedCount": "{{count}} trunc.",
+        "documentCount": "{{count}} docs",
+        "projectTask": "Projeto {{project}} · Tarefa {{task}}",
+        "observedUsage": "{{receipts}} receipt(s) · {{tokens}} tokens · {{date}}"
+      },
+      "tabs": {
+        "label": "Áreas da governança",
+        "overview": "Visão geral",
+        "receipts": "Bundles e receipts",
+        "documents": "Documentos e saúde",
+        "evaluation": "Avaliação",
+        "audit": "Auditoria",
+        "learning": "Aprendizado P2"
+      },
+      "summary": {
+        "receipts": "Receipts carregados",
+        "completed": "concluídos",
+        "findings": "Findings de documentos",
+        "staleDetail": "detecções sem exclusão automática",
+        "executors": "Executores ativos",
+        "registered": "registrados",
+        "conflicts": "Conflitos em bundles",
+        "none": "nenhum no lote atual",
+        "requiresAction": "exigem investigação"
+      },
+      "goNoGo": {
+        "go": "Sinal técnico: GO",
+        "noGo": "Sinal técnico: NO-GO",
+        "goBody": "A API responde e o lote atual de receipts não registra conflitos de seleção.",
+        "noGoBody": "A API não está saudável ou há conflito em bundle; investigue antes de homologar."
+      },
+      "executors": {
+        "title": "Catálogo de executores",
+        "body": "Disponibilidade e habilitação informadas pelo runtime."
+      },
+      "benchmark": {
+        "title": "Benchmark hashline",
+        "body": "Comparativo publicado pelo backend para a estratégia de edição protegida.",
+        "tableLabel": "Resultados do benchmark hashline",
+        "strategy": "Estratégia",
+        "success": "Sucessos",
+        "stale": "Rejeições stale",
+        "retries": "Retentativas",
+        "regressions": "Regressões"
+      },
+      "receipts": {
+        "search": "Buscar no lote",
+        "state": "Estado",
+        "limitNote": "A API P1 retorna um lote de até 100 receipts e não publica cursor de próxima página; a UI não simula paginação.",
+        "emptyTitle": "Nenhum receipt disponível",
+        "emptyBody": "Execute um turno real do Chief e tente novamente. O perfil de homologação não injeta fixtures.",
+        "view": "Ver bundle",
+        "hide": "Ocultar bundle",
+        "bundle": "Context bundle reproduzível",
+        "documents": "Documentos selecionados",
+        "metrics": "Métricas do turno"
+      },
+      "documents": {
+        "catalogUnavailable": "Catálogo canônico não publicado",
+        "catalogUnavailableBody": "O OpenAPI P1 não expõe o manifest ou a saúde do linter. A lista abaixo contém somente documentos observados em receipts reais, sem inventar owner, autoridade ou status.",
+        "observedTitle": "Documentos observados",
+        "observedBody": "Seleção, checksum e orçamento capturados pelos receipts do lote atual.",
+        "findingsTitle": "Stale-doc findings",
+        "findingsBody": "Detecções do runtime agrupadas por documento; nenhuma ação é executada automaticamente.",
+        "noFindings": "Nenhum finding publicado pelo runtime."
+      },
+      "evaluation": {
+        "title": "Fresh-context evaluator",
+        "body": "Submete critérios, diff e evidências ao evaluator independente e read-only do P1. Não inclua segredos ou conteúdo classificado.",
+        "onePerLine": "Um item por linha.",
+        "requiredError": "Preencha os identificadores, critérios, diff e evidências obrigatórios.",
+        "run": "Executar avaliação",
+        "running": "Avaliando…",
+        "result": "Resultado desta sessão",
+        "resultMetadata": "{{provider}}/{{model}} · {{date}} · schema {{schema}}",
+        "independence": "readOnly={{readOnly}} · cleanContext={{cleanContext}}",
+        "noFindings": "Nenhum finding retornado.",
+        "historyUnavailable": "Histórico e replay indisponíveis",
+        "historyUnavailableBody": "P1 publica somente POST /evaluations. O resultado atual fica na sessão da tela; não há endpoint de listagem ou replay para consultar.",
+        "risks": { "low": "baixo", "medium": "médio", "high": "alto" },
+        "fields": {
+          "projectId": "Projeto (projectId)",
+          "taskId": "Tarefa (taskId)",
+          "attemptId": "Tentativa (attemptId)",
+          "turnId": "Turno (turnId)",
+          "actorAgentId": "Agente executor",
+          "evaluatorAgentId": "Agente avaliador",
+          "riskTier": "Risco",
+          "criteria": "Critérios de aceite",
+          "diff": "Diff",
+          "evidence": "Evidências",
+          "tests": "Resultados de teste"
+        }
+      },
+      "hashline": {
+        "title": "Patch protegido por hashline",
+        "body": "A escrita real é rejeitada antes de alterar o arquivo quando o checksum diverge. Use somente após reler o alvo.",
+        "confirm": "Confirmo que reli o arquivo, validei o caminho relativo e entendo que esta ação pode escrever no projeto.",
+        "checksums": "atual: {{actual}} · aplicado: {{applied}}",
+        "apply": "Aplicar patch protegido"
+      },
+      "learning": {
+        "title": "Contratos P2 ainda não publicados",
+        "body": "Learning candidates, shadow, aprovação, promoção, rollback e depreciação permanecerão fail-closed até existirem no OpenAPI. Nenhum endpoint ou estado foi antecipado."
+      }
     }
   }
 }

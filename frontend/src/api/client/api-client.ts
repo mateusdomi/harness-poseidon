@@ -54,6 +54,16 @@ import type {
   Approval,
   Document,
   Solicitation,
+  AgentExecutor,
+  EvaluationResult,
+  FreshContextEvaluationInput,
+  GovernanceMetric,
+  GovernanceReceipt,
+  GovernanceReceiptQuery,
+  HashlinePatchInput,
+  HashlinePatchResult,
+  PatchBenchmark,
+  StaleDocumentFinding,
 } from '../contracts';
 
 /**
@@ -284,4 +294,15 @@ export interface ApiClient {
   restoreBackup(backupId: Ulid): Promise<void>;
   /** Diagnóstico da instalação: versões, saúde e conexões. */
   getDiagnostics(): Promise<Diagnostics>;
+
+  /* ---- governança de agentes P1 ---- */
+
+  listGovernanceReceipts(query?: GovernanceReceiptQuery): Promise<GovernanceReceipt[]>;
+  getGovernanceReceipt(turnId: string): Promise<GovernanceReceipt>;
+  listGovernanceMetrics(turnId: string): Promise<GovernanceMetric[]>;
+  createFreshContextEvaluation(input: FreshContextEvaluationInput): Promise<EvaluationResult>;
+  listStaleDocumentFindings(): Promise<StaleDocumentFinding[]>;
+  applyHashlinePatch(projectId: string, input: HashlinePatchInput): Promise<HashlinePatchResult>;
+  listHashlineBenchmark(): Promise<PatchBenchmark[]>;
+  listAgentExecutors(): Promise<AgentExecutor[]>;
 }

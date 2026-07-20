@@ -7,6 +7,7 @@ import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
 import { BlockedTasksCard, PendingApprovalsCard } from '@/features/cockpit/components/attention-cards';
 import { AgentsHealthCard, QuotaCard } from '@/features/cockpit/components/health-cards';
 import { NextActionCard } from '@/features/cockpit/components/next-action-card';
+import { GovernanceHealthCard } from '@/features/cockpit/components/governance-health-card';
 import { PhaseSummary } from '@/features/cockpit/components/phase-summary';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
 import { TaskStateCounters } from '@/features/cockpit/components/task-state-counters';
@@ -26,6 +27,7 @@ import {
   currentPhase,
   recommendNextAction,
 } from '@/features/cockpit/lib/cockpit-derive';
+import { featureFlags } from '@/config/features';
 
 export default function CockpitPage() {
   const { t } = useTranslation();
@@ -140,6 +142,7 @@ export default function CockpitPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {featureFlags.governanceContractUi && <GovernanceHealthCard projectId={activeProject.id} />}
           <PhaseSummary phase={phase} gates={workflowData.gates} tasks={tasks} />
           <NextActionCard actionKey={nextAction} />
           <Card className="lg:col-span-2">

@@ -34,6 +34,13 @@ const realtimeDisconnectPlugin = {
  */
 export default defineConfig({
   plugins: [react(), realtimeDisconnectPlugin],
+  define: {
+    // Perfil de homologação: P1 está publicado e a flag operacional nasce ligada.
+    // `VITE_GOVERNANCE_CONTRACT_UI=off` faz rollback imediato para a auditoria legada.
+    'import.meta.env.VITE_GOVERNANCE_CONTRACT_UI': JSON.stringify(
+      process.env.VITE_GOVERNANCE_CONTRACT_UI ?? 'on',
+    ),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

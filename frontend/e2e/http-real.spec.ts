@@ -70,7 +70,11 @@ async function ensureSession(page: Page) {
   await expect(page.getByRole('main')).toBeVisible();
 
   const wizard = page.getByRole('form', { name: 'Configuração inicial' });
-  if (await wizard.isVisible()) {
+  const profilesResponse = await page.request.get('/api/v1/profiles?limit=100');
+  expect(profilesResponse.ok()).toBe(true);
+  const profiles = (await profilesResponse.json()) as { items: Array<{ displayName: string }> };
+  if (profiles.items.length === 0) {
+    await expect(wizard).toBeVisible();
     await page.getByLabel('Nome de exibição').fill(PROFILE_NAME);
     await page.getByLabel('E-mail (opcional)').fill('frontend.homologacao@poseidon.local');
     await page.getByRole('button', { name: 'Avançar' }).click();
@@ -256,6 +260,19 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   await expect(page.getByText(WORKING_DIRECTORY, { exact: true })).toBeVisible();
 
   await page.goto('/governance');
+  await expect(page.getByRole('heading', { name: 'Governança de agentes' })).toBeVisible();
+  await expect(page.getByText(/Sinal técnico: (GO|NO-GO)/)).toBeVisible();
+  await page.getByRole('tab', { name: 'Bundles e receipts' }).click();
+  await expect(page.getByRole('button', { name: 'Ver bundle' }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Ver bundle' }).first().click();
+  await expect(page.getByText('Context bundle reproduzível')).toBeVisible();
+  await assertA11y(page, 'governança P1 — receipts');
+  await page.getByRole('tab', { name: 'Documentos e saúde' }).click();
+  await expect(page.getByText('Catálogo canônico não publicado')).toBeVisible();
+  await assertA11y(page, 'governança P1 — documentos');
+  await page.getByRole('tab', { name: 'Aprendizado P2' }).click();
+  await expect(page.getByText('Contratos P2 ainda não publicados')).toBeVisible();
+  await page.getByRole('tab', { name: 'Auditoria' }).click();
   const csvDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Exportar CSV' }).click();
   const download = await csvDownload;

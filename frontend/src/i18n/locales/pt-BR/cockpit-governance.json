@@ -1,0 +1,12 @@
+{
+  "cockpitGovernance": {
+    "title": "Saúde da governança",
+    "healthy": "sem conflitos",
+    "attention": "atenção",
+    "receipts": "Receipts",
+    "conflicts": "Conflitos",
+    "truncated": "Truncados",
+    "open": "Abrir governança",
+    "error": "Não foi possível consultar a governança P1 deste projeto."
+  }
+}

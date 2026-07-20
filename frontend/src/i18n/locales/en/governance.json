@@ -50,6 +50,85 @@
     "export": {
       "json": "Export JSON",
       "csv": "Export CSV"
+    },
+    "runtime": {
+      "title": "Agent governance",
+      "subtitle": "Operational view based exclusively on the P1 contracts published by the backend.",
+      "gate": "P1",
+      "unknown": "unknown",
+      "empty": "No data published by the runtime.",
+      "enabled": "enabled",
+      "disabled": "disabled",
+      "available": "available",
+      "unavailable": "unavailable",
+      "labels": {
+        "api": "API", "manifest": "Manifest", "checksum": "Checksum", "provider": "Provider", "tokens": "Tokens", "cacheHits": "Cache hits", "gate": "Gate",
+        "tokenCount": "{{count}} tokens", "truncatedCount": "{{count}} trunc.", "documentCount": "{{count}} docs",
+        "projectTask": "Project {{project}} · Task {{task}}", "observedUsage": "{{receipts}} receipt(s) · {{tokens}} tokens · {{date}}"
+      },
+      "tabs": {
+        "label": "Governance areas",
+        "overview": "Overview",
+        "receipts": "Bundles and receipts",
+        "documents": "Documents and health",
+        "evaluation": "Evaluation",
+        "audit": "Audit",
+        "learning": "P2 learning"
+      },
+      "summary": {
+        "receipts": "Loaded receipts",
+        "completed": "completed",
+        "findings": "Document findings",
+        "staleDetail": "detections with no automatic deletion",
+        "executors": "Active executors",
+        "registered": "registered",
+        "conflicts": "Bundle conflicts",
+        "none": "none in the current batch",
+        "requiresAction": "require investigation"
+      },
+      "goNoGo": {
+        "go": "Technical signal: GO",
+        "noGo": "Technical signal: NO-GO",
+        "goBody": "The API responds and the current receipt batch reports no selection conflicts.",
+        "noGoBody": "The API is unhealthy or a bundle conflict exists; investigate before acceptance."
+      },
+      "executors": { "title": "Executor catalog", "body": "Availability and enablement reported by the runtime." },
+      "benchmark": {
+        "title": "Hashline benchmark",
+        "body": "Backend-published comparison for the protected editing strategy.",
+        "tableLabel": "Hashline benchmark results",
+        "strategy": "Strategy", "success": "Successes", "stale": "Stale rejections", "retries": "Retries", "regressions": "Regressions"
+      },
+      "receipts": {
+        "search": "Search current batch", "state": "State",
+        "limitNote": "The P1 API returns a batch of up to 100 receipts and does not publish a next-page cursor; the UI does not simulate pagination.",
+        "emptyTitle": "No receipt available", "emptyBody": "Run a real Chief turn and try again. The acceptance profile does not inject fixtures.",
+        "view": "View bundle", "hide": "Hide bundle", "bundle": "Reproducible context bundle", "documents": "Selected documents", "metrics": "Turn metrics"
+      },
+      "documents": {
+        "catalogUnavailable": "Canonical catalog not published",
+        "catalogUnavailableBody": "The P1 OpenAPI does not expose the manifest or linter health. The list below only contains documents observed in real receipts, without fabricated owners, authority, or status.",
+        "observedTitle": "Observed documents", "observedBody": "Selection, checksum, and budget captured by receipts in the current batch.",
+        "findingsTitle": "Stale-doc findings", "findingsBody": "Runtime detections grouped by document; no action is performed automatically.", "noFindings": "No finding published by the runtime."
+      },
+      "evaluation": {
+        "title": "Fresh-context evaluator", "body": "Submits criteria, diff, and evidence to the independent read-only P1 evaluator. Do not include secrets or classified content.",
+        "onePerLine": "One item per line.", "requiredError": "Fill in the required identifiers, criteria, diff, and evidence.",
+        "run": "Run evaluation", "running": "Evaluating…", "result": "Result from this session", "resultMetadata": "{{provider}}/{{model}} · {{date}} · schema {{schema}}", "independence": "readOnly={{readOnly}} · cleanContext={{cleanContext}}", "noFindings": "No finding returned.",
+        "historyUnavailable": "History and replay unavailable", "historyUnavailableBody": "P1 only publishes POST /evaluations. The current result remains in the screen session; no list or replay endpoint exists.", "risks": { "low": "low", "medium": "medium", "high": "high" },
+        "fields": {
+          "projectId": "Project (projectId)", "taskId": "Task (taskId)", "attemptId": "Attempt (attemptId)", "turnId": "Turn (turnId)",
+          "actorAgentId": "Actor agent", "evaluatorAgentId": "Evaluator agent", "riskTier": "Risk", "criteria": "Acceptance criteria", "diff": "Diff", "evidence": "Evidence", "tests": "Test results"
+        }
+      },
+      "hashline": {
+        "title": "Hashline-protected patch", "body": "The real write is rejected before changing the file when the checksum diverges. Use only after re-reading the target.",
+        "confirm": "I confirm that I re-read the file, validated the relative path, and understand this action can write to the project.", "checksums": "actual: {{actual}} · applied: {{applied}}", "apply": "Apply protected patch"
+      },
+      "learning": {
+        "title": "P2 contracts are not published yet",
+        "body": "Learning candidates, shadow, approval, promotion, rollback, and deprecation remain fail-closed until they exist in OpenAPI. No endpoint or state was anticipated."
+      }
     }
   }
 }

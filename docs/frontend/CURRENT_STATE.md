@@ -8,7 +8,17 @@
 - **Branch:** somente `develop`. Nunca fazer merge em `main` sem autorização explícita.
 - **Escopo de autoria:** somente `frontend/**` e `docs/frontend/**`. Há trabalho de backend em paralelo; antes de publicar, buscar `origin/develop`, incorporar apenas o avanço remoto e adicionar ao commit somente esses dois diretórios.
 - **Design:** o design system, tokens, temas, logo, cores, tipografia e padrões responsivos existentes foram preservados. O trabalho foi incremental.
-- **Integração:** contas/providers/modelos e o lifecycle V3 de `agent-definitions` estão reconciliados com `docs/contracts/openapi.json`; o catálogo de eventos e o snapshot realtime têm validação de contrato. Alguns metadados complementares do refinamento (time, stacks, effort/account/fallback padrão, actor/critic, risco e histórico legível) ainda são mock-only e estão registrados em `HANDOFF_API.md`.
+- **Integração:** contas/providers/modelos, lifecycle V3 de `agent-definitions` e governança P1 estão reconciliados com `docs/contracts/openapi.json`; catálogo de eventos, snapshot realtime e paths/campos de governança têm drift tests. Lacunas complementares e P2 seguem em `HANDOFF_API.md`.
+
+## UI de governança P1 — 2026-07-20
+
+- **Base sincronizada:** `a6baa28075cacee5883a3fc0e949c48b97ed6e57` (`origin/develop`, Gate P1 backend).
+- **Contratos:** OpenAPI SHA-256 `efcc91b6d557a67afe3266f5ebfa641dbc7c04fff4ae8584e7b5ce5bf97a896d`; eventos SHA-256 `1b860f0adc82e19aa802e1b277f7e7e1e641114666afab7b799d8202a6c3d5db`.
+- **Superfície:** `/governance` agora contém visão P1, receipts/bundles/métricas, documentos observados + stale findings, fresh-context evaluator, executores, benchmark, hashline patch, auditoria anterior e aba P2 fail-closed. O Cockpit mostra resumo por projeto.
+- **Flag:** `VITE_GOVERNANCE_CONTRACT_UI` continua fail-closed (`on` literal); `npm run dev:real` a liga por padrão e `off` faz rollback para a auditoria anterior. Mock retorna 501 para governança P1 e não simula dados.
+- **Lacunas honestas:** manifest/linter completos, next cursor, severidade/capabilities de findings, GET/history/replay de evaluations, relações para Chat/Quadro/Agentes/Ferramentas/Documentos/Orquestrador, eventos realtime P1 e todos os contratos P2 ainda não existem. A UI rotula essas capacidades como indisponíveis.
+- **Host real:** Launcher executado em `127.0.0.1:5090` com SQLite temporário isolado e 45 migrations; 3/3 E2E verdes em desktop 13", tablet e mobile. Receipts de turnos reais, métricas, stale findings, benchmark/executores, Cockpit, SignalR/snapshot/reconexão, todas as rotas e axe foram exercitados; zero console error e asset 404.
+- **Gate final:** `npm ci`; `npm run check` (52 arquivos/429 testes); build; Storybook; E2E mock 56/56; a11y 42/42; E2E real 3/3; `npm audit --omit=dev` com 0 vulnerabilidades de produção.
 
 ## Baseline da homologação final — 2026-07-20
 
@@ -20,7 +30,7 @@
 - **Storybook:** `npm run build-storybook` verde; apenas avisos de dependências do Storybook (uso de `eval` e chunks do preview acima de 500 kB).
 - **E2E + a11y em mock determinístico:** `npm run test:e2e` verde — 56/56 cenários Playwright nos projetos mobile-360 e desktop-1440; o spec de acessibilidade percorreu onboarding + 21 rotas em dark/light sem violações critical/serious.
 - **Backend real:** Host .NET isolado em `127.0.0.1:5090`, SQLite temporário com 44 migrations, frontend same-origin em `127.0.0.1:5173`. O gate `npm run test:e2e:real` percorre onboarding + 21 rotas em desktop 13", tablet e mobile, dark/light, axe AA, console/assets, além dos fluxos reais descritos abaixo.
-- **Gate P1 de governança:** indisponível no contrato sincronizado. O OpenAPI ainda não publica manifest documental, saúde/findings de governança, context bundles/receipts ou evaluations, e `events.json` não contém eventos desses domínios. `VITE_GOVERNANCE_CONTRACT_UI=off` é fail-closed e a Parte B não foi apresentada como funcional.
+- **Gate P1 de governança:** publicado e integrado na seção anterior. O OpenAPI ainda não publica manifest/linter completos nem realtime de governança; isso não bloqueia receipts/evaluator/hashline P1, mas impede as integrações relacionais e o P2.
 
 ## Resultado da Parte A contra o Host real
 
@@ -40,7 +50,7 @@
 - Tokens de brand tinham contraste insuficiente em light/dark em badges, links, tabs e ações. Os componentes passam a usar os pares semânticos `primary/primary-foreground` e `brand-strong`.
 - A busca global perdia o foco para o modal; o contrato de `initialFocusRef` corrige o comportamento.
 
-### Gates finais executados
+### Gates finais executados (baseline Parte A; ver acima para a reexecução P1)
 
 - `npm run check`: 49 arquivos / 413 testes, lint e typecheck verdes.
 - `npm run build`: verde; somente os dois avisos conhecidos de anotação PURE do SignalR.

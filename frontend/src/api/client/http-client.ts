@@ -56,6 +56,25 @@ import {
   type Approval,
   type Document,
   type Solicitation,
+  agentExecutorSchema,
+  evaluationResultSchema,
+  freshContextEvaluationInputSchema,
+  governanceMetricSchema,
+  governanceReceiptSchema,
+  hashlinePatchInputSchema,
+  hashlinePatchResultSchema,
+  patchBenchmarkSchema,
+  staleDocumentFindingSchema,
+  type AgentExecutor,
+  type EvaluationResult,
+  type FreshContextEvaluationInput,
+  type GovernanceMetric,
+  type GovernanceReceipt,
+  type GovernanceReceiptQuery,
+  type HashlinePatchInput,
+  type HashlinePatchResult,
+  type PatchBenchmark,
+  type StaleDocumentFinding,
 } from '../contracts';
 import type { ApiClient } from './api-client';
 
@@ -377,6 +396,68 @@ export class HttpApiClient implements ApiClient {
 
   getDiagnostics(): Promise<Diagnostics> {
     return this.#request('GET', '/diagnostics');
+  }
+
+  async listGovernanceReceipts(query?: GovernanceReceiptQuery): Promise<GovernanceReceipt[]> {
+    const params = new URLSearchParams();
+    if (query?.projectId) params.set('projectId', query.projectId);
+    if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.limit !== undefined) params.set('limit', String(query.limit));
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    const response = await this.#request<unknown>('GET', `/governance-runtime/receipts${suffix}`);
+    return governanceReceiptSchema.array().parse(response);
+  }
+
+  async getGovernanceReceipt(turnId: string): Promise<GovernanceReceipt> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/receipts/${encodeURIComponent(turnId)}`,
+    );
+    return governanceReceiptSchema.parse(response);
+  }
+
+  async listGovernanceMetrics(turnId: string): Promise<GovernanceMetric[]> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/receipts/${encodeURIComponent(turnId)}/metrics`,
+    );
+    return governanceMetricSchema.array().parse(response);
+  }
+
+  async createFreshContextEvaluation(
+    input: FreshContextEvaluationInput,
+  ): Promise<EvaluationResult> {
+    const body = freshContextEvaluationInputSchema.parse(input);
+    const response = await this.#request<unknown>('POST', '/governance-runtime/evaluations', body);
+    return evaluationResultSchema.parse(response);
+  }
+
+  async listStaleDocumentFindings(): Promise<StaleDocumentFinding[]> {
+    const response = await this.#request<unknown>('GET', '/governance-runtime/stale-doc-findings');
+    return staleDocumentFindingSchema.array().parse(response);
+  }
+
+  async applyHashlinePatch(
+    projectId: string,
+    input: HashlinePatchInput,
+  ): Promise<HashlinePatchResult> {
+    const body = hashlinePatchInputSchema.parse(input);
+    const response = await this.#request<unknown>(
+      'POST',
+      `/governance-runtime/projects/${encodeURIComponent(projectId)}/hashline-patches`,
+      body,
+    );
+    return hashlinePatchResultSchema.parse(response);
+  }
+
+  async listHashlineBenchmark(): Promise<PatchBenchmark[]> {
+    const response = await this.#request<unknown>('GET', '/governance-runtime/hashline-benchmark');
+    return patchBenchmarkSchema.array().parse(response);
+  }
+
+  async listAgentExecutors(): Promise<AgentExecutor[]> {
+    const response = await this.#request<unknown>('GET', '/governance-runtime/executors');
+    return agentExecutorSchema.array().parse(response);
   }
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
