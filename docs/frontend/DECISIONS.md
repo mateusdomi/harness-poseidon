@@ -378,20 +378,5 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 
 ## D-091 — Parte B fica fail-closed até o Gate P1 canônico
 
-- **Decisão histórica:** `VITE_GOVERNANCE_CONTRACT_UI=off` manteve a Parte B fechada enquanto o Gate P1 não existia. O Gate P1 foi publicado em `a6baa28`; D-092 substitui a condição de ativação, preservando a mesma flag para rollout/rollback.
+- **Decisão:** `VITE_GOVERNANCE_CONTRACT_UI=off` é a flag operacional; apenas o literal `on` habilita. Enquanto OpenAPI/eventos não trouxerem manifest, findings, receipts e evaluations, nenhum componente novo entra na navegação e nenhuma fixture simula funcionamento. As necessidades estão registradas no HANDOFF; a implementação futura estenderá `/governance` e as telas existentes.
 - **Justificativa:** evita uma UI enganosa e mantém a sequência contract-first exigida, sem transformar preparação de produção em protótipo.
-
-## D-092 — UI P1 consome somente o recorte publicado e diferencia ausência de vazio
-
-- **Decisão:** a rota `/governance` é estendida por tabs atrás de `VITE_GOVERNANCE_CONTRACT_UI`; `dev:real`/E2E real ligam a flag por padrão e `off` restaura a auditoria legada. Tipos/Zod e métodos explícitos cobrem receipts, métricas, POST de evaluation, stale findings, hashline patch, benchmark e executores. O mock devolve 501 nessas operações e não possui fixture P1. Como o OpenAPI não publica manifest/linter, a UI chama a derivação de `receipt.documents` de “documentos observados” e mostra “contrato indisponível” para owner/authority/status/replay/history/realtime/P2. O Cockpit integra somente contagem/conflitos/truncamentos filtráveis por `projectId`; nenhuma relação com Chat/Quadro/Agentes/Ferramentas é inferida.
-- **Justificativa:** “nenhum item retornado” e “capacidade não contratada” são estados diferentes. Rotular a segunda impede que ausência de endpoint pareça saúde verde ou catálogo vazio e permite entregar valor P1 sem fabricar P2.
-
-## D-093 — Responses de governança falham fechado e paginação não é simulada
-
-- **Decisão:** todos os responses P1 passam por Zod, inclusive coerção controlada dos inteiros que o OpenAPI representa como `integer|string`. Drift tests leem o OpenAPI canônico e exigem paths/métodos/campos consumidos. `GET /receipts` aceita cursor na request, mas retorna array sem next cursor; a UI pede no máximo 100, filtra o lote localmente e explica que não há próxima página contratada. Evaluation mantém somente o resultado da sessão porque não existe GET. Hashline patch exige confirmação humana e exibe status/checksums devolvidos pelo servidor.
-- **Justificativa:** um envelope de página inventado criaria navegação impossível de reproduzir; validar a fronteira e limitar a UX ao payload publicado torna drift e incompatibilidade visíveis imediatamente.
-
-## D-094 — Realtime de governança e P2 permanecem fechados por catálogo
-
-- **Decisão:** `events.json` não contém eventos P1/P2 de governança, portanto a nova UI usa React Query sem assinatura fictícia; apenas a aba Auditoria mantém `audit.eventAppended`. Learning candidates, shadow, approval, promotion, rollback e deprecation ficam numa aba informativa fail-closed até aparecerem no OpenAPI/event catalog. O teste de drift confirma que nenhum path P2 existe na revisão atual.
-- **Justificativa:** SignalR sem evento canônico seria polling disfarçado ou payload inventado. A aba preserva o espaço de navegação aprovado sem prometer ação antes do contrato.
