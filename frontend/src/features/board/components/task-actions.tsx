@@ -49,7 +49,7 @@ export function TaskActions({ task }: TaskActionsProps) {
           {t('board.detail.actions.explain')}{' '}
           <Link
             to="/chat"
-            className="font-medium text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             {t('board.detail.actions.chatCta')}
           </Link>

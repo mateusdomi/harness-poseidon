@@ -10,12 +10,12 @@ export const buttonVariants = cva(
         // não transiciona, então a troca de gradiente é uma fade de opacidade.
         primary:
           'relative isolate overflow-hidden bg-primary bg-[image:var(--gradient-primary)] text-primary-foreground before:absolute before:inset-0 before:-z-10 before:content-[""] before:bg-[image:var(--gradient-primary-hover)] before:opacity-0 motion-safe:before:transition-opacity motion-safe:before:duration-base hover:before:opacity-100 active:before:bg-[image:var(--gradient-primary-active)]',
-        brand: 'bg-brand text-white hover:bg-brand/90',
+        brand: 'bg-primary text-primary-foreground hover:bg-primary-hover',
         secondary: 'bg-surface-elevated text-foreground hover:bg-surface-elevated/70',
         outline: 'border border-border-strong bg-transparent text-foreground hover:bg-surface',
         ghost: 'text-foreground hover:bg-surface',
         destructive: 'bg-error text-error-foreground hover:bg-error/90',
-        link: 'min-h-0 text-brand underline-offset-4 hover:underline',
+        link: 'min-h-0 text-brand-strong underline-offset-4 hover:underline',
       },
       size: {
         sm: 'h-9 min-h-touch px-3 text-xs',

@@ -77,6 +77,7 @@ describe('MockRealtimeClient', () => {
     realtime.emitOutOfOrder(STREAM, 4, 'task.stateChanged', statePayload('review', 'development'));
 
     expect(gaps).toEqual([STREAM]);
+    expect(tracker.lastSequence(STREAM)).toBe(2);
     // Evento com lacuna NÃO é aplicado: o consumidor pede snapshot (re-sync).
     expect(applied.map((e) => e.sequence)).toEqual([1, 2]);
 
@@ -87,9 +88,11 @@ describe('MockRealtimeClient', () => {
       expect(tracker.check(event)).toBe('duplicate');
     }
 
-    // Depois do re-sync, novos eventos seguem aplicando normalmente.
+    // Depois do re-sync, a sequência ausente e o envelope pendente aplicam em ordem.
     realtime.emit(STREAM, 'task.stateChanged', statePayload('development', 'review')); // seq 3 do log
-    expect(tracker.lastSequence(STREAM)).toBeGreaterThanOrEqual(4);
+    realtime.emitOutOfOrder(STREAM, 4, 'task.stateChanged', statePayload('review', 'development'));
+    expect(applied.map((e) => e.sequence)).toEqual([1, 2, 3, 4]);
+    expect(tracker.lastSequence(STREAM)).toBe(4);
   });
 
   it('expõe estado de conexão (connected/reconnecting/disconnected)', async () => {

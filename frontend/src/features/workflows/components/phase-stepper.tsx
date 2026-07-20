@@ -57,7 +57,7 @@ export function PhaseStepper({ phases, gates, documents }: PhaseStepperProps) {
                 aria-hidden="true"
                 className={cn(
                   'mt-0.5 size-5 shrink-0',
-                  phase.state === 'active' ? 'text-brand' : 'text-foreground-muted',
+                  phase.state === 'active' ? 'text-brand-strong' : 'text-foreground-muted',
                 )}
               />
               <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -101,7 +101,7 @@ export function PhaseStepper({ phases, gates, documents }: PhaseStepperProps) {
                         <li key={doc.id} className="flex flex-wrap items-center gap-2 text-xs">
                           <Link
                             to={`/documents?doc=${doc.id}`}
-                            className="min-h-11 font-medium text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:min-h-0"
+                            className="min-h-11 font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:min-h-0"
                           >
                             {doc.title}
                           </Link>

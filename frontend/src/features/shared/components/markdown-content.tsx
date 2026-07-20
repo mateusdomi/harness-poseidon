@@ -17,7 +17,7 @@ export function MarkdownContent({ content }: { content: string }) {
               href={href}
               target="_blank"
               rel="noreferrer"
-              className="text-brand underline underline-offset-2"
+              className="text-brand-strong underline underline-offset-2"
             >
               {children}
             </a>

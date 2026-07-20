@@ -237,7 +237,7 @@ export default function UprototypesPage() {
                                 href={prototype.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="mt-auto inline-flex min-h-11 items-center text-sm text-brand underline-offset-4 hover:underline"
+                                className="mt-auto inline-flex min-h-11 items-center text-sm text-brand-strong underline-offset-4 hover:underline"
                               >
                                 {t('prototypes.openExternal')}
                               </a>

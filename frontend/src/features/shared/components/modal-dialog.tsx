@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
@@ -13,6 +13,8 @@ export interface ModalDialogProps {
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  /** Elemento que recebe foco ao abrir; por padrão, usa o primeiro focável. */
+  initialFocusRef?: RefObject<HTMLElement>;
 }
 
 /**
@@ -20,7 +22,13 @@ export interface ModalDialogProps {
  * no painel (Tab faz loop), Esc fecha, backdrop fecha e o foco retorna
  * a quem abriu. Mesmo contrato de a11y do TaskDrawer (D-022).
  */
-export function ModalDialog({ label, onClose, children, className }: ModalDialogProps) {
+export function ModalDialog({
+  label,
+  onClose,
+  children,
+  className,
+  initialFocusRef,
+}: ModalDialogProps) {
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
   // onClose em ref: o efeito roda UMA vez na montagem — se dependesse da
@@ -34,7 +42,7 @@ export function ModalDialog({ label, onClose, children, className }: ModalDialog
     if (!panel) return;
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    (panel.querySelector<HTMLElement>(FOCUSABLE) ?? panel).focus();
+    (initialFocusRef?.current ?? panel.querySelector<HTMLElement>(FOCUSABLE) ?? panel).focus();
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -63,7 +71,7 @@ export function ModalDialog({ label, onClose, children, className }: ModalDialog
       document.removeEventListener('keydown', handleKeyDown);
       previouslyFocused?.focus();
     };
-  }, []);
+  }, [initialFocusRef]);
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">

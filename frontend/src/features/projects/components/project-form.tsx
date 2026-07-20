@@ -195,7 +195,7 @@ export function ProjectForm({ organizations, initial, started = false, submittin
               onClick={() => setActiveTab(tab)}
               className={
                 activeTab === tab
-                  ? 'min-h-touch rounded-md border border-accent px-3 py-2 text-sm font-medium text-accent'
+                  ? 'min-h-touch rounded-md border border-brand px-3 py-2 text-sm font-medium text-brand-strong'
                   : 'min-h-touch rounded-md border border-border px-3 py-2 text-sm text-foreground-muted hover:text-foreground'
               }
             >

@@ -51,26 +51,39 @@ export function useRealtimeStream(
       }
     };
 
+    const resync = async (stream: string, pending?: EventEnvelope) => {
+      const snapshot = await realtime.getSnapshot(stream, tracker.lastSequence(stream));
+      for (const past of [...snapshot].sort((a, b) => a.sequence - b.sequence)) {
+        if (tracker.acceptSnapshot(past)) apply(past);
+      }
+      // O delta normalmente contém o envelope que revelou a lacuna. Se não
+      // contiver, o envelope pendente ainda é aplicado após o snapshot.
+      if (pending && tracker.acceptSnapshot(pending)) apply(pending);
+      for (const queryKey of optionsRef.current.invalidate ?? []) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+    };
+
     const handle = (event: EventEnvelope) => {
       const check = tracker.check(event);
       if (check === 'duplicate') return;
       if (check === 'gap') {
-        // Lacuna de sequence: re-sync snapshot+delta. Eventos do snapshot
-        // voltam por `apply` direto (já passaram pelo log ordenado).
-        void realtime.getSnapshot(event.stream).then((snapshot) => {
-          for (const past of snapshot) {
-            if (tracker.check(past) !== 'duplicate') apply(past);
-          }
-          for (const queryKey of optionsRef.current.invalidate ?? []) {
-            void queryClient.invalidateQueries({ queryKey });
-          }
-        });
+        void resync(event.stream, event).catch(() => undefined);
         return;
       }
       apply(event);
     };
 
     const subscription = realtime.subscribe(streams, handle);
-    return () => subscription.unsubscribe();
+    const handleState = (state: string) => {
+      if (state !== 'connected') return;
+      for (const stream of streams) void resync(stream).catch(() => undefined);
+    };
+    const unsubscribeState = realtime.onStateChange(handleState);
+    if (realtime.state === 'connected') handleState('connected');
+    return () => {
+      unsubscribeState();
+      subscription.unsubscribe();
+    };
   }, [realtime, queryClient, key]);
 }

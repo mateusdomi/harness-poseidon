@@ -205,7 +205,7 @@ export default function UrunProjectPage() {
                                   href={target.url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex min-h-11 items-center text-brand underline-offset-4 hover:underline"
+                                  className="inline-flex min-h-11 items-center text-brand-strong underline-offset-4 hover:underline"
                                 >
                                   {target.url}
                                 </a>
@@ -369,7 +369,7 @@ export default function UrunProjectPage() {
                 <p className="text-foreground-muted">{t('runProject.localMode.shortcut')}</p>
                 <Link
                   to="/settings"
-                  className="inline-flex min-h-11 items-center self-start text-brand underline-offset-4 hover:underline"
+                  className="inline-flex min-h-11 items-center self-start text-brand-strong underline-offset-4 hover:underline"
                 >
                   {t('runProject.localMode.diagnostics')}
                 </Link>

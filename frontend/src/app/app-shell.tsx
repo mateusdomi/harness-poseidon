@@ -1,5 +1,6 @@
-import { Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Suspense, useEffect, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 
@@ -14,7 +15,9 @@ import { HeaderContext } from '@/app/components/header-context';
 import { LanguageSelector } from '@/app/components/language-selector';
 import { NotificationsButton } from '@/app/components/notifications-button';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
+import { PermissionDenied } from '@/app/components/permission-denied';
 import { ThemeToggle } from '@/app/components/theme-toggle';
+import { PERMISSION_DENIED_EVENT } from '@/app/api-error-events';
 import { ReconnectionBanner } from '@/features/shared/components/reconnection-banner';
 import logoUrl from '@/assets/logo.png';
 import logoIconUrl from '@/assets/logo-icon.png';
@@ -206,6 +209,19 @@ function Header() {
 
 export function AppShell() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const [permissionDenied, setPermissionDenied] = useState(false);
+
+  useEffect(() => {
+    setPermissionDenied(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const denyPermission = () => setPermissionDenied(true);
+    window.addEventListener(PERMISSION_DENIED_EVENT, denyPermission);
+    return () => window.removeEventListener(PERMISSION_DENIED_EVENT, denyPermission);
+  }, []);
 
   return (
     <div className="flex min-h-svh bg-background">
@@ -220,9 +236,18 @@ export function AppShell() {
         <Header />
         <ReconnectionBanner />
         <main id="main-content" className="flex-1 p-4 pb-24 lg:p-6 lg:pb-6">
-          <Suspense fallback={<RouteSkeleton />}>
-            <Outlet />
-          </Suspense>
+          {permissionDenied ? (
+            <PermissionDenied
+              onRetry={() => {
+                setPermissionDenied(false);
+                void queryClient.refetchQueries({ type: 'active' });
+              }}
+            />
+          ) : (
+            <Suspense fallback={<RouteSkeleton />}>
+              <Outlet />
+            </Suspense>
+          )}
         </main>
       </div>
       <BottomNav />

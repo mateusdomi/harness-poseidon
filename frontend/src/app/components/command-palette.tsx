@@ -38,12 +38,6 @@ export function CommandPalette() {
   const listRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Foco no campo de busca ao abrir (roda depois do efeito do ModalDialog,
-  // que foca o primeiro elemento focável do painel).
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
-
   // Atalho global: ⌘K / Ctrl+K alterna a paleta.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -135,6 +129,7 @@ export function CommandPalette() {
           label={t('shell.search.label')}
           onClose={close}
           className="max-w-xl gap-3 self-start mt-[12vh] p-4 sm:p-4"
+          initialFocusRef={inputRef}
         >
           <div className="flex items-center gap-2">
             <Search aria-hidden="true" className="size-4 shrink-0 text-foreground-muted" />

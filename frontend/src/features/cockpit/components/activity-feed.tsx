@@ -124,7 +124,7 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
         )}
         <Link
           to="/governance"
-          className="self-start text-xs text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="self-start text-xs text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {t('cockpit.activity.fullHistory')}
         </Link>

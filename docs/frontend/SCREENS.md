@@ -7,34 +7,34 @@ Inventário das 21 telas do frontend: rota, dados consumidos, eventos realtime a
 **Notas transversais:**
 
 - **Reconexão (4): GLOBAL** — `ReconnectionBanner` no `AppShell` (`src/app/app-shell.tsx:181`), visível em todas as telas dentro do shell sempre que o realtime não está `connected` (via `useConnectionState`); não é dismissível, some ao reconectar. Onboarding fica fora do shell e não usa realtime. ✅ validado.
-- **Permissão negada (5): NÃO SE APLICA no contrato atual** — a camada `src/api/` não modela 401/403 (nenhum `ForbiddenError`; o mock nunca emite 403). Decisão registrada (D-052): quando o backend introduzir autorização, adicionar o conceito no `ApiError`/cliente e o estado nas telas.
+- **Permissão negada (5): GLOBAL** — o OpenAPI real publica 401/403. `QueryCache` converte 403 de leitura em `PermissionDenied` no conteúdo da rota, com texto i18n e retry; 401 invalida a sessão local e retorna ao onboarding. Mutations preservam o erro contextual da própria ação. Onboarding é a superfície pública de recuperação de sessão e fica fora deste estado. ✅ validado por testes unitários.
 - **Erro com retry (3)**: o retry com botão existe para **queries**; erros de **mutation** exibem `role="alert"` e são reenviáveis pela própria ação (form/botão) — padrão consistente em todas as telas.
 
 Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 | # | Tela (rota) | Vazio | Skeleton | Erro+retry | Reconexão | Permissão |
 |---|---|---|---|---|---|---|
-| 1 | cockpit (`/cockpit`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 2 | projects (`/projects`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 3 | chat (`/chat`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 4 | conversations (`/conversations`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 5 | board (`/board`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 6 | workflows (`/workflows`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 7 | documents (`/documents`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 8 | prototypes (`/prototypes`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 9 | approvals (`/approvals`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 10 | orchestrator (`/orchestrator`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 11 | agents (`/agents`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 12 | tools (`/tools`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 13 | run-project (`/run-project`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
+| 1 | cockpit (`/cockpit`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 2 | projects (`/projects`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 3 | chat (`/chat`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 4 | conversations (`/conversations`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 5 | board (`/board`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 6 | workflows (`/workflows`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 7 | documents (`/documents`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 8 | prototypes (`/prototypes`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 9 | approvals (`/approvals`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 10 | orchestrator (`/orchestrator`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 11 | agents (`/agents`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 12 | tools (`/tools`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 13 | run-project (`/run-project`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
 | 14 | onboarding (`/onboarding`) | ✅ | ✅ | ✅ | ➖ fora do shell, sem realtime | ➖ |
-| 15 | organizations (`/organizations`) | ✅ | ✅ | ✅¹ | global ✅ | ➖ |
-| 16 | providers (`/providers`) | ✅² | ✅ | ✅ | global ✅ | ➖ |
-| 17 | po-assistant (`/po-assistant`) | ✅ | ✅ | ✅³ | global ✅ | ➖ |
-| 18 | governance (`/governance`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 19 | licenses (`/licenses`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 20 | notifications (`/notifications`) | ✅ | ✅ | ✅ | global ✅ | ➖ |
-| 21 | settings (`/settings`) | ➖⁴ | ✅ | ✅ | global ✅ | ➖ |
+| 15 | organizations (`/organizations`) | ✅ | ✅ | ✅¹ | global ✅ | global ✅ |
+| 16 | providers (`/providers`) | ✅² | ✅ | ✅ | global ✅ | global ✅ |
+| 17 | po-assistant (`/po-assistant`) | ✅ | ✅ | ✅³ | global ✅ | global ✅ |
+| 18 | governance (`/governance`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 19 | licenses (`/licenses`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 20 | notifications (`/notifications`) | ✅ | ✅ | ✅ | global ✅ | global ✅ |
+| 21 | settings (`/settings`) | ➖⁴ | ✅ | ✅ | global ✅ | global ✅ |
 
 ¹ Lacuna da auditoria corrigida na FE-4: erro de `workflow-templates` no detalhe da organização agora tem retry (`organization-detail.tsx`).
 ² Lacuna corrigida na FE-4: estados vazios adicionados para página sem providers, budgets vazios e políticas de roteamento vazias (`providers-page.tsx`).
@@ -110,7 +110,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 - **Dados:** `agents`, `tasks`, `attempts`, `conversations`, `agent-definitions`, `skills`, `tools`, `providers`, `models`, `accounts`, `budgets`; `attempt-events` no detalhe da tentativa.
 - **Realtime:** stream `global` + streams das attempts em execução — `agent.statusChanged`, `attempt.started`, `attempt.heartbeat`, `attempt.completed`, `attempt.failed`, `quota.updated`; `chief.turnStateChanged` nas conversas.
-- **Ações:** pausar/retomar chefe (`pauseChief`/`resumeChief`), drenar tarefas (`drainChiefTasks`), passagem de bastão (`handoffChief`); na aba Definições: criar, visualizar, editar, duplicar, habilitar/desabilitar, arquivar e excluir somente quando nunca utilizada. As mutações de definições estão completas no mock e pendentes no backend real.
+- **Ações:** pausar/retomar chefe (`pauseChief`/`resumeChief`), drenar tarefas (`drainChiefTasks`), passagem de bastão (`handoffChief`); na aba Definições: criar, visualizar, editar, duplicar, habilitar/desabilitar, arquivar e excluir somente quando nunca utilizada. O lifecycle V3 das definições está reconciliado com o backend real; metadados complementares ainda ausentes seguem no HANDOFF.
 - **Estados:** vazio sem projeto/sem chefe (CTA), grade vazia, tentativa sem eventos; skeleton (página, wizard, attempt-dialog); erro com retry (página, wizard, attempt-dialog).
 
 ## 11. agents — `/agents`
@@ -189,3 +189,49 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Realtime:** nenhum.
 - **Ações:** `update('settings')` (idioma, tema, diretório, revogação do modo inseguro com confirmação); `createBackup` / `restoreBackup` com confirmação.
 - **Estados:** vazio ➖ (formulários; card de licença com fallback + link); skeleton (settings + diagnóstico); erro com retry (settings; diagnóstico via botão de refresh do card).
+
+---
+
+# Roteiro humano de homologação final
+
+Este roteiro complementa os gates automatizados e não declara aceite humano. O homologador registra aprovado/reprovado, evidência e observação por etapa. Execute com backend real, `VITE_API_MODE=http`, navegador limpo e `VITE_GOVERNANCE_CONTRACT_UI=off`.
+
+## Preparação
+
+1. Confirme que o Host responde no endereço configurado e abra o frontend sem cookies/localStorage anteriores.
+2. Abra DevTools em Console e Network com “Preserve log”. Ao final de cada bloco confirme zero erro não tratado, zero asset 404 e nenhuma resposta com segredo.
+3. Execute em desktop 13" (aprox. 1280×800), tablet (820×1180) e mobile (360×800). Repita os pontos visuais em dark/light, zoom 200% e somente teclado.
+4. Em toda tela observe skeleton sem layout quebrado, vazio orientado, erro com retry e, com perfil sem acesso, “Acesso não permitido”. Sessão expirada deve voltar ao onboarding.
+
+## Telas e fluxos
+
+1. **Onboarding:** crie perfil, altere idioma/tema, configure diretório existente e marque o aceite de risco. Reabra em navegador limpo, selecione o perfil e confirme o cockpit.
+2. **Organizações:** crie/edite, busque por nome/slug e abra o detalhe; confira projetos e workflows vazios ou relacionados.
+3. **Projetos:** crie com organização/membros; edite metadados; verifique busca, arquivados, versão/histórico e confirmação de impacto quando houver execução.
+4. **Cockpit:** troque projeto; confira fase, três trilhas separadas, bloqueios/aprovações/custo e atividade 24h/3d/7d. Use “Executar no chat”.
+5. **Chat:** crie conversa, envie mensagem e acompanhe início/chunks/fim sem duplicação. Interrompa Host/rede, veja o banner, restaure e envie outra mensagem. Confira painel desktop/drawer mobile.
+6. **Conversas:** pesquise, filtre, renomeie, arquive/desarquive e abra por deep link; atualize a página e confira persistência.
+7. **Quadro:** combine filtros na URL; abra tarefa por deep link; altere prioridade, pause/cancele/solicite revisão; confira instruções/attempts/aprovações. Exporte o CSV filtrado.
+8. **Workflows:** vincule template; crie/edite rascunho e fases; publique, compare versões e tente ações bloqueadas. Troque modo apenas após aceite de risco.
+9. **Documentos:** envie `.md`/`.txt`, abra `?doc=`, copie/edite criando versão e compare. Classifique órfão, solicite aprovação e confirme nota na reprovação.
+10. **Protótipos:** troque cenário, confirme waiver quando exigido, envie referência e valide fallback de asset.
+11. **Aprovações:** filtre por projeto/criticidade/prazo; aprove e reprove com observação; confira atualização nas telas de origem.
+12. **Orquestrador:** pause/retome Chief, abra attempts/logs e confirme segredos mascarados. Faça handoff em duas etapas. Na aba existente, percorra o lifecycle das definições respeitando bloqueios.
+13. **Agentes:** confira organograma, filtros, estado/cota/modelo/effort; abra detalhe e navegue para persona/definition.
+14. **Ferramentas:** percorra Skills/Tools/Plugins/MCP; confira endpoint mascarado e habilite/desabilite com confirmação.
+15. **Executar projeto:** confira serviços, stack/porta/URL, logs e ações. Valide Launcher, Host/Runner, diretório, diagnóstico e atalho. Não faça cleanup sobre dados úteis.
+16. **Provedores:** sincronize catálogo; crie conta só com referência segura, edite/habilite/desabilite/remova quando permitido. Confira saúde/cota/reset/capabilities, modelos/effort e roteamento.
+17. **Licenças:** valide estado, expiração/grace/offline e entitlements; tente chave inválida e ativação válida apenas em ambiente descartável.
+18. **Assistente de PO:** envie texto/anexo, revise os cinco painéis, edite/descarte itens e crie demanda; confirme-a no Quadro/Cockpit.
+19. **Governança atual:** combine filtros, expanda correlações, verifique masking/paginação e exporte JSON/CSV filtrados. Confirme ausência de navegação paralela para a Parte B com a flag off.
+20. **Notificações:** marque item/grupo/todas como lidas, silencie e altere preferências; confira badge/realtime.
+21. **Configurações:** altere idioma/tema/diretório, revogue modo inseguro, gere backup descartável e confira diagnóstico/licença. Não restaure sobre dados valiosos.
+
+## Encerramento transversal
+
+- Teclado/leitor: skip link, ordem de Tab, Enter/Espaço/Esc, foco preso/retornado, headings, landmarks, labels, `role=status/alert` e nomes de ícones.
+- Visual: sem corte ou scroll horizontal indevido, touch targets, foco visível, contraste AA e `prefers-reduced-motion`.
+- Dados: paginação 15/30/50, busca `⌘K`/`Ctrl+K`, deep links após refresh, localização, CSV correto e segredo mascarado/redigido.
+- Tempo real: snapshot/delta em ordem, sem duplicata, banner durante interrupção, reconexão e atualização posterior sem reload.
+
+Registre o resultado por tela e anexe screenshot/trace ao reprovar. Problema de backend/contrato vai para o HANDOFF; correções permanecem limitadas aos paths do frontend.

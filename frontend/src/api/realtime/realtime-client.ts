@@ -48,8 +48,17 @@ export class SequenceTracker {
   check(event: Pick<EventEnvelope, 'stream' | 'sequence'>): SequenceCheck {
     const last = this.lastByStream.get(event.stream) ?? 0;
     if (event.sequence <= last) return 'duplicate';
+    if (event.sequence > last + 1) return 'gap';
     this.lastByStream.set(event.stream, event.sequence);
-    return event.sequence > last + 1 ? 'gap' : 'applied';
+    return 'applied';
+  }
+
+  /** Aplica um evento vindo de snapshot autoritativo, mesmo após compactação. */
+  acceptSnapshot(event: Pick<EventEnvelope, 'stream' | 'sequence'>): boolean {
+    const last = this.lastByStream.get(event.stream) ?? 0;
+    if (event.sequence <= last) return false;
+    this.lastByStream.set(event.stream, event.sequence);
+    return true;
   }
 
   /** Última sequence vista no stream (0 se nenhuma). */

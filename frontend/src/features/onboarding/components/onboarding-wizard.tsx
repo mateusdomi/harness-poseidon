@@ -110,7 +110,7 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
               aria-current={index === stepIndex ? 'step' : undefined}
               className={
                 index === stepIndex
-                  ? 'rounded-full border border-accent px-3 py-1 text-xs font-medium text-accent'
+                  ? 'rounded-full border border-brand px-3 py-1 text-xs font-medium text-brand-strong'
                   : 'rounded-full border border-border px-3 py-1 text-xs text-foreground-muted'
               }
             >

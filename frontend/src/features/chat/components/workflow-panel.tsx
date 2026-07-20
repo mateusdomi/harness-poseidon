@@ -209,7 +209,7 @@ function PhaseAccordion({ phase, gates, documents, defaultOpen }: PhaseAccordion
                       className="flex min-h-11 items-center gap-2 rounded-md px-1 py-1.5 text-xs hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       <Icon aria-hidden="true" className={cn('size-4 shrink-0', className)} />
-                      <span className="min-w-0 flex-1 truncate font-medium text-brand">
+                      <span className="min-w-0 flex-1 truncate font-medium text-brand-strong">
                         {doc.title}
                       </span>
                       <span className={cn('shrink-0', className)}>

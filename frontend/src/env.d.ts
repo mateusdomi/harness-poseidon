@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   /** "on" sobe o worker msw em dev para inspecionar tráfego /api/v1 no navegador. */
   readonly VITE_MSW?: 'on' | 'off';
+  /** UI de governança documental/receipts/evaluations; só habilitar após o Gate P1 real. */
+  readonly VITE_GOVERNANCE_CONTRACT_UI?: 'on' | 'off';
 }
 
 interface ImportMeta {

@@ -35,7 +35,7 @@ export function ProfilePicker({ profiles, onSelect, onCreateNew }: ProfilePicker
               >
                 <span
                   aria-hidden="true"
-                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
                 >
                   <UserRound className="size-5" aria-hidden="true" />
                 </span>
@@ -48,7 +48,7 @@ export function ProfilePicker({ profiles, onSelect, onCreateNew }: ProfilePicker
                       })}
                   </span>
                 </span>
-                <span className="shrink-0 text-sm font-medium text-brand">
+                <span className="shrink-0 text-sm font-medium text-brand-strong">
                   {t('onboarding.selectProfile.use')}
                 </span>
               </button>

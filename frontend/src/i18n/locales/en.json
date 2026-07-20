@@ -114,6 +114,10 @@
       "loading": "Loading…",
       "errorBody": "Could not load the data. Please try again."
     },
+    "permission": {
+      "title": "Access not allowed",
+      "body": "Your profile does not have permission to view this screen. Ask the owner for access or try again after the permission is updated."
+    },
     "pagination": {
       "label": "Pagination",
       "range": "{{from}}–{{to}} of {{total}}",

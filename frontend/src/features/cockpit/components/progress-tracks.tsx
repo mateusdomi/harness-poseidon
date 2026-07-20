@@ -19,12 +19,12 @@ const TRACKS: readonly ProgressTrack[] = ['executed', 'validated', 'approved'];
 export function ProgressTracks({ progress }: { progress: Progress }) {
   const { t } = useTranslation();
   return (
-    <dl className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       {TRACKS.map((track) => (
         <div key={track} className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-2 text-sm">
-            <dt className="text-foreground-muted">{t(`cockpit.progress.tracks.${track}`)}</dt>
-            <dd className="font-medium tabular-nums">{formatNumber(progress[track])}%</dd>
+            <span className="text-foreground-muted">{t(`cockpit.progress.tracks.${track}`)}</span>
+            <span className="font-medium tabular-nums">{formatNumber(progress[track])}%</span>
           </div>
           <div
             role="progressbar"
@@ -41,6 +41,6 @@ export function ProgressTracks({ progress }: { progress: Progress }) {
           </div>
         </div>
       ))}
-    </dl>
+    </div>
   );
 }

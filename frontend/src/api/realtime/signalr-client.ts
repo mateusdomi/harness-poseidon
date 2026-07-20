@@ -1,4 +1,10 @@
-import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
+import {
+  HubConnection,
+  HubConnectionBuilder,
+  HubConnectionState,
+  HttpTransportType,
+  LogLevel,
+} from '@microsoft/signalr';
 
 import {
   eventStreamSnapshotSchema,
@@ -36,6 +42,7 @@ interface Subscriber {
 export class SignalRRealtimeClient implements RealtimeClient {
   #state: ConnectionState = 'disconnected';
   #connection: HubConnection | null = null;
+  #connectPromise: Promise<void> | null = null;
   #subscribers = new Set<Subscriber>();
   #stateHandlers = new Set<ConnectionStateHandler>();
   readonly #baseUrl: string;
@@ -51,9 +58,14 @@ export class SignalRRealtimeClient implements RealtimeClient {
   }
 
   async connect(): Promise<void> {
-    if (this.#connection) return;
+    if (this.#connection?.state === HubConnectionState.Connected) return;
+    if (this.#connectPromise) return this.#connectPromise;
     const connection = new HubConnectionBuilder()
-      .withUrl(`${this.#baseUrl}/hubs/events`)
+      .withUrl(`${this.#baseUrl}/hubs/events`, {
+        skipNegotiation: true,
+        transport: HttpTransportType.WebSockets,
+      })
+      .configureLogging(LogLevel.None)
       .withAutomaticReconnect()
       .build();
 
@@ -65,17 +77,29 @@ export class SignalRRealtimeClient implements RealtimeClient {
       }
     });
     connection.onreconnecting(() => this.#setState('reconnecting'));
-    connection.onreconnected(() => this.#setState('connected'));
-    connection.onclose(() => this.#setState('disconnected'));
+    connection.onreconnected(() => {
+      this.#setState('connected');
+      void this.#subscribeAll(connection).catch(() => this.#setState('disconnected'));
+    });
+    connection.onclose(() => {
+      if (this.#connection === connection) this.#connection = null;
+      this.#setState('disconnected');
+    });
 
     this.#connection = connection;
-    await connection.start();
-    this.#setState('connected');
+    const start = this.#start(connection);
+    this.#connectPromise = start;
+    try {
+      await start;
+    } finally {
+      if (this.#connectPromise === start) this.#connectPromise = null;
+    }
   }
 
   async disconnect(): Promise<void> {
     const connection = this.#connection;
     this.#connection = null;
+    this.#connectPromise = null;
     if (connection) await connection.stop();
     this.#setState('disconnected');
   }
@@ -84,12 +108,12 @@ export class SignalRRealtimeClient implements RealtimeClient {
     const list = typeof streams === 'string' ? [streams] : [...streams];
     const subscriber: Subscriber = { streams: new Set(list), handler };
     this.#subscribers.add(subscriber);
-    void this.#invoke('SubscribeToStreams', list);
+    void this.#invoke('SubscribeToStreams', list).catch(() => this.#setState('disconnected'));
     return {
       streams: list,
       unsubscribe: () => {
         this.#subscribers.delete(subscriber);
-        void this.#invoke('UnsubscribeFromStreams', list);
+        void this.#invoke('UnsubscribeFromStreams', list).catch(() => undefined);
       },
     };
   }
@@ -129,6 +153,31 @@ export class SignalRRealtimeClient implements RealtimeClient {
     for (const subscriber of this.#subscribers) {
       if (subscriber.streams.has(envelope.stream)) subscriber.handler(envelope);
     }
+  }
+
+  async #start(connection: HubConnection): Promise<void> {
+    try {
+      await connection.start();
+      if (this.#connection !== connection) {
+        await connection.stop();
+        return;
+      }
+      this.#setState('connected');
+      await this.#subscribeAll(connection);
+    } catch (error) {
+      if (this.#connection === connection) this.#connection = null;
+      this.#setState('disconnected');
+      if (connection.state !== HubConnectionState.Disconnected) {
+        await connection.stop().catch(() => undefined);
+      }
+      throw error;
+    }
+  }
+
+  async #subscribeAll(connection: HubConnection): Promise<void> {
+    if (connection.state !== HubConnectionState.Connected) return;
+    const streams = [...new Set([...this.#subscribers].flatMap((entry) => [...entry.streams]))];
+    if (streams.length > 0) await connection.invoke('SubscribeToStreams', streams);
   }
 
   async #invoke(method: string, streams: readonly string[]): Promise<void> {

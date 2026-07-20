@@ -114,6 +114,10 @@
       "loading": "Carregando…",
       "errorBody": "Não foi possível carregar os dados. Tente novamente."
     },
+    "permission": {
+      "title": "Acesso não permitido",
+      "body": "Seu perfil não tem permissão para consultar esta tela. Solicite acesso ao responsável ou tente novamente após a permissão ser atualizada."
+    },
     "pagination": {
       "label": "Paginação",
       "range": "{{from}}–{{to}} de {{total}}",

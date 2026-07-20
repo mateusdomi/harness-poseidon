@@ -206,8 +206,8 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 - **Decisão:** `src/i18n/__tests__/i18n-hygiene.test.ts` (Vitest, roda no `npm run check`): (1) varredura AST (TypeScript compiler API) de `src/**/*.tsx` falhando em literal visível com letras em JSXText, `{'...'}` ou atributos `aria-label`/`placeholder`/`title`/`alt` — símbolos/números passam, exceções só via ALLOWLIST explícita (vazia); exclui testes, stories e `src/test/`. (2) paridade das árvores de chaves pt-BR ↔ en dos catálogos mesclados (base + módulos por feature). Sweep inicial achou 2 ocorrências, movidas aos catálogos: `URL` (run-project) e o placeholder `~/poseidon` (onboarding).
 - **Justificativa:** "zero string hardcoded" é convenção inegociável — sem teste, regride silenciosamente; AST evita falsos positivos de regex em código.
 
-## D-052 — Estado "permissão negada": N/A no contrato atual; auditoria de estados em SCREENS.md
-- **Decisão:** o 5º estado obrigatório (permissão negada) é NÃO SE APLICA em todas as telas: a camada `src/api/` não modela 401/403 (nem o mock nem o http-client distinguem forbidden). Quando o backend introduzir autorização, adicionar o conceito ao `ApiError`/cliente e o estado às telas. A auditoria dos 5 estados nas 21 telas ficou registrada em `docs/frontend/SCREENS.md`; lacunas encontradas e corrigidas: estados vazios de providers (página/budgets/roteamento) e retry do erro de `workflow-templates` no detalhe de organizations. Retry com botão é padrão para queries; erros de mutation usam `role="alert"` reenviável pela própria ação (padrão consistente do app).
+## D-052 — Estado "permissão negada" era N/A na FE-4; supersedido por D-090
+- **Decisão histórica:** na FE-4 o mock/cliente ainda não tratava 401/403 e o 5º estado foi marcado N/A. A homologação contra o OpenAPI/Host real confirmou esses status e D-090 substituiu esta decisão por recuperação global de sessão/permissão. As demais conclusões da auditoria permanecem: vazios de providers e retry de `workflow-templates` no detalhe de organizations.
 - **Justificativa:** não fabricar tratamento de um erro que o contrato não emite (mesmo critério de D-038/D-043); registrar como pendência mantém o requisito rastreável.
 
 ## D-053 — Logo oficial (tridente + wordmark "Poseidon")
@@ -360,3 +360,23 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 
 - **Decisão:** a auditoria usa os 13 blocos funcionais do prompt, com `existente=1`, `parcial=0,5`, `ausente=0`. Integração real usa apenas os 11 blocos dependentes de backend; os dois puramente locais/transversais ficam fora do denominador. A matriz inicial e a final, com evidências, estão em `REFINEMENT_AUDIT.md`.
 - **Justificativa:** denominador e pesos explícitos tornam os percentuais reproduzíveis e impedem números subjetivos.
+
+## D-088 — Homologação HTTP real usa proxy same-origin na raiz do frontend
+
+- **Decisão:** `vite.real.config.ts` mantém a raiz real do frontend (Tailwind/PostCSS/assets) e encaminha `/api` e `/hubs` a um Host loopback informado por `POSEIDON_BACKEND_URL`. O gate Playwright real roda desktop 13", tablet e mobile, alterna temas, vigia console/assets e não depende do script de backend que cria um Vite config fora da raiz. Um endpoint exclusivamente dev/e2e fecha os sockets do proxy para provar reconexão; não existe em build de produção nem no backend.
+- **Justificativa:** same-origin conserva cookie e WebSocket reais e torna a prova reexecutável sem alterar Host, infra ou contratos.
+
+## D-089 — SignalR assina após connect/reconnect e re-sincroniza cada stream
+
+- **Decisão:** o cliente usa WebSocket direto, captura a promessa de conexão, reenvia o conjunto deduplicado de streams após `connect` e `onreconnected`, e impede rejections não tratadas. `useRealtimeStream` pede snapshot quando conecta/reconecta ou detecta gap. O `SequenceTracker` só avança em sequência contínua; snapshot ordenado preenche a lacuna e descarta duplicatas.
+- **Justificativa:** componentes montam antes do hub concluir a conexão. Sem reassinatura, a UI parecia conectada mas não recebia delta; avançar o cursor no gap também tornava impossível recuperar o evento ausente.
+
+## D-090 — 401 recupera sessão; 403 de leitura é estado transversal da rota
+
+- **Decisão:** erros canônicos `ApiError` 401 disparam limpeza do perfil ativo e retorno ao onboarding. Erros 403 no `QueryCache` substituem o conteúdo por `PermissionDenied` com retry em pt-BR/en; 403 de mutation permanece contextual na ação para não apagar o formulário. A rota seguinte limpa o estado global.
+- **Justificativa:** o OpenAPI real já declara 401/403. Um estado transversal cobre todas as telas sem duplicar lógica, preservando feedback específico nas operações de escrita.
+
+## D-091 — Parte B fica fail-closed até o Gate P1 canônico
+
+- **Decisão:** `VITE_GOVERNANCE_CONTRACT_UI=off` é a flag operacional; apenas o literal `on` habilita. Enquanto OpenAPI/eventos não trouxerem manifest, findings, receipts e evaluations, nenhum componente novo entra na navegação e nenhuma fixture simula funcionamento. As necessidades estão registradas no HANDOFF; a implementação futura estenderá `/governance` e as telas existentes.
+- **Justificativa:** evita uma UI enganosa e mantém a sequência contract-first exigida, sem transformar preparação de produção em protótipo.
