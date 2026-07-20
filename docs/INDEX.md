@@ -164,13 +164,13 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Ambiente de execução](backend/execution/ENVIRONMENT.md) | * | Active | Platform Engineering | OnDemand | 1721 |
 | [Escopo da Fase 0](backend/execution/PHASE_0_SCOPE.md) | * | Active | Platform Engineering | OnDemand | 227 |
 | [Progresso e evidências](backend/execution/PROGRESS.md) | * | Active | Platform Engineering | OnDemand | 6416 |
-| [Progresso auditável do roadmap — Harness Poseidon backend](backend/execution/ROADMAP_PROGRESS.md) | * | Active | Platform Engineering | OnDemand | 2076 |
+| [Progresso auditável do roadmap — Harness Poseidon backend](backend/execution/ROADMAP_PROGRESS.md) | * | Active | Platform Engineering | OnDemand | 1994 |
 
 #### operations
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Roteiro de homologação da Release Candidate](backend/operations/HOMOLOGATION.md) | release-candidate | Active | Quality Engineering | OnDemand | 908 |
+| [Roteiro de homologação da Release Candidate](backend/operations/HOMOLOGATION.md) | release-candidate | Active | Quality Engineering | OnDemand | 945 |
 | [Poseidon Release Candidate — notas de release](backend/release/RELEASE_NOTES.md) | release-candidate | Active | Operations | OnDemand | 369 |
 | [Runbook de incidentes](backend/operations/INCIDENT_RUNBOOK.md) | * | Active | Operations | OnDemand | 774 |
 | [Instalação do Harness Poseidon](backend/operations/INSTALLATION.md) | * | Active | Operations | OnDemand | 810 |
@@ -180,7 +180,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 6819 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 6738 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 1932 |
 
 ### Reference
@@ -247,7 +247,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 |---|---|---|---|---|---:|
 | [Evidência — Governance Gate P1](backend/execution/evidence/GOVERNANCE-GATE-P1.md) | p1 | Active | Platform Governance | OnDemand | 875 |
 | [Evidência — Governance Gate P2](backend/execution/evidence/GOVERNANCE-GATE-P2.md) | p2 | Active | Platform Governance | OnDemand | 333 |
-| [Relatório da Release Candidate](backend/release/RELEASE_REPORT.md) | release-candidate | Active | Operations | OnDemand | 246 |
+| [Relatório da Release Candidate](backend/release/RELEASE_REPORT.md) | release-candidate | Active | Operations | OnDemand | 470 |
 | [Evidência — Governance Gate P0](backend/execution/evidence/GOVERNANCE-GATE-P0.md) | p0 | Active | Platform Governance | OnDemand | 666 |
 | [Evidência F0 PoC-1 — SQLite WAL e dispatcher único](backend/execution/evidence/F0-POC-1.md) | * | Active | Quality Engineering | OnDemand | 335 |
 | [Evidência F0 PoC-2 — kill -9 e retomada durável](backend/execution/evidence/F0-POC-2.md) | * | Active | Quality Engineering | OnDemand | 405 |

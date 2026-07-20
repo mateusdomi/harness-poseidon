@@ -2,8 +2,8 @@
 
 Atualizado em: 2026-07-20. Fonte: `git` (`develop`), evidências em
 `docs/backend/execution/evidence/**`, `PROGRESS.md` e gates automatizados. O backend P2 está em
-299/299 testes e build Release sem warnings; a linha de base frontend recém-incorporada passa
-428/429 e aguarda a troca do teste que declara P2 ausente pelo contrato/UI P2 agora publicado.
+299/299 testes e build Release sem warnings; o frontend P2 passa 437/437, E2E mock 56/56, a11y
+42/42 e Host real 3/3. OpenAPI/event drift e a fábrica da RC estão verdes.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.
@@ -40,7 +40,7 @@ Total: **100**.
 |---|---:|---:|---:|---:|---|
 | F0 | 100 | 100 | 100 | 0 | 9 PoCs verdes com evidência; GNG-1 (automático) verde; mecanismos integrados na F1. Sem homologação humana. |
 | F1 | 100 | 100 | 100 | 0 | Fundação dual-provider + motor durável + GNG-2 (SIGKILL reconciliado) verde e fiado no Host. Sem homologação humana. |
-| F2 | 100 | 100 | 92 | 0 | Toda a API/SignalR + integração frontend (bundle FR-1/FR-2 servido, 270 FE verdes, drift reconciliado). Blocker técnico da homologação resolvido: adoção de sessão no modo pessoal (cockpit carrega em navegador novo). Lacuna restante: E2E navegado + resync visual e o **aceite humano do GNG-3 → H=0**. |
+| F2 | 100 | 100 | 100 | 0 | API/SignalR + frontend P1/P2 servidos, drift reconciliado e E2E Host real em desktop/tablet/mobile. Resta somente o **aceite humano do GNG-3 → H=0**. |
 | F3 | 100 | 100 | 100 | 0 | Templates canônicos, guarda de ações invioláveis, verificação em 3 camadas e run semiautônomo completo provados via API/anti-burla. Gate da fase (automático) verde. |
 | F4 | 100 | 100 | 100 | 0 | Segurança de upload (allowlist/magic bytes/anti zip-bomb/traversal/quarentena) + demanda de documento real, via API e migration 0029. |
 | F5 | 100 | 100 | 100 | 0 | Upload inspecionado de referências (PNG/JPEG/ZIP), galeria, waiver; migration 0030. |
@@ -49,21 +49,20 @@ Total: **100**.
 | F8 | 100 | 100 | 100 | 0 | Licença Ed25519 assinada, ativação/validação offline, revogação idempotente, dados legíveis pós-expiração; migration 0031. |
 | F9 | 100 | 100 | 97 | 0 | Gateway, Telegram e Teams verdes. Teams cobre webhook autenticado, linking AAD, dedupe durável, resposta na origem, anexos por metadados, retry e defesa SSRF contra fake local. Telegram também tem smoke real. Lacuna externa: smoke com credenciais Microsoft/Azure Bot reais. |
 | F10 | 100 | 97 | 95 | 0 | Paridade PG completa (31 stores duais, 34 migrations), modo servidor, multiusuário, rate limit, carga 30 usuários, RBAC/ABAC e maquinaria OIDC com IdP fake. **Lacuna**: smoke OIDC com Entra ID **real** (externo, não validável sem credenciais). |
-| F11 | 90 | 90 | 88 | 0 | F11-1..7 verdes: hardening, SAST dedicado, release-candidate agregado, resiliência, operação, SBOM, segredos e DoD técnico. **Faltam**: a11y/E2E navegados e aceite global humano/GNG-6. |
+| F11 | 100 | 100 | 100 | 0 | F11-1..7, a11y/E2E navegados, pacote self-contained, ciclo operacional, SAST, SBOM, segredos e DoD técnico verdes. Resta somente aceite global humano/GNG-6. |
 
 ## 4. Cálculo por dimensão
 
 `Dimensão = Σ (peso_fase × fração_fase) / 100`
 
 ### Implementado
-`(5·1.00)+(12·1.00)+(25·1.00)+(8·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(7·1.00)+(6·1.00)+(5·1.00)+(8·1.00)+(5·0.90)`
-`= 5+12+25+8+6+5+8+7+6+5+8+(5·0.90=4.50) = 99.50` → **99.5% (num 99.50 / den 100)**
+Todas as fases estão implementadas: **100.0% (num 100 / den 100)**.
 
 ### Validado
-`5+12+25+8+6+5+8+7+6+5+(8·0.97=7.76)+(5·0.90=4.50) = 99.26` → **99.3% (num 99.26 / den 100)**
+`5+12+25+8+6+5+8+7+6+5+(8·0.97=7.76)+5 = 99.76` → **99.8% (num 99.76 / den 100)**
 
 ### Integrado
-`5+12+(25·0.92=23.00)+8+6+5+(8·0.96=7.68)+(7·0.98=6.86)+6+(5·0.97=4.85)+(8·0.95=7.60)+(5·0.88=4.40) = 96.39` → **96.4% (num 96.39 / den 100)**
+`5+12+25+8+6+5+(8·0.96=7.68)+(7·0.98=6.86)+6+(5·0.97=4.85)+(8·0.95=7.60)+5 = 98.99` → **99.0% (num 98.99 / den 100)**
 
 ### Homologado
 Nenhum aceite humano registrado: GNG-3 aguarda homologação visual; GNG-4/GNG-6 não alcançados
@@ -71,8 +70,8 @@ operacionalmente. → **0.0% (num 0 / den 100)**
 
 ### Geral
 `Geral = 50%·Validado + 30%·Integrado + 20%·Homologado`
-`= 0.50·99.26 + 0.30·96.39 + 0.20·0 = 49.63 + 28.917 + 0.00 = 78.547`
-→ **≈ 78.5%**
+`= 0.50·99.76 + 0.30·98.99 + 0.20·0 = 49.88 + 29.697 + 0.00 = 79.577`
+→ **≈ 79.6%**
 
 ## 5. Itens que impedem 100% (denominador restante)
 
@@ -94,7 +93,7 @@ Independentes (trabalho técnico que prossegue sem terceiros):
 
 Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
-2. **F11 final** (10–12% aberto): a11y/E2E navegados na frente frontend e aceite humano GNG-6. Todo o DoD técnico backend, SAST e agregador de release candidate estão verdes.
+2. **F11 final**: tecnicamente fechado; resta somente o aceite humano GNG-6.
 3. **Homologação humana GNG-3** (visual, em navegador) — desbloqueia os 20% de Homologado do F2 e
    dependentes.
 4. **GNG-4 em macOS limpo + Developer ID/notarização** — exige identidade/certificado Apple e aceite operacional; pacote ad-hoc local já passou o fluxo completo.
@@ -109,9 +108,9 @@ Dependentes de terceiros/credenciais (não bloqueiam o trabalho acima):
 
 O backend P2 está **100% implementado, validado e integrado à API/realtime** nos dois providers; ver
 `GOVERNANCE-GATE-P2.md`. O comando único, supervisão Host/Runner, demo opt-in, diagnóstico, logs,
-documentação e gerador determinístico da RC também estão implementados e possuem smoke parcial
-verde. O gate integral e o pacote final permanecem abertos até a frente proprietária reconciliar o
-teste/UI P2 com o OpenAPI publicado; esse trabalho não é contado como aceite humano.
+documentação e gerador determinístico da RC também estão implementados. O gate integral, o pacote
+self-contained e a UI P2 reconciliada passaram; esse fechamento técnico não é contado como aceite
+humano.
 
 Peso não incluído nos 100 pontos do roadmap base (v3 §6 manda manter separados). Estado auditado:
 v3 §8.6 edição/revisão manual de documentos e §8.7 arquivamento estão

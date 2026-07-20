@@ -5,11 +5,18 @@ substituem os aceites GNG-3, GNG-4 e GNG-6.
 
 ## 1. Integridade e instalação (5 minutos)
 
-1. Em um Mac Apple Silicon limpo, extraia `poseidon-<sha>-osx-arm64.tar.gz`.
+1. Em um Mac Apple Silicon limpo, execute:
+
+   ```bash
+   mkdir poseidon-rc
+   tar -xzf poseidon-<sha>-osx-arm64.tar.gz -C poseidon-rc
+   ./poseidon-rc/Harness.Launcher install --install-dir "$PWD/Poseidon"
+   ./Poseidon/poseidon start
+   ```
 2. No diretório da RC, execute `shasum -a 256 -c SHA256SUMS`.
 3. Leia `RELEASE_NOTES.md` e confirme que o commit corresponde ao `release-manifest.json`.
-4. No diretório extraído, rode `./Harness.Launcher install --install-dir "$PWD/../Poseidon"`.
-5. Entre no diretório instalado e rode `./poseidon doctor`; confirme pacote, frontend e Runner com
+4. Confirme a URL `http://127.0.0.1:<porta>/` impressa pelo comando de start.
+5. No diretório instalado, rode `./poseidon doctor`; confirme pacote, frontend e Runner com
    `[ok]`, sem exibir valores de segredo.
 
 Registre: versão do macOS, arquitetura, resultado dos checksums e qualquer alerta do Gatekeeper. A
@@ -44,9 +51,10 @@ erro no console nem asset 404.
 1. Com chat/cockpit aberto, provoque uma atualização e confirme snapshot inicial e delta sem refresh.
 2. Interrompa brevemente a conexão, restaure-a e confirme aviso transitório, reconexão e sequência
    contígua sem duplicar itens.
-3. Na governança, inspecione catálogo, saúde/findings, bundle, receipt e evaluation; valide filtros,
+3. Na aba P1 da governança, inspecione catálogo, saúde/findings, bundle, receipt e evaluation; valide filtros,
    paginação, proveniência, checksums e ausência de segredo.
-4. Crie um learning candidate com evidência; confirme deduplicação de replay.
+4. Na aba P2, crie um learning candidate com evidência; confirme filtros cursor-based, paginação,
+   comparação, masking e deduplicação de replay.
 5. Solicite review e avaliação independente, registre resultado, rode shadow e aprove como admin.
 6. Promova manualmente, confira métricas/eventos e execute rollback; depreque e confirme histórico.
 7. Confirme que candidate não aprovado não altera bundle normativo e que ator sem permissão não
