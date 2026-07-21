@@ -35,7 +35,10 @@ rsync -a "$contract_source/openapi.json" "$contract_target/openapi.json"
   # Rollup 4 emits a known two-instance INVALID_ANNOTATION notice from the pinned
   # SignalR ESM package. Suppress only that exact third-party block; every other
   # stderr line remains visible and fatal gates are unaffected.
-  NODE_NO_WARNINGS=1 VITE_API_MODE=http VITE_API_BASE_URL= \
+  # A UI de governança P1/P2 (contrato) é a entrega desta RC; o pacote deve embarcá-la
+  # ligada, igual ao build "real" (vite.real.config.ts default 'on') e ao E2E real
+  # (playwright.real.config.ts). A flag continua fail-closed em outros builds para rollback.
+  NODE_NO_WARNINGS=1 VITE_API_MODE=http VITE_API_BASE_URL= VITE_GOVERNANCE_CONTRACT_UI=on \
     npm run build -- --logLevel silent \
     2> >(awk '
       /node_modules\/@microsoft\/signalr\/dist\/esm\/Utils\.js .*: A comment/ { skip = 4; next }
