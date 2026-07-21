@@ -82,7 +82,13 @@ async function expectNoSkeleton(route) {
 
 async function completeOnboarding() {
   await page.goto(`${baseURL}/`, { waitUntil: 'networkidle' });
-  const faviconHref = await page.locator('link[rel~="icon"]').first().getAttribute('href') ?? '/favicon.ico';
+  // O SPA empacotado não declara <link rel="icon">: o navegador solicita /favicon.ico
+  // por padrão e o Host serve o fallback empacotado (image/png). Honramos um link
+  // declarado se existir, senão validamos exatamente esse contrato /favicon.ico.
+  const iconLink = page.locator('link[rel~="icon"]');
+  const faviconHref = (await iconLink.count()) > 0
+    ? (await iconLink.first().getAttribute('href')) ?? '/favicon.ico'
+    : '/favicon.ico';
   const favicon = await context.request.get(new URL(faviconHref, baseURL).toString());
   await expectStatus(favicon, 200, 'favicon empacotado');
   if (!favicon.headers()['content-type']?.startsWith('image/')) {
