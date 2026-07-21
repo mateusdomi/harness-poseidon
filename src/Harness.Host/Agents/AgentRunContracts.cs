@@ -135,3 +135,27 @@ public sealed record AgentAccountDoctorReport(
     string ProbeReasonCode,
     AccountProfileDoctorReport Profile,
     bool Authenticated);
+
+/// <summary>Pedido de revisão independente de uma tentativa (CA-7).</summary>
+public sealed record AgentCriticReviewCommand
+{
+    public required string AttemptId { get; init; }
+
+    /// <summary>Conta do revisor. Precisa ser diferente da conta do actor.</summary>
+    public required string CriticAlias { get; init; }
+
+    public required string ActorAlias { get; init; }
+
+    /// <summary>Diretório somente-leitura de onde o critic lê o repositório.</summary>
+    public required string ReviewDirectory { get; init; }
+
+    public required string Diff { get; init; }
+
+    public string TestEvidence { get; init; } = "(nenhuma evidência de teste foi fornecida)";
+
+    public IReadOnlyList<string> AcceptanceCriteria { get; init; } = [];
+
+    public IReadOnlyList<string> ScopeClaims { get; init; } = [];
+
+    public string? Model { get; init; }
+}

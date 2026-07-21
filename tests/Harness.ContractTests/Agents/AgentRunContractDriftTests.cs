@@ -17,6 +17,7 @@ public sealed class AgentRunContractDriftTests
     [InlineData("/api/v1/agent-runs", "post")]
     [InlineData("/api/v1/agent-runs/{attemptId}", "get")]
     [InlineData("/api/v1/agent-runs/{attemptId}/cancel", "post")]
+    [InlineData("/api/v1/agent-runs/{attemptId}/review", "post")]
     [InlineData("/api/v1/agent-runs/recovery", "post")]
     [InlineData("/api/v1/agent-accounts/doctor", "get")]
     public void ThePublishedOpenApiExposesTheGovernedAgentRunSurface(string path, string method)
@@ -49,6 +50,25 @@ public sealed class AgentRunContractDriftTests
             ["accepted", "running", "completed", "failed", "cancelled", "scopeconflict", "rejected"],
             payload.GetProperty("properties").GetProperty("state").GetProperty("enum")
                 .EnumerateArray().Select(item => item.GetString()));
+    }
+
+    [Fact]
+    public void TheCriticVerdictIsAClosedSetAndFindingsAreSeverityTyped()
+    {
+        // Default-FAIL exige um conjunto fechado: um veredito desconhecido não pode ser
+        // interpretado como aprovação.
+        using var openApi = Load("docs/contracts/openapi.json");
+        var schemas = openApi.RootElement.GetProperty("components").GetProperty("schemas");
+
+        var response = schemas.GetProperty("CriticReviewResponse").GetProperty("properties");
+        Assert.True(response.TryGetProperty("verdict", out _));
+        Assert.True(response.TryGetProperty("approved", out _));
+        Assert.True(response.TryGetProperty("reasonCode", out _));
+        Assert.True(response.TryGetProperty("findings", out _));
+
+        var finding = schemas.GetProperty("CriticFindingContract").GetProperty("properties");
+        Assert.True(finding.TryGetProperty("severity", out _));
+        Assert.True(finding.TryGetProperty("code", out _));
     }
 
     [Fact]

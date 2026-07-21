@@ -7,6 +7,7 @@ using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Agents;
 
@@ -43,6 +44,13 @@ public static class AgentRunEndpoints
             .ProducesProblem(404)
             .ProducesProblem(409);
 
+        runs.MapPost("/{attemptId}/review", ReviewAsync)
+            .Produces<CriticReviewResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
+
         runs.MapPost("/recovery", RecoverAsync)
             .Produces<AgentRunRecoveryResponse>()
             .ProducesProblem(401)
@@ -63,6 +71,8 @@ public static class AgentRunEndpoints
         ILocalProfileStore profiles,
         IProjectStore projects,
         IWorkBoardStore board,
+        IWorkChainStore chain,
+        IClock clock,
         AgentRunSettings settings,
         IServiceProvider services,
         CancellationToken token)
@@ -78,7 +88,7 @@ public static class AgentRunEndpoints
             return InvalidId("task");
         }
 
-        if (!UlidValue.TryParse(input.AttemptId, out _))
+        if (input.AttemptId is { Length: > 0 } && !UlidValue.TryParse(input.AttemptId, out _))
         {
             return InvalidId("attempt");
         }
@@ -145,20 +155,59 @@ public static class AgentRunEndpoints
             return NotFound("task");
         }
 
-        var attempt = await board.GetAttemptAsync(profile.TenantId, input.AttemptId, token);
-        if (attempt is null)
+        string attemptId;
+        if (input.AttemptId is { Length: > 0 } supplied)
         {
-            return NotFound("attempt");
-        }
+            var attempt = await board.GetAttemptAsync(profile.TenantId, supplied, token);
+            if (attempt is null)
+            {
+                return NotFound("attempt");
+            }
 
-        if (!string.Equals(attempt.TaskId, input.TaskId, StringComparison.Ordinal))
+            if (!string.Equals(attempt.TaskId, input.TaskId, StringComparison.Ordinal))
+            {
+                return Problem(
+                    409, "attempt_task_mismatch",
+                    "The attempt does not belong to the supplied task.");
+            }
+
+            attemptId = supplied;
+        }
+        else
         {
-            return Problem(
-                409, "attempt_task_mismatch",
-                "The attempt does not belong to the supplied task.");
-        }
+            // Sem tentativa informada, o bootstrap INICIA uma de verdade na cadeia de
+            // trabalho: solicitação de origem, instrução corrente e versão esperada da
+            // tarefa. O identificador nasce de um agregado durável, nunca solto.
+            var instructions = await board.ListInstructionsAsync(
+                profile.TenantId, input.TaskId, null, 50, token);
+            if (instructions.Count == 0)
+            {
+                return Problem(
+                    409, "task_without_instruction",
+                    "The task has no instruction to attempt.");
+            }
 
-        var attemptId = input.AttemptId;
+            attemptId = UlidValue.New(clock.UtcNow).ToString();
+            var started = await chain.StartAttemptAsync(
+                new WorkAttemptStartCommand(
+                    profile.TenantId,
+                    task.BackingSolicitationId,
+                    input.TaskId,
+                    instructions[^1].Id,
+                    attemptId,
+                    input.Account,
+                    task.Version,
+                    $"agent-run-attempt:{attemptId}",
+                    clock.UtcNow),
+                token);
+            if (started.Status is not (WorkChainMutationStatus.Applied
+                or WorkChainMutationStatus.IdempotentReplay))
+            {
+                return Problem(
+                    409, "attempt_not_started",
+                    $"The work chain refused to start an attempt ({started.Status}).");
+            }
+        }
 
         // O escopo vem do PAPEL, nunca do provider nem do pedido: um cliente não amplia o
         // próprio escopo mandando claims extras.
@@ -267,6 +316,88 @@ public static class AgentRunEndpoints
 
         var snapshot = await orchestrator.GetAsync(profile.TenantId, attemptId, token);
         return snapshot is null ? NotFound("agent_run") : Results.Ok(ToResponse(snapshot));
+    }
+
+
+    private static async Task<IResult> ReviewAsync(
+        string attemptId,
+        StartCriticReviewApiRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IWorkBoardStore board,
+        AgentRunSettings settings,
+        IServiceProvider services,
+        CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        if (!UlidValue.TryParse(attemptId, out _))
+        {
+            return InvalidId("attempt");
+        }
+
+        if (string.IsNullOrWhiteSpace(input.Diff))
+        {
+            return Problem(400, "invalid_diff", "A diff under review is required.");
+        }
+
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null)
+        {
+            return SessionRequired();
+        }
+
+        var orchestrator = services.GetService<AgentRunOrchestrator>();
+        if (orchestrator is null || !settings.Enabled ||
+            string.IsNullOrWhiteSpace(settings.ControlledRoot))
+        {
+            return Disabled();
+        }
+
+        var attempt = await board.GetAttemptAsync(profile.TenantId, attemptId, token);
+        if (attempt is null)
+        {
+            return NotFound("attempt");
+        }
+
+        var reviewDirectory = Path.GetFullPath(
+            input.ReviewDirectory ?? settings.ControlledRoot);
+        if (!Directory.Exists(reviewDirectory))
+        {
+            return Problem(
+                409, "review_directory_missing",
+                "The review directory does not exist on this machine.");
+        }
+
+        var result = await orchestrator.ReviewAsync(
+            new AgentCriticReviewCommand
+            {
+                AttemptId = attemptId,
+                CriticAlias = input.Critic,
+                ActorAlias = input.Actor,
+                ReviewDirectory = reviewDirectory,
+                Diff = input.Diff,
+                TestEvidence = input.TestEvidence ?? "(nenhuma evidência de teste foi fornecida)",
+                AcceptanceCriteria = input.AcceptanceCriteria ?? [],
+                ScopeClaims = input.ScopeClaims ?? [],
+                Model = input.Model,
+            },
+            token);
+
+        return Results.Ok(new CriticReviewResponse(
+            result.ReviewId,
+            result.AttemptId,
+            result.CriticAlias,
+            result.CriticExecutorId,
+            result.ActorAlias,
+            result.Verdict.ToString().ToLowerInvariant(),
+            result.ReasonCode,
+            result.Approved,
+            [.. result.Findings.Select(finding => new CriticFindingContract(
+                finding.Severity.ToString(), finding.Code, finding.Summary,
+                finding.Path, finding.Evidence))],
+            result.Summary,
+            result.AccountFencingToken,
+            result.DurationMs));
     }
 
     private static async Task<IResult> RecoverAsync(
@@ -387,10 +518,11 @@ public sealed class StartAgentRunApiRequest
     public required string Instruction { get; init; }
 
     /// <summary>
-    /// Tentativa DURÁVEL já existente na cadeia de trabalho. O bootstrap não fabrica
-    /// identidade de domínio: ele opera sobre uma tarefa e uma tentativa reais.
+    /// Tentativa DURÁVEL existente. Quando omitida, o bootstrap INICIA uma tentativa real
+    /// para a tarefa pela cadeia de trabalho — o que é diferente de fabricar um
+    /// identificador solto, que violaria a chave estrangeira do claim.
     /// </summary>
-    public required string AttemptId { get; init; }
+    public string? AttemptId { get; init; }
 
     public string? Model { get; init; }
 
@@ -434,6 +566,44 @@ public sealed record AgentRunExecutionContract(
     long? OutputTokens,
     decimal? CostUsd,
     long DurationMs);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class StartCriticReviewApiRequest
+{
+    /// <summary>Conta do revisor. Precisa ser diferente da do actor.</summary>
+    public required string Critic { get; init; }
+
+    public required string Actor { get; init; }
+
+    public required string Diff { get; init; }
+
+    public string? ReviewDirectory { get; init; }
+
+    public string? TestEvidence { get; init; }
+
+    public string? Model { get; init; }
+
+    public IReadOnlyList<string>? AcceptanceCriteria { get; init; }
+
+    public IReadOnlyList<string>? ScopeClaims { get; init; }
+}
+
+public sealed record CriticReviewResponse(
+    string ReviewId,
+    string AttemptId,
+    string Critic,
+    string CriticExecutorId,
+    string Actor,
+    string Verdict,
+    string ReasonCode,
+    bool Approved,
+    IReadOnlyList<CriticFindingContract> Findings,
+    string? Summary,
+    long? AccountFencingToken,
+    long DurationMs);
+
+public sealed record CriticFindingContract(
+    string Severity, string Code, string Summary, string? Path, string? Evidence);
 
 public sealed record AgentRunRecoveryResponse(IReadOnlyList<string> Recovered);
 

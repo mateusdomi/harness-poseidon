@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T20:22:52.2259770+00:00
+lastGeneratedAt: 2026-07-21T21:05:42.3523660+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7455
+  tokenEstimate: 7490
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:8c16fe0262ebe0e7ab120b9687ace15f80ea81fae0eafbaa1979593dba986b39
+  checksum: sha256:757cbe636158ae6233c632fc3877721418bd1de86d0cc12b28d1be507f79a154
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11326,3 +11326,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/CA-5-AGENT-RUN-BOOTSTRAP.md
+- id: evidence-piloto-1a-ca-7-critic
+  path: docs/backend/execution/evidence/PILOTO-1A-E-CA-7-CRITIC.md
+  title: Piloto 1A e CA-7 — worker governado e critic independente
+  category: evidence
+  topic: evidence-piloto-1a-ca-7-critic
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  - governance/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 1632
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:1e5033a47f0188bc620b208b7d33e363f91951487e877788095524c3653d0c5a
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/PILOTO-1A-E-CA-7-CRITIC.md

@@ -2878,6 +2878,85 @@
                 }
             }
         },
+        "/api/v1/agent-runs/{attemptId}/review": {
+            "post": {
+                "tags": [
+                    "agent-runs"
+                ],
+                "parameters": [
+                    {
+                        "name": "attemptId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartCriticReviewApiRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CriticReviewResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-runs/recovery": {
             "post": {
                 "tags": [
@@ -16850,6 +16929,111 @@
                 },
                 "additionalProperties": false
             },
+            "CriticFindingContract": {
+                "required": [
+                    "severity",
+                    "code",
+                    "summary",
+                    "path",
+                    "evidence"
+                ],
+                "type": "object",
+                "properties": {
+                    "severity": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "evidence": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "CriticReviewResponse": {
+                "required": [
+                    "reviewId",
+                    "attemptId",
+                    "critic",
+                    "criticExecutorId",
+                    "actor",
+                    "verdict",
+                    "reasonCode",
+                    "approved",
+                    "findings",
+                    "summary",
+                    "accountFencingToken",
+                    "durationMs"
+                ],
+                "type": "object",
+                "properties": {
+                    "reviewId": {
+                        "type": "string"
+                    },
+                    "attemptId": {
+                        "type": "string"
+                    },
+                    "critic": {
+                        "type": "string"
+                    },
+                    "criticExecutorId": {
+                        "type": "string"
+                    },
+                    "actor": {
+                        "type": "string"
+                    },
+                    "verdict": {
+                        "type": "string"
+                    },
+                    "reasonCode": {
+                        "type": "string"
+                    },
+                    "approved": {
+                        "type": "boolean"
+                    },
+                    "findings": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CriticFindingContract"
+                        }
+                    },
+                    "summary": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "accountFencingToken": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "durationMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
             "DemandContract": {
                 "required": [
                     "id",
@@ -21713,8 +21897,7 @@
                     "taskId",
                     "role",
                     "account",
-                    "instruction",
-                    "attemptId"
+                    "instruction"
                 ],
                 "type": "object",
                 "properties": {
@@ -21734,7 +21917,10 @@
                         "type": "string"
                     },
                     "attemptId": {
-                        "type": "string"
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     },
                     "model": {
                         "type": [
@@ -21810,6 +21996,62 @@
                             "null",
                             "string"
                         ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "StartCriticReviewApiRequest": {
+                "required": [
+                    "critic",
+                    "actor",
+                    "diff"
+                ],
+                "type": "object",
+                "properties": {
+                    "critic": {
+                        "type": "string"
+                    },
+                    "actor": {
+                        "type": "string"
+                    },
+                    "diff": {
+                        "type": "string"
+                    },
+                    "reviewDirectory": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "testEvidence": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "model": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "acceptanceCriteria": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "scopeClaims": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 },
                 "additionalProperties": false

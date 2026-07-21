@@ -37,7 +37,10 @@ public static class ExecutorCatalog
             // -p executa um prompt único; stream-json entrega eventos estruturados.
             ["-p", "--output-format", "stream-json", "--verbose"],
             "CLAUDE_CONFIG_DIR",
-            ["PATH", "HOME", "LANG", "CLAUDE_CONFIG_DIR"],
+            // `USER` é obrigatório: sem ele o Claude Code não alcança o item do Keychain no
+            // macOS e responde "Not logged in" mesmo com a conta vinculada no config home.
+            // Descoberto no Piloto 1A, por bisecção do ambiente.
+            ["PATH", "HOME", "LANG", "USER", "CLAUDE_CONFIG_DIR"],
             new CapabilitySet(
                 ["chat", "code", "review"], SupportsStreaming: true, SupportsResume: true,
                 SupportsEffort: true, ClaudeEffort, MaxContextTokens: null),
@@ -50,7 +53,7 @@ public static class ExecutorCatalog
             // `codex exec` é o modo não interativo oficial.
             ["exec", "--skip-git-repo-check"],
             "CODEX_HOME",
-            ["PATH", "HOME", "LANG", "CODEX_HOME"],
+            ["PATH", "HOME", "LANG", "USER", "CODEX_HOME"],
             new CapabilitySet(
                 ["chat", "code", "review"], SupportsStreaming: true, SupportsResume: true,
                 SupportsEffort: false, [], MaxContextTokens: null),
@@ -65,7 +68,7 @@ public static class ExecutorCatalog
             // Sem variável de config home documentada: o isolamento é por working directory
             // e allowlist de ambiente, validado no probe (CA-3).
             null,
-            ["PATH", "HOME", "LANG"],
+            ["PATH", "HOME", "LANG", "USER"],
             new CapabilitySet(
                 ["chat", "code", "review"], SupportsStreaming: false, SupportsResume: true,
                 SupportsEffort: true, TextEffort, MaxContextTokens: null),
@@ -77,7 +80,7 @@ public static class ExecutorCatalog
             "kimi",
             ["-p"],
             null,
-            ["PATH", "HOME", "LANG"],
+            ["PATH", "HOME", "LANG", "USER"],
             new CapabilitySet(
                 ["chat", "code"], SupportsStreaming: true, SupportsResume: true,
                 SupportsEffort: false, [], MaxContextTokens: null),
@@ -92,7 +95,7 @@ public static class ExecutorCatalog
             "claude",
             ["-p", "--output-format", "stream-json", "--verbose"],
             "CLAUDE_CONFIG_DIR",
-            ["PATH", "HOME", "LANG", "CLAUDE_CONFIG_DIR",
+            ["PATH", "HOME", "LANG", "USER", "CLAUDE_CONFIG_DIR",
              "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
              "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
              "ANTHROPIC_DEFAULT_OPUS_MODEL"],

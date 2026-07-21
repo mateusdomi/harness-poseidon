@@ -12,11 +12,13 @@ usage() {
   echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|agent|release-candidate} [opções]"
   echo "  start [--no-browser] [--port PORT] [--demo]"
   echo "  logs [--follow]"
-  echo "  agent start --project <id> --task <id> --attempt <id> --role <papel>"
+  echo "  agent start --project <id> --task <id> --role <papel>"
   echo "              --account <alias> --instruction <texto>"
-  echo "              [--model <m>] [--effort <e>] [--read-only]"
+  echo "              [--attempt <id>] [--model <m>] [--effort <e>] [--read-only]"
   echo "  agent status <attemptId>"
   echo "  agent cancel <attemptId>"
+  echo "  agent review <attemptId> --critic <alias> --actor <alias> --diff-file <arquivo>"
+  echo "                [--tests-file <arquivo>] [--scope <glob>] [--criterion <texto>]"
   echo "  agent recover"
   echo "  agent doctor"
 }
@@ -294,7 +296,7 @@ agent_start() {
     esac
   done
 
-  for required in project task attempt role account instruction; do
+  for required in project task role account instruction; do
     if [[ -z "${!required}" ]]; then
       echo "--${required} é obrigatório." >&2
       usage >&2
@@ -317,6 +319,50 @@ agent_start() {
   agent_request POST "api/v1/agent-runs" "${payload}"
 }
 
+agent_review() {
+  local attempt="${1:-}"; [[ -n "${attempt}" ]] || { echo "Uso: ./poseidon agent review <attemptId> --critic <alias> --actor <alias> --diff-file <arquivo>" >&2; return 2; }
+  shift
+  local critic="" actor="" diff_file="" tests_file="" scopes=() criteria=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --critic) critic="$2"; shift 2 ;;
+      --actor) actor="$2"; shift 2 ;;
+      --diff-file) diff_file="$2"; shift 2 ;;
+      --tests-file) tests_file="$2"; shift 2 ;;
+      --scope) scopes+=("$2"); shift 2 ;;
+      --criterion) criteria+=("$2"); shift 2 ;;
+      *) echo "Opção desconhecida: $1" >&2; return 2 ;;
+    esac
+  done
+  for required in critic actor diff_file; do
+    [[ -n "${!required}" ]] || { echo "--${required//_/-} é obrigatório." >&2; return 2; }
+  done
+  [[ -f "${diff_file}" ]] || { echo "Arquivo de diff não encontrado: ${diff_file}" >&2; return 2; }
+
+  local payload
+  payload="$(POSEIDON_CRITIC="${critic}" POSEIDON_ACTOR="${actor}" \
+    POSEIDON_DIFF_FILE="${diff_file}" POSEIDON_TESTS_FILE="${tests_file}" \
+    POSEIDON_SCOPES="$(printf '%s\n' "${scopes[@]+"${scopes[@]}"}")" \
+    POSEIDON_CRITERIA="$(printf '%s\n' "${criteria[@]+"${criteria[@]}"}")" \
+    python3 -c '
+import json, os
+scopes = [s for s in os.environ.get("POSEIDON_SCOPES", "").split("\n") if s]
+criteria = [c for c in os.environ.get("POSEIDON_CRITERIA", "").split("\n") if c]
+body = {
+    "critic": os.environ["POSEIDON_CRITIC"],
+    "actor": os.environ["POSEIDON_ACTOR"],
+    "diff": open(os.environ["POSEIDON_DIFF_FILE"], encoding="utf-8", errors="replace").read(),
+    "acceptanceCriteria": criteria,
+    "scopeClaims": scopes,
+}
+tests = os.environ.get("POSEIDON_TESTS_FILE")
+if tests:
+    body["testEvidence"] = open(tests, encoding="utf-8", errors="replace").read()
+print(json.dumps(body))
+')"
+  agent_request POST "api/v1/agent-runs/${attempt}/review" "${payload}"
+}
+
 agent_poseidon() {
   local verb="${1:-}"
   [[ $# -eq 0 ]] || shift
@@ -328,6 +374,7 @@ agent_poseidon() {
     cancel)
       [[ -n "${1:-}" ]] || { echo "Uso: ./poseidon agent cancel <attemptId>" >&2; return 2; }
       agent_request POST "api/v1/agent-runs/$1/cancel" ;;
+    review) agent_review "$@" ;;
     recover) agent_request POST "api/v1/agent-runs/recovery" ;;
     doctor) agent_request GET "api/v1/agent-accounts/doctor" ;;
     *) usage >&2; return 2 ;;
