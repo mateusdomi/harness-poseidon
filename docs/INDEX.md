@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:842b4e52dbcc2dfb4bb430bc3033ef6bbdfe72d000b9f96b3df12539c11758d8 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:1501e3a2a00222462b86504539140604f78e70209b76bdeeb31326129826b737 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 22
-- `Evidence`: 132
+- `Evidence`: 133
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 13
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 20
 - `entrypoint`: 1
-- `evidence`: 132
+- `evidence`: 133
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 188
+- `*`: 189
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 195
+- `Active`: 196
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 131
+- `Quality Engineering`: 132
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 181
+- `OnDemand`: 182
 
 ## Documents by authority and domain
 
@@ -184,7 +184,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 7946 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 8085 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 3141 |
 
 ### Reference
@@ -387,6 +387,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [V3 — ciclo de rascunho e publicação de workflows](backend/execution/evidence/V3-WORKFLOW-DRAFT-LIFECYCLE.md) | * | Active | Quality Engineering | OnDemand | 650 |
 | [GP-A — prontidão canônica do golden path](backend/execution/evidence/GP-A-READINESS-CONTRACT.md) | * | Active | Quality Engineering | OnDemand | 819 |
 | [GP-B — instalação vazia sem catálogo simulado](backend/execution/evidence/GP-B-FAIL-CLOSED-CATALOG.md) | * | Active | Quality Engineering | OnDemand | 867 |
+| [GP-C1 — executor simulado fora do pacote normal](backend/execution/evidence/GP-C1-NO-SIMULATED-CHIEF-REPLY.md) | * | Active | Quality Engineering | OnDemand | 617 |
 
 ### Historical
 

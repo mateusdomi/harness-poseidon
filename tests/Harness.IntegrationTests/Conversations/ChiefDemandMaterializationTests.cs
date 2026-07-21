@@ -190,7 +190,7 @@ public sealed class ChiefDemandMaterializationTests
     }
 
     private static WebApplication CreateHost(string database) => HostApplication.Build(
-        ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
+        ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database, "--Harness:AgentExecutors:Mode", "simulated"]);
 
     private static Uri Address(IServiceProvider services)
     {

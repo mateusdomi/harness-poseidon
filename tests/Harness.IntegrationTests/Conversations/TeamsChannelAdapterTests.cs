@@ -40,6 +40,7 @@ public sealed class TeamsChannelAdapterTests
             [
                 "--urls", "http://127.0.0.1:0",
                 "--Harness:DatabasePath", database,
+                "--Harness:AgentExecutors:Mode", "simulated",
                 "--Harness:Channels:Teams:InboundToken", "test-inbound",
                 "--Harness:Channels:Teams:OutboundToken", "test-outbound",
                 "--Harness:Channels:Teams:AllowedServiceHosts:0", "127.0.0.1",

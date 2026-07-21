@@ -35,7 +35,7 @@ public sealed class ChannelGatewayApiTests
         try
         {
             await using var app = HostApplication.Build(
-                ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
+                ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database, "--Harness:AgentExecutors:Mode", "simulated"]);
             await app.StartAsync(timeout.Token);
             try
             {

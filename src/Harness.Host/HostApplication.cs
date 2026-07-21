@@ -173,7 +173,23 @@ public static class HostApplication
         builder.Services.AddSingleton<WorkflowTemplateSeeder>();
         builder.Services.AddSingleton<IHostedService, WorkflowTemplateSeedHostedService>();
         builder.Services.AddSingleton<IWorkflowConsistencyReviewer, DeterministicWorkflowConsistencyReviewer>();
-        builder.Services.AddSingleton<IAgentExecutor, FakeAgentExecutor>();
+        // O executor simulado só participa sob configuração explícita de demonstração ou
+        // desenvolvimento (ADR-019). No pacote de homologação normal não há executor simulado:
+        // sem executor real o turno falha de forma honesta em vez de devolver texto fabricado.
+        var simulatedExecutor =
+            builder.Configuration.GetValue<bool>("Harness:Demo:Enabled") ||
+            string.Equals(
+                builder.Configuration["Harness:AgentExecutors:Mode"],
+                "simulated",
+                StringComparison.OrdinalIgnoreCase);
+        if (simulatedExecutor)
+        {
+            builder.Services.AddSingleton<IAgentExecutor, FakeAgentExecutor>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<IAgentExecutor, UnavailableAgentExecutor>();
+        }
         if (serverMode)
         {
             builder.Services.AddSingleton<IRunnerMessageStore, PostgresRunnerMessageStore>();

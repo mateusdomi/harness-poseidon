@@ -55,6 +55,7 @@ public sealed class DogfoodPipelineTests
                 "http://127.0.0.1:0",
                 "--Harness:DatabasePath",
                 database,
+                "--Harness:AgentExecutors:Mode", "simulated",
                 "--Harness:IsolatedExecution:Mode",
                 "fake",
                 "--Harness:IsolatedExecution:ControlledRoot",

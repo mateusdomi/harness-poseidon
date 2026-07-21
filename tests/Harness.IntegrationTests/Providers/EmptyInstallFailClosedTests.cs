@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Harness.Modules.Agents.Application.Execution;
+using Harness.Modules.Agents.Infrastructure.Fake;
 
 namespace Harness.IntegrationTests.Providers;
 
@@ -22,6 +24,33 @@ namespace Harness.IntegrationTests.Providers;
 /// </summary>
 public sealed class EmptyInstallFailClosedTests
 {
+    [Fact]
+    public void NormalPackageHasNoSimulatedAgentExecutor()
+    {
+        // ADR-019: o executor simulado só é ligado sob demonstração/desenvolvimento explícito.
+        // No pacote normal, nenhuma resposta fabricada pode ser apresentada como resposta real.
+        var root = Path.Combine(
+            AppContext.BaseDirectory, "integration-artifacts", $"executor-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            using var normal = HostApplication.Build(
+                ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", Path.Combine(root, "a.db")]);
+            Assert.IsType<UnavailableAgentExecutor>(
+                normal.Services.GetRequiredService<IAgentExecutor>());
+
+            using var simulated = HostApplication.Build(
+                ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", Path.Combine(root, "b.db"),
+                 "--Harness:AgentExecutors:Mode", "simulated"]);
+            Assert.IsType<FakeAgentExecutor>(
+                simulated.Services.GetRequiredService<IAgentExecutor>());
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task EmptyInstallExposesNoSimulatedAccountsModelsOrBudgetsAndBlocksExecution()
     {

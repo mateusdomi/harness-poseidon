@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T16:51:56.2945270+00:00
+lastGeneratedAt: 2026-07-21T16:59:36.8722740+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7122
+  tokenEstimate: 7154
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:e62f0d1d459a58b0b903720c6d4d76723b1cc06d6e6d9f878970df8bd891b552
+  checksum: sha256:e231e2a1d19ae4df0a80db98c381080a81b7abc0ab95d3a80f08fb886a8a2b17
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 7946
+  tokenEstimate: 8085
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:b33ad08bcfd542831aa3cb80970dd5c52d0acfd1d4b106696f96a06809b84926
+  checksum: sha256:66044199cc849e26bc395f754bc267a22a3db9628d3fc623f692087d920eceb6
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -10796,3 +10796,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GP-B-FAIL-CLOSED-CATALOG.md
+- id: evidence-golden-path-c1-no-simulated-chief-reply
+  path: docs/backend/execution/evidence/GP-C1-NO-SIMULATED-CHIEF-REPLY.md
+  title: GP-C1 — executor simulado fora do pacote normal
+  category: evidence
+  topic: evidence-golden-path-c1-no-simulated-chief-reply
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 617
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-019-chief-transport-vs-model-response
+  enforcedBy: []
+  checksum: sha256:9bff6d7eeaf1dc0aed7a1208239d3f9f484a51f7192bde747586f372594ffbfc
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GP-C1-NO-SIMULATED-CHIEF-REPLY.md

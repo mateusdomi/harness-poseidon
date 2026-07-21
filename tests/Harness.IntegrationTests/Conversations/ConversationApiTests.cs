@@ -416,7 +416,7 @@ public sealed class ConversationApiTests
 
     private static WebApplication CreateHost(string databasePath) =>
         HostApplication.Build(
-            ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", databasePath]);
+            ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", databasePath, "--Harness:AgentExecutors:Mode", "simulated"]);
 
     private static Uri GetBaseAddress(IServiceProvider services)
     {

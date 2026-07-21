@@ -43,6 +43,7 @@ public sealed class PostgresServerModeHostTests
                 "http://127.0.0.1:0",
                 "--Harness:DatabasePath",
                 Path.Combine(root, "unused.db"),
+                "--Harness:AgentExecutors:Mode", "simulated",
                 "--Harness:Database:Provider",
                 "postgres",
                 "--Harness:Database:ConnectionString",
