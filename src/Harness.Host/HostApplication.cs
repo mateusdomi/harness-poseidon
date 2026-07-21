@@ -25,6 +25,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
 using Harness.Host.Tools;
+using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.Fake;
 using Harness.Modules.Agents.Infrastructure.OmpRpc;
@@ -309,6 +311,37 @@ public static class HostApplication
                 services.GetRequiredService<IsolatedExecutionOptions>()));
         }
 
+        // Bootstrap governado de agentes externos (CA-5). As settings são sempre
+        // registradas para que o endpoint saiba responder `agent_runs_disabled`; o
+        // orquestrador só existe quando o recurso está habilitado e configurado.
+        var agentRunSettings = builder.Configuration
+            .GetSection("Harness:AgentRuns")
+            .Get<AgentRunSettings>() ?? new AgentRunSettings();
+        builder.Services.AddSingleton(agentRunSettings);
+        if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
+        {
+            var profilesRoot = string.IsNullOrWhiteSpace(agentRunSettings.ProfilesRoot)
+                ? AccountProfileProvisioner.DefaultProfilesRoot
+                : Path.GetFullPath(agentRunSettings.ProfilesRoot);
+            builder.Services.AddSingleton(new AccountProfileProvisioner(
+                profilesRoot,
+                [Path.GetFullPath(agentRunSettings.ControlledRoot)]));
+            builder.Services.AddSingleton(
+                AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath));
+            builder.Services.AddSingleton(services => new ExternalAgentExecutorFactory(
+                services.GetRequiredService<AccountProfileProvisioner>()));
+            builder.Services.AddSingleton(services => new AgentRunOrchestrator(
+                services.GetRequiredService<IAttemptWorkspaceStore>(),
+                services.GetRequiredService<IGovernanceRuntimeStore>(),
+                services.GetRequiredService<ContextBundleBuilder>(),
+                services.GetRequiredService<AccountProfileProvisioner>(),
+                services.GetRequiredService<AgentAccountRegistry>(),
+                services.GetRequiredService<ExternalAgentExecutorFactory>(),
+                services.GetRequiredService<EventPublisher>(),
+                services.GetRequiredService<IClock>(),
+                services.GetRequiredService<AgentRunSettings>()));
+        }
+
         if (serverMode)
         {
             builder.Services.AddSingleton<IWorkflowStore, PostgresWorkflowStore>();
@@ -467,6 +500,7 @@ public static class HostApplication
         app.MapReadiness();
         app.MapAgents();
         app.MapIsolatedExecutions();
+        app.MapAgentRuns();
         app.MapToolCatalog();
         app.MapProviders();
         app.MapNotifications();

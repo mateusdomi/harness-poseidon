@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T19:55:40.4795390+00:00
+lastGeneratedAt: 2026-07-21T20:12:49.3268600+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7427
+  tokenEstimate: 7455
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:6a261ca2c81ac490047c242542be8060b320177f645b2be21812dde0655b3c25
+  checksum: sha256:bcdf37071f27d5fe6284b387d61ff2fc548380546fce4de380c9bb58e9ba4b36
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11277,3 +11277,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/CA-4-EXTERNAL-EXECUTORS.md
+- id: evidence-ca-5-agent-run-bootstrap
+  path: docs/backend/execution/evidence/CA-5-AGENT-RUN-BOOTSTRAP.md
+  title: CA-5 — bootstrap governado de agentes
+  category: evidence
+  topic: evidence-ca-5-agent-run-bootstrap
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  - governance/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 1256
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:c86366ab3f8cd1a63a127ce88f08115960c18af1a1e538e368e799238c920319
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/CA-5-AGENT-RUN-BOOTSTRAP.md

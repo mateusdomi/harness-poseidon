@@ -9,9 +9,15 @@ readonly POSEIDON_LOG_DIR="${POSEIDON_DATA_DIR}/logs"
 readonly POSEIDON_HOST_LOG="${POSEIDON_LOG_DIR}/poseidon.log"
 
 usage() {
-  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|release-candidate} [opções]"
+  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|agent|release-candidate} [opções]"
   echo "  start [--no-browser] [--port PORT] [--demo]"
   echo "  logs [--follow]"
+  echo "  agent start --project <id> --task <id> --role <papel> --account <alias> --instruction <texto>"
+  echo "             [--attempt <id>] [--model <m>] [--effort <e>] [--read-only]"
+  echo "  agent status <attemptId>"
+  echo "  agent cancel <attemptId>"
+  echo "  agent recover"
+  echo "  agent doctor"
 }
 
 json_number() {
@@ -207,6 +213,126 @@ stop_poseidon() {
   exit 2
 }
 
+# ---------------------------------------------------------------------------
+# Bootstrap governado de agentes (CA-5).
+#
+# Estes verbos NÃO executam agente por conta própria: eles falam com a API
+# oficial do Host, que é quem detém claim, conta, worktree, bundle e receipt.
+# Não existe caminho paralelo que contorne a governança.
+# ---------------------------------------------------------------------------
+
+agent_cookie_jar() {
+  mkdir -p "${POSEIDON_RUNTIME_DIR}"
+  local jar="${POSEIDON_RUNTIME_DIR}/agent-cookies"
+  if [[ ! -f "${jar}" ]]; then
+    : > "${jar}"
+    chmod 600 "${jar}"
+  fi
+  echo "${jar}"
+}
+
+agent_request() {
+  local method="$1" endpoint="$2" payload="${3:-}"
+  local address jar status body
+  if ! is_running; then
+    echo "Poseidon está parado. Execute './poseidon start' antes." >&2
+    return 1
+  fi
+  address="$(json_string address)"
+  jar="$(agent_cookie_jar)"
+  body="$(mktemp "${POSEIDON_RUNTIME_DIR}/agent-body.XXXXXX")"
+  chmod 600 "${body}"
+
+  # Estabelece a sessão pessoal antes de qualquer comando governado.
+  curl --silent --show-error --max-time 10 --cookie "${jar}" --cookie-jar "${jar}" \
+    --output /dev/null "${address}api/v1/profiles/current" 2>/dev/null || true
+
+  if [[ -n "${payload}" ]]; then
+    status="$(curl --silent --show-error --max-time 600 --request "${method}" \
+      --cookie "${jar}" --cookie-jar "${jar}" \
+      --header 'Content-Type: application/json' --data "${payload}" \
+      --output "${body}" --write-out '%{http_code}' "${address}${endpoint}" || true)"
+  else
+    status="$(curl --silent --show-error --max-time 600 --request "${method}" \
+      --cookie "${jar}" --cookie-jar "${jar}" \
+      --output "${body}" --write-out '%{http_code}' "${address}${endpoint}" || true)"
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -m json.tool "${body}" 2>/dev/null || cat "${body}"
+  else
+    cat "${body}"
+  fi
+  echo
+  unlink "${body}"
+  case "${status}" in
+    2*) return 0 ;;
+    *) echo "HTTP ${status:-sem resposta}" >&2; return 1 ;;
+  esac
+}
+
+agent_json_escape() {
+  python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"
+}
+
+agent_start() {
+  local project="" task="" role="" account="" instruction="" attempt="" model="" effort=""
+  local read_only=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project="$2"; shift 2 ;;
+      --task) task="$2"; shift 2 ;;
+      --role) role="$2"; shift 2 ;;
+      --account) account="$2"; shift 2 ;;
+      --instruction) instruction="$2"; shift 2 ;;
+      --attempt) attempt="$2"; shift 2 ;;
+      --model) model="$2"; shift 2 ;;
+      --effort) effort="$2"; shift 2 ;;
+      --read-only) read_only=true; shift ;;
+      *) echo "Opção desconhecida: $1" >&2; return 2 ;;
+    esac
+  done
+
+  for required in project task role account instruction; do
+    if [[ -z "${!required}" ]]; then
+      echo "--${required} é obrigatório." >&2
+      usage >&2
+      return 2
+    fi
+  done
+
+  local payload
+  payload="{\"projectId\":$(agent_json_escape "${project}")"
+  payload="${payload},\"taskId\":$(agent_json_escape "${task}")"
+  payload="${payload},\"role\":$(agent_json_escape "${role}")"
+  payload="${payload},\"account\":$(agent_json_escape "${account}")"
+  payload="${payload},\"instruction\":$(agent_json_escape "${instruction}")"
+  [[ -z "${attempt}" ]] || payload="${payload},\"attemptId\":$(agent_json_escape "${attempt}")"
+  [[ -z "${model}" ]] || payload="${payload},\"model\":$(agent_json_escape "${model}")"
+  [[ -z "${effort}" ]] || payload="${payload},\"effort\":$(agent_json_escape "${effort}")"
+  [[ "${read_only}" != true ]] || payload="${payload},\"readOnly\":true"
+  payload="${payload}}"
+
+  agent_request POST "api/v1/agent-runs" "${payload}"
+}
+
+agent_poseidon() {
+  local verb="${1:-}"
+  [[ $# -eq 0 ]] || shift
+  case "${verb}" in
+    start) agent_start "$@" ;;
+    status)
+      [[ -n "${1:-}" ]] || { echo "Uso: ./poseidon agent status <attemptId>" >&2; return 2; }
+      agent_request GET "api/v1/agent-runs/$1" ;;
+    cancel)
+      [[ -n "${1:-}" ]] || { echo "Uso: ./poseidon agent cancel <attemptId>" >&2; return 2; }
+      agent_request POST "api/v1/agent-runs/$1/cancel" ;;
+    recover) agent_request POST "api/v1/agent-runs/recovery" ;;
+    doctor) agent_request GET "api/v1/agent-accounts/doctor" ;;
+    *) usage >&2; return 2 ;;
+  esac
+}
+
 status_poseidon() {
   recover_stale_state
   if ! is_running; then echo "Poseidon: parado"; return 1; fi
@@ -253,6 +379,7 @@ case "${1:-}" in
   stop) stop_poseidon ;;
   restart) shift; stop_poseidon; start_poseidon "$@" ;;
   doctor) doctor_poseidon ;;
+  agent) shift; agent_poseidon "$@" ;;
   logs) mkdir -p "${POSEIDON_LOG_DIR}"; [[ "${2:-}" == "--follow" ]] && exec tail -f "${POSEIDON_HOST_LOG}" || { echo "Logs: ${POSEIDON_LOG_DIR}"; tail -n 200 "${POSEIDON_HOST_LOG}" 2>/dev/null || true; } ;;
   release-candidate) [[ -x "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ]] || { echo "Comando disponível apenas no checkout de desenvolvimento." >&2; exit 2; }; exec "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ;;
   *) usage; exit 2 ;;

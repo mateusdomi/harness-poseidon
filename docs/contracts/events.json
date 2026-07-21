@@ -32,6 +32,46 @@
     }
   },
   "payloads": {
+    "agentRun.stateChanged": {
+      "type": "object",
+      "required": [
+        "runId",
+        "attemptId",
+        "projectId",
+        "state",
+        "accountAlias",
+        "role"
+      ],
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "attemptId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+            "scopeconflict",
+            "rejected"
+          ]
+        },
+        "accountAlias": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      }
+    },
     "readiness.changed": {
       "type": "object",
       "required": [
@@ -385,6 +425,7 @@
   },
   "events": [
     "agent.statusChanged",
+    "agentRun.stateChanged",
     "approval.requested",
     "approval.resolved",
     "attempt.completed",

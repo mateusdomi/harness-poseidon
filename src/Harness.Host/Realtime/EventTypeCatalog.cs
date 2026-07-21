@@ -5,6 +5,7 @@ public static class EventTypeCatalog
     public static IReadOnlySet<string> All { get; } = new SortedSet<string>(StringComparer.Ordinal)
     {
         "agent.statusChanged",
+        "agentRun.stateChanged",
         "approval.requested",
         "approval.resolved",
         "attempt.completed",

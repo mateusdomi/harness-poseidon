@@ -17,6 +17,45 @@
                 }
             }
         },
+        "/api/v1/agent-accounts/doctor": {
+            "get": {
+                "tags": [
+                    "agent-runs"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentAccountDoctorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectId}/run-environment/cleanup": {
             "post": {
                 "tags": [
@@ -2611,6 +2650,252 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-runs": {
+            "post": {
+                "tags": [
+                    "agent-runs"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartAgentRunApiRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentRunResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-runs/{attemptId}": {
+            "get": {
+                "tags": [
+                    "agent-runs"
+                ],
+                "parameters": [
+                    {
+                        "name": "attemptId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentRunResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-runs/{attemptId}/cancel": {
+            "post": {
+                "tags": [
+                    "agent-runs"
+                ],
+                "parameters": [
+                    {
+                        "name": "attemptId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentRunResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-runs/recovery": {
+            "post": {
+                "tags": [
+                    "agent-runs"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentRunRecoveryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
@@ -13592,6 +13877,69 @@
                 },
                 "additionalProperties": false
             },
+            "AgentAccountDoctorContract": {
+                "required": [
+                    "alias",
+                    "executorId",
+                    "adapterImplemented",
+                    "executorInstalled",
+                    "detectedVersion",
+                    "probeReasonCode",
+                    "profileHealthy",
+                    "profileFindings",
+                    "authenticated"
+                ],
+                "type": "object",
+                "properties": {
+                    "alias": {
+                        "type": "string"
+                    },
+                    "executorId": {
+                        "type": "string"
+                    },
+                    "adapterImplemented": {
+                        "type": "boolean"
+                    },
+                    "executorInstalled": {
+                        "type": "boolean"
+                    },
+                    "detectedVersion": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "probeReasonCode": {
+                        "type": "string"
+                    },
+                    "profileHealthy": {
+                        "type": "boolean"
+                    },
+                    "profileFindings": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "authenticated": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "AgentAccountDoctorResponse": {
+                "required": [
+                    "accounts"
+                ],
+                "type": "object",
+                "properties": {
+                    "accounts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AgentAccountDoctorContract"
+                        }
+                    }
+                }
+            },
             "AgentContract": {
                 "required": [
                     "id",
@@ -14516,6 +14864,225 @@
                         }
                     },
                     "nextCursor": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "AgentRunConflictContract": {
+                "required": [
+                    "existingAttemptId",
+                    "requestedPathPattern",
+                    "existingPathPattern"
+                ],
+                "type": "object",
+                "properties": {
+                    "existingAttemptId": {
+                        "type": "string"
+                    },
+                    "requestedPathPattern": {
+                        "type": "string"
+                    },
+                    "existingPathPattern": {
+                        "type": "string"
+                    }
+                }
+            },
+            "AgentRunExecutionContract": {
+                "required": [
+                    "executorId",
+                    "status",
+                    "finalMessage",
+                    "inputTokens",
+                    "outputTokens",
+                    "costUsd",
+                    "durationMs"
+                ],
+                "type": "object",
+                "properties": {
+                    "executorId": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "finalMessage": {
+                        "type": "string"
+                    },
+                    "inputTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "outputTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "costUsd": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "null",
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "durationMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
+            "AgentRunRecoveryResponse": {
+                "required": [
+                    "recovered"
+                ],
+                "type": "object",
+                "properties": {
+                    "recovered": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "AgentRunResponse": {
+                "required": [
+                    "runId",
+                    "attemptId",
+                    "account",
+                    "role",
+                    "executorId",
+                    "status",
+                    "branchName",
+                    "worktreePath",
+                    "scopeClaims",
+                    "workspaceFencingToken",
+                    "accountFencingToken",
+                    "sessionId",
+                    "processId",
+                    "bundleChecksum",
+                    "receiptTurnId",
+                    "conflicts",
+                    "execution",
+                    "finalError"
+                ],
+                "type": "object",
+                "properties": {
+                    "runId": {
+                        "type": "string"
+                    },
+                    "attemptId": {
+                        "type": "string"
+                    },
+                    "account": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "executorId": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "branchName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "worktreePath": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "scopeClaims": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "workspaceFencingToken": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "accountFencingToken": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "sessionId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "processId": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "bundleChecksum": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "receiptTurnId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "conflicts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AgentRunConflictContract"
+                        }
+                    },
+                    "execution": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/AgentRunExecutionContract"
+                            }
+                        ]
+                    },
+                    "finalError": {
                         "type": [
                             "null",
                             "string"
@@ -21140,6 +21707,70 @@
                     }
                 }
             },
+            "StartAgentRunApiRequest": {
+                "required": [
+                    "projectId",
+                    "taskId",
+                    "role",
+                    "account",
+                    "instruction"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "taskId": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "account": {
+                        "type": "string"
+                    },
+                    "instruction": {
+                        "type": "string"
+                    },
+                    "attemptId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "model": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "effort": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "riskTier": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "readOnly": {
+                        "type": "boolean"
+                    },
+                    "acceptanceCriteria": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "additionalProperties": false
+            },
             "StartChatTurnRequest": {
                 "required": [
                     "content"
@@ -22394,6 +23025,9 @@
     "tags": [
         {
             "name": "system"
+        },
+        {
+            "name": "agent-runs"
         },
         {
             "name": "run-project"
