@@ -439,46 +439,75 @@
     },
     "blockedBy": "Requires first: {{steps}}",
     "steps": {
-      "profile": {
+      "ProfileReady": {
         "title": "Profile",
         "explanation": "Your local profile is already active in this session.",
         "cta": "Review profile"
       },
-      "organization": {
+      "OrganizationReady": {
         "title": "Organization",
         "explanation": "Every operation belongs to an organization. Create the first one to link projects.",
         "cta": "Create organization"
       },
-      "project": {
+      "ProjectReady": {
         "title": "Project",
         "explanation": "Create the project where the Chief will coordinate the work.",
         "cta": "Create project"
       },
-      "provider": {
+      "ProviderAccountReady": {
         "title": "Provider and account",
         "explanation": "Connect a model provider and activate an account (the credential is a secure reference).",
         "cta": "Configure provider"
       },
-      "model": {
+      "ModelReady": {
         "title": "Model",
-        "explanation": "Enable at least one provider model for the Chief and specialists to use.",
-        "cta": "Sync models"
+        "explanation": "Enable at least one chat model from the provider.",
+        "cta": "Enable model"
       },
-      "workflow": {
+      "WorkflowReady": {
         "title": "Workflow",
         "explanation": "Link a workflow to the project to define execution phases and gates.",
         "cta": "Link workflow"
       },
-      "chief": {
-        "title": "Chief ready",
-        "explanation": "With provider, model and workflow ready, review the Chief in the Orchestrator.",
-        "cta": "Review the Chief"
+      "ChiefDefinitionReady": {
+        "title": "Chief configured",
+        "explanation": "The Chief needs a resolvable model to coordinate the project.",
+        "cta": "Configure the Chief"
       },
-      "firstRun": {
-        "title": "First run",
-        "explanation": "Start a conversation and ask the Chief for the first real run.",
+      "AgentPoolReady": {
+        "title": "Agents available",
+        "explanation": "Agents must be available and healthy to receive work.",
+        "cta": "Review agents"
+      },
+      "ExecutionReady": {
+        "title": "Ready to run",
+        "explanation": "With the dependencies ready, start the Chief’s first run.",
         "cta": "Start first run"
       }
+    },
+    "actions": {
+      "profile.create": "Create profile",
+      "organization.create": "Create organization",
+      "project.create": "Create project",
+      "provider.connectAccount": "Connect provider account",
+      "model.enable": "Enable model",
+      "workflow.bind": "Link workflow",
+      "chief.configureModel": "Configure the Chief",
+      "agent.recover": "Recover agent",
+      "conversation.start": "Start conversation"
+    },
+    "blockers": {
+      "profile.missing": "No active local profile.",
+      "organization.missing": "No organization registered.",
+      "organization.required": "Requires an organization first.",
+      "project.missing": "Requires a project first.",
+      "provider_account.missing": "No active provider account.",
+      "model.none_chat_enabled": "No chat model enabled.",
+      "workflow.unbound": "No workflow linked to the project.",
+      "chief.missing": "The project has no Chief.",
+      "chief.model_unresolved": "The Chief’s model could not be resolved.",
+      "agent.unavailable": "No agent available.",
+      "agent.degraded": "Agent in a degraded state."
     }
   },
   "onboarding": {

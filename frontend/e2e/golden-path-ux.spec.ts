@@ -111,9 +111,12 @@ test.describe('Golden path — UX transversal', () => {
     await signIn(page);
     await createProjectWithoutWorkflow(page);
 
-    // Checklist do golden path mostra o passo atual e o que está bloqueado.
+    // Checklist do golden path: passo atual e bloqueio vindos do read model
+    // canônico (códigos do backend traduzidos, não texto inventado na UI).
     await expect(page.getByText('Comece por aqui')).toBeVisible();
-    await expect(page.getByText('Requer antes: Workflow')).toBeVisible();
+    // O mesmo bloqueador aparece na etapa Workflow e na etapa de execução —
+    // ambas o declaram, então basta que esteja visível.
+    await expect(page.getByText('Nenhum workflow vinculado ao projeto.').first()).toBeVisible();
 
     // Chat: execução bloqueada COM motivo; o composer não esconde a razão.
     await navTo(page, 'Chat');

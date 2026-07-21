@@ -12,6 +12,7 @@ import {
   type UpdateAccountInput,
 } from '@/api';
 import { useApi } from '@/app/api-context';
+import { READINESS_PREFIX } from '@/features/onboarding/hooks/use-golden-path';
 import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
 
 /** Query keys da feature de providers. */
@@ -72,7 +73,11 @@ export function useSyncProviderCatalog() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (providerId: Ulid) => api.syncProviderCatalog(providerId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX });
+      // Conta/modelo/provedor alteram a prontidão canônica do projeto.
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 
@@ -82,7 +87,11 @@ export function useCreateAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateAccountInput) => api.createAccount(input),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX });
+      // Conta/modelo/provedor alteram a prontidão canônica do projeto.
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 
@@ -93,7 +102,11 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ id, input }: { id: Ulid; input: UpdateAccountInput }) =>
       api.updateAccount(id, input),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX });
+      // Conta/modelo/provedor alteram a prontidão canônica do projeto.
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 
@@ -103,7 +116,11 @@ export function useEnableAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: Ulid) => api.enableAccount(id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX });
+      // Conta/modelo/provedor alteram a prontidão canônica do projeto.
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 
@@ -113,7 +130,11 @@ export function useDisableAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: Ulid) => api.disableAccount(id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX });
+      // Conta/modelo/provedor alteram a prontidão canônica do projeto.
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 
@@ -126,7 +147,11 @@ export function useDeleteAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: Ulid) => api.deleteAccount(id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX });
+      // Conta/modelo/provedor alteram a prontidão canônica do projeto.
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 
@@ -137,7 +162,11 @@ export function useUpdateRoutingPolicy() {
   return useMutation({
     mutationFn: ({ id, rules }: { id: Ulid; rules: RoutingPolicy['rules'] }) =>
       api.update('routing-policies', id, { rules }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROVIDERS_PREFIX });
+      // Conta/modelo/provedor alteram a prontidão canônica do projeto.
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 

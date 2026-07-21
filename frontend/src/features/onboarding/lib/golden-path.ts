@@ -1,156 +1,245 @@
-import type { Account, Model, Organization, Project, Provider, Workflow } from '@/api';
+import type {
+  ConfigurationState,
+  ProjectReadinessSnapshot,
+  ReadinessNextAction,
+  ReadinessStep,
+  ReadinessStepContract,
+} from '@/api';
 
 /**
- * Caminho dourado (golden path) do primeiro uso: a sequência mínima que leva
- * um usuário novo de "workspace vazio" até uma execução real do Chief.
+ * Apresentação do golden path a partir do read model canônico de prontidão
+ * (`ProjectReadinessSnapshot`, ADR-017).
  *
- * IMPORTANTE — fonte da verdade: não existe endpoint canônico de "readiness"
- * no contrato (`docs/contracts/openapi.json`). Cada etapa é DERIVADA da
- * existência de recursos reais já publicados (organizações, projetos,
- * provedores/contas, modelos, workflows) — nunca de um estado inventado no
- * frontend. As etapas `chief` e `firstRun` dependem de sinais que o backend
- * ainda não expõe de forma canônica; são heurísticas conservadoras
- * (fail-closed) e estão registradas em `docs/frontend/HANDOFF_API.md`.
+ * Este módulo NÃO decide prontidão — o backend decide. Aqui só traduzimos o
+ * snapshot para o que a lista precisa exibir: qual etapa está concluída, qual
+ * é a atual, qual está bloqueada e por quê.
  */
-export const GOLDEN_PATH_STEPS = [
-  'profile',
-  'organization',
-  'project',
-  'provider',
-  'model',
-  'workflow',
-  'chief',
-  'firstRun',
-] as const;
 
-export type GoldenPathStepId = (typeof GOLDEN_PATH_STEPS)[number];
+/** Ordem canônica das etapas, como o backend publica. */
+export const GOLDEN_PATH_STEPS: ReadinessStep[] = [
+  'ProfileReady',
+  'OrganizationReady',
+  'ProjectReady',
+  'ProviderAccountReady',
+  'ModelReady',
+  'WorkflowReady',
+  'ChiefDefinitionReady',
+  'AgentPoolReady',
+  'ExecutionReady',
+];
 
 /**
- * - `done`: pré-condição real satisfeita.
- * - `current`: primeira etapa acionável (única CTA em foco).
- * - `blocked`: depende de uma etapa anterior ainda não concluída.
- * - `pending`: acionável no futuro, mas não é o foco atual.
+ * - `done`: etapa satisfeita (`Ready`, ou `Simulated`/`Configured` — que
+ *   executam, ainda que em modo simulado, e são sinalizados como tal).
+ * - `current`: primeira etapa acionável.
+ * - `blocked`: tem bloqueador declarado pelo backend.
+ * - `pending`: não pronta, sem bloqueador e sem ser o foco atual.
  */
 export type StepStatus = 'done' | 'current' | 'blocked' | 'pending';
 
-/** Pré-requisitos reais de cada etapa (não meramente a ordem visual). */
-export const GOLDEN_PATH_PREREQUISITES: Record<GoldenPathStepId, GoldenPathStepId[]> = {
-  profile: [],
-  organization: [],
-  project: ['organization'],
-  provider: [],
-  model: ['provider'],
-  workflow: ['project'],
-  chief: ['provider', 'model', 'workflow'],
-  firstRun: ['chief'],
-};
-
 export interface GoldenPathStep {
-  id: GoldenPathStepId;
+  id: ReadinessStep;
   status: StepStatus;
-  /** Pré-requisitos ainda não concluídos (quando `status === 'blocked'`). */
-  blockedBy: GoldenPathStepId[];
+  state: ConfigurationState;
+  /** `real` | `simulated` | `unconfigured`, direto do contrato. */
+  executionMode: string;
+  /** Código i18n da mensagem da etapa (nunca texto de domínio pronto). */
+  messageCode: string;
+  /** Códigos de bloqueio declarados pelo backend. */
+  blockerCodes: string[];
+  nextAction: ReadinessNextAction | null;
 }
 
 export interface GoldenPathState {
   steps: GoldenPathStep[];
-  /** Primeira etapa acionável, ou `null` quando tudo concluído. */
-  current: GoldenPathStepId | null;
+  current: ReadinessStep | null;
   doneCount: number;
   totalCount: number;
   complete: boolean;
+  overallState: ConfigurationState;
+  /** Ações agregadas das etapas não prontas, deduplicadas pelo backend. */
+  nextActions: ReadinessNextAction[];
+  /** Execução liberada: a etapa final executa (real ou simulada). */
+  canExecute: boolean;
 }
 
-export interface GoldenPathInput {
-  /** Perfil ativo selecionado na sessão. */
-  hasProfile: boolean;
-  organizations: Organization[];
-  projects: Project[];
-  /** Projeto ativo efetivo (seleção da sessão ou o primeiro da lista). */
-  activeProject: Project | null;
-  providers: Provider[];
-  accounts: Account[];
-  models: Model[];
-  /** Workflow vinculado ao projeto ativo (null = nenhum). */
-  activeWorkflow: Workflow | null;
-  /**
-   * Sinal real de que o Chief já executou no projeto ativo — hoje derivado de
-   * um workflow run existente (`useProjectStarted`). Fail-closed: sem sinal,
-   * a primeira execução permanece pendente.
-   */
-  hasChiefActivity: boolean;
+/** Estados que significam "esta dependência não impede a execução". */
+const SATISFIED_STATES: ConfigurationState[] = ['Ready', 'Configured', 'Simulated'];
+
+export function isSatisfied(state: ConfigurationState): boolean {
+  return SATISFIED_STATES.includes(state);
 }
 
-/** Provedor pronto = ao menos um provedor habilitado com uma conta ativa. */
-export function isProviderReady(providers: Provider[], accounts: Account[]): boolean {
-  const enabledProviderIds = new Set(providers.filter((p) => p.enabled).map((p) => p.id));
-  if (enabledProviderIds.size === 0) return false;
-  return accounts.some((a) => a.state === 'active' && enabledProviderIds.has(a.providerId));
-}
-
-/** Modelo pronto = ao menos um modelo habilitado de um provedor habilitado. */
-export function isModelReady(models: Model[], providers: Provider[]): boolean {
-  const enabledProviderIds = new Set(providers.filter((p) => p.enabled).map((p) => p.id));
-  return models.some((m) => m.enabled && enabledProviderIds.has(m.providerId));
-}
-
-/** Mapa etapa → concluída, derivado apenas de recursos reais. */
-export function deriveDoneMap(input: GoldenPathInput): Record<GoldenPathStepId, boolean> {
-  const providerReady = isProviderReady(input.providers, input.accounts);
-  const modelReady = isModelReady(input.models, input.providers);
-  const workflowReady = input.activeProject !== null && input.activeWorkflow !== null;
-  // Fail-closed: o Chief só é considerado pronto quando provedor, modelo e
-  // workflow estão prontos E há um projeto ativo com chefe atribuído.
-  const chiefReady =
-    input.activeProject !== null &&
-    Boolean(input.activeProject.chiefAgentId) &&
-    providerReady &&
-    modelReady &&
-    workflowReady;
+function toStep(contract: ReadinessStepContract, currentAssigned: boolean): GoldenPathStep {
+  const satisfied = isSatisfied(contract.state);
+  let status: StepStatus;
+  if (satisfied) {
+    status = 'done';
+  } else if (contract.blockers.length > 0) {
+    status = 'blocked';
+  } else if (!currentAssigned) {
+    status = 'current';
+  } else {
+    status = 'pending';
+  }
 
   return {
-    profile: input.hasProfile,
-    organization: input.organizations.length > 0,
-    project: input.projects.length > 0,
-    provider: providerReady,
-    model: modelReady,
-    workflow: workflowReady,
-    chief: chiefReady,
-    firstRun: chiefReady && input.hasChiefActivity,
+    id: contract.step,
+    status,
+    state: contract.state,
+    executionMode: contract.executionMode,
+    messageCode: contract.messageCode,
+    blockerCodes: contract.blockers.map((blocker) => blocker.code),
+    nextAction: contract.nextAction,
   };
 }
 
 /**
- * Deriva o estado completo do golden path. Puro e testável: recebe recursos
- * já carregados e devolve status por etapa, a etapa atual e o progresso.
+ * Traduz o snapshot canônico para a apresentação da lista.
+ *
+ * A "etapa atual" é a primeira não satisfeita — inclusive quando ela tem
+ * bloqueador, porque o backend já entrega a ação que resolve o bloqueio. Isso
+ * evita a lista ficar sem foco quando tudo que falta está bloqueado.
  */
-export function deriveGoldenPath(input: GoldenPathInput): GoldenPathState {
-  const done = deriveDoneMap(input);
+export function deriveGoldenPath(snapshot: ProjectReadinessSnapshot): GoldenPathState {
+  const ordered = GOLDEN_PATH_STEPS.map((id) =>
+    snapshot.steps.find((entry) => entry.step === id),
+  ).filter((entry): entry is ReadinessStepContract => entry !== undefined);
 
-  let currentAssigned = false;
-  const steps: GoldenPathStep[] = GOLDEN_PATH_STEPS.map((id) => {
-    const blockedBy = GOLDEN_PATH_PREREQUISITES[id].filter((prereq) => !done[prereq]);
-    if (done[id]) {
-      return { id, status: 'done', blockedBy: [] };
+  const firstUnsatisfied = ordered.find((entry) => !isSatisfied(entry.state)) ?? null;
+
+  const steps = ordered.map((entry) => {
+    const step = toStep(entry, true);
+    if (firstUnsatisfied && entry.step === firstUnsatisfied.step) {
+      // A primeira pendente é sempre o foco, mesmo bloqueada.
+      return { ...step, status: 'current' as StepStatus };
     }
-    if (blockedBy.length > 0) {
-      return { id, status: 'blocked', blockedBy };
-    }
-    if (!currentAssigned) {
-      currentAssigned = true;
-      return { id, status: 'current', blockedBy: [] };
-    }
-    return { id, status: 'pending', blockedBy: [] };
+    return step;
   });
 
-  const doneCount = steps.filter((s) => s.status === 'done').length;
-  const current = steps.find((s) => s.status === 'current')?.id ?? null;
+  const doneCount = steps.filter((entry) => entry.status === 'done').length;
+  const execution = ordered.find((entry) => entry.step === 'ExecutionReady') ?? null;
 
   return {
     steps,
-    current,
+    current: firstUnsatisfied?.step ?? null,
     doneCount,
-    totalCount: GOLDEN_PATH_STEPS.length,
-    complete: doneCount === GOLDEN_PATH_STEPS.length,
+    totalCount: steps.length,
+    complete: firstUnsatisfied === null,
+    overallState: snapshot.overallState,
+    nextActions: snapshot.nextActions,
+    canExecute: execution !== null && isSatisfied(execution.state),
   };
 }
+
+export interface PreProjectInput {
+  hasProfile: boolean;
+  hasOrganization: boolean;
+  hasProject: boolean;
+}
+
+/**
+ * Snapshot local para a fase ANTERIOR ao projeto.
+ *
+ * `GET /projects/{id}/readiness` responde 404 sem projeto, então as três
+ * primeiras etapas são montadas aqui — no mesmo formato e com os MESMOS
+ * códigos do contrato, para a UI ter um único caminho de renderização. As
+ * etapas seguintes ficam `Unconfigured` e bloqueadas pela ausência do projeto:
+ * fail-closed, nunca otimista. Lacuna registrada em `HANDOFF_API.md`.
+ */
+export function preProjectSnapshot(input: PreProjectInput): ProjectReadinessSnapshot {
+  const mk = (
+    step: ReadinessStep,
+    capability: string,
+    state: ConfigurationState,
+    blockerCode: string | null,
+    nextAction: ReadinessNextAction | null,
+  ): ReadinessStepContract => ({
+    step,
+    state,
+    executionMode: state === 'Ready' ? 'real' : 'unconfigured',
+    capability,
+    messageCode: `readiness.${STEP_TOKENS[step]}.${state === 'Ready' ? 'ready' : 'unconfigured'}`,
+    relatedIds: [],
+    blockers: blockerCode ? [{ code: blockerCode, relatedIds: [] }] : [],
+    nextAction,
+  });
+
+  const createOrganization: ReadinessNextAction = {
+    code: 'organization.create',
+    route: '/organizations',
+    resourceId: null,
+  };
+  const createProject: ReadinessNextAction = {
+    code: 'project.create',
+    route: '/projects',
+    resourceId: null,
+  };
+
+  const steps: ReadinessStepContract[] = [
+    mk(
+      'ProfileReady',
+      'identity.profile',
+      input.hasProfile ? 'Ready' : 'Unconfigured',
+      input.hasProfile ? null : 'profile.missing',
+      input.hasProfile ? null : { code: 'profile.create', route: '/onboarding', resourceId: null },
+    ),
+    mk(
+      'OrganizationReady',
+      'organizations',
+      input.hasOrganization ? 'Ready' : 'Unconfigured',
+      input.hasOrganization ? null : 'organization.missing',
+      input.hasOrganization ? null : createOrganization,
+    ),
+    // Precondição do contrato: sem organização, projeto é bloqueado por ela.
+    !input.hasOrganization
+      ? mk('ProjectReady', 'projects', 'Unconfigured', 'organization.required', createOrganization)
+      : mk(
+          'ProjectReady',
+          'projects',
+          input.hasProject ? 'Ready' : 'Unconfigured',
+          input.hasProject ? null : 'project.missing',
+          input.hasProject ? null : createProject,
+        ),
+  ];
+
+  // Sem projeto, as demais dependências não são avaliáveis: bloqueamos por
+  // ausência de projeto em vez de presumir qualquer prontidão.
+  const REMAINING: [ReadinessStep, string][] = [
+    ['ProviderAccountReady', 'providers.accounts'],
+    ['ModelReady', 'providers.models'],
+    ['WorkflowReady', 'workflows'],
+    ['ChiefDefinitionReady', 'agents.chief'],
+    ['AgentPoolReady', 'agents.pool'],
+    ['ExecutionReady', 'execution'],
+  ];
+  for (const [step, capability] of REMAINING) {
+    steps.push(mk(step, capability, 'Unconfigured', 'project.missing', createProject));
+  }
+
+  const nextActions: ReadinessNextAction[] = [];
+  for (const entry of steps) {
+    if (entry.state === 'Ready' || entry.nextAction === null) continue;
+    if (nextActions.some((existing) => existing.code === entry.nextAction!.code)) continue;
+    nextActions.push(entry.nextAction);
+  }
+
+  return {
+    projectId: null,
+    overallState: 'Unconfigured',
+    steps,
+    nextActions,
+  };
+}
+
+const STEP_TOKENS: Record<ReadinessStep, string> = {
+  ProfileReady: 'profile',
+  OrganizationReady: 'organization',
+  ProjectReady: 'project',
+  ProviderAccountReady: 'providerAccount',
+  ModelReady: 'model',
+  WorkflowReady: 'workflow',
+  ChiefDefinitionReady: 'chiefDefinition',
+  AgentPoolReady: 'agentPool',
+  ExecutionReady: 'execution',
+};

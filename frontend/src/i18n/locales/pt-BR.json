@@ -439,46 +439,75 @@
     },
     "blockedBy": "Requer antes: {{steps}}",
     "steps": {
-      "profile": {
+      "ProfileReady": {
         "title": "Perfil",
         "explanation": "Seu perfil local já está ativo nesta sessão.",
         "cta": "Revisar perfil"
       },
-      "organization": {
+      "OrganizationReady": {
         "title": "Organização",
         "explanation": "Toda operação pertence a uma organização. Crie a primeira para vincular projetos.",
         "cta": "Criar organização"
       },
-      "project": {
+      "ProjectReady": {
         "title": "Projeto",
         "explanation": "Crie o projeto onde o Chief vai coordenar o trabalho.",
         "cta": "Criar projeto"
       },
-      "provider": {
+      "ProviderAccountReady": {
         "title": "Provedor e conta",
         "explanation": "Conecte um provedor de modelos e ative uma conta (a credencial é uma referência segura).",
         "cta": "Configurar provedor"
       },
-      "model": {
+      "ModelReady": {
         "title": "Modelo",
-        "explanation": "Habilite ao menos um modelo do provedor para o Chief e os especialistas usarem.",
-        "cta": "Sincronizar modelos"
+        "explanation": "Habilite ao menos um modelo de chat do provedor.",
+        "cta": "Habilitar modelo"
       },
-      "workflow": {
+      "WorkflowReady": {
         "title": "Workflow",
         "explanation": "Vincule um workflow ao projeto para definir as fases e os portões de execução.",
         "cta": "Vincular workflow"
       },
-      "chief": {
-        "title": "Chief pronto",
-        "explanation": "Com provedor, modelo e workflow prontos, revise o Chief no Orquestrador.",
-        "cta": "Revisar o Chief"
+      "ChiefDefinitionReady": {
+        "title": "Chief configurado",
+        "explanation": "O Chief precisa de um modelo resolvível para coordenar o projeto.",
+        "cta": "Configurar o Chief"
       },
-      "firstRun": {
-        "title": "Primeira execução",
-        "explanation": "Inicie uma conversa e peça a primeira execução real ao Chief.",
+      "AgentPoolReady": {
+        "title": "Agentes disponíveis",
+        "explanation": "Os agentes precisam estar disponíveis e saudáveis para receber trabalho.",
+        "cta": "Revisar agentes"
+      },
+      "ExecutionReady": {
+        "title": "Pronto para executar",
+        "explanation": "Com as dependências prontas, inicie a primeira execução do Chief.",
         "cta": "Iniciar primeira execução"
       }
+    },
+    "actions": {
+      "profile.create": "Criar perfil",
+      "organization.create": "Criar organização",
+      "project.create": "Criar projeto",
+      "provider.connectAccount": "Conectar conta de provedor",
+      "model.enable": "Habilitar modelo",
+      "workflow.bind": "Vincular workflow",
+      "chief.configureModel": "Configurar o Chief",
+      "agent.recover": "Recuperar agente",
+      "conversation.start": "Iniciar conversa"
+    },
+    "blockers": {
+      "profile.missing": "Nenhum perfil local ativo.",
+      "organization.missing": "Nenhuma organização cadastrada.",
+      "organization.required": "Requer uma organização antes.",
+      "project.missing": "Requer um projeto antes.",
+      "provider_account.missing": "Nenhuma conta de provedor ativa.",
+      "model.none_chat_enabled": "Nenhum modelo de chat habilitado.",
+      "workflow.unbound": "Nenhum workflow vinculado ao projeto.",
+      "chief.missing": "O projeto não tem um Chief.",
+      "chief.model_unresolved": "O modelo do Chief não pôde ser resolvido.",
+      "agent.unavailable": "Nenhum agente disponível.",
+      "agent.degraded": "Agente em estado degradado."
     }
   },
   "onboarding": {

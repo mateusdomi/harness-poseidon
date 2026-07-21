@@ -102,7 +102,9 @@ import {
 import { streams } from '../contracts';
 import { product } from '@/config/product';
 import type { ApiClient } from './api-client';
+import type { ProjectReadinessSnapshot } from '../contracts/readiness';
 import type { FixtureData } from '../fixtures';
+import { buildMockReadinessSnapshot } from '../fixtures/readiness';
 import type { MockRealtimeClient } from '../realtime';
 
 export interface MockApiClientOptions {
@@ -1515,6 +1517,83 @@ export class MockApiClient implements ApiClient {
     this.#appendAudit('user', this.#options.currentProfileId, 'backup.restored', 'backup', backupId, 'Backup local restaurado (mock: dados permanecem como estão).');
   }
 
+  /**
+   * Cria a instância do Chief do projeto recém-criado, reusando a definição de
+   * papel `chief` já existente no catálogo (não inventa definição nova).
+   */
+  #provisionChiefAgent(project: Project): void {
+    if (this.#table('agents').get(project.chiefAgentId)) return;
+    const definition = [...this.#table('agent-definitions').values()].find(
+      (entry) => entry.role === 'chief',
+    );
+    if (!definition) return;
+    const now = this.#options.now();
+    const agent: Agent = {
+      id: project.chiefAgentId,
+      definitionId: definition.id,
+      projectId: project.id,
+      name: `Chefe — ${project.name}`,
+      state: 'idle',
+      currentTaskId: null,
+      modelId: null,
+      lease: null,
+      metrics: { costUsd: 0, tokensInput: 0, tokensOutput: 0, tasksCompleted: 0, uptimeMs: 0 },
+      lastHeartbeatAt: now,
+    };
+    this.#table('agents').set(agent.id, agent);
+  }
+
+  /**
+   * Prontidão do projeto — espelha o avaliador canônico do backend
+   * (`ReadinessEvaluator`, ADR-017) sobre o store do mock.
+   *
+   * No mock, provedor/modelo/chief são fixtures: as dependências presentes são
+   * marcadas como `Simulated`, e não como `Ready`. É por isso que o modo mock
+   * mostra "Modo simulado" — a UI nunca apresenta fixture como execução real.
+   */
+  async getProjectReadiness(projectId: Ulid): Promise<ProjectReadinessSnapshot> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) {
+      throw ApiError.of(404, 'project_not_found', 'The project does not exist.');
+    }
+
+    const organizationReady = this.#table('organizations').size > 0;
+    const enabledProviderIds = new Set(
+      [...this.#table('providers').values()].filter((p) => p.enabled).map((p) => p.id),
+    );
+    const account = [...this.#table('accounts').values()].find(
+      (entry) => entry.state === 'active' && enabledProviderIds.has(entry.providerId),
+    );
+    const model = [...this.#table('models').values()].find(
+      (entry) => entry.enabled && enabledProviderIds.has(entry.providerId),
+    );
+    const workflowBound = [...this.#table('workflows').values()].some(
+      (entry) => entry.projectId === projectId,
+    );
+    const chief = [...this.#table('agents').values()].find(
+      (entry) => entry.id === project.chiefAgentId,
+    );
+    const chiefDefinition = chief
+      ? [...this.#table('agent-definitions').values()].find((d) => d.id === chief.definitionId)
+      : undefined;
+    const chiefModelId = chief?.modelId ?? chiefDefinition?.defaultModelId ?? null;
+    const chiefModelResolves =
+      chiefModelId !== null && this.#table('models').get(chiefModelId) !== undefined;
+    const chiefHealthy = chief ? chief.state !== 'error' && chief.state !== 'outOfQuota' : false;
+
+    return buildMockReadinessSnapshot({
+      projectId,
+      organizationReady,
+      accountId: account?.id ?? null,
+      modelId: model?.id ?? null,
+      workflowBound,
+      chiefAgentId: chief?.id ?? null,
+      chiefHealthy,
+      chiefModelResolves,
+    });
+  }
+
   async getDiagnostics(): Promise<Diagnostics> {
     await this.#simulate();
     const now = this.#options.now();
@@ -2106,6 +2185,13 @@ export class MockApiClient implements ApiClient {
       }
       case 'projects': {
         const project = entity as Project;
+        // O projeto nasce com `chiefAgentId`, então o Chief precisa existir de
+        // fato — as fixtures mantêm essa invariante e a prontidão canônica a
+        // verifica (agente ausente = `chief.missing`). Sem isto, um projeto
+        // criado pela UI jamais alcançaria `ExecutionReady`.
+        // NOTA: o Host real NÃO provisiona este agente hoje; a lacuna está
+        // registrada em `docs/frontend/HANDOFF_API.md`.
+        this.#provisionChiefAgent(project);
         realtime.emit(streams.global(), 'project.created', { project });
         break;
       }

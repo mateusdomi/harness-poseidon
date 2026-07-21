@@ -358,23 +358,56 @@ Missão de UX do golden path (2026-07-21). Tudo abaixo foi implementado
 **fail-closed** (não afirma, não inventa endpoint e explica o que falta).
 Cada item aqui é um pedido concreto ao backend.
 
-### 9.1 Prontidão canônica (readiness) — **não existe**
+### 9.1 Prontidão canônica (readiness) — **PUBLICADA E CONSUMIDA** ✅
 
-- **Situação:** o OpenAPI não publica nenhum recurso/endpoint de readiness,
-  onboarding-status ou golden path. Não há como perguntar ao backend "este
-  projeto está pronto para executar?".
-- **O que a UI faz hoje:** deriva as 8 etapas em
-  `features/onboarding/lib/golden-path.ts` a partir da **existência de
-  recursos reais** — perfil ativo, `organizations`, `projects`, `providers`
-  (habilitado) + `accounts` (`state === 'active'`), `models` (habilitado),
-  `workflows` do projeto e `Project.chiefAgentId`.
-- **Heurísticas conservadoras (o ponto sensível):**
-  - `chief` só fica pronto com provedor + modelo + workflow + `chiefAgentId`.
-    O backend pode considerar outras dependências que a UI não enxerga.
-  - `firstRun` usa "existe workflow run" (`useProjectStarted`) como prova de
-    execução do Chief. **Não é o mesmo que "o Chief executou um turno"**.
-- **Pedido:** publicar readiness canônico por projeto, com estado por
-  dependência e motivo do bloqueio, para o frontend parar de inferir.
+- **Situação:** resolvida durante esta missão. O backend publicou
+  `GET /api/v1/projects/{projectId}/readiness` (`ProjectReadinessSnapshot`,
+  ADR-017) com 9 etapas, estados fechados (`Unconfigured`, `Simulated`,
+  `Configured`, `Ready`, `Degraded`, `Unavailable`), bloqueadores tipados,
+  próximas ações com rota e o evento `readiness.changed`.
+- **O que a UI faz hoje:** a heurística que este documento registrava foi
+  **removida**. `use-golden-path.ts` consome o read model canônico e
+  `features/onboarding/lib/golden-path.ts` apenas **apresenta** o snapshot —
+  não decide prontidão, bloqueio nem próxima ação. `executionMode` por etapa
+  alimenta o selo "Modo simulado" por dependência, e `ExecutionReady` é a
+  única autoridade sobre liberar o envio no chat.
+- **Lacuna remanescente (menor):** o endpoint responde **404 sem projeto**,
+  então a fase anterior ao projeto (perfil → organização → projeto) é montada
+  localmente em `preProjectSnapshot`, no mesmo formato e com os mesmos códigos
+  do contrato. **Pedido:** readiness de tenant/workspace (sem `projectId`), ou
+  documentar que essa fase é responsabilidade do cliente.
+
+### 9.1.1 Chief não é provisionado na criação do projeto — **BLOQUEIA O GOLDEN PATH** ⚠️
+
+- **Situação (encontrada ao integrar o readiness):** `POST /api/v1/projects`
+  devolve `chiefAgentId`, mas **não cria o agente correspondente**
+  (`src/Harness.Host/Projects/ProjectEndpoints.cs` não toca em agentes). O
+  avaliador exige o agente real
+  (`ProjectReadinessService.ResolveChiefAsync` → `ChiefFact.Missing`).
+- **Consequência:** num Host real, todo projeto recém-criado fica em
+  `ChiefDefinitionReady: Unconfigured` com bloqueador `chief.missing`, e
+  `ExecutionReady` nunca é alcançável. A ação sugerida
+  (`chief.configureModel` → `/agents`) **não tem comando correspondente**: não
+  existe criação de agente no contrato (`agents` não está em `CreateInputMap`).
+  Ou seja: o caminho recomendado pelo próprio read model é um beco sem saída.
+- **O que a UI faz hoje:** apresenta fielmente o estado e o bloqueador do
+  backend — não mascara. No **mock**, `create('projects')` passou a provisionar
+  o Chief (as fixtures já mantinham essa invariante; sem isso o modo mock
+  jamais chegaria a `ExecutionReady`).
+- **Pedido (prioritário):** provisionar o Chief na criação do projeto **ou**
+  publicar o comando que a ação `chief.configureModel` pressupõe.
+
+### 9.1.2 Eventos do catálogo 1.1 sem payload publicado
+
+- **Situação:** `docs/contracts/events.json` passou a listar `readiness.changed`,
+  `execution.blocked`, `execution.enqueued`, `message.received`,
+  `model.responded`, `provider.invoked` e `turn.registered`, mas o catálogo só
+  publica **nomes** — nenhum payload é especificado e não há publisher emitindo.
+- **O que a UI faz hoje:** schemas permissivos (`z.object({}).passthrough()`),
+  para não inventar campos. A UI reage apenas à **ocorrência**
+  (`readiness.changed` invalida o snapshot de prontidão).
+- **Pedido:** publicar o payload de cada evento novo; os schemas viram tipados
+  e o teste de drift continua garantindo paridade.
 
 ### 9.2 Catálogo de ações de auditoria — **string aberta**
 

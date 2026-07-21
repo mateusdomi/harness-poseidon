@@ -485,3 +485,24 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 
 - **Decisão:** componentes novos usam `md:`/`lg:`/`xl:`. `tailwind.config.js` **substitui** `theme.screens` por `{ md: 768px, lg: 1024px, xl: 1440px }`, portanto nenhuma classe `sm:` é gerada.
 - **Justificativa:** classes `sm:` compilam para nada e falham em silêncio — o checklist, a marca, o wizard de definição e o breadcrumb ficavam empilhados no desktop. Só apareceu na validação visual no navegador; typecheck, lint e testes de DOM não pegam classe inexistente. Registrado para que a próxima sessão não repita.
+
+## D-113 — Prontidão passa a vir do read model canônico; o frontend só apresenta
+
+- **Decisão:** com a publicação de `GET /api/v1/projects/{id}/readiness` (ADR-017) durante esta missão, a derivação local descrita em D-100 foi **removida**. `use-golden-path.ts` consome o snapshot canônico e `golden-path.ts` apenas traduz `state`/`blockers`/`nextAction` para a apresentação da lista. `ExecutionReady` é a **única** autoridade sobre liberar o envio no chat; as rotas das CTAs vêm de `nextAction.route` (o frontend só enriquece os deep links que preservam intenção: `?return=project` e `?org=<id>`). O evento `readiness.changed` invalida o snapshot, e as mutações de workflow/provider invalidam o prefixo `['readiness']` para refletir a própria ação do usuário sem esperar o hub.
+- **Justificativa:** a regra da missão é consumir contrato real assim que ele existir. Manter a heurística seria manter uma segunda fonte da verdade destinada a divergir. Ganhos concretos: 9 etapas (não 8), bloqueadores tipados pelo backend, e `executionMode` por etapa — que permitiu distinguir "concluído" de "concluído porém simulado", algo que a derivação local não sabia expressar.
+- **Limite:** o endpoint responde 404 sem projeto, então a fase anterior ao projeto continua montada no cliente (`preProjectSnapshot`), no mesmo formato e com os mesmos códigos — registrado em HANDOFF §9.1.
+
+## D-114 — Estado `Simulated` é satisfeito, mas sinalizado por etapa
+
+- **Decisão:** `Ready`, `Configured` e `Simulated` contam como etapa concluída (a dependência funciona); `Unconfigured`, `Degraded` e `Unavailable` não. Quando `executionMode === 'simulated'`, a etapa exibe o selo "Modo simulado" ao lado do título.
+- **Justificativa:** tratar `Simulated` como bloqueio impediria qualquer uso do modo mock e das instalações com catálogo simulado; tratá-lo como `Ready` sem marcação repetiria a desonestidade que a missão veio corrigir. Concluído-porém-simulado é um terceiro estado real, e agora é visível por dependência — não só um selo global de tela.
+
+## D-115 — Mock provisiona o Chief na criação do projeto (e a divergência com o Host real é reportada)
+
+- **Decisão:** `MockApiClient.create('projects')` passou a criar a instância do Chief referenciada por `chiefAgentId`, reusando a definição de papel `chief` existente. O código diz explicitamente que o Host real **não** faz isso.
+- **Justificativa:** o mock já mantinha essa invariante nas fixtures (todo projeto seed tem agente chefe), mas `create` deixava um `chiefAgentId` órfão — o comentário original dizia "backend vincula o chefe provisionado", premissa que a integração provou falsa. Sem o agente, o readiness canônico corretamente reporta `chief.missing` e o modo mock nunca alcançaria `ExecutionReady`, quebrando os gates FE-1/golden-path. Corrigir o mock restaura sua própria invariante; a lacuna do backend está registrada em HANDOFF §9.1.1 como bloqueio prioritário do golden path — não foi mascarada.
+
+## D-116 — Evento novo sem payload publicado recebe schema permissivo, não inventado
+
+- **Decisão:** os sete eventos que o catálogo 1.1 passou a listar sem payload especificado (`readiness.changed`, `execution.blocked`, `execution.enqueued`, `message.received`, `model.responded`, `provider.invoked`, `turn.registered`) usam `z.object({}).passthrough()`. O teste de contagem deixou de usar número mágico e passou a ler `docs/contracts/events.json`.
+- **Justificativa:** o teste de drift exige que todo evento canônico tenha schema no frontend, mas adivinhar campos criaria contrato falso que quebraria na primeira emissão real. A UI só precisa da ocorrência do evento (invalidar a query). Quando o backend publicar os payloads, os schemas viram tipados sem mudar a UI.

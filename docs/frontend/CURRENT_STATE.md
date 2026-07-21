@@ -20,17 +20,27 @@
   `develop`. `governance/manifest.yaml` não foi tocado, não houve merge em
   `main` e **nenhum GNG foi declarado**.
 
-### Prontidão do golden path (fonte da verdade)
+### Prontidão do golden path (read model canônico)
 
-- `features/onboarding/lib/golden-path.ts` deriva 8 etapas (perfil →
-  organização → projeto → provedor → modelo → workflow → Chief pronto →
-  primeira execução) **a partir de recursos reais**; `use-golden-path.ts`
-  reutiliza as query keys das features (cache compartilhado, sem refetch).
-- **Não existe readiness canônico no OpenAPI.** As etapas `chief` e `firstRun`
-  são heurísticas conservadoras (fail-closed) registradas em `HANDOFF_API.md`
-  §9.1. O frontend não duplica fonte da verdade: só apresenta o derivado.
-- Checklist persistente no Cockpit com status, explicação, CTA única,
-  bloqueador e deep link por etapa; some quando o caminho está completo.
+- **O backend publicou o contrato durante esta missão** (`GET /api/v1/projects/
+  {id}/readiness`, ADR-017). A derivação heurística que existia foi
+  **removida**: `use-golden-path.ts` consome o snapshot canônico e
+  `golden-path.ts` apenas apresenta `state`/`blockers`/`nextAction`.
+- São **9 etapas** (perfil → organização → projeto → provedor/conta → modelo →
+  workflow → Chief configurado → agentes disponíveis → pronto para executar).
+  `ExecutionReady` é a única autoridade sobre liberar o envio no chat.
+- `executionMode` por etapa distingue **concluído** de **concluído porém
+  simulado** — cada dependência simulada exibe o próprio selo "Modo simulado".
+- `readiness.changed` invalida o snapshot; mutações de workflow e de provedor
+  invalidam o prefixo `['readiness']` para refletir a ação do próprio usuário.
+- Checklist persistente no Cockpit com status, explicação, CTA única (rota do
+  contrato), bloqueador traduzido e deep link; some quando o caminho completa.
+- **Achado bloqueante reportado:** o Host real **não provisiona o agente Chief**
+  na criação do projeto, então todo projeto novo fica em `chief.missing` e
+  nunca alcança `ExecutionReady`; a ação sugerida pelo próprio read model
+  (`chief.configureModel`) não tem comando no contrato. Detalhes e pedido em
+  `HANDOFF_API.md` §9.1.1. O mock passou a provisionar o Chief (invariante que
+  suas fixtures já mantinham).
 
 ### Honestidade operacional
 
@@ -76,10 +86,11 @@
 
 ### Evidência desta fase
 
-- `npm run check`: lint e typecheck limpos; **57 arquivos e 484 testes** verdes.
+- `npm run check`: lint e typecheck limpos; **57 arquivos e 498 testes** verdes.
 - `npm run build` e `npm run build-storybook`: verdes (só os avisos conhecidos
   de PURE do SignalR e de `eval`/chunk do Storybook).
-- `npm run test:e2e`: **72/72** em mobile-360 e desktop-1440, incluindo o novo
+- `npm run test:e2e`: **72/72** em mobile-360 e desktop-1440 (após integrar o
+  readiness canônico), incluindo o novo
   gate `golden-path-ux.spec.ts` e o FE-1 percorrendo o caminho completo
   (bloqueio honesto → workflow recomendado → conversa automática).
 - `npm run test:a11y`: **42/42** (21 rotas em mobile/dark e desktop/light).

@@ -1,128 +1,201 @@
-import type { Account, Model, Organization, Project, Provider, Workflow } from '@/api';
+import type { ProjectReadinessSnapshot, ReadinessStep } from '@/api';
+import { buildMockReadinessSnapshot } from '@/api/fixtures/readiness';
 import {
   deriveGoldenPath,
-  isModelReady,
-  isProviderReady,
-  type GoldenPathInput,
+  isSatisfied,
+  preProjectSnapshot,
 } from '@/features/onboarding/lib/golden-path';
 
-const org = (id: string) => ({ id }) as Organization;
-const project = (id: string, chiefAgentId = 'chief-1') =>
-  ({ id, organizationId: 'org-1', chiefAgentId }) as Project;
-const provider = (id: string, enabled: boolean) => ({ id, enabled }) as Provider;
-const account = (providerId: string, state: Account['state']) =>
-  ({ id: `acc-${providerId}`, providerId, state }) as Account;
-const model = (providerId: string, enabled: boolean) =>
-  ({ id: `m-${providerId}`, providerId, enabled }) as Model;
-const workflow = () => ({ id: 'wf-1' }) as Workflow;
-
-/** Entrada base: workspace completamente vazio (só perfil ativo). */
-function emptyInput(): GoldenPathInput {
+/** Entradas do avaliador com tudo presente (equivalente ao mock "pronto"). */
+function readyInputs() {
   return {
-    hasProfile: true,
-    organizations: [],
-    projects: [],
-    activeProject: null,
-    providers: [],
-    accounts: [],
-    models: [],
-    activeWorkflow: null,
-    hasChiefActivity: false,
+    projectId: 'p-1',
+    organizationReady: true,
+    accountId: 'acc-1',
+    modelId: 'model-1',
+    workflowBound: true,
+    chiefAgentId: 'chief-1',
+    chiefHealthy: true,
+    chiefModelResolves: true,
   };
 }
 
-/** Entrada com todas as pré-condições reais satisfeitas. */
-function readyInput(): GoldenPathInput {
-  return {
-    hasProfile: true,
-    organizations: [org('org-1')],
-    projects: [project('p-1')],
-    activeProject: project('p-1'),
-    providers: [provider('prov-1', true)],
-    accounts: [account('prov-1', 'active')],
-    models: [model('prov-1', true)],
-    activeWorkflow: workflow(),
-    hasChiefActivity: true,
-  };
-}
+const statusOf = (snapshot: ProjectReadinessSnapshot, step: ReadinessStep) =>
+  deriveGoldenPath(snapshot).steps.find((entry) => entry.id === step)?.status;
 
-describe('isProviderReady', () => {
-  it('exige provedor habilitado E conta ativa do mesmo provedor', () => {
-    expect(isProviderReady([provider('a', true)], [account('a', 'active')])).toBe(true);
-    expect(isProviderReady([provider('a', false)], [account('a', 'active')])).toBe(false);
-    expect(isProviderReady([provider('a', true)], [account('a', 'disabled')])).toBe(false);
-    // conta ativa mas de outro provedor não conta
-    expect(isProviderReady([provider('a', true)], [account('b', 'active')])).toBe(false);
-    expect(isProviderReady([], [])).toBe(false);
+describe('isSatisfied', () => {
+  it('trata Ready/Configured/Simulated como satisfeitos e o resto como não', () => {
+    expect(isSatisfied('Ready')).toBe(true);
+    expect(isSatisfied('Configured')).toBe(true);
+    // Simulado executa (e é sinalizado como tal) — não é bloqueio.
+    expect(isSatisfied('Simulated')).toBe(true);
+    expect(isSatisfied('Unconfigured')).toBe(false);
+    expect(isSatisfied('Degraded')).toBe(false);
+    expect(isSatisfied('Unavailable')).toBe(false);
   });
 });
 
-describe('isModelReady', () => {
-  it('exige modelo habilitado de um provedor habilitado', () => {
-    expect(isModelReady([model('a', true)], [provider('a', true)])).toBe(true);
-    expect(isModelReady([model('a', false)], [provider('a', true)])).toBe(false);
-    expect(isModelReady([model('a', true)], [provider('a', false)])).toBe(false);
-  });
-});
-
-describe('deriveGoldenPath', () => {
-  it('workspace vazio: perfil pronto, organização é a etapa atual, resto pendente/bloqueado', () => {
-    const state = deriveGoldenPath(emptyInput());
-    expect(state.doneCount).toBe(1); // só o perfil
-    expect(state.complete).toBe(false);
-    expect(state.current).toBe('organization');
-    const byId = Object.fromEntries(state.steps.map((s) => [s.id, s.status]));
-    expect(byId.profile).toBe('done');
-    expect(byId.organization).toBe('current');
-    // projeto depende de organização → bloqueado
-    expect(byId.project).toBe('blocked');
-    // provedor não depende de nada → pendente (acionável, mas não é o foco)
-    expect(byId.provider).toBe('pending');
-    // modelo depende de provedor → bloqueado
-    expect(byId.model).toBe('blocked');
+describe('deriveGoldenPath — a partir do read model canônico', () => {
+  it('apresenta as 9 etapas do contrato na ordem canônica', () => {
+    const state = deriveGoldenPath(buildMockReadinessSnapshot(readyInputs()));
+    expect(state.steps.map((step) => step.id)).toEqual([
+      'ProfileReady',
+      'OrganizationReady',
+      'ProjectReady',
+      'ProviderAccountReady',
+      'ModelReady',
+      'WorkflowReady',
+      'ChiefDefinitionReady',
+      'AgentPoolReady',
+      'ExecutionReady',
+    ]);
+    expect(state.totalCount).toBe(9);
   });
 
-  it('project blocked lista organization como pré-requisito', () => {
-    const projectStep = deriveGoldenPath(emptyInput()).steps.find((s) => s.id === 'project');
-    expect(projectStep?.blockedBy).toEqual(['organization']);
-  });
-
-  it('tudo pronto: caminho completo e sem etapa atual', () => {
-    const state = deriveGoldenPath(readyInput());
+  it('tudo satisfeito: caminho completo, sem etapa atual, execução liberada', () => {
+    const state = deriveGoldenPath(buildMockReadinessSnapshot(readyInputs()));
     expect(state.complete).toBe(true);
-    expect(state.doneCount).toBe(state.totalCount);
     expect(state.current).toBeNull();
+    expect(state.doneCount).toBe(state.totalCount);
+    expect(state.canExecute).toBe(true);
   });
 
-  it('chief é fail-closed: sem workflow, chief e primeira execução não ficam prontos', () => {
-    const input = { ...readyInput(), activeWorkflow: null };
-    const byId = Object.fromEntries(
-      deriveGoldenPath(input).steps.map((s) => [s.id, s.status]),
+  it('sem workflow: workflow vira a etapa atual e a execução é bloqueada', () => {
+    const snapshot = buildMockReadinessSnapshot({ ...readyInputs(), workflowBound: false });
+    const state = deriveGoldenPath(snapshot);
+
+    expect(state.current).toBe('WorkflowReady');
+    expect(statusOf(snapshot, 'WorkflowReady')).toBe('current');
+    expect(state.canExecute).toBe(false);
+    // O bloqueio vem declarado pelo backend, não inferido aqui.
+    const execution = state.steps.find((step) => step.id === 'ExecutionReady');
+    expect(execution?.blockerCodes).toContain('workflow.unbound');
+  });
+
+  it('sem conta de provedor: bloqueio e ação canônica do backend', () => {
+    const snapshot = buildMockReadinessSnapshot({ ...readyInputs(), accountId: null });
+    const state = deriveGoldenPath(snapshot);
+
+    expect(state.current).toBe('ProviderAccountReady');
+    const step = state.steps.find((entry) => entry.id === 'ProviderAccountReady');
+    expect(step?.blockerCodes).toContain('provider_account.missing');
+    expect(step?.nextAction).toEqual({
+      code: 'provider.connectAccount',
+      route: '/providers',
+      resourceId: null,
+    });
+    expect(state.canExecute).toBe(false);
+  });
+
+  it('chief sem saúde degrada o pool e impede execução', () => {
+    const snapshot = buildMockReadinessSnapshot({ ...readyInputs(), chiefHealthy: false });
+    const state = deriveGoldenPath(snapshot);
+
+    const pool = state.steps.find((entry) => entry.id === 'AgentPoolReady');
+    expect(pool?.state).toBe('Degraded');
+    expect(pool?.blockerCodes).toContain('agent.degraded');
+    expect(state.canExecute).toBe(false);
+  });
+
+  it('modo de execução simulado é preservado por etapa (não vira "real")', () => {
+    const state = deriveGoldenPath(buildMockReadinessSnapshot(readyInputs()));
+    const model = state.steps.find((entry) => entry.id === 'ModelReady');
+    expect(model?.state).toBe('Simulated');
+    expect(model?.executionMode).toBe('simulated');
+    // Satisfeito, porém explicitamente simulado — a UI sinaliza isso.
+    expect(model?.status).toBe('done');
+  });
+
+  it('a etapa atual é a primeira não satisfeita, mesmo bloqueada', () => {
+    const snapshot = buildMockReadinessSnapshot({
+      ...readyInputs(),
+      accountId: null,
+      workflowBound: false,
+    });
+    const state = deriveGoldenPath(snapshot);
+    expect(state.current).toBe('ProviderAccountReady');
+    expect(statusOf(snapshot, 'WorkflowReady')).toBe('blocked');
+  });
+});
+
+describe('preProjectSnapshot — fase anterior ao projeto (endpoint não aplicável)', () => {
+  it('workspace vazio: organização é a etapa atual e nada é presumido pronto', () => {
+    const snapshot = preProjectSnapshot({
+      hasProfile: true,
+      hasOrganization: false,
+      hasProject: false,
+    });
+    const state = deriveGoldenPath(snapshot);
+
+    expect(state.current).toBe('OrganizationReady');
+    expect(statusOf(snapshot, 'ProfileReady')).toBe('done');
+    expect(state.canExecute).toBe(false);
+    expect(state.doneCount).toBe(1);
+  });
+
+  it('projeto herda a pré-condição de organização declarada no contrato', () => {
+    const snapshot = preProjectSnapshot({
+      hasProfile: true,
+      hasOrganization: false,
+      hasProject: false,
+    });
+    const projectStep = deriveGoldenPath(snapshot).steps.find(
+      (entry) => entry.id === 'ProjectReady',
     );
-    expect(byId.workflow).toBe('current');
-    expect(byId.chief).toBe('blocked');
-    expect(byId.firstRun).toBe('blocked');
+    expect(projectStep?.blockerCodes).toEqual(['organization.required']);
+    expect(projectStep?.nextAction?.code).toBe('organization.create');
   });
 
-  it('primeira execução só conclui com sinal real de atividade do chief', () => {
-    const input = { ...readyInput(), hasChiefActivity: false };
-    const state = deriveGoldenPath(input);
-    const firstRun = state.steps.find((s) => s.id === 'firstRun');
-    expect(firstRun?.status).toBe('current');
-    expect(state.complete).toBe(false);
+  it('com organização e sem projeto, o foco vai para criar projeto', () => {
+    const snapshot = preProjectSnapshot({
+      hasProfile: true,
+      hasOrganization: true,
+      hasProject: false,
+    });
+    const state = deriveGoldenPath(snapshot);
+    expect(state.current).toBe('ProjectReady');
+    expect(
+      state.steps.find((entry) => entry.id === 'ProjectReady')?.nextAction?.code,
+    ).toBe('project.create');
   });
 
-  it('provedor sem conta ativa fica como etapa atual e o chief não pode ficar pronto', () => {
-    const input: GoldenPathInput = {
-      ...readyInput(),
-      accounts: [account('prov-1', 'disabled')],
-    };
-    const byId = Object.fromEntries(deriveGoldenPath(input).steps.map((s) => [s.id, s.status]));
-    expect(byId.provider).toBe('current');
-    // modelo é fato independente (catálogo do provedor), pode estar pronto…
-    expect(byId.model).toBe('done');
-    // …mas o chief exige provedor + modelo + workflow → bloqueado sem conta ativa
-    expect(byId.chief).toBe('blocked');
-    expect(byId.firstRun).toBe('blocked');
+  it('sem projeto, dependências seguintes ficam bloqueadas por ausência de projeto', () => {
+    const snapshot = preProjectSnapshot({
+      hasProfile: true,
+      hasOrganization: true,
+      hasProject: false,
+    });
+    const workflow = deriveGoldenPath(snapshot).steps.find(
+      (entry) => entry.id === 'WorkflowReady',
+    );
+    expect(workflow?.status).toBe('blocked');
+    expect(workflow?.blockerCodes).toEqual(['project.missing']);
+  });
+});
+
+describe('buildMockReadinessSnapshot — fidelidade ao avaliador canônico', () => {
+  it('estado geral é o elo mais fraco das etapas', () => {
+    expect(buildMockReadinessSnapshot(readyInputs()).overallState).toBe('Simulated');
+    expect(
+      buildMockReadinessSnapshot({ ...readyInputs(), workflowBound: false }).overallState,
+    ).toBe('Unconfigured');
+  });
+
+  it('messageCode segue o padrão localizável do contrato', () => {
+    const snapshot = buildMockReadinessSnapshot({ ...readyInputs(), workflowBound: false });
+    const workflow = snapshot.steps.find((step) => step.step === 'WorkflowReady');
+    expect(workflow?.messageCode).toBe('readiness.workflow.unconfigured');
+  });
+
+  it('nextActions agrega ações das etapas não prontas, sem repetir código', () => {
+    const snapshot = buildMockReadinessSnapshot({
+      ...readyInputs(),
+      accountId: null,
+      modelId: null,
+    });
+    const codes = snapshot.nextActions.map((action) => action.code);
+    expect(new Set(codes).size).toBe(codes.length);
+    expect(codes).toContain('provider.connectAccount');
+    expect(codes).toContain('model.enable');
   });
 });

@@ -48,7 +48,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Dados:** `projects` (seletor de projeto ativo), `tasks`, `approvals`, `agents`, `budgets`, `workflows`, `workflow-runs`, `phases`, `gates`, `audit-events` (`hooks/use-cockpit.ts`).
 - **Realtime:** streams `project:<id>` + `global` — `task.created`, `task.stateChanged`, `progress.updated`, `approval.requested`, `approval.resolved`, `gate.changed`, `notification.created`, `agent.statusChanged`, `quota.updated`, `audit.eventAppended`.
 - **Ações:** trocar projeto ativo (store); CTA "Executar no chat" (grava `chatDraft` e navega). Sem mutations.
-- **Golden path (2026-07-21):** `GoldenPathChecklist` no topo, derivado de `use-golden-path` (recursos reais); some quando o caminho está completo. Cada etapa expõe status, explicação, CTA única, bloqueador e deep link (`/organizations?new=1`, `/projects?new=1&org=<id>`, `/providers`, `/workflows`, `/orchestrator`, `/chat`).
+- **Golden path (2026-07-21):** `GoldenPathChecklist` no topo, alimentado pelo read model canônico `GET /projects/{id}/readiness` (9 etapas, ADR-017); some quando o caminho está completo. Cada etapa expõe status, explicação, CTA única com a **rota do contrato**, bloqueador traduzido do código do backend e selo "Modo simulado" quando `executionMode === 'simulated'`. Antes de existir projeto, as três primeiras etapas vêm de `preProjectSnapshot` (o endpoint responde 404 sem projeto). `readiness.changed` mantém o snapshot vivo.
 - **Honestidade:** `SimulatedModeBadge` no cabeçalho quando `VITE_API_MODE` != `http` (a tela mostra cotas/orçamento de fixture). Atividade recente humanizada com ator/horário/objeto/resultado/ícone/link e código cru só em "Ver detalhes".
 - **Estados:** vazio sem projeto mantém título "Nenhum projeto ativo" **sem** CTA (o checklist é dono da ação); skeleton; erro com `retryAll` das queries.
 
@@ -68,7 +68,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Realtime:** stream `conversation:<id>` — `chat.turnStarted`, `chat.turnChunk`, `chat.turnCompleted`, `chief.turnStateChanged`, `message.appended`.
 - **Ações:** nova conversa (`api.create('conversations')`); enviar mensagem (comando `startChatTurn` → `POST /conversations/<id>/turns`).
 - **Jornada inicial (2026-07-21):** sem conversa, o composer já fica pronto — a conversa é criada de forma **idempotente ao enviar** (guarda por ref + envio pendente disparado quando o id vira corrente) — e o estado vazio traz a CTA "Iniciar conversa". O botão "Nova conversa" do cabeçalho só aparece quando já existe conversa (CTA única).
-- **Prontidão:** faltando provedor/modelo/workflow (derivado de `use-golden-path`), `ChatReadinessNotice` lista o que está pronto e o que falta com CTA única; **apenas o envio** é desabilitado, nunca o motivo escondido.
+- **Prontidão:** quem decide se o Chief pode executar é o backend (`ExecutionReady` do read model canônico). Faltando provedor/modelo/workflow, `ChatReadinessNotice` lista o que está pronto e o que falta com CTA única; **apenas o envio** é desabilitado, nunca o motivo escondido.
 - **Separação visual:** mensagem do usuário → faixa de status do turno ("Turno registrado — o chefe vai executar" / "coordenando", borda tracejada, `role="status"`) → bolha do Chief **somente** com conteúdo real em streaming → erro de envio. Acknowledgement nunca é estilizado como resposta.
 - **Estados:** vazio sem projeto (CTA); conversa sem mensagens com orientação + quick actions; bloqueio explicado; skeleton; erro com retry das queries.
 

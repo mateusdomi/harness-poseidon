@@ -20,6 +20,7 @@ import {
   type WorkflowVersion,
 } from '@/api';
 import { useApi } from '@/app/api-context';
+import { READINESS_PREFIX } from '@/features/onboarding/hooks/use-golden-path';
 import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
 
 /** Query keys da feature de workflows. */
@@ -226,7 +227,13 @@ function useWorkflowMutation<TVariables, TResult>(
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (variables: TVariables) => fn(api, variables),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: WORKFLOWS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: WORKFLOWS_PREFIX });
+      // Vincular/publicar workflow muda a prontidão do projeto: o snapshot
+      // canônico precisa ser reavaliado (o evento `readiness.changed` cobre o
+      // caso remoto; isto cobre a própria ação do usuário, sem esperar o hub).
+      void queryClient.invalidateQueries({ queryKey: READINESS_PREFIX });
+    },
   });
 }
 

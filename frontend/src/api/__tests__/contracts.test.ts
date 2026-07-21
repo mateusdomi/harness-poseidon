@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -12,7 +15,7 @@ import {
 } from '../contracts';
 import { fixtures } from '../fixtures';
 
-/** Envelope de exemplo válido para cada um dos 29 tipos de evento. */
+/** Envelope de exemplo válido para cada tipo de evento do catálogo. */
 function sampleEnvelopes(): Record<EventType, EventEnvelope> {
   const d = fixtures.data;
   const task = d.tasks[0];
@@ -54,6 +57,15 @@ function sampleEnvelopes(): Record<EventType, EventEnvelope> {
     'decision.resolved': { ...base, type: 'decision.resolved', payload: { decisionId: approval.id, outcome: 'approved', resolvedByProfileId: d.profiles[0].id, note: null } },
     'project.created': { ...base, stream: streams.global(), type: 'project.created', payload: { project } },
     'prototype.created': { ...base, type: 'prototype.created', payload: { prototype: d.prototypes[0] } },
+    // Catálogo 1.1 com payload ainda não publicado pelo backend: validamos o
+    // envelope, não campos que ninguém especificou.
+    'readiness.changed': { ...base, type: 'readiness.changed', payload: { projectId: project.id } },
+    'execution.blocked': { ...base, type: 'execution.blocked', payload: { projectId: project.id } },
+    'execution.enqueued': { ...base, type: 'execution.enqueued', payload: { projectId: project.id } },
+    'message.received': { ...base, type: 'message.received', payload: { conversationId: conversation.id } },
+    'model.responded': { ...base, type: 'model.responded', payload: { modelId: d.models[0].id } },
+    'provider.invoked': { ...base, type: 'provider.invoked', payload: { providerId: d.providers[0].id } },
+    'turn.registered': { ...base, type: 'turn.registered', payload: { conversationId: conversation.id } },
   };
 }
 
@@ -76,8 +88,12 @@ describe('contracts: fixtures × schemas Zod', () => {
 });
 
 describe('contracts: envelope de evento', () => {
-  it('catálogo tem exatamente os 29 tipos de evento', () => {
-    expect(EVENT_TYPES).toHaveLength(29);
+  it('catálogo do frontend cobre exatamente o catálogo canônico', () => {
+    // Sem número mágico: a fonte é `docs/contracts/events.json`. O teste de
+    // drift cobre a paridade nos dois sentidos; aqui garantimos a contagem.
+    const catalogPath = resolve(process.cwd(), '..', 'docs', 'contracts', 'events.json');
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf-8')) as { events: string[] };
+    expect(EVENT_TYPES).toHaveLength(catalog.events.length);
   });
 
   it.each(EVENT_TYPES)('envelope "%s" faz round-trip JSON → parse', (type) => {

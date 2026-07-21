@@ -11,52 +11,49 @@ import {
   Rocket,
   ScrollText,
   UserRoundCheck,
+  Users,
   Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { useGoldenPath } from '@/features/onboarding/hooks/use-golden-path';
-import type { GoldenPathStepId, StepStatus } from '@/features/onboarding/lib/golden-path';
+import type { ReadinessStep } from '@/api';
+import type { StepStatus } from '@/features/onboarding/lib/golden-path';
 import { cn } from '@/lib/utils';
 
-const STEP_ICONS: Record<GoldenPathStepId, LucideIcon> = {
-  profile: UserRoundCheck,
-  organization: Building2,
-  project: FolderKanban,
-  provider: ScrollText,
-  model: Cpu,
-  workflow: Workflow,
-  chief: Bot,
-  firstRun: Play,
+const STEP_ICONS: Record<ReadinessStep, LucideIcon> = {
+  ProfileReady: UserRoundCheck,
+  OrganizationReady: Building2,
+  ProjectReady: FolderKanban,
+  ProviderAccountReady: ScrollText,
+  ModelReady: Cpu,
+  WorkflowReady: Workflow,
+  ChiefDefinitionReady: Bot,
+  AgentPoolReady: Users,
+  ExecutionReady: Play,
 };
 
 /**
- * Rota da CTA de cada etapa. Deep links preservam a intenção: `?new=1` abre o
- * formulário de criação direto, e a etapa de projeto carrega a organização
- * ativa (`?org=`) para pré-selecioná-la — evitando select vazio.
+ * Rota da CTA: o backend publica a rota canônica de cada ação. Enriquecemos
+ * apenas os deep links que preservam intenção — criar organização voltando ao
+ * fluxo de projeto, e criar projeto com a organização pré-selecionada.
  */
-function stepRoute(id: GoldenPathStepId, organizationId: string | null): string {
-  switch (id) {
-    case 'profile':
-      return '/settings';
-    case 'organization':
-      return '/organizations?new=1';
-    case 'project':
-      return organizationId ? `/projects?new=1&org=${organizationId}` : '/projects?new=1';
-    case 'provider':
-      return '/providers';
-    case 'model':
-      return '/providers?tab=models';
-    case 'workflow':
-      return '/workflows';
-    case 'chief':
-      return '/orchestrator';
-    case 'firstRun':
-      return '/chat';
+function actionRoute(
+  action: { code: string; route: string; resourceId: string | null } | null,
+  organizationId: string | null,
+): string | null {
+  if (!action) return null;
+  if (action.code === 'organization.create') return `${action.route}?new=1&return=project`;
+  if (action.code === 'project.create') {
+    return organizationId
+      ? `${action.route}?new=1&org=${organizationId}`
+      : `${action.route}?new=1`;
   }
+  if (action.code === 'conversation.start') return '/chat';
+  return action.route;
 }
 
 const STATUS_ICON: Record<StepStatus, LucideIcon> = {
@@ -179,14 +176,14 @@ export function GoldenPathChecklist({ className, hideWhenComplete = false }: Gol
             const StepIcon = STEP_ICONS[step.id];
             const StatusIcon = STATUS_ICON[step.status];
             const isCurrent = step.status === 'current';
-            const route = stepRoute(step.id, activeOrganizationId);
+            // Rota e rótulo da CTA vêm do read model canônico; a organização
+            // ativa enriquece o deep link de criação de projeto.
+            const route = actionRoute(step.nextAction, activeOrganizationId);
             const blockerLabel =
-              step.status === 'blocked'
-                ? t('goldenPath.blockedBy', {
-                    steps: step.blockedBy
-                      .map((id) => t(`goldenPath.steps.${id}.title`))
-                      .join(', '),
-                  })
+              step.blockerCodes.length > 0
+                ? step.blockerCodes
+                    .map((code) => t(`goldenPath.blockers.${code}`, { defaultValue: code }))
+                    .join(' · ')
                 : null;
 
             return (
@@ -207,17 +204,26 @@ export function GoldenPathChecklist({ className, hideWhenComplete = false }: Gol
                   <span className="sr-only">{t(`goldenPath.status.${step.status}`)}</span>
                   <StepIcon aria-hidden="true" className="size-4 shrink-0 text-foreground-muted" />
                   <span className="flex flex-col">
-                    <span
-                      className={cn(
-                        'text-sm font-medium',
-                        step.status === 'done' && 'text-foreground-muted line-through',
-                      )}
-                    >
-                      {index + 1}. {t(`goldenPath.steps.${step.id}.title`)}
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          'text-sm font-medium',
+                          step.status === 'done' && 'text-foreground-muted line-through',
+                        )}
+                      >
+                        {index + 1}. {t(`goldenPath.steps.${step.id}.title`)}
+                      </span>
+                      {/* Dependência que só funciona em modo simulado precisa
+                          dizer isso — concluída não é o mesmo que real. */}
+                      {step.executionMode === 'simulated' ? (
+                        <Badge variant="warning">{t('common.simulated.label')}</Badge>
+                      ) : null}
                     </span>
                     {isCurrent ? (
                       <span className="text-xs text-foreground-muted">
-                        {t(`goldenPath.steps.${step.id}.explanation`)}
+                        {t(step.messageCode, {
+                          defaultValue: t(`goldenPath.steps.${step.id}.explanation`),
+                        })}
                       </span>
                     ) : null}
                     {blockerLabel ? (
@@ -226,16 +232,22 @@ export function GoldenPathChecklist({ className, hideWhenComplete = false }: Gol
                   </span>
                 </span>
 
-                {isCurrent ? (
+                {route && isCurrent ? (
                   <Button asChild size="sm" className="md:ml-auto">
                     <Link to={route}>
-                      {t(`goldenPath.steps.${step.id}.cta`)}
+                      {t(`goldenPath.actions.${step.nextAction!.code}`, {
+                        defaultValue: t(`goldenPath.steps.${step.id}.cta`),
+                      })}
                       <ArrowRight aria-hidden="true" className="size-4" />
                     </Link>
                   </Button>
-                ) : step.status === 'pending' ? (
+                ) : route && step.status === 'pending' ? (
                   <Button asChild variant="ghost" size="sm" className="md:ml-auto">
-                    <Link to={route}>{t(`goldenPath.steps.${step.id}.cta`)}</Link>
+                    <Link to={route}>
+                      {t(`goldenPath.actions.${step.nextAction!.code}`, {
+                        defaultValue: t(`goldenPath.steps.${step.id}.cta`),
+                      })}
+                    </Link>
                   </Button>
                 ) : null}
               </li>

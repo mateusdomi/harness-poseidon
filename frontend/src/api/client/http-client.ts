@@ -97,6 +97,8 @@ import {
   type LearningShadowInput,
   type LearningTransition,
   type LearningTransitionInput,
+  type ProjectReadinessSnapshot,
+  projectReadinessSnapshotSchema,
 } from '../contracts';
 import type { ApiClient } from './api-client';
 import {
@@ -432,6 +434,12 @@ export class HttpApiClient implements ApiClient {
 
   getDiagnostics(): Promise<Diagnostics> {
     return this.#request('GET', '/diagnostics');
+  }
+
+  async getProjectReadiness(projectId: Ulid): Promise<ProjectReadinessSnapshot> {
+    const response = await this.#request<unknown>('GET', `/projects/${projectId}/readiness`);
+    // Valida na fronteira: prontidão dirige bloqueio de execução na UI.
+    return projectReadinessSnapshotSchema.parse(response);
   }
 
   async listGovernanceReceipts(query?: GovernanceReceiptQuery): Promise<GovernanceReceipt[]> {

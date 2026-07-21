@@ -59,6 +59,7 @@ import type {
   FreshContextEvaluationInput,
   GovernanceMetric,
   GovernanceReceipt,
+  ProjectReadinessSnapshot,
   GovernanceReceiptQuery,
   HashlinePatchInput,
   HashlinePatchResult,
@@ -306,6 +307,15 @@ export interface ApiClient {
   restoreBackup(backupId: Ulid): Promise<void>;
   /** Diagnóstico da instalação: versões, saúde e conexões. */
   getDiagnostics(): Promise<Diagnostics>;
+
+  /* ---- prontidão do golden path (read model canônico, ADR-017) ---- */
+
+  /**
+   * Prontidão do projeto: etapas, bloqueadores e próximas ações.
+   * FONTE DA VERDADE da jornada depois que o projeto existe — a UI apresenta,
+   * não recalcula. 404 quando o projeto não existe.
+   */
+  getProjectReadiness(projectId: Ulid): Promise<ProjectReadinessSnapshot>;
 
   /* ---- governança de agentes P1 ---- */
 

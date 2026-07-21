@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MessagesSquare, PanelRight, Plus } from 'lucide-react';
 
-import type { Ulid } from '@/api';
+import type { ReadinessStep, Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton } from '@/design-system';
 import { useMediaQuery } from '@/features/board/hooks/use-media-query';
 import { Composer, type ChatAttachment } from '@/features/chat/components/composer';
@@ -147,15 +147,15 @@ export default function ChatPage() {
     setSelectedId(created.id);
   }
 
-  // Prontidão real para EXECUTAR (§13): provedor+conta, modelo e workflow.
-  // Derivada da mesma fonte do golden path — sem duplicar regra.
+  // Prontidão para EXECUTAR vem do read model canônico (§13): quem decide se
+  // o Chief pode executar é o backend (`ExecutionReady`), não o frontend.
   const goldenPath = useGoldenPath();
-  const stepDone = (id: 'provider' | 'model' | 'workflow') =>
+  const stepDone = (id: ReadinessStep) =>
     goldenPath.state.steps.find((step) => step.id === id)?.status === 'done';
-  const hasProvider = stepDone('provider');
-  const hasModel = stepDone('model');
-  const hasWorkflow = stepDone('workflow');
-  const canExecute = hasProvider && hasModel && hasWorkflow;
+  const hasProvider = stepDone('ProviderAccountReady');
+  const hasModel = stepDone('ModelReady');
+  const hasWorkflow = stepDone('WorkflowReady');
+  const canExecute = goldenPath.state.canExecute;
 
   const turnActive = isTurnActive(turn);
   const agentNames = useMemo(
