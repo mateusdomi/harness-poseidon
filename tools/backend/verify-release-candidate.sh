@@ -55,6 +55,7 @@ cleanup() {
   if [[ -x "${SMOKE_ROOT}/install/poseidon" ]]; then
     POSEIDON_DATA_DIR="${SMOKE_ROOT}/data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
     POSEIDON_DATA_DIR="${SMOKE_ROOT}/demo-data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
+    POSEIDON_DATA_DIR="${SMOKE_ROOT}/gov-data" "${SMOKE_ROOT}/install/poseidon" stop >/dev/null 2>&1 || true
   fi
   case "${SMOKE_ROOT}" in "${SMOKE_PARENT}/poseidon-rc-${SHORT_SHA}."*) rm -rf "${SMOKE_ROOT}" ;; esac
   case "${FRONTEND_WORK}" in "${RELEASE_ROOT}/.frontend") rm -rf "${FRONTEND_WORK}" ;; esac
@@ -151,6 +152,27 @@ export POSEIDON_DATA_DIR="${SMOKE_ROOT}/demo-data"
 run_gate "first-run demo" "${SMOKE_ROOT}/install/poseidon" start --no-browser --port 5090 --demo
 run_gate "first-run demo status" "${SMOKE_ROOT}/install/poseidon" status
 run_gate "first-run demo stop" "${SMOKE_ROOT}/install/poseidon" stop
+
+# Gate de governança em CWD NEUTRO (fora do checkout): um pacote instalado não pode depender do
+# diretório atual nem de um checkout de desenvolvimento para resolver a raiz de governança. Este
+# estágio reproduz a instalação humana que reprovou a RC2 (stale-doc-findings 500) e exige zero 500
+# em TODOS os GETs de governança no cenário nominal vazio, antes e depois de restart, além de abrir
+# Governança e Notificações sem console error nem asset 404. Corpos sanitizados ficam em screenshots/.
+export POSEIDON_DATA_DIR="${SMOKE_ROOT}/gov-data"
+mkdir -p "${POSEIDON_DATA_DIR}"
+( cd "${SMOKE_ROOT}" && run_gate "governance start (CWD neutro)" "${SMOKE_ROOT}/install/poseidon" start --no-browser --port 5091 )
+POSEIDON_PACKAGE_URL=http://127.0.0.1:5091 \
+  POSEIDON_PLAYWRIGHT_ROOT="${FRONTEND_WORK}" \
+  POSEIDON_EVIDENCE_DIR="${RELEASE_ROOT}/screenshots" \
+  run_gate "governance endpoints sem 500 (sessão vazia)" node \
+    "${TOOLS_DIR}/verify-governance-endpoints.mjs" initial
+( cd "${SMOKE_ROOT}" && run_gate "governance restart (CWD neutro)" "${SMOKE_ROOT}/install/poseidon" restart --no-browser --port 5091 )
+POSEIDON_PACKAGE_URL=http://127.0.0.1:5091 \
+  POSEIDON_PLAYWRIGHT_ROOT="${FRONTEND_WORK}" \
+  POSEIDON_EVIDENCE_DIR="${RELEASE_ROOT}/screenshots" \
+  run_gate "governance endpoints sem 500 (pós-restart)" node \
+    "${TOOLS_DIR}/verify-governance-endpoints.mjs" post-restart
+( cd "${SMOKE_ROOT}" && run_gate "governance stop" "${SMOKE_ROOT}/install/poseidon" stop )
 export POSEIDON_DATA_DIR="${SMOKE_ROOT}/data"
 
 for resource in \
