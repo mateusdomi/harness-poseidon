@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T18:32:20.1656020+00:00
+lastGeneratedAt: 2026-07-21T18:40:40.5026500+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7181
+  tokenEstimate: 7214
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:7dc9185ee2abcb91bebd062acdf5e7e3979c295790d8deb304132b507b29e6bb
+  checksum: sha256:15ad9c9a67ef3610436fb219762a4ebb08531998ff11a2e6017a690c398bcc54
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 8115
+  tokenEstimate: 8223
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:34187a974cf7e7a8c7a0a0a04246b42accf304984cd6ae8b16dfb1696a5551a8
+  checksum: sha256:ff81a12775f49617a534659ab9e9c8b6e26bf10919588e0765e4f777532171ba
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -10681,7 +10681,7 @@ documents:
   - src/Harness.Host/Readiness/**
   loadPolicy: on-demand
   priority: 750
-  tokenEstimate: 1869
+  tokenEstimate: 2060
   owner: Platform Governance
   status: active
   version: 1.0.0
@@ -10695,7 +10695,7 @@ documents:
   - adr-019-chief-transport-vs-model-response
   - adr-020-creativity-field-audit
   enforcedBy: []
-  checksum: sha256:bf5e40d9c7de82f66a466b2a77f27358b95b2d099283068c0d6cf88db8f79613
+  checksum: sha256:aaf864378c4b52f9f2538f32e5865652b3f6ccd1e97b0405c424da90324f2c7b
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/GOLDEN_PATH_HANDOFF.md
@@ -10893,3 +10893,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GP-C2-BLOCKED-TURN-CONTRACT.md
+- id: evidence-golden-path-c3-turn-lifecycle-events
+  path: docs/backend/execution/evidence/GP-C3-TURN-LIFECYCLE-EVENTS.md
+  title: GP-C3 — eventos do ciclo de vida do turno
+  category: evidence
+  topic: evidence-golden-path-c3-turn-lifecycle-events
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/contracts/**
+  - docs/decisions/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 707
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-019-chief-transport-vs-model-response
+  enforcedBy: []
+  checksum: sha256:cf159ddf65861a51b9f95b3845f3197ac9d05e0f79d6156eb03642e61d443409
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GP-C3-TURN-LIFECYCLE-EVENTS.md

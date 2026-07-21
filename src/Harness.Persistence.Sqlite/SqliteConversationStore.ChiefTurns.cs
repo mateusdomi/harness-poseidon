@@ -130,6 +130,27 @@ public sealed partial class SqliteConversationStore
             command.Blockers, command.NextActions, command.OccurredAt);
     }
 
+    // Payload sanitizado do ciclo de vida: identificadores e seleção, nunca conteúdo de
+    // prompt, resposta do modelo, credencial ou referência de segredo.
+    private static string TurnLifecyclePayload(ChiefTurnEnqueueCommand command, object? extra) =>
+        JsonSerializer.Serialize(new
+        {
+            turnId = command.TurnId,
+            conversationId = command.ConversationId,
+            projectId = command.ProjectId,
+            modelId = command.Selection?.ModelId,
+            effort = command.Selection?.Effort,
+            extra,
+        }, JsonOptions);
+
+    private static async Task AppendTurnLifecycleAsync(
+        SqliteConnection connection, SqliteTransaction tx, string tenantId, string eventType,
+        string payload, DateTimeOffset occurredAt, DateTimeOffset sequencedAt, CancellationToken token)
+    {
+        await AppendAuditAsync(connection, tx, tenantId, eventType, payload, occurredAt, token);
+        await AppendOutboxAsync(connection, tx, tenantId, eventType, payload, sequencedAt, occurredAt, token);
+    }
+
     private static async Task<ChiefTurnBlockRecord?> ReadChiefTurnBlockAsync(
         SqliteConnection connection, SqliteTransaction? tx, string tenantId, string userMessageId,
         CancellationToken token)
@@ -196,6 +217,31 @@ public sealed partial class SqliteConversationStore
         var payload = MessagePayload(command.UserMessage);
         await AppendAuditAsync(connection, tx, command.TenantId, "message.appended", payload, command.OccurredAt, token);
         await AppendOutboxAsync(connection, tx, command.TenantId, "message.appended", payload, command.OccurredAt, command.OccurredAt, token);
+        // C3/ADR-019: o ciclo de vida do turno é observável e distingue transporte de execução.
+        // `message.received` e `turn.registered` são acknowledgements; `execution.enqueued`
+        // marca a entrada na fila real. Nenhum deles é resposta do modelo.
+        await AppendTurnLifecycleAsync(
+            connection, tx, command.TenantId, "message.received",
+            TurnLifecyclePayload(command, new { messageId = command.UserMessage.Id }),
+            command.OccurredAt, command.OccurredAt.AddTicks(1), token);
+        await AppendTurnLifecycleAsync(
+            connection, tx, command.TenantId, "turn.registered",
+            TurnLifecyclePayload(command, null),
+            command.OccurredAt, command.OccurredAt.AddTicks(2), token);
+        await AppendTurnLifecycleAsync(
+            connection, tx, command.TenantId, "execution.enqueued",
+            TurnLifecyclePayload(command, null),
+            command.OccurredAt, command.OccurredAt.AddTicks(3), token);
+        await AppendTurnLifecycleAsync(
+            connection, tx, command.TenantId, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = command.TurnId,
+                conversationId = command.ConversationId,
+                projectId = command.ProjectId,
+                state = "pending",
+            }, JsonOptions),
+            command.OccurredAt, command.OccurredAt.AddTicks(4), token);
         if (command.Selection is not null)
         {
             var selectionPayload = JsonSerializer.Serialize(new
@@ -259,6 +305,32 @@ public sealed partial class SqliteConversationStore
             ("$turn", turn.TurnId), ("$agent", agent));
         var userMessage = await ReadMessageAsync(connection, tx, command.TenantId, turn.UserMessageId, token)
             ?? throw new ChiefTurnConflictException("The Chief turn user message does not exist.");
+        // C3: a aquisição do lease é o momento em que o turno passa ao provider real.
+        var invokedPayload = JsonSerializer.Serialize(new
+        {
+            turnId = turn.TurnId,
+            conversationId = turn.ConversationId,
+            projectId = turn.ProjectId,
+            accountId = turn.Selection?.AccountId,
+            modelId = turn.Selection?.ModelId,
+            modelName = turn.Selection?.ModelName,
+            effort = turn.Selection?.Effort,
+            providerEffortValue = turn.Selection?.ProviderEffortValue,
+            attempt = turn.AttemptCount + 1,
+        }, JsonOptions);
+        await AppendTurnLifecycleAsync(
+            connection, tx, command.TenantId, "provider.invoked", invokedPayload,
+            command.Now, command.Now, token);
+        await AppendTurnLifecycleAsync(
+            connection, tx, command.TenantId, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = turn.TurnId,
+                conversationId = turn.ConversationId,
+                projectId = turn.ProjectId,
+                state = "processing",
+            }, JsonOptions),
+            command.Now, command.Now.AddTicks(1), token);
         await tx.CommitAsync(token);
         return new ChiefTurnLease(turn with { State = "processing", AttemptCount = turn.AttemptCount + 1 }, command.OwnerId, fencing, leaseExpires, agent, userMessage.Content, session);
     }
@@ -345,7 +417,7 @@ public sealed partial class SqliteConversationStore
             await AppendAuditAsync(connection, tx, tenant, "demand.created", payload, occurredAt, token);
             await AppendOutboxAsync(
                 connection, tx, tenant, "demand.created", payload,
-                command.OccurredAt.AddTicks(command.Chunks.Count + 3 + index), occurredAt, token);
+                command.OccurredAt.AddTicks(command.Chunks.Count + 5 + index), occurredAt, token);
             index++;
         }
     }
@@ -369,6 +441,18 @@ public sealed partial class SqliteConversationStore
             ("$tenant", command.Lease.Turn.TenantId), ("$turn", command.Lease.Turn.TurnId),
             ("$project", command.Lease.Turn.ProjectId), ("$fencing", command.Lease.FencingToken),
             ("$agent", command.Lease.ChiefAgentId));
+        // C3: falha também é transição observável do ciclo do turno.
+        await AppendTurnLifecycleAsync(
+            connection, tx, command.Lease.Turn.TenantId, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = command.Lease.Turn.TurnId,
+                conversationId = command.Lease.Turn.ConversationId,
+                projectId = command.Lease.Turn.ProjectId,
+                state = next,
+                errorCode = command.ErrorCode,
+            }, JsonOptions),
+            command.OccurredAt, command.OccurredAt, token);
         await tx.CommitAsync(token);
     }
 
@@ -399,6 +483,29 @@ public sealed partial class SqliteConversationStore
         var completed = JsonSerializer.Serialize(new { conversationId = conversation, turnId = command.Lease.Turn.TurnId, messageId = command.ChiefMessage.Id, finishReason = "stop" }, JsonOptions);
         await AppendAuditAsync(connection, tx, tenant, "chat.turnCompleted", completed, command.OccurredAt, token);
         await AppendOutboxAsync(connection, tx, tenant, "chat.turnCompleted", completed, command.OccurredAt.AddTicks(command.Chunks.Count + 2), command.OccurredAt, token);
+        // C3: a resposta do MODELO é um evento distinto do acknowledgement de transporte.
+        var responded = JsonSerializer.Serialize(new
+        {
+            turnId = command.Lease.Turn.TurnId,
+            conversationId = command.Lease.Turn.ConversationId,
+            projectId = command.Lease.Turn.ProjectId,
+            messageId = command.ChiefMessage.Id,
+            modelId = command.Lease.Turn.Selection?.ModelId,
+            modelName = command.Lease.Turn.Selection?.ModelName,
+        }, JsonOptions);
+        await AppendTurnLifecycleAsync(
+            connection, tx, tenant, "model.responded", responded, command.OccurredAt,
+            command.OccurredAt.AddTicks(command.Chunks.Count + 3), token);
+        await AppendTurnLifecycleAsync(
+            connection, tx, tenant, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = command.Lease.Turn.TurnId,
+                conversationId = command.Lease.Turn.ConversationId,
+                projectId = command.Lease.Turn.ProjectId,
+                state = "completed",
+            }, JsonOptions),
+            command.OccurredAt, command.OccurredAt.AddTicks(command.Chunks.Count + 4), token);
     }
 
     private static async Task<ChiefTurnRecord?> ReadChiefTurnAsync(SqliteConnection connection, SqliteTransaction? tx, string tenant, string turn, CancellationToken token)

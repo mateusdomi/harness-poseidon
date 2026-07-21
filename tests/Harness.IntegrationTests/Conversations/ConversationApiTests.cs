@@ -188,23 +188,43 @@ public sealed class ConversationApiTests
 
                     var snapshot = await WaitForTurnAsync(
                         client, conversationId, handle.TurnId, timeout.Token);
+                    // C3/ADR-019: o ciclo de vida do turno é observável e ordenado. Os eventos
+                    // de transporte (`message.received`, `turn.registered`, `execution.enqueued`)
+                    // vêm antes da execução; `provider.invoked` marca a chamada real do
+                    // provider e `model.responded` a resposta do modelo — distinta do
+                    // `chat.turnCompleted`, que é conclusão de transporte.
                     Assert.Equal(
                         [
                             "message.appended",
                             "message.appended",
+                            "message.received",
+                            "turn.registered",
+                            "execution.enqueued",
+                            "chief.turnStateChanged",
+                            "provider.invoked",
+                            "chief.turnStateChanged",
                             "chat.turnStarted",
                             "chat.turnChunk",
                             "chat.turnChunk",
                             "message.appended",
                             "chat.turnCompleted",
+                            "model.responded",
+                            "chief.turnStateChanged",
                         ],
                         snapshot.Delta.Select(item => item.Type));
+                    // Sequência contígua sem lacuna nem duplicata em todo o ciclo.
                     Assert.Equal(
-                        Enumerable.Range(1, 7).Select(value => (long)value),
+                        Enumerable.Range(1, 15).Select(value => (long)value),
                         snapshot.Delta.Select(item => item.Sequence));
-                    var completed = snapshot.Delta[^1].Payload;
+                    var completed = snapshot.Delta
+                        .Last(item => item.Type == "chat.turnCompleted").Payload;
                     Assert.Equal(handle.TurnId, completed.GetProperty("turnId").GetString());
                     Assert.Equal("stop", completed.GetProperty("finishReason").GetString());
+                    // A resposta do modelo é evento próprio, com payload sanitizado.
+                    var responded = snapshot.Delta
+                        .Last(item => item.Type == "model.responded").Payload;
+                    Assert.Equal(handle.TurnId, responded.GetProperty("turnId").GetString());
+                    Assert.False(responded.TryGetProperty("content", out _));
 
                     var messages = await client.GetFromJsonAsync<MessagePage>(
                         $"/api/v1/messages?conversationId={conversationId}", timeout.Token);

@@ -1,16 +1,386 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "hub": "/hubs/events",
   "clientMethod": "event",
   "snapshotEndpoint": "/api/v1/event-streams/snapshot?stream={stream}&afterSequence={sequence}",
   "envelope": {
-    "required": ["stream", "sequence", "type", "occurredAt", "payload"],
+    "required": [
+      "stream",
+      "sequence",
+      "type",
+      "occurredAt",
+      "payload"
+    ],
     "properties": {
-      "stream": { "type": "string" },
-      "sequence": { "type": "integer", "minimum": 1 },
-      "type": { "type": "string" },
-      "occurredAt": { "type": "string", "format": "date-time" },
-      "payload": { "type": "object" }
+      "stream": {
+        "type": "string"
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "type": {
+        "type": "string"
+      },
+      "occurredAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "payload": {
+        "type": "object"
+      }
+    }
+  },
+  "payloads": {
+    "readiness.changed": {
+      "type": "object",
+      "required": [
+        "projectId",
+        "overallState",
+        "changedSteps"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "overallState": {
+          "type": "string"
+        },
+        "changedSteps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "step",
+              "state"
+            ],
+            "properties": {
+              "step": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "message.received": {
+      "type": "object",
+      "required": [
+        "turnId",
+        "conversationId",
+        "projectId"
+      ],
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "messageId": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "turn.registered": {
+      "type": "object",
+      "required": [
+        "turnId",
+        "conversationId",
+        "projectId"
+      ],
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "execution.enqueued": {
+      "type": "object",
+      "required": [
+        "turnId",
+        "conversationId",
+        "projectId"
+      ],
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "execution.blocked": {
+      "type": "object",
+      "required": [
+        "turnId",
+        "conversationId",
+        "projectId",
+        "readinessState",
+        "correlationId",
+        "blockers",
+        "nextActions"
+      ],
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "readinessState": {
+          "type": "string"
+        },
+        "correlationId": {
+          "type": "string"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "code",
+              "relatedIds"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "relatedIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "nextActions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "code",
+              "route",
+              "resourceId"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "route": {
+                "type": "string"
+              },
+              "resourceId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "provider.invoked": {
+      "type": "object",
+      "required": [
+        "turnId",
+        "conversationId",
+        "projectId",
+        "attempt"
+      ],
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "modelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "modelName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "providerEffortValue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "model.responded": {
+      "type": "object",
+      "required": [
+        "turnId",
+        "conversationId",
+        "projectId",
+        "messageId"
+      ],
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "modelName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "chief.turnStateChanged": {
+      "type": "object",
+      "required": [
+        "turnId",
+        "conversationId",
+        "projectId",
+        "state"
+      ],
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "conversationId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "processing",
+            "completed",
+            "failed",
+            "blocked"
+          ]
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     }
   },
   "events": [

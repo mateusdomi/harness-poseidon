@@ -129,6 +129,31 @@ public sealed partial class PostgresConversationStore
             command.Blockers, command.NextActions, command.OccurredAt);
     }
 
+    // Payload sanitizado do ciclo de vida: identificadores e seleção, nunca conteúdo de
+    // prompt, resposta do modelo, credencial ou referência de segredo.
+    private static string TurnLifecyclePayload(ChiefTurnEnqueueCommand command, object? extra) =>
+        JsonSerializer.Serialize(new
+        {
+            turnId = command.TurnId,
+            conversationId = command.ConversationId,
+            projectId = command.ProjectId,
+            modelId = command.Selection?.ModelId,
+            effort = command.Selection?.Effort,
+            extra,
+        }, JsonOptions);
+
+    private static async Task AppendTurnLifecycleAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction, string tenantId,
+        string eventType, string payload, DateTimeOffset occurredAt, DateTimeOffset sequencedAt,
+        CancellationToken cancellationToken)
+    {
+        await AppendAuditAsync(
+            connection, transaction, tenantId, eventType, payload, occurredAt, cancellationToken);
+        await AppendOutboxAsync(
+            connection, transaction, tenantId, eventType, payload, sequencedAt, occurredAt,
+            cancellationToken);
+    }
+
     private static async Task<ChiefTurnBlockRecord?> ReadChiefTurnBlockAsync(
         NpgsqlConnection connection, NpgsqlTransaction? transaction, string tenantId,
         string userMessageId, CancellationToken cancellationToken)
@@ -306,6 +331,29 @@ public sealed partial class PostgresConversationStore
         await AppendOutboxAsync(
             connection, transaction, command.TenantId, "message.appended", payload,
             command.OccurredAt, command.OccurredAt, cancellationToken);
+        // C3/ADR-019: ciclo de vida observável, distinguindo transporte de execução real.
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.TenantId, "message.received",
+            TurnLifecyclePayload(command, new { messageId = command.UserMessage.Id }),
+            command.OccurredAt, command.OccurredAt.AddTicks(1), cancellationToken);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.TenantId, "turn.registered",
+            TurnLifecyclePayload(command, null),
+            command.OccurredAt, command.OccurredAt.AddTicks(2), cancellationToken);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.TenantId, "execution.enqueued",
+            TurnLifecyclePayload(command, null),
+            command.OccurredAt, command.OccurredAt.AddTicks(3), cancellationToken);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.TenantId, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = command.TurnId,
+                conversationId = command.ConversationId,
+                projectId = command.ProjectId,
+                state = "pending",
+            }, JsonOptions),
+            command.OccurredAt, command.OccurredAt.AddTicks(4), cancellationToken);
         if (command.Selection is not null)
         {
             var selectionPayload = JsonSerializer.Serialize(new
@@ -443,6 +491,32 @@ public sealed partial class PostgresConversationStore
         var userMessage = await ReadMessageAsync(
                 connection, transaction, command.TenantId, turn.UserMessageId, cancellationToken)
             ?? throw new ChiefTurnConflictException("The Chief turn user message does not exist.");
+        // C3: a aquisição do lease é o momento em que o turno passa ao provider real.
+        var invokedPayload = JsonSerializer.Serialize(new
+        {
+            turnId = turn.TurnId,
+            conversationId = turn.ConversationId,
+            projectId = turn.ProjectId,
+            accountId = turn.Selection?.AccountId,
+            modelId = turn.Selection?.ModelId,
+            modelName = turn.Selection?.ModelName,
+            effort = turn.Selection?.Effort,
+            providerEffortValue = turn.Selection?.ProviderEffortValue,
+            attempt = turn.AttemptCount + 1,
+        }, JsonOptions);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.TenantId, "provider.invoked", invokedPayload,
+            command.Now, command.Now, cancellationToken);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.TenantId, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = turn.TurnId,
+                conversationId = turn.ConversationId,
+                projectId = turn.ProjectId,
+                state = "processing",
+            }, JsonOptions),
+            command.Now, command.Now.AddTicks(1), cancellationToken);
         return new ChiefTurnLease(
             turn with { State = "processing", AttemptCount = turn.AttemptCount + 1 },
             command.OwnerId, fencing, leaseExpires, agent, userMessage.Content, session);
@@ -594,7 +668,7 @@ public sealed partial class PostgresConversationStore
                 cancellationToken);
             await AppendOutboxAsync(
                 connection, transaction, tenant, "demand.created", payload,
-                command.OccurredAt.AddTicks(command.Chunks.Count + 3 + index), occurredAt,
+                command.OccurredAt.AddTicks(command.Chunks.Count + 5 + index), occurredAt,
                 cancellationToken);
             index++;
         }
@@ -648,6 +722,18 @@ public sealed partial class PostgresConversationStore
             Timestamp(command.OccurredAt),
             Text(command.Lease.Turn.TenantId),
             Text(command.Lease.ChiefAgentId));
+        // C3: falha também é transição observável do ciclo do turno.
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.Lease.Turn.TenantId, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = command.Lease.Turn.TurnId,
+                conversationId = command.Lease.Turn.ConversationId,
+                projectId = command.Lease.Turn.ProjectId,
+                state = next,
+                errorCode = command.ErrorCode,
+            }, JsonOptions),
+            command.OccurredAt, command.OccurredAt, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -740,6 +826,30 @@ public sealed partial class PostgresConversationStore
         await AppendOutboxAsync(
             connection, transaction, tenant, "chat.turnCompleted", completed,
             command.OccurredAt.AddTicks(command.Chunks.Count + 2), command.OccurredAt,
+            cancellationToken);
+        // C3: a resposta do MODELO é evento distinto do acknowledgement de transporte.
+        var responded = JsonSerializer.Serialize(new
+        {
+            turnId = command.Lease.Turn.TurnId,
+            conversationId = command.Lease.Turn.ConversationId,
+            projectId = command.Lease.Turn.ProjectId,
+            messageId = command.ChiefMessage.Id,
+            modelId = command.Lease.Turn.Selection?.ModelId,
+            modelName = command.Lease.Turn.Selection?.ModelName,
+        }, JsonOptions);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, tenant, "model.responded", responded, command.OccurredAt,
+            command.OccurredAt.AddTicks(command.Chunks.Count + 3), cancellationToken);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, tenant, "chief.turnStateChanged",
+            JsonSerializer.Serialize(new
+            {
+                turnId = command.Lease.Turn.TurnId,
+                conversationId = command.Lease.Turn.ConversationId,
+                projectId = command.Lease.Turn.ProjectId,
+                state = "completed",
+            }, JsonOptions),
+            command.OccurredAt, command.OccurredAt.AddTicks(command.Chunks.Count + 4),
             cancellationToken);
     }
 

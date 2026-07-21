@@ -21,6 +21,28 @@ public sealed class EventCatalogContractTests
 
         Assert.Equal(EventTypeCatalog.All, publishedEvents);
         Assert.Equal("/hubs/events", document.RootElement.GetProperty("hub").GetString());
+
+        // C3: os eventos do golden path publicam payload, não só o nome. Cada schema é um
+        // objeto com campos obrigatórios declarados, para o frontend tipar sem inventar campos.
+        var payloads = document.RootElement.GetProperty("payloads");
+        string[] goldenPathEvents =
+        [
+            "readiness.changed", "message.received", "turn.registered", "execution.enqueued",
+            "execution.blocked", "provider.invoked", "model.responded", "chief.turnStateChanged",
+        ];
+        foreach (var eventType in goldenPathEvents)
+        {
+            Assert.Contains(eventType, publishedEvents);
+            var schema = payloads.GetProperty(eventType);
+            Assert.Equal("object", schema.GetProperty("type").GetString());
+            Assert.NotEmpty(schema.GetProperty("required").EnumerateArray());
+            Assert.NotEmpty(schema.GetProperty("properties").EnumerateObject());
+        }
+
+        // Todo payload publicado precisa existir no catálogo tipado.
+        Assert.All(
+            payloads.EnumerateObject().Select(property => property.Name),
+            name => Assert.Contains(name, publishedEvents));
     }
 
     private static string FindRepositoryRoot()

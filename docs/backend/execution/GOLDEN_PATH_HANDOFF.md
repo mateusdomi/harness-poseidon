@@ -135,6 +135,27 @@ tipado:
 **Ação do frontend:** ler `state`/`blockers`/`nextActions` em vez de tratar `400` como
 bloqueio (ver `docs/frontend/HANDOFF_API.md` §9.1.1, que documentava o comportamento antigo).
 
+## 3.2 Payloads dos eventos publicados (C3)
+
+`docs/contracts/events.json` subiu para **1.2** e ganhou a seção `payloads`, com schema por
+evento (campos obrigatórios e tipos). Atende ao pedido de `docs/frontend/HANDOFF_API.md`
+§9.1.2: os schemas permissivos podem virar tipados.
+
+Emissão real por transição:
+
+| Transição | Eventos |
+|---|---|
+| Enfileiramento | `message.received`, `turn.registered`, `execution.enqueued`, `chief.turnStateChanged` (`pending`) |
+| Recusa por prontidão | `execution.blocked` |
+| Aquisição do lease | `provider.invoked`, `chief.turnStateChanged` (`processing`) |
+| Conclusão | `chat.turnStarted/Chunk/Completed`, `message.appended`, `model.responded`, `chief.turnStateChanged` (`completed`), `demand.created` |
+| Falha/retry | `chief.turnStateChanged` (`failed`/`pending`, com `errorCode`) |
+
+`model.responded` é a resposta do MODELO; `chat.turnCompleted` é conclusão de TRANSPORTE.
+`chief.turnStateChanged` agora é emitido (antes só declarado) e carrega `state` do conjunto
+fechado `pending|processing|completed|failed|blocked`. Payloads são sanitizados: apenas
+identificadores e seleção, nunca conteúdo de prompt/resposta ou segredo.
+
 ## 4. O que o frontend deve publicar (habilita a metade frontend do drift)
 
 Os testes de drift de contrato (`tests/Harness.ContractTests/**`) asseguram que
