@@ -32,7 +32,14 @@ public sealed class ConversationContractDriftTests
 
         AssertSchema(openApi, "ConversationResponse", ConversationFields);
         AssertSchema(openApi, "MessageResponse", MessageFields);
-        AssertSchema(openApi, "ChatTurnHandle", ["turnId", "conversationId"]);
+        // C2/ADR-019: o turno expõe estado tipado, bloqueadores, próximas ações e prontidão.
+        AssertSchema(openApi, "ChatTurnHandle",
+            ["turnId", "conversationId", "state", "correlationId", "readiness", "blockers",
+             "nextActions", "links"]);
+        AssertSchema(openApi, "ChatTurnBlocker", ["code", "relatedIds"]);
+        AssertSchema(openApi, "ChatTurnNextAction", ["code", "route", "resourceId"]);
+        AssertSchema(openApi, "ChatTurnReadiness", ["overallState", "executionState"]);
+        AssertSchema(openApi, "ChatTurnLinks", ["readiness", "conversation"]);
         AssertSchema(openApi, "StartChatTurnRequest",
             ["content", "accountId", "modelId", "effort", "fallbackModelIds", "selectionReason"]);
 

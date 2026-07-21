@@ -63,6 +63,7 @@ public sealed class PostgresServerModeHostTests
                 await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                 var organization = await CreateOrganizationAsync(client, timeout.Token);
                 var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                await WorkflowTestBinding.BindRecommendedAsync(client, project.Id, timeout.Token);
                 var templates = (await client.GetFromJsonAsync<Harness.Host.Workflows.WorkflowTemplatePage>(
                     "/api/v1/workflow-templates?limit=50", timeout.Token))!;
                 Assert.Equal(6, templates.Items.Count);

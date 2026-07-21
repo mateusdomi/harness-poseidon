@@ -25,6 +25,132 @@ public sealed partial class PostgresConversationStore
         return AcquireCoreAsync(command, cancellationToken);
     }
 
+    public Task<ChiefTurnBlockRecord> BlockAsync(
+        ChiefTurnBlockCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return BlockCoreAsync(command, cancellationToken);
+    }
+
+    private async Task<ChiefTurnBlockRecord> BlockCoreAsync(
+        ChiefTurnBlockCommand command, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await ExecuteAsync(
+            connection, transaction,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));",
+            cancellationToken,
+            Text($"chief-turn-block:{command.TenantId}:{command.UserMessage.Id}"));
+        // Idempotência por mensagem humana: o retry do mesmo envio devolve o bloqueio já
+        // registrado, sem inserir mensagem, bloqueio ou evento de novo.
+        var existing = await ReadChiefTurnBlockAsync(
+            connection, transaction, command.TenantId, command.UserMessage.Id, cancellationToken);
+        if (existing is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return existing;
+        }
+
+        var conversation = await ReadConversationAsync(
+            connection, transaction, command.TenantId, command.ConversationId, cancellationToken);
+        if (conversation is null || conversation.State != "active" ||
+            conversation.ProjectId != command.ProjectId)
+        {
+            throw new ChiefTurnConflictException("The target conversation is not active for this project.");
+        }
+
+        var blockers = JsonSerializer.Serialize(command.Blockers, JsonOptions);
+        var nextActions = JsonSerializer.Serialize(command.NextActions, JsonOptions);
+        await InsertMessageAsync(connection, transaction, command.UserMessage, cancellationToken);
+        await UpdateLastMessageAsync(
+            connection, transaction, command.TenantId, command.ConversationId,
+            command.UserMessage.CreatedAt, cancellationToken);
+        await ExecuteAsync(
+            connection, transaction,
+            """
+            INSERT INTO harness.inbox_messages
+                (tenant_id,idempotency_key,message_hash,response_json,processed_at)
+            VALUES ($1,$2,$3,$4,$5);
+            """,
+            cancellationToken,
+            Text(command.TenantId),
+            Text(command.IdempotencyKey),
+            Text(DurableCommandHash.Compute(command)),
+            Json(JsonSerializer.Serialize(
+                new { turnId = command.TurnId, state = "blocked" }, JsonOptions)),
+            Timestamp(command.OccurredAt));
+        await ExecuteAsync(
+            connection, transaction,
+            """
+            INSERT INTO harness.chief_turn_blocks
+                (id,tenant_id,project_id,conversation_id,user_message_id,readiness_state,
+                 blockers_json,next_actions_json,correlation_id,created_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);
+            """,
+            cancellationToken,
+            Text(command.TurnId),
+            Text(command.TenantId),
+            Text(command.ProjectId),
+            Text(command.ConversationId),
+            Text(command.UserMessage.Id),
+            Text(command.ReadinessState),
+            Json(blockers),
+            Json(nextActions),
+            Text(command.CorrelationId),
+            Timestamp(command.OccurredAt));
+        var messagePayload = MessagePayload(command.UserMessage);
+        await AppendAuditAsync(
+            connection, transaction, command.TenantId, "message.appended", messagePayload,
+            command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(
+            connection, transaction, command.TenantId, "message.appended", messagePayload,
+            command.OccurredAt, command.OccurredAt, cancellationToken);
+        var blockedPayload = JsonSerializer.Serialize(new
+        {
+            turnId = command.TurnId,
+            conversationId = command.ConversationId,
+            projectId = command.ProjectId,
+            readinessState = command.ReadinessState,
+            correlationId = command.CorrelationId,
+            blockers = command.Blockers,
+            nextActions = command.NextActions,
+        }, JsonOptions);
+        await AppendAuditAsync(
+            connection, transaction, command.TenantId, "execution.blocked", blockedPayload,
+            command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(
+            connection, transaction, command.TenantId, "execution.blocked", blockedPayload,
+            command.OccurredAt, command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new ChiefTurnBlockRecord(
+            command.TenantId, command.ProjectId, command.ConversationId, command.TurnId,
+            command.UserMessage.Id, command.ReadinessState, command.CorrelationId,
+            command.Blockers, command.NextActions, command.OccurredAt);
+    }
+
+    private static async Task<ChiefTurnBlockRecord?> ReadChiefTurnBlockAsync(
+        NpgsqlConnection connection, NpgsqlTransaction? transaction, string tenantId,
+        string userMessageId, CancellationToken cancellationToken)
+    {
+        await using var query = connection.CreateCommand();
+        query.Transaction = transaction;
+        query.CommandText =
+            "SELECT id,project_id,conversation_id,user_message_id,readiness_state," +
+            "blockers_json::text,next_actions_json::text,correlation_id,created_at " +
+            "FROM harness.chief_turn_blocks WHERE tenant_id=$1 AND user_message_id=$2;";
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(userMessageId));
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+        return new ChiefTurnBlockRecord(
+            tenantId, reader.GetString(1), reader.GetString(2), reader.GetString(0),
+            reader.GetString(3), reader.GetString(4), reader.GetString(7),
+            JsonSerializer.Deserialize<ChiefTurnBlockerRecord[]>(reader.GetString(5), JsonOptions) ?? [],
+            JsonSerializer.Deserialize<ChiefTurnNextActionRecord[]>(reader.GetString(6), JsonOptions) ?? [],
+            reader.GetFieldValue<DateTimeOffset>(8));
+    }
+
     public async Task<ChiefTurnLease?> AcquireNextAsync(
         string ownerId, DateTimeOffset now, TimeSpan leaseDuration,
         CancellationToken cancellationToken = default)

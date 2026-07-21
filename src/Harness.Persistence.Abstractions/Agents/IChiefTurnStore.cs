@@ -12,7 +12,37 @@ public interface IChiefTurnStore
     Task CompleteAsync(ChiefTurnCompleteCommand command, CancellationToken cancellationToken = default);
     Task FailAsync(ChiefTurnFailCommand command, CancellationToken cancellationToken = default);
     Task<ChiefTurnRecord?> GetAsync(string tenantId, string turnId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persiste a mensagem humana e registra o turno como BLOQUEADO por prontidão, sem
+    /// enfileirar execução (ADR-019). Um turno recusado por falta de provider/modelo/workflow
+    /// não é item de mailbox: a mensagem é durável, o bloqueio é auditável e nenhuma resposta
+    /// é fabricada. Idempotente por mensagem: o retry devolve o mesmo bloqueio, sem duplicar
+    /// mensagem, registro ou evento.
+    /// </summary>
+    Task<ChiefTurnBlockRecord> BlockAsync(
+        ChiefTurnBlockCommand command, CancellationToken cancellationToken = default);
 }
+
+/// <summary>Bloqueador tipado do turno: código estável e IDs relacionados, nunca texto livre.</summary>
+public sealed record ChiefTurnBlockerRecord(string Code, IReadOnlyList<string> RelatedIds);
+
+/// <summary>Próxima ação recomendada para desbloquear o turno.</summary>
+public sealed record ChiefTurnNextActionRecord(string Code, string Route, string? ResourceId);
+
+public sealed record ChiefTurnBlockRecord(
+    string TenantId, string ProjectId, string ConversationId, string TurnId,
+    string UserMessageId, string ReadinessState, string CorrelationId,
+    IReadOnlyList<ChiefTurnBlockerRecord> Blockers,
+    IReadOnlyList<ChiefTurnNextActionRecord> NextActions,
+    DateTimeOffset CreatedAt);
+
+public sealed record ChiefTurnBlockCommand(
+    string TenantId, string ProjectId, string ConversationId, string TurnId,
+    MessageRecord UserMessage, string ReadinessState, string CorrelationId,
+    IReadOnlyList<ChiefTurnBlockerRecord> Blockers,
+    IReadOnlyList<ChiefTurnNextActionRecord> NextActions,
+    string IdempotencyKey, DateTimeOffset OccurredAt);
 
 public sealed record ChiefTurnRecord(
     string TenantId, string ProjectId, string ConversationId, string TurnId,

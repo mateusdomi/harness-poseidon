@@ -7,6 +7,7 @@ using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
+using Harness.Modules.Readiness.Contracts;
 
 namespace Harness.Host.Conversations;
 
@@ -224,6 +225,7 @@ public static class ConversationEndpoints
         IChiefTurnStore chiefTurns,
         IProjectStore projects,
         ChiefInvocationRoutingService routing,
+        Readiness.ProjectReadinessService readiness,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -240,12 +242,85 @@ public static class ConversationEndpoints
         {
             var now = clock.UtcNow;
             var turnId = UlidValue.New(now).ToString();
+            var correlationId = $"turn:{turnId}";
             var userAt = now.AddMilliseconds(1);
             var user = ConversationApplicationService.CreateUserMessage(
                 UlidValue.New(userAt).ToString(), profile.Id,
                 new CreateMessageRequest(conversationId, input.Content), userAt);
-            var selection = await routing.ResolveAsync(
-                profile.TenantId, project.ChiefAgentId, input, cancellationToken);
+            var userRecord = ToRecord(profile.TenantId, conversation.ProjectId, user);
+            var snapshot = await readiness.EvaluateAsync(
+                profile.TenantId, project, profileReady: true, cancellationToken);
+
+            // A execução só é tentada quando a prontidão canônica autoriza. Sem provider,
+            // modelo ou workflow o turno não vira erro de requisição: a mensagem é persistida e
+            // o bloqueio é devolvido tipado, sem fabricar resposta do Chief (ADR-019).
+            ChiefInvocationSelection? selection = null;
+            var blockers = new List<ChatTurnBlocker>();
+            var executionStep = snapshot.Steps.Single(
+                step => step.Step == ReadinessStep.ExecutionReady);
+            if (executionStep.State is ConfigurationState.Ready or ConfigurationState.Simulated)
+            {
+                try
+                {
+                    selection = await routing.ResolveAsync(
+                        profile.TenantId, project.ChiefAgentId, input, cancellationToken);
+                }
+                catch (ChiefInvocationSelectionException)
+                {
+                    // Corrida entre a leitura de prontidão e a resolução real: trate como
+                    // bloqueio tipado, nunca como resposta simulada ou 400.
+                    blockers.Add(new ChatTurnBlocker("chief.model_unresolved", []));
+                }
+            }
+            else
+            {
+                blockers.AddRange(executionStep.Blockers
+                    .Select(blocker => new ChatTurnBlocker(blocker.Code, blocker.RelatedIds)));
+                if (blockers.Count == 0)
+                {
+                    blockers.Add(new ChatTurnBlocker("execution.not_ready", []));
+                }
+            }
+
+            var links = new ChatTurnLinks(
+                $"/api/v1/projects/{project.Id}/readiness",
+                $"/api/v1/conversations/{conversationId}");
+            var readinessContract = new ChatTurnReadiness(
+                snapshot.OverallState.ToString(), executionStep.State.ToString());
+            if (selection is null)
+            {
+                var nextActions = snapshot.NextActions
+                    .Select(action => new ChatTurnNextAction(action.Code, action.Route, action.ResourceId))
+                    .ToArray();
+                var block = await chiefTurns.BlockAsync(
+                    new ChiefTurnBlockCommand(
+                        profile.TenantId,
+                        project.Id,
+                        conversationId,
+                        turnId,
+                        userRecord,
+                        readinessContract.ExecutionState,
+                        correlationId,
+                        blockers.Select(blocker =>
+                            new ChiefTurnBlockerRecord(blocker.Code, blocker.RelatedIds)).ToArray(),
+                        nextActions.Select(action =>
+                            new ChiefTurnNextActionRecord(action.Code, action.Route, action.ResourceId)).ToArray(),
+                        $"chief-turn-block:{turnId}",
+                        now),
+                    cancellationToken);
+                return Results.Accepted(value: new ChatTurnHandle(
+                    block.TurnId,
+                    conversationId,
+                    "blocked",
+                    block.CorrelationId,
+                    readinessContract,
+                    block.Blockers.Select(blocker =>
+                        new ChatTurnBlocker(blocker.Code, blocker.RelatedIds)).ToArray(),
+                    block.NextActions.Select(action =>
+                        new ChatTurnNextAction(action.Code, action.Route, action.ResourceId)).ToArray(),
+                    links));
+            }
+
             await chiefTurns.EnqueueAsync(
                 new ChiefTurnEnqueueCommand(
                     profile.TenantId,
@@ -253,12 +328,13 @@ public static class ConversationEndpoints
                     conversationId,
                     turnId,
                     project.ChiefAgentId,
-                    ToRecord(profile.TenantId, conversation.ProjectId, user),
+                    userRecord,
                     $"chief-turn:{turnId}",
                     now,
                     selection),
                 cancellationToken);
-            return Results.Accepted(value: new ChatTurnHandle(turnId, conversationId));
+            return Results.Accepted(value: new ChatTurnHandle(
+                turnId, conversationId, "pending", correlationId, readinessContract, [], [], links));
         }
         catch (ArgumentException exception)
         {
@@ -267,10 +343,6 @@ public static class ConversationEndpoints
         catch (ChiefTurnConflictException exception)
         {
             return Problem(409, "chief_turn_conflict", exception.Message);
-        }
-        catch (ChiefInvocationSelectionException exception)
-        {
-            return Problem(400, "invalid_chief_invocation_selection", exception.Message);
         }
     }
 

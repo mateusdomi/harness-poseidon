@@ -101,6 +101,40 @@ Já existentes e reutilizados: `chat.turnStarted/turnChunk/turnCompleted`,
 `chief.turnStateChanged` (passa a ser emitido), `message.appended`,
 `demand.created`.
 
+## 3.1 Turno bloqueado tipado (C2 — **MUDANÇA DE CONTRATO**)
+
+`POST /api/v1/conversations/{conversationId}/turns` **não retorna mais `400`** quando falta
+provider/modelo/workflow. A mensagem humana é persistida e o turno volta `202` com estado
+tipado:
+
+```jsonc
+{
+  "turnId": "01J…",
+  "conversationId": "01J…",
+  "state": "blocked",          // pending | processing | completed | failed | blocked
+  "correlationId": "turn:01J…",
+  "readiness": { "overallState": "Unconfigured", "executionState": "Unconfigured" },
+  "blockers": [ { "code": "provider_account.missing", "relatedIds": [] } ],
+  "nextActions": [ { "code": "provider.connectAccount", "route": "/providers", "resourceId": null } ],
+  "links": {
+    "readiness": "/api/v1/projects/{projectId}/readiness",
+    "conversation": "/api/v1/conversations/{conversationId}"
+  }
+}
+```
+
+- `state=pending` significa registrado e enfileirado para execução real.
+- `400` fica reservado a request estruturalmente inválido; `409` a conflito de conversa.
+- O bloqueio é durável e auditável (`chief_turn_blocks`, ledger e Outbox) e emite
+  `execution.blocked`.
+- Idempotente por mensagem: o retry do mesmo envio devolve o mesmo bloqueio, sem duplicar
+  mensagem, turno ou evento.
+- **Pré-requisito novo:** o gate do turno é `ExecutionReady`, que inclui `WorkflowReady`.
+  Um projeto sem workflow vinculado bloqueia com `workflow.unbound`.
+
+**Ação do frontend:** ler `state`/`blockers`/`nextActions` em vez de tratar `400` como
+bloqueio (ver `docs/frontend/HANDOFF_API.md` §9.1.1, que documentava o comportamento antigo).
+
 ## 4. O que o frontend deve publicar (habilita a metade frontend do drift)
 
 Os testes de drift de contrato (`tests/Harness.ContractTests/**`) asseguram que

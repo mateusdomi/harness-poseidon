@@ -49,6 +49,7 @@ public sealed class ConversationApiTests
                     tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>().GetAsync(profileId, timeout.Token))!.TenantId;
                     var organization = await CreateOrganizationAsync(client, timeout.Token);
                     var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                    await WorkflowTestBinding.BindRecommendedAsync(client, project.Id, timeout.Token);
                     projectId = project.Id; chiefAgentId = project.ChiefAgentId;
                     using var created = await client.PostAsJsonAsync("/api/v1/conversations", new CreateConversationRequest(projectId, "Recovery"), timeout.Token);
                     created.EnsureSuccessStatusCode();
@@ -133,6 +134,7 @@ public sealed class ConversationApiTests
                     profileId = profile.Id;
                     var organization = await CreateOrganizationAsync(client, timeout.Token);
                     var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                    await WorkflowTestBinding.BindRecommendedAsync(client, project.Id, timeout.Token);
 
                     using var missingProject = await client.PostAsJsonAsync(
                         "/api/v1/conversations",

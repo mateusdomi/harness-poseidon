@@ -47,6 +47,7 @@ public sealed class ChiefDemandMaterializationTests
                     await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                     var organization = await CreateOrganizationAsync(client, timeout.Token);
                     var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                    await WorkflowTestBinding.BindRecommendedAsync(client, project.Id, timeout.Token);
                     projectId = project.Id;
                     using var created = await client.PostAsJsonAsync(
                         "/api/v1/conversations",

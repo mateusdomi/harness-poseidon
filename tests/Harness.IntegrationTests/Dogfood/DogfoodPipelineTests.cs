@@ -76,6 +76,7 @@ public sealed class DogfoodPipelineTests
                     organization.Id,
                     repository,
                     timeout.Token);
+                await WorkflowTestBinding.BindRecommendedAsync(client, project.Id, timeout.Token);
 
                 // 1) Solicitação humana pelo chat; o Chief propõe a demanda estruturada.
                 using var created = await client.PostAsJsonAsync(

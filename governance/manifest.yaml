@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T16:59:36.8722740+00:00
+lastGeneratedAt: 2026-07-21T18:32:20.1656020+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7154
+  tokenEstimate: 7181
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:e231e2a1d19ae4df0a80db98c381080a81b7abc0ab95d3a80f08fb886a8a2b17
+  checksum: sha256:7dc9185ee2abcb91bebd062acdf5e7e3979c295790d8deb304132b507b29e6bb
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 8085
+  tokenEstimate: 8115
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:66044199cc849e26bc395f754bc267a22a3db9628d3fc623f692087d920eceb6
+  checksum: sha256:34187a974cf7e7a8c7a0a0a04246b42accf304984cd6ae8b16dfb1696a5551a8
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -8883,7 +8883,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 3141
+  tokenEstimate: 4602
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8893,7 +8893,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:c1f5712f86c4b1f65f3c5324170f43ef2b76afd16403bed75cac885d8bbaa66d
+  checksum: sha256:d67b5d632874073829f6adf537fb1c414f47ab9296f4dbf610b36f08d636172e
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/CURRENT_STATE.md
@@ -8931,7 +8931,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 18030
+  tokenEstimate: 21128
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8941,7 +8941,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:9fec5d29a81d6e52f5ca520737ef9b010cdfbce6cfca55b6a107abd9442df082
+  checksum: sha256:299f68ba6b3798fbcf183afb8ff22ad02427900f826863c524ee0bb8e6cb286f
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/DECISIONS.md
@@ -8979,7 +8979,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 7793
+  tokenEstimate: 9951
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8989,7 +8989,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:64cf54931082a3c740548b48c0e2ca62630cccb595f934bdf22613bc540388ba
+  checksum: sha256:6a545faf8e812c66ad24f4fd2bd6c0ae1b81c9847e17d8fe4a6ce863c08b0520
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/HANDOFF_API.md
@@ -9123,7 +9123,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 4259
+  tokenEstimate: 6402
   owner: Frontend
   status: active
   version: 1.0.0
@@ -9133,7 +9133,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:95b3fda017b974185c336d360def0c4413f868cf35df14496f6fa958e146f490
+  checksum: sha256:fe96edb851181bfac1f1d0c217032383caa20f6ec2fe5e2b421ea66ab4a321af
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/SCREENS.md
@@ -10681,7 +10681,7 @@ documents:
   - src/Harness.Host/Readiness/**
   loadPolicy: on-demand
   priority: 750
-  tokenEstimate: 1595
+  tokenEstimate: 1869
   owner: Platform Governance
   status: active
   version: 1.0.0
@@ -10695,7 +10695,7 @@ documents:
   - adr-019-chief-transport-vs-model-response
   - adr-020-creativity-field-audit
   enforcedBy: []
-  checksum: sha256:e81016145b4511e4048e84bafd51f605921bf810c7cb26cda587b12c72bff382
+  checksum: sha256:bf5e40d9c7de82f66a466b2a77f27358b95b2d099283068c0d6cf88db8f79613
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/GOLDEN_PATH_HANDOFF.md
@@ -10844,3 +10844,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GP-C1-NO-SIMULATED-CHIEF-REPLY.md
+- id: evidence-golden-path-c2-blocked-turn
+  path: docs/backend/execution/evidence/GP-C2-BLOCKED-TURN-CONTRACT.md
+  title: GP-C2 — turno bloqueado tipado
+  category: evidence
+  topic: evidence-golden-path-c2-blocked-turn
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/contracts/**
+  - docs/decisions/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 884
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-019-chief-transport-vs-model-response
+  enforcedBy: []
+  checksum: sha256:a5d12c3f0bd1bb8f1d744c89a5b75bc81c0d9134ccca55cadc441b34ef256193
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GP-C2-BLOCKED-TURN-CONTRACT.md

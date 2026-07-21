@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.Fake;
+using Harness.Modules.Conversations.Contracts;
+using Harness.Host.Conversations;
 
 namespace Harness.IntegrationTests.Providers;
 
@@ -137,6 +139,36 @@ public sealed class EmptyInstallFailClosedTests
                 Assert.NotEmpty(execution.Blockers);
                 Assert.NotEqual(ConfigurationState.Ready, readiness.OverallState);
                 Assert.NotEmpty(readiness.NextActions);
+                // C2/ADR-019: sem provider/modelo o turno NÃO é erro de requisição. A mensagem
+                // é persistida e o bloqueio volta tipado, com bloqueadores e próximas ações.
+                var conversation = (await (await client.PostAsJsonAsync(
+                    "/api/v1/conversations",
+                    new CreateConversationRequest(project.Id, "Primeira conversa"),
+                    timeout.Token)).Content.ReadFromJsonAsync<ConversationResponse>(timeout.Token))!;
+                using (var turn = await client.PostAsJsonAsync(
+                    $"/api/v1/conversations/{conversation.Id}/turns",
+                    new StartChatTurnRequest("Olá, Chief."),
+                    timeout.Token))
+                {
+                    Assert.Equal(System.Net.HttpStatusCode.Accepted, turn.StatusCode);
+                    var handle = (await turn.Content.ReadFromJsonAsync<ChatTurnHandle>(timeout.Token))!;
+                    Assert.Equal("blocked", handle.State);
+                    Assert.NotEmpty(handle.Blockers);
+                    Assert.NotEmpty(handle.NextActions);
+                    Assert.NotEmpty(handle.CorrelationId);
+                    Assert.Equal(conversation.Id, handle.ConversationId);
+                    Assert.Equal(
+                        $"/api/v1/projects/{project.Id}/readiness", handle.Links.Readiness);
+                    Assert.All(handle.Blockers,
+                        blocker => Assert.False(string.IsNullOrWhiteSpace(blocker.Code)));
+                }
+
+                // A mensagem humana foi persistida mesmo com a execução bloqueada, e o retry
+                // é idempotente: nenhuma mensagem, turno ou evento duplicado.
+                var afterFirst = (await client.GetFromJsonAsync<MessagePage>(
+                    $"/api/v1/messages?conversationId={conversation.Id}", timeout.Token))!;
+                Assert.Single(afterFirst.Items);
+
                 // Perfil, organização e projeto são reais porque de fato existem. Já as etapas
                 // que dependem de configuração externa não podem aparecer como execução real —
                 // nem como simulada, já que o modo demo está desligado.

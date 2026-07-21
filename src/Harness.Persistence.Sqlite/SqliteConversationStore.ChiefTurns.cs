@@ -58,6 +58,99 @@ public sealed partial class SqliteConversationStore
     public Task<ChiefTurnRecord?> GetAsync(string tenantId, string turnId, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((connection, token) => ReadChiefTurnAsync(connection, null, tenantId, turnId, token), cancellationToken);
 
+    public Task<ChiefTurnBlockRecord> BlockAsync(
+        ChiefTurnBlockCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync((connection, token) => BlockCoreAsync(connection, command, token), cancellationToken);
+
+    private static async Task<ChiefTurnBlockRecord> BlockCoreAsync(
+        SqliteConnection connection, ChiefTurnBlockCommand command, CancellationToken token)
+    {
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token);
+        // Idempotência por mensagem humana: o retry do mesmo envio devolve o bloqueio já
+        // registrado, sem inserir mensagem, bloqueio ou evento de novo.
+        var existing = await ReadChiefTurnBlockAsync(
+            connection, tx, command.TenantId, command.UserMessage.Id, token);
+        if (existing is not null)
+        {
+            await tx.CommitAsync(token);
+            return existing;
+        }
+
+        var conversation = await ReadConversationAsync(
+            connection, tx, command.TenantId, command.ConversationId, token);
+        if (conversation is null || conversation.State != "active" ||
+            conversation.ProjectId != command.ProjectId)
+        {
+            throw new ChiefTurnConflictException("The target conversation is not active for this project.");
+        }
+
+        var blockers = JsonSerializer.Serialize(command.Blockers, JsonOptions);
+        var nextActions = JsonSerializer.Serialize(command.NextActions, JsonOptions);
+        await InsertMessageAsync(connection, tx, command.UserMessage, token);
+        await UpdateLastMessageAsync(
+            connection, tx, command.TenantId, command.ConversationId, command.UserMessage.CreatedAt, token);
+        await ExecuteChiefAsync(connection, tx,
+            "INSERT INTO inbox_messages (tenant_id,idempotency_key,message_hash,response_json,processed_at) VALUES ($tenant,$key,$hash,$response,$at);",
+            token, ("$tenant", command.TenantId), ("$key", command.IdempotencyKey),
+            ("$hash", DurableCommandHash.Compute(command)),
+            ("$response", JsonSerializer.Serialize(new { turnId = command.TurnId, state = "blocked" }, JsonOptions)),
+            ("$at", Store(command.OccurredAt)));
+        await ExecuteChiefAsync(connection, tx,
+            "INSERT INTO chief_turn_blocks (id,tenant_id,project_id,conversation_id,user_message_id,readiness_state,blockers_json,next_actions_json,correlation_id,created_at) " +
+            "VALUES ($id,$tenant,$project,$conversation,$message,$readiness,$blockers,$nextActions,$correlation,$at);",
+            token, ("$id", command.TurnId), ("$tenant", command.TenantId), ("$project", command.ProjectId),
+            ("$conversation", command.ConversationId), ("$message", command.UserMessage.Id),
+            ("$readiness", command.ReadinessState), ("$blockers", blockers), ("$nextActions", nextActions),
+            ("$correlation", command.CorrelationId), ("$at", Store(command.OccurredAt)));
+        var messagePayload = MessagePayload(command.UserMessage);
+        await AppendAuditAsync(
+            connection, tx, command.TenantId, "message.appended", messagePayload, command.OccurredAt, token);
+        await AppendOutboxAsync(
+            connection, tx, command.TenantId, "message.appended", messagePayload,
+            command.OccurredAt, command.OccurredAt, token);
+        var blockedPayload = JsonSerializer.Serialize(new
+        {
+            turnId = command.TurnId,
+            conversationId = command.ConversationId,
+            projectId = command.ProjectId,
+            readinessState = command.ReadinessState,
+            correlationId = command.CorrelationId,
+            blockers = command.Blockers,
+            nextActions = command.NextActions,
+        }, JsonOptions);
+        await AppendAuditAsync(
+            connection, tx, command.TenantId, "execution.blocked", blockedPayload, command.OccurredAt, token);
+        await AppendOutboxAsync(
+            connection, tx, command.TenantId, "execution.blocked", blockedPayload,
+            command.OccurredAt, command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return new ChiefTurnBlockRecord(
+            command.TenantId, command.ProjectId, command.ConversationId, command.TurnId,
+            command.UserMessage.Id, command.ReadinessState, command.CorrelationId,
+            command.Blockers, command.NextActions, command.OccurredAt);
+    }
+
+    private static async Task<ChiefTurnBlockRecord?> ReadChiefTurnBlockAsync(
+        SqliteConnection connection, SqliteTransaction? tx, string tenantId, string userMessageId,
+        CancellationToken token)
+    {
+        await using var query = connection.CreateCommand();
+        query.Transaction = tx;
+        query.CommandText =
+            "SELECT id,project_id,conversation_id,user_message_id,readiness_state,blockers_json,next_actions_json,correlation_id,created_at " +
+            "FROM chief_turn_blocks WHERE tenant_id=$tenant AND user_message_id=$message;";
+        Add(query, "$tenant", tenantId);
+        Add(query, "$message", userMessageId);
+        await using var reader = await query.ExecuteReaderAsync(token);
+        if (!await reader.ReadAsync(token)) return null;
+        return new ChiefTurnBlockRecord(
+            tenantId, reader.GetString(1), reader.GetString(2), reader.GetString(0),
+            reader.GetString(3), reader.GetString(4), reader.GetString(7),
+            JsonSerializer.Deserialize<ChiefTurnBlockerRecord[]>(reader.GetString(5), JsonOptions) ?? [],
+            JsonSerializer.Deserialize<ChiefTurnNextActionRecord[]>(reader.GetString(6), JsonOptions) ?? [],
+            Parse(reader.GetString(8)));
+    }
+
     private static async Task<ChiefTurnRecord> EnqueueCoreAsync(
         SqliteConnection connection, ChiefTurnEnqueueCommand command, CancellationToken token)
     {

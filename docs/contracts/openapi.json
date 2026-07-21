@@ -15293,10 +15293,34 @@
                 },
                 "additionalProperties": false
             },
+            "ChatTurnBlocker": {
+                "required": [
+                    "code",
+                    "relatedIds"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "relatedIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "ChatTurnHandle": {
                 "required": [
                     "turnId",
-                    "conversationId"
+                    "conversationId",
+                    "state",
+                    "correlationId",
+                    "readiness",
+                    "blockers",
+                    "nextActions",
+                    "links"
                 ],
                 "type": "object",
                 "properties": {
@@ -15304,6 +15328,82 @@
                         "type": "string"
                     },
                     "conversationId": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "correlationId": {
+                        "type": "string"
+                    },
+                    "readiness": {
+                        "$ref": "#/components/schemas/ChatTurnReadiness"
+                    },
+                    "blockers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ChatTurnBlocker"
+                        }
+                    },
+                    "nextActions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ChatTurnNextAction"
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/ChatTurnLinks"
+                    }
+                }
+            },
+            "ChatTurnLinks": {
+                "required": [
+                    "readiness",
+                    "conversation"
+                ],
+                "type": "object",
+                "properties": {
+                    "readiness": {
+                        "type": "string"
+                    },
+                    "conversation": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ChatTurnNextAction": {
+                "required": [
+                    "code",
+                    "route",
+                    "resourceId"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "route": {
+                        "type": "string"
+                    },
+                    "resourceId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "ChatTurnReadiness": {
+                "required": [
+                    "overallState",
+                    "executionState"
+                ],
+                "type": "object",
+                "properties": {
+                    "overallState": {
+                        "type": "string"
+                    },
+                    "executionState": {
                         "type": "string"
                     }
                 }
