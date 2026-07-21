@@ -96,6 +96,16 @@
 - Estados de coleção: vazio orientado, skeleton, erro com retry e reconexão global; 401/403 são tratados a partir das respostas autoritativas do Host.
 - Zero string visível fora do i18n, zero cor fora dos tokens e zero status sem enum/mapeamento.
 
+## Correção transversal do Checkbox — 2026-07-20
+
+- **Defeito (P2 usabilidade/a11y, transversal):** na homologação, marcar um checkbox mostrava só um contorno accent, sem checkmark perceptível; estado marcado/desmarcado ambíguo e dependente apenas de cor. Reportado em Notificações (toggle global + categorias), mas na raiz do componente compartilhado.
+- **Causa raiz comprovada:** `src/design-system/components/checkbox.tsx` renderizava o check via `background-image` com data-URI de SVG cujo `stroke` era `var(--color-accent-foreground)`. Custom properties CSS **não resolvem dentro de data-URI de SVG**, então o traço ficava sem cor e invisível — sobrava só o preenchimento/borda accent.
+- **Correção (no componente raiz, não por telas):** o check e o traço de `indeterminate` passaram a ser SVGs reais (lucide `Check`/`Minus`) sobrepostos ao input `appearance-none`, revelados por `peer-checked`/`peer-data-[indeterminate]` e coloridos por `currentColor` (`text-accent-foreground`). O estado marcado combina preenchimento + ícone (não depende só de cor). Adicionados `hover`, `focus-visible` (anel `ring-brand` + offset), `active`, `disabled`, `aria-invalid`, transição curta `motion-safe`, e `indeterminate` via propriedade nativa do DOM (leitor de tela anuncia "mixed"). Todos os 12 consumidores herdaram o fix sem alteração de tela.
+- **Reforço transversal (Seção 7, só o comprovado):** o `<input type="checkbox">` cru de `learning-candidates-panel.tsx` (promoção manual P2) migrou para o primitive. Três controles de seleção que sinalizavam estado só por cor ganharam cue não-cromático (peso da fonte + leve elevação/anel, sem redesenho): seletor de período do Cockpit, chips de filtro do Chat e abas do catálogo de Ferramentas.
+- **Testes:** `checkbox.test.tsx` (10 casos: unchecked/checked/indeterminate/disabled/teclado/label/focus-visible/invalid/ref) valida a **presença do indicador**, não só `checked`; `checkbox.stories.tsx` documenta a matriz de estados; `e2e/checkbox-visual.spec.ts` valida a **opacidade computada** do check em dark/light nos 2 viewports + axe. Evidência visual em `evidence/2026-07-20-checkbox-fix/`.
+- **Gates:** `npm run check` verde (lint/typecheck; 54 arquivos, 454 testes). `build` e `build-storybook` verdes (só avisos conhecidos). `test:e2e` 60/60 e `test:a11y` 42/42 verdes (zero console error, zero asset 404). `npm audit --omit=dev`: 0 vulnerabilidades de produção. `test:e2e:real`/`test:e2e:package` seguem pendentes do Host real backend (5090 fora do ar nesta sessão) e da publicação da correção do 500 pelo agente backend — mudança é frontend puro (CSS/DOM), comportamento idêntico contra o Host real.
+- **Governança 500 (stale/document findings):** não tratada no frontend por decisão de escopo; a UI já apresenta erro com retry e Problem Details sanitizado sem quebrar a página (tratamento transversal existente). Causa raiz é do agente backend.
+
 ## Como validar
 
 ```bash

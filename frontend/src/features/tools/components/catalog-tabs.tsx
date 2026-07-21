@@ -64,10 +64,10 @@ export function CatalogTabs({ tabs, activeId, onChange }: CatalogTabsProps) {
             tabIndex={tab.id === activeId ? 0 : -1}
             onClick={() => onChange(tab.id)}
             className={cn(
-              'flex min-h-11 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              'flex min-h-11 items-center gap-2 rounded-md px-4 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
               tab.id === activeId
-                ? 'bg-surface-elevated text-foreground'
-                : 'text-foreground-muted hover:bg-surface hover:text-foreground',
+                ? 'bg-surface-elevated font-semibold text-foreground shadow-sm ring-1 ring-inset ring-border-strong'
+                : 'font-medium text-foreground-muted hover:bg-surface hover:text-foreground',
             )}
           >
             {tab.label}

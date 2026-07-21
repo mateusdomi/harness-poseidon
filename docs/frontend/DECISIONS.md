@@ -410,3 +410,13 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 
 - **Decisão:** `test:e2e:package` exige um diretório de pacote explícito, cria data dir temporário vazio, inicia o launcher sem `--demo`, usa browser isolado/sem service worker e remove processo/dados no `finally`. O gate falha se qualquer `.animate-pulse` persistir além de 12 s sem operação real, se uma API sair do origin do pacote, se houver URL compilada 5090/5173, request pendente, erro de aplicação ou asset quebrado.
 - **Justificativa:** Vite e MockApiClient não reproduzem bootstrap, cookies, Host estático ou configuração compilada do artefato entregue.
+
+## D-098 — Indicador do Checkbox é SVG no DOM, não data-URI com `var()`
+
+- **Decisão:** o Checkbox compartilhado renderiza o check e o traço de `indeterminate` como elementos SVG reais (lucide) sobrepostos ao `input[type=checkbox]` `appearance-none`, revelados por `peer-checked`/`peer-data-[indeterminate]` e coloridos por `currentColor` mapeado ao token `--color-accent-foreground`. `indeterminate` é a propriedade nativa do DOM (não um `aria-checked=mixed` forjado). O estado marcado é preenchimento accent **+** ícone — nunca só cor.
+- **Justificativa:** custom properties CSS não resolvem dentro de um data-URI de SVG usado como `background-image` (contexto de documento isolado), então o `stroke=var(--…)` do desenho anterior ficava invisível — o defeito de homologação. Um SVG no DOM herda os tokens, permite testar a presença/opacidade do indicador (não apenas `checked`) e atende "não depender só de cor" e "reconhecível em visão periférica". Correção feita na raiz compartilhada; nenhuma tela recebeu patch isolado.
+
+## D-099 — Feedback de seleção só-por-cor recebe cue não-cromático mínimo
+
+- **Decisão:** controles de seleção/toggle que sinalizavam estado ativo apenas por cor (seletor de período do Cockpit, chips de filtro do Chat, abas do catálogo de Ferramentas) passaram a diferenciar o estado ativo também por peso da fonte e leve elevação/anel com tokens existentes. Nenhuma tela foi redesenhada e apenas os casos comprovados foram tocados; controles já com indicador não-cromático (ex.: stepper de fases, abas de runtime da Governança) ficaram intactos.
+- **Justificativa:** WCAG 1.4.1 (uso de cor) exige um segundo canal de informação; peso + shape é o reforço de menor risco e reutiliza tokens, sem introduzir cor arbitrária nem alterar layout.

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Activity, ChevronRight, RefreshCw, ShieldCheck } from 'lucide-react';
 
 import { ApiError, type LearningCandidate, type LearningCandidateState, type LearningCandidateType } from '@/api';
-import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Field, Input, Select, Skeleton, Textarea } from '@/design-system';
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, Field, Input, Select, Skeleton, Textarea } from '@/design-system';
 import {
   useLearningCandidateCommand,
   useLearningCandidateDetail,
@@ -186,7 +186,7 @@ function CandidateActionForm({ candidate, action, onClose }: { candidate: Learni
         <Field className="md:col-span-3" htmlFor="learning-shadow-evidence" label={t('governance.learning.fields.evidenceReference')} required requiredLabel="*"><Input id="learning-shadow-evidence" value={form.evidenceReference} onChange={(e) => patch('evidenceReference', e.target.value)} /></Field>
       </div>}
       <Field htmlFor="learning-note" label={t('governance.learning.fields.note')} required={noteRequired} requiredLabel={noteRequired ? '*' : undefined}><Textarea id="learning-note" value={form.note} onChange={(e) => patch('note', e.target.value)} /></Field>
-      {manual && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={form.manualConfirmation} onChange={(e) => patch('manualConfirmation', e.target.checked)} /><span>{t('governance.learning.manualPromotion')}</span></label>}
+      {manual && <label className="flex items-start gap-2 text-sm"><Checkbox checked={form.manualConfirmation} onChange={(e) => patch('manualConfirmation', e.target.checked)} /><span>{t('governance.learning.manualPromotion')}</span></label>}
       {mutation.isError && <p role="alert" className="text-sm text-error">{mutation.error instanceof ApiError && mutation.error.problem.status === 403 ? t('governance.learning.permissionDenied') : displayError(mutation.error, t('common.states.errorBody'))}</p>}
       <div className="flex gap-2"><Button type="submit" disabled={invalid || mutation.isPending}>{mutation.isPending ? t('governance.learning.saving') : t('governance.learning.confirm')}</Button><Button type="button" variant="outline" onClick={onClose}>{t('common.actions.cancel')}</Button></div>
     </form>

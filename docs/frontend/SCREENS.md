@@ -182,6 +182,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Realtime:** stream `profile:<id>` — `notification.created` (invalida central + badge do shell).
 - **Ações:** marcar como lida (item/grupo/todas — `markNotificationsRead`), silenciar (`muteNotifications`), preferências (`update('settings')`).
 - **Estados:** vazio com orientação; skeleton; erro com retry.
+- **Controles de seleção:** o toggle global e os checkboxes por categoria usam o `Checkbox` do design system, cujo estado marcado exibe preenchimento accent + checkmark visível (não depende só de cor). Persistência sem update otimista: a UI reflete o valor do servidor, então uma mutation rejeitada não deixa o controle marcado. Evidência em `evidence/2026-07-20-checkbox-fix/`.
 
 ## 21. settings — `/settings`
 

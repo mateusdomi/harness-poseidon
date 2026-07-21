@@ -180,10 +180,10 @@ function PhaseAccordion({ phase, gates, documents, defaultOpen }: PhaseAccordion
                   aria-pressed={filter === option}
                   onClick={() => setFilter((current) => (current === option ? null : option))}
                   className={cn(
-                    'min-h-11 rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-0 sm:py-1',
+                    'min-h-11 rounded-full border px-2.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-0 sm:py-1',
                     filter === option
-                      ? 'border-brand bg-primary/10 text-brand-strong'
-                      : 'border-border text-foreground-muted hover:text-foreground',
+                      ? 'border-brand bg-primary/10 font-semibold text-brand-strong ring-1 ring-inset ring-brand'
+                      : 'border-border font-medium text-foreground-muted hover:text-foreground',
                   )}
                 >
                   {t(`chat.workflowPanel.health.${option}`)} ({formatNumber(counts[option])})
