@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T02:05:38.0917630+00:00
+lastGeneratedAt: 2026-07-21T16:34:00.0376150+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 6873
+  tokenEstimate: 7092
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4e4dc2d6dfc71976344eb81215d91c19ff8d62bca789a0d752cfb68c8a2d69a3
+  checksum: sha256:db5c634103f29ddeab85d1ff1d2c9ed7e14b45c97d88ccf39094272604865dc3
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 7262
+  tokenEstimate: 7833
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:5b89719e7f555f108e7c8796b6dd2c0c71694363d5b037e7079ba3982ec38201
+  checksum: sha256:3761e082c765b9f97e901b9596891f1071459280e48ac0412d07d2a3e540100a
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -10451,3 +10451,300 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/release/RELEASE_REPORT.md
+- id: adr-017-readiness-and-configuration-state
+  path: docs/decisions/ADR-017-readiness-and-configuration-state.md
+  title: ADR-017 — Prontidão canônica e estado de configuração fail-closed
+  category: decision
+  topic: readiness-and-configuration-state
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - poseidon
+  agents:
+  - chief
+  workflows:
+  - onboarding
+  phases:
+  - runtime
+  taskTypes:
+  - architecture
+  - implementation
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Readiness/**
+  - src/Harness.Host/Readiness/**
+  - tests/Harness.UnitTests/Readiness/**
+  - tests/Harness.ContractTests/Readiness/**
+  loadPolicy: on-demand
+  priority: 800
+  tokenEstimate: 947
+  owner: Platform Governance
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt: 2026-10-21T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - adr-018-fail-closed-simulated-data
+  - adr-019-chief-transport-vs-model-response
+  - doc-backend-execution-golden-path-handoff
+  enforcedBy:
+  - runtime:governance-policy
+  - tools/backend/verify.sh
+  checksum: sha256:fa2ec2ac3e22eda62ecdb8ef286a765135ce4cc0a42ab3d1a5b98289c947a471
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-017-readiness-and-configuration-state.md
+- id: adr-018-fail-closed-simulated-data
+  path: docs/decisions/ADR-018-fail-closed-simulated-data.md
+  title: ADR-018 — Dados simulados nunca apresentados como reais
+  category: decision
+  topic: fail-closed-simulated-data
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - poseidon
+  agents:
+  - chief
+  workflows:
+  - onboarding
+  phases:
+  - runtime
+  taskTypes:
+  - architecture
+  - implementation
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - src/Harness.Persistence.Sqlite/**
+  - src/Harness.Persistence.Postgres/**
+  - src/Harness.Host/Demo/**
+  loadPolicy: on-demand
+  priority: 800
+  tokenEstimate: 728
+  owner: Platform Governance
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt: 2026-10-21T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  - adr-017-readiness-and-configuration-state
+  related:
+  - adr-019-chief-transport-vs-model-response
+  - doc-backend-execution-golden-path-handoff
+  enforcedBy:
+  - runtime:governance-policy
+  - tools/backend/verify.sh
+  checksum: sha256:8b17f9d763a6dc8e4d05ac1197b20dbad4f1d65faa672a65af2f38e94141a471
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-018-fail-closed-simulated-data.md
+- id: adr-019-chief-transport-vs-model-response
+  path: docs/decisions/ADR-019-chief-transport-vs-model-response.md
+  title: ADR-019 — Separar confirmação de transporte da resposta real do Chief
+  category: decision
+  topic: chief-transport-vs-model-response
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - poseidon
+  agents:
+  - chief
+  workflows:
+  - agent-execution
+  phases:
+  - runtime
+  taskTypes:
+  - architecture
+  - implementation
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  - src/Harness.Host/Conversations/**
+  - src/Harness.Host/Workers/**
+  loadPolicy: on-demand
+  priority: 800
+  tokenEstimate: 737
+  owner: Agent Platform
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt: 2026-10-21T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  - doc-docs-decisions-adr-008-agent-executors
+  related:
+  - adr-017-readiness-and-configuration-state
+  - adr-018-fail-closed-simulated-data
+  enforcedBy:
+  - runtime:governance-policy
+  - tools/backend/verify.sh
+  checksum: sha256:0066a46862d83842eb68637bd370072f8d05f0252318c8a57c7b6a6ba69d24c5
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-019-chief-transport-vs-model-response.md
+- id: adr-020-creativity-field-audit
+  path: docs/decisions/ADR-020-creativity-field-audit.md
+  title: ADR-020 — Auditoria do campo criatividade e binding obrigatório
+  category: decision
+  topic: creativity-field-audit
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  agents:
+  - chief
+  workflows:
+  - onboarding
+  phases:
+  - runtime
+  taskTypes:
+  - architecture
+  riskTiers:
+  - medium
+  - high
+  pathGlobs:
+  - src/Modules/Harness.Modules.Projects/**
+  - src/Harness.Host/Projects/**
+  loadPolicy: on-demand
+  priority: 700
+  tokenEstimate: 566
+  owner: Platform Governance
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt: 2026-10-21T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - doc-backend-execution-golden-path-handoff
+  enforcedBy:
+  - runtime:governance-policy
+  checksum: sha256:c827a7ca2eeaf8e90a702931a38df57082108dddc355c80e416d6d32e36e631c
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-020-creativity-field-audit.md
+- id: doc-backend-execution-golden-path-handoff
+  path: docs/backend/execution/GOLDEN_PATH_HANDOFF.md
+  title: Golden path — handoff backend para frontend
+  category: execution
+  topic: golden-path-handoff
+  authority: reference
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - poseidon
+  - kimi-code
+  agents:
+  - '*'
+  workflows:
+  - onboarding
+  phases:
+  - runtime
+  taskTypes:
+  - architecture
+  - implementation
+  riskTiers:
+  - medium
+  - high
+  pathGlobs:
+  - docs/contracts/**
+  - src/Modules/Harness.Modules.Readiness/**
+  - src/Harness.Host/Readiness/**
+  loadPolicy: on-demand
+  priority: 750
+  tokenEstimate: 1595
+  owner: Platform Governance
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt: 2026-10-21T00:00:00Z
+  supersedes: []
+  dependencies:
+  - adr-017-readiness-and-configuration-state
+  related:
+  - adr-018-fail-closed-simulated-data
+  - adr-019-chief-transport-vs-model-response
+  - adr-020-creativity-field-audit
+  enforcedBy: []
+  checksum: sha256:e81016145b4511e4048e84bafd51f605921bf810c7cb26cda587b12c72bff382
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/GOLDEN_PATH_HANDOFF.md
+- id: evidence-golden-path-a-readiness
+  path: docs/backend/execution/evidence/GP-A-READINESS-CONTRACT.md
+  title: GP-A — prontidão canônica do golden path
+  category: evidence
+  topic: evidence-golden-path-a-readiness
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/contracts/**
+  - docs/decisions/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 819
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-017-readiness-and-configuration-state
+  enforcedBy: []
+  checksum: sha256:f32cf182df3083fc10066727df8e8f598df6b420861c23641b40cd4721a49b9c
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GP-A-READINESS-CONTRACT.md

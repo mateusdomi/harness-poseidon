@@ -16,6 +16,7 @@ using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Host.Providers;
 using Harness.Host.Prototyping;
+using Harness.Host.Readiness;
 using Harness.Host.Realtime;
 using Harness.Host.RunTargets;
 using Harness.Host.Security;
@@ -381,6 +382,7 @@ public static class HostApplication
         builder.Services.AddSingleton(ompOptions);
         builder.Services.AddSingleton<AgentExecutorCatalog>();
         builder.Services.AddSingleton<ChiefInvocationRoutingService>();
+        builder.Services.AddSingleton<Readiness.ProjectReadinessService>();
         builder.Services.AddHostedService<ChiefTurnBackgroundService>();
         if (builder.Configuration.GetValue<bool>("Harness:Demo:Enabled"))
         {
@@ -446,6 +448,7 @@ public static class HostApplication
         app.MapLocalProfiles();
         app.MapOrganizations();
         app.MapProjects();
+        app.MapReadiness();
         app.MapAgents();
         app.MapIsolatedExecutions();
         app.MapToolCatalog();

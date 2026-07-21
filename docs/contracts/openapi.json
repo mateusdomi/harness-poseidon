@@ -1320,6 +1320,65 @@
                 }
             }
         },
+        "/api/v1/projects/{projectId}/readiness": {
+            "get": {
+                "tags": [
+                    "readiness"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectReadinessSnapshot"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-definitions": {
             "get": {
                 "tags": [
@@ -15291,6 +15350,16 @@
                     }
                 }
             },
+            "ConfigurationState": {
+                "enum": [
+                    "Unconfigured",
+                    "Simulated",
+                    "Configured",
+                    "Ready",
+                    "Degraded",
+                    "Unavailable"
+                ]
+            },
             "ConsistencyFindingContract": {
                 "required": [
                     "code",
@@ -19303,6 +19372,38 @@
                     }
                 }
             },
+            "ProjectReadinessSnapshot": {
+                "required": [
+                    "projectId",
+                    "overallState",
+                    "steps",
+                    "nextActions"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "overallState": {
+                        "$ref": "#/components/schemas/ConfigurationState"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReadinessStepContract"
+                        }
+                    },
+                    "nextActions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReadinessNextAction"
+                        }
+                    }
+                }
+            },
             "ProjectResponse": {
                 "required": [
                     "id",
@@ -19908,6 +20009,111 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "ReadinessBlocker": {
+                "required": [
+                    "code",
+                    "relatedIds"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "relatedIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "ReadinessNextAction": {
+                "required": [
+                    "code",
+                    "route",
+                    "resourceId"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "route": {
+                        "type": "string"
+                    },
+                    "resourceId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "ReadinessStep": {
+                "enum": [
+                    "ProfileReady",
+                    "OrganizationReady",
+                    "ProjectReady",
+                    "ProviderAccountReady",
+                    "ModelReady",
+                    "WorkflowReady",
+                    "ChiefDefinitionReady",
+                    "AgentPoolReady",
+                    "ExecutionReady"
+                ]
+            },
+            "ReadinessStepContract": {
+                "required": [
+                    "step",
+                    "state",
+                    "executionMode",
+                    "capability",
+                    "messageCode",
+                    "relatedIds",
+                    "blockers",
+                    "nextAction"
+                ],
+                "type": "object",
+                "properties": {
+                    "step": {
+                        "$ref": "#/components/schemas/ReadinessStep"
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/ConfigurationState"
+                    },
+                    "executionMode": {
+                        "type": "string"
+                    },
+                    "capability": {
+                        "type": "string"
+                    },
+                    "messageCode": {
+                        "type": "string"
+                    },
+                    "relatedIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "blockers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReadinessBlocker"
+                        }
+                    },
+                    "nextAction": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ReadinessNextAction"
+                            }
+                        ]
+                    }
+                }
             },
             "RealtimeEventEnvelope": {
                 "required": [
@@ -22046,6 +22252,9 @@
         },
         {
             "name": "organizations"
+        },
+        {
+            "name": "readiness"
         },
         {
             "name": "agents"

@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:48f8b9ed3c4c386bd06d4e0a164b01435879480a3f8b0736a52b5360bd80395b -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:acf068b7592097cb28f61d20960fbbee6f233614ccd76698ff020e576d19d4e0 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,12 +6,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 18
-- `Evidence`: 130
+- `Canonical`: 22
+- `Evidence`: 131
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 13
-- `Reference`: 24
+- `Reference`: 25
 
 ## By domain
 
@@ -19,10 +19,10 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 4
 - `backend`: 1
 - `contract`: 1
-- `decision`: 16
+- `decision`: 20
 - `entrypoint`: 1
-- `evidence`: 130
-- `execution`: 8
+- `evidence`: 131
+- `execution`: 9
 - `frontend`: 5
 - `governance`: 1
 - `index`: 1
@@ -38,31 +38,31 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 186
+- `*`: 187
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
 - `p2`: 1
 - `release-candidate`: 4
-- `runtime`: 2
+- `runtime`: 7
 
 ## By status
 
-- `Active`: 188
+- `Active`: 194
 - `Historical`: 7
 - `Superseded`: 1
 
 ## By owner
 
 - `API Platform`: 1
-- `Agent Platform`: 3
+- `Agent Platform`: 4
 - `Architecture`: 18
 - `Frontend`: 6
 - `Operations`: 5
 - `Platform Engineering`: 12
-- `Platform Governance`: 10
+- `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 129
+- `Quality Engineering`: 130
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 174
+- `OnDemand`: 180
 
 ## Documents by authority and domain
 
@@ -92,6 +92,10 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [ADR-016 — Executor opcional OMP RPC](decisions/ADR-016-omp-rpc-agent-executor.md) | runtime | Active | Agent Platform | OnDemand | 425 |
+| [ADR-017 — Prontidão canônica e estado de configuração fail-closed](decisions/ADR-017-readiness-and-configuration-state.md) | runtime | Active | Platform Governance | OnDemand | 947 |
+| [ADR-018 — Dados simulados nunca apresentados como reais](decisions/ADR-018-fail-closed-simulated-data.md) | runtime | Active | Platform Governance | OnDemand | 728 |
+| [ADR-019 — Separar confirmação de transporte da resposta real do Chief](decisions/ADR-019-chief-transport-vs-model-response.md) | runtime | Active | Agent Platform | OnDemand | 737 |
+| [ADR-020 — Auditoria do campo criatividade e binding obrigatório](decisions/ADR-020-creativity-field-audit.md) | runtime | Active | Platform Governance | OnDemand | 566 |
 
 #### execution
 
@@ -180,7 +184,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 7262 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 7833 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 3141 |
 
 ### Reference
@@ -222,6 +226,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Harness Poseidon](../README.md) | * | Active | Platform Engineering | Entry | 119 |
+
+#### execution
+
+| Document | Phase | Status | Owner | Load policy | Tokens |
+|---|---|---|---|---|---:|
+| [Golden path — handoff backend para frontend](backend/execution/GOLDEN_PATH_HANDOFF.md) | runtime | Active | Platform Governance | OnDemand | 1595 |
 
 #### frontend
 
@@ -375,6 +385,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Refinamento v3 — arquivamento de tarefas](backend/execution/evidence/V3-TASK-ARCHIVING.md) | * | Active | Quality Engineering | OnDemand | 438 |
 | [V3 — fases persistidas no quadro](backend/execution/evidence/V3-WORK-BOARD-PHASES.md) | * | Active | Quality Engineering | OnDemand | 338 |
 | [V3 — ciclo de rascunho e publicação de workflows](backend/execution/evidence/V3-WORKFLOW-DRAFT-LIFECYCLE.md) | * | Active | Quality Engineering | OnDemand | 650 |
+| [GP-A — prontidão canônica do golden path](backend/execution/evidence/GP-A-READINESS-CONTRACT.md) | * | Active | Quality Engineering | OnDemand | 819 |
 
 ### Historical
 
