@@ -377,25 +377,36 @@ Cada item aqui é um pedido concreto ao backend.
   do contrato. **Pedido:** readiness de tenant/workspace (sem `projectId`), ou
   documentar que essa fase é responsabilidade do cliente.
 
-### 9.1.1 Chief não é provisionado na criação do projeto — **BLOQUEIA O GOLDEN PATH** ⚠️
+### 9.1.1 Turno do chefe é fail-closed sem provedor/modelo — **comportamento correto, com impacto no gate real**
 
-- **Situação (encontrada ao integrar o readiness):** `POST /api/v1/projects`
-  devolve `chiefAgentId`, mas **não cria o agente correspondente**
-  (`src/Harness.Host/Projects/ProjectEndpoints.cs` não toca em agentes). O
-  avaliador exige o agente real
-  (`ProjectReadinessService.ResolveChiefAsync` → `ChiefFact.Missing`).
-- **Consequência:** num Host real, todo projeto recém-criado fica em
-  `ChiefDefinitionReady: Unconfigured` com bloqueador `chief.missing`, e
-  `ExecutionReady` nunca é alcançável. A ação sugerida
-  (`chief.configureModel` → `/agents`) **não tem comando correspondente**: não
-  existe criação de agente no contrato (`agents` não está em `CreateInputMap`).
-  Ou seja: o caminho recomendado pelo próprio read model é um beco sem saída.
-- **O que a UI faz hoje:** apresenta fielmente o estado e o bloqueador do
-  backend — não mascara. No **mock**, `create('projects')` passou a provisionar
-  o Chief (as fixtures já mantinham essa invariante; sem isso o modo mock
-  jamais chegaria a `ExecutionReady`).
-- **Pedido (prioritário):** provisionar o Chief na criação do projeto **ou**
-  publicar o comando que a ação `chief.configureModel` pressupõe.
+- **Correção de um erro meu:** uma versão anterior deste documento afirmava que
+  o backend "não provisiona o agente Chief ao criar o projeto". **Isso está
+  errado** e a afirmação foi removida. Eu havia inferido a partir de um `grep`
+  em `ProjectEndpoints.cs`; o provisionamento acontece na camada de
+  persistência, na mesma transação da criação
+  (`SqliteProjectStore` / `PostgresProjectStore` inserem o agente
+  `Chief — {key}`). Verificado contra o Host real: `GET /agents` devolve o
+  Chief do projeto e `AgentPoolReady` vem `Ready`.
+- **O que realmente acontece:** num Host limpo, o bloqueador do Chief é
+  `chief.model_unresolved` (agente existe, sem modelo resolvível) — consequência
+  legítima de não haver provedor/conta/modelo, não um defeito.
+- **Fail-closed confirmado empiricamente:** com provedor/modelo ausentes,
+  `POST /conversations/{id}/turns` responde **400
+  `invalid_chief_invocation_selection` — "No model is configured for the
+  Chief."**. Criar a conversa (`POST /conversations`) continua permitido.
+- **Consequência aplicada na UI:** bloqueamos o **envio** (alinhado ao 400 do
+  backend) mas **não** a criação da conversa — criar conversa não é executar.
+  O motivo fica visível com a CTA do próprio read model.
+- **Impacto no gate `test:e2e:real`:** desde o ADR-018/019 o Host deixou de
+  simular resposta do chefe, então o percurso de turno/SignalR **não é
+  exercitável** sem provedor e modelo reais configurados. O spec passou a ler
+  o readiness canônico: sem execução possível, valida o bloqueio honesto
+  (bloqueio visível, envio desabilitado, bloqueadores reconhecidos pela UI) e
+  anota o motivo de não exercitar o turno; com provedor/modelo configurados,
+  executa o fluxo completo como antes.
+- **Pedido ao backend:** publicar um caminho de configuração de provedor/modelo
+  adequado a ambiente de teste (sem credencial real) para que o gate volte a
+  cobrir turno + SignalR ponta a ponta.
 
 ### 9.1.2 Eventos do catálogo 1.1 sem payload publicado
 

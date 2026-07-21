@@ -35,12 +35,14 @@
   invalidam o prefixo `['readiness']` para refletir a ação do próprio usuário.
 - Checklist persistente no Cockpit com status, explicação, CTA única (rota do
   contrato), bloqueador traduzido e deep link; some quando o caminho completa.
-- **Achado bloqueante reportado:** o Host real **não provisiona o agente Chief**
-  na criação do projeto, então todo projeto novo fica em `chief.missing` e
-  nunca alcança `ExecutionReady`; a ação sugerida pelo próprio read model
-  (`chief.configureModel`) não tem comando no contrato. Detalhes e pedido em
-  `HANDOFF_API.md` §9.1.1. O mock passou a provisionar o Chief (invariante que
-  suas fixtures já mantinham).
+- **Validado contra o Host real** (.NET compilado e executado nesta sessão em
+  `127.0.0.1:5090`, SQLite temporário vazio): o snapshot canônico responde
+  como esperado e o Chief **é** provisionado na criação do projeto. Numa
+  instalação limpa o bloqueador é `chief.model_unresolved` (sem provedor/
+  modelo), e `POST /conversations/{id}/turns` responde **400
+  `invalid_chief_invocation_selection`** — o backend é fail-closed desde o
+  ADR-018/019. A UI bloqueia o **envio** (alinhada ao 400) mas mantém a criação
+  de conversa, que o backend permite.
 
 ### Honestidade operacional
 
@@ -98,14 +100,29 @@
 - Validação visual no navegador (mock, 1440×1250) do checklist, do bloqueio do
   chat, do workflow recomendado e da prontidão do orquestrador.
 
+### Gate contra o Host real — executado nesta sessão
+
+- `dotnet build` do `Harness.Host` verde; Host iniciado em `127.0.0.1:5090`
+  com SQLite temporário **vazio**.
+- `npm run test:e2e:real`: **3/3 verdes** (desktop 13" dark, tablet light,
+  mobile 360 dark) — onboarding, 20 rotas, HTTP same-origin, responsividade,
+  axe e o novo recorte de prontidão.
+- O spec passou a ser **readiness-aware**: sem provedor/modelo configurados ele
+  valida o bloqueio honesto (bloqueio visível, envio desabilitado, bloqueadores
+  reconhecidos) e anota por que o turno não foi exercitado; com provedor/modelo
+  configurados executa o fluxo completo de turno + SignalR como antes.
+
 ### Pendências reais (não declaradas como concluídas)
 
-- `npm run test:e2e:real` e `npm run test:e2e:package` **não foram executados**
-  nesta sessão: exigem, respectivamente, o Host .NET real e o pacote
-  self-contained instalado (`POSEIDON_PACKAGE_APP_DIR`), indisponíveis aqui. O
+- `npm run test:e2e:package` **não foi executado**: exige o pacote
+  self-contained instalado (`POSEIDON_PACKAGE_APP_DIR`), indisponível aqui. O
   recorte de "zero organização" vive em `package-clean.spec.ts` e **precisa ser
   rodado no ambiente com pacote** antes de qualquer declaração de gate.
-- As lacunas de contrato do §9 do `HANDOFF_API.md` seguem abertas no backend.
+- O percurso completo de **turno do chefe + SignalR contra o Host real** exige
+  provedor e modelo configurados (o backend é fail-closed desde o ADR-018/019);
+  não foi exercitado aqui por não haver credenciais. Pedido registrado em
+  `HANDOFF_API.md` §9.1.1.
+- As demais lacunas de contrato do §9 do `HANDOFF_API.md` seguem abertas.
 
 ## Correção da RC `d11df77` — skeleton infinito na primeira abertura
 

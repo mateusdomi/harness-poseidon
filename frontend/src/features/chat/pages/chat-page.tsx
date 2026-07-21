@@ -296,10 +296,12 @@ export default function ChatPage() {
             <p className="relative max-w-prose text-sm text-foreground-muted">
               {canExecute ? t('chat.empty.body') : t('chat.empty.blockedBody')}
             </p>
-            {/* Sem conversa: o composer abaixo já está pronto (a conversa é
-                criada ao enviar). Oferecemos a CTA explícita como alternativa,
-                para quem prefere começar pelo botão. */}
-            {!conversation && canExecute ? (
+            {/* Sem conversa: o composer abaixo já está pronto quando a
+                execução é possível (a conversa nasce no envio). A CTA explícita
+                fica disponível MESMO com a execução bloqueada, porque criar
+                conversa não é executar — o backend aceita a criação e só
+                recusa o turno (400 `invalid_chief_invocation_selection`). */}
+            {!conversation ? (
               <Button
                 type="button"
                 className="relative"

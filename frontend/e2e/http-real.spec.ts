@@ -264,6 +264,16 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
   await page.screenshot({ path: testInfo.outputPath('desktop-13-dark-governance-p2.png'), fullPage: true });
 }
 
+/** Id do projeto de homologação no Host real. */
+async function currentProjectId(page: Page): Promise<string> {
+  const response = await page.request.get('/api/v1/projects?limit=100');
+  expect(response.ok()).toBe(true);
+  const body = (await response.json()) as { items: Array<{ id: string; name: string }> };
+  const project = body.items.find((item) => item.name === PROJECT_NAME) ?? body.items[0];
+  expect(project, 'projeto de homologação deve existir').toBeDefined();
+  return project.id;
+}
+
 async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== 'desktop-13-dark') return;
 
@@ -273,13 +283,59 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === '/api/v1/conversations',
   );
-  await page.getByRole('button', { name: 'Nova conversa', exact: true }).click();
+  // Sem nenhuma conversa, a CTA única é a do estado vazio; com conversa, o
+  // botão do cabeçalho assume (§4 — nunca as duas ao mesmo tempo).
+  const newConversationCta = page.getByRole('button', { name: 'Nova conversa', exact: true });
+  await ((await newConversationCta.isVisible())
+    ? newConversationCta
+    : page.getByRole('button', { name: 'Iniciar conversa', exact: true })
+  ).click();
   const createdConversation = (await (await createdConversationResponse).json()) as { id: string };
   const conversation = page.locator('select#chat-conversation');
   await expect(conversation).toBeVisible();
   await expect(conversation).toHaveValue(createdConversation.id);
   const conversationId = createdConversation.id;
   expect(conversationId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+
+  // PRONTIDÃO CANÔNICA: desde o ADR-018/019 o Host real é fail-closed — sem
+  // provedor/modelo configurados ele RECUSA o turno (400
+  // `invalid_chief_invocation_selection`, "No model is configured for the
+  // Chief"), em vez de simular resposta do chefe. Portanto o percurso de turno
+  // só é exercitável com provider/model reais no ambiente de teste (§19).
+  // Sem eles, validamos o que É verdade contra o Host real: o bloqueio honesto.
+  const readiness = await page.request.get(
+    `/api/v1/projects/${await currentProjectId(page)}/readiness`,
+  );
+  expect(readiness.ok(), 'readiness canônico deve responder').toBe(true);
+  const readinessSnapshot = (await readiness.json()) as {
+    steps: Array<{ step: string; state: string; blockers: Array<{ code: string }> }>;
+  };
+  const execution = readinessSnapshot.steps.find((step) => step.step === 'ExecutionReady');
+  const executable = execution?.state === 'Ready' || execution?.state === 'Simulated';
+
+  if (!executable) {
+    // A UI precisa refletir o read model: bloqueio visível, motivo explicado e
+    // envio desabilitado — nunca um composer que dispara 400 no backend.
+    await expect(page.getByRole('heading', { name: 'Execução do chefe bloqueada' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Mensagem para o chefe' })).toBeDisabled();
+    for (const blocker of execution?.blockers ?? []) {
+      expect(
+        ['provider_account.missing', 'model.none_chat_enabled', 'workflow.unbound', 'chief.model_unresolved'],
+        'bloqueador do read model deve ser conhecido pela UI',
+      ).toContain(blocker.code);
+    }
+    await assertA11y(page, 'chat com execução bloqueada (Host real sem provedor)');
+    await page.screenshot({
+      path: testInfo.outputPath('desktop-13-dark-chat-blocked.png'),
+      fullPage: true,
+    });
+    test.info().annotations.push({
+      type: 'skip-motivo',
+      description:
+        'Turno do chefe não exercitado: Host real sem provedor/modelo configurados (fail-closed, ADR-018/019).',
+    });
+    return;
+  }
 
   const message = `DEMANDA: Homologação realtime ${Date.now()} | Validar o frontend contra o Host real.`;
   const composer = page.getByRole('textbox', { name: 'Mensagem para o chefe' });

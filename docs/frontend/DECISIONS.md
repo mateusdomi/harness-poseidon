@@ -497,10 +497,11 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 - **Decisão:** `Ready`, `Configured` e `Simulated` contam como etapa concluída (a dependência funciona); `Unconfigured`, `Degraded` e `Unavailable` não. Quando `executionMode === 'simulated'`, a etapa exibe o selo "Modo simulado" ao lado do título.
 - **Justificativa:** tratar `Simulated` como bloqueio impediria qualquer uso do modo mock e das instalações com catálogo simulado; tratá-lo como `Ready` sem marcação repetiria a desonestidade que a missão veio corrigir. Concluído-porém-simulado é um terceiro estado real, e agora é visível por dependência — não só um selo global de tela.
 
-## D-115 — Mock provisiona o Chief na criação do projeto (e a divergência com o Host real é reportada)
+## D-115 — Mock provisiona o Chief na criação do projeto, alinhando-se ao Host real
 
-- **Decisão:** `MockApiClient.create('projects')` passou a criar a instância do Chief referenciada por `chiefAgentId`, reusando a definição de papel `chief` existente. O código diz explicitamente que o Host real **não** faz isso.
-- **Justificativa:** o mock já mantinha essa invariante nas fixtures (todo projeto seed tem agente chefe), mas `create` deixava um `chiefAgentId` órfão — o comentário original dizia "backend vincula o chefe provisionado", premissa que a integração provou falsa. Sem o agente, o readiness canônico corretamente reporta `chief.missing` e o modo mock nunca alcançaria `ExecutionReady`, quebrando os gates FE-1/golden-path. Corrigir o mock restaura sua própria invariante; a lacuna do backend está registrada em HANDOFF §9.1.1 como bloqueio prioritário do golden path — não foi mascarada.
+- **Decisão:** `MockApiClient.create('projects')` passou a criar a instância do Chief referenciada por `chiefAgentId`, reusando a definição de papel `chief` existente.
+- **Justificativa:** o Host real cria o agente `Chief — {key}` na **mesma transação** da criação do projeto (`SqliteProjectStore`/`PostgresProjectStore`), invariante que as fixtures do mock já refletiam mas que `create` não cumpria — deixava um `chiefAgentId` órfão (o comentário no código dizia "backend vincula o chefe provisionado"). Sem o agente, o readiness canônico reporta `chief.missing` e o modo mock nunca alcançaria `ExecutionReady`. A mudança **aproxima** o mock do backend real; não é contorno de defeito.
+- **Correção de registro:** uma versão anterior desta decisão (e do HANDOFF §9.1.1) afirmava que o backend **não** provisionava o Chief. Estava errado — a conclusão vinha de um `grep` em `ProjectEndpoints.cs`, e o provisionamento está na persistência. Verificado contra o Host real antes desta correção.
 
 ## D-116 — Evento novo sem payload publicado recebe schema permissivo, não inventado
 
