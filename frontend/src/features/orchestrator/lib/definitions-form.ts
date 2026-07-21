@@ -8,6 +8,7 @@ import {
   type AgentDefinitionState,
   type CreateAgentDefinitionInput,
   type EffortLevel,
+  type Model,
   type Provider,
   type RiskLevel,
 } from '@/api';
@@ -151,4 +152,73 @@ export function valuesToInput(values: DefinitionFormValues): CreateAgentDefiniti
 export function accountOptionLabel(account: Account, providers: Provider[]): string {
   const provider = providers.find((entry) => entry.id === account.providerId);
   return provider ? `${provider.name} — ${account.label}` : account.label;
+}
+
+/* ---------------------------------------------------------------------------
+ * Formulário guiado em passos (§16.1)
+ * ------------------------------------------------------------------------- */
+
+export const DEFINITION_STEPS = [
+  'identity',
+  'role',
+  'behavior',
+  'capabilities',
+  'execution',
+  'review',
+] as const;
+export type DefinitionStep = (typeof DEFINITION_STEPS)[number];
+
+/** Campos validados em cada passo — o "Avançar" só valida o passo corrente. */
+export const DEFINITION_STEP_FIELDS: Record<DefinitionStep, (keyof DefinitionFormValues)[]> = {
+  identity: ['name', 'key', 'description'],
+  role: ['role', 'specialty', 'team'],
+  behavior: ['persona', 'mission', 'responsibilities', 'instructions', 'restrictions', 'bestPractices'],
+  capabilities: ['skillIds', 'toolIds', 'stacksText'],
+  execution: ['defaultModelId', 'defaultEffort', 'preferredAccountId', 'fallbackModelIds', 'actorCritic', 'risk'],
+  review: [],
+};
+
+/** Chave técnica derivada do nome (§16.2) — mesmo formato do slug validado. */
+export function definitionKeyFromName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Esforços suportados por um modelo (§16.7). O contrato expõe
+ * `Model.effortMappings` — o valor enviado ao provider por esforço canônico.
+ * Sem modelo selecionado ou sem mapeamento publicado, devolvemos os níveis
+ * canônicos; a UI então informa que o suporte não é conhecido em vez de
+ * afirmar compatibilidade que o contrato não garante.
+ */
+export const CANONICAL_EFFORTS: EffortLevel[] = ['low', 'medium', 'high'];
+
+export interface EffortOption {
+  value: EffortLevel;
+  /** Suportado pelo modelo selecionado conforme `effortMappings`. */
+  supported: boolean;
+  /** Valor efetivamente enviado ao provider, quando publicado. */
+  providerValue: string | null;
+}
+
+export function effortOptionsForModel(model: Model | null): EffortOption[] {
+  const mappings = model?.effortMappings ?? [];
+  return CANONICAL_EFFORTS.map((effort) => {
+    const mapping = mappings.find((entry) => entry.effort === effort);
+    return {
+      value: effort,
+      // Sem mapeamentos publicados não afirmamos incompatibilidade.
+      supported: mappings.length === 0 ? true : mapping !== undefined,
+      providerValue: mapping?.providerValue ?? null,
+    };
+  });
+}
+
+/** O modelo publica mapeamentos de esforço? (define se há "auto" vs "manual") */
+export function hasEffortMappings(model: Model | null): boolean {
+  return (model?.effortMappings ?? []).length > 0;
 }

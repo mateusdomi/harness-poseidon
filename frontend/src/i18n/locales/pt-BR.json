@@ -168,6 +168,31 @@
         "primaryColor": "Cor primária",
         "secondaryColor": "Cor secundária",
         "typography": "Tipografia"
+      },
+      "advanced": "Opções avançadas",
+      "logo": {
+        "label": "Logo",
+        "previewAlt": "Prévia da logo",
+        "formats": "PNG, JPG ou SVG. Prefira fundo transparente.",
+        "empty": "Nenhuma logo definida — o padrão do Poseidon será usado.",
+        "broken": "Não foi possível carregar a imagem desta URL.",
+        "remove": "Remover logo",
+        "urlHint": "Endereço público da imagem. Deixe em branco para herdar."
+      },
+      "colors": {
+        "pickerLabel": "Escolher {{field}} visualmente"
+      },
+      "typography": {
+        "hint": "Escolha uma família tipográfica do produto. Em branco = herdada.",
+        "inherit": "Herdar",
+        "presets": {
+          "Inter": "Inter — leitura em telas densas (padrão)",
+          "Space Grotesk": "Space Grotesk — títulos com mais personalidade"
+        }
+      },
+      "preview": {
+        "title": "Prévia da marca",
+        "sample": "Exemplo de título e texto"
       }
     },
     "secrets": {
@@ -554,7 +579,13 @@
       "policyEnabled": "Ativa",
       "policyDisabled": "Inativa",
       "projects": "Projetos associados",
-      "noProjects": "Nenhum projeto nesta organização ainda."
+      "noProjects": "Nenhum projeto nesta organização ainda.",
+      "noWorkflowsImpact": "Sem workflow padrão, cada projeto novo precisa vincular um manualmente.",
+      "configureWorkflows": "Configurar workflows",
+      "noTemplatesImpact": "Templates de documento padronizam os artefatos produzidos pelos agentes.",
+      "noPoliciesImpact": "Políticas definem limites herdados pelos projetos desta organização.",
+      "noProjectsContextual": "Crie o primeiro projeto de {{name}}.",
+      "createProject": "Criar projeto"
     }
   },
   "projects": {

@@ -168,6 +168,31 @@
         "primaryColor": "Primary color",
         "secondaryColor": "Secondary color",
         "typography": "Typography"
+      },
+      "advanced": "Advanced options",
+      "logo": {
+        "label": "Logo",
+        "previewAlt": "Logo preview",
+        "formats": "PNG, JPG or SVG. Prefer a transparent background.",
+        "empty": "No logo set — the Poseidon default will be used.",
+        "broken": "Could not load the image from this URL.",
+        "remove": "Remove logo",
+        "urlHint": "Public image address. Leave blank to inherit."
+      },
+      "colors": {
+        "pickerLabel": "Pick {{field}} visually"
+      },
+      "typography": {
+        "hint": "Pick one of the product's type families. Blank = inherited.",
+        "inherit": "Inherit",
+        "presets": {
+          "Inter": "Inter — reads well in dense screens (default)",
+          "Space Grotesk": "Space Grotesk — headings with more personality"
+        }
+      },
+      "preview": {
+        "title": "Brand preview",
+        "sample": "Sample heading and text"
       }
     },
     "secrets": {
@@ -554,7 +579,13 @@
       "policyEnabled": "Enabled",
       "policyDisabled": "Disabled",
       "projects": "Associated projects",
-      "noProjects": "No projects in this organization yet."
+      "noProjects": "No projects in this organization yet.",
+      "noWorkflowsImpact": "Without a default workflow, every new project must link one manually.",
+      "configureWorkflows": "Configure workflows",
+      "noTemplatesImpact": "Document templates standardize the artifacts agents produce.",
+      "noPoliciesImpact": "Policies define limits inherited by this organization's projects.",
+      "noProjectsContextual": "Create the first project for {{name}}.",
+      "createProject": "Create project"
     }
   },
   "projects": {

@@ -50,6 +50,7 @@ test.describe('Gate FE-1', () => {
     await navTo(page, 'Projetos');
     await page.getByRole('button', { name: 'Novo projeto' }).click();
     await page.getByLabel(/Título/).fill(PROJECT_NAME);
+    // A sigla é derivada do nome; sobrescrevemos com um valor determinístico.
     await page.getByLabel(/Slug \(sigla\)/).fill('E2EFE1');
     await page.getByLabel(/Descrição/).fill('Projeto criado pelo gate E2E da FE-1.');
     await page.getByRole('tab', { name: 'Pessoas' }).click();
@@ -61,16 +62,25 @@ test.describe('Gate FE-1', () => {
     await navTo(page, 'Cockpit');
     await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });
 
-    // 4. Chat: nova conversa + mensagem que dispara o plano do chefe (mock).
+    // 4. Golden path: projeto novo não tem workflow, então a execução do chefe
+    // fica honestamente bloqueada. Vinculamos o workflow recomendado (§14).
     await navTo(page, 'Chat');
-    await page.getByRole('button', { name: 'Nova conversa' }).click();
+    await expect(page.getByText('Execução do chefe bloqueada')).toBeVisible();
+    await expect(page.getByLabel('Mensagem para o chefe')).toBeDisabled();
+
+    await navTo(page, 'Fluxos de trabalho');
+    await page.getByRole('button', { name: 'Usar workflow recomendado' }).click();
+
+    // 5. Chat: com as dependências prontas, o composer libera. A conversa é
+    // criada automaticamente ao enviar — sem precisar de "Nova conversa".
+    await navTo(page, 'Chat');
     const composer = page.getByLabel('Mensagem para o chefe');
     await expect(composer).toBeEnabled();
     await composer.fill(PLAN_MESSAGE);
     await page.getByRole('button', { name: 'Enviar mensagem' }).click();
     await expect(page.getByText(/Entendi o contexto/)).toBeVisible({ timeout: 10_000 });
 
-    // 5. Quadro: o chefe criou demanda + tarefas (eventos no stream do projeto).
+    // 6. Quadro: o chefe criou demanda + tarefas (eventos no stream do projeto).
     await navTo(page, 'Quadro');
     const card = page.getByRole('button', { name: new RegExp(TASK_A) });
     await expect(card).toBeVisible({ timeout: 20_000 });
@@ -81,7 +91,7 @@ test.describe('Gate FE-1', () => {
       developmentColumn.getByRole('button', { name: new RegExp(TASK_A) }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // 6. Aprovar o gate pelo detalhe da tarefa (drawer no desktop, página no mobile).
+    // 7. Aprovar o gate pelo detalhe da tarefa (drawer no desktop, página no mobile).
     await developmentColumn.getByRole('button', { name: new RegExp(TASK_A) }).click();
     await expect(page.getByText(APPROVAL_TITLE)).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Aprovar', exact: true }).click();

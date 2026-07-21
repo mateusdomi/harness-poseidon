@@ -123,7 +123,8 @@ describe('ProjectForm', () => {
     // Placeholder mostra o valor herdado
     expect(screen.getByPlaceholderText('#7C5CFC')).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/cor primária/i), '#123456');
+    // Rótulo exato = campo HEX (o seletor visual tem nome acessível próprio).
+    await user.type(screen.getByLabelText('Cor primária'), '#123456');
     expect(screen.getAllByText(/personalizado/i).length).toBeGreaterThan(0);
   });
 

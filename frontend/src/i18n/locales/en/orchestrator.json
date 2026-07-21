@@ -115,7 +115,165 @@
         "noAccount": "None",
         "notDefined": "Not set",
         "accountHint": "A provider account is the credential (the secret stays in the backend); the definition only references which credential to prefer.",
-        "create": "Create definition"
+        "create": "Create definition",
+        "advanced": "Advanced options",
+        "keyPreview": "Preview: {{key}}",
+        "keyLocked": "The technical identifier cannot be changed after the definition is created.",
+        "effortAuto": "Automatic (decided by the model)",
+        "effortUnsupported": "not supported by this model",
+        "effortNoModel": "Pick a model to see the supported effort levels.",
+        "effortMapped": "The levels above reflect the mapping published by this model.",
+        "effortUnknown": "This model publishes no effort mapping; the provider applies its own default."
+      },
+      "steps": {
+        "label": "Definition steps",
+        "identity": "Identity",
+        "role": "Role",
+        "behavior": "Behavior",
+        "capabilities": "Capabilities",
+        "execution": "Execution",
+        "review": "Review",
+        "reviewHelp": "Check the data before creating. You can go back to any step."
+      },
+      "roleHelp": {
+        "chief": "Coordinates the project: receives requests, creates demands and delegates tasks to specialists. One chief per project.",
+        "specialist": "Performs a kind of work delegated by the chief (e.g. review, backend, data). There can be many."
+      },
+      "catalogEmpty": {
+        "models": {
+          "body": "No enabled model. Connect a provider and sync the catalog to pick the default model.",
+          "cta": "Manage models"
+        },
+        "accounts": {
+          "body": "No provider account registered. The account holds the credential (as a secure reference), separate from the definition.",
+          "cta": "Manage accounts"
+        },
+        "skills": {
+          "body": "No skill registered yet.",
+          "cta": "Create skill"
+        },
+        "tools": {
+          "body": "No tool registered yet.",
+          "cta": "Create tool"
+        }
+      },
+      "import": {
+        "title": "Start from a template",
+        "body": "Download the JSON template, adjust it and import. The file becomes a draft in the form — nothing is created until you finish. Never include secrets: credentials belong to the provider account.",
+        "download": "Download JSON template",
+        "upload": "Import file",
+        "previewTitle": "Import preview",
+        "apply": "Apply as draft",
+        "errors": {
+          "title": "The file could not be imported:",
+          "invalidJson": "File is not valid JSON.",
+          "notAnObject": "The content must be a JSON object.",
+          "unknownField": "Unrecognized field: {{field}}.",
+          "invalidField": "Invalid value at {{field}}.",
+          "forbiddenField": "The field {{field}} is not accepted: definitions never carry secrets or account bindings."
+        }
+      },
+      "guide": {
+        "exampleLabel": "Example",
+        "name": {
+          "description": "Human-readable agent name, used across screens.",
+          "example": "Backend reviewer",
+          "impact": "Appears in the org chart, chat and audit records."
+        },
+        "key": {
+          "description": "Stable technical identifier used in integrations and references.",
+          "example": "backend-reviewer",
+          "impact": "Generated from the name. Cannot be changed once created."
+        },
+        "description": {
+          "description": "One sentence about what this agent does.",
+          "example": "Reviews backend changes before merge.",
+          "impact": "Helps the chief decide whom to delegate to."
+        },
+        "role": {
+          "description": "Chief coordinates the project; specialist performs delegated work.",
+          "impact": "Defines whether the agent delegates or is delegated to."
+        },
+        "specialty": {
+          "description": "The specialist's area of work.",
+          "example": "Code review",
+          "impact": "Used by the chief to match task and agent."
+        },
+        "team": {
+          "description": "Team the agent belongs to (optional).",
+          "example": "Platform",
+          "impact": "Used to group and filter agents."
+        },
+        "persona": {
+          "description": "How the agent behaves and communicates.",
+          "example": "Senior engineer, direct, risk-focused.",
+          "impact": "Shapes the tone of responses.",
+          "placeholder": "e.g. Senior engineer, objective, always backing decisions with evidence."
+        },
+        "mission": {
+          "description": "The outcome this agent exists to guarantee.",
+          "example": "Ensure changes ship safe and tested.",
+          "impact": "Guides the agent's decisions under trade-offs.",
+          "placeholder": "e.g. Ensure no backend change reaches production without tests."
+        },
+        "responsibilities": {
+          "description": "What the agent delivers, one per line.",
+          "example": "Review diffs / Flag risks / Require tests",
+          "impact": "Defines the scope it accepts.",
+          "placeholder": "One responsibility per line"
+        },
+        "instructions": {
+          "description": "How to do the work, in priority order.",
+          "example": "Prefer correctness over style. Cite file and line.",
+          "impact": "Conflicting instructions reduce quality — be specific.",
+          "placeholder": "e.g. Prefer correctness over style. Always cite file and line."
+        },
+        "restrictions": {
+          "description": "What the agent must NOT do.",
+          "example": "Do not approve changes without tests.",
+          "impact": "Restrictions are hard behavioral limits.",
+          "placeholder": "e.g. Never approve without tests. Never change a public contract."
+        },
+        "bestPractices": {
+          "description": "Expected quality criteria.",
+          "example": "Actionable comments with a fix example.",
+          "impact": "Raises the delivery standard.",
+          "placeholder": "e.g. Every finding comes with a concrete fix suggestion."
+        },
+        "stacks": {
+          "description": "Technologies the agent works with, comma separated.",
+          "example": ".NET, SQL",
+          "impact": "Helps route compatible tasks."
+        },
+        "skills": {
+          "description": "Catalog skills this agent may use."
+        },
+        "tools": {
+          "description": "Tools the agent can invoke during execution."
+        },
+        "defaultModel": {
+          "description": "Model used by default in this agent's runs.",
+          "impact": "Affects cost, quality and speed."
+        },
+        "defaultEffort": {
+          "description": "Default reasoning level sent to the provider.",
+          "impact": "Higher effort costs more and takes longer, with more elaborate answers."
+        },
+        "preferredAccount": {
+          "description": "Preferred provider account for this agent.",
+          "impact": "The credential lives in the account, never in the definition."
+        },
+        "actorCritic": {
+          "description": "Role in the actor/critic pair: who executes and who reviews.",
+          "impact": "A critic reviews the actor's output before completion."
+        },
+        "risk": {
+          "description": "Risk level of this agent's actions.",
+          "impact": "Higher risk tends to require more human review."
+        },
+        "fallbackModels": {
+          "description": "Alternate models when the default is unavailable or out of quota."
+        }
       }
     },
     "chief": {

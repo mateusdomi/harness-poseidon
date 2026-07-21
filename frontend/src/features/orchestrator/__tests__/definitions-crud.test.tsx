@@ -64,15 +64,24 @@ describe('Aba Definições de agentes', () => {
     expect(screen.queryByText('Engenheiro Backend')).not.toBeInTheDocument();
   });
 
-  it('cria uma definição preenchendo nome e chave no formulário', async () => {
+  it('cria uma definição pelo formulário guiado, derivando a chave do nome', async () => {
     const user = userEvent.setup();
     renderDefinitions();
 
     await user.click(await screen.findByRole('button', { name: 'Nova definição' }));
     const dialog = await screen.findByRole('dialog', { name: 'Nova definição de agente' });
 
+    // Passo 1 — identidade. A chave técnica é derivada do nome (§16.2).
     await user.type(within(dialog).getByLabelText(/Nome/), 'Analista de Dados');
-    await user.type(within(dialog).getByLabelText(/Chave/), 'data-analyst');
+    await user.click(within(dialog).getByRole('button', { name: 'Opções avançadas' }));
+    expect(within(dialog).getByLabelText(/Identificador técnico|Chave/)).toHaveValue(
+      'analista-de-dados',
+    );
+
+    // Avança até o passo de revisão e conclui.
+    for (let step = 0; step < 5; step += 1) {
+      await user.click(within(dialog).getByRole('button', { name: 'Avançar' }));
+    }
     await user.click(within(dialog).getByRole('button', { name: 'Criar definição' }));
 
     await waitFor(() =>
@@ -95,6 +104,10 @@ describe('Aba Definições de agentes', () => {
 
     await user.clear(within(dialog).getByLabelText(/Nome/));
     await user.type(within(dialog).getByLabelText(/Nome/), 'Revisor Sênior');
+    // Formulário guiado: avança até a revisão antes de salvar.
+    for (let step = 0; step < 5; step += 1) {
+      await user.click(within(dialog).getByRole('button', { name: 'Avançar' }));
+    }
     await user.click(within(dialog).getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() =>

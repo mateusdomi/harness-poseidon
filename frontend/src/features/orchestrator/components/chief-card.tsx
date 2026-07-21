@@ -157,7 +157,7 @@ export function ChiefCard({
           <InfoRow label={t('orchestrator.chief.model')}>
             {model ? (
               <span className="flex flex-wrap items-center justify-end gap-2">
-                {model.displayName}
+                <span>{model.displayName}</span>
                 {/* Padrão da definição ainda não exercido pela instância não é
                     "em uso": rotulamos como binding pendente (§15/§17). */}
                 {modelBinding === 'definitionDefault' ? (

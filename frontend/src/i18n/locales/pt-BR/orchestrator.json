@@ -115,7 +115,165 @@
         "noAccount": "Nenhuma",
         "notDefined": "Não definido",
         "accountHint": "A conta de provider é a credencial (o segredo fica no backend); a definição apenas referencia qual credencial preferir.",
-        "create": "Criar definição"
+        "create": "Criar definição",
+        "advanced": "Opções avançadas",
+        "keyPreview": "Prévia: {{key}}",
+        "keyLocked": "O identificador técnico não pode ser alterado depois que a definição é criada.",
+        "effortAuto": "Automático (definido pelo modelo)",
+        "effortUnsupported": "não suportado por este modelo",
+        "effortNoModel": "Escolha um modelo para ver os esforços suportados.",
+        "effortMapped": "Os esforços acima refletem o mapeamento publicado por este modelo.",
+        "effortUnknown": "Este modelo não publica mapeamento de esforço; o provedor aplica o padrão dele."
+      },
+      "steps": {
+        "label": "Passos da definição",
+        "identity": "Identidade",
+        "role": "Papel",
+        "behavior": "Comportamento",
+        "capabilities": "Capacidades",
+        "execution": "Execução",
+        "review": "Revisão",
+        "reviewHelp": "Confira os dados antes de criar. Você pode voltar a qualquer passo."
+      },
+      "roleHelp": {
+        "chief": "Coordena o projeto: recebe as solicitações, cria demandas e delega tarefas aos especialistas. Há um chefe por projeto.",
+        "specialist": "Executa um tipo de trabalho delegado pelo chefe (ex.: revisão, backend, dados). Pode haver vários."
+      },
+      "catalogEmpty": {
+        "models": {
+          "body": "Nenhum modelo habilitado. Conecte um provedor e sincronize o catálogo para escolher o modelo padrão.",
+          "cta": "Gerenciar modelos"
+        },
+        "accounts": {
+          "body": "Nenhuma conta de provedor cadastrada. A conta guarda a credencial (por referência segura), separada da definição.",
+          "cta": "Gerenciar contas"
+        },
+        "skills": {
+          "body": "Nenhuma skill cadastrada ainda.",
+          "cta": "Criar skill"
+        },
+        "tools": {
+          "body": "Nenhuma ferramenta cadastrada ainda.",
+          "cta": "Criar ferramenta"
+        }
+      },
+      "import": {
+        "title": "Começar de um template",
+        "body": "Baixe o modelo JSON, ajuste e importe. O arquivo vira um rascunho no formulário — nada é criado até você concluir. Nunca inclua segredos: credenciais pertencem à conta do provedor.",
+        "download": "Baixar modelo JSON",
+        "upload": "Importar arquivo",
+        "previewTitle": "Prévia da importação",
+        "apply": "Aplicar como rascunho",
+        "errors": {
+          "title": "Não foi possível importar o arquivo:",
+          "invalidJson": "Arquivo não é um JSON válido.",
+          "notAnObject": "O conteúdo precisa ser um objeto JSON.",
+          "unknownField": "Campo não reconhecido: {{field}}.",
+          "invalidField": "Valor inválido em {{field}}.",
+          "forbiddenField": "O campo {{field}} não é aceito: definições nunca carregam segredo ou vínculo de conta."
+        }
+      },
+      "guide": {
+        "exampleLabel": "Exemplo",
+        "name": {
+          "description": "Nome legível do agente, usado nas telas.",
+          "example": "Revisor backend",
+          "impact": "Aparece no organograma, no chat e nos registros de auditoria."
+        },
+        "key": {
+          "description": "Identificador técnico estável, usado em integrações e referências.",
+          "example": "revisor-backend",
+          "impact": "Gerado do nome. Não pode ser alterado depois de criado."
+        },
+        "description": {
+          "description": "Uma frase sobre o que este agente faz.",
+          "example": "Revisa mudanças de backend antes do merge.",
+          "impact": "Ajuda o chefe a escolher a quem delegar."
+        },
+        "role": {
+          "description": "Chefe coordena o projeto; especialista executa o trabalho delegado.",
+          "impact": "Define se o agente delega ou é delegado."
+        },
+        "specialty": {
+          "description": "Área de atuação do especialista.",
+          "example": "Revisão de código",
+          "impact": "Usada pelo chefe para casar tarefa e agente."
+        },
+        "team": {
+          "description": "Time ao qual o agente pertence (opcional).",
+          "example": "Plataforma",
+          "impact": "Serve para agrupar e filtrar agentes."
+        },
+        "persona": {
+          "description": "Como o agente se comporta e se comunica.",
+          "example": "Engenheiro sênior, direto, focado em risco.",
+          "impact": "Molda o tom das respostas.",
+          "placeholder": "Ex.: Engenheiro sênior, objetivo, que sempre justifica decisões com evidência."
+        },
+        "mission": {
+          "description": "O resultado que este agente existe para garantir.",
+          "example": "Garantir que mudanças entrem seguras e testadas.",
+          "impact": "Orienta as decisões do agente diante de trade-offs.",
+          "placeholder": "Ex.: Garantir que nenhuma mudança de backend chegue à produção sem teste."
+        },
+        "responsibilities": {
+          "description": "O que o agente entrega, uma por linha.",
+          "example": "Revisar diffs / Apontar riscos / Exigir testes",
+          "impact": "Define o escopo do que ele aceita fazer.",
+          "placeholder": "Uma responsabilidade por linha"
+        },
+        "instructions": {
+          "description": "Como executar o trabalho, em ordem de prioridade.",
+          "example": "Priorize correção sobre estilo. Cite arquivo e linha.",
+          "impact": "Instruções conflitantes reduzem a qualidade — seja específico.",
+          "placeholder": "Ex.: Priorize correção sobre estilo. Sempre cite arquivo e linha."
+        },
+        "restrictions": {
+          "description": "O que o agente NÃO pode fazer.",
+          "example": "Não aprovar mudança sem teste.",
+          "impact": "Restrições são limites duros de comportamento.",
+          "placeholder": "Ex.: Nunca aprovar sem teste. Nunca alterar contrato público."
+        },
+        "bestPractices": {
+          "description": "Critérios de qualidade esperados.",
+          "example": "Comentários acionáveis, com exemplo de correção.",
+          "impact": "Eleva o padrão da entrega.",
+          "placeholder": "Ex.: Todo apontamento vem com sugestão concreta de correção."
+        },
+        "stacks": {
+          "description": "Tecnologias com que o agente trabalha, separadas por vírgula.",
+          "example": ".NET, SQL",
+          "impact": "Ajuda a direcionar tarefas compatíveis."
+        },
+        "skills": {
+          "description": "Habilidades do catálogo que este agente pode usar."
+        },
+        "tools": {
+          "description": "Ferramentas que o agente pode acionar durante a execução."
+        },
+        "defaultModel": {
+          "description": "Modelo usado por padrão nas execuções deste agente.",
+          "impact": "Afeta custo, qualidade e velocidade."
+        },
+        "defaultEffort": {
+          "description": "Nível de raciocínio padrão enviado ao provedor.",
+          "impact": "Esforço maior custa mais e demora mais, com respostas mais elaboradas."
+        },
+        "preferredAccount": {
+          "description": "Conta do provedor preferida para este agente.",
+          "impact": "A credencial fica na conta, nunca na definição."
+        },
+        "actorCritic": {
+          "description": "Papel no par actor/critic: quem executa e quem revisa.",
+          "impact": "Um crítico revisa a saída do actor antes de concluir."
+        },
+        "risk": {
+          "description": "Nível de risco das ações deste agente.",
+          "impact": "Risco maior tende a exigir mais revisão humana."
+        },
+        "fallbackModels": {
+          "description": "Modelos alternativos quando o padrão estiver indisponível ou sem cota."
+        }
       }
     },
     "chief": {

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { ArrowLeft, Pencil } from 'lucide-react';
 
 import type { Brand, Organization } from '@/api';
@@ -109,9 +110,19 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
                 </Button>
               </div>
             ) : defaultTemplates.length === 0 ? (
-              <p className="text-sm text-foreground-muted">
-                {t('organizations.detail.noWorkflows')}
-              </p>
+              // Empty state que orienta E age: a gestão de workflows existe
+              // como tela real, então a CTA leva até ela (§10).
+              <div className="flex flex-col items-start gap-2">
+                <p className="text-sm text-foreground-muted">
+                  {t('organizations.detail.noWorkflows')}
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  {t('organizations.detail.noWorkflowsImpact')}
+                </p>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/workflows">{t('organizations.detail.configureWorkflows')}</Link>
+                </Button>
+              </div>
             ) : (
               <ul className="flex flex-col gap-2">
                 {defaultTemplates.map((template) => (
@@ -131,9 +142,16 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
           </CardHeader>
           <CardContent>
             {organization.templateKeys.length === 0 ? (
-              <p className="text-sm text-foreground-muted">
-                {t('organizations.detail.noTemplates')}
-              </p>
+              // Sem contrato de gestão de templates de documento, explicamos o
+              // impacto e NÃO oferecemos CTA que não levaria a lugar nenhum.
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-foreground-muted">
+                  {t('organizations.detail.noTemplates')}
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  {t('organizations.detail.noTemplatesImpact')}
+                </p>
+              </div>
             ) : (
               <ul className="flex flex-wrap gap-2">
                 {organization.templateKeys.map((key) => (
@@ -154,9 +172,15 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
           </CardHeader>
           <CardContent>
             {organization.policies.length === 0 ? (
-              <p className="text-sm text-foreground-muted">
-                {t('organizations.detail.noPolicies')}
-              </p>
+              // Idem: não há comando de configuração de políticas no contrato.
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-foreground-muted">
+                  {t('organizations.detail.noPolicies')}
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  {t('organizations.detail.noPoliciesImpact')}
+                </p>
+              </div>
             ) : (
               <ul className="flex flex-col gap-3">
                 {organization.policies.map((policy) => (
@@ -195,7 +219,18 @@ export function OrganizationDetail({ organization, onEdit, onBack }: Organizatio
               </Button>
             </div>
           ) : (projectsQuery.data ?? []).length === 0 ? (
-            <p className="text-sm text-foreground-muted">{t('organizations.detail.noProjects')}</p>
+            // Empty state contextual: cria o primeiro projeto JÁ com esta
+            // organização pré-selecionada, preservando o contexto (§6/§10).
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-sm text-foreground-muted">
+                {t('organizations.detail.noProjectsContextual', { name: organization.name })}
+              </p>
+              <Button asChild size="sm">
+                <Link to={`/projects?new=1&org=${organization.id}`}>
+                  {t('organizations.detail.createProject')}
+                </Link>
+              </Button>
+            </div>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
               {(projectsQuery.data ?? []).map((project) => (
