@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T01:55:15.8091100+00:00
+lastGeneratedAt: 2026-07-21T02:05:38.0917630+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4e04719720c9bd88dbf068224176545fbb069e5932229a3647017b4433106d3a
+  checksum: sha256:4e4dc2d6dfc71976344eb81215d91c19ff8d62bca789a0d752cfb68c8a2d69a3
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 7085
+  tokenEstimate: 7262
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:dbd3b413b2cdeb26999a19f816816e2ba69b697cee6f5b6e76eb56761c96704f
+  checksum: sha256:5b89719e7f555f108e7c8796b6dd2c0c71694363d5b037e7079ba3982ec38201
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -10390,7 +10390,7 @@ documents:
   - '**'
   loadPolicy: on-demand
   priority: 700
-  tokenEstimate: 486
+  tokenEstimate: 674
   owner: Operations
   status: active
   version: 1.0.0
@@ -10403,7 +10403,7 @@ documents:
   - doc-backend-operations-homologation
   enforcedBy:
   - tools/backend/verify-release-candidate.sh
-  checksum: sha256:d907ab4e5897444207fdb94aa7655c8035619b4ab6a5b0fc5ce1ce40e59a9237
+  checksum: sha256:b901e410625876db02200a7baebeb1a3543621d9d9a5aab9d13631067c44c8f6
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/release/RELEASE_NOTES.md
@@ -10433,7 +10433,7 @@ documents:
   - '**'
   loadPolicy: on-demand
   priority: 700
-  tokenEstimate: 881
+  tokenEstimate: 1475
   owner: Operations
   status: active
   version: 1.0.0
@@ -10447,7 +10447,7 @@ documents:
   - doc-backend-operations-homologation
   enforcedBy:
   - tools/backend/verify-release-candidate.sh
-  checksum: sha256:27876bc4967e953ffae94591a39a9f0fae55b5ab0ebf758b641b63e9baec17cd
+  checksum: sha256:d0030a68024edf82de11f7a90d00bc17acac88d478ed2c010cf20b0b5cf1b523
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/release/RELEASE_REPORT.md

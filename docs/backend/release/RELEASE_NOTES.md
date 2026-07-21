@@ -3,6 +3,18 @@
 Data: 2026-07-20. Canal: `develop`. Esta é uma candidata técnica para homologação, não uma release
 publicada nem um aceite humano.
 
+## Release Candidate 3 (`bf08cc809f02`)
+
+Sucede a RC2, que iniciou e resolveu o skeleton mas reprovou GNG-3 por um HTTP 500 em
+`GET /api/v1/governance-runtime/stale-doc-findings` na instalação limpa. Causa raiz: o detector de
+documentos stale lia no filesystem um documento do manifest (`frontend/README.md`) não empacotado e
+lançava exceção não tratada; a resolução da raiz de governança ainda dependia do diretório atual. A
+RC3 corrige em código (finding tipado para fonte ausente, empacotamento do documento de runtime,
+raiz resolvida do install dir) e adiciona um gate que exerce todos os GETs de governança contra o
+pacote a partir de um diretório neutro, exigindo zero 500. Integra o fix visual do frontend
+(`142c6c7`). Todos os gates automáticos verdes; revalidada fora do repositório. GNG-3/GNG-4/GNG-6
+seguem pendentes de aceite humano.
+
 ## Release Candidate 2 (`709037b0fb78`)
 
 Sucede a RC `d11df779`, que reprovou GNG-3 por skeleton infinito no Cockpit sem projeto. A RC2
