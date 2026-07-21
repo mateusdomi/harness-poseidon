@@ -32,6 +32,11 @@ public sealed class ConversationContractDriftTests
 
         AssertSchema(openApi, "ConversationResponse", ConversationFields);
         AssertSchema(openApi, "MessageResponse", MessageFields);
+        // C4/ADR-019: comando idempotente da primeira conversa do projeto.
+        Assert.True(openApi.GetProperty("paths")
+            .GetProperty("/api/v1/projects/{projectId}/conversations/primary")
+            .TryGetProperty("post", out _));
+
         // C2/ADR-019: o turno expõe estado tipado, bloqueadores, próximas ações e prontidão.
         AssertSchema(openApi, "ChatTurnHandle",
             ["turnId", "conversationId", "state", "correlationId", "readiness", "blockers",

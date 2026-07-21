@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T18:40:40.5026500+00:00
+lastGeneratedAt: 2026-07-21T18:45:47.7624350+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7214
+  tokenEstimate: 7241
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:15ad9c9a67ef3610436fb219762a4ebb08531998ff11a2e6017a690c398bcc54
+  checksum: sha256:c12a4d35e6bc40ffb790d47302c7219ba0910acf7d62d9efae4dc215ad623729
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 8223
+  tokenEstimate: 8298
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:ff81a12775f49617a534659ab9e9c8b6e26bf10919588e0765e4f777532171ba
+  checksum: sha256:6da7405a990beaee1b833c455569ba4c45533308a024fe36f835f6715ce33655
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -10942,3 +10942,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GP-C3-TURN-LIFECYCLE-EVENTS.md
+- id: evidence-golden-path-c4-primary-conversation
+  path: docs/backend/execution/evidence/GP-C4-PRIMARY-CONVERSATION.md
+  title: GP-C4 — primeira conversa idempotente
+  category: evidence
+  topic: evidence-golden-path-c4-primary-conversation
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/contracts/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 519
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-019-chief-transport-vs-model-response
+  enforcedBy: []
+  checksum: sha256:7c889e29b27af0a3c58121d1ed194fbd872c0e66c1527c03a2b4bd33fd842a87
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GP-C4-PRIMARY-CONVERSATION.md

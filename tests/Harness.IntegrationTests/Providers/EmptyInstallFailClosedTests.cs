@@ -139,12 +139,36 @@ public sealed class EmptyInstallFailClosedTests
                 Assert.NotEmpty(execution.Blockers);
                 Assert.NotEqual(ConfigurationState.Ready, readiness.OverallState);
                 Assert.NotEmpty(readiness.NextActions);
+                // C4/ADR-019: a primeira conversa é criada por comando idempotente — o usuário
+                // não precisa descobrir "Nova conversa" para desbloquear o input.
+                ConversationResponse conversation;
+                using (var first = await client.PostAsJsonAsync(
+                    $"/api/v1/projects/{project.Id}/conversations/primary",
+                    new { },
+                    timeout.Token))
+                {
+                    Assert.Equal(System.Net.HttpStatusCode.Created, first.StatusCode);
+                    conversation = (await first.Content
+                        .ReadFromJsonAsync<ConversationResponse>(timeout.Token))!;
+                }
+
+                using (var again = await client.PostAsJsonAsync(
+                    $"/api/v1/projects/{project.Id}/conversations/primary",
+                    new { },
+                    timeout.Token))
+                {
+                    // Reexecutar devolve a MESMA conversa, sem duplicar.
+                    Assert.Equal(System.Net.HttpStatusCode.OK, again.StatusCode);
+                    var repeated = (await again.Content
+                        .ReadFromJsonAsync<ConversationResponse>(timeout.Token))!;
+                    Assert.Equal(conversation.Id, repeated.Id);
+                }
+
+                Assert.Single((await client.GetFromJsonAsync<ConversationPage>(
+                    $"/api/v1/conversations?projectId={project.Id}", timeout.Token))!.Items);
+
                 // C2/ADR-019: sem provider/modelo o turno NÃO é erro de requisição. A mensagem
                 // é persistida e o bloqueio volta tipado, com bloqueadores e próximas ações.
-                var conversation = (await (await client.PostAsJsonAsync(
-                    "/api/v1/conversations",
-                    new CreateConversationRequest(project.Id, "Primeira conversa"),
-                    timeout.Token)).Content.ReadFromJsonAsync<ConversationResponse>(timeout.Token))!;
                 using (var turn = await client.PostAsJsonAsync(
                     $"/api/v1/conversations/{conversation.Id}/turns",
                     new StartChatTurnRequest("Olá, Chief."),
@@ -168,6 +192,13 @@ public sealed class EmptyInstallFailClosedTests
                 var afterFirst = (await client.GetFromJsonAsync<MessagePage>(
                     $"/api/v1/messages?conversationId={conversation.Id}", timeout.Token))!;
                 Assert.Single(afterFirst.Items);
+
+                // C4: o envio bloqueado preserva a conversa — ela continua ativa e única.
+                var preserved = (await client.GetFromJsonAsync<ConversationResponse>(
+                    $"/api/v1/conversations/{conversation.Id}", timeout.Token))!;
+                Assert.Equal("active", preserved.State);
+                Assert.Single((await client.GetFromJsonAsync<ConversationPage>(
+                    $"/api/v1/conversations?projectId={project.Id}", timeout.Token))!.Items);
 
                 // Perfil, organização e projeto são reais porque de fato existem. Já as etapas
                 // que dependem de configuração externa não podem aparecer como execução real —

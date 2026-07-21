@@ -26,6 +26,14 @@ public static class ConversationEndpoints
         conversations.MapDelete("/{conversationId}", DeleteConversationAsync)
             .Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404)
             .ProducesProblem(409);
+        // C4/ADR-019: a primeira conversa não pode depender de o usuário descobrir "Nova
+        // conversa". Este comando é idempotente: devolve a conversa ativa mais antiga do
+        // projeto ou cria a primeira. Criar conversa não é executar — permanece permitido
+        // mesmo com a execução bloqueada.
+        endpoints.MapPost("/api/v1/projects/{projectId}/conversations/primary", EnsurePrimaryAsync)
+            .WithTags("conversations")
+            .Produces<ConversationResponse>(200).Produces<ConversationResponse>(201)
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         conversations.MapPost("/{conversationId}/turns", StartTurnAsync)
             .Produces<ChatTurnHandle>(202).ProducesProblem(400).ProducesProblem(401)
             .ProducesProblem(404).ProducesProblem(409);
@@ -102,6 +110,71 @@ public static class ConversationEndpoints
                 ConversationMutationStatus.ProjectNotFound => ProjectNotFound(),
                 ConversationMutationStatus.AlreadyExists => Problem(
                     409, "conversation_already_exists", "The conversation already exists."),
+                _ => throw new InvalidOperationException(
+                    $"Unexpected conversation create status {result.Status}."),
+            };
+        }
+        catch (ArgumentException exception)
+        {
+            return Problem(400, "invalid_conversation", exception.Message);
+        }
+    }
+
+    private static async Task<IResult> EnsurePrimaryAsync(
+        string projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IConversationStore store,
+        IProjectStore projects,
+        IClock clock,
+        CancellationToken cancellationToken)
+    {
+        if (!UlidValue.TryParse(projectId, out _))
+        {
+            return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
+        }
+
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, cancellationToken);
+        if (profile is null) return SessionRequired();
+        if (await projects.GetAsync(profile.TenantId, projectId, cancellationToken) is null)
+        {
+            return ProjectNotFound();
+        }
+
+        // Idempotente: a conversa ativa mais antiga do projeto é a primária. Reexecutar o
+        // comando devolve a mesma conversa, sem criar duplicata nem alterar o histórico.
+        var existing = await store.ListConversationsAsync(
+            profile.TenantId, projectId, null, 200, cancellationToken);
+        var primary = existing
+            .Where(item => item.State == "active")
+            .OrderBy(item => item.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (primary is not null)
+        {
+            return Results.Ok(ToResponse(primary));
+        }
+
+        try
+        {
+            var now = clock.UtcNow;
+            var contract = ConversationApplicationService.Create(
+                UlidValue.New(now).ToString(), profile.Id,
+                new CreateConversationRequest(projectId, "Conversa inicial"), now);
+            var result = await store.CreateConversationAsync(
+                new ConversationCreateCommand(ToRecord(profile.TenantId, contract), now),
+                cancellationToken);
+            return result.Status switch
+            {
+                ConversationMutationStatus.Applied => Results.Created(
+                    $"/api/v1/conversations/{contract.Id}", ToResponse(result.Conversation!)),
+                ConversationMutationStatus.ProjectNotFound => ProjectNotFound(),
+                // Corrida com outra criação concorrente: reexecuta a leitura idempotente.
+                ConversationMutationStatus.AlreadyExists => Results.Ok(ToResponse(
+                    (await store.ListConversationsAsync(
+                        profile.TenantId, projectId, null, 200, cancellationToken))
+                    .Where(item => item.State == "active")
+                    .OrderBy(item => item.Id, StringComparer.Ordinal)
+                    .First())),
                 _ => throw new InvalidOperationException(
                     $"Unexpected conversation create status {result.Status}."),
             };
