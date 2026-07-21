@@ -29,6 +29,8 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    // Catálogo de TIPOS de provider conectáveis. Não é conta, não é credencial e não implica
+    // saúde: é apenas o ponto de entrada para o usuário conectar uma conta (ADR-018).
     private static readonly string[] SeedStatements =
     [
         """
@@ -38,6 +40,11 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
           ($1,'01ARZ3NDEKTSV4RRFFQ69G5FG3','ollama','Ollama','http://127.0.0.1:11434',false)
         ON CONFLICT DO NOTHING;
         """,
+    ];
+
+    // Dados SIMULADOS: só sob demo/desenvolvimento explícito ou fixtures de teste (ADR-018).
+    private static readonly string[] SimulatedSeedStatements =
+    [
         """
         INSERT INTO harness.provider_accounts (tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd) VALUES
           ($1,'01ARZ3NDEKTSV4RRFFQ69G5FH1','01ARZ3NDEKTSV4RRFFQ69G5FG1','OpenAI account','active','keychain://harness/openai',100,0),
@@ -63,6 +70,19 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
           ($1,'01ARZ3NDEKTSV4RRFFQ69G5FM2','account','01ARZ3NDEKTSV4RRFFQ69G5FH1','monthly',100,0,80),
           ($1,'01ARZ3NDEKTSV4RRFFQ69G5FM3','account','01ARZ3NDEKTSV4RRFFQ69G5FH2','monthly',100,0,80)
         ON CONFLICT DO NOTHING;
+        """,
+    ];
+
+    // `agent_definitions` é global (sem tenant_id): estas sentenças não recebem parâmetro.
+    private static readonly string[] SimulatedGlobalStatements =
+    [
+        """
+        UPDATE harness.agent_definitions SET default_model_id='01ARZ3NDEKTSV4RRFFQ69G5FJ1'
+          WHERE agent_key='chief-orchestrator' AND default_model_id IS NULL;
+        """,
+        """
+        UPDATE harness.agent_definitions SET default_model_id='01ARZ3NDEKTSV4RRFFQ69G5FJ2'
+          WHERE agent_key<>'chief-orchestrator' AND default_model_id IS NULL;
         """,
     ];
 
@@ -190,6 +210,28 @@ public sealed class PostgresProviderCatalogStore(NpgsqlDataSource dataSource) : 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await EnsureAsync(connection, tenantId, cancellationToken);
         return await ReadOneAsync(connection, null, tenantId, select, id, read, cancellationToken);
+    }
+
+    public async Task SeedSimulatedCatalogAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await EnsureAsync(connection, tenantId, cancellationToken);
+        foreach (var statement in SimulatedSeedStatements)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = statement;
+            command.Parameters.Add(Text(tenantId));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        foreach (var statement in SimulatedGlobalStatements)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = statement;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
     }
 
     private static async Task EnsureAsync(

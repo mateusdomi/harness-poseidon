@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Harness.IntegrationTests.Support;
 
 namespace Harness.IntegrationTests.Conversations;
 
@@ -44,6 +45,7 @@ public sealed class ConversationApiTests
                 {
                     using var client = new HttpClient { BaseAddress = GetBaseAddress(app.Services) };
                     var profile = await CreateProfileAsync(client, "Recovery", timeout.Token); profileId = profile.Id;
+                    await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                     tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>().GetAsync(profileId, timeout.Token))!.TenantId;
                     var organization = await CreateOrganizationAsync(client, timeout.Token);
                     var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
@@ -127,6 +129,7 @@ public sealed class ConversationApiTests
                     using var handler = new HttpClientHandler { CookieContainer = cookies };
                     using var client = new HttpClient(handler) { BaseAddress = address };
                     var profile = await CreateProfileAsync(client, "Mateus", timeout.Token);
+                    await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                     profileId = profile.Id;
                     var organization = await CreateOrganizationAsync(client, timeout.Token);
                     var project = await CreateProjectAsync(client, organization.Id, timeout.Token);

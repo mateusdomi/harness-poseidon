@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Harness.IntegrationTests.Support;
 
 namespace Harness.IntegrationTests.Providers;
 
@@ -38,6 +39,7 @@ public sealed class ProviderCatalogApiTests
                     { response.EnsureSuccessStatusCode(); profileId = (await response.Content.ReadFromJsonAsync<ProfileResponse>(timeout.Token))!.Id; }
 
                     var providers = (await client.GetFromJsonAsync<ProviderPage>("/api/v1/providers", timeout.Token))!;
+                    await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                     var accounts = (await client.GetFromJsonAsync<AccountPage>("/api/v1/accounts", timeout.Token))!;
                     var models = (await client.GetFromJsonAsync<ModelPage>("/api/v1/models", timeout.Token))!;
                     var routing = (await client.GetFromJsonAsync<RoutingPolicyPage>("/api/v1/routing-policies", timeout.Token))!;

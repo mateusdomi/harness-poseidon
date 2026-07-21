@@ -1,14 +1,21 @@
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Organizations;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Demo;
 
+/// <summary>
+/// Provisiona os dados de demonstração. Registrado somente sob `Harness:Demo:Enabled`
+/// (ADR-018): é o único caminho que semeia contas, modelos, cotas e roteamento simulados.
+/// O pacote de homologação normal nunca executa este serviço e permanece fail-closed.
+/// </summary>
 public sealed class DemoDataHostedService(
     ILocalProfileStore profiles,
     IOrganizationStore organizations,
     IProjectStore projects,
+    IProviderCatalogStore providers,
     IClock clock) : IHostedService
 {
     internal const string TenantId = "01J00000000000000000000001";
@@ -24,6 +31,11 @@ public sealed class DemoDataHostedService(
         var profile = await profiles.CreateAsync(new LocalProfileCreateCommand(
             TenantId, "Poseidon Demo", ProfileId, "Pessoa de homologação", null, null, "pt-BR", now), cancellationToken);
         if (profile.Status != LocalProfileMutationStatus.Applied) return;
+        // Catálogo simulado de provider/modelo/cota: existe apenas no modo demo e é sempre
+        // reportado como `Simulated` pelo read model de prontidão (ADR-017/ADR-018). Semeado
+        // depois do perfil porque é o perfil que provisiona o tenant referenciado pelas FKs, e
+        // antes do projeto para que o Chief da demo nasça com modelo resolvível.
+        await providers.SeedSimulatedCatalogAsync(TenantId, cancellationToken);
         var organization = await organizations.CreateAsync(new OrganizationCreateCommand(
             TenantId, OrganizationId, "Poseidon Demo", "poseidon-demo", "personal",
             new OrganizationBrandRecord(null, null, null, null), now), cancellationToken);

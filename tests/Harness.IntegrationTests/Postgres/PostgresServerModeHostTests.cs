@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Harness.IntegrationTests.Support;
 
 namespace Harness.IntegrationTests.Postgres;
 
@@ -58,6 +59,7 @@ public sealed class PostgresServerModeHostTests
                 // Fluxo completo do MVP no PostgreSQL: perfil → org → projeto →
                 // templates canônicos semeados → chat → Chief → demanda.
                 await CreateProfileAsync(client, timeout.Token);
+                await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                 var organization = await CreateOrganizationAsync(client, timeout.Token);
                 var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
                 var templates = (await client.GetFromJsonAsync<Harness.Host.Workflows.WorkflowTemplatePage>(

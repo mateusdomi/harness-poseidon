@@ -42,9 +42,15 @@ public static class CatalogStoreBehavior
         Assert.NotEmpty(await tools.ListPluginsAsync(null, 50, cancellationToken));
         Assert.NotEmpty(await tools.ListMcpServersAsync(null, 50, cancellationToken));
 
-        // Providers: catálogo lazy por tenant com budgets semeados (global + contas).
+        // Providers: o catálogo lazy por tenant oferece apenas os TIPOS conectáveis; contas,
+        // modelos, cotas e roteamento não são semeados em instalação normal (ADR-018). O
+        // cenário pede explicitamente o catálogo SIMULADO antes de exercer essas leituras.
         var providerRows = await providers.ListProvidersAsync(tenantId, null, 50, cancellationToken);
         Assert.NotEmpty(providerRows);
+        Assert.Empty(await providers.ListAccountsAsync(tenantId, null, 50, cancellationToken));
+        Assert.Empty(await providers.ListModelsAsync(tenantId, null, 50, cancellationToken));
+        Assert.Empty(await providers.ListBudgetsAsync(tenantId, null, 50, cancellationToken));
+        await providers.SeedSimulatedCatalogAsync(tenantId, cancellationToken);
         var models = await providers.ListModelsAsync(tenantId, null, 50, cancellationToken);
         Assert.NotEmpty(models);
         Assert.All(models, model => Assert.Equal(["low", "medium", "high", "max"], (model.EffortMappings ?? []).Select(value => value.Effort)));

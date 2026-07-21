@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Harness.IntegrationTests.Support;
 
 namespace Harness.IntegrationTests.Projects;
 
@@ -61,6 +62,7 @@ public sealed class ProjectApiTests
                     var profile = await profileResponse.Content.ReadFromJsonAsync<ProfileResponse>(timeout.Token);
                     Assert.NotNull(profile);
                     profileId = profile.Id;
+                    await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
 
                     using var organizationResponse = await client.PostAsJsonAsync(
                         "/api/v1/organizations",

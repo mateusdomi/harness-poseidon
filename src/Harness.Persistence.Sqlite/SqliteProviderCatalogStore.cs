@@ -44,6 +44,9 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
             await EnsureAsync(c, tenant, token); return await ReadOneAsync(c, null, tenant, select, id, read, token);
         }, cancellationToken);
 
+    // Catálogo de TIPOS de provider conectáveis. Não é conta, não é credencial e não implica
+    // saúde: é apenas o ponto de entrada para o usuário conectar uma conta (ADR-018). Uma
+    // instalação vazia não contém conta, modelo, cota ou roteamento que o usuário não criou.
     private static async Task EnsureAsync(SqliteConnection c, string tenant, CancellationToken token)
     {
         await using var q = c.CreateCommand(); q.CommandText = """
@@ -51,6 +54,22 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FG1','openai','OpenAI','https://api.openai.com/v1',1),
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FG2','anthropic','Anthropic','https://api.anthropic.com',1),
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FG3','ollama','Ollama','http://127.0.0.1:11434',0);
+            """;
+        Add(q, "$tenant", tenant); await q.ExecuteNonQueryAsync(token);
+    }
+
+    public Task SeedSimulatedCatalogAsync(string tenantId, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (c, token) =>
+        {
+            await EnsureAsync(c, tenantId, token);
+            await SeedSimulatedCoreAsync(c, tenantId, token);
+            return 0;
+        }, cancellationToken);
+
+    // Dados SIMULADOS: só sob demo/desenvolvimento explícito ou fixtures de teste (ADR-018).
+    private static async Task SeedSimulatedCoreAsync(SqliteConnection c, string tenant, CancellationToken token)
+    {
+        await using var q = c.CreateCommand(); q.CommandText = """
             INSERT OR IGNORE INTO provider_accounts(tenant_id,id,provider_id,label,state,credential_reference,quota_limit_usd,quota_used_usd) VALUES
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FH1','01ARZ3NDEKTSV4RRFFQ69G5FG1','OpenAI account','active','keychain://harness/openai',100,0),
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FH2','01ARZ3NDEKTSV4RRFFQ69G5FG2','Anthropic account','disabled','keychain://harness/anthropic',100,0);
@@ -65,6 +84,10 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FM1','global',NULL,'monthly',200,0,80),
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FM2','account','01ARZ3NDEKTSV4RRFFQ69G5FH1','monthly',100,0,80),
               ($tenant,'01ARZ3NDEKTSV4RRFFQ69G5FM3','account','01ARZ3NDEKTSV4RRFFQ69G5FH2','monthly',100,0,80);
+            UPDATE agent_definitions SET default_model_id='01ARZ3NDEKTSV4RRFFQ69G5FJ1'
+              WHERE agent_key='chief-orchestrator' AND default_model_id IS NULL;
+            UPDATE agent_definitions SET default_model_id='01ARZ3NDEKTSV4RRFFQ69G5FJ2'
+              WHERE agent_key<>'chief-orchestrator' AND default_model_id IS NULL;
             """;
         Add(q, "$tenant", tenant); await q.ExecuteNonQueryAsync(token);
     }

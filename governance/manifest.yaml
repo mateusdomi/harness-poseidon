@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T16:34:00.0376150+00:00
+lastGeneratedAt: 2026-07-21T16:51:56.2945270+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7092
+  tokenEstimate: 7122
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:db5c634103f29ddeab85d1ff1d2c9ed7e14b45c97d88ccf39094272604865dc3
+  checksum: sha256:e62f0d1d459a58b0b903720c6d4d76723b1cc06d6e6d9f878970df8bd891b552
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 7833
+  tokenEstimate: 7946
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:3761e082c765b9f97e901b9596891f1071459280e48ac0412d07d2a3e540100a
+  checksum: sha256:b33ad08bcfd542831aa3cb80970dd5c52d0acfd1d4b106696f96a06809b84926
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -10748,3 +10748,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GP-A-READINESS-CONTRACT.md
+- id: evidence-golden-path-b-fail-closed
+  path: docs/backend/execution/evidence/GP-B-FAIL-CLOSED-CATALOG.md
+  title: GP-B — instalação vazia sem catálogo simulado
+  category: evidence
+  topic: evidence-golden-path-b-fail-closed
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 867
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-018-fail-closed-simulated-data
+  enforcedBy: []
+  checksum: sha256:f5fdb0798f6af498a917e7a7885edd683234c74235c61fe69ee99af7936f1912
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GP-B-FAIL-CLOSED-CATALOG.md
