@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T18:45:47.7624350+00:00
+lastGeneratedAt: 2026-07-21T18:50:10.3689810+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7241
+  tokenEstimate: 7271
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:c12a4d35e6bc40ffb790d47302c7219ba0910acf7d62d9efae4dc215ad623729
+  checksum: sha256:d454d0f26cdf7b0240e52d92e6b14744228e07a0c20eeb85eab5db34f15c376c
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 8298
+  tokenEstimate: 8417
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:6da7405a990beaee1b833c455569ba4c45533308a024fe36f835f6715ce33655
+  checksum: sha256:d9716f344b38790e2ea4d55405011b6e32f528d3efbc229df7ba716379904217
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -10990,3 +10990,50 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GP-C4-PRIMARY-CONVERSATION.md
+- id: evidence-golden-path-c5-real-execution-smoke
+  path: docs/backend/execution/evidence/GP-C5-REAL-EXECUTION-SMOKE.md
+  title: GP-C5 — smoke condicional da execução real
+  category: evidence
+  topic: evidence-golden-path-c5-real-execution-smoke
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 584
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-019-chief-transport-vs-model-response
+  enforcedBy: []
+  checksum: sha256:3bcd1ea5f52ea531f367673c1ddc9abef7f942894e8af6a4146d04f595cc3e6a
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/GP-C5-REAL-EXECUTION-SMOKE.md
