@@ -121,16 +121,18 @@ async function createProfile(page: Page) {
 
 async function createOrganization(page: Page) {
   await page.goto('/organizations');
-  await page.getByRole('button', { name: 'Nova organização', exact: true }).click();
+  // Coleção vazia: a CTA única é a do empty state (§4). O slug é gerado do nome
+  // automaticamente (§7), sem preenchimento manual no fluxo comum.
+  await page.getByRole('button', { name: 'Criar organização' }).click();
   await page.getByLabel('Nome').fill(ORGANIZATION_NAME);
-  await page.getByLabel('Slug').fill('package-clean');
   await page.getByRole('button', { name: 'Criar organização' }).click();
   await expect(page.getByText(ORGANIZATION_NAME, { exact: true })).toBeVisible();
 }
 
 async function createProject(page: Page) {
   await page.goto('/projects');
-  await page.getByRole('button', { name: 'Novo projeto', exact: true }).click();
+  // Coleção vazia: CTA única do empty state.
+  await page.getByRole('button', { name: 'Criar projeto' }).click();
   await page.getByLabel('Título').fill(PROJECT_NAME);
   await page.getByLabel('Slug (sigla)').fill('PKGCLEAN');
   await page.getByLabel('Descrição').fill('Regressão do pacote self-contained com data dir vazio.');

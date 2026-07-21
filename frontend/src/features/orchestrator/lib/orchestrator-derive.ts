@@ -37,6 +37,93 @@ export function deriveChiefHealth(
   return 'ok';
 }
 
+/**
+ * Prontidão operacional do chefe (§15). Substitui a impressão de "pronto" por
+ * um estado explícito e honesto, derivado só de recursos reais.
+ */
+export type ChiefReadiness =
+  | 'notConfigured'
+  | 'awaitingProvider'
+  | 'awaitingWorkflow'
+  | 'ready'
+  | 'running'
+  | 'degraded';
+
+/** CTA correspondente a cada estado de prontidão (null = nada a fazer). */
+export type ChiefReadinessAction =
+  | 'configureProvider'
+  | 'chooseModel'
+  | 'linkWorkflow'
+  | 'reviewAgents'
+  | null;
+
+export interface ChiefReadinessInput {
+  /** Modelo efetivamente resolvido para o chefe (null = nenhum). */
+  model: Model | null;
+  /** Conta ativa do provedor do modelo (null = nenhuma). */
+  account: Account | null;
+  /** Workflow vinculado ao projeto. */
+  hasWorkflow: boolean;
+  /** Estado do agente chefe. */
+  agentState: AgentState;
+  /** Há tentativa em execução agora. */
+  isRunning: boolean;
+  /** Saúde derivada do heartbeat/estado. */
+  health: ChiefHealth;
+}
+
+/**
+ * Ordem de precedência (fail-closed — degradação e falta de pré-requisito
+ * vencem qualquer aparência de prontidão):
+ * degradado → em execução → sem modelo/conta → sem workflow → pronto.
+ */
+export function deriveChiefReadiness(input: ChiefReadinessInput): ChiefReadiness {
+  if (input.health === 'error' || input.agentState === 'error') return 'degraded';
+  if (input.agentState === 'outOfQuota') return 'degraded';
+  if (input.model === null && input.account === null && !input.hasWorkflow) {
+    return 'notConfigured';
+  }
+  if (input.model === null || input.account === null) return 'awaitingProvider';
+  if (!input.hasWorkflow) return 'awaitingWorkflow';
+  if (input.isRunning) return 'running';
+  return 'ready';
+}
+
+/** CTA única e correta para cada estado de prontidão. */
+export function readinessAction(readiness: ChiefReadiness): ChiefReadinessAction {
+  switch (readiness) {
+    case 'notConfigured':
+    case 'awaitingProvider':
+      return 'configureProvider';
+    case 'awaitingWorkflow':
+      return 'linkWorkflow';
+    case 'degraded':
+      return 'reviewAgents';
+    case 'ready':
+    case 'running':
+      return null;
+  }
+}
+
+/**
+ * Origem do vínculo modelo/conta — evita apresentar um padrão de definição
+ * como se fosse um vínculo real da instância (§15/§17).
+ * - `instance`: o agente tem `modelId` próprio (vínculo real em uso).
+ * - `definitionDefault`: veio do `defaultModelId` da definição (ainda não
+ *   exercido pela instância) → a UI deve rotular como "binding pendente".
+ * - `none`: não há vínculo algum.
+ */
+export type BindingSource = 'instance' | 'definitionDefault' | 'none';
+
+export function resolveModelBindingSource(
+  agent: Agent,
+  definition: AgentDefinition | null,
+): BindingSource {
+  if (agent.modelId) return 'instance';
+  if (definition?.defaultModelId) return 'definitionDefault';
+  return 'none';
+}
+
 /** Grupo da grade de agentes: um estado com suas instâncias (só não vazios). */
 export interface AgentStateGroup {
   state: AgentState;

@@ -42,6 +42,22 @@ export function ProjectList({ projects, organizations, onSelect, onCreateNew }: 
     setFilters((current) => ({ ...current, ...partial }));
   }
 
+  // Coleção vazia: só o empty state, dono da CTA única (§4). Barra de busca,
+  // filtros e o botão do topo ficam ocultos para não duplicar a ação.
+  if (projects.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-start gap-3 p-6">
+          <p className="font-medium">{t('projects.empty.title')}</p>
+          <p className="text-sm text-foreground-muted">{t('projects.empty.body')}</p>
+          <Button type="button" onClick={onCreateNew}>
+            {t('projects.empty.cta')}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto_auto]">
@@ -131,17 +147,7 @@ export function ProjectList({ projects, organizations, onSelect, onCreateNew }: 
         </Button>
       </div>
 
-      {projects.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-start gap-3 p-6">
-            <p className="font-medium">{t('projects.empty.title')}</p>
-            <p className="text-sm text-foreground-muted">{t('projects.empty.body')}</p>
-            <Button type="button" onClick={onCreateNew}>
-              {t('projects.empty.cta')}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="text-sm text-foreground-muted">{t('projects.emptySearch')}</p>
       ) : (
         <>

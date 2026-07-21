@@ -114,6 +114,13 @@
       "loading": "Carregando…",
       "errorBody": "Não foi possível carregar os dados. Tente novamente."
     },
+    "simulated": {
+      "label": "Modo simulado",
+      "hint": "Esta tela mostra dados simulados (fixtures), não um backend real. Configure o modo HTTP para operar com dados reais."
+    },
+    "breadcrumb": {
+      "label": "Trilha de navegação"
+    },
     "requests": {
       "slow": "A API está demorando para responder em {{path}} ({{count}} requisição(ões)). A operação continua monitorada.",
       "routeTimeout": "A tela excedeu o tempo seguro de carregamento. Tente novamente."
@@ -390,6 +397,65 @@
       "custom": "Personalizado"
     }
   },
+  "goldenPath": {
+    "title": "Comece por aqui",
+    "subtitle": "Siga estes passos para levar um projeto novo até a primeira execução do Chief.",
+    "progress": "{{done}} de {{total}} concluídos",
+    "continue": "Continuar",
+    "complete": {
+      "title": "Tudo pronto — o Chief pode executar neste projeto.",
+      "body": "O caminho inicial está completo. Você pode iniciar uma conversa e acompanhar a execução."
+    },
+    "status": {
+      "done": "Concluído",
+      "current": "Próximo passo",
+      "blocked": "Bloqueado",
+      "pending": "Pendente"
+    },
+    "blockedBy": "Requer antes: {{steps}}",
+    "steps": {
+      "profile": {
+        "title": "Perfil",
+        "explanation": "Seu perfil local já está ativo nesta sessão.",
+        "cta": "Revisar perfil"
+      },
+      "organization": {
+        "title": "Organização",
+        "explanation": "Toda operação pertence a uma organização. Crie a primeira para vincular projetos.",
+        "cta": "Criar organização"
+      },
+      "project": {
+        "title": "Projeto",
+        "explanation": "Crie o projeto onde o Chief vai coordenar o trabalho.",
+        "cta": "Criar projeto"
+      },
+      "provider": {
+        "title": "Provedor e conta",
+        "explanation": "Conecte um provedor de modelos e ative uma conta (a credencial é uma referência segura).",
+        "cta": "Configurar provedor"
+      },
+      "model": {
+        "title": "Modelo",
+        "explanation": "Habilite ao menos um modelo do provedor para o Chief e os especialistas usarem.",
+        "cta": "Sincronizar modelos"
+      },
+      "workflow": {
+        "title": "Workflow",
+        "explanation": "Vincule um workflow ao projeto para definir as fases e os portões de execução.",
+        "cta": "Vincular workflow"
+      },
+      "chief": {
+        "title": "Chief pronto",
+        "explanation": "Com provedor, modelo e workflow prontos, revise o Chief no Orquestrador.",
+        "cta": "Revisar o Chief"
+      },
+      "firstRun": {
+        "title": "Primeira execução",
+        "explanation": "Inicie uma conversa e peça a primeira execução real ao Chief.",
+        "cta": "Iniciar primeira execução"
+      }
+    }
+  },
   "onboarding": {
     "selectProfile": {
       "title": "Quem está usando o Poseidon?",
@@ -438,6 +504,7 @@
   },
   "organizations": {
     "search": "Buscar organizações…",
+    "back": "Voltar para organizações",
     "create": "Nova organização",
     "empty": {
       "title": "Nenhuma organização ainda",
@@ -465,7 +532,13 @@
       "name": "Nome",
       "slug": "Slug",
       "slugHint": "Identificador curto em URLs, ex.: poseidon-labs.",
+      "slugLabel": "Identificador da URL",
+      "slugHelper": "Usado internamente em URLs e integrações. Gerado a partir do nome.",
+      "slugPreview": "Prévia: {{slug}}",
+      "slugEmpty": "—",
+      "advanced": "Opções avançadas",
       "plan": "Plano",
+      "planManaged": "Definido pela licença da organização.",
       "brandTitle": "Marca",
       "create": "Criar organização"
     },
@@ -486,7 +559,13 @@
   },
   "projects": {
     "search": "Buscar projetos…",
+    "back": "Voltar para projetos",
     "create": "Novo projeto",
+    "precondition": {
+      "title": "Crie uma organização primeiro",
+      "body": "Todo projeto pertence a uma organização — é ela que reúne marca, workflows padrão e políticas herdadas. Crie a primeira organização para então cadastrar o projeto; você volta para cá automaticamente com ela pré-selecionada.",
+      "cta": "Criar organização"
+    },
     "filters": {
       "organization": "Organização",
       "allOrganizations": "Todas as organizações",
@@ -666,7 +745,36 @@
       "emptyPeriodHint": "Amplie o período acima ou confira o histórico completo na Governança.",
       "showing": "Exibindo {{shown}} de {{total}}",
       "loadMore": "Carregar mais {{count}}",
-      "fullHistory": "Ver histórico completo"
+      "fullHistory": "Ver histórico completo",
+      "openTarget": "Abrir",
+      "showDetails": "Ver detalhes",
+      "hideDetails": "Ocultar detalhes",
+      "outcome": {
+        "success": "Concluído",
+        "error": "Falha",
+        "warning": "Atenção",
+        "neutral": "Informação"
+      },
+      "details": {
+        "action": "Código do evento",
+        "target": "Tipo do objeto",
+        "detail": "Detalhe"
+      },
+      "actions": {
+        "agent.error": "Agente relatou um erro",
+        "approval.resolved": "Aprovação resolvida",
+        "demand.created": "Demanda criada pelo chefe",
+        "license.validated": "Licença validada",
+        "solicitation.created": "Solicitação registrada",
+        "task.created": "Tarefa criada",
+        "workflow.operationModeChanged": "Modo de operação do workflow alterado",
+        "workflow.versionPublished": "Workflow padrão publicado durante a configuração inicial",
+        "project.created": "Projeto criado",
+        "organization.created": "Organização criada",
+        "profile.settingsUpdated": "Preferências do perfil atualizadas",
+        "conversation.created": "Conversa iniciada",
+        "workflow.linked": "Workflow vinculado ao projeto"
+      }
     }
   },
   "board": {
@@ -852,7 +960,9 @@
     },
     "empty": {
       "title": "Converse com o chefe do projeto",
-      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. O chefe coordena os agentes e responde por aqui."
+      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. O chefe coordena os agentes e responde por aqui.",
+      "blockedBody": "A execução do chefe está bloqueada até que provedor, modelo e workflow estejam configurados. Veja o que falta logo abaixo.",
+      "cta": "Iniciar conversa"
     },
     "turn": {
       "coordinating": "Chefe está coordenando…",
@@ -862,7 +972,9 @@
         "waitingApproval": "aguardando aprovação",
         "streaming": "respondendo",
         "idle": "ocioso"
-      }
+      },
+      "acknowledged": "Turno registrado — o chefe vai executar.",
+      "streamingLabel": "Resposta do chefe"
     },
     "quickActions": {
       "title": "Ações rápidas",
@@ -910,7 +1022,21 @@
         "high": "Alto"
       }
     },
-    "sendError": "Não foi possível enviar a mensagem. Tente novamente."
+    "sendError": "Não foi possível enviar a mensagem. Tente novamente.",
+    "readiness": {
+      "title": "Execução do chefe bloqueada",
+      "body": "Você pode escrever, mas o chefe só executa quando estas dependências estiverem prontas:",
+      "items": {
+        "provider": "Provedor conectado com conta ativa",
+        "model": "Modelo habilitado",
+        "workflow": "Workflow vinculado ao projeto"
+      },
+      "actions": {
+        "provider": "Configurar provedor",
+        "model": "Escolher modelo",
+        "workflow": "Vincular workflow"
+      }
+    }
   },
   "features": {
     "onboarding": {
@@ -1005,7 +1131,19 @@
     },
     "empty": {
       "title": "Nenhum workflow vinculado",
-      "body": "Este projeto ainda não tem um workflow. Vincule um template para começar."
+      "body": "Este projeto ainda não tem um workflow. Vincule um template para começar.",
+      "explanation": "Um workflow define as fases do trabalho (ex.: descoberta, desenvolvimento, revisão) e os portões de aprovação entre elas. É ele que diz ao chefe como conduzir o projeto.",
+      "recommendedBadge": "Recomendado",
+      "versionLabel": "versão {{version}}",
+      "phasesLabel": "Fases",
+      "useRecommended": "Usar workflow recomendado",
+      "chooseAnother": "Escolher outro template",
+      "otherTemplateLabel": "Outro template publicado",
+      "otherTemplatePlaceholder": "Selecione um template…",
+      "linkSelected": "Vincular selecionado",
+      "linkError": "Não foi possível vincular o workflow. Tente novamente.",
+      "noTemplates": "Nenhum template publicado está disponível ainda. Publique um template na gestão de workflows para poder vinculá-lo a este projeto.",
+      "manageHint": "Você pode trocar o template depois, na gestão de workflows."
     },
     "run": {
       "versionPinned": "Esta execução segue a versão v{{version}} do template \"{{template}}\": publicar novas versões não altera execuções em andamento."

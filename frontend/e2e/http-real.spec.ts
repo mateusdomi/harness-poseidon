@@ -112,9 +112,14 @@ async function ensureOrganization(page: Page) {
   await expect(page.getByRole('heading', { name: 'Organizações' })).toBeVisible();
   if (await page.getByText(ORGANIZATION_NAME, { exact: true }).isVisible()) return;
 
-  await page.getByRole('button', { name: 'Nova organização', exact: true }).click();
+  // Com coleção vazia a CTA única vem do empty state; com itens, do topo (§4).
+  const newOrgCta = page.getByRole('button', { name: 'Nova organização', exact: true });
+  await ((await newOrgCta.isVisible())
+    ? newOrgCta
+    : page.getByRole('button', { name: 'Criar organização' })
+  ).click();
   await page.getByLabel('Nome').fill(ORGANIZATION_NAME);
-  await page.getByLabel('Slug').fill('poseidon-homologacao');
+  // Slug gerado do nome automaticamente (§7).
   await page.getByRole('button', { name: 'Criar organização' }).click();
   await expect(page.getByText(ORGANIZATION_NAME, { exact: true })).toBeVisible();
 }
@@ -124,7 +129,11 @@ async function ensureProject(page: Page, profileName: string) {
   await expect(page.getByRole('heading', { name: 'Projetos' })).toBeVisible();
   if (await page.getByRole('button', { name: PROJECT_NAME, exact: false }).isVisible()) return;
 
-  await page.getByRole('button', { name: 'Novo projeto', exact: true }).click();
+  const newProjectCta = page.getByRole('button', { name: 'Novo projeto', exact: true });
+  await ((await newProjectCta.isVisible())
+    ? newProjectCta
+    : page.getByRole('button', { name: 'Criar projeto' })
+  ).click();
   await page.getByLabel('Título').fill(PROJECT_NAME);
   await page.getByLabel('Slug (sigla)').fill('HOMOLOG');
   await page.getByLabel('Descrição').fill('Validação técnica do frontend contra o Host real.');

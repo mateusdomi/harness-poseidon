@@ -7,9 +7,11 @@ import { workflowRunStateVariant } from '@/lib/status';
 import { OperationModeCard } from '@/features/workflows/components/operation-mode-card';
 import { PhaseStepper } from '@/features/workflows/components/phase-stepper';
 import { TemplateAdmin } from '@/features/workflows/components/template-admin';
+import { WorkflowOnboardingEmpty } from '@/features/workflows/components/workflow-onboarding-empty';
 import {
   useActiveRun,
   useAgentDefinitions,
+  useLinkWorkflowTemplate,
   useProjectWorkflow,
   useRunDetails,
   useWorkflowDocuments,
@@ -48,6 +50,7 @@ export default function UworkflowsPage() {
   const agentDefinitionsQuery = useAgentDefinitions();
   const usage = useWorkflowUsage();
   const toolsCatalog = useToolsCatalog();
+  const linkTemplate = useLinkWorkflowTemplate();
   useWorkflowsRealtime(projectId);
 
   const loading =
@@ -120,12 +123,15 @@ export default function UworkflowsPage() {
           </CardContent>
         </Card>
       ) : !workflow ? (
-        <Card>
-          <CardContent className="flex flex-col items-start gap-3 p-6">
-            <h2 className="font-heading text-lg font-semibold">{t('workflows.empty.title')}</h2>
-            <p className="text-sm text-foreground-muted">{t('workflows.empty.body')}</p>
-          </CardContent>
-        </Card>
+        <WorkflowOnboardingEmpty
+          templates={templates}
+          versions={versions}
+          linking={linkTemplate.isPending}
+          error={linkTemplate.isError}
+          onLink={(templateId) =>
+            linkTemplate.mutate({ projectId: activeProject.id, templateId })
+          }
+        />
       ) : (
         <>
           {run && runVersion && (

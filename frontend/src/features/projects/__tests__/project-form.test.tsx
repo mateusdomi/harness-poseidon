@@ -44,6 +44,7 @@ describe('ProjectForm', () => {
     renderForm();
 
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
+    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
     await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'minuscula');
     await user.type(screen.getByLabelText(/descrição/i), 'Descrição do projeto.');
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
@@ -53,11 +54,28 @@ describe('ProjectForm', () => {
     ).toBeInTheDocument();
   });
 
+  it('gera a sigla automaticamente a partir do título e para ao ser editada', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const key = screen.getByLabelText(/slug \(sigla\)/i);
+    await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
+    // Sem decisão manual no fluxo comum: a sigla vem do nome (§7).
+    expect(key).toHaveValue('PROJETOTESTE');
+
+    // Depois de editar manualmente, o nome não sobrescreve mais a sigla.
+    await user.clear(key);
+    await user.type(key, 'MANUAL');
+    await user.type(screen.getByLabelText(/título/i), ' Extra');
+    expect(key).toHaveValue('MANUAL');
+  });
+
   it('pula para a aba com erro (Pessoas) quando as anteriores estão válidas', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm();
 
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
+    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
     await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'TESTE');
     await user.type(screen.getByLabelText(/descrição/i), 'Descrição do projeto.');
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
@@ -75,6 +93,7 @@ describe('ProjectForm', () => {
     const { onSubmit } = renderForm();
 
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
+    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
     await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'TESTE');
     await user.type(screen.getByLabelText(/descrição/i), 'Descrição do projeto.');
 

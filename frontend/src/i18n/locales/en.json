@@ -114,6 +114,13 @@
       "loading": "Loading…",
       "errorBody": "Could not load the data. Please try again."
     },
+    "simulated": {
+      "label": "Simulated mode",
+      "hint": "This screen shows simulated data (fixtures), not a real backend. Switch to HTTP mode to work with real data."
+    },
+    "breadcrumb": {
+      "label": "Breadcrumb"
+    },
     "requests": {
       "slow": "The API is taking longer than expected at {{path}} ({{count}} request(s)). The operation is still monitored.",
       "routeTimeout": "This screen exceeded the safe loading time. Try again."
@@ -390,6 +397,65 @@
       "custom": "Custom"
     }
   },
+  "goldenPath": {
+    "title": "Start here",
+    "subtitle": "Follow these steps to take a new project all the way to the Chief's first run.",
+    "progress": "{{done}} of {{total}} done",
+    "continue": "Continue",
+    "complete": {
+      "title": "All set — the Chief can run on this project.",
+      "body": "The initial path is complete. You can start a conversation and follow the execution."
+    },
+    "status": {
+      "done": "Done",
+      "current": "Next step",
+      "blocked": "Blocked",
+      "pending": "Pending"
+    },
+    "blockedBy": "Requires first: {{steps}}",
+    "steps": {
+      "profile": {
+        "title": "Profile",
+        "explanation": "Your local profile is already active in this session.",
+        "cta": "Review profile"
+      },
+      "organization": {
+        "title": "Organization",
+        "explanation": "Every operation belongs to an organization. Create the first one to link projects.",
+        "cta": "Create organization"
+      },
+      "project": {
+        "title": "Project",
+        "explanation": "Create the project where the Chief will coordinate the work.",
+        "cta": "Create project"
+      },
+      "provider": {
+        "title": "Provider and account",
+        "explanation": "Connect a model provider and activate an account (the credential is a secure reference).",
+        "cta": "Configure provider"
+      },
+      "model": {
+        "title": "Model",
+        "explanation": "Enable at least one provider model for the Chief and specialists to use.",
+        "cta": "Sync models"
+      },
+      "workflow": {
+        "title": "Workflow",
+        "explanation": "Link a workflow to the project to define execution phases and gates.",
+        "cta": "Link workflow"
+      },
+      "chief": {
+        "title": "Chief ready",
+        "explanation": "With provider, model and workflow ready, review the Chief in the Orchestrator.",
+        "cta": "Review the Chief"
+      },
+      "firstRun": {
+        "title": "First run",
+        "explanation": "Start a conversation and ask the Chief for the first real run.",
+        "cta": "Start first run"
+      }
+    }
+  },
   "onboarding": {
     "selectProfile": {
       "title": "Who is using Poseidon?",
@@ -438,6 +504,7 @@
   },
   "organizations": {
     "search": "Search organizations…",
+    "back": "Back to organizations",
     "create": "New organization",
     "empty": {
       "title": "No organizations yet",
@@ -465,7 +532,13 @@
       "name": "Name",
       "slug": "Slug",
       "slugHint": "Short identifier used in URLs, e.g. poseidon-labs.",
+      "slugLabel": "URL identifier",
+      "slugHelper": "Used internally in URLs and integrations. Generated from the name.",
+      "slugPreview": "Preview: {{slug}}",
+      "slugEmpty": "—",
+      "advanced": "Advanced options",
       "plan": "Plan",
+      "planManaged": "Defined by the organization license.",
       "brandTitle": "Brand",
       "create": "Create organization"
     },
@@ -486,7 +559,13 @@
   },
   "projects": {
     "search": "Search projects…",
+    "back": "Back to projects",
     "create": "New project",
+    "precondition": {
+      "title": "Create an organization first",
+      "body": "Every project belongs to an organization — it holds the brand, default workflows and inherited policies. Create your first organization, then register the project; you'll come back here automatically with it pre-selected.",
+      "cta": "Create organization"
+    },
     "filters": {
       "organization": "Organization",
       "allOrganizations": "All organizations",
@@ -666,7 +745,36 @@
       "emptyPeriodHint": "Widen the period above or check the full history in Governance.",
       "showing": "Showing {{shown}} of {{total}}",
       "loadMore": "Load {{count}} more",
-      "fullHistory": "View full history"
+      "fullHistory": "View full history",
+      "openTarget": "Open",
+      "showDetails": "View details",
+      "hideDetails": "Hide details",
+      "outcome": {
+        "success": "Completed",
+        "error": "Failed",
+        "warning": "Attention",
+        "neutral": "Information"
+      },
+      "details": {
+        "action": "Event code",
+        "target": "Object type",
+        "detail": "Detail"
+      },
+      "actions": {
+        "agent.error": "Agent reported an error",
+        "approval.resolved": "Approval resolved",
+        "demand.created": "Demand created by the chief",
+        "license.validated": "License validated",
+        "solicitation.created": "Request registered",
+        "task.created": "Task created",
+        "workflow.operationModeChanged": "Workflow operation mode changed",
+        "workflow.versionPublished": "Default workflow published during initial setup",
+        "project.created": "Project created",
+        "organization.created": "Organization created",
+        "profile.settingsUpdated": "Profile preferences updated",
+        "conversation.created": "Conversation started",
+        "workflow.linked": "Workflow linked to the project"
+      }
     }
   },
   "board": {
@@ -852,7 +960,9 @@
     },
     "empty": {
       "title": "Talk to the project's chief",
-      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. The chief coordinates the agents and replies here."
+      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. The chief coordinates the agents and replies here.",
+      "blockedBody": "The chief's execution is blocked until provider, model and workflow are configured. See what is missing below.",
+      "cta": "Start conversation"
     },
     "turn": {
       "coordinating": "Chief is coordinating…",
@@ -862,7 +972,9 @@
         "waitingApproval": "waiting for approval",
         "streaming": "replying",
         "idle": "idle"
-      }
+      },
+      "acknowledged": "Turn registered — the chief will run.",
+      "streamingLabel": "Chief response"
     },
     "quickActions": {
       "title": "Quick actions",
@@ -910,7 +1022,21 @@
         "high": "High"
       }
     },
-    "sendError": "Could not send the message. Please try again."
+    "sendError": "Could not send the message. Please try again.",
+    "readiness": {
+      "title": "Chief execution blocked",
+      "body": "You can write, but the chief only runs once these dependencies are ready:",
+      "items": {
+        "provider": "Provider connected with an active account",
+        "model": "Enabled model",
+        "workflow": "Workflow linked to the project"
+      },
+      "actions": {
+        "provider": "Configure provider",
+        "model": "Choose model",
+        "workflow": "Link workflow"
+      }
+    }
   },
   "features": {
     "onboarding": {
@@ -1005,7 +1131,19 @@
     },
     "empty": {
       "title": "No workflow linked",
-      "body": "This project has no workflow yet. Link a template to get started."
+      "body": "This project has no workflow yet. Link a template to get started.",
+      "explanation": "A workflow defines the phases of the work (e.g. discovery, development, review) and the approval gates between them. It tells the chief how to run the project.",
+      "recommendedBadge": "Recommended",
+      "versionLabel": "version {{version}}",
+      "phasesLabel": "Phases",
+      "useRecommended": "Use recommended workflow",
+      "chooseAnother": "Choose another template",
+      "otherTemplateLabel": "Another published template",
+      "otherTemplatePlaceholder": "Select a template…",
+      "linkSelected": "Link selected",
+      "linkError": "Could not link the workflow. Please try again.",
+      "noTemplates": "No published template is available yet. Publish one in workflow management to link it to this project.",
+      "manageHint": "You can change the template later in workflow management."
     },
     "run": {
       "versionPinned": "This run follows version v{{version}} of the \"{{template}}\" template: publishing new versions does not change runs in progress."

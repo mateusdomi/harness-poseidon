@@ -14,9 +14,11 @@ import {
   chiefBudgets,
   resolveChiefAccount,
   resolveChiefModel,
+  resolveModelBindingSource,
 } from '@/features/orchestrator/lib/orchestrator-derive';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useNow } from '@/features/shared/hooks/use-now';
+import { useProjectWorkflow } from '@/features/workflows/hooks/use-workflows';
 
 /**
  * Tela do orquestrador (/orchestrator): card do chefe do projeto ativo
@@ -67,6 +69,15 @@ export default function UorchestratorPage() {
     : null;
   const model = chief ? resolveChiefModel(chief, definition, data.models) : null;
   const account = resolveChiefAccount(model, data.accounts);
+  // Prontidão real (§15): workflow vinculado + execução corrente + procedência
+  // do vínculo do modelo. Nenhum destes é presumido.
+  const workflowQuery = useProjectWorkflow(projectId);
+  const modelBinding = chief ? resolveModelBindingSource(chief, definition) : 'none';
+  const chiefIsRunning = chief
+    ? projectAttempts.some(
+        (attempt) => attempt.agentId === chief.id && attempt.state === 'running',
+      )
+    : false;
   const budgets = activeProject
     ? chiefBudgets(data.budgets, activeProject.id, account?.id ?? null)
     : [];
@@ -150,6 +161,9 @@ export default function UorchestratorPage() {
             budgets={budgets}
             turnState={turnState}
             now={now}
+            hasWorkflow={workflowQuery.data != null}
+            isRunning={chiefIsRunning}
+            modelBinding={modelBinding}
           />
           <AgentGrid agents={gridAgents} tasks={data.tasks} attempts={projectAttempts} now={now} />
         </>

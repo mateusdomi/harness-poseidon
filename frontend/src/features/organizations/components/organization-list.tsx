@@ -35,6 +35,22 @@ export function OrganizationList({ organizations, onSelect, onCreateNew }: Organ
   // Paginação client-side; volta para a página 1 ao mudar a busca.
   const pagination = usePagination(filtered.length, { resetKey: normalized });
 
+  // Coleção vazia: apenas o empty state, que é dono da CTA única. A barra de
+  // busca e o botão do topo ficam ocultos para não duplicar a ação (§4).
+  if (organizations.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-start gap-3 p-6">
+          <p className="font-medium">{t('organizations.empty.title')}</p>
+          <p className="text-sm text-foreground-muted">{t('organizations.empty.body')}</p>
+          <Button type="button" onClick={onCreateNew}>
+            {t('organizations.empty.cta')}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -55,17 +71,7 @@ export function OrganizationList({ organizations, onSelect, onCreateNew }: Organ
         </Button>
       </div>
 
-      {organizations.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-start gap-3 p-6">
-            <p className="font-medium">{t('organizations.empty.title')}</p>
-            <p className="text-sm text-foreground-muted">{t('organizations.empty.body')}</p>
-            <Button type="button" onClick={onCreateNew}>
-              {t('organizations.empty.cta')}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="text-sm text-foreground-muted">
           {t('organizations.emptySearch', { query })}
         </p>

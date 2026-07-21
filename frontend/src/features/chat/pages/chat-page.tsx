@@ -20,7 +20,9 @@ import {
   useMessages,
   useSendMessage,
 } from '@/features/chat/hooks/use-chat';
+import { ChatReadinessNotice } from '@/features/chat/components/chat-readiness-notice';
 import { deriveQuickActions, isTurnActive, type QuickActionKey } from '@/features/chat/lib/chat-derive';
+import { useGoldenPath } from '@/features/onboarding/hooks/use-golden-path';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useActiveProjectStore } from '@/stores/active-project-store';
 import { useUiStore } from '@/stores/ui-store';
@@ -57,6 +59,14 @@ export default function ChatPage() {
 
   const messagesQuery = useMessages(conversationId);
   const sendMessage = useSendMessage(conversationId);
+  /**
+   * Envio pendente de uma conversa recém-criada: a mutation é ligada ao id da
+   * conversa, então guardamos o conteúdo e disparamos quando o id passa a ser
+   * o corrente (§13 — criação automática da conversa ao enviar).
+   */
+  const [pendingSend, setPendingSend] = useState<{ conversationId: Ulid; content: string } | null>(
+    null,
+  );
   const turn = useChatTurnStream(conversationId);
   const modelsQuery = useChatModels();
   const { tasks, documents, agents } = useChatReferences(projectId);
@@ -80,6 +90,15 @@ export default function ChatPage() {
     }
   }, [chatDraft, setChatDraft]);
 
+  // Dispara o envio pendente assim que a conversa criada vira a corrente.
+  useEffect(() => {
+    if (pendingSend && pendingSend.conversationId === conversationId) {
+      sendMessage.mutate(pendingSend.content);
+      setPendingSend(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSend, conversationId]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageCount = messagesQuery.data?.length ?? 0;
   useEffect(() => {
@@ -87,12 +106,36 @@ export default function ChatPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messageCount, turn.text]);
 
-  function send(content: string, attachments: ChatAttachment[] = []) {
+  /**
+   * Envio do turno. Quando ainda não há conversa, criamos uma automaticamente
+   * antes de enviar (§13) — o usuário não precisa descobrir "Nova conversa".
+   * `creatingRef` torna a criação idempotente sob cliques/Enter repetidos.
+   */
+  const creatingRef = useRef(false);
+  async function send(content: string, attachments: ChatAttachment[] = []) {
     const withAttachments =
       attachments.length > 0
         ? `${content}\n\n${attachments.map((a) => `- ${a.name}`).join('\n')}`
         : content;
-    sendMessage.mutate(withAttachments);
+
+    if (conversationId) {
+      sendMessage.mutate(withAttachments);
+      return;
+    }
+    if (!projectId || creatingRef.current) return;
+    creatingRef.current = true;
+    try {
+      const created = await createConversation.mutateAsync({
+        projectId,
+        title: t('chat.conversation.newTitle'),
+      });
+      setSelectedId(created.id);
+      // A mutation de envio é ligada ao id da conversa; para a recém-criada
+      // enviamos direto pelo cliente, mantendo o mesmo contrato.
+      setPendingSend({ conversationId: created.id, content: withAttachments });
+    } finally {
+      creatingRef.current = false;
+    }
   }
 
   async function newConversation() {
@@ -103,6 +146,16 @@ export default function ChatPage() {
     });
     setSelectedId(created.id);
   }
+
+  // Prontidão real para EXECUTAR (§13): provedor+conta, modelo e workflow.
+  // Derivada da mesma fonte do golden path — sem duplicar regra.
+  const goldenPath = useGoldenPath();
+  const stepDone = (id: 'provider' | 'model' | 'workflow') =>
+    goldenPath.state.steps.find((step) => step.id === id)?.status === 'done';
+  const hasProvider = stepDone('provider');
+  const hasModel = stepDone('model');
+  const hasWorkflow = stepDone('workflow');
+  const canExecute = hasProvider && hasModel && hasWorkflow;
 
   const turnActive = isTurnActive(turn);
   const agentNames = useMemo(
@@ -237,8 +290,21 @@ export default function ChatPage() {
             </div>
             <p className="relative font-heading text-lg font-semibold">{t('chat.empty.title')}</p>
             <p className="relative max-w-prose text-sm text-foreground-muted">
-              {t('chat.empty.body')}
+              {canExecute ? t('chat.empty.body') : t('chat.empty.blockedBody')}
             </p>
+            {/* Sem conversa: o composer abaixo já está pronto (a conversa é
+                criada ao enviar). Oferecemos a CTA explícita como alternativa,
+                para quem prefere começar pelo botão. */}
+            {!conversation && canExecute ? (
+              <Button
+                type="button"
+                className="relative"
+                onClick={() => void newConversation()}
+                disabled={createConversation.isPending}
+              >
+                {t('chat.empty.cta')}
+              </Button>
+            ) : null}
           </div>
         ) : (
           <>
@@ -252,32 +318,57 @@ export default function ChatPage() {
               />
             ))}
             {turnActive && (
-              <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-xl border border-border bg-surface-elevated p-3 shadow-card lg:max-w-[70%]">
-                <header className="flex items-center gap-2 text-xs text-foreground-muted">
-                  <Badge variant="info">{t('chat.authors.chief')}</Badge>
-                  <span className="flex items-center gap-1.5" role="status">
-                    {/* Três pontos pulsantes — só renderizados durante o turno real. */}
-                    <span aria-hidden="true" className="flex items-center gap-1">
-                      {[0, 1, 2].map((dot) => (
-                        <span
-                          key={dot}
-                          className="size-1.5 rounded-full bg-brand-strong motion-safe:animate-pulse"
-                          style={{ animationDelay: `${dot * 150}ms` }}
-                        />
-                      ))}
-                    </span>
-                    {t('chat.turn.coordinating')}
+              <>
+                {/* ACKNOWLEDGEMENT / EXECUÇÃO — faixa de status, deliberadamente
+                    NÃO estilizada como bolha de mensagem do chefe: registrar o
+                    turno e executar não são resposta inteligente (§13). */}
+                <div
+                  role="status"
+                  className="flex max-w-[85%] items-center gap-2 self-start rounded-lg border border-dashed border-border bg-surface px-3 py-2 text-xs text-foreground-muted lg:max-w-[70%]"
+                >
+                  <span aria-hidden="true" className="flex items-center gap-1">
+                    {[0, 1, 2].map((dot) => (
+                      <span
+                        key={dot}
+                        className="size-1.5 rounded-full bg-brand-strong motion-safe:animate-pulse"
+                        style={{ animationDelay: `${dot * 150}ms` }}
+                      />
+                    ))}
+                  </span>
+                  <span>
+                    {turn.text === ''
+                      ? t('chat.turn.acknowledged')
+                      : t('chat.turn.coordinating')}
                     {turn.phase && turn.phase !== 'streaming' && (
-                      <span>· {t(`chat.turn.states.${turn.phase}`)}</span>
+                      <span> · {t(`chat.turn.states.${turn.phase}`)}</span>
                     )}
                   </span>
-                </header>
-                {turn.text !== '' && <MarkdownContent content={turn.text} />}
-              </article>
+                </div>
+                {/* RESPOSTA REAL em streaming — só aparece quando há conteúdo
+                    do chefe, aí sim como mensagem dele. */}
+                {turn.text !== '' && (
+                  <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-xl border border-border bg-surface-elevated p-3 shadow-card lg:max-w-[70%]">
+                    <header className="flex items-center gap-2 text-xs text-foreground-muted">
+                      <Badge variant="info">{t('chat.authors.chief')}</Badge>
+                      <span>{t('chat.turn.streamingLabel')}</span>
+                    </header>
+                    <MarkdownContent content={turn.text} />
+                  </article>
+                )}
+              </>
             )}
           </>
         )}
       </div>
+
+      {/* Bloqueia apenas a execução e explica o motivo — nunca esconde (§13). */}
+      {!canExecute && (
+        <ChatReadinessNotice
+          hasProvider={hasProvider}
+          hasModel={hasModel}
+          hasWorkflow={hasWorkflow}
+        />
+      )}
 
       {sendMessage.isError && (
         <p role="alert" className="text-sm text-error">
@@ -295,13 +386,15 @@ export default function ChatPage() {
         />
       )}
 
+      {/* O composer fica pronto mesmo sem conversa: ela é criada ao enviar.
+          Só a falta de pré-requisito real de execução o desabilita. */}
       <Composer
         models={modelsQuery.data ?? []}
-        sending={sendMessage.isPending || turnActive}
-        disabled={!conversation}
+        sending={sendMessage.isPending || turnActive || createConversation.isPending}
+        disabled={!canExecute}
         draft={draft}
         onDraftConsumed={() => setDraft('')}
-        onSend={send}
+        onSend={(content, attachments) => void send(content, attachments)}
       />
       </div>
 

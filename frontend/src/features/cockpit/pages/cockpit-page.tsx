@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton } from '@/design-system';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
@@ -9,6 +8,7 @@ import { AgentsHealthCard, QuotaCard } from '@/features/cockpit/components/healt
 import { NextActionCard } from '@/features/cockpit/components/next-action-card';
 import { GovernanceHealthCard } from '@/features/cockpit/components/governance-health-card';
 import { PhaseSummary } from '@/features/cockpit/components/phase-summary';
+import { GoldenPathChecklist } from '@/features/onboarding/components/golden-path-checklist';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
 import { TaskStateCounters } from '@/features/cockpit/components/task-state-counters';
 import {
@@ -110,6 +110,8 @@ export default function CockpitPage() {
         )}
       </div>
 
+      <GoldenPathChecklist hideWhenComplete />
+
       {loading ? (
         <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-32 w-full" />
@@ -129,17 +131,9 @@ export default function CockpitPage() {
           </Button>
         </div>
       ) : !activeProject ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('cockpit.empty.title')}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-start gap-3">
-            <p className="text-sm text-foreground-muted">{t('cockpit.empty.body')}</p>
-            <Button asChild>
-              <Link to="/projects">{t('cockpit.empty.cta')}</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        // Sem projeto ativo, o checklist do golden path acima é a orientação
+        // primária (uma única CTA). Não repetimos aqui um botão equivalente.
+        <p className="text-sm text-foreground-muted">{t('cockpit.empty.body')}</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {featureFlags.governanceContractUi && <GovernanceHealthCard projectId={activeProject.id} />}

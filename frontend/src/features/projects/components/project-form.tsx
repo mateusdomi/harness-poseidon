@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -25,6 +25,7 @@ import {
 } from '@/design-system';
 import { zodResolver } from '@/lib/form';
 import { formatDateTime } from '@/lib/format';
+import { keyify } from '@/lib/utils';
 import { BrandFields } from '@/features/shared/components/brand-fields';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import { VersionedBadge } from '@/features/shared/components/versioned-badge';
@@ -69,6 +70,8 @@ function changedOperationalFields(
 export interface ProjectFormProps {
   organizations: Organization[];
   initial?: Project;
+  /** Organização pré-selecionada na criação (deep link do golden path). */
+  defaultOrganizationId?: string;
   /** Projeto iniciado (workflow com execução) — ativa o painel de impacto. */
   started?: boolean;
   submitting: boolean;
@@ -85,18 +88,23 @@ export interface ProjectFormProps {
  * histórico de versões; em projeto INICIADO, mudança em campo operacional
  * abre o painel de impacto com confirmação reforçada (checkbox).
  */
-export function ProjectForm({ organizations, initial, started = false, submitting, onSubmit, onCancel }: ProjectFormProps) {
+export function ProjectForm({ organizations, initial, defaultOrganizationId, started = false, submitting, onSubmit, onCancel }: ProjectFormProps) {
   const { t, i18n } = useTranslation();
   const profilesQuery = useProfiles();
   const [activeTab, setActiveTab] = useState<ProjectFormTab>('identification');
   const [summaryError, setSummaryError] = useState(false);
   const [impact, setImpact] = useState<{ values: ProjectFormValues; fields: OperationalField[] } | null>(null);
   const [impactAccepted, setImpactAccepted] = useState(false);
+  // Em edição a sigla já existe e é do usuário; em criação, geramos do nome
+  // até que ele a edite manualmente (§7 — sem exigir decisão manual).
+  const keyEditedRef = useRef(Boolean(initial));
 
   const {
     register,
     control,
     watch,
+    setValue,
+    trigger,
     getValues,
     setError,
     clearErrors,
@@ -104,11 +112,26 @@ export function ProjectForm({ organizations, initial, started = false, submittin
     formState: { errors, dirtyFields, isDirty },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
-    defaultValues: initial ? projectToFormValues(initial) : defaultProjectValues(organizations[0]?.id ?? ''),
+    defaultValues: initial
+      ? projectToFormValues(initial)
+      : defaultProjectValues(
+          (defaultOrganizationId && organizations.some((o) => o.id === defaultOrganizationId)
+            ? defaultOrganizationId
+            : organizations[0]?.id) ?? '',
+        ),
     mode: 'onSubmit',
     reValidateMode: 'onChange',
   });
 
+  const nameValue = watch('name');
+  // Deriva a sigla do nome enquanto o usuário não a editou (só na criação).
+  useEffect(() => {
+    if (!keyEditedRef.current) {
+      setValue('key', keyify(nameValue ?? ''), { shouldValidate: false });
+    }
+  }, [nameValue, setValue]);
+
+  const keyReg = register('key');
   const selectedOrganizationId = watch('organizationId');
   const selectedOrganization = organizations.find((org) => org.id === selectedOrganizationId);
   const pendingCount = Object.keys(dirtyFields).length;
@@ -260,7 +283,16 @@ export function ProjectForm({ organizations, initial, started = false, submittin
                 hint={t('projects.form.identification.keyHint')}
                 error={errors.key ? t(errors.key.message!) : undefined}
               >
-                <Input id="project-key" aria-invalid={Boolean(errors.key)} {...register('key')} />
+                <Input
+                  id="project-key"
+                  aria-invalid={Boolean(errors.key)}
+                  {...keyReg}
+                  onChange={(event) => {
+                    keyEditedRef.current = true;
+                    void keyReg.onChange(event);
+                    void trigger('key');
+                  }}
+                />
               </Field>
               <Field htmlFor="project-criticality" label={t('projects.form.identification.criticality')}>
                 <Select id="project-criticality" {...register('criticality')}>

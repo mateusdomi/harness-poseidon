@@ -136,7 +136,8 @@
         "fencingToken": "Fencing token",
         "leaseExpiresAt": "Lease expires at",
         "noLease": "No active lease"
-      }
+      },
+      "bindingPending": "Binding pending"
     },
     "health": {
       "ok": "Healthy",
@@ -199,6 +200,30 @@
       "title": "No project selected",
       "body": "Select a project to follow the orchestration.",
       "cta": "View projects"
+    },
+    "readiness": {
+      "states": {
+        "notConfigured": "Not configured",
+        "awaitingProvider": "Awaiting provider",
+        "awaitingWorkflow": "Awaiting workflow",
+        "ready": "Ready",
+        "running": "Running",
+        "degraded": "Degraded"
+      },
+      "explanations": {
+        "notConfigured": "The chief has no provider, model or workflow yet. Configure the dependencies to enable execution.",
+        "awaitingProvider": "An enabled model with an active provider account is missing. Without it the chief cannot run.",
+        "awaitingWorkflow": "Provider and model are ready. Link a workflow to the project to define phases and gates.",
+        "ready": "Dependencies satisfied: the chief can run on this project.",
+        "running": "The chief is running an attempt right now.",
+        "degraded": "The chief is in error or out of quota. Review the agents before continuing."
+      },
+      "actions": {
+        "configureProvider": "Configure provider",
+        "chooseModel": "Choose model",
+        "linkWorkflow": "Link workflow",
+        "reviewAgents": "Review agents"
+      }
     }
   }
 }

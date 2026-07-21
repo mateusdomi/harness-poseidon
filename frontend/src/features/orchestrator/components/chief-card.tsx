@@ -1,13 +1,22 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import type { Account, Agent, Budget, ChiefTurnState, Model, Project } from '@/api';
 import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, type BadgeProps } from '@/design-system';
 import { formatCurrencyUSD, formatDateTime, formatNumber, formatRelativeTime } from '@/lib/format';
 import { agentStateVariant, chiefTurnStateVariant, operationModeVariant } from '@/lib/status';
+import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { DrainDialog } from '@/features/orchestrator/components/drain-dialog';
 import { HandoffWizard } from '@/features/orchestrator/components/handoff-wizard';
-import { deriveChiefHealth, type ChiefHealth } from '@/features/orchestrator/lib/orchestrator-derive';
+import {
+  deriveChiefHealth,
+  deriveChiefReadiness,
+  readinessAction,
+  type BindingSource,
+  type ChiefHealth,
+  type ChiefReadiness,
+} from '@/features/orchestrator/lib/orchestrator-derive';
 import { usePauseChief, useResumeChief } from '@/features/orchestrator/hooks/use-orchestrator';
 
 /** Saúde derivada (conceito local da feature) → variante semântica do Badge. */
@@ -16,6 +25,24 @@ const HEALTH_VARIANTS: Record<ChiefHealth, BadgeProps['variant']> = {
   attention: 'warning',
   error: 'error',
 };
+
+/** Prontidão operacional → variante do Badge (§15). */
+const READINESS_VARIANTS: Record<ChiefReadiness, BadgeProps['variant']> = {
+  notConfigured: 'outline',
+  awaitingProvider: 'warning',
+  awaitingWorkflow: 'warning',
+  ready: 'success',
+  running: 'info',
+  degraded: 'error',
+};
+
+/** Rota da CTA de cada estado de prontidão. */
+const READINESS_ROUTES = {
+  configureProvider: '/providers',
+  chooseModel: '/providers?tab=models',
+  linkWorkflow: '/workflows',
+  reviewAgents: '/agents',
+} as const;
 
 export interface ChiefCardProps {
   project: Project;
@@ -26,6 +53,12 @@ export interface ChiefCardProps {
   budgets: Budget[];
   turnState: ChiefTurnState;
   now: Date;
+  /** Workflow vinculado ao projeto — pré-requisito de prontidão (§15). */
+  hasWorkflow: boolean;
+  /** Há tentativa em execução do chefe agora. */
+  isRunning: boolean;
+  /** Origem do vínculo do modelo (instância vs padrão da definição). */
+  modelBinding: BindingSource;
 }
 
 /** Linha rótulo/valor da ficha do chefe (definição, mobile-first). */
@@ -52,6 +85,9 @@ export function ChiefCard({
   budgets,
   turnState,
   now,
+  hasWorkflow,
+  isRunning,
+  modelBinding,
 }: ChiefCardProps) {
   const { t } = useTranslation();
   const pauseMutation = usePauseChief(project.id);
@@ -59,6 +95,15 @@ export function ChiefCard({
   const [dialog, setDialog] = useState<'drain' | 'handoff' | null>(null);
 
   const health = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
+  const readiness = deriveChiefReadiness({
+    model,
+    account,
+    hasWorkflow,
+    agentState: chief.state,
+    isRunning,
+    health,
+  });
+  const action = readinessAction(readiness);
   const controlMutation = project.state === 'paused' ? resumeMutation : pauseMutation;
 
   return (
@@ -80,6 +125,26 @@ export function ChiefCard({
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* Prontidão real: nunca apresentamos "pronto" sem dependências (§15). */}
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-surface-elevated p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={READINESS_VARIANTS[readiness]}>
+              {t(`orchestrator.readiness.states.${readiness}`)}
+            </Badge>
+            <SimulatedModeBadge />
+          </div>
+          <p className="text-xs text-foreground-muted">
+            {t(`orchestrator.readiness.explanations.${readiness}`)}
+          </p>
+          {action ? (
+            <Button asChild size="sm" variant="outline" className="self-start">
+              <Link to={READINESS_ROUTES[action]}>
+                {t(`orchestrator.readiness.actions.${action}`)}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+
         <dl className="flex flex-col gap-2">
           <InfoRow label={t('orchestrator.chief.health')}>
             <Badge variant={HEALTH_VARIANTS[health]}>{t(`orchestrator.health.${health}`)}</Badge>
@@ -90,7 +155,18 @@ export function ChiefCard({
             </Badge>
           </InfoRow>
           <InfoRow label={t('orchestrator.chief.model')}>
-            {model ? model.displayName : t('orchestrator.chief.noModel')}
+            {model ? (
+              <span className="flex flex-wrap items-center justify-end gap-2">
+                {model.displayName}
+                {/* Padrão da definição ainda não exercido pela instância não é
+                    "em uso": rotulamos como binding pendente (§15/§17). */}
+                {modelBinding === 'definitionDefault' ? (
+                  <Badge variant="outline">{t('orchestrator.chief.bindingPending')}</Badge>
+                ) : null}
+              </span>
+            ) : (
+              t('orchestrator.chief.noModel')
+            )}
           </InfoRow>
           <InfoRow label={t('orchestrator.chief.account')}>
             {account ? account.label : t('orchestrator.chief.noAccount')}

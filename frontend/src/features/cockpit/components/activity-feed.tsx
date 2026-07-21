@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react';
 
 import type { AuditEvent } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/design-system';
@@ -9,6 +16,10 @@ import {
   filterActivityByPeriod,
   type ActivityPeriod,
 } from '@/features/cockpit/lib/cockpit-derive';
+import {
+  humanizeActivity,
+  type ActivityOutcome,
+} from '@/features/cockpit/lib/activity-humanize';
 import { useNow } from '@/features/shared/hooks/use-now';
 import { formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -22,6 +33,100 @@ const ACTOR_VARIANTS = {
 
 /** Lote do carregamento incremental ("carregar mais"). */
 const ACTIVITY_BATCH_SIZE = 8;
+
+const OUTCOME_ICONS: Record<ActivityOutcome, LucideIcon> = {
+  success: CheckCircle2,
+  error: XCircle,
+  warning: AlertTriangle,
+  neutral: Info,
+};
+
+const OUTCOME_CLASSES: Record<ActivityOutcome, string> = {
+  success: 'text-success',
+  error: 'text-error',
+  warning: 'text-warning',
+  neutral: 'text-foreground-muted',
+};
+
+/**
+ * Item da atividade: ator, horário, mensagem humana, resultado (ícone), link
+ * para o objeto e disclosure com o detalhe técnico (código cru + alvo), que é
+ * a única superfície onde o código aparece literalmente.
+ */
+function ActivityItem({ event }: { event: AuditEvent }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const humanized = humanizeActivity(event);
+  const OutcomeIcon = OUTCOME_ICONS[humanized.outcome];
+
+  // Mensagem: rótulo humano quando a ação é conhecida; senão o `detail` do
+  // servidor; e só em último caso o código cru (nunca texto inventado).
+  const message = humanized.labelKey ? t(humanized.labelKey) : (event.detail ?? event.action);
+  // O `detail` identifica o objeto ("Projeto Poseidon"). Quando já usamos o
+  // rótulo humano, ele continua visível como o objeto do evento — humanizar
+  // não pode esconder qual objeto foi afetado.
+  const objectLine = humanized.labelKey ? event.detail : null;
+
+  return (
+    <li className="flex flex-col gap-1 border-l-2 border-border pl-3">
+      <span className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
+        <OutcomeIcon
+          aria-hidden="true"
+          className={cn('size-3.5 shrink-0', OUTCOME_CLASSES[humanized.outcome])}
+        />
+        <span className="sr-only">{t(`cockpit.activity.outcome.${humanized.outcome}`)}</span>
+        <Badge variant={ACTOR_VARIANTS[event.actorKind]}>
+          {t(`status.auditActorKind.${event.actorKind}`)}
+        </Badge>
+        <time dateTime={event.occurredAt}>{formatRelativeTime(event.occurredAt)}</time>
+      </span>
+      <span className="text-sm">{message}</span>
+      {objectLine ? (
+        <span className="text-sm text-foreground-muted">{objectLine}</span>
+      ) : null}
+      <span className="flex flex-wrap items-center gap-3">
+        {humanized.link ? (
+          <Link
+            to={humanized.link}
+            className="text-xs text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {t('cockpit.activity.openTarget')}
+          </Link>
+        ) : null}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className="text-xs text-foreground-muted underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {open ? t('cockpit.activity.hideDetails') : t('cockpit.activity.showDetails')}
+        </button>
+      </span>
+      {open ? (
+        <dl className="mt-1 flex flex-col gap-1 rounded-md bg-surface-elevated p-2 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <dt className="text-foreground-muted">{t('cockpit.activity.details.action')}</dt>
+            <dd>
+              <code className="font-mono">{humanized.rawAction}</code>
+            </dd>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <dt className="text-foreground-muted">{t('cockpit.activity.details.target')}</dt>
+            <dd>
+              <code className="font-mono">{humanized.targetType}</code>
+            </dd>
+          </div>
+          {event.detail ? (
+            <div className="flex flex-wrap gap-2">
+              <dt className="text-foreground-muted">{t('cockpit.activity.details.detail')}</dt>
+              <dd className="break-words">{event.detail}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+    </li>
+  );
+}
 
 /**
  * Atividade recente: timeline de auditoria com recorte por período
@@ -92,15 +197,7 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
           <>
             <ol className="flex flex-col gap-3">
               {visible.map((event) => (
-                <li key={event.id} className="flex flex-col gap-1 border-l-2 border-border pl-3">
-                  <span className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
-                    <Badge variant={ACTOR_VARIANTS[event.actorKind]}>
-                      {t(`status.auditActorKind.${event.actorKind}`)}
-                    </Badge>
-                    <time dateTime={event.occurredAt}>{formatRelativeTime(event.occurredAt)}</time>
-                  </span>
-                  <span className="text-sm">{event.detail ?? event.action}</span>
-                </li>
+                <ActivityItem key={event.id} event={event} />
               ))}
             </ol>
             <div className="flex flex-wrap items-center gap-3">

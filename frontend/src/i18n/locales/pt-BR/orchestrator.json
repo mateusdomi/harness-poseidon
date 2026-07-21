@@ -136,7 +136,8 @@
         "fencingToken": "Fencing token",
         "leaseExpiresAt": "Lease expira em",
         "noLease": "Sem lease ativo"
-      }
+      },
+      "bindingPending": "Binding pendente"
     },
     "health": {
       "ok": "Saudável",
@@ -199,6 +200,30 @@
       "title": "Nenhum projeto selecionado",
       "body": "Selecione um projeto para acompanhar a orquestração.",
       "cta": "Ver projetos"
+    },
+    "readiness": {
+      "states": {
+        "notConfigured": "Não configurado",
+        "awaitingProvider": "Aguardando provedor",
+        "awaitingWorkflow": "Aguardando workflow",
+        "ready": "Pronto",
+        "running": "Em execução",
+        "degraded": "Degradado"
+      },
+      "explanations": {
+        "notConfigured": "O chefe ainda não tem provedor, modelo nem workflow. Configure as dependências para habilitar a execução.",
+        "awaitingProvider": "Falta um modelo habilitado com conta ativa do provedor. Sem isso o chefe não pode executar.",
+        "awaitingWorkflow": "Provedor e modelo prontos. Vincule um workflow ao projeto para definir fases e portões.",
+        "ready": "Dependências satisfeitas: o chefe pode executar neste projeto.",
+        "running": "O chefe está executando uma tentativa agora.",
+        "degraded": "O chefe está em erro ou sem cota. Revise os agentes antes de continuar."
+      },
+      "actions": {
+        "configureProvider": "Configurar provedor",
+        "chooseModel": "Escolher modelo",
+        "linkWorkflow": "Vincular workflow",
+        "reviewAgents": "Revisar agentes"
+      }
     }
   }
 }
