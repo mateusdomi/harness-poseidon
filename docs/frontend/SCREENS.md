@@ -48,21 +48,29 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Dados:** `projects` (seletor de projeto ativo), `tasks`, `approvals`, `agents`, `budgets`, `workflows`, `workflow-runs`, `phases`, `gates`, `audit-events` (`hooks/use-cockpit.ts`).
 - **Realtime:** streams `project:<id>` + `global` — `task.created`, `task.stateChanged`, `progress.updated`, `approval.requested`, `approval.resolved`, `gate.changed`, `notification.created`, `agent.statusChanged`, `quota.updated`, `audit.eventAppended`.
 - **Ações:** trocar projeto ativo (store); CTA "Executar no chat" (grava `chatDraft` e navega). Sem mutations.
-- **Estados:** vazio sem projeto com CTA p/ `/projects`; skeleton; erro com `retryAll` das queries.
+- **Golden path (2026-07-21):** `GoldenPathChecklist` no topo, derivado de `use-golden-path` (recursos reais); some quando o caminho está completo. Cada etapa expõe status, explicação, CTA única, bloqueador e deep link (`/organizations?new=1`, `/projects?new=1&org=<id>`, `/providers`, `/workflows`, `/orchestrator`, `/chat`).
+- **Honestidade:** `SimulatedModeBadge` no cabeçalho quando `VITE_API_MODE` != `http` (a tela mostra cotas/orçamento de fixture). Atividade recente humanizada com ator/horário/objeto/resultado/ícone/link e código cru só em "Ver detalhes".
+- **Estados:** vazio sem projeto mantém título "Nenhum projeto ativo" **sem** CTA (o checklist é dono da ação); skeleton; erro com `retryAll` das queries.
 
 ## 2. projects — `/projects`
 
 - **Dados:** `projects`, `organizations`.
 - **Realtime:** nenhum (lista atualiza por invalidação pós-mutation).
 - **Ações:** criar projeto (`api.create('projects')`), editar (`api.update('projects')`). Sem delete na UI.
-- **Estados:** vazio com CTA "criar" + busca sem resultados; skeleton; erro com retry (projects + organizations).
+- **Pré-condição (2026-07-21):** sem organização, a tela explica o vínculo obrigatório e oferece "Criar organização" (`/organizations?new=1&return=project`) — o formulário **não** abre com select vazio. Ao criar a organização, o usuário volta com ela pré-selecionada.
+- **Navegação:** `BackLink` "Voltar para projetos" + breadcrumb (desktop) em criação e edição.
+- **Formulário:** a sigla (`key`) é derivada do título e para de derivar após edição manual.
+- **Estados:** coleção vazia mostra **apenas** o empty state (dono da CTA única; busca/filtros/CTA do topo ficam ocultos); busca sem resultados; skeleton; erro com retry (projects + organizations).
 
 ## 3. chat — `/chat` (deep-link `?conversation=<id>`)
 
 - **Dados:** `conversations`, `messages`, `models`, `tasks`/`documents`/`agents` (contexto), `projects`.
 - **Realtime:** stream `conversation:<id>` — `chat.turnStarted`, `chat.turnChunk`, `chat.turnCompleted`, `chief.turnStateChanged`, `message.appended`.
 - **Ações:** nova conversa (`api.create('conversations')`); enviar mensagem (comando `startChatTurn` → `POST /conversations/<id>/turns`).
-- **Estados:** vazio sem projeto (CTA) e conversa sem mensagens (orientação + quick actions); skeleton; erro com retry das queries.
+- **Jornada inicial (2026-07-21):** sem conversa, o composer já fica pronto — a conversa é criada de forma **idempotente ao enviar** (guarda por ref + envio pendente disparado quando o id vira corrente) — e o estado vazio traz a CTA "Iniciar conversa". O botão "Nova conversa" do cabeçalho só aparece quando já existe conversa (CTA única).
+- **Prontidão:** faltando provedor/modelo/workflow (derivado de `use-golden-path`), `ChatReadinessNotice` lista o que está pronto e o que falta com CTA única; **apenas o envio** é desabilitado, nunca o motivo escondido.
+- **Separação visual:** mensagem do usuário → faixa de status do turno ("Turno registrado — o chefe vai executar" / "coordenando", borda tracejada, `role="status"`) → bolha do Chief **somente** com conteúdo real em streaming → erro de envio. Acknowledgement nunca é estilizado como resposta.
+- **Estados:** vazio sem projeto (CTA); conversa sem mensagens com orientação + quick actions; bloqueio explicado; skeleton; erro com retry das queries.
 
 ## 4. conversations — `/conversations`
 
@@ -82,8 +90,9 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 - **Dados:** `workflows`, `workflow-runs`, `phases`, `gates`, `workflow-templates`, `workflow-versions`, `documents`, `agent-definitions`.
 - **Realtime:** streams `project:<id>` + `global` — `gate.changed`, `workflow.versionPublished`, `document.stateChanged`.
-- **Ações:** `setWorkflowOperationMode` (com aceite de risco), `publishWorkflowVersion`.
-- **Estados:** vazio sem projeto (CTA) e sem workflow (orientação); skeleton; erro com `retryAll`.
+- **Ações:** `setWorkflowOperationMode` (com aceite de risco), `publishWorkflowVersion`, `linkWorkflowTemplate` (a partir do estado vazio).
+- **Estado vazio orientado (2026-07-21):** `WorkflowOnboardingEmpty` explica em uma frase o que é um workflow, recomenda um template publicado real (`recommend-template.ts`), mostra versão e **fases resumidas**, e vincula em um clique ("Usar workflow recomendado"). "Escolher outro template" só aparece havendo outros publicados; sem nenhum, a tela orienta a publicar em vez de recomendar algo inexistente.
+- **Estados:** vazio sem projeto (CTA); sem workflow (orientação + recomendação + CTA); erro de vínculo com mensagem; skeleton; erro com `retryAll`.
 
 ## 7. documents — `/documents` (deep-link `?doc=<id>`)
 
@@ -111,7 +120,10 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 - **Dados:** `agents`, `tasks`, `attempts`, `conversations`, `agent-definitions`, `skills`, `tools`, `providers`, `models`, `accounts`, `budgets`; `attempt-events` no detalhe da tentativa.
 - **Realtime:** stream `global` + streams das attempts em execução — `agent.statusChanged`, `attempt.started`, `attempt.heartbeat`, `attempt.completed`, `attempt.failed`, `quota.updated`; `chief.turnStateChanged` nas conversas.
 - **Ações:** pausar/retomar chefe (`pauseChief`/`resumeChief`), drenar tarefas (`drainChiefTasks`), passagem de bastão (`handoffChief`); na aba Definições: criar, visualizar, editar, duplicar, habilitar/desabilitar, arquivar e excluir somente quando nunca utilizada. O lifecycle V3 das definições está reconciliado com o backend real; metadados complementares ainda ausentes seguem no HANDOFF.
-- **Estados:** vazio sem projeto/sem chefe (CTA), grade vazia, tentativa sem eventos; skeleton (página, wizard, attempt-dialog); erro com retry (página, wizard, attempt-dialog).
+- **Prontidão real (2026-07-21):** o card do Chief abre com o estado derivado — `notConfigured`, `awaitingProvider`, `awaitingWorkflow`, `ready`, `running` ou `degraded` — com explicação e CTA correspondente (`Configurar provedor`, `Vincular workflow`, `Revisar agentes`). Precedência fail-closed: degradação e falta de pré-requisito vencem qualquer aparência de prontidão.
+- **Honestidade:** modelo herdado do `defaultModelId` da definição (instância sem `modelId`) recebe o rótulo **"Binding pendente"**; `SimulatedModeBadge` marca dados de fixture.
+- **Formulário guiado de definição (§16):** 6 passos (identidade, papel, comportamento, capacidades, execução, revisão) com descrição/exemplo/impacto por campo; chave técnica derivada do nome, em seção avançada e **bloqueada na edição**; esforço dirigido por `Model.effortMappings` (nível não mapeado desabilitado e limpo); catálogos vazios levam à tela de gestão; template/importação JSON com prévia, erro por campo e rejeição de segredo.
+- **Estados:** vazio sem projeto/sem chefe (CTA), grade vazia, tentativa sem eventos, catálogo vazio com CTA de gestão; skeleton (página, wizard, attempt-dialog); erro com retry (página, wizard, attempt-dialog).
 
 ## 11. agents — `/agents`
 
@@ -145,8 +157,12 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 
 - **Dados:** `organizations`, `projects` (contagem/detlhe), `workflow-templates` (detalhe).
 - **Realtime:** nenhum.
-- **Ações:** criar/editar organização (`create`/`update('organizations')`); busca client-side.
-- **Estados:** vazio com CTA "criar", busca sem resultado, seções vazias do detalhe; skeleton (lista + detalhe); erro com retry (lista, projetos e templates do detalhe — corrigido na FE-4).
+- **Ações:** criar/editar organização (`create`/`update('organizations')`); busca client-side. Deep link `?new=1` abre a criação; `&return=project` devolve ao fluxo de projeto com a organização pré-selecionada.
+- **Formulário (2026-07-21):** "Identificador da URL" derivado do nome, em seção avançada, com helper, validação em tempo real e prévia. **Sem seletor de plano** — read-only na edição, derivado da licença.
+- **Marca:** prévia da logo com remoção, color picker + HEX para as duas cores canônicas, tipografia como presets explicados e prévia da marca; URL da logo em modo avançado. Sem upload/crop (ver HANDOFF §9.4). A marca não bloqueia a criação.
+- **Detalhe:** cards de workflows e projetos com CTA real (projeto preserva `?org=<id>`); templates e políticas explicam o impacto **sem** CTA, porque não há comando no contrato.
+- **Navegação:** `BackLink` "Voltar para organizações" + breadcrumb em criação/edição/detalhe.
+- **Estados:** coleção vazia mostra **apenas** o empty state (CTA única); busca sem resultado; seções vazias do detalhe orientadas; skeleton (lista + detalhe); erro com retry (lista, projetos e templates do detalhe — corrigido na FE-4).
 
 ## 16. providers — `/providers`
 
@@ -242,3 +258,52 @@ Este roteiro complementa os gates automatizados e não declara aceite humano. O 
 - Tempo real: snapshot/delta em ordem, sem duplicata, banner durante interrupção, reconexão e atualização posterior sem reload.
 
 Registre o resultado por tela e anexe screenshot/trace ao reprovar. Problema de backend/contrato vai para o HANDOFF; correções permanecem limitadas aos paths do frontend.
+
+## Roteiro de homologação do golden path (2026-07-21)
+
+Objetivo: provar que **um usuário novo, sem conhecimento interno do produto**,
+chega da tela vazia até uma execução real do Chief sem explorar menus.
+
+**Ambiente obrigatório:** pacote self-contained **sem `--demo`**, com data dir
+**vazio** (`npm run test:e2e:package` prepara exatamente isso). O modo mock
+nasce com fixtures e **não** reproduz o estado "zero organização" — o passo 2
+não é observável lá.
+
+### A. Jornada guiada (caminho feliz)
+
+1. **Primeira abertura:** o app leva ao onboarding. Crie o perfil (nome, idioma/tema, diretório, aceite de risco). Espere cair no Cockpit.
+2. **Cockpit vazio:** confirme o checklist "Comece por aqui" com **1 de 8 concluídos**, "Perfil" riscado e **Organização** como passo atual, com CTA única.
+3. **Pré-condição:** vá a Projetos **sem** organização. A tela deve **explicar** o vínculo obrigatório e oferecer "Criar organização" — **nunca** abrir o formulário com um select de organização vazio.
+4. **Organização:** confirme que **não existe** seletor de plano e que o "Identificador da URL" **não** aparece no fluxo comum. Preencha só o nome; abra "Opções avançadas" e verifique o identificador derivado + prévia.
+5. **Retorno de intenção:** ao salvar, você deve voltar **automaticamente** ao fluxo de projeto com a organização **pré-selecionada**.
+6. **Projeto:** confirme que a sigla é derivada do título. Preencha descrição e pessoas e crie.
+7. **Chat bloqueado com motivo:** abra o Chat. A área **não** pode estar bloqueada em silêncio: deve aparecer "Execução do chefe bloqueada", a lista do que falta e uma CTA única. O composer fica desabilitado — mas o motivo, visível.
+8. **Workflow:** siga a CTA. O estado vazio deve explicar o que é um workflow, mostrar o template **Recomendado** com versão e **fases resumidas**, e vincular em um clique.
+9. **Execução liberada:** volte ao Chat. O composer libera e o bloqueio some. **Comece a digitar e envie sem clicar em "Nova conversa"** — a conversa deve ser criada sozinha.
+10. **Separação de turno:** durante a execução, confirme que "Turno registrado / coordenando" aparece como **faixa de status** e **não** como bolha de resposta do Chief. A bolha do Chief só surge com conteúdo real.
+11. **Orquestrador:** confirme o estado de prontidão explícito e a CTA correspondente; sem execução real, **não** pode dizer "Pronto" sem dependências.
+
+### B. Honestidade operacional
+
+12. **Modo simulado:** rodando sobre fixtures, Cockpit e Orquestrador devem exibir o selo "Modo simulado". Com backend real (`VITE_API_MODE=http`), o selo **não** aparece.
+13. **Binding pendente:** se o Chief usa o `defaultModelId` da definição (instância sem `modelId`), o modelo deve vir marcado como "Binding pendente" — nunca como "em uso".
+14. **Sem orçamento fictício:** confirme que nenhuma cota/conta/modelo aparece afirmado sem origem real.
+15. **Atividade recente:** eventos legíveis ("Tarefa criada" + objeto). O código cru (`task.created`) só pode aparecer dentro de "Ver detalhes".
+
+### C. Regras transversais
+
+16. **CTA única:** em cada tela, nenhuma ação primária pode aparecer duplicada. Verifique Projetos e Organizações **vazios** (só o empty state age) e **com itens** (só o topo age); no Chat sem conversa, "Nova conversa" não deve estar no cabeçalho.
+17. **Voltar:** em criação/edição/detalhe, use o botão "Voltar para …" (com seta) e o breadcrumb no desktop — **sem** usar o menu lateral. Confirme retorno à origem correta.
+18. **Definições de agente:** crie uma pelo formulário guiado. Confirme os 6 passos, a chave derivada do nome, descrição/exemplo/impacto nos campos e o esforço refletindo o modelo (nível não suportado **desabilitado**). Baixe o modelo JSON, reimporte e confirme a prévia. Importe um arquivo com `apiKey` e confirme a **rejeição com erro no campo**.
+19. **Marca:** ajuste cores pelo seletor e pelo HEX, troque a tipografia, veja a prévia e remova a logo. Confirme que a marca **não** bloqueia a criação.
+20. **Detalhe da organização:** cards de workflows e projetos levam à tela certa (projeto preserva a organização); templates e políticas explicam o impacto **sem** CTA que não leva a lugar nenhum.
+21. **Responsivo/tema/teclado:** repita os passos 3–9 em mobile (360) e desktop, nos temas claro e escuro, com zoom 200% e navegando **apenas** por teclado; confirme foco visível e ordem de leitura.
+
+### D. Critérios de reprovação
+
+- Qualquer tela que **bloqueie sem explicar** o motivo.
+- Qualquer afirmação de prontidão, modelo, conta ou orçamento **sem origem real**.
+- Duas ações semanticamente idênticas visíveis ao mesmo tempo.
+- Formulário que exija decisão técnica (identificador, plano) no fluxo comum.
+- Acknowledgement apresentado como resposta inteligente do Chief.
+- Console error da aplicação ou asset 404 durante o percurso.

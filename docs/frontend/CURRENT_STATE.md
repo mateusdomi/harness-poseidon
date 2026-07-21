@@ -10,6 +10,92 @@
 - **Design:** o design system, tokens, temas, logo, cores, tipografia e padrões responsivos existentes foram preservados. O trabalho foi incremental.
 - **Integração:** contas/providers/modelos e o lifecycle V3 de `agent-definitions` estão reconciliados com `docs/contracts/openapi.json`; o catálogo de eventos e o snapshot realtime têm validação de contrato. Alguns metadados complementares do refinamento (time, stacks, effort/account/fallback padrão, actor/critic, risco e histórico legível) ainda são mock-only e estão registrados em `HANDOFF_API.md`.
 
+## Reconstrução da jornada inicial e UX do golden path — 2026-07-21
+
+- **Objetivo:** a RC3 estava tecnicamente verde, mas a homologação humana
+  mostrou que o primeiro uso ainda exigia conhecimento interno do produto. Esta
+  fase transforma a jornada vazia em um fluxo guiado até a execução real do
+  Chief, sem redesenhar o Poseidon.
+- **Escopo respeitado:** somente `frontend/**` e `docs/frontend/**`, na
+  `develop`. `governance/manifest.yaml` não foi tocado, não houve merge em
+  `main` e **nenhum GNG foi declarado**.
+
+### Prontidão do golden path (fonte da verdade)
+
+- `features/onboarding/lib/golden-path.ts` deriva 8 etapas (perfil →
+  organização → projeto → provedor → modelo → workflow → Chief pronto →
+  primeira execução) **a partir de recursos reais**; `use-golden-path.ts`
+  reutiliza as query keys das features (cache compartilhado, sem refetch).
+- **Não existe readiness canônico no OpenAPI.** As etapas `chief` e `firstRun`
+  são heurísticas conservadoras (fail-closed) registradas em `HANDOFF_API.md`
+  §9.1. O frontend não duplica fonte da verdade: só apresenta o derivado.
+- Checklist persistente no Cockpit com status, explicação, CTA única,
+  bloqueador e deep link por etapa; some quando o caminho está completo.
+
+### Honestidade operacional
+
+- Orquestrador expõe prontidão real (`notConfigured`, `awaitingProvider`,
+  `awaitingWorkflow`, `ready`, `running`, `degraded`) com a CTA correspondente.
+- O padrão de modelo vindo da **definição** deixou de ser apresentado como
+  vínculo "em uso": agora recebe o rótulo **"Binding pendente"**.
+- **"Modo simulado"** é explícito onde há prontidão/cotas (Cockpit e
+  Orquestrador) sempre que a origem dos dados é fixture (`VITE_API_MODE`
+  diferente de `http`).
+- Atividade recente humanizada em PT/EN, com ator, horário, objeto, resultado,
+  ícone e link. O **código cru só aparece no disclosure "Ver detalhes"**, e
+  ação desconhecida degrada para o `detail` do servidor — nunca texto inventado.
+
+### Jornada e formulários
+
+- **Pré-condição organização → projeto:** sem organização, a tela de Projetos
+  explica o vínculo em vez de abrir um select vazio; ao criar a organização, o
+  usuário volta ao fluxo com ela pré-selecionada (`?new=1&org=<id>`).
+- **CTA única por ação:** em coleção vazia só o empty state age; o botão do
+  topo aparece quando já existe item. Vale para organizações, projetos e chat.
+- **Identificador da URL** (antes "Slug") é gerado do nome, vive em seção
+  avançada, com validação em tempo real e prévia; a sigla do projeto também é
+  derivada. O **plano saiu do formulário** — é read-only derivado da licença.
+- **Voltar/breadcrumb compartilhados** (`BackLink`, `Breadcrumb`,
+  `PageHeader`): seta, rótulo específico, histórico com fallback para a
+  rota-pai, acessível por teclado e independente do menu lateral.
+- **Definição de agente** virou formulário guiado em 6 passos com descrição,
+  exemplo e impacto por campo; chave técnica derivada e bloqueada na edição;
+  esforço dirigido por `Model.effortMappings` reais (incompatível é
+  desabilitado, nunca ignorado em silêncio); catálogos vazios levam à tela de
+  gestão; template/importação JSON com prévia, erro por campo e rejeição de
+  segredo.
+- **Marca** redesenhada: prévia da logo com remoção, color picker + HEX para as
+  duas cores canônicas, tipografia como presets explicados e prévia da marca.
+  **Não há contrato de upload/crop de logo** (§9.4 do HANDOFF).
+- **Chat inicial:** composer pronto sem conversa (criada de forma idempotente
+  ao enviar) e CTA explícita; faltando provedor/modelo/workflow, **apenas a
+  execução** é bloqueada, sempre com o motivo e a CTA. O acknowledgement do
+  turno deixou de ser estilizado como resposta do Chief.
+- **Workflow inicial** explica o conceito, recomenda um template publicado
+  real, resume as fases e vincula em um clique (§9.5 do HANDOFF).
+
+### Evidência desta fase
+
+- `npm run check`: lint e typecheck limpos; **57 arquivos e 484 testes** verdes.
+- `npm run build` e `npm run build-storybook`: verdes (só os avisos conhecidos
+  de PURE do SignalR e de `eval`/chunk do Storybook).
+- `npm run test:e2e`: **72/72** em mobile-360 e desktop-1440, incluindo o novo
+  gate `golden-path-ux.spec.ts` e o FE-1 percorrendo o caminho completo
+  (bloqueio honesto → workflow recomendado → conversa automática).
+- `npm run test:a11y`: **42/42** (21 rotas em mobile/dark e desktop/light).
+- `npm audit --omit=dev`: **0 vulnerabilidades de produção**.
+- Validação visual no navegador (mock, 1440×1250) do checklist, do bloqueio do
+  chat, do workflow recomendado e da prontidão do orquestrador.
+
+### Pendências reais (não declaradas como concluídas)
+
+- `npm run test:e2e:real` e `npm run test:e2e:package` **não foram executados**
+  nesta sessão: exigem, respectivamente, o Host .NET real e o pacote
+  self-contained instalado (`POSEIDON_PACKAGE_APP_DIR`), indisponíveis aqui. O
+  recorte de "zero organização" vive em `package-clean.spec.ts` e **precisa ser
+  rodado no ambiente com pacote** antes de qualquer declaração de gate.
+- As lacunas de contrato do §9 do `HANDOFF_API.md` seguem abertas no backend.
+
 ## Correção da RC `d11df77` — skeleton infinito na primeira abertura
 
 - **Causa comprovada no pacote:** com data dir vazio, `GET /api/v1/projects` retornava `200` e lista vazia. As queries dependentes de projeto (`tasks`, `approvals`, `agents`, workflows e equivalentes nas demais features) não eram iniciadas por `enabled: false`, mas o TanStack Query v5 mantém `isPending: true` nesse estado. A UI agregava `isPending` como se houvesse fetch ativo e renderizava skeleton para sempre.

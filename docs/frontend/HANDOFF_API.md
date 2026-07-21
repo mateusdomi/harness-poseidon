@@ -350,3 +350,120 @@ Métodos do hub SignalR (backend): cliente chama `SubscribeToStreams(string[])`,
 
 - **Paginação client-side (D-063):** as telas de coleção paginam sobre os itens já carregados (`api.list(...).items`), via hook/componente compartilhados (`src/features/shared/hooks/use-pagination.ts` + `components/pagination.tsx`; padrão 15/página, opções 15/30/50). O contrato **cursor** (`?cursor=&limit=`) da camada api NÃO mudou e nenhum hook de dados passou a consumi-lo — a migração para paginação server-side, quando o volume real exigir, é localizada nos hooks de dados. Chat, logs e realtime seguem incrementais (cursor), sem paginação. Em Documentos, `?page=`/`?pageSize=` vão para a URL (preservando `?doc=`); nas demais telas o estado é local (documentado em DECISIONS.md).
 - **Assets de referência visual (D-066):** as fixtures de `visual-references` apontam para caminhos locais `/refs/*.png`, servidos de `frontend/public/refs/` (gerados por `frontend/scripts/generate-ref-assets.mjs`, sem dependências). O campo `VisualReference.imageUrl` aceita URL absoluta (http) ou caminho local servido pelo próprio frontend; o componente tem fallback `onError` para asset indisponível.
+
+## 9. Lacunas de contrato do golden path (UX de primeiro uso)
+
+Missão de UX do golden path (2026-07-21). Tudo abaixo foi implementado
+**apenas** sobre contratos reais; onde o contrato não existe, a UI é
+**fail-closed** (não afirma, não inventa endpoint e explica o que falta).
+Cada item aqui é um pedido concreto ao backend.
+
+### 9.1 Prontidão canônica (readiness) — **não existe**
+
+- **Situação:** o OpenAPI não publica nenhum recurso/endpoint de readiness,
+  onboarding-status ou golden path. Não há como perguntar ao backend "este
+  projeto está pronto para executar?".
+- **O que a UI faz hoje:** deriva as 8 etapas em
+  `features/onboarding/lib/golden-path.ts` a partir da **existência de
+  recursos reais** — perfil ativo, `organizations`, `projects`, `providers`
+  (habilitado) + `accounts` (`state === 'active'`), `models` (habilitado),
+  `workflows` do projeto e `Project.chiefAgentId`.
+- **Heurísticas conservadoras (o ponto sensível):**
+  - `chief` só fica pronto com provedor + modelo + workflow + `chiefAgentId`.
+    O backend pode considerar outras dependências que a UI não enxerga.
+  - `firstRun` usa "existe workflow run" (`useProjectStarted`) como prova de
+    execução do Chief. **Não é o mesmo que "o Chief executou um turno"**.
+- **Pedido:** publicar readiness canônico por projeto, com estado por
+  dependência e motivo do bloqueio, para o frontend parar de inferir.
+
+### 9.2 Catálogo de ações de auditoria — **string aberta**
+
+- **Situação:** `AuditEventContract.action` e `targetType` são `string` sem
+  enum nem rótulo legível.
+- **O que a UI faz hoje:** `features/cockpit/lib/activity-humanize.ts` mapeia
+  o vocabulário `objeto.verbo` observado para rótulos i18n (PT/EN) e **degrada
+  graciosamente**: ação desconhecida cai para `detail` do servidor e, em
+  último caso, para o código cru — nunca para texto inventado. O código cru
+  fica sempre disponível no disclosure "Ver detalhes".
+- **Pedido:** publicar o catálogo de ações (enum + significado) e, se
+  possível, um `detail` já estruturado (ator, objeto, resultado) em vez de
+  texto livre.
+
+### 9.3 Plano da organização — **sem semântica de capacidade**
+
+- **Situação:** `Organization.plan` é `string` livre; não há contrato de
+  capabilities/entitlements por plano nem comando de troca de plano.
+- **O que a UI faz hoje (§8 da missão):** o plano **saiu** do formulário de
+  criação/edição — usuário comum não escolhe Free/Pro/Enterprise. Na edição
+  ele aparece **read-only**, derivado do que o backend devolve. Omitir o campo
+  na criação deixa o backend aplicar seu padrão; omitir na edição preserva o
+  valor atual.
+- **Pedido:** definir se plano é derivado da licença; publicar capabilities
+  reais por plano para que a UI possa mostrar diferenças verdadeiras.
+
+### 9.4 Logo de marca — **sem upload/crop**
+
+- **Situação:** `Brand.logoUrl` é uma URL. O único upload de asset publicado é
+  `POST /api/v1/visual-references/{referenceId}/assets`, do módulo de
+  prototipação — **não serve** para marca de organização/projeto.
+- **O que a UI faz hoje (§9 da missão):** bloco de marca redesenhado com
+  prévia da logo, remoção, color picker sincronizado com HEX para as **duas
+  cores canônicas do contrato**, tipografia como presets explicados e prévia
+  da marca. A URL da logo ficou em modo avançado. **Não** há drag-and-drop nem
+  crop: seria inventar endpoint ou embutir data URI no payload.
+- **Pedido:** endpoint de upload de logo (com formatos/tamanho aceitos) e, se
+  houver crop no servidor, o contrato correspondente.
+- **Nota:** a extração automática de cor a partir da logo também depende
+  disso — com logo em origem externa, `canvas` fica *tainted* e a leitura de
+  pixels falha. Com upload same-origin passa a ser viável.
+
+### 9.5 Template de workflow recomendado — **não existe "padrão"**
+
+- **Situação:** nenhum campo marca um `workflow-template` como recomendado ou
+  padrão para projetos novos. `Organization.defaultWorkflowTemplateIds` existe
+  mas não tem comando de escrita publicado.
+- **O que a UI faz hoje (§14 da missão):**
+  `features/workflows/lib/recommend-template.ts` recomenda entre os templates
+  **ativos com versão publicada vigente**, preferindo o de mais fases (empate
+  pelo mais antigo). Sem template publicado, não recomenda nada e orienta a
+  publicar um. O vínculo usa o comando real `linkWorkflowTemplate`.
+- **Pedido:** marcar template recomendado/padrão no contrato (por organização,
+  idealmente) e publicar comando de escrita para `defaultWorkflowTemplateIds`.
+
+### 9.6 Campo "criatividade" (§11 da missão) — **não existe no contrato**
+
+- **Situação:** não há `creativity`, `temperature`, `autonomia` ou
+  `exploração` em nenhum schema (`agent-definitions` incluído). A decisão de
+  backend citada na missão **não chegou** ao OpenAPI.
+- **O que a UI faz hoje:** nada a remover — o campo nunca existiu no
+  frontend. Nenhuma opção não suportada é exibida.
+- **Pedido:** se o campo for introduzido, publicar nome final, domínio de
+  valores e **efeito real** (custo, variação, necessidade de revisão), para a
+  UI descrever consequência em vez de tratá-lo como enfeite.
+
+### 9.7 Definições de agente — lacunas menores
+
+- **Especialidade / time:** são `string` livre; não há catálogo publicado. A
+  UI oferece sugestões (`datalist`) a partir de vocabulário observado e
+  permite valor livre. **Pedido:** catálogo real, se a intenção é padronizar.
+- **Esforço (§16.7):** a UI usa `Model.effortMappings` reais para habilitar/
+  desabilitar níveis e mostrar o valor enviado ao provider. Quando o modelo
+  **não** publica mapeamento, a UI informa que o provider aplica o padrão dele
+  — não afirma compatibilidade. **Pedido:** publicar mapeamento para todos os
+  modelos, ou um campo explícito de "esforços suportados".
+- **Imutabilidade da chave:** a UI bloqueia `key` na edição por ser
+  identificador estável. **Pedido:** confirmar no contrato (hoje é convenção).
+- **Import/template (§16.8):** é um recurso **de frontend** — o arquivo vira
+  rascunho no formulário e só o comando real de criação persiste. Segredo ou
+  `preferredAccountId` no arquivo é **rejeitado** com erro por campo. Não há
+  endpoint de import no backend e nenhum foi presumido.
+
+### 9.8 Gestão de templates de documento e políticas da organização
+
+- **Situação:** `Organization.templateKeys` e `Organization.policies` são
+  legíveis, mas não há comando publicado para configurá-los.
+- **O que a UI faz hoje (§10 da missão):** os cards vazios **explicam o
+  impacto** mas **não** ganham CTA — um botão levaria a lugar nenhum. Os cards
+  de workflows e de projetos, que têm tela real, ganharam CTA (o de projeto
+  preserva a organização via `?org=`).
+- **Pedido:** comandos de configuração; a UI ativa as CTAs assim que existirem.

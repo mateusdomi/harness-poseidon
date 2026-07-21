@@ -420,3 +420,68 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 
 - **Decisão:** controles de seleção/toggle que sinalizavam estado ativo apenas por cor (seletor de período do Cockpit, chips de filtro do Chat, abas do catálogo de Ferramentas) passaram a diferenciar o estado ativo também por peso da fonte e leve elevação/anel com tokens existentes. Nenhuma tela foi redesenhada e apenas os casos comprovados foram tocados; controles já com indicador não-cromático (ex.: stepper de fases, abas de runtime da Governança) ficaram intactos.
 - **Justificativa:** WCAG 1.4.1 (uso de cor) exige um segundo canal de informação; peso + shape é o reforço de menor risco e reutiliza tokens, sem introduzir cor arbitrária nem alterar layout.
+
+## D-100 — Prontidão do golden path é derivada de recursos reais, nunca inventada
+
+- **Decisão:** a jornada de primeiro uso (8 etapas: perfil → organização → projeto → provedor → modelo → workflow → Chief pronto → primeira execução) é derivada por uma função pura (`features/onboarding/lib/golden-path.ts`) a partir da existência de recursos que o contrato já publica: perfil ativo na sessão, `organizations`, `projects`, `providers` habilitado **com** `accounts` em `state === 'active'`, `models` habilitado, `workflows` do projeto e `Project.chiefAgentId`. O hook `use-golden-path.ts` reutiliza as query keys das features — não abre queries próprias nem mantém estado paralelo.
+- **Justificativa:** o OpenAPI não publica readiness/onboarding-status (HANDOFF §9.1). As alternativas seriam inventar endpoint (proibido) ou manter um "progresso" persistido no frontend, que divergiria do backend no primeiro erro. Derivar da existência de recurso mantém uma única fonte da verdade e faz a UI se corrigir sozinha quando o backend muda. As etapas `chief` e `firstRun` são fail-closed: sem sinal, permanecem pendentes — preferimos bloquear a mais do que prometer prontidão falsa.
+
+## D-101 — CTA única por ação: coleção vazia pertence ao empty state
+
+- **Decisão:** quando uma coleção está vazia, a tela renderiza **apenas** o empty state, que é dono da CTA; a barra de busca/filtros e o botão do topo não aparecem. Com pelo menos um item, o CTA do topo é o único. O mesmo padrão vale para o chat: sem conversa, "Nova conversa" some do cabeçalho e a ação vive no estado vazio. Um teste E2E (`golden-path-ux.spec.ts`) trava a regra.
+- **Justificativa:** a homologação apontou pares equivalentes ("Novo projeto" + "Criar projeto") visíveis ao mesmo tempo, com rótulos diferentes para a mesma ação. Esconder o CTA do topo (em vez de o do empty state) preserva a orientação onde o usuário está olhando e elimina a escolha redundante sem remover funcionalidade em nenhum estado.
+
+## D-102 — Acknowledgement do turno não é resposta do Chief
+
+- **Decisão:** enquanto o turno está ativo e ainda não há texto do Chief, a UI mostra uma **faixa de status** (borda tracejada, `role="status"`, tipografia secundária) deliberadamente diferente de uma bolha de mensagem. A bolha do Chief só é renderizada quando existe conteúdo real em streaming.
+- **Justificativa:** antes, "Chefe está coordenando…" era renderizado dentro de um `article` idêntico ao de uma resposta, com badge "Chefe" — o usuário lia um acknowledgement como se fosse inteligência do Chief. Separar registro/execução de resposta é requisito de honestidade, não estética.
+
+## D-103 — Bloqueio de execução explica; nunca esconde
+
+- **Decisão:** faltando provedor, modelo ou workflow, o chat mantém a área visível e o motivo explícito (checklist com o que está pronto e o que falta + CTA única para o primeiro item pendente); apenas o **envio** é desabilitado. O mesmo princípio rege o Orquestrador, que passou a exibir prontidão real (`notConfigured`, `awaitingProvider`, `awaitingWorkflow`, `ready`, `running`, `degraded`) com a CTA correspondente.
+- **Justificativa:** área desabilitada sem motivo obriga o usuário a explorar menus para descobrir pré-requisitos — exatamente o problema relatado. Bloquear a ação e explicar a causa preserva a segurança sem transferir ao usuário o custo de investigar.
+
+## D-104 — Padrão de definição não é vínculo "em uso"
+
+- **Decisão:** o card do Chief distingue a origem do modelo: `agent.modelId` (vínculo real da instância) versus `defaultModelId` da definição, que recebe o rótulo **"Binding pendente"**. Além disso, `SimulatedModeBadge` marca explicitamente as telas de prontidão/cota quando `VITE_API_MODE` não é `http`.
+- **Justificativa:** a visão geral afirmava modelo e conta "em uso" a partir de um padrão de definição que a instância nunca exerceu, e apresentava fixtures como operação real. Ambos corroem a confiança na tela em que o usuário decide executar.
+
+## D-105 — Identificador da URL é derivado e avançado; plano não é escolha do usuário
+
+- **Decisão:** o antigo "Slug" virou "Identificador da URL", gerado automaticamente do nome, alojado em seção avançada, com helper, validação em tempo real e prévia; a edição manual desliga a derivação. A sigla do projeto (`key`) segue a mesma regra. O seletor de plano **saiu** do formulário de organização: omitido na criação (backend aplica o padrão) e read-only na edição.
+- **Justificativa:** slug e plano exigiam decisão técnica/comercial no meio do fluxo comum, sem consequência visível — o plano sequer tem capabilities publicadas (HANDOFF §9.3). Derivar o identificador e remover a escolha fictícia reduz a jornada ao que é realmente decisão do usuário.
+
+## D-106 — CTA em card vazio só quando existe destino real
+
+- **Decisão:** no detalhe da organização, os cards de **workflows** e **projetos** ganharam CTA (o de projeto preserva a organização via `?org=<id>`), porque existem telas e comandos reais. Os cards de **templates de documento** e **políticas** explicam o impacto mas **não** ganham CTA, já que o contrato não publica comando de configuração.
+- **Justificativa:** a orientação pedia CTA em todo card vazio, mas um botão que não leva a lugar nenhum é pior que a ausência dele. Explicar o impacto mantém o valor informativo do empty state sem prometer uma ação inexistente; as CTAs entram assim que o backend publicar os comandos.
+
+## D-107 — Template de workflow recomendado é heurística explícita sobre dados reais
+
+- **Decisão:** sem campo de "recomendado" no contrato, `recommend-template.ts` escolhe entre templates **ativos com versão publicada vigente**, preferindo o de mais fases (empate resolvido pelo mais antigo, para estabilidade). Sem template publicado, a UI não recomenda nada e orienta a publicar um. O vínculo usa o comando real `linkWorkflowTemplate`.
+- **Justificativa:** um projeto novo sem workflow travava o Chief e o estado vazio não dizia o que fazer. A heurística é documentada, testada e conservadora; quando o backend publicar um padrão canônico (HANDOFF §9.5), basta trocar a fonte da recomendação.
+
+## D-108 — Definição de agente vira formulário guiado; esforço segue o modelo
+
+- **Decisão:** a definição passou a ser um wizard de 6 passos (identidade, papel, comportamento, capacidades, execução, revisão) com descrição, exemplo e impacto por campo, chave técnica derivada do nome e bloqueada na edição, e catálogos reais que oferecem a tela de gestão quando vazios. O esforço é dirigido por `Model.effortMappings`: nível não mapeado é **desabilitado** e limpo se estava selecionado; modelo sem mapeamento publicado exibe "o provedor aplica o padrão dele", sem afirmar compatibilidade.
+- **Justificativa:** o formulário anterior era uma parede única com textareas vazias e um select de esforço fixo que podia enviar valor não suportado silenciosamente. Guiar por passos e derivar as opções do contrato converte conhecimento interno em orientação na tela.
+
+## D-109 — Import de definição é rascunho de frontend e rejeita segredo
+
+- **Decisão:** "Baixar modelo JSON" e "Importar arquivo" operam **apenas** no formulário: o arquivo validado vira rascunho e só o comando real de criação persiste. O schema é `strict` (campo desconhecido é erro, não é ignorado) e qualquer chave de segredo (`apiKey`, `token`, `secret`, `credentialRef`, `password`) ou `preferredAccountId` é **rejeitada** com erro por campo.
+- **Justificativa:** não existe endpoint de import (HANDOFF §9.7) e presumir um seria inventar contrato. Rejeitar segredo em vez de limpá-lo em silêncio ensina a regra — credencial pertence à conta do provider, nunca a um arquivo de definição portável.
+
+## D-110 — Marca entrega o que o contrato suporta e documenta o que falta
+
+- **Decisão:** o bloco de marca ganhou prévia da logo com remoção, color picker sincronizado com HEX para as **duas cores canônicas** do contrato, tipografia como presets explicados (famílias que o design system realmente carrega) e prévia da marca. A URL da logo foi para modo avançado. **Não** foram implementados upload, drag-and-drop nem crop.
+- **Justificativa:** `Brand.logoUrl` é uma URL e o único upload publicado pertence a `visual-references` (prototipação). Implementar upload exigiria inventar endpoint ou embutir data URI no payload do recurso — ambos inaceitáveis. A lacuna está registrada (HANDOFF §9.4), junto com a extração automática de cor, que depende de asset same-origin para não *taint* o canvas.
+
+## D-111 — Humanizar auditoria não pode esconder o objeto nem o código
+
+- **Decisão:** o feed traduz ações conhecidas para rótulos i18n (PT/EN) e mantém o `detail` do servidor visível como o **objeto** do evento; ação desconhecida degrada para o `detail` e, em último caso, para o código cru. O código (`action`, `targetType`) fica sempre disponível no disclosure "Ver detalhes". Resultado (sucesso/erro/atenção) vira ícone com texto acessível, e o objeto ganha link quando existe tela.
+- **Justificativa:** a primeira implementação substituía o `detail` pelo rótulo e apagava qual objeto fora afetado — regressão que os testes de componente pegaram. `action` é string aberta no contrato (HANDOFF §9.2), então o mapa é best-effort com degradação garantida: nunca inventamos texto para um código que não conhecemos.
+
+## D-112 — `sm:` não existe neste projeto: breakpoints começam em `md`
+
+- **Decisão:** componentes novos usam `md:`/`lg:`/`xl:`. `tailwind.config.js` **substitui** `theme.screens` por `{ md: 768px, lg: 1024px, xl: 1440px }`, portanto nenhuma classe `sm:` é gerada.
+- **Justificativa:** classes `sm:` compilam para nada e falham em silêncio — o checklist, a marca, o wizard de definição e o breadcrumb ficavam empilhados no desktop. Só apareceu na validação visual no navegador; typecheck, lint e testes de DOM não pegam classe inexistente. Registrado para que a próxima sessão não repita.
