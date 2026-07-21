@@ -15,10 +15,11 @@ script paralelo é exatamente o que contorna governança.
 ./poseidon agent start \
   --project <projectId> \
   --task <taskId> \
+  --attempt <attemptId> \
   --role frontend-specialist \
   --account worker-codex-frontend \
   --instruction "<texto>" \
-  [--attempt <attemptId>] [--model <m>] [--effort <e>] [--read-only]
+  [--model <m>] [--effort <e>] [--read-only]
 
 ./poseidon agent status <attemptId>
 ./poseidon agent cancel <attemptId>
@@ -101,21 +102,50 @@ cancelled | scopeconflict | rejected`.
 - `tests/Harness.IntegrationTests/Agents/AgentRunBootstrapTests.cs` — 4 testes sobre o Host
   real: desligado por padrão, papel desconhecido recusado, escopo não-injetável e `doctor`
   reportando probe/perfil/autenticação reais das sete contas.
+- `tests/Harness.IntegrationTests/Agents/AgentRunHappyPathTests.cs` — caminho feliz completo
+  sobre repositório Git real (seção acima).
 - `tests/Harness.ContractTests/Agents/AgentRunContractDriftTests.cs` — 7 testes: as cinco
   rotas no OpenAPI canônico, o evento com payload tipado e o schema sem `scopeClaims`.
 
 `docs/contracts/openapi.json` regenerado por `tools/backend/export-contracts.sh`.
 
 Gates: build Release 0 avisos/0 erros; `dotnet format --verify-no-changes` limpo; suíte
-integral **401/401** (380 → 401); governança sync/generate/lint verde; scan de segredos
+integral **402/402** (380 → 402); governança sync/generate/lint verde; scan de segredos
 limpo. Nenhum arquivo em `frontend/**` ou `docs/frontend/**` foi modificado.
+
+## Caminho feliz executado sobre um repositório Git real
+
+`tests/Harness.IntegrationTests/Agents/AgentRunHappyPathTests.cs` semeia a cadeia real
+(solicitação → demanda → tarefa → tentativa), cria um repositório Git de verdade dentro da
+raiz controlada e dispara o bootstrap pela API. Comprovado em execução:
+
+- `202` com claims do PAPEL (`docs/frontend/**`, `frontend/**`) e fencing > 0 na tentativa
+  **e** na conta;
+- branch `task/agent-run-<attempt>` e worktree **realmente criadas** no repositório;
+- context bundle selecionado e receipt de governança gravado com o `runId` do turno;
+- executor Codex **realmente iniciado** como subprocesso no perfil isolado da conta;
+- estado terminal `Failed` por **falha de autenticação** do perfil — o resultado honesto
+  nesta máquina, e o run não finge sucesso;
+- cleanup completo: claim liberado (`ReleasedAt` preenchido), worktree removida, concessão
+  da conta devolvida, perfil ainda saudável no `doctor` e **nenhum processo órfão**.
+
+### Dois defeitos que este teste encontrou
+
+1. **`attemptId` era fabricado.** O bootstrap gerava um ULID novo quando o cliente não
+   informava um, e o claim durável tem chave estrangeira para `work_tasks`/`work_attempts` —
+   o resultado era `FOREIGN KEY constraint failed` vazando como **HTTP 500**. Corrigido: o
+   comando não fabrica identidade de domínio. `attemptId` é obrigatório, tarefa e tentativa
+   precisam existir, e a divergência entre elas devolve `409 attempt_task_mismatch`.
+2. **Recusa por 500 em vez de 404.** Tarefa ou tentativa inexistente agora responde `404`
+   tipado, antes de qualquer aquisição.
 
 ## Limite honesto
 
-O caminho até o executor externo está completo e testado, mas o **Piloto 1A ainda não foi
-executado**: os perfis isolados de `worker-codex-frontend` e `chief-claude-primary` não
-estão autenticados nesta máquina (ver CA-4). Enquanto isso não ocorrer, nenhum sucesso de
-execução real é declarado.
+Toda a máquina durável está comprovada em execução real, **exceto o turno do modelo**: os
+perfis isolados de `worker-codex-frontend` e `chief-claude-primary` não estão autenticados
+nesta máquina (ver CA-4), então o executor termina em falha de autenticação. O Piloto 1A —
+uma alteração real em `frontend/**` produzida pelo worker — **não foi executado**, e nenhum
+sucesso de execução real é declarado.
 
 ## Próxima fatia
 

@@ -5,6 +5,7 @@ using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 
 namespace Harness.Host.Agents;
@@ -61,6 +62,7 @@ public static class AgentRunEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         IProjectStore projects,
+        IWorkBoardStore board,
         AgentRunSettings settings,
         IServiceProvider services,
         CancellationToken token)
@@ -76,7 +78,7 @@ public static class AgentRunEndpoints
             return InvalidId("task");
         }
 
-        if (input.AttemptId is { Length: > 0 } && !UlidValue.TryParse(input.AttemptId, out _))
+        if (!UlidValue.TryParse(input.AttemptId, out _))
         {
             return InvalidId("attempt");
         }
@@ -134,9 +136,29 @@ public static class AgentRunEndpoints
                 "The project repository must live inside the configured controlled root.");
         }
 
-        var attemptId = input.AttemptId is { Length: > 0 } supplied
-            ? supplied
-            : UlidValue.New(DateTimeOffset.UtcNow).ToString();
+        // A tarefa e a tentativa precisam EXISTIR: o claim durável tem chave estrangeira
+        // para elas, e inventar um identificador produziria erro de banco em vez de uma
+        // recusa compreensível.
+        var task = await board.GetTaskAsync(profile.TenantId, input.TaskId, token);
+        if (task is null)
+        {
+            return NotFound("task");
+        }
+
+        var attempt = await board.GetAttemptAsync(profile.TenantId, input.AttemptId, token);
+        if (attempt is null)
+        {
+            return NotFound("attempt");
+        }
+
+        if (!string.Equals(attempt.TaskId, input.TaskId, StringComparison.Ordinal))
+        {
+            return Problem(
+                409, "attempt_task_mismatch",
+                "The attempt does not belong to the supplied task.");
+        }
+
+        var attemptId = input.AttemptId;
 
         // O escopo vem do PAPEL, nunca do provider nem do pedido: um cliente não amplia o
         // próprio escopo mandando claims extras.
@@ -364,7 +386,11 @@ public sealed class StartAgentRunApiRequest
 
     public required string Instruction { get; init; }
 
-    public string? AttemptId { get; init; }
+    /// <summary>
+    /// Tentativa DURÁVEL já existente na cadeia de trabalho. O bootstrap não fabrica
+    /// identidade de domínio: ele opera sobre uma tarefa e uma tentativa reais.
+    /// </summary>
+    public required string AttemptId { get; init; }
 
     public string? Model { get; init; }
 

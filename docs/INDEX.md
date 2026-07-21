@@ -390,7 +390,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [CA-1/CA-2 — papel provider-agnostic e registro de contas](backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md) | * | Active | Quality Engineering | OnDemand | 845 |
 | [CA-3 — isolamento por conta de agente](backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md) | * | Active | Quality Engineering | OnDemand | 929 |
 | [CA-4 — adapters reais de executores externos](backend/execution/evidence/CA-4-EXTERNAL-EXECUTORS.md) | * | Active | Quality Engineering | OnDemand | 1251 |
-| [CA-5 — bootstrap governado de agentes](backend/execution/evidence/CA-5-AGENT-RUN-BOOTSTRAP.md) | * | Active | Quality Engineering | OnDemand | 1256 |
+| [CA-5 — bootstrap governado de agentes](backend/execution/evidence/CA-5-AGENT-RUN-BOOTSTRAP.md) | * | Active | Quality Engineering | OnDemand | 1637 |
 | [GP-A — prontidão canônica do golden path](backend/execution/evidence/GP-A-READINESS-CONTRACT.md) | * | Active | Quality Engineering | OnDemand | 819 |
 | [GP-B — instalação vazia sem catálogo simulado](backend/execution/evidence/GP-B-FAIL-CLOSED-CATALOG.md) | * | Active | Quality Engineering | OnDemand | 867 |
 | [GP-C1 — executor simulado fora do pacote normal](backend/execution/evidence/GP-C1-NO-SIMULATED-CHIEF-REPLY.md) | * | Active | Quality Engineering | OnDemand | 617 |

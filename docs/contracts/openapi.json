@@ -21713,7 +21713,8 @@
                     "taskId",
                     "role",
                     "account",
-                    "instruction"
+                    "instruction",
+                    "attemptId"
                 ],
                 "type": "object",
                 "properties": {
@@ -21733,10 +21734,7 @@
                         "type": "string"
                     },
                     "attemptId": {
-                        "type": [
-                            "null",
-                            "string"
-                        ]
+                        "type": "string"
                     },
                     "model": {
                         "type": [

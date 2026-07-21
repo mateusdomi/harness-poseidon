@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T20:12:49.3268600+00:00
+lastGeneratedAt: 2026-07-21T20:22:52.2259770+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:bcdf37071f27d5fe6284b387d61ff2fc548380546fce4de380c9bb58e9ba4b36
+  checksum: sha256:8c16fe0262ebe0e7ab120b9687ace15f80ea81fae0eafbaa1979593dba986b39
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11311,7 +11311,7 @@ documents:
   - governance/**
   loadPolicy: on-demand
   priority: 150
-  tokenEstimate: 1256
+  tokenEstimate: 1637
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -11322,7 +11322,7 @@ documents:
   related:
   - adr-021-agent-accounts-and-executors
   enforcedBy: []
-  checksum: sha256:c86366ab3f8cd1a63a127ce88f08115960c18af1a1e538e368e799238c920319
+  checksum: sha256:d425f8ba5189dcaf1145d33091265428f128aba31faf4c3af86b6a144097f885
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/CA-5-AGENT-RUN-BOOTSTRAP.md

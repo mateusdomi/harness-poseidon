@@ -12,8 +12,9 @@ usage() {
   echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|agent|release-candidate} [opções]"
   echo "  start [--no-browser] [--port PORT] [--demo]"
   echo "  logs [--follow]"
-  echo "  agent start --project <id> --task <id> --role <papel> --account <alias> --instruction <texto>"
-  echo "             [--attempt <id>] [--model <m>] [--effort <e>] [--read-only]"
+  echo "  agent start --project <id> --task <id> --attempt <id> --role <papel>"
+  echo "              --account <alias> --instruction <texto>"
+  echo "              [--model <m>] [--effort <e>] [--read-only]"
   echo "  agent status <attemptId>"
   echo "  agent cancel <attemptId>"
   echo "  agent recover"
@@ -293,7 +294,7 @@ agent_start() {
     esac
   done
 
-  for required in project task role account instruction; do
+  for required in project task attempt role account instruction; do
     if [[ -z "${!required}" ]]; then
       echo "--${required} é obrigatório." >&2
       usage >&2

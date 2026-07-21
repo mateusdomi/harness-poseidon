@@ -82,6 +82,7 @@ public sealed class AgentRunBootstrapTests : IDisposable
             {
                 projectId = Ulid(),
                 taskId = Ulid(),
+                attemptId = Ulid(),
                 role = "frontend-specialist",
                 account = "worker-codex-frontend",
                 instruction = "faça algo",
@@ -107,6 +108,7 @@ public sealed class AgentRunBootstrapTests : IDisposable
             {
                 projectId = Ulid(),
                 taskId = Ulid(),
+                attemptId = Ulid(),
                 role = "frontend-kimi-superuser",
                 account = "worker-codex-frontend",
                 instruction = "faça algo",
@@ -134,6 +136,7 @@ public sealed class AgentRunBootstrapTests : IDisposable
             {
                 projectId = Ulid(),
                 taskId = Ulid(),
+                attemptId = Ulid(),
                 role = "frontend-specialist",
                 account = "worker-codex-frontend",
                 instruction = "faça algo",
