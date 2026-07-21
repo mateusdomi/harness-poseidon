@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:4f9a5fc5072f3964affefd6f736a14df3cb61bc18c81288437f81c1772231980 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:9b7e12a37a16701e37a369c33fb435929055b168b2c265007ccbbc486efc7479 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 23
-- `Evidence`: 139
+- `Evidence`: 140
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 21
 - `entrypoint`: 1
-- `evidence`: 139
+- `evidence`: 140
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 195
+- `*`: 196
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 204
+- `Active`: 205
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 138
+- `Quality Engineering`: 139
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 190
+- `OnDemand`: 191
 
 ## Documents by authority and domain
 
@@ -389,6 +389,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [V3 — ciclo de rascunho e publicação de workflows](backend/execution/evidence/V3-WORKFLOW-DRAFT-LIFECYCLE.md) | * | Active | Quality Engineering | OnDemand | 650 |
 | [CA-1/CA-2 — papel provider-agnostic e registro de contas](backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md) | * | Active | Quality Engineering | OnDemand | 845 |
 | [CA-3 — isolamento por conta de agente](backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md) | * | Active | Quality Engineering | OnDemand | 929 |
+| [CA-4 — adapters reais de executores externos](backend/execution/evidence/CA-4-EXTERNAL-EXECUTORS.md) | * | Active | Quality Engineering | OnDemand | 1251 |
 | [GP-A — prontidão canônica do golden path](backend/execution/evidence/GP-A-READINESS-CONTRACT.md) | * | Active | Quality Engineering | OnDemand | 819 |
 | [GP-B — instalação vazia sem catálogo simulado](backend/execution/evidence/GP-B-FAIL-CLOSED-CATALOG.md) | * | Active | Quality Engineering | OnDemand | 867 |
 | [GP-C1 — executor simulado fora do pacote normal](backend/execution/evidence/GP-C1-NO-SIMULATED-CHIEF-REPLY.md) | * | Active | Quality Engineering | OnDemand | 617 |

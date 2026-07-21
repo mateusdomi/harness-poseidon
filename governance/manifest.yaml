@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T19:45:08.8269180+00:00
+lastGeneratedAt: 2026-07-21T19:55:40.4795390+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7397
+  tokenEstimate: 7427
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:7bf2157612116b9d608b290f501ad4cfd35b63001723491b279c43403ba55b4e
+  checksum: sha256:6a261ca2c81ac490047c242542be8060b320177f645b2be21812dde0655b3c25
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11228,3 +11228,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md
+- id: evidence-ca-4-external-executors
+  path: docs/backend/execution/evidence/CA-4-EXTERNAL-EXECUTORS.md
+  title: CA-4 — adapters reais de executores externos
+  category: evidence
+  topic: evidence-ca-4-external-executors
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  - governance/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 1251
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:d9044092a3e03adca3d33861912f40461e5f389de467526db11793f4bda9b02f
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/CA-4-EXTERNAL-EXECUTORS.md

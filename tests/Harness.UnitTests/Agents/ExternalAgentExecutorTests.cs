@@ -1,0 +1,224 @@
+using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Application.Execution.External;
+using Harness.Modules.Agents.Contracts;
+
+namespace Harness.UnitTests.Agents;
+
+/// <summary>
+/// CA-4: adapters reais de Claude Code e Codex. As provas aqui não gastam cota: elas
+/// asseguram os ARGUMENTOS exatos (nenhuma flag inventada), o isolamento por conta, a
+/// recusa de segredo em argv e o prompt fora da linha de comando.
+/// </summary>
+public sealed class ExternalAgentExecutorTests : IDisposable
+{
+    private static readonly DateTimeOffset Now = new(2026, 7, 21, 12, 0, 0, TimeSpan.Zero);
+
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(), $"harness-external-{Guid.NewGuid():N}");
+
+    private readonly string _workspace = Path.Combine(
+        Path.GetTempPath(), $"harness-workspace-{Guid.NewGuid():N}");
+
+    public ExternalAgentExecutorTests() => Directory.CreateDirectory(_workspace);
+
+    private static AgentAccountContract Account(string alias, string executorId) =>
+        new(alias, "openai", executorId, $"keychain://poseidon/{alias}", $"confighome://{alias}",
+            ["frontend-specialist"], ["frontend/**", "docs/frontend/**"],
+            AgentAccountState.Available, AgentAccountHealth.Unknown,
+            1, 0, null, null, null, null, null, 100);
+
+    private static AccountProfileHandle Provision(
+        AccountProfileProvisioner provisioner, string alias, string executorId) =>
+        provisioner.Ensure(
+            Account(alias, executorId), ExecutorCatalog.Find(executorId)!, Now);
+
+    private ExternalAgentRunRequest Request(
+        AccountProfileHandle handle,
+        ExternalAgentAccess access = ExternalAgentAccess.Workspace,
+        string? resume = null,
+        string? model = null,
+        string? effort = null) =>
+        new()
+        {
+            Alias = handle.Layout.Alias,
+            Prompt = "implemente a fatia",
+            WorkingDirectory = _workspace,
+            Profile = handle.Layout,
+            Access = access,
+            ResumeSessionId = resume,
+            Model = model,
+            Effort = effort,
+        };
+
+    private static List<string> Arguments(
+        ProcessExternalAgentExecutor executor, ExternalAgentRunRequest request) =>
+        [.. executor.BuildArguments(
+            request, new ExternalAgentRunContext("run-test", Path.Combine(Path.GetTempPath(), "last.txt")))];
+
+    [Fact]
+    public void CodexActorRunsWorkspaceWriteAndReadsThePromptFromStandardInput()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "worker-codex-frontend", ExecutorCatalog.Codex);
+        var executor = CodexExternalAgentExecutor.Create(provisioner);
+
+        var arguments = Arguments(executor, Request(handle));
+
+        Assert.Equal("codex", executor.Profile.Command);
+        Assert.Equal("exec", arguments[0]);
+        Assert.Contains("--json", arguments);
+        Assert.Contains("--skip-git-repo-check", arguments);
+        Assert.Equal("workspace-write", arguments[arguments.IndexOf("--sandbox") + 1]);
+        Assert.Equal(_workspace, arguments[arguments.IndexOf("-C") + 1]);
+        Assert.Contains("--output-last-message", arguments);
+
+        // `-` é o que faz o Codex ler o prompt do stdin; o prompt nunca entra em argv.
+        Assert.Equal("-", arguments[^1]);
+        Assert.DoesNotContain(arguments, argument => argument.Contains("implemente a fatia", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CodexCriticIsReadOnlyAndResumesByTheRealSubcommand()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "worker-codex-critic", ExecutorCatalog.Codex);
+        var executor = CodexExternalAgentExecutor.Create(provisioner);
+
+        var arguments = Arguments(
+            executor,
+            Request(handle, ExternalAgentAccess.ReadOnly, resume: "019f8637-2252-7c21-9fd4-e87af6dc6dee"));
+
+        Assert.Equal("read-only", arguments[arguments.IndexOf("--sandbox") + 1]);
+        Assert.Equal("resume", arguments[1]);
+        Assert.Equal("019f8637-2252-7c21-9fd4-e87af6dc6dee", arguments[2]);
+    }
+
+    [Fact]
+    public void ClaudeActorAcceptsEditsWhileTheCriticHasNoWriteToolAtAll()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var chief = Provision(provisioner, "chief-claude-primary", ExecutorCatalog.ClaudeCode);
+        var executor = ClaudeCodeExternalAgentExecutor.ForClaudeCode(provisioner);
+
+        var actor = Arguments(executor, Request(chief));
+        Assert.Equal("acceptEdits", actor[actor.IndexOf("--permission-mode") + 1]);
+
+        var critic = Arguments(executor, Request(chief, ExternalAgentAccess.ReadOnly));
+        var tools = critic[critic.IndexOf("--tools") + 1].Split(',');
+        Assert.Equal(["Read", "Grep", "Glob"], tools);
+        Assert.DoesNotContain("Edit", tools);
+        Assert.DoesNotContain("Write", tools);
+        Assert.DoesNotContain("Bash", tools);
+    }
+
+    [Fact]
+    public void ClaudeStreamingArgumentsMatchTheInstalledCliContract()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var chief = Provision(provisioner, "chief-claude-primary", ExecutorCatalog.ClaudeCode);
+        var executor = ClaudeCodeExternalAgentExecutor.ForClaudeCode(provisioner);
+
+        var arguments = Arguments(
+            executor, Request(chief, resume: "2db1da57-6768-47a3-9327-81ff271f3235", effort: "high"));
+
+        Assert.Equal(["-p", "--output-format", "stream-json", "--verbose"], arguments.Take(4));
+        Assert.Equal("2db1da57-6768-47a3-9327-81ff271f3235", arguments[arguments.IndexOf("--resume") + 1]);
+        Assert.Equal("high", arguments[arguments.IndexOf("--effort") + 1]);
+    }
+
+    [Fact]
+    public void GlmSharesTheClaudeBinaryButNeverTheConfigHome()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var chief = Provision(provisioner, "chief-claude-primary", ExecutorCatalog.ClaudeCode);
+        var glm = Provision(provisioner, "worker-glm-general", ExecutorCatalog.Glm);
+
+        var claude = ClaudeCodeExternalAgentExecutor.ForClaudeCode(provisioner);
+        var glmExecutor = ClaudeCodeExternalAgentExecutor.ForGlm(provisioner);
+
+        Assert.Equal(claude.Profile.Command, glmExecutor.Profile.Command);
+
+        var chiefEnvironment = provisioner.BuildEnvironment(
+            chief.Layout, claude.Profile, new Dictionary<string, string?>());
+        var glmEnvironment = provisioner.BuildEnvironment(
+            glm.Layout, glmExecutor.Profile, new Dictionary<string, string?>());
+
+        Assert.NotEqual(chiefEnvironment["CLAUDE_CONFIG_DIR"], glmEnvironment["CLAUDE_CONFIG_DIR"]);
+    }
+
+    [Fact]
+    public async Task AnEffortValueTheInstalledCliDoesNotAcceptIsRefused()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "worker-codex-frontend", ExecutorCatalog.Codex);
+        var executor = CodexExternalAgentExecutor.Create(provisioner);
+
+        // O Codex CLI não expõe `--effort`; passar um valor seria inventar flag.
+        var exception = await Assert.ThrowsAsync<ExternalAgentException>(
+            () => executor.StartAsync(Request(handle, effort: "high")));
+        Assert.Equal("executor.effort_unsupported", exception.Code);
+    }
+
+    [Fact]
+    public async Task AProfileFromAnotherAliasIsRefusedBeforeAnyProcessStarts()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var other = Provision(provisioner, "worker-codex-critic", ExecutorCatalog.Codex);
+        var executor = CodexExternalAgentExecutor.Create(provisioner);
+
+        var request = Request(other) with { Alias = "worker-codex-frontend" };
+
+        var exception = await Assert.ThrowsAsync<ExternalAgentException>(
+            () => executor.StartAsync(request));
+        Assert.Equal("executor.profile_alias_mismatch", exception.Code);
+    }
+
+    [Fact]
+    public async Task AMissingWorkingDirectoryIsRefusedInsteadOfSilentlyUsingTheProcessCwd()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "worker-codex-frontend", ExecutorCatalog.Codex);
+        var executor = CodexExternalAgentExecutor.Create(provisioner);
+
+        var request = Request(handle) with
+        {
+            WorkingDirectory = Path.Combine(_workspace, "does-not-exist"),
+        };
+
+        var exception = await Assert.ThrowsAsync<ExternalAgentException>(
+            () => executor.StartAsync(request));
+        Assert.Equal("executor.working_directory_invalid", exception.Code);
+    }
+
+    [Theory]
+    [InlineData("sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("Authorization: Bearer AAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("ANTHROPIC_AUTH_TOKEN=AAAAAAAAAAAAAAAAAAAA")]
+    public void OutputThatLooksLikeASecretIsRedactedBeforeLeavingTheAdapter(string value)
+    {
+        Assert.True(ExternalAgentRedaction.ContainsSecret(value));
+        var redacted = ExternalAgentRedaction.Redact($"o modelo imprimiu {value} no log");
+        Assert.Contains(ExternalAgentRedaction.Placeholder, redacted, StringComparison.Ordinal);
+        Assert.False(ExternalAgentRedaction.ContainsSecret(redacted));
+    }
+
+    [Fact]
+    public void OrdinaryOutputIsNotMangledByRedaction()
+    {
+        const string Text = "Implementei o componente e rodei os testes: 12 passaram.";
+        Assert.False(ExternalAgentRedaction.ContainsSecret(Text));
+        Assert.Equal(Text, ExternalAgentRedaction.Redact(Text));
+    }
+
+    public void Dispose()
+    {
+        foreach (var path in new[] { _root, _workspace })
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+    }
+}

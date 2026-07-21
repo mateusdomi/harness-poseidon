@@ -20,6 +20,9 @@ public static class ExecutorCatalog
 
     private static readonly string[] TextEffort = ["low", "medium", "high"];
 
+    // Níveis aceitos por `claude --effort`, observados na CLI instalada (2.1.216).
+    private static readonly string[] ClaudeEffort = ["low", "medium", "high", "xhigh", "max"];
+
     /// <summary>
     /// Perfis canônicos. `ConfigHomeEnvironmentVariable` é a variável REAL que isola
     /// credenciais/sessão do CLI (CA-3): `CLAUDE_CONFIG_DIR` para Claude Code e derivados,
@@ -37,7 +40,7 @@ public static class ExecutorCatalog
             ["PATH", "HOME", "LANG", "CLAUDE_CONFIG_DIR"],
             new CapabilitySet(
                 ["chat", "code", "review"], SupportsStreaming: true, SupportsResume: true,
-                SupportsEffort: true, TextEffort, MaxContextTokens: null),
+                SupportsEffort: true, ClaudeEffort, MaxContextTokens: null),
             DetectedVersion: null),
 
         new ExecutorProfile(
@@ -95,7 +98,7 @@ public static class ExecutorCatalog
              "ANTHROPIC_DEFAULT_OPUS_MODEL"],
             new CapabilitySet(
                 ["chat", "code", "review"], SupportsStreaming: true, SupportsResume: true,
-                SupportsEffort: true, TextEffort, MaxContextTokens: null),
+                SupportsEffort: true, ClaudeEffort, MaxContextTokens: null),
             DetectedVersion: null),
     ];
 
