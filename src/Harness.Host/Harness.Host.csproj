@@ -18,6 +18,10 @@
     <Content Include="../../README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../AGENTS.md" Link="AGENTS.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../CLAUDE.md" Link="CLAUDE.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Documento de governança (doc-frontend-readme, audience: runtime) referenciado pelo
+         manifest; sem isto o pacote instalado não o resolve e o detector de docs stale o
+         reporta como fonte ausente. Empacotado, não editado. -->
+    <Content Include="../../frontend/README.md" Link="frontend/README.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
