@@ -555,7 +555,11 @@ public static class HostApplication
 
     private static string? ResolveGovernanceRoot(string contentRoot)
     {
-        foreach (var start in new[] { contentRoot, AppContext.BaseDirectory })
+        // O diretório de instalação (onde vivem os binários) é a fonte de verdade da governança
+        // empacotada. Resolvê-lo a partir de AppContext.BaseDirectory ANTES do ContentRoot/CWD
+        // impede que um pacote instalado dependa acidentalmente de um checkout de desenvolvimento
+        // presente no diretório atual — comportamento não determinístico e proibido em produção.
+        foreach (var start in new[] { AppContext.BaseDirectory, contentRoot })
         {
             for (var directory = new DirectoryInfo(Path.GetFullPath(start)); directory is not null;
                  directory = directory.Parent)
