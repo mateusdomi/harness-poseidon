@@ -668,7 +668,8 @@
         "keyHint": "Sigla curta em maiúsculas usada em prefixos, ex.: POSEIDON.",
         "criticality": "Criticidade",
         "description": "Descrição",
-        "state": "Estado"
+        "state": "Estado",
+        "criticalityHint": "Define o nível de risco do projeto. A partir de risco médio, a revisão por um agente crítico passa a ser obrigatória, gates humanos são exigidos e a auto-aprovação é recusada — isso aumenta o custo e o tempo de cada entrega."
       },
       "repository": {
         "provider": "Provedor",

@@ -668,7 +668,8 @@
         "keyHint": "Short uppercase code used in prefixes, e.g. POSEIDON.",
         "criticality": "Criticality",
         "description": "Description",
-        "state": "State"
+        "state": "State",
+        "criticalityHint": "Sets the project's risk tier. From medium risk on, review by a critic agent becomes mandatory, human gates are required and auto-approval is refused — which increases the cost and time of each delivery."
       },
       "repository": {
         "provider": "Provider",

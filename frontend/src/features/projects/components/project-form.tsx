@@ -294,7 +294,14 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
                   }}
                 />
               </Field>
-              <Field htmlFor="project-criticality" label={t('projects.form.identification.criticality')}>
+              {/* Criticidade é o RISK TIER com efeito real (ADR-020): a partir
+                  de médio, exige par actor–critic, gates humanos e recusa
+                  auto-aprovação. O campo explica esse impacto. */}
+              <Field
+                htmlFor="project-criticality"
+                label={t('projects.form.identification.criticality')}
+                hint={t('projects.form.identification.criticalityHint')}
+              >
                 <Select id="project-criticality" {...register('criticality')}>
                   {PRIORITIES.map((priority) => (
                     <option key={priority} value={priority}>

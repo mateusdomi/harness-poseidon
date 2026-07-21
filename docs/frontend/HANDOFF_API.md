@@ -463,16 +463,24 @@ Cada item aqui é um pedido concreto ao backend.
 - **Pedido:** marcar template recomendado/padrão no contrato (por organização,
   idealmente) e publicar comando de escrita para `defaultWorkflowTemplateIds`.
 
-### 9.6 Campo "criatividade" (§11 da missão) — **não existe no contrato**
+### 9.6 Campo "criatividade" — **DECIDIDO (ADR-020)** ✅
 
-- **Situação:** não há `creativity`, `temperature`, `autonomia` ou
-  `exploração` em nenhum schema (`agent-definitions` incluído). A decisão de
-  backend citada na missão **não chegou** ao OpenAPI.
-- **O que a UI faz hoje:** nada a remover — o campo nunca existiu no
-  frontend. Nenhuma opção não suportada é exibida.
-- **Pedido:** se o campo for introduzido, publicar nome final, domínio de
-  valores e **efeito real** (custo, variação, necessidade de revisão), para a
-  UI descrever consequência em vez de tratá-lo como enfeite.
+- **Situação:** resolvida. O backend publicou o `ADR-020` durante esta missão:
+  não existe (nem existirá como campo cosmético) `criatividade`/`creativity`
+  no domínio. Qualquer controle desse tipo deve ser **removido** do fluxo até
+  que exista `AutonomyLevel`/`ExplorationLevel` com enum fechado, efeito
+  documentado e teste de binding.
+- **O que a UI faz hoje:** nada a remover — o campo nunca existiu no frontend
+  (varredura por `criativ|creativ|temperature|autonomia|exploration` não
+  retorna nada em `src/`). Nenhuma opção não suportada é exibida.
+- **Consequência aplicada:** o ADR esclarece que `criticality` **é o risk
+  tier** com binding real (a partir de médio: par actor–critic obrigatório,
+  gates humanos e recusa de auto-aprovação). O campo no formulário de projeto
+  passou a **explicar esse efeito** — deixou de ser um select sem consequência
+  visível, que era exatamente a confusão apontada na homologação.
+- **Pedido:** ao introduzir `AutonomyLevel`/`ExplorationLevel`, publicar
+  domínio de valores e efeito real (custo, variação, necessidade de revisão)
+  para a UI descrever consequência, não decoração.
 
 ### 9.7 Definições de agente — lacunas menores
 
