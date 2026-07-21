@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T00:30:50.3811160+00:00
+lastGeneratedAt: 2026-07-21T01:55:15.8091100+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -13,7 +13,9 @@ knownOwners:
 - Quality Engineering
 - Research
 - Technical Writing
-markdownAllowlist: []
+markdownAllowlist:
+- path: docs/frontend/evidence/**
+  reason: Artefatos transitórios de evidência de UI (screenshots + README por correção) mantidos pela frente frontend; não são documentos canônicos de governança e não exigem entrada completa no manifest.
 documents:
 - id: adapter-agents
   path: AGENTS.md
@@ -217,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:b3b57c41d3e7a362c7b72f76e498f87c77b1fca2f7d9b7f17d481caa2981d996
+  checksum: sha256:4e04719720c9bd88dbf068224176545fbb069e5932229a3647017b4433106d3a
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -8881,7 +8883,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 2579
+  tokenEstimate: 3141
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8891,7 +8893,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:4f7c7092df5c41e60994ca14f0d6f4c53d96a15d9bc4f125a15356a0c42b3f5d
+  checksum: sha256:c1f5712f86c4b1f65f3c5324170f43ef2b76afd16403bed75cac885d8bbaa66d
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/CURRENT_STATE.md
@@ -8929,7 +8931,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 17648
+  tokenEstimate: 18030
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8939,7 +8941,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:1db6ba3fb0b6643604c7bcdef5ea34dfe8777dd9fb957dd036deedceefcb36f2
+  checksum: sha256:9fec5d29a81d6e52f5ca520737ef9b010cdfbce6cfca55b6a107abd9442df082
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/DECISIONS.md
@@ -9121,7 +9123,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 4176
+  tokenEstimate: 4259
   owner: Frontend
   status: active
   version: 1.0.0
@@ -9131,7 +9133,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:933eda710bf1afb6530509a5b9354521356f563636b8e80f7acfd584a8ca12f7
+  checksum: sha256:95b3fda017b974185c336d360def0c4413f868cf35df14496f6fa958e146f490
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/SCREENS.md

@@ -181,7 +181,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 7085 |
-| [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 2579 |
+| [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 3141 |
 
 ### Reference
 
@@ -227,11 +227,11 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [DECISIONS — Frontend Harness Poseidon](frontend/DECISIONS.md) | * | Active | Frontend | OnDemand | 17648 |
+| [DECISIONS — Frontend Harness Poseidon](frontend/DECISIONS.md) | * | Active | Frontend | OnDemand | 18030 |
 | [HANDOFF — Camada de API do Frontend](frontend/HANDOFF_API.md) | * | Active | Frontend | OnDemand | 7793 |
 | [PROGRESS — Frontend Harness Poseidon](frontend/PROGRESS.md) | * | Active | Frontend | OnDemand | 686 |
 | [Auditoria e relatório — Refinamento funcional FR-1 a FR-5](frontend/REFINEMENT_AUDIT.md) | * | Active | Frontend | OnDemand | 1272 |
-| [SCREENS — Inventário de telas e auditoria de estados (FR-5)](frontend/SCREENS.md) | * | Active | Frontend | OnDemand | 4176 |
+| [SCREENS — Inventário de telas e auditoria de estados (FR-5)](frontend/SCREENS.md) | * | Active | Frontend | OnDemand | 4259 |
 
 #### reference
 
