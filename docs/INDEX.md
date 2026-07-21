@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:def7b9792c8bf7770b32b93cd98d4c3d0847962425cfa5fa457a79c6bbc122fb -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:cbf5895ac929a4bcbc53c2cfdf7414c9b74f4753deebcdf8931960307947cd45 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,11 +6,11 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 22
-- `Evidence`: 137
+- `Canonical`: 23
+- `Evidence`: 138
 - `Generated`: 1
 - `Historical`: 8
-- `Operational`: 13
+- `Operational`: 14
 - `Reference`: 25
 
 ## By domain
@@ -19,14 +19,14 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 4
 - `backend`: 1
 - `contract`: 1
-- `decision`: 20
+- `decision`: 21
 - `entrypoint`: 1
-- `evidence`: 137
+- `evidence`: 138
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
 - `index`: 1
-- `operations`: 5
+- `operations`: 6
 - `prompt`: 3
 - `reference`: 1
 - `research`: 4
@@ -38,31 +38,31 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 193
+- `*`: 194
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
 - `p2`: 1
 - `release-candidate`: 4
-- `runtime`: 7
+- `runtime`: 9
 
 ## By status
 
-- `Active`: 200
+- `Active`: 203
 - `Historical`: 7
 - `Superseded`: 1
 
 ## By owner
 
 - `API Platform`: 1
-- `Agent Platform`: 4
+- `Agent Platform`: 5
 - `Architecture`: 18
 - `Frontend`: 6
-- `Operations`: 5
+- `Operations`: 6
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 136
+- `Quality Engineering`: 137
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 186
+- `OnDemand`: 189
 
 ## Documents by authority and domain
 
@@ -95,6 +95,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-017 — Prontidão canônica e estado de configuração fail-closed](decisions/ADR-017-readiness-and-configuration-state.md) | runtime | Active | Platform Governance | OnDemand | 947 |
 | [ADR-018 — Dados simulados nunca apresentados como reais](decisions/ADR-018-fail-closed-simulated-data.md) | runtime | Active | Platform Governance | OnDemand | 728 |
 | [ADR-019 — Separar confirmação de transporte da resposta real do Chief](decisions/ADR-019-chief-transport-vs-model-response.md) | runtime | Active | Agent Platform | OnDemand | 737 |
+| [ADR-021 — Contas de agente por alias e executores reais](decisions/ADR-021-agent-accounts-and-executors.md) | runtime | Active | Agent Platform | OnDemand | 804 |
 | [ADR-020 — Auditoria do campo criatividade e binding obrigatório](decisions/ADR-020-creativity-field-audit.md) | runtime | Active | Platform Governance | OnDemand | 566 |
 
 #### execution
@@ -114,7 +115,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Regra canônica — coordenação e escopo de agentes](../governance/rules/coordination.md) | * | Active | Agent Platform | Bundle | 210 |
+| [Regra canônica — coordenação e escopo de agentes](../governance/rules/coordination.md) | * | Active | Agent Platform | Bundle | 311 |
 | [Regra canônica — documentação e manifest](../governance/rules/documentation.md) | * | Active | Technical Writing | Bundle | 222 |
 | [Regra canônica — Git e preservação de trabalho](../governance/rules/git.md) | * | Active | Platform Engineering | Bundle | 215 |
 | [Regra canônica — segredos e redaction](../governance/rules/secrets.md) | * | Active | Product Security | Bundle | 218 |
@@ -179,6 +180,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Runbook de incidentes](backend/operations/INCIDENT_RUNBOOK.md) | * | Active | Operations | OnDemand | 774 |
 | [Instalação do Harness Poseidon](backend/operations/INSTALLATION.md) | * | Active | Operations | OnDemand | 810 |
 | [Operação](backend/operations/OPERATIONS.md) | * | Active | Operations | OnDemand | 719 |
+| [Configuração local de contas de agente — exemplo](backend/operations/AGENT_ACCOUNTS_EXAMPLE.md) | runtime | Active | Operations | OnDemand | 446 |
 
 #### state
 
@@ -385,6 +387,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Refinamento v3 — arquivamento de tarefas](backend/execution/evidence/V3-TASK-ARCHIVING.md) | * | Active | Quality Engineering | OnDemand | 438 |
 | [V3 — fases persistidas no quadro](backend/execution/evidence/V3-WORK-BOARD-PHASES.md) | * | Active | Quality Engineering | OnDemand | 338 |
 | [V3 — ciclo de rascunho e publicação de workflows](backend/execution/evidence/V3-WORKFLOW-DRAFT-LIFECYCLE.md) | * | Active | Quality Engineering | OnDemand | 650 |
+| [CA-1/CA-2 — papel provider-agnostic e registro de contas](backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md) | * | Active | Quality Engineering | OnDemand | 845 |
 | [GP-A — prontidão canônica do golden path](backend/execution/evidence/GP-A-READINESS-CONTRACT.md) | * | Active | Quality Engineering | OnDemand | 819 |
 | [GP-B — instalação vazia sem catálogo simulado](backend/execution/evidence/GP-B-FAIL-CLOSED-CATALOG.md) | * | Active | Quality Engineering | OnDemand | 867 |
 | [GP-C1 — executor simulado fora do pacote normal](backend/execution/evidence/GP-C1-NO-SIMULATED-CHIEF-REPLY.md) | * | Active | Quality Engineering | OnDemand | 617 |

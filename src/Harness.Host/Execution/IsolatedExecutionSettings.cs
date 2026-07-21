@@ -15,8 +15,33 @@ public sealed record IsolatedExecutionSettings
 {
     public bool PathScopePolicyEnabled { get; init; } = true;
 
-    public IReadOnlyList<string> KimiAgentDefinitionKeys { get; init; } =
-        ["kimi", "kimi-code", "frontend-kimi"];
+    /// <summary>
+    /// Chaves de definição que exercem o PAPEL de frontend (CA-1). O papel é
+    /// provider-agnostic: Codex, Kimi Code ou outro executor autorizado podem exercê-lo.
+    /// `frontend-kimi` permanece válida por compatibilidade.
+    /// </summary>
+    public IReadOnlyList<string> FrontendSpecialistAgentDefinitionKeys { get; init; } =
+    [
+        "frontend-specialist",
+        "frontend-kimi",
+        "kimi",
+        "kimi-code",
+        "frontend-codex",
+        "codex-frontend",
+    ];
+
+    /// <summary>
+    /// Nome histórico da lista acima, mantido para compatibilidade de configuração
+    /// (`Harness:IsolatedExecution:KimiAgentDefinitionKeys`). Quando informado, substitui a
+    /// lista do papel de frontend. Prefira `FrontendSpecialistAgentDefinitionKeys`.
+    /// </summary>
+    public IReadOnlyList<string>? KimiAgentDefinitionKeys { get; init; }
+
+    /// <summary>Lista efetiva do papel de frontend, resolvendo o alias histórico.</summary>
+    public IReadOnlyList<string> FrontendRoleDefinitionKeys =>
+        KimiAgentDefinitionKeys is { Count: > 0 }
+            ? KimiAgentDefinitionKeys
+            : FrontendSpecialistAgentDefinitionKeys;
 
     public IsolatedExecutionMode Mode { get; init; } = IsolatedExecutionMode.Disabled;
 

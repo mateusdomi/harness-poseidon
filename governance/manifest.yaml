@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T18:50:10.3689810+00:00
+lastGeneratedAt: 2026-07-21T19:25:02.7488460+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -68,7 +68,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:e20fa76e96001bfc422f79de7aa82f7e4faa57a06092fc19d11af98e96c941f5
+  checksum: sha256:248903c3e7dcd24eefe5fb8e3bcd459da4c74971f06e11bd8c12e0f4fd94223e
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -122,7 +122,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:9609ccc4ced52684dac57566c27ad973dfaf0f5ce4a935671ce9dc01d1392563
+  checksum: sha256:ddf7d5a1c4a98eb1ce8f2720d246f1e50fbc33a89d936a5f401cbcba663a2d1c
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7271
+  tokenEstimate: 7367
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:d454d0f26cdf7b0240e52d92e6b14744228e07a0c20eeb85eab5db34f15c376c
+  checksum: sha256:5795568d7d86aad3bb1b2d753e9cced452b15cd04cfef49dabf11f4143d8727c
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -9694,7 +9694,7 @@ documents:
   - '**'
   loadPolicy: bundle
   priority: 900
-  tokenEstimate: 210
+  tokenEstimate: 311
   owner: Agent Platform
   status: active
   version: 1.0.0
@@ -9708,7 +9708,7 @@ documents:
   - tools/backend/verify-governance.sh
   - ci:governance
   - runtime:governance-policy
-  checksum: sha256:f4ed26e1ef5909f1e82393eaa9bf21ee428c02d7cddb9a99e82943089ba84441
+  checksum: sha256:e58364dba9d2845839bc4b7609c02936e984e6379efe2e2c662ca6c73cc69ec0
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/coordination.md
@@ -11037,3 +11037,145 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/GP-C5-REAL-EXECUTION-SMOKE.md
+- id: adr-021-agent-accounts-and-executors
+  path: docs/decisions/ADR-021-agent-accounts-and-executors.md
+  title: ADR-021 — Contas de agente por alias e executores reais
+  category: decision
+  topic: agent-accounts-and-executors
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - poseidon
+  - claude-code
+  - codex
+  agents:
+  - chief
+  workflows:
+  - agent-execution
+  phases:
+  - runtime
+  taskTypes:
+  - architecture
+  - implementation
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  - src/Harness.Host/Execution/**
+  - governance/rules/coordination.md
+  loadPolicy: on-demand
+  priority: 800
+  tokenEstimate: 804
+  owner: Agent Platform
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt: 2026-10-21T00:00:00Z
+  supersedes: []
+  dependencies:
+  - governance-core
+  - doc-docs-decisions-adr-008-agent-executors
+  related:
+  - rule-coordination
+  enforcedBy:
+  - runtime:governance-policy
+  - tools/backend/verify.sh
+  checksum: sha256:8cb44dd9765bdef3614d3d28a731421de0c874a93c19133cf6de49c50b6b7a11
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-021-agent-accounts-and-executors.md
+- id: doc-backend-operations-agent-accounts-example
+  path: docs/backend/operations/AGENT_ACCOUNTS_EXAMPLE.md
+  title: Configuração local de contas de agente — exemplo
+  category: operations
+  topic: agent-accounts-example
+  authority: operational
+  scope: backend
+  audience:
+  - human
+  providers:
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - agent-execution
+  phases:
+  - runtime
+  taskTypes:
+  - operations
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  loadPolicy: on-demand
+  priority: 400
+  tokenEstimate: 446
+  owner: Operations
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt: 2026-10-21T00:00:00Z
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:fbaba661fb1b627ad645879803e80227054028c610b1feb6a7b698215b91f128
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/operations/AGENT_ACCOUNTS_EXAMPLE.md
+- id: evidence-ca-1-2-agent-accounts
+  path: docs/backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md
+  title: CA-1/CA-2 — papel provider-agnostic e registro de contas
+  category: evidence
+  topic: evidence-ca-1-2-agent-accounts
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  - governance/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 845
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:16cd3e023f64c4952c174a42973def05028f347059b1ea0cf58437f36c3d282d
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md

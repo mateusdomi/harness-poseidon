@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/core.md+governance/rules/*+governance/manifest.yaml version=1.0.0 checksum=sha256:efd02213503a32accfa733a8ae06fd89f78d424f2676d170c2ee8ff43460f1b5 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/core.md+governance/rules/*+governance/manifest.yaml version=1.0.0 checksum=sha256:ac7e4a20b2fc97284b50e3b2447e24261276a95612a767de4330b1ec035353fe -->
 # Codex and compatible agents repository instructions
 
 Poseidon is a production .NET control plane with durable agent execution, typed contracts and proof gates.

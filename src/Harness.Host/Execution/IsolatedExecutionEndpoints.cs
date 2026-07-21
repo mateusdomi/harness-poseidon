@@ -178,10 +178,10 @@ public static class IsolatedExecutionEndpoints
             var result = await orchestrator.ExecuteAsync(
                 new StartIsolatedExecutionCommand
                 {
-                    PathScopeKind = settings.KimiAgentDefinitionKeys.Contains(
+                    PathScopeKind = settings.FrontendRoleDefinitionKeys.Contains(
                         definition?.Key ?? string.Empty,
                         StringComparer.OrdinalIgnoreCase)
-                        ? AgentPathScopeKind.Kimi
+                        ? AgentPathScopeKind.FrontendSpecialist
                         : AgentPathScopeKind.Backend,
                     EnforcePoseidonPathPolicy = enforcePoseidonPathPolicy,
                     TenantId = profile.TenantId,

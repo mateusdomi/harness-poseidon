@@ -1,9 +1,22 @@
 namespace Harness.Modules.Governance.Coordination;
 
+/// <summary>
+/// Escopo de paths por PAPEL LÓGICO, nunca por provider (CA-1). O papel
+/// `FrontendSpecialist` pode ser executado por qualquer executor autorizado — Codex,
+/// Kimi Code ou outro — sem que a governança precise conhecer a marca do CLI.
+/// </summary>
 public enum AgentPathScopeKind
 {
-    Backend,
-    Kimi,
+    Backend = 0,
+
+    /// <summary>Papel lógico de frontend: `frontend/**` e `docs/frontend/**`.</summary>
+    FrontendSpecialist = 1,
+
+    /// <summary>
+    /// Alias histórico de <see cref="FrontendSpecialist"/>. Mantido para compatibilidade de
+    /// configuração e código existentes; o papel nunca foi propriedade de um provider.
+    /// </summary>
+    Kimi = FrontendSpecialist,
 }
 
 public sealed record AgentPathScopeDecision(
@@ -13,7 +26,8 @@ public sealed record AgentPathScopeDecision(
 
 public static class AgentPathScopePolicy
 {
-    private static readonly string[] KimiRoots = ["frontend", "docs/frontend"];
+    // Raízes do papel de frontend. Pertencem ao PAPEL, não a um provider.
+    private static readonly string[] FrontendRoots = ["frontend", "docs/frontend"];
 
     private static readonly string[] BackendRoots =
     [
@@ -70,12 +84,12 @@ public static class AgentPathScopePolicy
             return false;
         }
 
-        if (kind == AgentPathScopeKind.Kimi)
+        if (kind == AgentPathScopeKind.FrontendSpecialist)
         {
-            return KimiRoots.Any(root => IsWithin(basePath, root));
+            return FrontendRoots.Any(root => IsWithin(basePath, root));
         }
 
-        if (KimiRoots.Any(root => IsWithin(basePath, root) || IsWithin(root, basePath)))
+        if (FrontendRoots.Any(root => IsWithin(basePath, root) || IsWithin(root, basePath)))
         {
             return false;
         }

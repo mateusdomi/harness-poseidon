@@ -2,9 +2,14 @@
 
 Owner: Agent Platform. Versão: 1.0.0.
 
-- Kimi pode atuar somente em `frontend/**` e `docs/frontend/**`. Agentes backend
-  atuam nos paths autorizados pela policy. Paths compartilhados exigem claim ou
-  policy explícita antes da escrita.
+- O escopo de paths é definido pelo PAPEL LÓGICO, nunca pelo provider do executor.
+  O papel `frontend-specialist` atua somente em `frontend/**` e `docs/frontend/**`
+  e pode ser exercido por qualquer executor autorizado (Codex, Kimi Code ou outro);
+  `frontend-kimi` permanece válida como chave de definição. Agentes backend atuam
+  nos paths autorizados pela policy e continuam proibidos no escopo de frontend.
+  Paths compartilhados exigem claim ou policy explícita antes da escrita.
+- Trocar o executor de um papel não amplia escopo: CLI direta sem claim continua
+  bloqueada, e claim expirado ou conflitante continua bloqueando a escrita.
 - Claims são tenant/project/attempt scoped, normalizados por segmentos, com
   lease, fencing e lifecycle persistidos. Igualdade, ancestralidade e
   descendência incompatíveis bloqueiam; prefixo textual não basta para conflito.

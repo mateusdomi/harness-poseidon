@@ -204,10 +204,10 @@ public static class GovernanceRuntimeEndpoints
             return Results.Problem(statusCode: 409, title: "agent_scope_identity_missing", detail: "Hashline writes require a resolvable agent definition.");
         }
 
-        var scopeKind = isolatedSettings.KimiAgentDefinitionKeys.Contains(
+        var scopeKind = isolatedSettings.FrontendRoleDefinitionKeys.Contains(
             definition.Key,
             StringComparer.OrdinalIgnoreCase)
-            ? AgentPathScopeKind.Kimi
+            ? AgentPathScopeKind.FrontendSpecialist
             : AgentPathScopeKind.Backend;
         var scope = AgentPathScopePolicy.Evaluate(scopeKind, [input.RelativePath]);
         if (!scope.Allowed)
