@@ -131,6 +131,54 @@ public sealed class GovernanceRuntimeTests
         Assert.Equal(before, File.ReadAllText(core));
     }
 
+    [Fact]
+    public void StaleDetectorReportsMissingSourceAsTypedFindingInsteadOfThrowing()
+    {
+        // Reproduz o defeito P1 da RC2: numa instalação self-contained, documentos do manifest
+        // cuja fonte não é empacotada (ex.: frontend/README.md) faziam File.ReadAllBytes lançar
+        // DirectoryNotFoundException não tratada => HTTP 500. O detector deve, em vez disso,
+        // emitir um finding tipado SourceMissing e nunca lançar.
+        var repositoryRoot = FindRepositoryRoot();
+        var root = Path.Combine(Path.GetTempPath(), $"stale-missing-{Guid.NewGuid():N}");
+        try
+        {
+            // Só o diretório governance/ (manifest + schema); docs/**, README.md e frontend/README.md
+            // permanecem ausentes, como num pacote onde a fonte não é embarcada.
+            CopyDirectory(Path.Combine(repositoryRoot, "governance"), Path.Combine(root, "governance"));
+            var detector = new StaleDocumentDetector(root);
+            IReadOnlySet<string> active = new HashSet<string>(StringComparer.Ordinal);
+
+            var exception = Record.Exception(() => detector.Detect(DateTimeOffset.UtcNow, [], active));
+            Assert.Null(exception);
+
+            var findings = detector.Detect(DateTimeOffset.UtcNow, [], active);
+            Assert.Contains(findings, finding =>
+                finding.Kind == StaleDocumentFindingKind.SourceMissing &&
+                finding.DocumentId == "doc-frontend-readme");
+            // O documento ausente não deve gerar checagens de conteúdo (checksum/source-changed).
+            Assert.DoesNotContain(findings, finding =>
+                finding.DocumentId == "doc-frontend-readme" &&
+                (finding.Kind == StaleDocumentFindingKind.ChecksumDrift ||
+                 finding.Kind == StaleDocumentFindingKind.SourceChanged));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(destination, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target, overwrite: true);
+        }
+    }
+
     private static ContextBundleRequest Request() => new(
         "tenant", "project", "task", "attempt", "chief", "poseidon", "fake",
         "chief-turn", "execution", "orchestration", "medium", [], "{}",

@@ -13,6 +13,7 @@ public enum StaleDocumentFindingKind
     NeverSelected,
     FrequentlyTruncated,
     CompetingSources,
+    SourceMissing,
 }
 
 public sealed record DocumentUsageSnapshot(
@@ -68,17 +69,35 @@ public sealed class StaleDocumentDetector
                 Add(findings, document, StaleDocumentFindingKind.ReviewOverdue, "reviewDueAt is overdue.", now);
             }
 
-            if (DateTimeOffset.TryParse(document.LastVerifiedAt, System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.RoundtripKind, out var verified) &&
-                File.GetLastWriteTimeUtc(path) > verified.UtcDateTime)
+            // As checagens baseadas em conteúdo (source-changed, checksum, adapter) exigem o
+            // arquivo-fonte. Em uma instalação self-contained certos documentos referenciados pelo
+            // manifest (ex.: docs de fonte do frontend) não são empacotados. Ler um arquivo ausente
+            // deve virar um finding tipado e determinístico, nunca uma exceção não tratada (500).
+            if (!File.Exists(path))
             {
-                Add(findings, document, StaleDocumentFindingKind.SourceChanged, "Source changed after last verification.", now);
+                Add(findings, document, StaleDocumentFindingKind.SourceMissing,
+                    "Manifest source is not present in this deployment.", now);
             }
-
-            var checksum = $"sha256:{Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)))}";
-            if (!string.Equals(checksum, document.Checksum, StringComparison.Ordinal))
+            else
             {
-                Add(findings, document, StaleDocumentFindingKind.ChecksumDrift, "Manifest checksum differs from source.", now);
+                if (DateTimeOffset.TryParse(document.LastVerifiedAt, System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.RoundtripKind, out var verified) &&
+                    File.GetLastWriteTimeUtc(path) > verified.UtcDateTime)
+                {
+                    Add(findings, document, StaleDocumentFindingKind.SourceChanged, "Source changed after last verification.", now);
+                }
+
+                var checksum = $"sha256:{Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)))}";
+                if (!string.Equals(checksum, document.Checksum, StringComparison.Ordinal))
+                {
+                    Add(findings, document, StaleDocumentFindingKind.ChecksumDrift, "Manifest checksum differs from source.", now);
+                }
+
+                if (document.Authority == DocumentAuthority.Adapter && document.Generated &&
+                    !string.Equals(checksum, document.Checksum, StringComparison.Ordinal))
+                {
+                    Add(findings, document, StaleDocumentFindingKind.AdapterOutdated, "Generated adapter is stale.", now);
+                }
             }
 
             if (document.Dependencies.Any(dependency => manifest.Documents.All(candidate => candidate.Id != dependency)))
@@ -90,12 +109,6 @@ public sealed class StaleDocumentDetector
                 !document.EnforcedBy.Any(activeEnforcements.Contains))
             {
                 Add(findings, document, StaleDocumentFindingKind.EnforcementInactive, "Rule has no active enforcement.", now);
-            }
-
-            if (document.Authority == DocumentAuthority.Adapter && document.Generated &&
-                !string.Equals(checksum, document.Checksum, StringComparison.Ordinal))
-            {
-                Add(findings, document, StaleDocumentFindingKind.AdapterOutdated, "Generated adapter is stale.", now);
             }
 
             if (!byUsage.TryGetValue(document.Id, out var value) || value.SelectedCount == 0)
