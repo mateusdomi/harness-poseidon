@@ -235,10 +235,10 @@ export function DefinitionFormDialog({
               aria-current={index === stepIndex ? 'step' : undefined}
               className={
                 index === stepIndex
-                  ? 'min-h-touch rounded-md border border-brand px-2.5 py-1.5 text-xs font-medium text-brand-strong sm:min-h-0'
+                  ? 'min-h-touch rounded-md border border-brand px-2.5 py-1.5 text-xs font-medium text-brand-strong md:min-h-0'
                   : index < stepIndex
-                    ? 'min-h-touch rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground-muted hover:text-foreground sm:min-h-0'
-                    : 'min-h-touch rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground-muted opacity-60 sm:min-h-0'
+                    ? 'min-h-touch rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground-muted hover:text-foreground md:min-h-0'
+                    : 'min-h-touch rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground-muted opacity-60 md:min-h-0'
               }
             >
               {index + 1}. {t(`orchestrator.definitions.steps.${entry}`)}
@@ -534,7 +534,7 @@ export function DefinitionFormDialog({
               )}
             </GuidedField>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <GuidedField id="definition-actor-critic" fieldKey="actorCritic">
                 <Select id="definition-actor-critic" {...register('actorCritic')}>
                   <option value="">{t('orchestrator.definitions.form.notDefined')}</option>

@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
-import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { useGoldenPath } from '@/features/onboarding/hooks/use-golden-path';
 import type { GoldenPathStepId, StepStatus } from '@/features/onboarding/lib/golden-path';
 import { cn } from '@/lib/utils';
@@ -132,12 +131,13 @@ export function GoldenPathChecklist({ className, hideWhenComplete = false }: Gol
 
   return (
     <Card className={className}>
-      <CardHeader className="flex flex-wrap items-start gap-3">
+      <CardHeader>
+        {/* O aviso de modo simulado é responsabilidade da página que hospeda o
+            checklist (ex.: cabeçalho do Cockpit) — não repetimos aqui. */}
         <div className="flex items-center gap-2">
           <Rocket aria-hidden="true" className="size-5 text-brand-strong" />
           <CardTitle>{t('goldenPath.title')}</CardTitle>
         </div>
-        <SimulatedModeBadge className="ml-auto" />
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
@@ -193,7 +193,7 @@ export function GoldenPathChecklist({ className, hideWhenComplete = false }: Gol
               <li
                 key={step.id}
                 className={cn(
-                  'flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center',
+                  'flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center',
                   isCurrent
                     ? 'border-brand-strong bg-brand/5 ring-1 ring-inset ring-brand-strong/30'
                     : 'border-border',
@@ -227,14 +227,14 @@ export function GoldenPathChecklist({ className, hideWhenComplete = false }: Gol
                 </span>
 
                 {isCurrent ? (
-                  <Button asChild size="sm" className="sm:ml-auto">
+                  <Button asChild size="sm" className="md:ml-auto">
                     <Link to={route}>
                       {t(`goldenPath.steps.${step.id}.cta`)}
                       <ArrowRight aria-hidden="true" className="size-4" />
                     </Link>
                   </Button>
                 ) : step.status === 'pending' ? (
-                  <Button asChild variant="ghost" size="sm" className="sm:ml-auto">
+                  <Button asChild variant="ghost" size="sm" className="md:ml-auto">
                     <Link to={route}>{t(`goldenPath.steps.${step.id}.cta`)}</Link>
                   </Button>
                 ) : null}

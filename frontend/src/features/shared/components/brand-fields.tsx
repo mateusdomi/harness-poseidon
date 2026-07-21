@@ -124,7 +124,7 @@ export function BrandFields({
       </div>
 
       {/* ---- Cores canônicas: seletor + HEX sincronizados ---- */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {(['primaryColor', 'secondaryColor'] as const).map((fieldKey) => {
           const id = `${idPrefix}-${fieldKey}`;
           const current = value[fieldKey];

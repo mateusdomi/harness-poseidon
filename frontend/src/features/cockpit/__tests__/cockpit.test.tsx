@@ -274,4 +274,42 @@ describe('ActivityFeed', () => {
     expect(screen.queryByText('Evento 12')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /carregar mais 4/i })).toBeInTheDocument();
   });
+  /* ---- Humanização dos eventos (§12) ---- */
+
+  it('mostra mensagem humana no lugar do código cru, mantendo o objeto', () => {
+    renderFeed([makeEvent('e1', hoursAgo(1), 'Projeto Poseidon')]);
+
+    // Rótulo humano da ação conhecida `task.created`…
+    expect(screen.getByText('Tarefa criada')).toBeInTheDocument();
+    // …com o objeto afetado ainda visível (humanizar não esconde o alvo).
+    expect(screen.getByText('Projeto Poseidon')).toBeInTheDocument();
+    // O código cru NÃO aparece na leitura normal.
+    expect(screen.queryByText('task.created')).not.toBeInTheDocument();
+  });
+
+  it('expõe o código técnico apenas no disclosure "Ver detalhes"', async () => {
+    const user = userEvent.setup();
+    renderFeed([makeEvent('e1', hoursAgo(1), 'Projeto Poseidon')]);
+
+    const toggle = screen.getByRole('button', { name: 'Ver detalhes' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(toggle);
+    expect(screen.getByText('task.created')).toBeInTheDocument();
+    expect(screen.getByText('task')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ocultar detalhes' })).toBeInTheDocument();
+  });
+
+  it('ação desconhecida degrada para o detalhe do servidor, sem inventar texto', () => {
+    const unknown = { ...makeEvent('e1', hoursAgo(1), 'Detalhe do servidor'), action: 'x.naoMapeado' };
+    renderFeed([unknown]);
+
+    expect(screen.getByText('Detalhe do servidor')).toBeInTheDocument();
+    expect(screen.queryByText('x.naoMapeado')).not.toBeInTheDocument();
+  });
+
+  it('oferece link para o objeto quando existe tela correspondente', () => {
+    renderFeed([makeEvent('e1', hoursAgo(1), 'Tarefa X')]);
+    expect(screen.getByRole('link', { name: 'Abrir' })).toHaveAttribute('href', '/board');
+  });
 });

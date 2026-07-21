@@ -30,7 +30,7 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
   return (
     <nav
       aria-label={t('common.breadcrumb.label')}
-      className={cn('hidden sm:block', className)}
+      className={cn('hidden md:block', className)}
     >
       <ol className="flex flex-wrap items-center gap-1 text-xs text-foreground-muted">
         {items.map((item, index) => {

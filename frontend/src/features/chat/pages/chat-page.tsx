@@ -245,16 +245,20 @@ export default function ChatPage() {
               </Select>
             </>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void newConversation()}
-            disabled={createConversation.isPending}
-          >
-            <Plus aria-hidden="true" />
-            {t('chat.conversation.new')}
-          </Button>
+          {/* Sem nenhuma conversa, a CTA única vive no estado vazio — o botão
+              do cabeçalho só aparece quando já existe conversa (§4). */}
+          {conversation ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void newConversation()}
+              disabled={createConversation.isPending}
+            >
+              <Plus aria-hidden="true" />
+              {t('chat.conversation.new')}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"

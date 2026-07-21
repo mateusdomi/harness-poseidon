@@ -272,3 +272,69 @@ test('pacote self-contained encerra todo loading e recupera estados de falha', a
   expect(runtime.browserNetworkDiagnostics.length, 'falhas de rede/status injetadas devem ser observáveis').toBeGreaterThan(0);
   expect(runtime.assetErrors, 'zero asset 404/erro').toEqual([]);
 });
+
+/**
+ * Golden path do primeiro uso, contra o pacote self-contained com data dir
+ * VAZIO — o único ambiente em que o estado "zero organização" é real (o modo
+ * mock nasce com fixtures). Percorre a jornada guiada que a homologação humana
+ * apontou como ausente: pré-condição de organização, retorno ao fluxo de
+ * projeto, sigla derivada, plano read-only, prontidão honesta do chefe e
+ * bloqueio explicado da execução.
+ */
+test('golden path guia o primeiro uso do workspace vazio até o bloqueio honesto do chefe', async ({ page }) => {
+  test.setTimeout(240_000);
+  const runtime = watchRuntime(page);
+
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await createProfile(page);
+
+  // Cockpit: checklist do golden path visível, com a organização como passo atual.
+  await expect(page.getByText('Comece por aqui')).toBeVisible();
+  // Perfil já concluído; organização é o passo atual.
+  await expect(page.getByText('1 de 8 concluídos').first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /Criar organização/ }).first()).toBeVisible();
+
+  // Projetos sem organização: pré-condição explicada, sem select vazio.
+  await page.goto('/projects');
+  await expectTerminalScreen(page, 'projetos sem organização');
+  await expect(page.getByText('Crie uma organização primeiro')).toBeVisible();
+  await expect(page.getByLabel('Organização')).toHaveCount(0);
+
+  // A CTA leva à criação de organização preservando a intenção de voltar.
+  await page.getByRole('button', { name: 'Criar organização' }).click();
+  await expect(page).toHaveURL(/\/organizations/);
+
+  // Slug é derivado do nome (seção avançada) e o plano NÃO é escolha do usuário.
+  await page.getByLabel('Nome').fill(ORGANIZATION_NAME);
+  await expect(page.getByLabel('Plano')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Opções avançadas' }).click();
+  await expect(page.getByLabel('Identificador da URL')).not.toHaveValue('');
+  await page.getByRole('button', { name: 'Criar organização' }).click();
+
+  // Retorno automático ao fluxo de projeto, com a organização pré-selecionada.
+  await expect(page).toHaveURL(/\/projects\?.*org=/);
+  await expect(page.getByLabel('Organização')).toBeVisible();
+
+  await page.getByLabel('Título').fill(PROJECT_NAME);
+  await page.getByLabel(/Slug \(sigla\)/).fill('PKGGOLD');
+  await page.getByLabel('Descrição').fill('Projeto do gate de golden path.');
+  await page.getByRole('tab', { name: 'Pessoas' }).click();
+  await page.getByLabel(new RegExp(PROFILE_NAME)).check();
+  await page.getByRole('button', { name: 'Criar projeto' }).click();
+  await expect(page.getByRole('button', { name: PROJECT_NAME, exact: false })).toBeVisible();
+
+  // Chat: sem provedor/modelo/workflow a execução é bloqueada COM motivo.
+  await page.goto('/chat');
+  await expectTerminalScreen(page, 'chat sem dependências');
+  await expect(page.getByText('Execução do chefe bloqueada')).toBeVisible();
+  await expect(page.getByLabel('Mensagem para o chefe')).toBeDisabled();
+
+  // Orquestrador: prontidão real, nunca "pronto" sem dependências.
+  await page.goto('/orchestrator');
+  await expectTerminalScreen(page, 'orquestrador sem dependências');
+  await expect(page.getByText('Pronto', { exact: true })).toHaveCount(0);
+
+  expect(runtime.applicationErrors, 'zero console error da aplicação').toEqual([]);
+  expect(runtime.assetErrors, 'zero asset 404/erro').toEqual([]);
+});
