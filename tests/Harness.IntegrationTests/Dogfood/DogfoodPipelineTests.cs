@@ -24,6 +24,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Harness.IntegrationTests.Support;
 
 namespace Harness.IntegrationTests.Dogfood;
 
@@ -54,6 +55,7 @@ public sealed class DogfoodPipelineTests
                 "http://127.0.0.1:0",
                 "--Harness:DatabasePath",
                 database,
+                "--Harness:AgentExecutors:Mode", "simulated",
                 "--Harness:IsolatedExecution:Mode",
                 "fake",
                 "--Harness:IsolatedExecution:ControlledRoot",
@@ -65,6 +67,7 @@ public sealed class DogfoodPipelineTests
                 using var handler = new HttpClientHandler { CookieContainer = cookies };
                 using var client = new HttpClient(handler) { BaseAddress = Address(app.Services) };
                 var profile = await CreateProfileAsync(client, timeout.Token);
+                await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                 var tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>()
                     .GetAsync(profile.Id, timeout.Token))!.TenantId;
                 var organization = await CreateOrganizationAsync(client, timeout.Token);

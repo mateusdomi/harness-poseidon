@@ -18,6 +18,15 @@ public interface IProviderCatalogStore
     Task<BudgetRecord?> GetBudgetAsync(string tenantId, string id, CancellationToken cancellationToken = default);
     Task<ProviderCatalogRecord> UpdateAsync(ProviderCatalogUpdateCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ModelRecord>> SyncAsync(ProviderCatalogSyncCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Semeia contas, modelos, orçamentos e roteamento **simulados** para um tenant (ADR-018).
+    /// Só pode ser chamado sob configuração explícita de demonstração/desenvolvimento
+    /// (`Harness:Demo:Enabled`) ou por fixtures de teste. O pacote de homologação normal nunca
+    /// invoca este método: uma instalação vazia não contém conta, modelo ou cota que o usuário
+    /// não tenha configurado. Idempotente.
+    /// </summary>
+    Task SeedSimulatedCatalogAsync(string tenantId, CancellationToken cancellationToken = default);
 }
 
 public abstract record ProviderCatalogRecord(string Id);

@@ -16,6 +16,7 @@ using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Host.Providers;
 using Harness.Host.Prototyping;
+using Harness.Host.Readiness;
 using Harness.Host.Realtime;
 using Harness.Host.RunTargets;
 using Harness.Host.Security;
@@ -172,7 +173,23 @@ public static class HostApplication
         builder.Services.AddSingleton<WorkflowTemplateSeeder>();
         builder.Services.AddSingleton<IHostedService, WorkflowTemplateSeedHostedService>();
         builder.Services.AddSingleton<IWorkflowConsistencyReviewer, DeterministicWorkflowConsistencyReviewer>();
-        builder.Services.AddSingleton<IAgentExecutor, FakeAgentExecutor>();
+        // O executor simulado só participa sob configuração explícita de demonstração ou
+        // desenvolvimento (ADR-019). No pacote de homologação normal não há executor simulado:
+        // sem executor real o turno falha de forma honesta em vez de devolver texto fabricado.
+        var simulatedExecutor =
+            builder.Configuration.GetValue<bool>("Harness:Demo:Enabled") ||
+            string.Equals(
+                builder.Configuration["Harness:AgentExecutors:Mode"],
+                "simulated",
+                StringComparison.OrdinalIgnoreCase);
+        if (simulatedExecutor)
+        {
+            builder.Services.AddSingleton<IAgentExecutor, FakeAgentExecutor>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<IAgentExecutor, UnavailableAgentExecutor>();
+        }
         if (serverMode)
         {
             builder.Services.AddSingleton<IRunnerMessageStore, PostgresRunnerMessageStore>();
@@ -381,6 +398,7 @@ public static class HostApplication
         builder.Services.AddSingleton(ompOptions);
         builder.Services.AddSingleton<AgentExecutorCatalog>();
         builder.Services.AddSingleton<ChiefInvocationRoutingService>();
+        builder.Services.AddSingleton<Readiness.ProjectReadinessService>();
         builder.Services.AddHostedService<ChiefTurnBackgroundService>();
         if (builder.Configuration.GetValue<bool>("Harness:Demo:Enabled"))
         {
@@ -446,6 +464,7 @@ public static class HostApplication
         app.MapLocalProfiles();
         app.MapOrganizations();
         app.MapProjects();
+        app.MapReadiness();
         app.MapAgents();
         app.MapIsolatedExecutions();
         app.MapToolCatalog();

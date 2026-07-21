@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Harness.IntegrationTests.Support;
 
 namespace Harness.IntegrationTests.Git;
 
@@ -63,6 +64,7 @@ public sealed class IsolatedExecutionEndpointTests
                 using var handler = new HttpClientHandler { CookieContainer = cookies };
                 using var client = new HttpClient(handler) { BaseAddress = Address(app.Services) };
                 var profile = await CreateProfileAsync(client, timeout.Token);
+                await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                 var tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>()
                     .GetAsync(profile.Id, timeout.Token))!.TenantId;
                 var organization = await CreateOrganizationAsync(client, timeout.Token);
@@ -153,6 +155,7 @@ public sealed class IsolatedExecutionEndpointTests
                 using var handler = new HttpClientHandler { CookieContainer = disabledCookies };
                 using var client = new HttpClient(handler) { BaseAddress = Address(disabledApp.Services) };
                 await CreateProfileAsync(client, timeout.Token);
+                await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                 using var disabled = await client.PostAsJsonAsync(
                     $"/api/v1/attempts/{UlidValue.New(DateTimeOffset.UtcNow)}/isolated-executions",
                     new { instruction = "Run it.", scopeClaims = DefaultClaims },
@@ -207,6 +210,7 @@ public sealed class IsolatedExecutionEndpointTests
                 using var handler = new HttpClientHandler { CookieContainer = cookies };
                 using var client = new HttpClient(handler) { BaseAddress = Address(app.Services) };
                 var profile = await CreateProfileAsync(client, timeout.Token);
+                await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
                 var tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>()
                     .GetAsync(profile.Id, timeout.Token))!.TenantId;
                 var organization = await CreateOrganizationAsync(client, timeout.Token);
