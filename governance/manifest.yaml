@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T19:25:02.7488460+00:00
+lastGeneratedAt: 2026-07-21T19:45:08.8269180+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7367
+  tokenEstimate: 7397
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:5795568d7d86aad3bb1b2d753e9cced452b15cd04cfef49dabf11f4143d8727c
+  checksum: sha256:7bf2157612116b9d608b290f501ad4cfd35b63001723491b279c43403ba55b4e
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11179,3 +11179,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md
+- id: evidence-ca-3-account-isolation
+  path: docs/backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md
+  title: CA-3 — isolamento por conta de agente
+  category: evidence
+  topic: evidence-ca-3-account-isolation
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  - governance/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 929
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:14e80c43292d159487d2f731509c6c3fe007c8c3b10304957b12658013433b01
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md
