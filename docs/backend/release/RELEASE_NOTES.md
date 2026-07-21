@@ -3,6 +3,15 @@
 Data: 2026-07-20. Canal: `develop`. Esta é uma candidata técnica para homologação, não uma release
 publicada nem um aceite humano.
 
+## Release Candidate 2 (`709037b0fb78`)
+
+Sucede a RC `d11df779`, que reprovou GNG-3 por skeleton infinito no Cockpit sem projeto. A RC2
+integra o fix frontend publicado `12b04a9` (estado vazio orientado quando não há projeto/sessão) e
+embarca a UI de governança P1/P2 ligada no pacote. Correções de empacotamento ficaram restritas a
+`tools/backend/**`; `frontend/**` e `docs/frontend/**` não foram alterados. Todos os gates
+automáticos passaram e a candidata foi instalada e revalidada fora do repositório. GNG-3/GNG-4/GNG-6
+seguem pendentes de aceite humano.
+
 ## Destaques
 
 - Launcher pessoal e Runner em processos supervisionados, comando único `./poseidon`, estado/PIDs,

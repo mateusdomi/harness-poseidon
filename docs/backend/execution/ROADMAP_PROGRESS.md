@@ -1,9 +1,13 @@
 # Progresso auditável do roadmap — Harness Poseidon backend
 
 Atualizado em: 2026-07-20. Fonte: `git` (`develop`), evidências em
-`docs/backend/execution/evidence/**`, `PROGRESS.md` e gates automatizados. O backend P2 está em
-299/299 testes e build Release sem warnings; o frontend P2 passa 437/437, E2E mock 56/56, a11y
-42/42 e Host real 3/3. OpenAPI/event drift e a fábrica da RC estão verdes.
+`docs/backend/execution/evidence/**`, `PROGRESS.md` e gates automatizados. Na Release Candidate 2
+(commit `709037b0fb78`) o backend está em 301/301 testes e build Release sem warnings; o frontend
+passa 444/444, E2E mock 56/56, a11y 42/42 e Host real 3/3. OpenAPI/event drift e a fábrica da RC
+estão verdes. A RC2 corrigiu o skeleton infinito que reprovou a RC `d11df779` no GNG-3 (fix frontend
+`12b04a9` + dois fixes de empacotamento em `tools/backend/**`) e foi revalidada externamente em
+`~/Poseidon-RC2`. **Homologado (H) permanece 0.0%**: GNG-3/GNG-4/GNG-6 continuam pendentes de aceite
+humano — a RC2 é Go técnico para nova homologação, não homologação declarada.
 
 Este documento é **recomputável**: cada fração vem de entregáveis documentados com evidência
 executada, nunca de "arquivo criado". Pesos das fases são fixos (v3 §6) e não podem ser alterados.

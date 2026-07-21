@@ -64,3 +64,24 @@ assets do pacote.
 A nova candidata só pode receber recomendação técnica Go após a correção frontend ser publicada em
 `origin/develop`, os contratos/governança serem regenerados e o gate completo passar usando o
 artefato self-contained.
+
+## Resolução na Release Candidate 2 (`709037b0fb78`)
+
+O fix frontend publicado `12b04a929c33119ca70cd39d02e009bfdd446a3f` foi integrado (ancestral do
+commit do pacote) e a governança foi regenerada de forma idempotente. Ao exercitar o gate
+`package first-run real sem demo` contra o pacote real, dois blockers de **empacotamento** (não de
+produto) apareceram e foram corrigidos apenas em `tools/backend/**`:
+
+1. `fix(release): enable governance contract UI in packaged frontend` — `build-frontend.sh` passou
+   a buildar com `VITE_GOVERNANCE_CONTRACT_UI=on`; sem isso a flag fail-closed fazia `/governance`
+   cair no audit timeline legado em vez da UI de contrato P1/P2. Alinhado a `vite.real.config.ts`
+   (default `on`), `playwright.real.config.ts` e ao E2E `http-real.spec.ts`.
+2. `fix(release): validate packaged favicon without a declared icon link` — o verificador lia
+   `<link rel="icon">` (ausente no SPA) via `locator.getAttribute`, bloqueando 30s. Agora sonda o
+   link de forma não-bloqueante e valida `/favicon.ico` (200 + `image/png`), contrato já coberto por
+   `EmbeddedFrontendApiTests`.
+
+Após os fixes, o gate completo `./poseidon release-candidate` passou verde e o Cockpit sem projeto
+renderiza estado vazio orientado ("Nenhum projeto ativo", com ação), sem skeleton — capturado em
+`.artifacts/release-candidate/709037b0fb78-osx-arm64/screenshots/first-run-02-cockpit-empty.png` e
+revalidado na instalação externa `~/Poseidon-RC2`. GNG-3 permanece pendente de aceite humano.
