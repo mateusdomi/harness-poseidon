@@ -51,7 +51,9 @@
         "provider": "Provider:",
         "noModel": "No default model",
         "noProvider": "No provider",
-        "inUse": "Definition in use — archive it instead."
+        "inUse": "Definition in use — archive it instead.",
+        "bindingPending": "Binding pending",
+        "bindingPendingHint": "Without a configured provider/model, this definition cannot run."
       },
       "actions": {
         "view": "View",

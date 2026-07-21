@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, ArrowLeft, Check, Copy, FileCheck, Pencil } from 'lucide-react';
+import { AlertTriangle, Check, Copy, FileCheck, Pencil } from 'lucide-react';
 
 import type { Approval, DocumentState, DocumentVersion, Ulid } from '@/api';
 import { Badge, Button, Select, Skeleton } from '@/design-system';
 import { formatDateTime } from '@/lib/format';
 import { documentStateVariant } from '@/lib/status';
 import { ApprovalResolveActions } from '@/features/shared/components/approval-resolve-actions';
+import { BackLink } from '@/features/shared/components/back-link';
 import { MarkdownContent } from '@/features/shared/components/markdown-content';
 import { DocumentManualEdit } from '@/features/documents/components/document-manual-edit';
 import { diffLines } from '@/features/documents/lib/diff';
@@ -120,10 +121,9 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
   return (
     <article className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <Button type="button" variant="ghost" size="sm" className="self-start" onClick={onBack}>
-          <ArrowLeft aria-hidden="true" />
-          {t('documents.detail.back')}
-        </Button>
+        {/* Padrão compartilhado de volta (§5): seta, rótulo específico e
+            fallback para a rota-pai quando não há origem no histórico. */}
+        <BackLink label={t('documents.detail.back')} onBack={onBack} fallbackTo="/documents" />
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-heading text-2xl font-semibold">{document.title}</h1>
           <Badge variant="outline">{t(`status.documentKind.${document.kind}`)}</Badge>

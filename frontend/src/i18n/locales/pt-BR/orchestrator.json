@@ -51,7 +51,9 @@
         "provider": "Provider:",
         "noModel": "Sem modelo padrão",
         "noProvider": "Sem provider",
-        "inUse": "Definição em uso — utilize arquivar."
+        "inUse": "Definição em uso — utilize arquivar.",
+        "bindingPending": "Binding pendente",
+        "bindingPendingHint": "Sem provedor/modelo configurado, esta definição não pode executar."
       },
       "actions": {
         "view": "Visualizar",

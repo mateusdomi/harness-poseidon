@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import type { Account, AgentDefinition, Model, Ulid } from '@/api';
 import { Badge, Button, Field, Select, Skeleton } from '@/design-system';
@@ -359,6 +359,24 @@ export function DefinitionsTab() {
                     <dd>{provider?.name ?? t('orchestrator.definitions.list.noProvider')}</dd>
                   </div>
                 </dl>
+                {/* §17: definição sem provider/modelo resolvível não inventa
+                    conta nem finge estar ligada — declara binding pendente e
+                    leva à configuração. Persona/skills/tools seguem legíveis. */}
+                {!model || !provider ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      {t('orchestrator.definitions.list.bindingPending')}
+                    </Badge>
+                    <span className="text-xs text-foreground-muted">
+                      {t('orchestrator.definitions.list.bindingPendingHint')}
+                    </span>
+                    <Button asChild variant="link" size="sm">
+                      <Link to="/providers">
+                        {t('orchestrator.definitions.catalogEmpty.models.cta')}
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
