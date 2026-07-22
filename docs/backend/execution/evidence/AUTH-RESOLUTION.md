@@ -38,27 +38,34 @@ Data: 2026-07-22. Branch: `develop`. Base: `9355efd`.
    o ambiente por conta e só o allowlist do GLM inclui `ANTHROPIC_*`, as contas Claude reais
    nunca herdam o token. Probe live real: GLM (`glm-5.2`) respondeu `pong` no perfil isolado.
 
-## Nota sobre "duas contas Claude"
+## Nota sobre "duas contas Claude" (correção)
 
-Confirmado por inspeção: o Claude Code guarda o token OAuth num item ÚNICO do Keychain
-(`Claude Code-credentials`, `acct=<usuário do SO>`), não no `CLAUDE_CONFIG_DIR`. Logo duas
-ASSINATURAS Claude na mesma conta de SO competem pelo mesmo slot. O padrão de referência
-(`~/Documents/harness-engineering`) contorna isso exatamente como aqui: o segundo actor da
-"família Claude" é o **GLM** (binário claude + token de ambiente, `CLAUDE_CONFIG_DIR` próprio),
-não uma segunda assinatura Claude. Por isso `worker-claude-secondary` é opcional e não bloqueia
-o piloto.
+Uma afirmação anterior desta evidência estava ERRADA e foi corrigida. O Claude Code **não**
+usa um item único de Keychain: ele **deriva o nome do serviço do Keychain a partir do
+`CLAUDE_CONFIG_DIR`** (prefixo sha256), então cada config dir tem seu próprio item
+`Claude Code-credentials-<hash>` e duas contas isolam corretamente. Confirmado na máquina —
+além do `Claude Code-credentials` default coexistem `Claude Code-credentials-49cb1916` e
+`Claude Code-credentials-3a107df1` (contas Claude distintas já isoladas). Há ainda o fallback
+file-based `.credentials.json` no config dir quando o Keychain não está acessível (SSH/CI).
+Portanto `worker-claude-secondary` isola do chief e só depende de um `/login` no seu próprio
+`CLAUDE_CONFIG_DIR` — GLM continua sendo uma alternativa válida, não a única.
 
-## O que ainda depende de ação humana (opcional)
+## O que depende de ação humana (OAuth — inevitável)
 
-Nenhum é necessário para o Piloto 2 (o trio live já está pronto). Se desejar ativá-los:
+Os dois perfis restantes isolam corretamente; só falta completar o OAuth (identidade humana),
+uma vez por conta, no config dir isolado:
 
 ```bash
-# 2º Codex (critic fallback) — o dir já existe agora
-CODEX_HOME="$HOME/.harness/accounts/worker-codex-critic/config" codex login
+# 2ª conta Claude (mdomingos) — item de Keychain isolado por CLAUDE_CONFIG_DIR
+CLAUDE_CONFIG_DIR="$HOME/.harness/accounts/worker-claude-secondary/config" claude   # depois: /login
 
-# 2ª conta Claude — só se você tiver uma API key Anthropic para ela (senão o GLM cobre)
-CLAUDE_CONFIG_DIR="$HOME/.harness/accounts/worker-claude-secondary/config" claude   # /login
+# 2º Codex (critic fallback / 2ª instância) — auth.json isolado por CODEX_HOME
+CODEX_HOME="$HOME/.harness/accounts/worker-codex-critic/config" codex login
 ```
+
+Alternativa não interativa (sem navegador), se você tiver as chaves:
+- Codex: `printf '%s' "<OPENAI_API_KEY>" | CODEX_HOME="…/worker-codex-critic/config" codex login --with-api-key`
+- Claude: uma **API key Anthropic** via `apiKeyHelper`/`ANTHROPIC_API_KEY` no config dir isolado.
 
 ## Higiene
 
