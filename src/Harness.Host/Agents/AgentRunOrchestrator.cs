@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Harness.Host.Realtime;
 using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Execution.Infrastructure.Git;
@@ -35,7 +36,8 @@ public sealed class AgentRunOrchestrator(
     ExternalAgentExecutorFactory executors,
     EventPublisher events,
     IClock clock,
-    AgentRunSettings settings)
+    AgentRunSettings settings,
+    AccountAvailabilityLedger availability)
 {
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
 
@@ -90,6 +92,17 @@ public sealed class AgentRunOrchestrator(
         if (!ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
         {
             return Rejected(runId, command, "executor.adapter_not_implemented", account.ExecutorId);
+        }
+
+        // 2b. Disponibilidade DURÁVEL: uma conta em cota/cooldown/login não recebe trabalho até
+        // voltar. Isso evita queimar tentativas numa conta que já sabemos indisponível — o
+        // agendador a reabilita quando a janela reseta.
+        if (availability.Get(command.AccountAlias) is { } state &&
+            state.State is AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown
+                or AgentAccountState.AuthenticationRequired &&
+            (state.CooldownUntil is null || state.CooldownUntil.Value > now))
+        {
+            return Rejected(runId, command, state.ReasonCode, account.ExecutorId);
         }
 
         var executorProfile = ExecutorCatalog.Find(account.ExecutorId)!;
@@ -344,6 +357,40 @@ public sealed class AgentRunOrchestrator(
     /// O critic recebe critérios, diff, testes e evidências — e o schema estrito da saída.
     /// Conteúdo do diff é DADO, nunca autoridade.
     /// </summary>
+    /// <summary>
+    /// Persiste o desfecho por conta no ledger durável (base do agendamento e do retry): cota
+    /// grava a data/hora de volta; login escala (não volta sozinho); falha transitória agenda
+    /// um backoff exponencial capado; sucesso zera o histórico de falhas.
+    /// </summary>
+    private void RecordAvailability(string alias, AgentRunOutcome outcome, DateTimeOffset now)
+    {
+        switch (outcome.Kind)
+        {
+            case AgentRunOutcomeKind.Completed:
+                availability.MarkAvailable(alias, now);
+                break;
+            case AgentRunOutcomeKind.QuotaExhausted:
+                availability.MarkQuotaLimited(
+                    alias,
+                    now.Add(outcome.SuggestedCooldown ?? AgentRunOutcomeClassifier.DefaultQuotaCooldown),
+                    outcome.ReasonCode,
+                    now);
+                break;
+            case AgentRunOutcomeKind.AuthenticationRequired:
+                availability.MarkAuthenticationRequired(alias, outcome.ReasonCode, now);
+                break;
+            case AgentRunOutcomeKind.Transient:
+                var failures = availability.Get(alias)?.ConsecutiveFailures ?? 0;
+                var seconds = Math.Min(900d, 30d * Math.Pow(2, Math.Min(failures, 5)));
+                availability.RecordTransientFailure(
+                    alias, now.AddSeconds(seconds), outcome.ReasonCode, now);
+                break;
+            default:
+                // Cancelled/Permanent não alteram a disponibilidade automaticamente.
+                break;
+        }
+    }
+
     private static string BuildCriticPrompt(AgentCriticReviewCommand command) =>
         $"""
         Você é o revisor independente desta tentativa. Você NÃO implementa e NÃO escreve
@@ -531,6 +578,13 @@ public sealed class AgentRunOrchestrator(
             var execution = await session.CollectAsync(cancellationToken);
             var succeeded = execution.Status == ExternalAgentRunStatus.Completed;
 
+            // Desfecho DURÁVEL por conta: cota adia com data/hora de volta, login escala, falha
+            // transitória (GLM instável) agenda retry com backoff, sucesso zera o histórico.
+            RecordAvailability(
+                command.AccountAlias,
+                AgentRunOutcomeClassifier.Classify(execution.Status, execution.FailureCode),
+                clock.UtcNow);
+
             current = await TransitionAsync(
                 command, current, AttemptWorkspaceState.Running,
                 succeeded ? AttemptWorkspaceState.Completed : AttemptWorkspaceState.Failed,
@@ -562,6 +616,12 @@ public sealed class AgentRunOrchestrator(
         {
             var sanitized = AttemptWorkspaceErrorSanitizer.Sanitize(
                 ExternalAgentRedaction.Redact($"{exception.GetType().Name}"));
+            // Uma exceção do orquestrador é tratada como transitória (candidata a retry com
+            // backoff), classificada pelo tipo sanitizado.
+            RecordAvailability(
+                command.AccountAlias,
+                AgentRunOutcomeClassifier.Classify(ExternalAgentRunStatus.Failed, sanitized),
+                clock.UtcNow);
             current = await TryFailAsync(command, current, sanitized);
             if (receipt is not null &&
                 receipt.State is not GovernanceReceiptState.Completed and not GovernanceReceiptState.Failed)

@@ -328,6 +328,9 @@ public static class HostApplication
                 [Path.GetFullPath(agentRunSettings.ControlledRoot)]));
             builder.Services.AddSingleton(
                 AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath));
+            builder.Services.AddSingleton(
+                new AccountAvailabilityLedger(AccountAvailabilityLedger.DefaultPath));
+            builder.Services.AddHostedService<AccountRecoveryBackgroundService>();
             builder.Services.AddSingleton(new AttemptArtifactArchive(
                 string.IsNullOrWhiteSpace(agentRunSettings.ArchiveRoot)
                     ? AttemptArtifactArchive.DefaultRoot
@@ -343,7 +346,8 @@ public static class HostApplication
                 services.GetRequiredService<ExternalAgentExecutorFactory>(),
                 services.GetRequiredService<EventPublisher>(),
                 services.GetRequiredService<IClock>(),
-                services.GetRequiredService<AgentRunSettings>()));
+                services.GetRequiredService<AgentRunSettings>(),
+                services.GetRequiredService<AccountAvailabilityLedger>()));
         }
 
         if (serverMode)

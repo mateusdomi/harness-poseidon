@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:e4428ef04f5729fbadc2f299b175908692267cf90af4dafb66a73790ebea468e -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:d6399899dac4dc18483884c79047c6462e3c7de4bd4c75636941a251261f41d4 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 23
-- `Evidence`: 151
+- `Evidence`: 152
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 21
 - `entrypoint`: 1
-- `evidence`: 151
+- `evidence`: 152
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 207
+- `*`: 208
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 216
+- `Active`: 217
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 150
+- `Quality Engineering`: 151
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 202
+- `OnDemand`: 203
 
 ## Documents by authority and domain
 
@@ -408,6 +408,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Piloto 1B — continuação governada de um attempt reprovado](backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md) | * | Active | Quality Engineering | OnDemand | 1832 |
 | [Piloto 2 — No-Go, BLOCKED_EXTERNAL_OAUTH](backend/execution/evidence/PILOTO-2-BLOCKED-EXTERNAL-OAUTH.md) | * | Active | Quality Engineering | OnDemand | 821 |
 | [Piloto 2 — fleet concorrente com Antigravity live](backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md) | * | Active | Quality Engineering | OnDemand | 885 |
+| [Cota, agendamento e retry inteligente](backend/execution/evidence/QUOTA-RETRY-SCHEDULING.md) | * | Active | Quality Engineering | OnDemand | 599 |
 
 ### Historical
 

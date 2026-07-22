@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T19:07:24.5329230+00:00
+lastGeneratedAt: 2026-07-22T19:44:52.9568730+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7743
+  tokenEstimate: 7770
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:36c8a7d8765623d0603241685ef4c50743f597e843d6d492d23ab8b821dc382a
+  checksum: sha256:4cdfa160a595f36166466e8ab3b6cf3bbd4d6725f013aacc43f322e02a46e3c2
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11811,3 +11811,50 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md
+- id: evidence-quota-retry-scheduling
+  path: docs/backend/execution/evidence/QUOTA-RETRY-SCHEDULING.md
+  title: Cota, agendamento e retry inteligente
+  category: evidence
+  topic: evidence-quota-retry-scheduling
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 599
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-piloto-2-fleet-concorrente
+  enforcedBy: []
+  checksum: sha256:cc4c9d89e899c3f55a7f387794093bc17a350f2b14961f52588ff97252f3701c
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/QUOTA-RETRY-SCHEDULING.md
