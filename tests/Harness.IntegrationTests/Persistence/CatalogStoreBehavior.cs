@@ -183,6 +183,28 @@ public static class CatalogStoreBehavior
             "provider-neutral-reviewer-copy", "Provider-neutral Reviewer Copy",
             DateTimeOffset.Parse("2026-07-19T12:07:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
         Assert.Equal(1, duplicate.Version);
+
+        // Auto-key P1 end-to-end: a MESMA composição do endpoint (listar chaves do tenant →
+        // gerar chave versionada → criar) contra o store real. A base `provider-neutral-reviewer`
+        // já existe, então a chave gerada é versionada, e o store a aceita.
+        var existingKeys = (await agents.ListDefinitionsForTenantAsync(
+                tenantId, null, 500, includeArchived: true, cancellationToken))
+            .Select(definition => definition.Key)
+            .ToArray();
+        Assert.Contains("provider-neutral-reviewer", existingKeys);
+        var autoKey = AgentKeyGenerator.Generate("Provider-neutral Reviewer", existingKeys);
+        Assert.Equal("provider-neutral-reviewer-2", autoKey);
+        const string autoKeyDefinitionId = "01ARZ3NDEKTSV4RRFFQ69G5FP3";
+        var autoKeyed = await agents.CreateDefinitionAsync(new(
+            tenantId, tenantId, autoKeyDefinitionId,
+            definitionContent with { Key = autoKey, Name = "Provider-neutral Reviewer" },
+            DateTimeOffset.Parse("2026-07-19T12:07:30Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+        Assert.Equal("provider-neutral-reviewer-2", autoKeyed.Key);
+        Assert.Equal(1, autoKeyed.Version);
+        await agents.DeleteDefinitionAsync(new(
+            tenantId, tenantId, autoKeyDefinitionId,
+            DateTimeOffset.Parse("2026-07-19T12:07:45Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+
         await agents.DeleteDefinitionAsync(new(
             tenantId, tenantId, duplicateDefinitionId,
             DateTimeOffset.Parse("2026-07-19T12:08:00Z", System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
