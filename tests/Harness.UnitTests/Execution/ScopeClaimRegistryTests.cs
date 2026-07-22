@@ -32,4 +32,21 @@ public sealed class ScopeClaimRegistryTests
         Assert.True(registry.Release("attempt-a"));
         Assert.True(registry.TryAcquire("attempt-b", [new ScopeClaim("src/api/controller.cs")]).Acquired);
     }
+
+    [Fact]
+    public void MultipleInstancesRunConcurrentlyOnDisjointSubtreesButCollideOnOverlap()
+    {
+        // Gap fechado: várias instâncias (mesma conta ou não) rodam em paralelo quando
+        // reivindicam subárvores DISJUNTAS; o mesmo escopo continua colidindo (por design).
+        var registry = new ScopeClaimRegistry();
+
+        Assert.True(registry.TryAcquire("instance-1", [new ScopeClaim("src/Modules/Harness.Modules.Agents/**")]).Acquired);
+        Assert.True(registry.TryAcquire("instance-2", [new ScopeClaim("src/Modules/Harness.Modules.Execution/**")]).Acquired);
+        Assert.True(registry.TryAcquire("instance-3", [new ScopeClaim("tests/Harness.UnitTests/**")]).Acquired);
+
+        // Uma quarta instância no MESMO subescopo da primeira é bloqueada.
+        var collision = registry.TryAcquire("instance-4", [new ScopeClaim("src/Modules/Harness.Modules.Agents/Application/**")]);
+        Assert.False(collision.Acquired);
+        Assert.Equal("instance-1", collision.Conflicts[0].ExistingAttemptId);
+    }
 }

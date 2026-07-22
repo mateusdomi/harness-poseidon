@@ -72,17 +72,20 @@ public sealed class AgentRunContractDriftTests
     }
 
     [Fact]
-    public void TheStartContractDoesNotAcceptClientSuppliedPathScopes()
+    public void TheStartContractAcceptsScopeClaimsThatOnlyNarrowWithinTheRoleBoundary()
     {
-        // O escopo pertence ao PAPEL. Se o schema publicasse `scopeClaims`, um cliente
-        // poderia pedir o próprio escopo — exatamente o bypass que CA-1 fechou.
+        // O LIMITE do escopo pertence ao PAPEL. O schema agora publica `scopeClaims` para
+        // ESTREITAR o trabalho a sub-paths (concorrência granular entre instâncias), mas
+        // nunca AMPLIA: `AgentPathScopePolicy` recusa no servidor qualquer claim fora do
+        // papel (coberto por AgentPathScopePolicyTests e pelo unit do backend scope). O
+        // bypass que CA-1 fechou continua fechado — o cliente não escolhe o próprio papel.
         using var openApi = Load("docs/contracts/openapi.json");
         var schema = openApi.RootElement
             .GetProperty("components").GetProperty("schemas")
             .GetProperty("StartAgentRunApiRequest")
             .GetProperty("properties");
 
-        Assert.False(schema.TryGetProperty("scopeClaims", out _));
+        Assert.True(schema.TryGetProperty("scopeClaims", out _));
         Assert.True(schema.TryGetProperty("role", out _));
         Assert.True(schema.TryGetProperty("account", out _));
     }

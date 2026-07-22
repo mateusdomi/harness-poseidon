@@ -21957,6 +21957,15 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "scopeClaims": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 },
                 "additionalProperties": false

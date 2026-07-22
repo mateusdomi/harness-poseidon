@@ -272,18 +272,32 @@ public static class AgentRunEndpoints
             }
         }
 
-        // O escopo vem do PAPEL, nunca do provider nem do pedido: um cliente não amplia o
-        // próprio escopo mandando claims extras.
-        var scopeClaims = AgentRoles.PathScopesFor(input.Role);
+        // O LIMITE do escopo vem do PAPEL, nunca do provider. Um pedido pode ESTREITAR para
+        // sub-paths (concorrência granular entre instâncias) mas nunca AMPLIAR: a política
+        // (`AgentPathScopePolicy`, avaliada pelo orquestrador) recusa qualquer claim fora do
+        // papel, então um cliente não amplia o próprio escopo mandando claims extras.
         var pathScopeKind = string.Equals(
             input.Role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)
             ? AgentPathScopeKind.FrontendSpecialist
             : AgentPathScopeKind.Backend;
+        var scopeClaims = input.ScopeClaims is { Count: > 0 } requestedClaims
+            ? requestedClaims
+            : AgentRoles.PathScopesFor(input.Role);
         if (scopeClaims.Count == 0)
         {
             return Problem(
                 409, "role_has_no_path_scope",
                 "This role does not own a write scope; use a read-only critic run instead.");
+        }
+
+        // Erro cedo e claro quando o pedido tenta reivindicar fora do limite do papel (ex.:
+        // backend pedindo `frontend/**`). O orquestrador reavalia; aqui só antecipamos.
+        var scopeDecision = AgentPathScopePolicy.Evaluate(pathScopeKind, scopeClaims);
+        if (!scopeDecision.Allowed)
+        {
+            return Problem(
+                409, scopeDecision.Code,
+                $"Claims outside the role boundary: {string.Join(", ", scopeDecision.RejectedClaims)}.");
         }
 
         var snapshot = await orchestrator.StartAsync(
@@ -611,6 +625,13 @@ public sealed class StartAgentRunApiRequest
     public bool ReadOnly { get; init; }
 
     public IReadOnlyList<string>? AcceptanceCriteria { get; init; }
+
+    /// <summary>
+    /// Claims de escopo que ESTREITAM o trabalho para sub-paths dentro do limite do papel,
+    /// habilitando concorrência granular (várias instâncias em subárvores disjuntas). Ausente
+    /// usa o escopo padrão do papel. Nunca AMPLIA: claims fora do papel são recusados.
+    /// </summary>
+    public IReadOnlyList<string>? ScopeClaims { get; init; }
 }
 
 public sealed record AgentRunResponse(

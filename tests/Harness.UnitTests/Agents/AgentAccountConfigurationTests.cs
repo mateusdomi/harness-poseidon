@@ -75,6 +75,27 @@ public sealed class AgentAccountConfigurationTests : IDisposable
     }
 
     [Fact]
+    public void TheBackendRoleNowOwnsAWriteScopeEntirelyWithinItsBoundary()
+    {
+        // Gap fechado: o backend deixou de ter escopo vazio (que o recusava no agent-runs).
+        var scopes = AgentRoles.PathScopesFor(AgentRoles.BackendSpecialist);
+        Assert.NotEmpty(scopes);
+
+        // Todo claim padrão do backend é aprovado pela política de escopo backend...
+        var decision = Harness.Modules.Governance.Coordination.AgentPathScopePolicy.Evaluate(
+            Harness.Modules.Governance.Coordination.AgentPathScopeKind.Backend, scopes);
+        Assert.True(decision.Allowed);
+
+        // ...e NENHUM deles alcança o frontend (a invariante inviolável).
+        Assert.DoesNotContain(scopes, scope => scope.StartsWith("frontend/", StringComparison.Ordinal));
+        Assert.DoesNotContain(scopes, scope => scope.StartsWith("docs/frontend/", StringComparison.Ordinal));
+
+        // Frontend inalterado; papel desconhecido não recebe claim.
+        Assert.Equal(["frontend/**", "docs/frontend/**"], AgentRoles.PathScopesFor(AgentRoles.FrontendSpecialist));
+        Assert.Empty(AgentRoles.PathScopesFor(AgentRoles.ChiefOrchestrator));
+    }
+
+    [Fact]
     public void TheFrontendRoleIsProviderAgnostic()
     {
         // CA-1: Codex e Kimi Code exercem o MESMO papel lógico com o MESMO escopo.

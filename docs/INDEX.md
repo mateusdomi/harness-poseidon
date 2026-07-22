@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:cdac59e173a7dd27841bbcff2871eee12d5eb9928b7d207b5870f741c4529d50 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:d1b96f471345cff10f6aff3d72375b9a05d87f5a70370e39cf41f55a5991a064 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 23
-- `Evidence`: 149
+- `Evidence`: 150
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 21
 - `entrypoint`: 1
-- `evidence`: 149
+- `evidence`: 150
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 205
+- `*`: 206
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 214
+- `Active`: 215
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 148
+- `Quality Engineering`: 149
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 200
+- `OnDemand`: 201
 
 ## Documents by authority and domain
 
@@ -389,6 +389,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [V3 — ciclo de rascunho e publicação de workflows](backend/execution/evidence/V3-WORKFLOW-DRAFT-LIFECYCLE.md) | * | Active | Quality Engineering | OnDemand | 650 |
 | [Resolução de autenticação dos perfis isolados](backend/execution/evidence/AUTH-RESOLUTION.md) | * | Active | Quality Engineering | OnDemand | 1317 |
 | [Auto-key versionado de agent_key](backend/execution/evidence/AUTO-KEY-AGENT-DEFINITIONS.md) | * | Active | Quality Engineering | OnDemand | 594 |
+| [Backend write-scope e claims granulares](backend/execution/evidence/BACKEND-SCOPE-GRANULAR-CLAIMS.md) | * | Active | Quality Engineering | OnDemand | 560 |
 | [CA-1/CA-2 — papel provider-agnostic e registro de contas](backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md) | * | Active | Quality Engineering | OnDemand | 845 |
 | [CA-3 — isolamento por conta de agente](backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md) | * | Active | Quality Engineering | OnDemand | 929 |
 | [CA-4 — adapters reais de executores externos](backend/execution/evidence/CA-4-EXTERNAL-EXECUTORS.md) | * | Active | Quality Engineering | OnDemand | 1251 |

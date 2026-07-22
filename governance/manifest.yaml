@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T17:51:25.0805250+00:00
+lastGeneratedAt: 2026-07-22T18:18:28.7048690+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7685
+  tokenEstimate: 7712
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4835a0ca60d418d4b810d586e70af8ea8348171a8b24333c99a81a14b9fdc7be
+  checksum: sha256:4f0145b9a38b157e2f8f9defd340c9131154758e13f7c4dd151245ad9283947e
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11714,3 +11714,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/AUTH-RESOLUTION.md
+- id: evidence-backend-scope-granular-claims
+  path: docs/backend/execution/evidence/BACKEND-SCOPE-GRANULAR-CLAIMS.md
+  title: Backend write-scope e claims granulares
+  category: evidence
+  topic: evidence-backend-scope-granular-claims
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 560
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-auth-resolution
+  - evidence-piloto-2-blocked-external-oauth
+  enforcedBy: []
+  checksum: sha256:a18e115ffbd4eaba5003d0c5992b826028c20d3d1187c974d20f8ece0f33817f
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/BACKEND-SCOPE-GRANULAR-CLAIMS.md

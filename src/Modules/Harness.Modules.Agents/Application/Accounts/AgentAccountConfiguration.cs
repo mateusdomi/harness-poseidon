@@ -15,11 +15,28 @@ public static class AgentRoles
     public const string BackendSpecialist = "backend-specialist";
     public const string Critic = "critic";
 
-    /// <summary>Claims canônicos do papel. Um papel desconhecido não recebe claim algum.</summary>
+    /// <summary>
+    /// Claims PADRÃO do papel — usados quando o pedido não estreita o escopo. O frontend
+    /// possui `frontend/**`+`docs/frontend/**`; o backend possui as raízes de trabalho
+    /// backend/compartilhadas (nunca `frontend/**`). Um papel desconhecido não recebe claim.
+    ///
+    /// Um pedido pode ESTREITAR para sub-paths dentro do limite do papel (para concorrência
+    /// granular entre instâncias), mas nunca AMPLIAR: a política de escopo
+    /// (<c>AgentPathScopePolicy</c>) recusa qualquer claim fora do papel.
+    /// </summary>
     public static IReadOnlyList<string> PathScopesFor(string role) =>
         string.Equals(role, FrontendSpecialist, StringComparison.OrdinalIgnoreCase)
             ? ["frontend/**", "docs/frontend/**"]
-            : [];
+            : string.Equals(role, BackendSpecialist, StringComparison.OrdinalIgnoreCase)
+                ? BackendDefaultScopes
+                : [];
+
+    private static readonly string[] BackendDefaultScopes =
+    [
+        "src/**", "tests/**", "docs/backend/**", "docs/contracts/**",
+        "docs/architecture/**", "docs/decisions/**", "infra/**",
+        "tools/backend/**", "governance/**",
+    ];
 
     public static bool IsKnown(string role) =>
         role is ChiefOrchestrator or FrontendSpecialist or BackendSpecialist or Critic;
