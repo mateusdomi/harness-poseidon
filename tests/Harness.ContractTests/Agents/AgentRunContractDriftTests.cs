@@ -87,6 +87,22 @@ public sealed class AgentRunContractDriftTests
         Assert.True(schema.TryGetProperty("account", out _));
     }
 
+    [Fact]
+    public void TheStartContractExposesGovernedContinuationButNoArbitraryGitRef()
+    {
+        // A continuação é por id durável da tentativa anterior (`resumeFromAttemptId`), não
+        // por uma `baseReference` Git arbitrária: a base da nova worktree é resolvida pelo
+        // servidor para a referência interna governada.
+        using var openApi = Load("docs/contracts/openapi.json");
+        var schema = openApi.RootElement
+            .GetProperty("components").GetProperty("schemas")
+            .GetProperty("StartAgentRunApiRequest")
+            .GetProperty("properties");
+
+        Assert.True(schema.TryGetProperty("resumeFromAttemptId", out _));
+        Assert.False(schema.TryGetProperty("baseReference", out _));
+    }
+
     private static string ResolveRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

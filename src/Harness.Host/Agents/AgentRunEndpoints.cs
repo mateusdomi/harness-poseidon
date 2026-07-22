@@ -155,8 +155,71 @@ public static class AgentRunEndpoints
             return NotFound("task");
         }
 
+        // Continuação governada: recupera o artifact arquivado da tentativa reprovada e o
+        // valida — checksum, receipt, review, projeto, tarefa, actor e escopo — antes de
+        // permitir qualquer nova tentativa. Uma falha aqui é um código tipado, nunca um
+        // best effort silencioso.
+        ContinuationContext? continuation = null;
+        if (input.ResumeFromAttemptId is { Length: > 0 } resumeId)
+        {
+            if (!UlidValue.TryParse(resumeId, out _))
+            {
+                return InvalidId("resume_from_attempt");
+            }
+
+            var prior = await board.GetAttemptAsync(profile.TenantId, resumeId, token);
+            if (prior is null)
+            {
+                return NotFound("resume_attempt");
+            }
+
+            if (!string.Equals(prior.TaskId, input.TaskId, StringComparison.Ordinal))
+            {
+                return Problem(
+                    409, "resume_attempt_task_mismatch",
+                    "The attempt being resumed does not belong to the supplied task.");
+            }
+
+            var archive = services.GetService<AttemptArtifactArchive>();
+            if (archive is null)
+            {
+                return Disabled();
+            }
+
+            var loaded = archive.TryLoad(resumeId);
+            if (!loaded.Ok || loaded.Manifest is null || loaded.PatchPath is null)
+            {
+                return Problem(409, loaded.ReasonCode, "The archived attempt artifact could not be recovered.");
+            }
+
+            var decision = ContinuationPolicy.Evaluate(
+                loaded.Manifest,
+                new ContinuationPolicy.Request(
+                    input.Role,
+                    input.Account,
+                    input.ProjectId,
+                    input.TaskId,
+                    repositoryRoot,
+                    AgentRoles.PathScopesFor(input.Role)));
+            if (!decision.Allowed)
+            {
+                return Problem(409, decision.ReasonCode, "The continuation is not authorized for this artifact.");
+            }
+
+            continuation = new ContinuationContext
+            {
+                ResumeFromAttemptId = resumeId,
+                SourceCommit = loaded.Manifest.SourceCommit,
+                PatchPath = loaded.PatchPath,
+                PatchSha256 = loaded.Manifest.PatchSha256,
+                ReviewId = loaded.Manifest.ReviewId,
+                ReceiptTurnId = loaded.Manifest.ReceiptTurnId,
+                PriorFindings = decision.PriorFindings,
+            };
+        }
+
         string attemptId;
-        if (input.AttemptId is { Length: > 0 } supplied)
+        if (continuation is null && input.AttemptId is { Length: > 0 } supplied)
         {
             var attempt = await board.GetAttemptAsync(profile.TenantId, supplied, token);
             if (attempt is null)
@@ -244,8 +307,14 @@ public static class AgentRunEndpoints
                 Access = input.ReadOnly ? ExternalAgentAccess.ReadOnly : ExternalAgentAccess.Workspace,
                 Model = input.Model,
                 Effort = input.Effort,
+                // A base de uma continuação é a referência interna governada, nunca um ref
+                // fornecido pelo cliente: a nova worktree nasce de `origin/develop` atual.
+                BaseReference = continuation is null ? "HEAD" : "origin/develop",
                 RiskTier = input.RiskTier ?? "medium",
-                AcceptanceCriteria = input.AcceptanceCriteria ?? [],
+                AcceptanceCriteria = continuation is null
+                    ? input.AcceptanceCriteria ?? []
+                    : [.. continuation.PriorFindings, .. input.AcceptanceCriteria ?? []],
+                Continuation = continuation,
             },
             token);
 
@@ -523,6 +592,15 @@ public sealed class StartAgentRunApiRequest
     /// identificador solto, que violaria a chave estrangeira do claim.
     /// </summary>
     public string? AttemptId { get; init; }
+
+    /// <summary>
+    /// Continuação governada: retoma o trabalho de uma tentativa anterior REPROVADA, pelo id
+    /// durável dela. O bootstrap recupera o patch arquivado, valida checksum, receipt, review,
+    /// projeto, tarefa, actor e escopo, e cria uma NOVA tentativa. Nunca é um ref Git
+    /// arbitrário: a base da nova worktree é a referência interna governada
+    /// (<c>origin/develop</c> atual), jamais fornecida pelo cliente.
+    /// </summary>
+    public string? ResumeFromAttemptId { get; init; }
 
     public string? Model { get; init; }
 

@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-21T21:05:42.3523660+00:00
+lastGeneratedAt: 2026-07-22T00:25:01.7249630+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7490
+  tokenEstimate: 7523
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:757cbe636158ae6233c632fc3877721418bd1de86d0cc12b28d1be507f79a154
+  checksum: sha256:fce589619291e5eee2e6dd1ce1ee893b620f7c4041221255ce4443dbce29fed1
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11375,3 +11375,53 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/PILOTO-1A-E-CA-7-CRITIC.md
+- id: evidence-piloto-1b-continuacao-governada
+  path: docs/backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md
+  title: Piloto 1B — continuação governada de um attempt reprovado
+  category: evidence
+  topic: evidence-piloto-1b-continuacao-governada
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/decisions/**
+  - governance/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 1193
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-21T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-piloto-1a-ca-7-critic
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:0c108fc12598106f5f777a33e6c532b99e2281e3617c4693cac0909fa2f30cb9
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md

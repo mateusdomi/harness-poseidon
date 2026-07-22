@@ -117,6 +117,52 @@ public sealed class GitWorktreeManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Aplica um patch arquivado dentro de uma worktree controlada, de forma verificada.
+    ///
+    /// Primeiro faz <c>git apply --check</c>: se o patch não casar com a base atual (arquivos
+    /// mudaram desde que ele foi produzido), o patch é STALE e o método devolve
+    /// <c>false</c> — nunca força nem aplica parcialmente. Só quando o check passa é que
+    /// aplica de verdade. Detectar stale é responsabilidade do chamador, que registra um
+    /// achado tipado e segue com o diff anterior apenas como contexto.
+    /// </summary>
+    public async Task<bool> TryApplyPatchAsync(
+        string worktreePath,
+        string patchPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(patchPath);
+        var destination = EnsureContained(_controlledRoot, worktreePath, nameof(worktreePath));
+        var fullPatchPath = Path.GetFullPath(patchPath);
+        if (!File.Exists(fullPatchPath))
+        {
+            throw new FileNotFoundException("The archived patch does not exist.", fullPatchPath);
+        }
+
+        var check = await RunGitAsync(
+            destination,
+            ["apply", "--check", "--whitespace=nowarn", fullPatchPath],
+            cancellationToken);
+        if (check.ExitCode != 0)
+        {
+            return false;
+        }
+
+        var apply = await RunGitAsync(
+            destination,
+            ["apply", "--whitespace=nowarn", fullPatchPath],
+            cancellationToken);
+        if (apply.ExitCode != 0)
+        {
+            // O check passou mas o apply falhou: trata-se como stale também, sem deixar a
+            // worktree meio aplicada.
+            return false;
+        }
+
+        return true;
+    }
+
     public async Task<IReadOnlyList<string>> ListLocalBranchesAsync(
         CancellationToken cancellationToken = default)
     {

@@ -21922,6 +21922,12 @@
                             "string"
                         ]
                     },
+                    "resumeFromAttemptId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
                     "model": {
                         "type": [
                             "null",

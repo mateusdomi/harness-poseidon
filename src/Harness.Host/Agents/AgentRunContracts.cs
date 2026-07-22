@@ -26,6 +26,12 @@ public sealed record AgentRunSettings
     /// <summary>Arquivo local de contas; ausente usa os aliases canônicos de ADR-021.</summary>
     public string? AccountsFilePath { get; init; }
 
+    /// <summary>
+    /// Raiz do arquivo de artifacts de tentativas reprovadas (patch + manifest de
+    /// provenance), fora do repositório. Ausente usa <c>~/.harness/pilots</c>.
+    /// </summary>
+    public string? ArchiveRoot { get; init; }
+
     public TimeSpan LeaseDuration { get; init; } = TimeSpan.FromMinutes(10);
 
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(15);
@@ -102,6 +108,12 @@ public sealed record StartAgentRunCommand
     public string RiskTier { get; init; } = "medium";
 
     public IReadOnlyList<string> AcceptanceCriteria { get; init; } = [];
+
+    /// <summary>
+    /// Contexto de continuação governada, quando esta tentativa retoma o trabalho de uma
+    /// tentativa anterior reprovada. Nulo para um run do zero.
+    /// </summary>
+    public ContinuationContext? Continuation { get; init; }
 }
 
 /// <summary>

@@ -328,6 +328,10 @@ public static class HostApplication
                 [Path.GetFullPath(agentRunSettings.ControlledRoot)]));
             builder.Services.AddSingleton(
                 AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath));
+            builder.Services.AddSingleton(new AttemptArtifactArchive(
+                string.IsNullOrWhiteSpace(agentRunSettings.ArchiveRoot)
+                    ? AttemptArtifactArchive.DefaultRoot
+                    : Path.GetFullPath(agentRunSettings.ArchiveRoot)));
             builder.Services.AddSingleton(services => new ExternalAgentExecutorFactory(
                 services.GetRequiredService<AccountProfileProvisioner>()));
             builder.Services.AddSingleton(services => new AgentRunOrchestrator(

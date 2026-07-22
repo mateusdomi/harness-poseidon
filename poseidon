@@ -14,7 +14,7 @@ usage() {
   echo "  logs [--follow]"
   echo "  agent start --project <id> --task <id> --role <papel>"
   echo "              --account <alias> --instruction <texto>"
-  echo "              [--attempt <id>] [--model <m>] [--effort <e>] [--read-only]"
+  echo "              [--attempt <id>] [--resume-from <attemptId>] [--model <m>] [--effort <e>] [--read-only]"
   echo "  agent status <attemptId>"
   echo "  agent cancel <attemptId>"
   echo "  agent review <attemptId> --critic <alias> --actor <alias> --diff-file <arquivo>"
@@ -279,7 +279,7 @@ agent_json_escape() {
 }
 
 agent_start() {
-  local project="" task="" role="" account="" instruction="" attempt="" model="" effort=""
+  local project="" task="" role="" account="" instruction="" attempt="" resume_from="" model="" effort=""
   local read_only=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -289,6 +289,7 @@ agent_start() {
       --account) account="$2"; shift 2 ;;
       --instruction) instruction="$2"; shift 2 ;;
       --attempt) attempt="$2"; shift 2 ;;
+      --resume-from) resume_from="$2"; shift 2 ;;
       --model) model="$2"; shift 2 ;;
       --effort) effort="$2"; shift 2 ;;
       --read-only) read_only=true; shift ;;
@@ -311,6 +312,7 @@ agent_start() {
   payload="${payload},\"account\":$(agent_json_escape "${account}")"
   payload="${payload},\"instruction\":$(agent_json_escape "${instruction}")"
   [[ -z "${attempt}" ]] || payload="${payload},\"attemptId\":$(agent_json_escape "${attempt}")"
+  [[ -z "${resume_from}" ]] || payload="${payload},\"resumeFromAttemptId\":$(agent_json_escape "${resume_from}")"
   [[ -z "${model}" ]] || payload="${payload},\"model\":$(agent_json_escape "${model}")"
   [[ -z "${effort}" ]] || payload="${payload},\"effort\":$(agent_json_escape "${effort}")"
   [[ "${read_only}" != true ]] || payload="${payload},\"readOnly\":true"
