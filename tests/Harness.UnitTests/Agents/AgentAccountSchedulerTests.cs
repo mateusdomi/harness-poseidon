@@ -59,7 +59,9 @@ public sealed class AgentAccountSchedulerTests
             registry,
             new AccountSchedulingRequest
             {
-                Role = AgentRoles.FrontendSpecialist, RequiredCapability = "code", Now = Now,
+                Role = AgentRoles.FrontendSpecialist,
+                RequiredCapability = "code",
+                Now = Now,
             });
 
         Assert.Null(decision.SelectedAlias);
