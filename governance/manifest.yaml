@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T13:11:27.1073570+00:00
+lastGeneratedAt: 2026-07-22T13:41:32.5613790+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7604
+  tokenEstimate: 7656
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:dbdd627d85aecac089c3ec68d86ee6631616c9d33f9c5b770e82db6bb793e9d9
+  checksum: sha256:c43f4b300ec04ba133e72463af1fb2fc809ca61718c12113b8c5e661bee838ba
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 10109
+  tokenEstimate: 10569
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:98e2c14c5d56431790a6d7768c99d325d94591b67ffec60fefefaf84bfe8dd8f
+  checksum: sha256:c4b77284a838db70b9743c1b0cd22c6763a106b27087363520e6d96e42203f81
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11571,3 +11571,98 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/N4-SCHEDULER-QUOTAS.md
+- id: evidence-piloto-2-blocked-external-oauth
+  path: docs/backend/execution/evidence/PILOTO-2-BLOCKED-EXTERNAL-OAUTH.md
+  title: Piloto 2 — No-Go, BLOCKED_EXTERNAL_OAUTH
+  category: evidence
+  topic: evidence-piloto-2-blocked-external-oauth
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 821
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-n3-antigravity-critic
+  - evidence-n4-scheduler-quotas
+  enforcedBy: []
+  checksum: sha256:01a0257bd3979ebbfde3d780eb40fb873fd500fbd75bd9c022b7e19b7faa8f19
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/PILOTO-2-BLOCKED-EXTERNAL-OAUTH.md
+- id: evidence-auto-key-agent-definitions
+  path: docs/backend/execution/evidence/AUTO-KEY-AGENT-DEFINITIONS.md
+  title: Auto-key versionado de agent_key
+  category: evidence
+  topic: evidence-auto-key-agent-definitions
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 594
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-piloto-2-blocked-external-oauth
+  enforcedBy: []
+  checksum: sha256:5c6fb2da38deb46af868e4ee49a2f01a68c917e42a2e52aaa78d1003ffbad3f9
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/AUTO-KEY-AGENT-DEFINITIONS.md

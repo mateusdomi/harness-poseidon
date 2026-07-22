@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:f0c99a61400c1949385606ccb671734e95bb55f59ae5c677688a80b71e55b729 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:c6fbe674a3c96123258ecdfb6466fb5502e3cee8b650e02b16bd5a5c98de3003 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 23
-- `Evidence`: 146
+- `Evidence`: 148
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 21
 - `entrypoint`: 1
-- `evidence`: 146
+- `evidence`: 148
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 202
+- `*`: 204
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 211
+- `Active`: 213
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 145
+- `Quality Engineering`: 147
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 197
+- `OnDemand`: 199
 
 ## Documents by authority and domain
 
@@ -186,7 +186,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 10109 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 10569 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 4623 |
 
 ### Reference
@@ -387,6 +387,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Refinamento v3 — arquivamento de tarefas](backend/execution/evidence/V3-TASK-ARCHIVING.md) | * | Active | Quality Engineering | OnDemand | 438 |
 | [V3 — fases persistidas no quadro](backend/execution/evidence/V3-WORK-BOARD-PHASES.md) | * | Active | Quality Engineering | OnDemand | 338 |
 | [V3 — ciclo de rascunho e publicação de workflows](backend/execution/evidence/V3-WORKFLOW-DRAFT-LIFECYCLE.md) | * | Active | Quality Engineering | OnDemand | 650 |
+| [Auto-key versionado de agent_key](backend/execution/evidence/AUTO-KEY-AGENT-DEFINITIONS.md) | * | Active | Quality Engineering | OnDemand | 594 |
 | [CA-1/CA-2 — papel provider-agnostic e registro de contas](backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md) | * | Active | Quality Engineering | OnDemand | 845 |
 | [CA-3 — isolamento por conta de agente](backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md) | * | Active | Quality Engineering | OnDemand | 929 |
 | [CA-4 — adapters reais de executores externos](backend/execution/evidence/CA-4-EXTERNAL-EXECUTORS.md) | * | Active | Quality Engineering | OnDemand | 1251 |
@@ -403,6 +404,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Turno noturno — relatório](backend/execution/evidence/NIGHT-SHIFT-REPORT.md) | * | Active | Quality Engineering | OnDemand | 1559 |
 | [Piloto 1A e CA-7 — worker governado e critic independente](backend/execution/evidence/PILOTO-1A-E-CA-7-CRITIC.md) | * | Active | Quality Engineering | OnDemand | 1632 |
 | [Piloto 1B — continuação governada de um attempt reprovado](backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md) | * | Active | Quality Engineering | OnDemand | 1832 |
+| [Piloto 2 — No-Go, BLOCKED_EXTERNAL_OAUTH](backend/execution/evidence/PILOTO-2-BLOCKED-EXTERNAL-OAUTH.md) | * | Active | Quality Engineering | OnDemand | 821 |
 
 ### Historical
 
