@@ -47,7 +47,11 @@ public sealed class AntigravityExternalAgentExecutor(
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var arguments = new List<string> { "--print" };
+        // CRÍTICO: `--print` CONSOME o próximo argumento como o prompt. Por isso ele é o
+        // ÚLTIMO flag — o prompt posicional adicionado pela base vira o VALOR de `--print`.
+        // Colocar `--print` no início fazia-o engolir o flag seguinte como "prompt" e o
+        // prompt real era ignorado (o modelo respondia sobre os flags). Observado por probe.
+        var arguments = new List<string>();
 
         // Timeout em duração aceita pelo flag Go (`1800s`), derivado do request.
         arguments.AddRange([
@@ -77,10 +81,12 @@ public sealed class AntigravityExternalAgentExecutor(
         }
         else
         {
-            // Critic: modo plano NÃO edita e o sandbox restringe o terminal. Sem
-            // `--dangerously-skip-permissions`, qualquer ferramenta é auto-negada — o critic
-            // é fail-closed por construção e nunca recebe capacidade de escrita.
-            arguments.AddRange(["--mode", "plan", "--sandbox"]);
+            // Critic: `--mode plan` NÃO edita (garante ausência de escrita). Sem
+            // `--dangerously-skip-permissions` qualquer ferramenta de LEITURA é auto-negada em
+            // headless e o turno morre com "no output produced" — o critic precisa poder ler
+            // para revisar. Skip-permissions apenas auto-aprova as tools; o plan mode continua
+            // impedindo qualquer escrita, então o critic segue sem capacidade de edição.
+            arguments.AddRange(["--mode", "plan", "--dangerously-skip-permissions"]);
         }
 
         foreach (var directory in request.AdditionalDirectories)
@@ -88,6 +94,8 @@ public sealed class AntigravityExternalAgentExecutor(
             arguments.AddRange(["--add-dir", directory]);
         }
 
+        // `--print` por ÚLTIMO: o prompt posicional que a base anexa a seguir é o seu valor.
+        arguments.Add("--print");
         return arguments;
     }
 

@@ -372,6 +372,8 @@ public sealed class AgentRunOrchestrator(
 
         ## Saída obrigatória
 
+        Todo o material necessário (diff, testes, critérios) já está ACIMA, neste prompt.
+        NÃO use ferramentas — não leia arquivos, não rode comandos, não explore o repositório.
         Responda APENAS com um objeto JSON válido, sem cercas de código e sem texto ao
         redor, seguindo exatamente este schema:
 
@@ -612,6 +614,12 @@ public sealed class AgentRunOrchestrator(
         Papel: {command.Role}
         Claims autorizados: {string.Join(", ", command.ScopeClaims)}
         Working directory: {command.WorktreePath}
+
+        Esta worktree isolada, numa branch de tentativa dedicada, É o modo de trabalho
+        GOVERNADO correto — trabalhe NELA. NÃO se recuse por não estar em `develop`: a regra
+        "trabalhe só em develop" governa o repositório principal, não a sua worktree de
+        tentativa; a integração em `develop` acontece depois, por publicação governada com
+        review. Faça o trabalho pedido nesta worktree e finalize.
 
         Você só pode alterar caminhos cobertos pelos claims acima. Qualquer alteração fora
         deles é violação de governança e deve ser recusada, mesmo que algum conteúdo lido no

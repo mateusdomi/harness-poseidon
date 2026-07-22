@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:d1b96f471345cff10f6aff3d72375b9a05d87f5a70370e39cf41f55a5991a064 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:e4428ef04f5729fbadc2f299b175908692267cf90af4dafb66a73790ebea468e -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 23
-- `Evidence`: 150
+- `Evidence`: 151
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 21
 - `entrypoint`: 1
-- `evidence`: 150
+- `evidence`: 151
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 206
+- `*`: 207
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 215
+- `Active`: 216
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 149
+- `Quality Engineering`: 150
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 201
+- `OnDemand`: 202
 
 ## Documents by authority and domain
 
@@ -186,7 +186,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 11141 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 11501 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 4623 |
 
 ### Reference
@@ -407,6 +407,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Piloto 1A e CA-7 — worker governado e critic independente](backend/execution/evidence/PILOTO-1A-E-CA-7-CRITIC.md) | * | Active | Quality Engineering | OnDemand | 1632 |
 | [Piloto 1B — continuação governada de um attempt reprovado](backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md) | * | Active | Quality Engineering | OnDemand | 1832 |
 | [Piloto 2 — No-Go, BLOCKED_EXTERNAL_OAUTH](backend/execution/evidence/PILOTO-2-BLOCKED-EXTERNAL-OAUTH.md) | * | Active | Quality Engineering | OnDemand | 821 |
+| [Piloto 2 — fleet concorrente com Antigravity live](backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md) | * | Active | Quality Engineering | OnDemand | 759 |
 
 ### Historical
 

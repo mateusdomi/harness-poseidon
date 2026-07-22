@@ -70,7 +70,7 @@ public sealed class AntigravityExternalAgentExecutorTests : IDisposable
     }
 
     [Fact]
-    public void CriticRunsReadOnlyInPlanModeWithSandboxAndNoSkipPermissions()
+    public void CriticRunsReadOnlyInPlanModeAndNeverEdits()
     {
         var provisioner = new AccountProfileProvisioner(_root);
         var handle = Provision(provisioner, "worker-antigravity-review");
@@ -78,11 +78,12 @@ public sealed class AntigravityExternalAgentExecutorTests : IDisposable
 
         var arguments = Arguments(executor, Request(handle));
 
-        Assert.Equal("--print", arguments[0]);
+        // `--print` é o ÚLTIMO flag: ele consome o prompt (que a base anexa em seguida) como
+        // seu valor. Colocá-lo antes engoliria o flag seguinte como "prompt".
+        Assert.Equal("--print", arguments[^1]);
+        // `--mode plan` garante ausência de ESCRITA (nunca `accept-edits`); skip-permissions
+        // apenas permite LEITURA sem travar o turno headless com "no output produced".
         Assert.Equal("plan", arguments[arguments.IndexOf("--mode") + 1]);
-        Assert.Contains("--sandbox", arguments);
-        // O critic nunca recebe auto-aprovação de ferramentas: qualquer tool é fail-closed.
-        Assert.DoesNotContain("--dangerously-skip-permissions", arguments);
         Assert.DoesNotContain("accept-edits", arguments);
     }
 

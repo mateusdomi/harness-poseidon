@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T18:18:28.7048690+00:00
+lastGeneratedAt: 2026-07-22T18:45:17.6216500+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7712
+  tokenEstimate: 7743
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4f0145b9a38b157e2f8f9defd340c9131154758e13f7c4dd151245ad9283947e
+  checksum: sha256:e81f5f1eb1f37c46a3cb2d32f4e54beea7087496bd7fb68ecad6a05f234ebc67
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 11141
+  tokenEstimate: 11501
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:23b9b88701fd9480be3598bba602950884c08008521dcc05f2f3d2b2f4f72e21
+  checksum: sha256:146658bda88b470c63d3ad8929bf44cb3243c156feb91fe5f16e39e31be752ce
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11762,3 +11762,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/BACKEND-SCOPE-GRANULAR-CLAIMS.md
+- id: evidence-piloto-2-fleet-concorrente
+  path: docs/backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md
+  title: Piloto 2 — fleet concorrente com Antigravity live
+  category: evidence
+  topic: evidence-piloto-2-fleet-concorrente
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 759
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-backend-scope-granular-claims
+  - evidence-n3-antigravity-critic
+  - evidence-auth-resolution
+  enforcedBy: []
+  checksum: sha256:987e029ef0c4477b9b4cc8b69db79bee50c2b347fa51b525cc0298814b386a11
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md
