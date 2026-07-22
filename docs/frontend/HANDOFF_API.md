@@ -215,13 +215,13 @@ As contas usam o CRUD REST publicado pelo backend: `POST /accounts`, `PATCH /acc
 
 ### Governança P1/P2 — contratos integrados e lacunas explícitas
 
-Reconciliação feita em 2026-07-20 contra `docs/contracts/openapi.json` SHA-256 `271ca1dfa7be947783e71793333989e1a4d2bbc2287d0de9da8c35503482763d` e `docs/contracts/events.json` 1.1 SHA-256 `093d8c9c9d85db4fa17551085060478a6e23149a01b4e1684760936c8ed6a554`.
+Reconciliação atualizada contra `docs/contracts/openapi.json` SHA-256 `8dbaca2a84f1af8325839773cc2d56bab5c4d0a531542807ca58d755e10ab553` e `docs/contracts/events.json` 1.2 SHA-256 `765a968b919aa7ea2b6ee36d8a2a00056fdf21a158d47ed01027ecaf28b65b16`. Verificação reproduzível, executada na raiz do repositório: `shasum -a 256 docs/contracts/openapi.json docs/contracts/events.json`.
 
 - A UI P1 consome receipts/métricas, evaluation independente, stale findings, hashline/benchmark, executores e diagnóstico.
 - A UI P2 consome exclusivamente os paths publicados sob `/api/v1/governance-runtime/learning-candidates`: lista/criação, métricas, detalhe, evidência, comparação, histórico e transições de review, evaluation-request, evaluations, shadow, decision, promotion, rollback e deprecation.
 - Lista P2 usa paginação real por `cursor`/`limit` e filtros server-side de organização, projeto, tipo e estado. O contrato não oferece período; `from`/`to` são refinamento local das páginas carregadas, identificado como tal na tela.
 - Promoção é manual e idempotente. A UI envia `expectedVersion` para OCC e `Idempotency-Key` opaco nas transições; não existe encadeamento automático após evaluation/shadow/approval.
-- `events.json` 1.1 não publica eventos exclusivos de learning candidates. A integração realtime usa somente `audit.eventAppended` no stream `global` para invalidar dados P2.
+- `events.json` 1.2 não publica eventos exclusivos de learning candidates. A integração realtime usa somente `audit.eventAppended` no stream `global` para invalidar dados P2.
 - Autorização e redaction continuam autoritativas no Host. A UI trata 401/403 e faz masking defensivo, sem apresentar isso como substituto da sanitização do servidor.
 - O `MockApiClient` rejeita operações P2 com 501; não há fixture de learning candidate nem fallback simulado. Homologação exige `VITE_API_MODE=http`.
 
@@ -370,14 +370,15 @@ Cada item aqui é um pedido concreto ao backend.
   `features/onboarding/lib/golden-path.ts` apenas **apresenta** o snapshot —
   não decide prontidão, bloqueio nem próxima ação. `executionMode` por etapa
   alimenta o selo "Modo simulado" por dependência, e `ExecutionReady` é a
-  única autoridade sobre liberar o envio no chat.
+  autoridade sobre a execução; o envio continua disponível porque o backend
+  persiste a mensagem e devolve um turno `blocked` tipado quando necessário.
 - **Lacuna remanescente (menor):** o endpoint responde **404 sem projeto**,
   então a fase anterior ao projeto (perfil → organização → projeto) é montada
   localmente em `preProjectSnapshot`, no mesmo formato e com os mesmos códigos
   do contrato. **Pedido:** readiness de tenant/workspace (sem `projectId`), ou
   documentar que essa fase é responsabilidade do cliente.
 
-### 9.1.1 Turno do chefe é fail-closed sem provedor/modelo — **comportamento correto, com impacto no gate real**
+### 9.1.1 Turno do chefe bloqueado é retorno tipado
 
 - **Correção de um erro meu:** uma versão anterior deste documento afirmava que
   o backend "não provisiona o agente Chief ao criar o projeto". **Isso está
@@ -390,35 +391,35 @@ Cada item aqui é um pedido concreto ao backend.
 - **O que realmente acontece:** num Host limpo, o bloqueador do Chief é
   `chief.model_unresolved` (agente existe, sem modelo resolvível) — consequência
   legítima de não haver provedor/conta/modelo, não um defeito.
-- **Fail-closed confirmado empiricamente:** com provedor/modelo ausentes,
-  `POST /conversations/{id}/turns` responde **400
-  `invalid_chief_invocation_selection` — "No model is configured for the
-  Chief."**. Criar a conversa (`POST /conversations`) continua permitido.
-- **Consequência aplicada na UI:** bloqueamos o **envio** (alinhado ao 400 do
-  backend) mas **não** a criação da conversa — criar conversa não é executar.
-  O motivo fica visível com a CTA do próprio read model.
+- **Contrato C2 publicado:** com provider/modelo/workflow ausente,
+  `POST /conversations/{id}/turns` responde `202` com `state=blocked`,
+  `readiness`, `blockers[]`, `nextActions[]` e links. `400` fica reservado ao
+  request estruturalmente inválido.
+- **Consequência aplicada na UI:** o envio permanece disponível. A mensagem é
+  persistida e a UI lê o handle, apresenta os bloqueios e cria as CTAs a partir
+  de `nextActions[].route`, sem inferir bloqueio a partir de erro HTTP.
 - **Impacto no gate `test:e2e:real`:** desde o ADR-018/019 o Host deixou de
   simular resposta do chefe, então o percurso de turno/SignalR **não é
   exercitável** sem provedor e modelo reais configurados. O spec passou a ler
   o readiness canônico: sem execução possível, valida o bloqueio honesto
-  (bloqueio visível, envio desabilitado, bloqueadores reconhecidos pela UI) e
+  (bloqueio visível, envio aceito com handle bloqueado e bloqueadores reconhecidos pela UI) e
   anota o motivo de não exercitar o turno; com provedor/modelo configurados,
   executa o fluxo completo como antes.
 - **Pedido ao backend:** publicar um caminho de configuração de provedor/modelo
   adequado a ambiente de teste (sem credencial real) para que o gate volte a
   cobrir turno + SignalR ponta a ponta.
 
-### 9.1.2 Eventos do catálogo 1.1 sem payload publicado
+### 9.1.2 Eventos do catálogo 1.2 com payload publicado
 
-- **Situação:** `docs/contracts/events.json` passou a listar `readiness.changed`,
-  `execution.blocked`, `execution.enqueued`, `message.received`,
-  `model.responded`, `provider.invoked` e `turn.registered`, mas o catálogo só
-  publica **nomes** — nenhum payload é especificado e não há publisher emitindo.
-- **O que a UI faz hoje:** schemas permissivos (`z.object({}).passthrough()`),
-  para não inventar campos. A UI reage apenas à **ocorrência**
-  (`readiness.changed` invalida o snapshot de prontidão).
-- **Pedido:** publicar o payload de cada evento novo; os schemas viram tipados
-  e o teste de drift continua garantindo paridade.
+- **Situação:** `docs/contracts/events.json` 1.2 publica schemas para
+  `agentRun.stateChanged`, `readiness.changed`, `message.received`,
+  `turn.registered`, `execution.enqueued`, `execution.blocked`,
+  `provider.invoked`, `model.responded` e `chief.turnStateChanged`.
+- **O que a UI faz hoje:** cada evento canônico tem schema de payload; os
+  eventos acima refletem propriedades, obrigatoriedade, nulabilidade e enums
+  publicados. O catálogo inclui `agentRun.stateChanged`.
+- **Drift:** o teste compara os nomes do catálogo nos dois sentidos e fixa a
+  versão canônica em 1.2.
 
 ### 9.2 Catálogo de ações de auditoria — **string aberta**
 

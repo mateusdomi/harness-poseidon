@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
-import { buildFixtures, type Message } from '@/api';
+import { buildFixtures, streams, type Message } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { MessageBubble } from '@/features/chat/components/message-bubble';
@@ -179,6 +179,53 @@ describe('ChatPage', () => {
         expect(screen.queryByText(/chefe está coordenando/i)).not.toBeInTheDocument();
       },
       { timeout: 3000 },
+    );
+  });
+
+  it('mantém o banner do handle bloqueado após o evento terminal do SignalR', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    const conversation = bundle.fixtures.data.conversations
+      .filter((item) => item.projectId === project.id)
+      .sort((a, b) => (b.lastMessageAt ?? b.createdAt).localeCompare(a.lastMessageAt ?? a.createdAt))[0];
+    vi.spyOn(bundle.api, 'startChatTurn').mockResolvedValue({
+      turnId: 'blocked-turn',
+      conversationId: conversation.id,
+      state: 'blocked',
+      correlationId: 'blocked-correlation',
+      readiness: { overallState: 'Unconfigured', executionState: 'Blocked' },
+      blockers: [{ code: 'workflow.unbound', relatedIds: [] }],
+      nextActions: [{ code: 'workflow.bind', route: '/workflows', resourceId: null }],
+      links: {
+        readiness: `/api/v1/projects/${project.id}/readiness`,
+        conversation: `/api/v1/conversations/${conversation.id}`,
+      },
+    });
+    renderWithApi(
+      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+        <ChatPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    const input = await screen.findByLabelText(/mensagem para o chefe/i);
+    await user.type(input, 'Execute sem configuração.');
+    await user.click(screen.getByRole('button', { name: /enviar mensagem/i }));
+    expect(await screen.findByText('Turno registrado, execução bloqueada')).toBeInTheDocument();
+
+    act(() => {
+      bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
+        turnId: 'blocked-turn',
+        conversationId: conversation.id,
+        projectId: project.id,
+        state: 'blocked',
+      });
+    });
+
+    expect(screen.getByText('Turno registrado, execução bloqueada')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Vincular workflow' })).toHaveAttribute(
+      'href',
+      '/workflows',
     );
   });
 

@@ -328,7 +328,7 @@ test('golden path guia o primeiro uso do workspace vazio até o bloqueio honesto
   await page.goto('/chat');
   await expectTerminalScreen(page, 'chat sem dependências');
   await expect(page.getByText('Execução do chefe bloqueada')).toBeVisible();
-  await expect(page.getByLabel('Mensagem para o chefe')).toBeDisabled();
+  await expect(page.getByLabel('Mensagem para o chefe')).toBeEnabled();
 
   // Orquestrador: prontidão real, nunca "pronto" sem dependências.
   await page.goto('/orchestrator');

@@ -65,7 +65,7 @@ export function useGoldenPath(): UseGoldenPathResult {
     queryFn: () => api.getProjectReadiness(projectId!),
   });
 
-  // `readiness.changed` é evento canônico do catálogo 1.1: invalida o snapshot
+  // `readiness.changed` é evento canônico do catálogo 1.2: invalida o snapshot
   // para a tela refletir a mudança sem reload.
   useRealtimeStream(projectId ? `project:${projectId}` : null, {
     invalidateEvents: ['readiness.changed'],

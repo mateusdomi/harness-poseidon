@@ -28,7 +28,8 @@
   `golden-path.ts` apenas apresenta `state`/`blockers`/`nextAction`.
 - São **9 etapas** (perfil → organização → projeto → provedor/conta → modelo →
   workflow → Chief configurado → agentes disponíveis → pronto para executar).
-  `ExecutionReady` é a única autoridade sobre liberar o envio no chat.
+  `ExecutionReady` é a autoridade sobre executar; o envio continua disponível
+  para que o backend persista e devolva um turno bloqueado tipado.
 - `executionMode` por etapa distingue **concluído** de **concluído porém
   simulado** — cada dependência simulada exibe o próprio selo "Modo simulado".
 - `readiness.changed` invalida o snapshot; mutações de workflow e de provedor
@@ -39,10 +40,9 @@
   `127.0.0.1:5090`, SQLite temporário vazio): o snapshot canônico responde
   como esperado e o Chief **é** provisionado na criação do projeto. Numa
   instalação limpa o bloqueador é `chief.model_unresolved` (sem provedor/
-  modelo), e `POST /conversations/{id}/turns` responde **400
-  `invalid_chief_invocation_selection`** — o backend é fail-closed desde o
-  ADR-018/019. A UI bloqueia o **envio** (alinhada ao 400) mas mantém a criação
-  de conversa, que o backend permite.
+  modelo), e `POST /conversations/{id}/turns` responde **202** com
+  `state=blocked`, `blockers[]` e `nextActions[]`. A UI mantém o envio,
+  apresenta o handle tipado e preserva a criação de conversa.
 
 ### Honestidade operacional
 
@@ -108,7 +108,7 @@
   mobile 360 dark) — onboarding, 20 rotas, HTTP same-origin, responsividade,
   axe e o novo recorte de prontidão.
 - O spec passou a ser **readiness-aware**: sem provedor/modelo configurados ele
-  valida o bloqueio honesto (bloqueio visível, envio desabilitado, bloqueadores
+  valida o bloqueio honesto (bloqueio visível, envio aceito com handle bloqueado, bloqueadores
   reconhecidos) e anota por que o turno não foi exercitado; com provedor/modelo
   configurados executa o fluxo completo de turno + SignalR como antes.
 
@@ -146,10 +146,10 @@
 ## Integração de governança P2 — 2026-07-20
 
 - **Base sincronizada:** `origin/develop` em `94061f4`, incluindo os contratos P2 dos commits `f2b35a6` e `94061f4`.
-- **Contratos reconciliados:** OpenAPI SHA-256 `271ca1dfa7be947783e71793333989e1a4d2bbc2287d0de9da8c35503482763d`; eventos 1.1 SHA-256 `093d8c9c9d85db4fa17551085060478a6e23149a01b4e1684760936c8ed6a554`.
+- **Contratos reconciliados:** OpenAPI com handle C2 de turno bloqueado; eventos 1.2 com schemas de payload publicados e `agentRun.stateChanged`.
 - **UI real:** a aba Aprendizado da feature Governança integra lista cursor-paginada, filtros, detalhe, evidência, comparação, revisão, solicitação/registro da avaliação independente, shadow validation, decisão, promoção manual, monitoramento, rollback, depreciação, histórico e métricas.
 - **Promoção:** exclusivamente por ação humana explícita, com confirmação adicional na UI; não existe caminho automático no frontend.
-- **Realtime:** o catálogo 1.1 ainda não publica evento específico de learning candidate. A UI assina somente o evento canônico `audit.eventAppended` no stream `global` e invalida as queries P2; nenhum nome de evento foi inventado.
+- **Realtime:** o catálogo 1.2 não publica evento específico de learning candidate. A UI assina somente o evento canônico `audit.eventAppended` no stream `global` e invalida as queries P2; nenhum nome de evento foi inventado.
 - **Permissões e masking:** 401/403 seguem o tratamento transversal; ações administrativas exibem seu requisito e preservam o erro contextual. Texto potencialmente sensível é mascarado antes de renderizar. O servidor continua sendo a autoridade de autorização e redaction.
 - **Limite contratual conhecido:** período não existe como parâmetro da listagem P2; portanto datas filtram apenas as páginas já carregadas e a interface informa isso. Projeto, tipo, estado, cursor e limite são filtros server-side.
 - **Homologação real:** `npm run test:e2e:real` percorreu o lifecycle completo contra o Host real até depreciação em desktop, além de smoke responsivo em tablet/mobile, axe, console e assets: 3/3 verdes, zero console error e zero asset 404.

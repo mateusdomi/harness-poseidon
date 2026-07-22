@@ -956,7 +956,19 @@ export class MockApiClient implements ApiClient {
       this.#scheduleChiefPlan(project, parsed.content);
     }
 
-    return { turnId, conversationId: conversation.id };
+    return {
+      turnId,
+      conversationId: conversation.id,
+      state: 'pending',
+      correlationId: `turn:${turnId}`,
+      readiness: { overallState: 'Ready', executionState: 'Ready' },
+      blockers: [],
+      nextActions: [],
+      links: {
+        readiness: `/api/v1/projects/${project.id}/readiness`,
+        conversation: `/api/v1/conversations/${conversation.id}`,
+      },
+    };
   }
 
   /* ---- comandos do chefe (orquestração) ---- */

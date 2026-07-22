@@ -134,11 +134,11 @@ export type ConversationState = z.infer<typeof conversationStateSchema>;
 
 /** Estado do turno do chefe (orquestração visível no chat). */
 export const chiefTurnStateSchema = z.enum([
-  'thinking',
-  'delegating',
-  'waitingApproval',
-  'streaming',
-  'idle',
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+  'blocked',
 ]);
 export type ChiefTurnState = z.infer<typeof chiefTurnStateSchema>;
 

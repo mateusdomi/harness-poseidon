@@ -116,6 +116,40 @@ describe('HttpApiClient — lifecycle de contas', () => {
   });
 });
 
+describe('HttpApiClient — turnos do chat', () => {
+  const blockedHandle = {
+    turnId: 'turn-1',
+    conversationId: 'conversation-1',
+    state: 'blocked',
+    correlationId: 'correlation-1',
+    readiness: { overallState: 'Unconfigured', executionState: 'Blocked' },
+    blockers: [{ code: 'workflow.unbound', relatedIds: ['project-1'] }],
+    nextActions: [{ code: 'workflow.bind', route: '/workflows', resourceId: null }],
+    links: {
+      readiness: '/api/v1/projects/project-1/readiness',
+      conversation: '/api/v1/conversations/conversation-1',
+    },
+  };
+
+  it('normaliza o handle bloqueado retornado com HTTP 202', async () => {
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(blockedHandle, 202));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+
+    await expect(client.startChatTurn('conversation-1', { content: 'Execute.' })).resolves.toEqual(
+      blockedHandle,
+    );
+  });
+
+  it('falha fechado quando o handle 202 diverge do contrato', async () => {
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({ ...blockedHandle, readiness: undefined }, 202),
+    );
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+
+    await expect(client.startChatTurn('conversation-1', { content: 'Execute.' })).rejects.toThrow();
+  });
+});
+
 describe('HttpApiClient — definições de agentes V3', () => {
   it('adapta campos editoriais ao write contract e envia versão esperada', async () => {
     const response = {

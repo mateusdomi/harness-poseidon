@@ -313,11 +313,12 @@
       "archived": "Archived"
     },
     "chiefTurnState": {
-      "thinking": "Thinking",
-      "delegating": "Delegating",
-      "waitingApproval": "Waiting for approval",
-      "streaming": "Streaming",
-      "idle": "Idle"
+      "notStarted": "Not started",
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "blocked": "Blocked"
     },
     "componentState": {
       "enabled": "Enabled",
@@ -1028,11 +1029,11 @@
     "turn": {
       "coordinating": "Chief is coordinating…",
       "states": {
-        "thinking": "thinking",
-        "delegating": "delegating",
-        "waitingApproval": "waiting for approval",
-        "streaming": "replying",
-        "idle": "idle"
+        "pending": "pending",
+        "processing": "processing",
+        "completed": "completed",
+        "failed": "failed",
+        "blocked": "blocked"
       },
       "acknowledged": "Turn registered — the chief will run.",
       "streamingLabel": "Chief response"
@@ -1084,6 +1085,26 @@
       }
     },
     "sendError": "Could not send the message. Please try again.",
+    "turnBlocked": {
+      "title": "Turn registered, execution blocked",
+      "body": "The message was saved. Resolve the blockers below to allow execution.",
+      "readiness": "Overall readiness: {{overall}} · execution: {{execution}}",
+      "technicalDetails": "Technical details",
+      "blockers": {
+        "unknown": "A required dependency is not ready yet.",
+        "provider_account": { "missing": "Connect a provider account." },
+        "model": { "none_chat_enabled": "Enable a chat model." },
+        "workflow": { "unbound": "Bind a workflow to the project." },
+        "chief": { "model_unresolved": "Set the chief model." }
+      },
+      "actions": {
+        "unknown": "Resolve dependency",
+        "provider": { "connectAccount": "Connect a provider account" },
+        "model": { "enable": "Enable a model" },
+        "workflow": { "bind": "Bind a workflow" },
+        "chief": { "configureModel": "Configure the chief model" }
+      }
+    },
     "readiness": {
       "title": "Chief execution blocked",
       "body": "You can write, but the chief only runs once these dependencies are ready:",

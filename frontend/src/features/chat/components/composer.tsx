@@ -18,7 +18,7 @@ export interface ChatAttachment {
 interface ComposerProps {
   models: Model[];
   sending: boolean;
-  disabled: boolean;
+  disabled?: boolean;
   /** Valor inicial (rascunho vindo do cockpit, sugestões, ações rápidas). */
   draft: string;
   onDraftConsumed: () => void;
@@ -34,7 +34,7 @@ const EFFORT_LEVELS: readonly EffortLevel[] = ['low', 'medium', 'high'];
 export function Composer({
   models,
   sending,
-  disabled,
+  disabled = false,
   draft,
   onDraftConsumed,
   onSend,

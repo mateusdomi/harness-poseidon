@@ -167,7 +167,7 @@ export function useLearningCandidateCommand() {
 }
 
 /**
- * O catálogo 1.1 publica learning lifecycle como `audit.eventAppended` no
+ * O catálogo 1.2 publica learning lifecycle como `audit.eventAppended` no
  * stream global. Não existem nomes de evento P2 adicionais; qualquer evento
  * canônico de auditoria invalida o recorte de aprendizado de forma segura.
  */

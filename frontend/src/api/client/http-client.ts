@@ -98,6 +98,7 @@ import {
   type LearningTransition,
   type LearningTransitionInput,
   type ProjectReadinessSnapshot,
+  chatTurnHandleSchema,
   projectReadinessSnapshotSchema,
 } from '../contracts';
 import type { ApiClient } from './api-client';
@@ -283,8 +284,13 @@ export class HttpApiClient implements ApiClient {
     return this.#request('POST', '/notifications/mute', { ids });
   }
 
-  startChatTurn(conversationId: Ulid, input: StartChatTurnInput): Promise<ChatTurnHandle> {
-    return this.#request('POST', `/conversations/${conversationId}/turns`, input);
+  async startChatTurn(conversationId: Ulid, input: StartChatTurnInput): Promise<ChatTurnHandle> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/conversations/${conversationId}/turns`,
+      input,
+    );
+    return chatTurnHandleSchema.parse(response);
   }
 
   pauseChief(projectId: Ulid): Promise<Project> {

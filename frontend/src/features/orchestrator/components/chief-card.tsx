@@ -51,7 +51,7 @@ export interface ChiefCardProps {
   account: Account | null;
   /** Budgets já filtrados (escopo projeto e/ou conta) via `chiefBudgets`. */
   budgets: Budget[];
-  turnState: ChiefTurnState;
+  turnState: ChiefTurnState | null;
   now: Date;
   /** Workflow vinculado ao projeto — pré-requisito de prontidão (§15). */
   hasWorkflow: boolean;
@@ -114,8 +114,10 @@ export function ChiefCard({
           <Badge variant={agentStateVariant(chief.state)}>
             {t(`status.agentState.${chief.state}`)}
           </Badge>
-          <Badge variant={chiefTurnStateVariant(turnState)}>
-            {t(`status.chiefTurnState.${turnState}`)}
+          <Badge variant={turnState === null ? 'outline' : chiefTurnStateVariant(turnState)}>
+            {turnState === null
+              ? t('status.chiefTurnState.notStarted')
+              : t(`status.chiefTurnState.${turnState}`)}
           </Badge>
         </div>
         <p className="text-xs text-foreground-muted">

@@ -313,11 +313,12 @@
       "archived": "Arquivada"
     },
     "chiefTurnState": {
-      "thinking": "Pensando",
-      "delegating": "Delegando",
-      "waitingApproval": "Aguardando aprovação",
-      "streaming": "Respondendo",
-      "idle": "Parado"
+      "notStarted": "Não iniciado",
+      "pending": "Pendente",
+      "processing": "Processando",
+      "completed": "Concluído",
+      "failed": "Falhou",
+      "blocked": "Bloqueado"
     },
     "componentState": {
       "enabled": "Habilitado",
@@ -1028,11 +1029,11 @@
     "turn": {
       "coordinating": "Chefe está coordenando…",
       "states": {
-        "thinking": "pensando",
-        "delegating": "delegando",
-        "waitingApproval": "aguardando aprovação",
-        "streaming": "respondendo",
-        "idle": "ocioso"
+        "pending": "pendente",
+        "processing": "processando",
+        "completed": "concluído",
+        "failed": "falhou",
+        "blocked": "bloqueado"
       },
       "acknowledged": "Turno registrado — o chefe vai executar.",
       "streamingLabel": "Resposta do chefe"
@@ -1084,6 +1085,26 @@
       }
     },
     "sendError": "Não foi possível enviar a mensagem. Tente novamente.",
+    "turnBlocked": {
+      "title": "Turno registrado, execução bloqueada",
+      "body": "A mensagem foi salva. Resolva os bloqueios abaixo para permitir a execução.",
+      "readiness": "Prontidão geral: {{overall}} · execução: {{execution}}",
+      "technicalDetails": "Detalhes técnicos",
+      "blockers": {
+        "unknown": "Uma dependência necessária ainda não está pronta.",
+        "provider_account": { "missing": "Conecte uma conta de provedor." },
+        "model": { "none_chat_enabled": "Habilite um modelo de chat." },
+        "workflow": { "unbound": "Vincule um workflow ao projeto." },
+        "chief": { "model_unresolved": "Defina o modelo do chefe." }
+      },
+      "actions": {
+        "unknown": "Resolver dependência",
+        "provider": { "connectAccount": "Conectar conta de provedor" },
+        "model": { "enable": "Habilitar modelo" },
+        "workflow": { "bind": "Vincular workflow" },
+        "chief": { "configureModel": "Configurar modelo do chefe" }
+      }
+    },
     "readiness": {
       "title": "Execução do chefe bloqueada",
       "body": "Você pode escrever, mas o chefe só executa quando estas dependências estiverem prontas:",

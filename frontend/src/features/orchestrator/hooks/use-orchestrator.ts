@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -153,10 +153,16 @@ export function useEnabledModels() {
 /**
  * Estado do turno do chefe em tempo real: assina os streams das conversas
  * do projeto e guarda o ÚLTIMO estado recebido de `chief.turnStateChanged`
- * (padrão 'idle' antes de qualquer evento).
+ * (padrão `completed` antes de qualquer evento, pois o catálogo não publica
+ * um estado ocioso).
  */
-export function useChiefTurnState(conversationIds: readonly Ulid[]): ChiefTurnState {
-  const [turnState, setTurnState] = useState<ChiefTurnState>('idle');
+export function useChiefTurnState(conversationIds: readonly Ulid[]): ChiefTurnState | null {
+  const [turnState, setTurnState] = useState<ChiefTurnState | null>(null);
+  const conversationKey = conversationIds.join(':');
+
+  // A ausência de evento não prova sucesso. Uma troca de conjunto de conversas
+  // volta explicitamente ao estado inicial até o stream publicar uma transição.
+  useEffect(() => setTurnState(null), [conversationKey]);
 
   useRealtimeStream(
     conversationIds.length === 0 ? null : conversationIds.map((id) => streams.conversation(id)),

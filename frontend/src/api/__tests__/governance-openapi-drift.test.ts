@@ -118,8 +118,8 @@ describe('drift do OpenAPI e eventos de governança P1/P2', () => {
     }
   });
 
-  it('usa somente o evento canônico 1.1 publicado para atualização P2', () => {
-    expect(events.version).toBe('1.1');
+  it('usa somente o evento canônico 1.2 publicado para atualização P2', () => {
+    expect(events.version).toBe('1.2');
     expect(events.envelope.required).toEqual(expect.arrayContaining(['stream', 'sequence', 'type', 'occurredAt', 'payload']));
     expect(events.events).toContain('audit.eventAppended');
     expect(events.events.some((event) => /learning|candidate|shadow|promot|rollback|deprecat/i.test(event))).toBe(false);

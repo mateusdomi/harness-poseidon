@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   agentStateSchema,
   approvalStateSchema,
-  chiefTurnStateSchema,
   componentStateSchema,
   documentStateSchema,
   gateStateSchema,
@@ -143,15 +142,77 @@ export const quotaUpdatedPayloadSchema = z.object({
   limitUsd: z.number().nonnegative().nullable(),
 });
 export const chiefTurnStateChangedPayloadSchema = z.object({
-  conversationId: ulidSchema,
-  turnId: ulidSchema.nullable(),
-  state: chiefTurnStateSchema,
+  turnId: z.string(),
+  conversationId: z.string(),
+  projectId: z.string(),
+  state: z.enum(['pending', 'processing', 'completed', 'failed', 'blocked']),
+  errorCode: z.string().nullable().optional(),
 });
 
-/* ---- eventos do catálogo canônico docs/contracts/events.json (FR-5) ----
- * Nomes publicados pelo backend; payloads propostos pelo frontend seguindo
- * o padrão dos demais (documentado no HANDOFF_API.md).
- */
+export const agentRunStateChangedPayloadSchema = z.object({
+  runId: z.string(),
+  attemptId: z.string(),
+  projectId: z.string(),
+  state: z.enum(['accepted', 'running', 'completed', 'failed', 'cancelled', 'scopeconflict', 'rejected']),
+  accountAlias: z.string(),
+  role: z.string(),
+});
+
+const turnContextPayloadFields = {
+  turnId: z.string(),
+  conversationId: z.string(),
+  projectId: z.string(),
+  modelId: z.string().nullable().optional(),
+  effort: z.string().nullable().optional(),
+};
+
+export const readinessChangedPayloadSchema = z.object({
+  projectId: z.string(),
+  overallState: z.string(),
+  changedSteps: z.array(z.object({ step: z.string(), state: z.string() })),
+});
+export const messageReceivedPayloadSchema = z.object({
+  ...turnContextPayloadFields,
+  extra: z.object({ messageId: z.string().optional() }).nullable().optional(),
+});
+export const turnRegisteredPayloadSchema = z.object({
+  ...turnContextPayloadFields,
+  extra: z.object({}).passthrough().nullable().optional(),
+});
+export const executionEnqueuedPayloadSchema = z.object({
+  ...turnContextPayloadFields,
+  extra: z.object({}).passthrough().nullable().optional(),
+});
+export const executionBlockedPayloadSchema = z.object({
+  turnId: z.string(),
+  conversationId: z.string(),
+  projectId: z.string(),
+  readinessState: z.string(),
+  correlationId: z.string(),
+  blockers: z.array(z.object({ code: z.string(), relatedIds: z.array(z.string()) })),
+  nextActions: z.array(z.object({ code: z.string(), route: z.string(), resourceId: z.string().nullable() })),
+});
+export const providerInvokedPayloadSchema = z.object({
+  turnId: z.string(),
+  conversationId: z.string(),
+  projectId: z.string(),
+  accountId: z.string().nullable().optional(),
+  modelId: z.string().nullable().optional(),
+  modelName: z.string().nullable().optional(),
+  effort: z.string().nullable().optional(),
+  providerEffortValue: z.string().nullable().optional(),
+  attempt: z.number().int().min(1),
+});
+export const modelRespondedPayloadSchema = z.object({
+  turnId: z.string(),
+  conversationId: z.string(),
+  projectId: z.string(),
+  messageId: z.string(),
+  modelId: z.string().nullable().optional(),
+  modelName: z.string().nullable().optional(),
+});
+
+/* ---- eventos do catálogo canônico docs/contracts/events.json (FR-5) ---- */
 
 /** Decisão de roteamento/orquestração solicitada ao usuário. */
 export const decisionRequestedPayloadSchema = z.object({
@@ -174,19 +235,6 @@ export const prototypeCreatedPayloadSchema = z.object({ prototype: prototypeSche
 
 /* ---- mapa tipo → schema de payload ---- */
 
-/**
- * Eventos declarados no catálogo canônico 1.1 cujo **payload ainda não é
- * publicado** pelo backend (só o nome entra em `docs/contracts/events.json`,
- * e nenhum publisher emite payload ainda).
- *
- * Aceitamos qualquer objeto em vez de inventar campos: a UI reage apenas à
- * OCORRÊNCIA do evento (ex.: `readiness.changed` invalida o snapshot de
- * prontidão). Quando o backend publicar o payload, estes schemas viram
- * tipados e o teste de drift continua protegendo o catálogo.
- * Registrado em `docs/frontend/HANDOFF_API.md`.
- */
-const undocumentedPayloadSchema = z.object({}).passthrough();
-
 export const EVENT_PAYLOAD_SCHEMAS = {
   'chat.turnStarted': chatTurnStartedPayloadSchema,
   'chat.turnChunk': chatTurnChunkPayloadSchema,
@@ -207,6 +255,7 @@ export const EVENT_PAYLOAD_SCHEMAS = {
   'workflow.versionPublished': workflowVersionPublishedPayloadSchema,
   'notification.created': notificationCreatedPayloadSchema,
   'agent.statusChanged': agentStatusChangedPayloadSchema,
+  'agentRun.stateChanged': agentRunStateChangedPayloadSchema,
   'tool.statusChanged': toolStatusChangedPayloadSchema,
   'audit.eventAppended': auditEventAppendedPayloadSchema,
   'run.logAppended': runLogAppendedPayloadSchema,
@@ -217,14 +266,14 @@ export const EVENT_PAYLOAD_SCHEMAS = {
   'decision.resolved': decisionResolvedPayloadSchema,
   'project.created': projectCreatedPayloadSchema,
   'prototype.created': prototypeCreatedPayloadSchema,
-  /* ---- catálogo 1.1: payload ainda não publicado (ver nota acima) ---- */
-  'readiness.changed': undocumentedPayloadSchema,
-  'execution.blocked': undocumentedPayloadSchema,
-  'execution.enqueued': undocumentedPayloadSchema,
-  'message.received': undocumentedPayloadSchema,
-  'model.responded': undocumentedPayloadSchema,
-  'provider.invoked': undocumentedPayloadSchema,
-  'turn.registered': undocumentedPayloadSchema,
+  /* ---- payloads publicados no catálogo 1.2 ---- */
+  'readiness.changed': readinessChangedPayloadSchema,
+  'execution.blocked': executionBlockedPayloadSchema,
+  'execution.enqueued': executionEnqueuedPayloadSchema,
+  'message.received': messageReceivedPayloadSchema,
+  'model.responded': modelRespondedPayloadSchema,
+  'provider.invoked': providerInvokedPayloadSchema,
+  'turn.registered': turnRegisteredPayloadSchema,
 } as const;
 
 export type EventType = keyof typeof EVENT_PAYLOAD_SCHEMAS;
@@ -267,6 +316,7 @@ export const eventEnvelopeSchema = z.discriminatedUnion('type', [
   z.object({ ...envelopeBase, type: z.literal('workflow.versionPublished'), payload: workflowVersionPublishedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('notification.created'), payload: notificationCreatedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('agent.statusChanged'), payload: agentStatusChangedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('agentRun.stateChanged'), payload: agentRunStateChangedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('tool.statusChanged'), payload: toolStatusChangedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('audit.eventAppended'), payload: auditEventAppendedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('run.logAppended'), payload: runLogAppendedPayloadSchema }),
@@ -277,13 +327,13 @@ export const eventEnvelopeSchema = z.discriminatedUnion('type', [
   z.object({ ...envelopeBase, type: z.literal('decision.resolved'), payload: decisionResolvedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('project.created'), payload: projectCreatedPayloadSchema }),
   z.object({ ...envelopeBase, type: z.literal('prototype.created'), payload: prototypeCreatedPayloadSchema }),
-  z.object({ ...envelopeBase, type: z.literal('readiness.changed'), payload: undocumentedPayloadSchema }),
-  z.object({ ...envelopeBase, type: z.literal('execution.blocked'), payload: undocumentedPayloadSchema }),
-  z.object({ ...envelopeBase, type: z.literal('execution.enqueued'), payload: undocumentedPayloadSchema }),
-  z.object({ ...envelopeBase, type: z.literal('message.received'), payload: undocumentedPayloadSchema }),
-  z.object({ ...envelopeBase, type: z.literal('model.responded'), payload: undocumentedPayloadSchema }),
-  z.object({ ...envelopeBase, type: z.literal('provider.invoked'), payload: undocumentedPayloadSchema }),
-  z.object({ ...envelopeBase, type: z.literal('turn.registered'), payload: undocumentedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('readiness.changed'), payload: readinessChangedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('execution.blocked'), payload: executionBlockedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('execution.enqueued'), payload: executionEnqueuedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('message.received'), payload: messageReceivedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('model.responded'), payload: modelRespondedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('provider.invoked'), payload: providerInvokedPayloadSchema }),
+  z.object({ ...envelopeBase, type: z.literal('turn.registered'), payload: turnRegisteredPayloadSchema }),
 ]);
 
 /** Snapshot canônico retornado pelo hub e pelo fallback HTTP de re-sync. */

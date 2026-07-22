@@ -178,11 +178,11 @@ export function workflowContentStateVariant(state: WorkflowContentState): BadgeP
 
 /** Estado do turno do chefe: atenção só quando aguarda aprovação humana. */
 export const CHIEF_TURN_STATE_VARIANTS: Record<ChiefTurnState, BadgeProps['variant']> = {
-  thinking: 'info',
-  delegating: 'info',
-  waitingApproval: 'warning',
-  streaming: 'brand',
-  idle: 'outline',
+  pending: 'warning',
+  processing: 'brand',
+  completed: 'success',
+  failed: 'error',
+  blocked: 'warning',
 };
 
 export function chiefTurnStateVariant(state: ChiefTurnState): BadgeProps['variant'] {

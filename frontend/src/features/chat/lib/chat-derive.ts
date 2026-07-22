@@ -25,15 +25,15 @@ export function isTurnActive(turn: TurnStream): boolean {
 export function reduceChatTurn(prev: TurnStream, event: EventEnvelope): TurnStream {
   switch (event.type) {
     case 'chat.turnStarted':
-      return { turnId: event.payload.turnId, text: '', phase: 'thinking' };
+      return { turnId: event.payload.turnId, text: '', phase: 'pending' };
     case 'chat.turnChunk':
       if (prev.turnId === null || event.payload.turnId !== prev.turnId) return prev;
-      return { ...prev, text: prev.text + event.payload.text, phase: 'streaming' };
+      return { ...prev, text: prev.text + event.payload.text, phase: 'processing' };
     case 'chat.turnCompleted':
       return IDLE_TURN;
     case 'chief.turnStateChanged':
-      if (event.payload.state === 'idle') return IDLE_TURN;
-      return { ...prev, turnId: event.payload.turnId ?? prev.turnId, phase: event.payload.state };
+      if (['completed', 'failed', 'blocked'].includes(event.payload.state)) return IDLE_TURN;
+      return { ...prev, turnId: event.payload.turnId, phase: event.payload.state };
     default:
       return prev;
   }

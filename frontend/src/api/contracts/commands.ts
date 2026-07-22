@@ -156,10 +156,38 @@ export const startChatTurnInputSchema = z.object({
 });
 export type StartChatTurnInput = z.infer<typeof startChatTurnInputSchema>;
 
+export const chatTurnStateSchema = z.enum([
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+  'blocked',
+]);
+
 export const chatTurnHandleSchema = z.object({
   turnId: z.string(),
   conversationId: z.string(),
+  state: chatTurnStateSchema,
+  correlationId: z.string(),
+  readiness: z.object({
+    overallState: z.string(),
+    executionState: z.string(),
+  }),
+  blockers: z.array(z.object({
+    code: z.string(),
+    relatedIds: z.array(z.string()),
+  })),
+  nextActions: z.array(z.object({
+    code: z.string(),
+    route: z.string(),
+    resourceId: z.string().nullable(),
+  })),
+  links: z.object({
+    readiness: z.string(),
+    conversation: z.string(),
+  }),
 });
+export type ChatTurnState = z.infer<typeof chatTurnStateSchema>;
 export type ChatTurnHandle = z.infer<typeof chatTurnHandleSchema>;
 
 /**

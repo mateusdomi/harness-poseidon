@@ -160,7 +160,7 @@ describe('OrchestratorPage', () => {
     expect(screen.getByText('Manual')).toBeInTheDocument();
     // Heartbeat das fixtures é antigo → saúde "Atenção".
     expect(screen.getByText('Atenção')).toBeInTheDocument();
-    expect(screen.getByText('Parado')).toBeInTheDocument(); // turno: idle padrão
+    expect(screen.getByText('Não iniciado')).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Drenar tarefas' })).toBeInTheDocument();
@@ -220,18 +220,46 @@ describe('OrchestratorPage', () => {
     const bundle = createTestBundle();
     renderOrchestrator(bundle);
 
-    expect(await screen.findByText('Parado')).toBeInTheDocument();
+    expect(await screen.findByText('Não iniciado')).toBeInTheDocument();
     const conversation = bundle.fixtures.data.conversations.find(
       (entry) => entry.projectId === project.id,
     )!;
     act(() => {
       bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
         conversationId: conversation.id,
-        turnId: null,
-        state: 'thinking',
+        turnId: project.id,
+        projectId: project.id,
+        state: 'pending',
       });
     });
-    expect(await screen.findByText('Pensando')).toBeInTheDocument();
+    expect(await screen.findByText('Pendente')).toBeInTheDocument();
+    act(() => {
+      bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
+        conversationId: conversation.id,
+        turnId: project.id,
+        projectId: project.id,
+        state: 'processing',
+      });
+    });
+    expect(await screen.findByText('Processando')).toBeInTheDocument();
+    act(() => {
+      bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
+        conversationId: conversation.id,
+        turnId: project.id,
+        projectId: project.id,
+        state: 'completed',
+      });
+    });
+    expect(await screen.findByText('Concluído')).toBeInTheDocument();
+    act(() => {
+      bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
+        conversationId: conversation.id,
+        turnId: project.id,
+        projectId: project.id,
+        state: 'failed',
+      });
+    });
+    expect(await screen.findByText('Falhou')).toBeInTheDocument();
   });
 
   it('pausa e retoma a orquestração do chefe', async () => {

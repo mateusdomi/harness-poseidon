@@ -118,10 +118,10 @@ test.describe('Golden path — UX transversal', () => {
     // ambas o declaram, então basta que esteja visível.
     await expect(page.getByText('Nenhum workflow vinculado ao projeto.').first()).toBeVisible();
 
-    // Chat: execução bloqueada COM motivo; o composer não esconde a razão.
+    // Chat: execução bloqueada COM motivo; o backend ainda aceita o turno.
     await navTo(page, 'Chat');
     await expect(page.getByText('Execução do chefe bloqueada')).toBeVisible();
-    await expect(page.getByLabel('Mensagem para o chefe')).toBeDisabled();
+    await expect(page.getByLabel('Mensagem para o chefe')).toBeEnabled();
     // Sem conversa, a CTA de criar conversa não é duplicada no cabeçalho.
     await expect(page.getByRole('button', { name: 'Nova conversa' })).toHaveCount(0);
 

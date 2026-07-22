@@ -314,10 +314,14 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   const executable = execution?.state === 'Ready' || execution?.state === 'Simulated';
 
   if (!executable) {
-    // A UI precisa refletir o read model: bloqueio visível, motivo explicado e
-    // envio desabilitado — nunca um composer que dispara 400 no backend.
+    // A UI reflete o read model, mas envia: o backend persiste a mensagem e
+    // devolve o bloqueio tipado no handle 202.
     await expect(page.getByRole('heading', { name: 'Execução do chefe bloqueada' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Mensagem para o chefe' })).toBeDisabled();
+    const composer = page.getByRole('textbox', { name: 'Mensagem para o chefe' });
+    await expect(composer).toBeEnabled();
+    await composer.fill('Registre este turno bloqueado.');
+    await page.getByRole('button', { name: 'Enviar mensagem' }).click();
+    await expect(page.getByText('Turno registrado, execução bloqueada')).toBeVisible();
     for (const blocker of execution?.blockers ?? []) {
       expect(
         ['provider_account.missing', 'model.none_chat_enabled', 'workflow.unbound', 'chief.model_unresolved'],

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   EVENT_TYPES,
+  chatTurnHandleSchema,
   eventEnvelopeSchema,
   parseEventEnvelope,
   RESOURCE_KINDS,
@@ -47,25 +48,24 @@ function sampleEnvelopes(): Record<EventType, EventEnvelope> {
     'workflow.versionPublished': { ...base, type: 'workflow.versionPublished', payload: { templateId: d['workflow-templates'][0].id, versionId: d['workflow-versions'][0].id, version: 1 } },
     'notification.created': { ...base, stream: streams.profile(d.profiles[0].id), type: 'notification.created', payload: { notification: d.notifications[0] } },
     'agent.statusChanged': { ...base, stream: streams.global(), type: 'agent.statusChanged', payload: { agentId: d.agents[0].id, from: 'idle', to: 'working', currentTaskId: task.id } },
+    'agentRun.stateChanged': { ...base, type: 'agentRun.stateChanged', payload: { runId: d['workflow-runs'][0].id, attemptId: attempt.id, projectId: project.id, state: 'running', accountAlias: 'chief-primary', role: 'chief' } },
     'tool.statusChanged': { ...base, stream: streams.global(), type: 'tool.statusChanged', payload: { toolId: d.tools[0].id, from: 'enabled', to: 'error' } },
     'audit.eventAppended': { ...base, stream: streams.global(), type: 'audit.eventAppended', payload: { auditEvent: d['audit-events'][0] } },
     'run.logAppended': { ...base, stream: streams.run(d['workflow-runs'][0].id), type: 'run.logAppended', payload: { runId: d['workflow-runs'][0].id, attemptId: null, line: '[12:00:00] fase Validação iniciada' } },
     'progress.updated': { ...base, type: 'progress.updated', payload: { taskId: task.id, track: 'executed', value: 55, progress: { executed: 55, validated: 0, approved: 0 } } },
     'quota.updated': { ...base, type: 'quota.updated', payload: { accountId: d.accounts[0].id, budgetId: null, usedUsd: 88.1, limitUsd: 150 } },
-    'chief.turnStateChanged': { ...base, stream: streams.conversation(conversation.id), type: 'chief.turnStateChanged', payload: { conversationId: conversation.id, turnId: task.id, state: 'delegating' } },
+    'chief.turnStateChanged': { ...base, stream: streams.conversation(conversation.id), type: 'chief.turnStateChanged', payload: { conversationId: conversation.id, turnId: task.id, projectId: project.id, state: 'pending' } },
     'decision.requested': { ...base, type: 'decision.requested', payload: { decisionId: approval.id, projectId: project.id, title: 'Trocar modelo do revisor?', reason: 'quota', requestedByAgentId: project.chiefAgentId } },
     'decision.resolved': { ...base, type: 'decision.resolved', payload: { decisionId: approval.id, outcome: 'approved', resolvedByProfileId: d.profiles[0].id, note: null } },
     'project.created': { ...base, stream: streams.global(), type: 'project.created', payload: { project } },
     'prototype.created': { ...base, type: 'prototype.created', payload: { prototype: d.prototypes[0] } },
-    // Catálogo 1.1 com payload ainda não publicado pelo backend: validamos o
-    // envelope, não campos que ninguém especificou.
-    'readiness.changed': { ...base, type: 'readiness.changed', payload: { projectId: project.id } },
-    'execution.blocked': { ...base, type: 'execution.blocked', payload: { projectId: project.id } },
-    'execution.enqueued': { ...base, type: 'execution.enqueued', payload: { projectId: project.id } },
-    'message.received': { ...base, type: 'message.received', payload: { conversationId: conversation.id } },
-    'model.responded': { ...base, type: 'model.responded', payload: { modelId: d.models[0].id } },
-    'provider.invoked': { ...base, type: 'provider.invoked', payload: { providerId: d.providers[0].id } },
-    'turn.registered': { ...base, type: 'turn.registered', payload: { conversationId: conversation.id } },
+    'readiness.changed': { ...base, type: 'readiness.changed', payload: { projectId: project.id, overallState: 'Ready', changedSteps: [{ step: 'ExecutionReady', state: 'Ready' }] } },
+    'execution.blocked': { ...base, type: 'execution.blocked', payload: { turnId: task.id, conversationId: conversation.id, projectId: project.id, readinessState: 'Unconfigured', correlationId: `turn:${task.id}`, blockers: [{ code: 'workflow.unbound', relatedIds: [] }], nextActions: [{ code: 'workflow.bind', route: '/workflows', resourceId: null }] } },
+    'execution.enqueued': { ...base, type: 'execution.enqueued', payload: { turnId: task.id, conversationId: conversation.id, projectId: project.id } },
+    'message.received': { ...base, type: 'message.received', payload: { turnId: task.id, conversationId: conversation.id, projectId: project.id, extra: { messageId: d.messages[0].id } } },
+    'model.responded': { ...base, type: 'model.responded', payload: { turnId: task.id, conversationId: conversation.id, projectId: project.id, messageId: d.messages[0].id, modelId: d.models[0].id } },
+    'provider.invoked': { ...base, type: 'provider.invoked', payload: { turnId: task.id, conversationId: conversation.id, projectId: project.id, accountId: d.accounts[0].id, modelId: d.models[0].id, attempt: 1 } },
+    'turn.registered': { ...base, type: 'turn.registered', payload: { turnId: task.id, conversationId: conversation.id, projectId: project.id } },
   };
 }
 
@@ -93,7 +93,7 @@ describe('contracts: envelope de evento', () => {
     // drift cobre a paridade nos dois sentidos; aqui garantimos a contagem.
     const catalogPath = resolve(process.cwd(), '..', 'docs', 'contracts', 'events.json');
     const catalog = JSON.parse(readFileSync(catalogPath, 'utf-8')) as { events: string[] };
-    expect(EVENT_TYPES).toHaveLength(catalog.events.length);
+    expect([...EVENT_TYPES].sort()).toEqual([...catalog.events].sort());
   });
 
   it.each(EVENT_TYPES)('envelope "%s" faz round-trip JSON → parse', (type) => {
@@ -114,5 +114,20 @@ describe('contracts: envelope de evento', () => {
         payload: { taskId: 'não-é-ulid', from: 'ready', to: 'development' },
       }),
     ).toThrow();
+  });
+});
+
+describe('contracts: handle de turno', () => {
+  it('aceita o retorno 202 de turno bloqueado', () => {
+    expect(chatTurnHandleSchema.parse({
+      turnId: 'turn-1',
+      conversationId: 'conversation-1',
+      state: 'blocked',
+      correlationId: 'turn:turn-1',
+      readiness: { overallState: 'Unconfigured', executionState: 'Unconfigured' },
+      blockers: [{ code: 'workflow.unbound', relatedIds: [] }],
+      nextActions: [{ code: 'workflow.bind', route: '/workflows', resourceId: null }],
+      links: { readiness: '/api/v1/projects/project-1/readiness', conversation: '/api/v1/conversations/conversation-1' },
+    }).state).toBe('blocked');
   });
 });

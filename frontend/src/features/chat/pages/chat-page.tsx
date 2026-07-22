@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MessagesSquare, PanelRight, Plus } from 'lucide-react';
 
-import type { ReadinessStep, Ulid } from '@/api';
+import type { ChatTurnHandle, ReadinessStep, Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton } from '@/design-system';
 import { useMediaQuery } from '@/features/board/hooks/use-media-query';
 import { Composer, type ChatAttachment } from '@/features/chat/components/composer';
@@ -59,6 +59,18 @@ export default function ChatPage() {
 
   const messagesQuery = useMessages(conversationId);
   const sendMessage = useSendMessage(conversationId);
+  const resetSendMessage = sendMessage.reset;
+  const [blockedTurn, setBlockedTurn] = useState<ChatTurnHandle | null>(null);
+  useEffect(() => {
+    resetSendMessage();
+    setBlockedTurn(null);
+  }, [conversationId, resetSendMessage]);
+
+  const submitTurn = (content: string) => {
+    sendMessage.mutate(content, {
+      onSuccess: (handle) => setBlockedTurn(handle.state === 'blocked' ? handle : null),
+    });
+  };
   /**
    * Envio pendente de uma conversa recém-criada: a mutation é ligada ao id da
    * conversa, então guardamos o conteúdo e disparamos quando o id passa a ser
@@ -93,7 +105,7 @@ export default function ChatPage() {
   // Dispara o envio pendente assim que a conversa criada vira a corrente.
   useEffect(() => {
     if (pendingSend && pendingSend.conversationId === conversationId) {
-      sendMessage.mutate(pendingSend.content);
+      submitTurn(pendingSend.content);
       setPendingSend(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,7 +131,7 @@ export default function ChatPage() {
         : content;
 
     if (conversationId) {
-      sendMessage.mutate(withAttachments);
+      submitTurn(withAttachments);
       return;
     }
     if (!projectId || creatingRef.current) return;
@@ -345,7 +357,7 @@ export default function ChatPage() {
                     {turn.text === ''
                       ? t('chat.turn.acknowledged')
                       : t('chat.turn.coordinating')}
-                    {turn.phase && turn.phase !== 'streaming' && (
+                    {turn.phase && (
                       <span> · {t(`chat.turn.states.${turn.phase}`)}</span>
                     )}
                   </span>
@@ -382,6 +394,49 @@ export default function ChatPage() {
         </p>
       )}
 
+      {blockedTurn && (
+        <Card role="status" className="border-warning/40">
+          <CardContent className="flex flex-col gap-3 p-4">
+            <div>
+              <p className="font-medium">{t('chat.turnBlocked.title')}</p>
+              <p className="text-sm text-foreground-muted">{t('chat.turnBlocked.body')}</p>
+              <p className="mt-1 text-xs text-foreground-muted">
+                {t('chat.turnBlocked.readiness', {
+                  overall: blockedTurn.readiness.overallState,
+                  execution: blockedTurn.readiness.executionState,
+                })}
+              </p>
+            </div>
+            <ul className="space-y-1 text-sm">
+              {blockedTurn.blockers.map((blocker) => (
+                <li key={`${blocker.code}:${blocker.relatedIds.join(',')}`}>
+                  {t(`chat.turnBlocked.blockers.${blocker.code}`, {
+                    defaultValue: t('chat.turnBlocked.blockers.unknown'),
+                  })}
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-2">
+              {blockedTurn.nextActions.map((action) => (
+                <Button key={`${action.code}:${action.route}`} asChild variant="outline" size="sm">
+                  <Link to={action.route}>
+                    {t(`chat.turnBlocked.actions.${action.code}`, {
+                      defaultValue: t('chat.turnBlocked.actions.unknown'),
+                    })}
+                  </Link>
+                </Button>
+              ))}
+            </div>
+            <details className="text-xs text-foreground-muted">
+              <summary>{t('chat.turnBlocked.technicalDetails')}</summary>
+              <code>
+                {[...blockedTurn.blockers.map((item) => item.code), ...blockedTurn.nextActions.map((item) => item.code)].join(', ')}
+              </code>
+            </details>
+          </CardContent>
+        </Card>
+      )}
+
       {conversation && !turnActive && (
         <QuickActions
           actions={quickActions}
@@ -392,12 +447,11 @@ export default function ChatPage() {
         />
       )}
 
-      {/* O composer fica pronto mesmo sem conversa: ela é criada ao enviar.
-          Só a falta de pré-requisito real de execução o desabilita. */}
+      {/* O backend aceita e persiste também turnos bloqueados; o handle 202
+          informa `state`, bloqueios e próximas ações. */}
       <Composer
         models={modelsQuery.data ?? []}
         sending={sendMessage.isPending || turnActive || createConversation.isPending}
-        disabled={!canExecute}
         draft={draft}
         onDraftConsumed={() => setDraft('')}
         onSend={(content, attachments) => void send(content, attachments)}

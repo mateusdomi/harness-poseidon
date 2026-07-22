@@ -503,7 +503,12 @@ Registro de decisões de engenharia e suposições não bloqueadoras, conforme o
 - **Justificativa:** o Host real cria o agente `Chief — {key}` na **mesma transação** da criação do projeto (`SqliteProjectStore`/`PostgresProjectStore`), invariante que as fixtures do mock já refletiam mas que `create` não cumpria — deixava um `chiefAgentId` órfão (o comentário no código dizia "backend vincula o chefe provisionado"). Sem o agente, o readiness canônico reporta `chief.missing` e o modo mock nunca alcançaria `ExecutionReady`. A mudança **aproxima** o mock do backend real; não é contorno de defeito.
 - **Correção de registro:** uma versão anterior desta decisão (e do HANDOFF §9.1.1) afirmava que o backend **não** provisionava o Chief. Estava errado — a conclusão vinha de um `grep` em `ProjectEndpoints.cs`, e o provisionamento está na persistência. Verificado contra o Host real antes desta correção.
 
-## D-116 — Evento novo sem payload publicado recebe schema permissivo, não inventado
+## D-116 — Evento novo sem payload publicado recebe schema permissivo, não inventado (supersedida por D-117)
 
 - **Decisão:** os sete eventos que o catálogo 1.1 passou a listar sem payload especificado (`readiness.changed`, `execution.blocked`, `execution.enqueued`, `message.received`, `model.responded`, `provider.invoked`, `turn.registered`) usam `z.object({}).passthrough()`. O teste de contagem deixou de usar número mágico e passou a ler `docs/contracts/events.json`.
 - **Justificativa:** o teste de drift exige que todo evento canônico tenha schema no frontend, mas adivinhar campos criaria contrato falso que quebraria na primeira emissão real. A UI só precisa da ocorrência do evento (invalidar a query). Quando o backend publicar os payloads, os schemas viram tipados sem mudar a UI.
+
+## D-117 — C2/C3 substituem o bloqueio por erro e os schemas permissivos
+
+- **Decisão:** o contrato C2 mantém o composer disponível e trata o handle `202` como autoridade para `state`, `blockers[]` e `nextActions[]`; esta decisão substitui a parte de D-113 que desabilitava o envio. O catálogo 1.2 tipa os payloads publicados, inclui `agentRun.stateChanged` e substitui D-116 para esses eventos.
+- **Justificativa:** o backend agora persiste a mensagem mesmo quando a execução está bloqueada. Tratar falta de prontidão como `400` perderia o novo estado durável; manter schemas permissivos ignoraria campos e enums que já são canônicos.

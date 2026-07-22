@@ -66,7 +66,7 @@ test.describe('Gate FE-1', () => {
     // fica honestamente bloqueada. Vinculamos o workflow recomendado (§14).
     await navTo(page, 'Chat');
     await expect(page.getByText('Execução do chefe bloqueada')).toBeVisible();
-    await expect(page.getByLabel('Mensagem para o chefe')).toBeDisabled();
+    await expect(page.getByLabel('Mensagem para o chefe')).toBeEnabled();
 
     await navTo(page, 'Fluxos de trabalho');
     await page.getByRole('button', { name: 'Usar workflow recomendado' }).click();

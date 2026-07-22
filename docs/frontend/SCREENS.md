@@ -182,7 +182,7 @@ Legenda: ✅ presente · ➖ não se aplica (justificado)
 ## 18. governance — `/governance`
 
 - **Dados:** auditoria + correlações; P1 (receipts/métricas, avaliação independente, stale docs, hashline/benchmark, executores e diagnóstico); P2 (learning candidates, evidência, comparação, histórico e métricas).
-- **Realtime:** stream `global` — somente o evento canônico `audit.eventAppended`, que invalida auditoria e queries P2. O catálogo 1.1 ainda não publica evento específico de learning.
+- **Realtime:** stream `global` — somente o evento canônico `audit.eventAppended`, que invalida auditoria e queries P2. O catálogo 1.2 ainda não publica evento específico de learning.
 - **Ações:** exportação JSON/CSV da auditoria; no P2, revisão, solicitação/registro da avaliação independente, shadow validation, aprovação/rejeição, promoção manual confirmada, rollback e depreciação.
 - **Estados:** vazio orientado, skeleton, erro com retry, permissão negada, masking e reconexão global. A lista P2 é cursor-paginada; o período atua somente sobre páginas carregadas porque o contrato não possui esse parâmetro.
 
