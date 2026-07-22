@@ -199,7 +199,7 @@ public sealed class AccountProfileProvisionerTests : IDisposable
         var alias = "worker-codex-frontend";
         provisioner.Ensure(Account(alias, ExecutorCatalog.Codex), Profile(ExecutorCatalog.Codex), Now);
 
-        var first = provisioner.AcquireLock(alias, "owner-1", Now, TimeSpan.FromMinutes(5), 4242);
+        var first = provisioner.AcquireLock(alias, "owner-1", Now, TimeSpan.FromMinutes(5), processId: 4242);
         Assert.Equal(1, first.FencingToken);
         Assert.Equal(4242, first.ProcessId);
 
@@ -219,6 +219,39 @@ public sealed class AccountProfileProvisionerTests : IDisposable
 
         provisioner.ReleaseLock(alias, second.FencingToken);
         Assert.Null(provisioner.ReadLock(alias));
+    }
+
+    [Fact]
+    public void TheProfileSemaphoreAllowsMultipleInstancesOfTheSameAccountUpToTheLimit()
+    {
+        // Gap 3: N instâncias da MESMA conta (donos distintos) ocupam slots concorrentes até
+        // o limite; o excedente é recusado; liberar um slot abre vaga; um dono antigo não
+        // libera o slot de outro.
+        var provisioner = Provisioner();
+        var alias = "worker-glm-general";
+        provisioner.Ensure(Account(alias, ExecutorCatalog.Glm), Profile(ExecutorCatalog.Glm), Now);
+
+        var a = provisioner.AcquireLock(alias, "attempt-a", Now, TimeSpan.FromMinutes(5), concurrencyLimit: 3);
+        var b = provisioner.AcquireLock(alias, "attempt-b", Now, TimeSpan.FromMinutes(5), concurrencyLimit: 3);
+        var c = provisioner.AcquireLock(alias, "attempt-c", Now, TimeSpan.FromMinutes(5), concurrencyLimit: 3);
+        Assert.Equal([1L, 2L, 3L], new[] { a.FencingToken, b.FencingToken, c.FencingToken });
+
+        // Idempotente por dono: reentrar NÃO consome outro slot.
+        Assert.Equal(a.FencingToken, provisioner.AcquireLock(alias, "attempt-a", Now, TimeSpan.FromMinutes(5), concurrencyLimit: 3).FencingToken);
+
+        // Cheio (3/3): a quarta instância é recusada.
+        var full = Assert.Throws<AgentAccountValidationException>(
+            () => provisioner.AcquireLock(alias, "attempt-d", Now, TimeSpan.FromMinutes(5), concurrencyLimit: 3));
+        Assert.Equal("profile.concurrency_exhausted", full.Code);
+
+        // Um dono antigo não libera o slot de outro.
+        Assert.Throws<AgentAccountValidationException>(() => provisioner.ReleaseLock(alias, 999));
+
+        // Liberar um slot abre vaga para a próxima instância, com fencing MAIOR.
+        provisioner.ReleaseLock(alias, b.FencingToken);
+        var d = provisioner.AcquireLock(alias, "attempt-d", Now, TimeSpan.FromMinutes(5), concurrencyLimit: 3);
+        Assert.Equal(4L, d.FencingToken);
+        Assert.Equal(3, provisioner.ReadLocks(alias).Count);
     }
 
     [Fact]

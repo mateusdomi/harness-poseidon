@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T18:45:17.6216500+00:00
+lastGeneratedAt: 2026-07-22T19:07:24.5329230+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:e81f5f1eb1f37c46a3cb2d32f4e54beea7087496bd7fb68ecad6a05f234ebc67
+  checksum: sha256:36c8a7d8765623d0603241685ef4c50743f597e843d6d492d23ab8b821dc382a
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 11501
+  tokenEstimate: 11706
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:146658bda88b470c63d3ad8929bf44cb3243c156feb91fe5f16e39e31be752ce
+  checksum: sha256:6c135ffda6fc29d8444733b494594c70bac2931a2c8a0cfc640525e30e50c982
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11794,7 +11794,7 @@ documents:
   - docs/backend/**
   loadPolicy: on-demand
   priority: 150
-  tokenEstimate: 759
+  tokenEstimate: 885
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -11807,7 +11807,7 @@ documents:
   - evidence-n3-antigravity-critic
   - evidence-auth-resolution
   enforcedBy: []
-  checksum: sha256:987e029ef0c4477b9b4cc8b69db79bee50c2b347fa51b525cc0298814b386a11
+  checksum: sha256:0524dc6442feb6a335b9f90e2dfa2e3e3a2e2727393b1c675a8462a741f5367b
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md

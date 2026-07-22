@@ -186,7 +186,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 11501 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 11706 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 4623 |
 
 ### Reference
@@ -407,7 +407,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Piloto 1A e CA-7 — worker governado e critic independente](backend/execution/evidence/PILOTO-1A-E-CA-7-CRITIC.md) | * | Active | Quality Engineering | OnDemand | 1632 |
 | [Piloto 1B — continuação governada de um attempt reprovado](backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md) | * | Active | Quality Engineering | OnDemand | 1832 |
 | [Piloto 2 — No-Go, BLOCKED_EXTERNAL_OAUTH](backend/execution/evidence/PILOTO-2-BLOCKED-EXTERNAL-OAUTH.md) | * | Active | Quality Engineering | OnDemand | 821 |
-| [Piloto 2 — fleet concorrente com Antigravity live](backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md) | * | Active | Quality Engineering | OnDemand | 759 |
+| [Piloto 2 — fleet concorrente com Antigravity live](backend/execution/evidence/PILOTO-2-FLEET-CONCORRENTE.md) | * | Active | Quality Engineering | OnDemand | 885 |
 
 ### Historical
 

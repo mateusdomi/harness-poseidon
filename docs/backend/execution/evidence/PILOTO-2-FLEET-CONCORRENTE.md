@@ -1,8 +1,8 @@
-# Piloto 2 — fleet concorrente real: GO concorrente multiagente com Antigravity LIVE (Parte 1)
+# Piloto 2 — fleet concorrente real: GO concorrente multiagente COMPLETO com Antigravity LIVE
 
-Data: 2026-07-22. Branch: `develop`. Base: `4cbb367`. Executado de verdade (4 runs reais).
+Data: 2026-07-22. Branch: `develop`. Base: `4cbb367`. Executado de verdade (5 runs reais).
 
-## Resultado — GO concorrente multiagente (múltiplas CONTAS distintas)
+## Resultado — GO concorrente multiagente (múltiplas contas + múltiplas instâncias da mesma conta)
 
 O chefe (orquestrador) despachou **três actors distintos SIMULTANEAMENTE** em subárvores
 disjuntas, com critic Antigravity **LIVE**, provado por execução real (driver
@@ -43,13 +43,22 @@ quando recebeu o trabalho real — não é pass cego.
    o prompt posicional vira o seu valor. Confirmado por probe: com `--print` por último o
    Antigravity retorna JSON limpo.
 
-## Limite honesto — Parte 2 pendente (múltiplas instâncias da MESMA conta)
+## Parte 2 — múltiplas INSTÂNCIAS da mesma conta (gap 3 fechado, PROVADO)
 
-Provado: **múltiplas CONTAS distintas** concorrentes. **Múltiplas INSTÂNCIAS da mesma conta**
-ainda não: o `AccountProfileProvisioner.AcquireLock` é single-owner por alias (o config home
-tem lock exclusivo). Habilitá-lo exige um lease multi-owner do perfil (até o
-`concurrencyLimit` da conta) — próximo desenvolvimento (gap 3), com o config home
-compartilhado em leitura e o worktree exclusivo por instância.
+O `AccountProfileProvisioner.AcquireLock` deixou de ser um mutex single-owner e virou um
+SEMÁFORO: até `concurrencyLimit` concessões concorrentes por conta, cada uma com fencing
+crescente, idempotente por dono, com config home COMPARTILHADO em leitura e o worktree
+exclusivo por instância vindo do claim durável. O orquestrador passou a usar um owner ÚNICO
+por tentativa (`{owner}:{attemptId}`) e o `concurrencyLimit` da conta.
+
+Prova real (5º run, `maxConcurrent=4`): **duas instâncias da MESMA conta `worker-glm-general`**
+rodaram simultaneamente — uma criou `fleet-glm-a/probe.md`, a outra `fleet-glm-b/probe.md`,
+em subárvores disjuntas, ambas **Completed** — mais `worker-claude-secondary` e
+`worker-codex-frontend`, com o critic Antigravity `pass` e recovery sem duplicação.
+
+Unit: `AccountProfileProvisionerTests` — o lock exclusivo (limit 1) preservado + o semáforo
+(N instâncias até o limite, excedente recusado com `profile.concurrency_exhausted`, um dono
+antigo não libera o slot de outro, liberar abre vaga com fencing maior).
 
 ## Testes / regressão
 

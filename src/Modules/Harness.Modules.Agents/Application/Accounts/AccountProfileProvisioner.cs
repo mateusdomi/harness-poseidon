@@ -39,6 +39,11 @@ public sealed class AccountProfileProvisioner
     private readonly string _root;
     private readonly IReadOnlyList<string> _forbiddenRoots;
 
+    // Serializa a leitura-modificação-escrita do ledger de concessões. As chamadas de
+    // aquisição/liberação são concorrentes DENTRO do Host (uma Task por instância); este lock
+    // as ordena. Múltiplos Hosts sobre a mesma raiz exigiriam flock — fora do escopo atual.
+    private readonly object _lockSync = new();
+
     /// <param name="profilesRoot">Raiz das contas, fora do repositório (ex.: `~/.harness/accounts`).</param>
     /// <param name="forbiddenRoots">
     /// Raízes proibidas — tipicamente o checkout oficial. Um perfil dentro do repositório
@@ -192,15 +197,20 @@ public sealed class AccountProfileProvisioner
     }
 
     /// <summary>
-    /// Adquire a concessão exclusiva do perfil com fencing crescente. Uma concessão viva de
-    /// outro dono bloqueia; uma concessão expirada é recuperada com fencing maior, de modo
-    /// que o dono antigo não consiga mais liberar nem escrever.
+    /// Adquire uma concessão do perfil com fencing crescente, como um SEMÁFORO até
+    /// <paramref name="concurrencyLimit"/> concessões concorrentes por conta (padrão 1) — o
+    /// que habilita múltiplas INSTÂNCIAS da mesma conta (config home compartilhado em leitura;
+    /// o worktree exclusivo por instância vem do claim durável). Idempotente por dono: o mesmo
+    /// <paramref name="ownerId"/> renova a sua concessão em vez de tomar um novo slot. Cheio,
+    /// recusa com código tipado; concessões expiradas não contam e são recuperadas com fencing
+    /// maior, de modo que um dono antigo não escreva nem libere depois.
     /// </summary>
     public AccountProfileLock AcquireLock(
         string alias,
         string ownerId,
         DateTimeOffset now,
         TimeSpan duration,
+        int concurrencyLimit = 1,
         int? processId = null)
     {
         if (string.IsNullOrWhiteSpace(ownerId))
@@ -208,71 +218,110 @@ public sealed class AccountProfileProvisioner
             throw new AgentAccountValidationException("profile.owner_required");
         }
 
+        var limit = Math.Max(1, concurrencyLimit);
         var layout = Layout(alias);
         if (!Directory.Exists(layout.RootPath))
         {
             throw new AgentAccountValidationException("profile.not_provisioned");
         }
 
-        var current = ReadLock(layout);
-        if (current is not null && current.ExpiresAt > now &&
-            !string.Equals(current.OwnerId, ownerId, StringComparison.Ordinal))
+        lock (_lockSync)
         {
-            throw new AgentAccountValidationException("profile.locked");
-        }
+            var ledger = ReadLedger(layout);
+            var active = ledger.Grants.Where(grant => grant.ExpiresAt > now).ToList();
 
-        var acquired = new AccountProfileLock(
-            alias,
-            ownerId,
-            processId ?? Environment.ProcessId,
-            (current?.FencingToken ?? 0) + 1,
-            now,
-            now.Add(duration));
-        WriteJson(layout.LockPath, acquired);
-        return acquired;
+            // Idempotência por dono: renova a concessão existente, sem consumir outro slot.
+            var mine = active.FindIndex(grant => string.Equals(grant.OwnerId, ownerId, StringComparison.Ordinal));
+            if (mine >= 0)
+            {
+                var renewed = active[mine] with { ExpiresAt = now.Add(duration) };
+                active[mine] = renewed;
+                WriteLedger(layout, new ProfileLockLedger(ledger.FencingCounter, active));
+                return renewed;
+            }
+
+            if (active.Count >= limit)
+            {
+                // `limit == 1` preserva o código histórico do lock exclusivo.
+                throw new AgentAccountValidationException(
+                    limit == 1 ? "profile.locked" : "profile.concurrency_exhausted");
+            }
+
+            var fencing = ledger.FencingCounter + 1;
+            var grant = new AccountProfileLock(
+                alias, ownerId, processId ?? Environment.ProcessId, fencing, now, now.Add(duration));
+            active.Add(grant);
+            WriteLedger(layout, new ProfileLockLedger(fencing, active));
+            return grant;
+        }
     }
 
-    /// <summary>Renova a concessão; um fencing antigo nunca renova a vigente.</summary>
+    /// <summary>Renova uma concessão; um fencing que não corresponde a uma concessão viva não renova.</summary>
     public AccountProfileLock RenewLock(
         string alias, long fencingToken, DateTimeOffset now, TimeSpan duration)
     {
         var layout = Layout(alias);
-        var current = ReadLock(layout) ??
-            throw new AgentAccountValidationException("profile.lock_absent");
-        if (current.FencingToken != fencingToken)
+        lock (_lockSync)
         {
-            throw new AgentAccountValidationException("profile.fencing_conflict");
-        }
+            var ledger = ReadLedger(layout);
+            if (ledger.Grants.Count == 0)
+            {
+                throw new AgentAccountValidationException("profile.lock_absent");
+            }
 
-        var renewed = current with { ExpiresAt = now.Add(duration) };
-        WriteJson(layout.LockPath, renewed);
-        return renewed;
+            var active = ledger.Grants.Where(grant => grant.ExpiresAt > now).ToList();
+            var index = active.FindIndex(grant => grant.FencingToken == fencingToken);
+            if (index < 0)
+            {
+                throw new AgentAccountValidationException("profile.fencing_conflict");
+            }
+
+            var renewed = active[index] with { ExpiresAt = now.Add(duration) };
+            active[index] = renewed;
+            WriteLedger(layout, new ProfileLockLedger(ledger.FencingCounter, active));
+            return renewed;
+        }
     }
 
-    /// <summary>Libera a concessão. Um fencing antigo não libera a concessão vigente.</summary>
+    /// <summary>Libera UMA concessão pelo seu fencing. Um fencing sem concessão viva é recusado.</summary>
     public void ReleaseLock(string alias, long fencingToken)
     {
         var layout = Layout(alias);
-        var current = ReadLock(layout);
-        if (current is null)
+        lock (_lockSync)
         {
-            return;
-        }
+            var ledger = ReadLedger(layout);
+            if (ledger.Grants.Count == 0)
+            {
+                return;
+            }
 
-        if (current.FencingToken != fencingToken)
-        {
-            throw new AgentAccountValidationException("profile.fencing_conflict");
-        }
+            if (ledger.Grants.All(grant => grant.FencingToken != fencingToken))
+            {
+                throw new AgentAccountValidationException("profile.fencing_conflict");
+            }
 
-        File.Delete(layout.LockPath);
+            var remaining = ledger.Grants.Where(grant => grant.FencingToken != fencingToken).ToList();
+            if (remaining.Count == 0)
+            {
+                File.Delete(layout.LockPath);
+            }
+            else
+            {
+                WriteLedger(layout, new ProfileLockLedger(ledger.FencingCounter, remaining));
+            }
+        }
     }
 
+    /// <summary>A concessão viva mais recente do perfil (maior fencing), ou nula.</summary>
     public AccountProfileLock? ReadLock(string alias) => ReadLock(Layout(alias));
+
+    /// <summary>Todas as concessões registradas do perfil (inclusive expiradas).</summary>
+    public IReadOnlyList<AccountProfileLock> ReadLocks(string alias) => ReadLedger(Layout(alias)).Grants;
 
     /// <summary>
     /// Remove concessões expiradas de todos os perfis provisionados e devolve os aliases
-    /// recuperados. É o passo de recovery após crash: nenhuma conta fica presa por um
-    /// processo morto.
+    /// recuperados. É o passo de recovery após crash: nenhum slot fica preso por um processo
+    /// morto, mesmo com várias instâncias por conta.
     /// </summary>
     public IReadOnlyList<string> RecoverStaleLocks(DateTimeOffset now)
     {
@@ -281,29 +330,49 @@ public sealed class AccountProfileProvisioner
             return [];
         }
 
-        var recovered = new List<string>();
-        foreach (var directory in Directory.EnumerateDirectories(_root).Order(StringComparer.Ordinal))
+        lock (_lockSync)
         {
-            var alias = Path.GetFileName(directory);
-            AccountProfileLock? current;
-            try
+            var recovered = new List<string>();
+            foreach (var directory in Directory.EnumerateDirectories(_root).Order(StringComparer.Ordinal))
             {
-                current = ReadLock(Layout(alias));
-            }
-            catch (AgentAccountValidationException)
-            {
-                // Diretório que não corresponde a um alias válido não é um perfil.
-                continue;
-            }
+                var alias = Path.GetFileName(directory);
+                AccountProfileLayout layout;
+                try
+                {
+                    layout = Layout(alias);
+                }
+                catch (AgentAccountValidationException)
+                {
+                    // Diretório que não corresponde a um alias válido não é um perfil.
+                    continue;
+                }
 
-            if (current is not null && current.ExpiresAt <= now)
-            {
-                File.Delete(Layout(alias).LockPath);
+                var ledger = ReadLedger(layout);
+                if (ledger.Grants.Count == 0)
+                {
+                    continue;
+                }
+
+                var active = ledger.Grants.Where(grant => grant.ExpiresAt > now).ToList();
+                if (active.Count == ledger.Grants.Count)
+                {
+                    continue;
+                }
+
+                if (active.Count == 0)
+                {
+                    File.Delete(layout.LockPath);
+                }
+                else
+                {
+                    WriteLedger(layout, new ProfileLockLedger(ledger.FencingCounter, active));
+                }
+
                 recovered.Add(alias);
             }
-        }
 
-        return recovered;
+            return recovered;
+        }
     }
 
     /// <summary>
@@ -437,23 +506,39 @@ public sealed class AccountProfileProvisioner
         File.Move(temporary, path, overwrite: true);
     }
 
-    private static AccountProfileLock? ReadLock(AccountProfileLayout layout)
+    private static AccountProfileLock? ReadLock(AccountProfileLayout layout) =>
+        ReadLedger(layout).Grants
+            .OrderByDescending(grant => grant.FencingToken)
+            .FirstOrDefault();
+
+    /// <summary>Ledger de concessões do perfil: contador de fencing monotônico + concessões.</summary>
+    private sealed record ProfileLockLedger(long FencingCounter, IReadOnlyList<AccountProfileLock> Grants)
+    {
+        public static readonly ProfileLockLedger Empty = new(0, []);
+    }
+
+    private static ProfileLockLedger ReadLedger(AccountProfileLayout layout)
     {
         if (!File.Exists(layout.LockPath))
         {
-            return null;
+            return ProfileLockLedger.Empty;
         }
 
         try
         {
-            return JsonSerializer.Deserialize<AccountProfileLock>(
-                File.ReadAllText(layout.LockPath), Json);
+            return JsonSerializer.Deserialize<ProfileLockLedger>(
+                File.ReadAllText(layout.LockPath), Json) ?? ProfileLockLedger.Empty;
         }
         catch (JsonException)
         {
-            return null;
+            // Formato desconhecido/legado (lock exclusivo antigo): trata como vazio; a próxima
+            // aquisição recria o ledger. O lock é transitório, então não há estado a migrar.
+            return ProfileLockLedger.Empty;
         }
     }
+
+    private static void WriteLedger(AccountProfileLayout layout, ProfileLockLedger ledger) =>
+        WriteJson(layout.LockPath, ledger);
 
     private static void CreateDirectory(string path)
     {

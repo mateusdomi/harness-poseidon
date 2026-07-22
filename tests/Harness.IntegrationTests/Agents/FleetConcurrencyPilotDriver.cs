@@ -50,8 +50,12 @@ public sealed class FleetConcurrencyPilotDriver
 
     private static readonly FleetSpec[] Specs =
     [
+        // Duas INSTÂNCIAS da mesma conta (worker-glm-general) em subárvores disjuntas — gap 3.
         new("worker-glm-general", "backend-specialist",
-            "docs/backend/execution/evidence/fleet-glm", "docs/backend/execution/evidence/fleet-glm/probe.md"),
+            "docs/backend/execution/evidence/fleet-glm-a", "docs/backend/execution/evidence/fleet-glm-a/probe.md"),
+        new("worker-glm-general", "backend-specialist",
+            "docs/backend/execution/evidence/fleet-glm-b", "docs/backend/execution/evidence/fleet-glm-b/probe.md"),
+        // Contas distintas.
         new("worker-claude-secondary", "backend-specialist",
             "docs/backend/execution/evidence/fleet-claude", "docs/backend/execution/evidence/fleet-claude/probe.md"),
         new("worker-codex-frontend", "frontend-specialist",
@@ -95,11 +99,15 @@ public sealed class FleetConcurrencyPilotDriver
         var starts = await Task.WhenAll(
             seeded.Select(entry => StartRunAsync(client, projectId, entry.Spec, entry.TaskId, timeout.Token)));
 
-        // Prova de ISOLAMENTO: attempts, branches e worktrees todos distintos.
-        Assert.Equal(3, starts.Select(s => s.AttemptId).Distinct().Count());
-        Assert.Equal(3, starts.Select(s => s.Branch).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(3, starts.Select(s => s.Worktree).Distinct(StringComparer.Ordinal).Count());
-        Log($"3 attempts distintos, worktrees disjuntas: {string.Join(" | ", starts.Select(s => s.Worktree))}");
+        // Prova de ISOLAMENTO: attempts, branches e worktrees todos distintos (mesmo as duas
+        // instâncias da MESMA conta têm attempt/branch/worktree próprios).
+        var n = Specs.Length;
+        Assert.Equal(n, starts.Select(s => s.AttemptId).Distinct().Count());
+        Assert.Equal(n, starts.Select(s => s.Branch).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(n, starts.Select(s => s.Worktree).Distinct(StringComparer.Ordinal).Count());
+        var sameAccountInstances = starts.Count(s => s.Spec.Account == "worker-glm-general");
+        Assert.Equal(2, sameAccountInstances);
+        Log($"{n} attempts distintos ({sameAccountInstances} instâncias da MESMA conta glm), worktrees disjuntas");
 
         var maxConcurrent = await PollConcurrencyAsync(client, starts.Select(s => s.AttemptId).ToArray(), timeout.Token);
         Log($"máximo de execuções simultâneas observadas: {maxConcurrent}");

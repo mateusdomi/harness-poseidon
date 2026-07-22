@@ -99,8 +99,11 @@ public sealed class AgentRunOrchestrator(
         AccountProfileLock accountLock;
         try
         {
+            // Owner ÚNICO por tentativa: duas instâncias da MESMA conta são donos distintos e
+            // ocupam slots distintos do semáforo, até o limite de concorrência da conta.
             accountLock = profiles.AcquireLock(
-                command.AccountAlias, command.Owner, now, settings.LeaseDuration);
+                command.AccountAlias, $"{command.Owner}:{command.AttemptId}", now,
+                settings.LeaseDuration, account.ConcurrencyLimit);
         }
         catch (AgentAccountValidationException exception)
         {
@@ -277,7 +280,8 @@ public sealed class AgentRunOrchestrator(
         try
         {
             criticLock = profiles.AcquireLock(
-                command.CriticAlias, $"critic:{reviewId}", now, settings.LeaseDuration);
+                command.CriticAlias, $"critic:{reviewId}", now, settings.LeaseDuration,
+                critic.ConcurrencyLimit);
         }
         catch (AgentAccountValidationException exception)
         {
