@@ -51,7 +51,7 @@ de isolamento, observados por probe nesta máquina — nunca nomes inventados:
 |---|---|---|---|
 | `claude-code` | `claude` | `-p --output-format stream-json` | `CLAUDE_CONFIG_DIR` |
 | `codex` | `codex` | `exec --skip-git-repo-check` | `CODEX_HOME` |
-| `antigravity` | `agy` | `--print` | (sem variável; isolar por working dir + allowlist) |
+| `antigravity` | `agy` | `--print` (prompt posicional) | (sem variável; auth em `~/.gemini/antigravity-cli`, isolar por HOME) |
 | `kimi-code` | `kimi` | `-p` | (sem variável documentada) |
 | `glm` | `claude` | `-p --output-format stream-json` | `CLAUDE_CONFIG_DIR` |
 
@@ -62,7 +62,13 @@ sobrescreveriam a autenticação uma da outra. Isso é verificado por teste.
 
 **Antigravity não é experimental**: a CLI `agy` está instalada e é usada em produção pelo
 operador para code review. É modelada como executor de primeira classe, com vocação de
-critic.
+critic. O adapter real (`AntigravityExternalAgentExecutor`), o perfil isolado e o critic
+read-only Default-FAIL foram entregues em N3 (ver `evidence/N3-ANTIGRAVITY-CRITIC.md`). Dois
+achados de probe corrigem suposições anteriores: (a) o `agy --print` só aceita o prompt como
+argumento posicional e imprime texto puro (sem JSON/stream); (b) ele sai com código 0 mesmo
+sem autenticar — a falha é classificada pela SAÍDA, nunca pelo exit code. O login é OAuth
+interativo (`agy`), portanto o perfil isolado exige ação humana única e o smoke live fica
+`BLOCKED_EXTERNAL_OAUTH` até lá.
 
 ### 5. Concessão de conta com fencing
 

@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:4e06cc6d8ce73a089abd2a162e517cfbf9e66e9d74c4488e72768c838ffa9cf7 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:1f2efe7fc3010839b46fdb75b406cb87fa49f9f5ae4a51e5f6d08b2846c614d8 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 23
-- `Evidence`: 144
+- `Evidence`: 145
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 21
 - `entrypoint`: 1
-- `evidence`: 144
+- `evidence`: 145
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 200
+- `*`: 201
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 209
+- `Active`: 210
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 14
 - `Product Security`: 6
-- `Quality Engineering`: 143
+- `Quality Engineering`: 144
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 195
+- `OnDemand`: 196
 
 ## Documents by authority and domain
 
@@ -95,7 +95,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-017 — Prontidão canônica e estado de configuração fail-closed](decisions/ADR-017-readiness-and-configuration-state.md) | runtime | Active | Platform Governance | OnDemand | 947 |
 | [ADR-018 — Dados simulados nunca apresentados como reais](decisions/ADR-018-fail-closed-simulated-data.md) | runtime | Active | Platform Governance | OnDemand | 728 |
 | [ADR-019 — Separar confirmação de transporte da resposta real do Chief](decisions/ADR-019-chief-transport-vs-model-response.md) | runtime | Active | Agent Platform | OnDemand | 737 |
-| [ADR-021 — Contas de agente por alias e executores reais](decisions/ADR-021-agent-accounts-and-executors.md) | runtime | Active | Agent Platform | OnDemand | 804 |
+| [ADR-021 — Contas de agente por alias e executores reais](decisions/ADR-021-agent-accounts-and-executors.md) | runtime | Active | Agent Platform | OnDemand | 933 |
 | [ADR-020 — Auditoria do campo criatividade e binding obrigatório](decisions/ADR-020-creativity-field-audit.md) | runtime | Active | Platform Governance | OnDemand | 566 |
 
 #### execution
@@ -186,7 +186,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 9396 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 9821 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 4623 |
 
 ### Reference
@@ -398,6 +398,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [GP-C3 — eventos do ciclo de vida do turno](backend/execution/evidence/GP-C3-TURN-LIFECYCLE-EVENTS.md) | * | Active | Quality Engineering | OnDemand | 707 |
 | [GP-C4 — primeira conversa idempotente](backend/execution/evidence/GP-C4-PRIMARY-CONVERSATION.md) | * | Active | Quality Engineering | OnDemand | 519 |
 | [GP-C5 — smoke condicional da execução real](backend/execution/evidence/GP-C5-REAL-EXECUTION-SMOKE.md) | * | Active | Quality Engineering | OnDemand | 584 |
+| [N3 — Antigravity first-class critic](backend/execution/evidence/N3-ANTIGRAVITY-CRITIC.md) | * | Active | Quality Engineering | OnDemand | 1463 |
 | [Turno noturno — relatório](backend/execution/evidence/NIGHT-SHIFT-REPORT.md) | * | Active | Quality Engineering | OnDemand | 1559 |
 | [Piloto 1A e CA-7 — worker governado e critic independente](backend/execution/evidence/PILOTO-1A-E-CA-7-CRITIC.md) | * | Active | Quality Engineering | OnDemand | 1632 |
 | [Piloto 1B — continuação governada de um attempt reprovado](backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md) | * | Active | Quality Engineering | OnDemand | 1832 |

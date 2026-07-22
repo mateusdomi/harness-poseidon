@@ -18,6 +18,20 @@ public enum ExternalAgentAccess
     Workspace,
 }
 
+/// <summary>
+/// Mecanismo pelo qual a CLI recebe o prompt. É uma característica OBSERVADA do binário,
+/// nunca uma preferência: Claude Code e Codex leem do STDIN; `agy --print` só aceita o
+/// prompt como argumento posicional.
+/// </summary>
+public enum ExternalPromptDelivery
+{
+    /// <summary>Prompt entregue por STDIN — não aparece na tabela de processos.</summary>
+    StandardInput,
+
+    /// <summary>Prompt entregue como argumento posicional — única forma aceita pela CLI.</summary>
+    PositionalArgument,
+}
+
 /// <summary>Situação final de uma execução externa. Conjunto fechado.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ExternalAgentRunStatus>))]
 public enum ExternalAgentRunStatus

@@ -20,6 +20,16 @@ internal interface IExternalAgentOutputParser
 
     IEnumerable<ExternalAgentEvent> ParseLine(string line);
 
+    /// <summary>
+    /// Observa uma linha de STDERR apenas para classificar falha (ex.: sentinela de
+    /// autenticação do `agy`, que ele imprime em stderr e ainda assim sai com código 0).
+    /// Não emite evento — o canal de eventos é single-writer, alimentado só pelo stdout —
+    /// e só pode tocar <see cref="FailureCode"/>, lido após a junção dos dois fluxos.
+    /// </summary>
+    void ObserveErrorLine(string line)
+    {
+    }
+
     /// <summary>Fechamento após o fim do processo (ex.: ler o arquivo de última mensagem).</summary>
     void Complete();
 }
@@ -338,6 +348,9 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
         {
             while (await _process.StandardError.ReadLineAsync(CancellationToken.None) is { } line)
             {
+                // O parser inspeciona a linha CRUA para classificar falha (sentinela de auth);
+                // apenas depois ela é redigida para diagnóstico. Nenhum evento é emitido aqui.
+                _parser.ObserveErrorLine(line);
                 _errorLines.Enqueue(ExternalAgentRedaction.Redact(line));
                 if (_errorLines.Count > MaxRetainedErrorLines)
                 {

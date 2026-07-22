@@ -63,10 +63,15 @@ public static class ExecutorCatalog
             Antigravity,
             "Antigravity",
             "agy",
-            // --print roda um prompt único e imprime a resposta.
+            // `--print` roda um prompt único e imprime a resposta em TEXTO puro (sem modo
+            // JSON/stream). O prompt vai como argumento posicional; a retomada é
+            // `--conversation <id>`. Probe real: CLI 1.1.5.
             ["--print"],
-            // Sem variável de config home documentada: o isolamento é por working directory
-            // e allowlist de ambiente, validado no probe (CA-3).
+            // Sem variável de config home dedicada. A autenticação vive em
+            // `$HOME/.gemini/antigravity-cli`, portanto o isolamento da conta é por HOME
+            // (o provisionador aponta HOME para o config home do alias). Consequência: o
+            // login é interativo (`agy`) e o perfil isolado exige OAuth humano — sem ele o
+            // smoke live é BLOCKED_EXTERNAL_OAUTH.
             null,
             ["PATH", "HOME", "LANG", "USER"],
             new CapabilitySet(

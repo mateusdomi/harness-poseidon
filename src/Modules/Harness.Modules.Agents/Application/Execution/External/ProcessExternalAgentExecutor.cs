@@ -28,6 +28,14 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
 
     public string ExecutorId => Profile.ExecutorId;
 
+    /// <summary>
+    /// Como o prompt chega à CLI. O padrão é STDIN, de modo que o prompt não apareça na
+    /// tabela de processos. Uma CLI que só aceita o prompt como argumento posicional —
+    /// observado no `agy --print` — declara <see cref="ExternalPromptDelivery.PositionalArgument"/>;
+    /// é uma limitação REAL do binário, não uma escolha do adapter.
+    /// </summary>
+    protected virtual ExternalPromptDelivery PromptDelivery => ExternalPromptDelivery.StandardInput;
+
     public Task<ExecutorProbeResult> ProbeAsync(CancellationToken cancellationToken = default) =>
         _probe.ProbeAsync(Profile, cancellationToken);
 
@@ -60,6 +68,8 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
         var arguments = BuildArguments(request, context);
         GuardArguments(arguments);
 
+        var promptAsArgument = PromptDelivery == ExternalPromptDelivery.PositionalArgument;
+
         var startInfo = new ProcessStartInfo
         {
             FileName = Profile.Command,
@@ -73,6 +83,19 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
         foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        if (promptAsArgument)
+        {
+            // A CLI (agy) só lê o prompt como argumento posicional. O prompt é a INSTRUÇÃO,
+            // não uma credencial, e passa pelo mesmo guard estrutural que recusa qualquer
+            // token com forma de segredo antes de tocar o argv.
+            if (ExternalAgentRedaction.ContainsSecret(request.Prompt))
+            {
+                throw new ExternalAgentException("executor.secret_in_prompt");
+            }
+
+            startInfo.ArgumentList.Add(request.Prompt);
         }
 
         // Ambiente ZERADO e remontado pela allowlist do perfil isolado: a conta nunca herda
@@ -96,11 +119,17 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
             request.Timeout);
         session.BeginPump();
 
-        // O prompt vai por STDIN: em argumento ele apareceria na tabela de processos.
         try
         {
-            await process.StandardInput.WriteAsync(request.Prompt.AsMemory(), cancellationToken);
-            await process.StandardInput.FlushAsync(cancellationToken);
+            if (!promptAsArgument)
+            {
+                // O prompt vai por STDIN: em argumento ele apareceria na tabela de processos.
+                await process.StandardInput.WriteAsync(request.Prompt.AsMemory(), cancellationToken);
+                await process.StandardInput.FlushAsync(cancellationToken);
+            }
+
+            // Sempre fechar a entrada: uma CLI que lê o prompt do argv não pode ficar
+            // aguardando EOF de um stdin que nunca chega.
             process.StandardInput.Close();
         }
         catch (IOException)

@@ -20,6 +20,7 @@ public sealed class ExternalAgentRealExecutionSmokeTests
 {
     private const string OptInVariable = "HARNESS_RUN_REAL_AGENT_TESTS";
     private const string SkipMarker = "SKIPPED_EXTERNAL_CREDENTIALS";
+    private const string BlockedMarker = "BLOCKED_EXTERNAL_OAUTH";
 
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
@@ -39,6 +40,85 @@ public sealed class ExternalAgentRealExecutionSmokeTests
             ExecutorCatalog.Codex,
             Environment.GetEnvironmentVariable("HARNESS_SMOKE_CODEX_ALIAS") ?? "worker-codex-frontend",
             provisioner => CodexExternalAgentExecutor.Create(provisioner));
+    }
+
+    /// <summary>
+    /// N3 — smoke live do critic Antigravity no PERFIL ISOLADO. O `agy` autentica por OAuth
+    /// interativo (config home em <c>$HOME/.gemini</c>); o perfil isolado nunca herda o login
+    /// global do operador (CA-3). Sem login isolado, o `agy` responde "authentication
+    /// required" e o adapter classifica <c>executor.authentication_required</c> — registrado
+    /// como <c>BLOCKED_EXTERNAL_OAUTH</c>, jamais como verde. O comando EXATO de login
+    /// isolado é impresso para a ação humana única.
+    /// </summary>
+    [Fact]
+    public async Task AntigravityCriticSmokeIsBlockedOnIsolatedOAuthUntilTheProfileLogsIn()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable(OptInVariable), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            Declare($"{OptInVariable} não é true");
+            return;
+        }
+
+        var alias = Environment.GetEnvironmentVariable("HARNESS_SMOKE_ANTIGRAVITY_ALIAS")
+            ?? "worker-antigravity-review";
+        var root = Environment.GetEnvironmentVariable("HARNESS_AGENT_PROFILES_ROOT")
+            ?? AccountProfileProvisioner.DefaultProfilesRoot;
+        var provisioner = new AccountProfileProvisioner(root);
+        var profile = ExecutorCatalog.Find(ExecutorCatalog.Antigravity)!;
+        var handle = provisioner.Ensure(
+            new AgentAccountContract(
+                alias, "antigravity", ExecutorCatalog.Antigravity, $"keychain://poseidon/{alias}",
+                $"confighome://{alias}", ["critic"], [], AgentAccountState.Available,
+                AgentAccountHealth.Unknown, 1, 0, null, null, null, null, null, 100),
+            profile,
+            Now);
+
+        var executor = AntigravityExternalAgentExecutor.Create(provisioner);
+        var probe = await executor.ProbeAsync(CancellationToken.None);
+        if (!probe.Installed)
+        {
+            Declare($"executor antigravity não instalado ({probe.ReasonCode})");
+            return;
+        }
+
+        var workspace = Path.Combine(handle.Layout.WorkingRootPath, "smoke");
+        Directory.CreateDirectory(workspace);
+
+        // Comando EXATO de login isolado, derivado do CLI real (`agy` sem subcomando faz o
+        // login OAuth interativo; o HOME aponta o config home ao perfil do alias).
+        var loginCommand = $"HOME={handle.Layout.ConfigHomePath} agy";
+
+        await using var session = await executor.StartAsync(
+            new ExternalAgentRunRequest
+            {
+                Alias = alias,
+                Prompt = "Responda exatamente com a palavra PRONTO e nada mais.",
+                WorkingDirectory = workspace,
+                Profile = handle.Layout,
+                Access = ExternalAgentAccess.ReadOnly,
+                Timeout = TimeSpan.FromMinutes(2),
+            },
+            CancellationToken.None);
+
+        var result = await session.CollectAsync(CancellationToken.None);
+        await session.CleanupAsync(CancellationToken.None);
+
+        if (result.Status != ExternalAgentRunStatus.Completed)
+        {
+            // Perfil isolado sem login: bloqueio externo declarado, com o comando exato.
+            Assert.True(true, BlockedMarker);
+            Console.WriteLine(
+                $"{BlockedMarker}: perfil {alias} sem login isolado ({result.FailureCode}). " +
+                $"Login humano único: {loginCommand}");
+            return;
+        }
+
+        // Se o operador já executou o login isolado, o critic responde de verdade. Antigravity
+        // print não expõe sessionId nem usage — não os asserimos (seria inventar contrato).
+        Assert.Contains("PRONTO", result.FinalMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.False(ExternalAgentRedaction.ContainsSecret(result.FinalMessage));
+        Assert.False(session.IsRunning);
     }
 
     private static async Task RunSmokeAsync(

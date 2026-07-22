@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T10:27:08.0422270+00:00
+lastGeneratedAt: 2026-07-22T13:04:16.1873000+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7548
+  tokenEstimate: 7575
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:7b84d808f846a0e861fd88041de1fef5ed4a2554fab0daf7b3993838ad2e6634
+  checksum: sha256:4529d6facfb484e379ca0f8c272573116710259bf18c70b715bb65aeb8209eba
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 9396
+  tokenEstimate: 9821
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:89ddb5df80d7698acc217d1e70d485f77872e7ee5958b479a5743b6f6e979641
+  checksum: sha256:4596a0de903785ef6d93b9a7208d553f0a6a086525f3a5d3ffd93470d080ffd4
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11070,7 +11070,7 @@ documents:
   - governance/rules/coordination.md
   loadPolicy: on-demand
   priority: 800
-  tokenEstimate: 804
+  tokenEstimate: 933
   owner: Agent Platform
   status: active
   version: 1.0.0
@@ -11085,7 +11085,7 @@ documents:
   enforcedBy:
   - runtime:governance-policy
   - tools/backend/verify.sh
-  checksum: sha256:8cb44dd9765bdef3614d3d28a731421de0c874a93c19133cf6de49c50b6b7a11
+  checksum: sha256:5198302ee289cffa37e727c5e3816e4f5fe840e833b5bb8fdd330b7c468ce3b5
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/decisions/ADR-021-agent-accounts-and-executors.md
@@ -11475,3 +11475,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/NIGHT-SHIFT-REPORT.md
+- id: evidence-n3-antigravity-critic
+  path: docs/backend/execution/evidence/N3-ANTIGRAVITY-CRITIC.md
+  title: N3 — Antigravity first-class critic
+  category: evidence
+  topic: evidence-n3-antigravity-critic
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 1463
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  - evidence-night-shift-report
+  enforcedBy: []
+  checksum: sha256:16d92ffd4f498a012c506412e097172d4c9a43f0ddbe9e8dedc879baffe11fc7
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/N3-ANTIGRAVITY-CRITIC.md
