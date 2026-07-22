@@ -358,12 +358,10 @@ public sealed class LiveContinuationPilotDriver
         return committed.StdOut;
     }
 
+    private static readonly string[] NpmBuildArgs = ["run", "build"];
+    private static readonly string[] NpmBuildStorybookArgs = ["run", "build-storybook"];
     private static readonly string[] NpmE2eArgs = ["run", "test:e2e"];
     private static readonly string[] NpmA11yArgs = ["run", "test:a11y"];
-    // --workers=1: os projetos de viewport compartilham UM Host efêmero; rodar em paralelo
-    // fazia os projetos posteriores esgotarem o timeout de sessão. Serial elimina a
-    // contenção sem reduzir a cobertura.
-    private static readonly string[] NpmE2eRealArgs = ["run", "test:e2e:real", "--", "--workers=1"];
 
     private static async Task<string> RunFrontendGatesAsync(string worktree, CancellationToken token)
     {
@@ -385,28 +383,50 @@ public sealed class LiveContinuationPilotDriver
         var check = await RunAsync("npm", NpmCheckArgs, frontend, token);
         Section("npm run check", check.ExitCode, check.StdOut + check.StdErr, 4000);
 
+        var build = await RunAsync("npm", NpmBuildArgs, frontend, token);
+        Section("npm run build", build.ExitCode, build.StdOut + build.StdErr, 2000);
+
+        var storybook = await RunAsync("npm", NpmBuildStorybookArgs, frontend, token, ci: true);
+        Section("npm run build-storybook", storybook.ExitCode, storybook.StdOut + storybook.StdErr, 2000);
+
         var e2e = await RunAsync("npm", NpmE2eArgs, frontend, token, ci: true);
         Section("npm run test:e2e (mock)", e2e.ExitCode, e2e.StdOut + e2e.StdErr, 4000);
 
         var a11y = await RunAsync("npm", NpmA11yArgs, frontend, token, ci: true);
         Section("npm run test:a11y", a11y.ExitCode, a11y.StdOut + a11y.StdErr, 2500);
 
-        // test:e2e:real precisa de um Host real; o operador sobe um subprocesso efêmero.
-        const int backendPort = 5091;
-        var (host, hostDb) = StartEphemeralHost(backendPort);
-        try
+        // test:e2e:real: cada projeto de viewport recebe seu PRÓPRIO Host efêmero fresco.
+        // Compartilhar um único Host entre os três projetos fazia o segundo/terceiro
+        // esgotarem o timeout de sessão — o teste foi desenhado para um Host limpo por run.
+        // Cobertura preservada (desktop, tablet, mobile), execução serial.
+        var e2eRealProjects = new[] { "desktop-13-dark", "tablet-light", "mobile-360-dark" };
+        var e2eRealExit = 0;
+        for (var i = 0; i < e2eRealProjects.Length; i++)
         {
-            await WaitForHostAsync($"http://127.0.0.1:{backendPort}/openapi/v1.json", token);
-            var real = await RunAsync(
-                "npm", NpmE2eRealArgs, frontend, token, ci: true,
-                extraEnv: ("POSEIDON_BACKEND_URL", $"http://127.0.0.1:{backendPort}"));
-            Section("npm run test:e2e:real", real.ExitCode, real.StdOut + real.StdErr, 6000);
+            var project = e2eRealProjects[i];
+            var port = 5091 + i;
+            var (host, hostDb) = StartEphemeralHost(port);
+            try
+            {
+                await WaitForHostAsync($"http://127.0.0.1:{port}/openapi/v1.json", token);
+                var real = await RunAsync(
+                    "npm", ["run", "test:e2e:real", "--", "--project", project, "--workers=1"],
+                    frontend, token, ci: true,
+                    extraEnv: ("POSEIDON_BACKEND_URL", $"http://127.0.0.1:{port}"));
+                Section($"test:e2e:real [{project}]", real.ExitCode, real.StdOut + real.StdErr, 3500);
+                if (real.ExitCode != 0)
+                {
+                    e2eRealExit = real.ExitCode;
+                }
+            }
+            finally
+            {
+                try { if (!host.HasExited) { host.Kill(entireProcessTree: true); } } catch (InvalidOperationException) { }
+                try { Directory.Delete(Path.GetDirectoryName(hostDb)!, recursive: true); } catch (IOException) { }
+            }
         }
-        finally
-        {
-            try { if (!host.HasExited) { host.Kill(entireProcessTree: true); } } catch (InvalidOperationException) { }
-            try { Directory.Delete(Path.GetDirectoryName(hostDb)!, recursive: true); } catch (IOException) { }
-        }
+
+        Section("test:e2e:real (all viewports, isolated hosts)", e2eRealExit, $"{e2eRealProjects.Length} projects run serially, one fresh Host each.", 200);
 
         var audit = await RunAsync("npm", ["audit", "--omit=dev", "--audit-level=high"], frontend, token);
         Section("npm audit --omit=dev", audit.ExitCode, audit.StdOut, 1500);
