@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T01:55:15.5032250+00:00
+lastGeneratedAt: 2026-07-22T10:19:37.8623250+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:c7e818f1c07eed3970b0d603a9428fa8f834e1ec779687a06a66a2330cd252dd
+  checksum: sha256:9dc6804e97c2d0d73b44967e7bd4ecefa5898f9d54409f9e93386ec6f36755ca
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -8883,7 +8883,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 4602
+  tokenEstimate: 4623
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8893,7 +8893,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:d67b5d632874073829f6adf537fb1c414f47ab9296f4dbf610b36f08d636172e
+  checksum: sha256:7086e9bb781a0e00671729d357768745cba213b7558da17dc6a8ca2abb148ee7
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/CURRENT_STATE.md
@@ -8931,7 +8931,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 21128
+  tokenEstimate: 21276
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8941,7 +8941,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:299f68ba6b3798fbcf183afb8ff22ad02427900f826863c524ee0bb8e6cb286f
+  checksum: sha256:5fcb36547ea0092feb736dd2e3b05f8cff8da007394f624c7c1deb13f633363c
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/DECISIONS.md
@@ -8979,7 +8979,7 @@ documents:
   - docs/frontend/**
   loadPolicy: on-demand
   priority: 250
-  tokenEstimate: 9951
+  tokenEstimate: 9962
   owner: Frontend
   status: active
   version: 1.0.0
@@ -8989,7 +8989,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:6a545faf8e812c66ad24f4fd2bd6c0ae1b81c9847e17d8fe4a6ce863c08b0520
+  checksum: sha256:819186deafb34b0dcae92b81580a4fe64d6fa298ceb05f254ad933faadd69a50
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/HANDOFF_API.md
@@ -9133,7 +9133,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:fe96edb851181bfac1f1d0c217032383caa20f6ec2fe5e2b421ea66ab4a321af
+  checksum: sha256:8f8943e1a53cdbfec379d1848093d40902e9b129aebfabbc474befba55b30f9c
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/frontend/SCREENS.md
