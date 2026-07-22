@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T19:44:52.9568730+00:00
+lastGeneratedAt: 2026-07-22T20:46:31.4569780+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7770
+  tokenEstimate: 7803
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4cdfa160a595f36166466e8ab3b6cf3bbd4d6725f013aacc43f322e02a46e3c2
+  checksum: sha256:435eaaaff086b338bb7bf21c50fdfb7b00d3a861be5df57bdd7eda883b3dc20a
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11858,3 +11858,50 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/QUOTA-RETRY-SCHEDULING.md
+- id: adr-022-persona-vs-card
+  path: docs/decisions/ADR-022-persona-vs-card.md
+  title: ADR-022 — Persona do agente vs. card de demanda
+  category: decision
+  topic: persona-vs-card
+  authority: canonical
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - docs/backend/**
+  - docs/decisions/**
+  loadPolicy: on-demand
+  priority: 200
+  tokenEstimate: 591
+  owner: Platform Governance
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:dae8c46e2453f1005fe274aa2ca0649156ab99497a2c1c8b2cd6451e2b673cd9
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-022-persona-vs-card.md

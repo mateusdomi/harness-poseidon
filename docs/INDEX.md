@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:d6399899dac4dc18483884c79047c6462e3c7de4bd4c75636941a251261f41d4 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:b929f8d2b71294248f0aeb686930333dc211b5176195b6d29df5180a2018c34a -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 23
+- `Canonical`: 24
 - `Evidence`: 152
 - `Generated`: 1
 - `Historical`: 8
@@ -19,7 +19,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 4
 - `backend`: 1
 - `contract`: 1
-- `decision`: 21
+- `decision`: 22
 - `entrypoint`: 1
 - `evidence`: 152
 - `execution`: 9
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 208
+- `*`: 209
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 217
+- `Active`: 218
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -60,7 +60,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Frontend`: 6
 - `Operations`: 6
 - `Platform Engineering`: 12
-- `Platform Governance`: 14
+- `Platform Governance`: 15
 - `Product Security`: 6
 - `Quality Engineering`: 151
 - `Research`: 4
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 203
+- `OnDemand`: 204
 
 ## Documents by authority and domain
 
@@ -97,6 +97,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-019 — Separar confirmação de transporte da resposta real do Chief](decisions/ADR-019-chief-transport-vs-model-response.md) | runtime | Active | Agent Platform | OnDemand | 737 |
 | [ADR-021 — Contas de agente por alias e executores reais](decisions/ADR-021-agent-accounts-and-executors.md) | runtime | Active | Agent Platform | OnDemand | 933 |
 | [ADR-020 — Auditoria do campo criatividade e binding obrigatório](decisions/ADR-020-creativity-field-audit.md) | runtime | Active | Platform Governance | OnDemand | 566 |
+| [ADR-022 — Persona do agente vs. card de demanda](decisions/ADR-022-persona-vs-card.md) | * | Active | Platform Governance | OnDemand | 591 |
 
 #### execution
 
