@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T10:19:37.8623250+00:00
+lastGeneratedAt: 2026-07-22T10:27:08.0422270+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:9dc6804e97c2d0d73b44967e7bd4ecefa5898f9d54409f9e93386ec6f36755ca
+  checksum: sha256:7b84d808f846a0e861fd88041de1fef5ed4a2554fab0daf7b3993838ad2e6634
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 9104
+  tokenEstimate: 9396
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:9d698ed80675924cb8a78ba0aea8b11663fe7c42b4fe070d2c7dcb8409f3d134
+  checksum: sha256:89ddb5df80d7698acc217d1e70d485f77872e7ee5958b479a5743b6f6e979641
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11459,7 +11459,7 @@ documents:
   - governance/**
   loadPolicy: on-demand
   priority: 150
-  tokenEstimate: 1010
+  tokenEstimate: 1559
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -11471,7 +11471,7 @@ documents:
   - evidence-piloto-1b-continuacao-governada
   - adr-021-agent-accounts-and-executors
   enforcedBy: []
-  checksum: sha256:ef41990845228406d15cd57d5d167e7ff35fbc3ef43545ffe3e90f9bd083faa8
+  checksum: sha256:cc0004ec2d835caae72bd096f88518ba21190197b47cdc66860aebe923ed6c32
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/NIGHT-SHIFT-REPORT.md

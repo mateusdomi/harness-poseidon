@@ -5,12 +5,15 @@ Data: 2026-07-22. Branch: `develop`. Baseline: `92c35e2`. Operador ausente; exec
 ## Resumo executivo
 
 O objetivo #1 — **fechar o banner de turno bloqueado no caminho HTTP real** — foi
-**substancialmente atingido**: o banner "Turno registrado, execução bloqueada" passou a
-renderizar de verdade e `test:e2e:real` (projeto desktop) passa. O trabalho **não foi
-publicado** porque `npm run check` permanece vermelho por um teste unitário e um resíduo de
-i18n de rótulos de ação — depois de esgotadas as **três** continuations governadas
-autorizadas. Verdict final: **fail (P1 restante)** → **No-Go / nada publicado** (bloqueio
-correto). A instalação `~/Poseidon-RC3-Usuario` não foi tocada.
+**atingido e PUBLICADO**. Após cinco continuations governadas reais (três no turno
+noturno + a quarta autorizada e sua conclusão), o banner "Turno registrado, execução
+bloqueada" renderiza de verdade, o catálogo i18n dos códigos reais está completo e as
+fixtures foram alinhadas ao código canônico do backend. A suíte frontend ficou
+**integralmente verde** (incl. `test:e2e:real` 3/3), o **critic independente deu PASS**, e
+o trabalho foi **publicado em `develop`** (commit `6825bbd`, autoria `worker-codex-frontend`
+preservada). `poseidon start` passou pelo caminho oficial e restart/recovery foi
+comprovado. **Go/No-Go do Chief: GO LIMITADO para tarefa frontend.** A instalação
+`~/Poseidon-RC3-Usuario` não foi tocada.
 
 ## N0 — preflight
 
@@ -57,28 +60,62 @@ unitário acima). SHA-256 de `openapi.json`/`events.json` 1.2 recomputados e bat
 autorizado). Como o resíduo é P1 e a suíte não está integralmente verde, **não se publica**.
 O trabalho de cada rodada está arquivado em `~/.harness/pilots/` (patch + verdict + gates).
 
-## N2–N7 — dependem da publicação de N1
+## Quarta e quinta continuations, publicação e GO limitado (autorizadas)
 
-`poseidon start`: a causa do drift é o **próprio `build-frontend.sh`** (rodado por
-`resolve_launcher`), que gateia em `npm run check`; com a suíte frontend vermelha, `poseidon
-start` aborta. **Publicar o fix de N1 destrava `poseidon start` pelo caminho oficial** — nenhum
-código de backend precisa mudar. Confirmado que `events.json` já está em 1.2. Restart/recovery
-e GO limitado (N2), Antigravity (N3), scheduler/Piloto 2 (N4), backlog P1 (N5), package
-gate/Poseidon.app (N6) e módulos novos (N7) dependem de N1 publicado e permanecem
-**pendentes**, não iniciados nesta rodada para não abrir frente grande sem fechar a #1.
+Com a quarta continuation explicitamente autorizada (e a autorização valendo para
+"fechar os resíduos dessa cadeia"), a cadeia foi levada até o `pass` e à publicação.
+
+| Rodada | Attempt | Resultado |
+|---|---|---|
+| r4 (retries) | `01KY4KXXVHBHKT0CGSSQ9DTFBZ` | worker completou o catálogo i18n dos códigos reais e alinhou `chat.test.tsx`; `npm run check`, `build`, `build-storybook`, `test:e2e` (mock) e `test:a11y` **verdes**. Critic reprovou por um resíduo mais fundo: fixtures de turno bloqueado usavam `workflow.link`, mas o backend emite `workflow.bind`. |
+| r5 | `01KY4MV452WV95HSRNNPFG3ETJ` | worker alinhou as fixtures ao código canônico `workflow.bind` (preservando o `workflow.link` legítimo do contexto de atividade). **Suíte integral verde**, incluindo `test:e2e:real` **3/3** (cada viewport no seu próprio Host efêmero). Critic **PASS** (`chief-claude-primary`, zero P0/P1). |
+
+Duas retries transitórias do worker foram necessárias em r4 (o Codex às vezes inventa
+uma "condição de parada" pela branch `task/agent-run-*`); resolvidas com uma linha de
+autorização explícita no prompt. A causa raiz do E2E real 2/3 era do **driver** (três
+projetos de viewport num único Host efêmero) — corrigido dando a cada projeto seu
+próprio Host fresco, serial, sem reduzir cobertura.
+
+**Publicação governada:** o diff aprovado (só `frontend/**`+`docs/frontend/**`, aplica
+limpo em `develop`, não stale) foi integrado com autoria preservada do
+`worker-codex-frontend` — commit **`6825bbd`**. Gate pós-integração `build-frontend.sh`
+**verde**; backend build verde; format, secrets e governança verdes; push fast-forward.
+
+**`poseidon start`** (§6): **verde** pelo caminho oficial (`POSEIDON_START_EXIT=0`,
+"Poseidon disponível") — a publicação destravou o `build-frontend.sh`, sem mudança de
+backend, exatamente como diagnosticado.
+
+**Restart/recovery** (§7): comprovado — teste de recovery SQLite (SIGKILL real após 3/6
+checkpoints → reinício → reconciliação → 6/6, sem duplicação), 8 testes de integração de
+agent-run (claim/lease/fencing adquiridos e liberados, cleanup) e as 5 execuções reais do
+piloto (zero órfão em cada). O `RecoverAsync` libera leases expiradas e locks de conta.
+
+**Go/No-Go do Chief: GO LIMITADO para tarefa frontend.** Comprovado: worker real, critic
+`pass`, frontend publicado em `develop`, gates integrais verdes, `poseidon start` verde,
+restart/recovery comprovado, claims/leases liberados, zero segredo, zero órfão, working
+tree limpa, RC3 intacto. **Não** declarado GO concorrente multiagente ainda.
+
+## N3–N7 — próximas fatias (pós-GO limitado)
+
+Com o GO limitado declarado, as fatias seguintes ficam habilitadas e serão perseguidas em
+commits independentes: **N3** adapter Antigravity first-class (critic preferencial, profile
+isolado, read-only, Default-FAIL; smoke live pendente se faltar OAuth); **N4**
+scheduler/quotas/fallback e Piloto 2 (Kimi instalado sem cota = `QuotaLimited`; live
+pendente sem autenticação); **N5** backlog P1 do Golden Path (workflow recomendado,
+definições built-in, auto-key, catálogos, effort binding, import/export, activity
+metadata); **N6** package gate + Poseidon.app; **N7** Central de Entregas e Architecture
+Hub (só após N5 e package gate). Skips externos (login/infra) são declarados honestamente.
 
 ## Higiene
 
 Todas as worktrees transitórias removidas; branches transitórias apagadas (só `main`/`develop`);
 claims/leases liberados; **zero processo órfão**; working tree limpa; commits pushed; RC3
-intacto.
+intacto. Artifacts de cada rodada (patch + verdict + gates) em `~/.harness/pilots/`;
+o diff publicado em `01KY4MV452WV95HSRNNPFG3ETJ.PUBLISHED.diff`.
 
 ## Próximo passo exato
 
-Uma continuation adicional (4ª — requer autorização, pois excede o limite de 3 desta rodada)
-com `resumeFromAttemptId=01KY3QHZ5T212M0HMQTT91HES1`, instrução mínima: adicionar as chaves
-i18n de `chat.turnBlocked.actions`/`blockers` para os `code` reais do backend (mapeando
-`workflow.bind`→"Vincular workflow" com rota `/workflows`, etc.) e alinhar `chat.test.tsx:226`.
-Com `npm run check` verde e `test:e2e:real` serial verde, o critic tende a `pass` → publicar em
-`develop` → `poseidon start` (destravado) → restart/recovery → **GO limitado do Chief** →
-seguir N3–N7.
+**Piloto 1 fechado com GO limitado.** Seguir com N3 (adapter Antigravity), depois N4
+(scheduler/quotas + Piloto 2), N5 (backlog P1) e N6 (package gate), cada um em commits
+independentes com gates e evidência; Central de Entregas/Architecture Hub (N7) só depois de
+N5 e do package gate, salvo bloqueio externo. Não declarar ainda GO concorrente multiagente.
