@@ -169,17 +169,21 @@ start_poseidon() {
     exit 2
   fi
   mkdir -p "${POSEIDON_RUNTIME_DIR}" "${POSEIDON_LOG_DIR}"
-  # Carrega env de segredo do operador FORA do repositório (ex.: token GLM/Z.AI para
-  # worker-glm-general). O arquivo nunca é versionado e não contém segredo em texto: ele
-  # resolve o token do Keychain. Só executores cujo allowlist inclui ANTHROPIC_* herdam
-  # essas variáveis (o provisionador zera o ambiente por conta), então as contas Claude
-  # reais nunca são afetadas.
-  if [[ -f "${HOME}/.harness/glm.env" ]]; then
-    # shellcheck disable=SC1091
-    source "${HOME}/.harness/glm.env" || true
-    export ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY \
-      ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL 2>/dev/null || true
-  fi
+  # Carrega a config de ORQUESTRAÇÃO e os segredos do operador FORA do repositório. É o que
+  # torna o core de orquestração (agent-runs, registro das contas) carregado logo na
+  # inicialização, sem env vars manuais. `poseidon.env` habilita agent-runs e aponta o
+  # ControlledRoot/ProfilesRoot/AccountsFilePath; ele mesmo carrega `glm.env` (token GLM
+  # resolvido do Keychain, nunca em texto). Nenhum arquivo é versionado; nenhum segredo
+  # trafega em texto. Só executores cujo allowlist inclui ANTHROPIC_* herdam o token GLM
+  # (o provisionador zera o ambiente por conta), então as contas Claude reais não são afetadas.
+  set -a
+  for _env in "${HOME}/.harness/poseidon.env" "${HOME}/.harness/glm.env"; do
+    if [[ -f "${_env}" ]]; then
+      # shellcheck disable=SC1090
+      source "${_env}" || true
+    fi
+  done
+  set +a
   local launcher
   launcher="$(resolve_launcher)"
   local args=(--data-dir "${POSEIDON_DATA_DIR}" --no-browser)

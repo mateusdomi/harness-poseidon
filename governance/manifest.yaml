@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T17:41:07.8535450+00:00
+lastGeneratedAt: 2026-07-22T17:51:25.0805250+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:8730230e044de7d9d07ba1999937296614433eed5165f0283147c4c18119dc45
+  checksum: sha256:4835a0ca60d418d4b810d586e70af8ea8348171a8b24333c99a81a14b9fdc7be
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11698,7 +11698,7 @@ documents:
   - docs/backend/**
   loadPolicy: on-demand
   priority: 150
-  tokenEstimate: 1115
+  tokenEstimate: 1317
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -11710,7 +11710,7 @@ documents:
   - evidence-piloto-2-blocked-external-oauth
   - evidence-n3-antigravity-critic
   enforcedBy: []
-  checksum: sha256:e2642a0f2fa31437add47056969a66fd6b6c2224cbf223e75aea375ea60359c0
+  checksum: sha256:b3cc73762c48a9baad0e9ca5db77209471baaef20a8a41a8d540ab33b25f2ef4
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/AUTH-RESOLUTION.md

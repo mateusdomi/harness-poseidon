@@ -81,8 +81,26 @@ Alternativa não interativa (sem navegador), se você tiver as chaves:
 - Codex: `printf '%s' "<OPENAI_API_KEY>" | CODEX_HOME="…/worker-codex-critic/config" codex login --with-api-key`
 - Claude: uma **API key Anthropic** via `apiKeyHelper`/`ANTHROPIC_API_KEY` no config dir isolado.
 
+## Persistência fixa — orquestração carregada no boot (core do sistema)
+
+Para que o "chefe" carregue a orquestração logo na inicialização, sem reconfigurar a cada
+sessão, a configuração ficou PERSISTIDA fora do repositório e é carregada por
+`./poseidon start`:
+
+- `~/.harness/poseidon.env` — habilita agent-runs de forma fixa (`Harness__AgentRuns__Enabled=true`,
+  `ControlledRoot`, `ProfilesRoot`, `AccountsFilePath`) e carrega o `glm.env`. O launcher
+  `poseidon` faz `set -a; source` de `poseidon.env` e `glm.env` na `start_poseidon()`.
+- `~/.harness/agent-accounts.json` — registro das 7 contas (alias, executor, credentialRef
+  opaco, papel, `concurrencyLimit`), lido pelo Host via `AgentAccountConfigurationLoader.Load(...)`.
+  O `concurrencyLimit` por conta habilita orquestrar múltiplas instâncias da mesma conta.
+
+Prova: `./poseidon start` **puro** (com o shell SEM nenhuma variável `Harness__AgentRuns__*`)
+sobe com agent-runs habilitado e as 7 contas carregadas — a orquestração deixou de depender
+de env vars manuais.
+
 ## Higiene
 
 Nenhum segredo entrou no repositório, Git, evidência ou argumento de comando persistido: o
-token vive só no Keychain do macOS; `~/.harness/glm.env` está fora do repo e não contém o
-valor. O diff do `poseidon` cita apenas NOMES de variáveis.
+token vive só no Keychain do macOS; `~/.harness/{glm,poseidon}.env` e `agent-accounts.json`
+estão fora do repo e não contêm valor de segredo. O diff do `poseidon` cita apenas NOMES de
+variáveis e caminhos de arquivos locais.
