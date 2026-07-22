@@ -331,6 +331,8 @@ public static class HostApplication
             builder.Services.AddSingleton(
                 new AccountAvailabilityLedger(AccountAvailabilityLedger.DefaultPath));
             builder.Services.AddHostedService<AccountRecoveryBackgroundService>();
+            builder.Services.AddSingleton(new ChiefBacklogPolicy());
+            builder.Services.AddHostedService<ChiefBacklogLoopService>();
             builder.Services.AddSingleton(new AttemptArtifactArchive(
                 string.IsNullOrWhiteSpace(agentRunSettings.ArchiveRoot)
                     ? AttemptArtifactArchive.DefaultRoot

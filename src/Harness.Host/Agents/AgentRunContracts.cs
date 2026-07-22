@@ -39,6 +39,20 @@ public sealed record AgentRunSettings
     public TimeSpan RunTimeout { get; init; } = TimeSpan.FromMinutes(30);
 
     public int ContextTokenBudget { get; init; } = 8000;
+
+    /// <summary>
+    /// Loop autônomo do chefe (drena o backlog e delega). Nasce DESLIGADO: um auto-dispatch
+    /// executa agentes reais e gasta cota, então só roda quando o operador o habilita
+    /// explicitamente. O card vai só até <c>AwaitingReview</c> — nunca publica em `develop`
+    /// sozinho.
+    /// </summary>
+    public bool AutoDispatchEnabled { get; init; }
+
+    /// <summary>Intervalo entre ciclos do loop do chefe.</summary>
+    public TimeSpan AutoDispatchInterval { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>Teto de despachos concorrentes por ciclo — trava de segurança do auto-dispatch.</summary>
+    public int AutoDispatchMaxConcurrent { get; init; } = 2;
 }
 
 /// <summary>Situação de um run de agente. Conjunto fechado.</summary>
