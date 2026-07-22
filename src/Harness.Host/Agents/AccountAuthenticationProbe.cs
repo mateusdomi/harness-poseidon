@@ -38,6 +38,10 @@ public static class AccountAuthenticationProbe
             ExecutorCatalog.Codex => File.Exists(Path.Combine(configHomePath, "auth.json")),
             ExecutorCatalog.Antigravity => File.Exists(Path.Combine(
                 configHomePath, ".gemini", "antigravity-cli", "antigravity-oauth-token")),
+            // O Kimi Code isola por HOME e grava o credential em
+            // `.kimi-code/credentials/kimi-code.json` sob o config home.
+            ExecutorCatalog.KimiCode => File.Exists(Path.Combine(
+                configHomePath, ".kimi-code", "credentials", "kimi-code.json")),
             _ => HasClaudeOAuthAccount(configHomePath),
         };
     }

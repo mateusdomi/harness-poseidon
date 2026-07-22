@@ -53,6 +53,14 @@ public sealed class AccountAuthenticationProbeTests : IDisposable
     }
 
     [Fact]
+    public void KimiIsAuthenticatedByItsIsolatedCredentialFileUnderTheHomeConfig()
+    {
+        Assert.False(AccountAuthenticationProbe.HasMaterial(_home, ExecutorCatalog.KimiCode, false));
+        Write(Path.Combine(".kimi-code", "credentials", "kimi-code.json"), "{}");
+        Assert.True(AccountAuthenticationProbe.HasMaterial(_home, ExecutorCatalog.KimiCode, false));
+    }
+
+    [Fact]
     public void GlmIsAuthenticatedByTheEnvironmentTokenEvenWithoutACredentialFile()
     {
         // GLM autentica por ANTHROPIC_AUTH_TOKEN (env), não por arquivo no dir.

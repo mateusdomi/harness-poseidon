@@ -186,7 +186,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 10976 |
+| [Estado atual do backend](backend/execution/CURRENT_STATE.md) | * | Active | Platform Engineering | Bundle | 11141 |
 | [CURRENT_STATE — Frontend Harness Poseidon](frontend/CURRENT_STATE.md) | * | Active | Frontend | OnDemand | 4623 |
 
 ### Reference
@@ -387,7 +387,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Refinamento v3 — arquivamento de tarefas](backend/execution/evidence/V3-TASK-ARCHIVING.md) | * | Active | Quality Engineering | OnDemand | 438 |
 | [V3 — fases persistidas no quadro](backend/execution/evidence/V3-WORK-BOARD-PHASES.md) | * | Active | Quality Engineering | OnDemand | 338 |
 | [V3 — ciclo de rascunho e publicação de workflows](backend/execution/evidence/V3-WORKFLOW-DRAFT-LIFECYCLE.md) | * | Active | Quality Engineering | OnDemand | 650 |
-| [Resolução de autenticação dos perfis isolados](backend/execution/evidence/AUTH-RESOLUTION.md) | * | Active | Quality Engineering | OnDemand | 905 |
+| [Resolução de autenticação dos perfis isolados](backend/execution/evidence/AUTH-RESOLUTION.md) | * | Active | Quality Engineering | OnDemand | 1115 |
 | [Auto-key versionado de agent_key](backend/execution/evidence/AUTO-KEY-AGENT-DEFINITIONS.md) | * | Active | Quality Engineering | OnDemand | 594 |
 | [CA-1/CA-2 — papel provider-agnostic e registro de contas](backend/execution/evidence/CA-1-2-AGENT-ACCOUNTS.md) | * | Active | Quality Engineering | OnDemand | 845 |
 | [CA-3 — isolamento por conta de agente](backend/execution/evidence/CA-3-ACCOUNT-ISOLATION.md) | * | Active | Quality Engineering | OnDemand | 929 |

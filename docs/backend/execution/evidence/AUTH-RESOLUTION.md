@@ -4,17 +4,31 @@ Data: 2026-07-22. Branch: `develop`. Base: `9355efd`.
 
 ## Resultado — `./poseidon agent doctor` (real)
 
-**4 contas autenticadas**, suficientes para o Piloto 2 concorrente com Antigravity LIVE:
+**7 de 7 contas autenticadas** (todas as que o operador possui). O Kimi fica `Unavailable`
+porque ainda não tem adapter no Poseidon e está sem cota, mas já está autenticado e isolado.
 
-| alias | executor | autenticado | papel no piloto |
-|---|---|---|---|
-| chief-claude-primary | claude-code | ✅ | orquestrador |
-| worker-codex-frontend | codex | ✅ | frontend actor |
-| worker-glm-general | glm | ✅ | **backend actor** (isolado, sem colisão de Keychain) |
-| worker-antigravity-review | antigravity | ✅ | **critic LIVE** |
-| worker-claude-secondary | claude-code | ❌ | opcional — login humano (ver abaixo) |
-| worker-codex-critic | codex | ❌ | opcional — `codex login` (dir já criado) |
-| worker-kimi-ui | kimi-code | ⏭️ | sem adapter + sem cota |
+| alias | executor | autenticado | isolamento | papel |
+|---|---|---|---|---|
+| chief-claude-primary | claude-code | ✅ | Keychain por `CLAUDE_CONFIG_DIR` | orquestrador |
+| worker-claude-secondary | claude-code | ✅ | Keychain `-3d4027b1` (isolado do chief) | backend/2º actor Claude |
+| worker-codex-frontend | codex | ✅ | `auth.json` por `CODEX_HOME` | frontend actor |
+| worker-codex-critic | codex | ✅ | `auth.json` por `CODEX_HOME` | critic fallback / 2ª instância |
+| worker-glm-general | glm | ✅ | token de ambiente (Keychain) | backend actor |
+| worker-antigravity-review | antigravity | ✅ | `antigravity-oauth-token` por HOME | **critic LIVE** |
+| worker-kimi-ui | kimi-code | ✅ | `.kimi-code/credentials` por HOME | (sem adapter/cota) |
+
+### Como cada login isolado foi feito (real, nesta sessão)
+
+- **Codex critic**: `CODEX_HOME=… codex login` (servidor OAuth local em `localhost:1455`);
+  o operador autorizou no navegador → `Successfully logged in`, `auth.json` no dir isolado.
+- **Claude secondary**: `CLAUDE_CONFIG_DIR=… claude auth login` (fluxo authorization-code); o
+  operador autorizou com a 2ª conta e colou o código → `Login successful`; surgiu o item de
+  Keychain `Claude Code-credentials-3d4027b1`, isolado do chief.
+- **Kimi**: `HOME=… kimi login` (device-code) — o Kimi isola por **HOME**, não `KIMI_HOME`;
+  gravou `.kimi-code/credentials/kimi-code.json` no dir do Poseidon.
+
+A detecção de autenticação do doctor foi estendida para cobrir Kimi
+(`.kimi-code/credentials/kimi-code.json`) além de Codex/Antigravity/Claude/GLM.
 
 ## Dois consertos nesta rodada
 
