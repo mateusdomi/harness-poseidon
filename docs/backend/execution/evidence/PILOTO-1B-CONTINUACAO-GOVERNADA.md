@@ -97,8 +97,49 @@ Uma tentativa **nova** (nunca reusa a anterior), com **novos claims**, **novo fe
   achado P0 `suite-vermelha` que a continuação existe para fechar, pelo worker governado,
   não pelo backend.
 
+## Execução real (Piloto 1B live)
+
+A continuação foi executada de verdade, com o Codex e o Claude autenticados, sobre o
+repositório real. Driver reproduzível (gated por `HARNESS_RUN_LIVE_PILOT=true`) em
+`tests/Harness.IntegrationTests/Agents/LiveContinuationPilotDriver.cs`.
+
+- **Autenticação real** (`doctor`): `worker-codex-frontend` (codex-cli 0.144.6) e
+  `chief-claude-primary` (Claude Code 2.1.217) autenticados; os demais aliases não.
+- **Continuação disparada**: attempt anterior semeado e levado a `rejected` pela cadeia real;
+  patch do Piloto 1A arquivado com manifest (sha256 validado); `resumeFromAttemptId` devolveu
+  `202` com **nova tentativa** `01KY3M2BFEGN32MV0FEW61B4EF`, claims `frontend/**` +
+  `docs/frontend/**`, fencing 1/1, worktree nascida de `origin/develop`, patch aplicado limpo.
+- **Worker real** (~5 min): fechou **7 dos 9 achados** — o critic confirma migração de
+  `chiefTurnState` fechada, **estado inicial honesto** (`default null → notStarted`, o defeito
+  classe-RC3), códigos com i18n, readiness consumido, banner limpo entre conversas e
+  `disabled` sem hardcode. Honesto no limite: **não fez commit** porque não pôde executar os
+  E2E obrigatórios no próprio run.
+- **Gates executados na worktree pelo operador**: `npm run check` **verde** (P0
+  `suite-vermelha` fechado — os três drift tests passam), `test:e2e` **72/72**, `test:a11y`
+  **42/42**, SHA-256 de `openapi.json` (`8dbaca…ab553`) e `events.json` 1.2 (`765a96…b65b16`)
+  **recomputados e batem** com o `HANDOFF` (P2 `catalogo-nao-verificavel` fechado).
+- **`test:e2e:real` (http-real)**: **1 falha** — após enviar a mensagem contra o Host real (que
+  responde `202 state=blocked` com blockers/nextActions tipados, confirmado por curl), a UI
+  mostra a região "Execução do chefe bloqueada" e a mensagem persistida, mas **não renderiza o
+  banner de confirmação `Turno registrado, execução bloqueada`** no caminho HTTP real. O mock
+  (`test:e2e`) passa; o real não. É um gap de integração verdadeiro que só o E2E real pega.
+- **Critic real e independente** (`chief-claude-primary`, conta/executor distintos do actor):
+  **verdict `fail`** (`reviewId 01KY3MC86QS24K9NNMNRQFF41T`), agora reduzido a P2 —
+  `e2e-sem-evidencia` (correto: o E2E real reprova) e `catalogo-nao-verificavel` (limitação do
+  critic read-only, resolvida pela recomputação do operador). Zero P0/P1.
+
+**Go/No-Go do Chief: No-Go.** A máquina de continuação funcionou de ponta a ponta e o worker
+fechou os defeitos de código, incluindo o estado inicial desonesto. Mas a **suíte frontend não
+está integralmente verde** (`http-real` reprova o banner de turno bloqueado no caminho real),
+então o verdict é `fail` e **nada foi publicado em `develop`** — o bloqueio correto. Higiene:
+worktree removida, branch da tentativa apagada, claims/leases liberados, **zero processo
+órfão**, working tree limpa. O trabalho da continuação foi arquivado fora do repositório
+(`~/.harness/pilots/01KY3M2BFEGN…`), como manda o padrão de tentativa reprovada.
+
 ## Próximo passo exato
 
-Executar a continuação de verdade: `poseidon agent start --resume-from <attemptId>` com o
-`worker-codex-frontend`, fechar os 9 achados, re-executar o critic e, só com verdict `pass`,
-publicar em `develop`.
+Nova rodada de continuação (`resumeFromAttemptId=01KY3M2BFEGN…`) para fechar o único achado de
+código restante: fazer o caminho HTTP real renderizar o banner `Turno registrado, execução
+bloqueada` ao receber `202 state=blocked` (hoje só o mock o faz). Re-executar todos os gates,
+incluindo `test:e2e:real`, e o critic. Só com verdict `pass` e suíte integral verde, publicar
+em `develop` e então exercer `poseidon start`, restart/recovery e o GO limitado do Chief.
