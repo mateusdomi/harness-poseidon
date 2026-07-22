@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T00:56:26.2241140+00:00
+lastGeneratedAt: 2026-07-22T01:55:15.5032250+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7523
+  tokenEstimate: 7548
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:50083197549e0f7d5e4cf49831b0d64cb5fa73c21d58089713beff0fdc540a01
+  checksum: sha256:c7e818f1c07eed3970b0d603a9428fa8f834e1ec779687a06a66a2330cd252dd
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 8756
+  tokenEstimate: 9104
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:19b1724ebeeb235784d13a9c15654b796db9cfc811e84710dbf5609a02d68810
+  checksum: sha256:9d698ed80675924cb8a78ba0aea8b11663fe7c42b4fe070d2c7dcb8409f3d134
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11425,3 +11425,53 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/PILOTO-1B-CONTINUACAO-GOVERNADA.md
+- id: evidence-night-shift-report
+  path: docs/backend/execution/evidence/NIGHT-SHIFT-REPORT.md
+  title: Turno noturno — relatório
+  category: evidence
+  topic: evidence-night-shift-report
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  - docs/frontend/**
+  - governance/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 1010
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-piloto-1b-continuacao-governada
+  - adr-021-agent-accounts-and-executors
+  enforcedBy: []
+  checksum: sha256:ef41990845228406d15cd57d5d167e7ff35fbc3ef43545ffe3e90f9bd083faa8
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/NIGHT-SHIFT-REPORT.md

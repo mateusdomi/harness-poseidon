@@ -44,7 +44,41 @@ public sealed class LiveContinuationPilotDriver
     private static string ArchiveRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".harness", "pilots");
 
-    private const string WorkerInstruction = """
+    private static string WorkerInstruction =>
+        Environment.GetEnvironmentVariable("HARNESS_PILOT_INSTRUCTION_FILE") is { Length: > 0 } file
+            && File.Exists(file)
+            ? File.ReadAllText(file)
+            : DefaultWorkerInstruction;
+
+    private static string ResumeAttemptId =>
+        Environment.GetEnvironmentVariable("HARNESS_PILOT_RESUME_ATTEMPT") is { Length: > 0 } id
+            ? id
+            : NewId();
+
+    private static ArchivedAttemptFinding[] ConfiguredFindings()
+    {
+        var raw = Environment.GetEnvironmentVariable("HARNESS_PILOT_FINDINGS");
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DefaultFindings;
+        }
+
+        return raw.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(line => line.Split('|', 3))
+            .Where(parts => parts.Length == 3)
+            .Select(parts => new ArchivedAttemptFinding(parts[0], parts[1], parts[2]))
+            .ToArray();
+    }
+
+    private static readonly ArchivedAttemptFinding[] DefaultFindings =
+    [
+        new ArchivedAttemptFinding("P0", "suite-vermelha", "1 teste falhando; suíte não verde"),
+        new ArchivedAttemptFinding("P1", "estado-inicial-desonesto", "UI exibe Concluído antes de existir turno"),
+        new ArchivedAttemptFinding("P1", "migracao-enum-turno-incompleta", "troca de chiefTurnState não fechada"),
+        new ArchivedAttemptFinding("P1", "codigos-crus-na-ui", "blocker.code/action.code sem i18n"),
+    ];
+
+    private const string DefaultWorkerInstruction = """
         Você é o worker-codex-frontend continuando a tentativa reprovada do Piloto 1A. O diff
         anterior foi APLICADO nesta worktree como ponto de partida (ou, se estiver stale,
         segue no prompt como CONTEXTO — nesse caso reconstrua sobre a base atual). Sua tarefa
@@ -149,10 +183,12 @@ public sealed class LiveContinuationPilotDriver
         await File.WriteAllTextAsync(diffPath, diff, timeout.Token);
         Log($"captured diff bytes={diff.Length} -> {diffPath}");
 
-        // Verificação independente da suíte do frontend na worktree (o achado P0).
-        var checkEvidence = await RunFrontendCheckAsync(worktree, timeout.Token);
-        await File.WriteAllTextAsync(Path.Combine(ResultsDir, "frontend-check.log"), checkEvidence.Log, timeout.Token);
-        Log($"frontend `npm run check` exit={checkEvidence.ExitCode}");
+        // Bateria de gates do frontend executada pelo OPERADOR na worktree, incluindo o
+        // test:e2e:real contra um Host real — a prova que o critic exige. O worker não
+        // consegue subir o Host .NET no próprio sandbox; o operador sim.
+        var gateEvidence = await RunFrontendGatesAsync(worktree, timeout.Token);
+        await File.WriteAllTextAsync(Path.Combine(ResultsDir, "frontend-gates.log"), gateEvidence, timeout.Token);
+        Log($"frontend gates evidence bytes={gateEvidence.Length}");
 
         // Critic real e independente (conta diferente do actor).
         using var review = await client.PostAsJsonAsync(
@@ -163,7 +199,7 @@ public sealed class LiveContinuationPilotDriver
                 actor = "worker-codex-frontend",
                 diff,
                 reviewDirectory = worktree,
-                testEvidence = $"npm run check exit={checkEvidence.ExitCode}\n{Tail(checkEvidence.Log, 6000)}",
+                testEvidence = Tail(gateEvidence, 12000),
                 scopeClaims = FrontendScopeClaims,
                 acceptanceCriteria = manifest.Findings
                     .Select(f => $"[{f.Severity} {f.Code}] {f.Summary}").ToArray(),
@@ -210,18 +246,7 @@ public sealed class LiveContinuationPilotDriver
         ReviewId = "01KY37PQX9921N4SHPE620CJ0Q",
         ReceiptTurnId = null,
         ScopeClaims = ["frontend/**", "docs/frontend/**"],
-        Findings =
-        [
-            new ArchivedAttemptFinding("P0", "suite-vermelha", "1 teste falhando; suíte não verde"),
-            new ArchivedAttemptFinding("P1", "migracao-enum-turno-incompleta", "troca de chiefTurnState não fechada"),
-            new ArchivedAttemptFinding("P1", "estado-inicial-desonesto", "UI exibe Concluído antes de existir turno"),
-            new ArchivedAttemptFinding("P1", "codigos-crus-na-ui", "blocker.code/action.code sem i18n"),
-            new ArchivedAttemptFinding("P2", "readiness-do-handle-nao-consumido", "readiness exigido mas não consumido"),
-            new ArchivedAttemptFinding("P2", "e2e-sem-evidencia", "specs Playwright alterados sem prova"),
-            new ArchivedAttemptFinding("P2", "catalogo-canonico-nao-verificavel", "SHA-256 citado não verificável"),
-            new ArchivedAttemptFinding("P2", "banner-bloqueado-persistente", "aviso não limpo entre conversas"),
-            new ArchivedAttemptFinding("P3", "disabled-hardcoded", "disabled={false} ruidoso"),
-        ],
+        Findings = ConfiguredFindings(),
         ArchivedAt = DateTimeOffset.UnixEpoch,
     };
 
@@ -258,7 +283,7 @@ public sealed class LiveContinuationPilotDriver
         var persisted = (await board.GetTaskAsync(tenantId, taskId, token))!;
         var backing = persisted.BackingSolicitationId;
         var instruction = (await board.ListInstructionsAsync(tenantId, taskId, null, 10, token))[0];
-        var attemptId = SharedKernel.Identifiers.UlidValue.New(DateTimeOffset.UtcNow).ToString();
+        var attemptId = ResumeAttemptId;
         var now = DateTimeOffset.UtcNow;
 
         var started = await chain.StartAttemptAsync(new WorkAttemptStartCommand(
@@ -333,21 +358,105 @@ public sealed class LiveContinuationPilotDriver
         return committed.StdOut;
     }
 
-    private static async Task<(int ExitCode, string Log)> RunFrontendCheckAsync(string worktree, CancellationToken token)
+    private static readonly string[] NpmE2eArgs = ["run", "test:e2e"];
+    private static readonly string[] NpmA11yArgs = ["run", "test:a11y"];
+    // --workers=1: os projetos de viewport compartilham UM Host efêmero; rodar em paralelo
+    // fazia os projetos posteriores esgotarem o timeout de sessão. Serial elimina a
+    // contenção sem reduzir a cobertura.
+    private static readonly string[] NpmE2eRealArgs = ["run", "test:e2e:real", "--", "--workers=1"];
+
+    private static async Task<string> RunFrontendGatesAsync(string worktree, CancellationToken token)
     {
         var frontend = Path.Combine(worktree, "frontend");
         if (!Directory.Exists(frontend))
         {
-            return (-1, "frontend directory absent in worktree");
+            return "frontend directory absent in worktree";
         }
 
+        var log = new StringBuilder();
+        void Section(string label, int exit, string body, int cap) => log
+            .Append("$ ").Append(label).Append(" -> exit ")
+            .Append(exit.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append('\n').Append(Tail(body, cap)).Append("\n\n");
+
         var ci = await RunAsync("npm", NpmCiArgs, frontend, token);
+        Section("npm ci", ci.ExitCode, ci.StdOut + ci.StdErr, 1500);
+
         var check = await RunAsync("npm", NpmCheckArgs, frontend, token);
-        return (check.ExitCode, $"$ npm ci\n{Tail(ci.StdOut + ci.StdErr, 2000)}\n$ npm run check\n{check.StdOut}\n{check.StdErr}");
+        Section("npm run check", check.ExitCode, check.StdOut + check.StdErr, 4000);
+
+        var e2e = await RunAsync("npm", NpmE2eArgs, frontend, token, ci: true);
+        Section("npm run test:e2e (mock)", e2e.ExitCode, e2e.StdOut + e2e.StdErr, 4000);
+
+        var a11y = await RunAsync("npm", NpmA11yArgs, frontend, token, ci: true);
+        Section("npm run test:a11y", a11y.ExitCode, a11y.StdOut + a11y.StdErr, 2500);
+
+        // test:e2e:real precisa de um Host real; o operador sobe um subprocesso efêmero.
+        const int backendPort = 5091;
+        var (host, hostDb) = StartEphemeralHost(backendPort);
+        try
+        {
+            await WaitForHostAsync($"http://127.0.0.1:{backendPort}/openapi/v1.json", token);
+            var real = await RunAsync(
+                "npm", NpmE2eRealArgs, frontend, token, ci: true,
+                extraEnv: ("POSEIDON_BACKEND_URL", $"http://127.0.0.1:{backendPort}"));
+            Section("npm run test:e2e:real", real.ExitCode, real.StdOut + real.StdErr, 6000);
+        }
+        finally
+        {
+            try { if (!host.HasExited) { host.Kill(entireProcessTree: true); } } catch (InvalidOperationException) { }
+            try { Directory.Delete(Path.GetDirectoryName(hostDb)!, recursive: true); } catch (IOException) { }
+        }
+
+        var audit = await RunAsync("npm", ["audit", "--omit=dev", "--audit-level=high"], frontend, token);
+        Section("npm audit --omit=dev", audit.ExitCode, audit.StdOut, 1500);
+        return log.ToString();
+    }
+
+    private static (Process Host, string DbPath) StartEphemeralHost(int port)
+    {
+        var dir = Path.Combine(ResultsDir, $"e2e-host-{port}");
+        Directory.CreateDirectory(dir);
+        var db = Path.Combine(dir, "host.db");
+        var dll = Path.Combine(RepoRoot, "src", "Harness.Host", "bin", "Release", "net10.0", "Harness.Host.dll");
+        var psi = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = RepoRoot,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (var a in new[] { dll, "--urls", $"http://127.0.0.1:{port}", "--Harness:DatabasePath", db })
+        {
+            psi.ArgumentList.Add(a);
+        }
+
+        return (Process.Start(psi)!, db);
+    }
+
+    private static async Task WaitForHostAsync(string url, CancellationToken token)
+    {
+        using var probe = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        for (var i = 0; i < 60; i++)
+        {
+            try
+            {
+                using var response = await probe.GetAsync(url, token);
+                if (response.IsSuccessStatusCode)
+                {
+                    return;
+                }
+            }
+            catch (HttpRequestException) { }
+            catch (TaskCanceledException) { }
+
+            await Task.Delay(1000, token);
+        }
     }
 
     private static async Task<(int ExitCode, string StdOut, string StdErr)> RunAsync(
-        string file, string[] args, string cwd, CancellationToken token)
+        string file, string[] args, string cwd, CancellationToken token,
+        bool ci = false, (string Key, string Value)? extraEnv = null)
     {
         var psi = new ProcessStartInfo(file)
         {
@@ -359,6 +468,16 @@ public sealed class LiveContinuationPilotDriver
         foreach (var a in args)
         {
             psi.ArgumentList.Add(a);
+        }
+
+        if (ci)
+        {
+            psi.Environment["CI"] = "1";
+        }
+
+        if (extraEnv is { } env)
+        {
+            psi.Environment[env.Key] = env.Value;
         }
 
         using var process = Process.Start(psi)!;
