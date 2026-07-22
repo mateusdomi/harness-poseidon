@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T13:04:16.1873000+00:00
+lastGeneratedAt: 2026-07-22T13:11:27.1073570+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7575
+  tokenEstimate: 7604
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4529d6facfb484e379ca0f8c272573116710259bf18c70b715bb65aeb8209eba
+  checksum: sha256:dbdd627d85aecac089c3ec68d86ee6631616c9d33f9c5b770e82db6bb793e9d9
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 9821
+  tokenEstimate: 10109
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:4596a0de903785ef6d93b9a7208d553f0a6a086525f3a5d3ffd93470d080ffd4
+  checksum: sha256:98e2c14c5d56431790a6d7768c99d325d94591b67ffec60fefefaf84bfe8dd8f
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11523,3 +11523,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/N3-ANTIGRAVITY-CRITIC.md
+- id: evidence-n4-scheduler-quotas
+  path: docs/backend/execution/evidence/N4-SCHEDULER-QUOTAS.md
+  title: N4 — scheduler, quotas and fallback
+  category: evidence
+  topic: evidence-n4-scheduler-quotas
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 891
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - adr-021-agent-accounts-and-executors
+  - evidence-n3-antigravity-critic
+  enforcedBy: []
+  checksum: sha256:4fb7df28d4bc8695e45dba65658c053a5322925d118fe95065a82efcb64091ab
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/N4-SCHEDULER-QUOTAS.md
