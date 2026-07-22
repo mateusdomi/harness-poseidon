@@ -858,40 +858,11 @@ public sealed class AgentRunOrchestrator(
     /// (inclusive e-mail) e seu conteúdo nunca é lido, copiado, logado ou propagado.
     /// </summary>
     private static bool HasAuthenticationMaterial(
-        AccountProfileLayout layout, ExecutorProfile executorProfile)
-    {
-        if (!Directory.Exists(layout.ConfigHomePath))
-        {
-            return false;
-        }
-
-        if (executorProfile.ExecutorId == ExecutorCatalog.Codex)
-        {
-            return File.Exists(Path.Combine(layout.ConfigHomePath, "auth.json"));
-        }
-
-        var descriptor = Path.Combine(layout.ConfigHomePath, ".claude.json");
-        if (!File.Exists(descriptor))
-        {
-            return false;
-        }
-
-        try
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(descriptor));
-            return document.RootElement.ValueKind == JsonValueKind.Object &&
-                document.RootElement.TryGetProperty("oauthAccount", out var account) &&
-                account.ValueKind == JsonValueKind.Object;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-    }
+        AccountProfileLayout layout, ExecutorProfile executorProfile) =>
+        AccountAuthenticationProbe.HasMaterial(
+            layout.ConfigHomePath,
+            executorProfile.ExecutorId,
+            !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN")));
 
     /// <summary>Sessão placeholder até o executor iniciar; nunca executa nada.</summary>
     private sealed class PendingSession : IExternalAgentSession

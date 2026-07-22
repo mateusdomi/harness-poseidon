@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T13:41:32.5613790+00:00
+lastGeneratedAt: 2026-07-22T14:11:14.1999910+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -206,7 +206,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7656
+  tokenEstimate: 7685
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -219,7 +219,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:c43f4b300ec04ba133e72463af1fb2fc809ca61718c12113b8c5e661bee838ba
+  checksum: sha256:f03c51e9e74335a026d3ffc05fcb753038f24448c5c73bbb997b865a5698bd27
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -415,7 +415,7 @@ documents:
   - docs/testing/**
   loadPolicy: bundle
   priority: 800
-  tokenEstimate: 10569
+  tokenEstimate: 10955
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -425,7 +425,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:c4b77284a838db70b9743c1b0cd22c6763a106b27087363520e6d96e42203f81
+  checksum: sha256:5240ca9a3811250cffbbebfade16de38d3f4309df23af6ac8a7d948d9c000220
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/CURRENT_STATE.md
@@ -11666,3 +11666,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/AUTO-KEY-AGENT-DEFINITIONS.md
+- id: evidence-auth-resolution
+  path: docs/backend/execution/evidence/AUTH-RESOLUTION.md
+  title: Resolução de autenticação dos perfis isolados
+  category: evidence
+  topic: evidence-auth-resolution
+  authority: evidence
+  scope: backend
+  audience:
+  - human
+  - agent
+  providers:
+  - claude-code
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - docs/backend/**
+  loadPolicy: on-demand
+  priority: 150
+  tokenEstimate: 804
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-22T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-piloto-2-blocked-external-oauth
+  - evidence-n3-antigravity-critic
+  enforcedBy: []
+  checksum: sha256:e9c7426a2ada759525adfb1faa229f4c1b1c33633871a393b940e2969d90a8f5
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/AUTH-RESOLUTION.md
