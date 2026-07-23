@@ -204,6 +204,32 @@ public sealed class AgentAccountConfigurationTests : IDisposable
     }
 
     [Fact]
+    public void AnArbitraryRuntimeRoleInTheLocalFileIsRefused()
+    {
+        // CAT-09/ADR-022: o papel de runtime pertence ao conjunto canônico fechado. Um "papel de
+        // negócio" novo (ex.: product-owner) é uma especialidade/persona no catálogo, nunca um papel
+        // arbitrário na conta — a configuração é recusada de forma tipada em vez de conceder escopo
+        // com base num rótulo desconhecido.
+        var path = WriteFile("""
+        {
+          "accounts": [
+            {
+              "alias": "worker-codex-frontend",
+              "providerKind": "openai",
+              "executorId": "codex",
+              "credentialRef": "keychain://poseidon/worker-codex-frontend",
+              "allowedRoles": ["product-owner"]
+            }
+          ]
+        }
+        """);
+
+        var exception = Assert.Throws<AgentAccountValidationException>(
+            () => AgentAccountConfigurationLoader.Load(path));
+        Assert.Equal("account.role_unknown", exception.Code);
+    }
+
+    [Fact]
     public void InvalidJsonFailsLoudlyInsteadOfSilentlyFallingBackToTheDefaults()
     {
         var path = WriteFile("{ not json");

@@ -14,9 +14,10 @@ public sealed class AgentAccountRegistryTests
         string credential = "keychain://poseidon/worker-codex-frontend",
         AgentAccountState state = AgentAccountState.Available,
         int concurrency = 1,
-        int active = 0) =>
+        int active = 0,
+        IReadOnlyList<string>? roles = null) =>
         new(alias, "openai", executorId, credential, $"confighome://{alias}",
-            ["frontend-specialist"], ["frontend/**", "docs/frontend/**"],
+            roles ?? ["frontend-specialist"], ["frontend/**", "docs/frontend/**"],
             state, AgentAccountHealth.Unknown, concurrency, active, null, null, null, null, null, 100);
 
     [Fact]
@@ -123,6 +124,34 @@ public sealed class AgentAccountRegistryTests
         var exception = Assert.Throws<AgentAccountValidationException>(
             () => registry.Register(Account(executorId: "not-a-real-cli")));
         Assert.Equal("account.executor_unknown", exception.Code);
+    }
+
+    [Theory]
+    [InlineData(AgentRoles.ChiefOrchestrator)]
+    [InlineData(AgentRoles.FrontendSpecialist)]
+    [InlineData(AgentRoles.BackendSpecialist)]
+    [InlineData(AgentRoles.Critic)]
+    public void CanonicalRuntimeRolesAreAccepted(string role)
+    {
+        // CAT-09: os quatro papéis canônicos de runtime são o conjunto fechado permitido.
+        var registry = new AgentAccountRegistry();
+        var account = registry.Register(Account(roles: [role]));
+        Assert.Equal([role], account.AllowedRoles);
+    }
+
+    [Theory]
+    [InlineData("product-owner")]
+    [InlineData("data-scientist")]
+    [InlineData("security-specialist")]
+    [InlineData("chief")]
+    public void ArbitraryRuntimeRoleIsRejectedWithTypedReason(string role)
+    {
+        // CAT-09/ADR-022: um "novo papel de negócio" não pode virar um papel de runtime
+        // arbitrário — ele é uma especialidade/persona. A conta é recusada de forma tipada.
+        var registry = new AgentAccountRegistry();
+        var exception = Assert.Throws<AgentAccountValidationException>(
+            () => registry.Register(Account(roles: [role])));
+        Assert.Equal("account.role_unknown", exception.Code);
     }
 
     [Fact]

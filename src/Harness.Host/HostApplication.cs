@@ -477,6 +477,8 @@ public static class HostApplication
         builder.Services.AddSingleton<SemanticStuckDetector>();
         // Central de Entregas (DEL-01/02/09): read-model sobre Projects/Coordination/Documents/PLAT-04.
         builder.Services.AddSingleton<Harness.Host.Delivery.DeliveryReadModelService>();
+        // CAT-07: read-model de atividade recente por projeto (sobre work board + previsões).
+        builder.Services.AddSingleton<Harness.Host.Projects.ProjectActivityReadModelService>();
         var evalJudgeOptions = builder.Configuration
             .GetSection("Harness:Governance:EvalJudge")
             .Get<EvalJudgeOptions>() ?? new EvalJudgeOptions();
@@ -557,6 +559,7 @@ public static class HostApplication
         app.MapLocalProfiles();
         app.MapOrganizations();
         app.MapProjects();
+        app.MapProjectActivity();
         app.MapReadiness();
         app.MapAgents();
         app.MapTeamSpecialtyCatalog();

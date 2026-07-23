@@ -92,7 +92,30 @@ public sealed record AgentDefinitionUpdateCommand(string TenantId, string ActorP
 public sealed record AgentDefinitionDuplicateCommand(string TenantId, string ActorProfileId, string SourceId, string Id, string Key, string Name, DateTimeOffset OccurredAt);
 public sealed record AgentDefinitionLifecycleCommand(string TenantId, string ActorProfileId, string Id, string Action, DateTimeOffset OccurredAt);
 public sealed record AgentDefinitionDeleteCommand(string TenantId, string ActorProfileId, string Id, DateTimeOffset OccurredAt);
-public sealed class AgentDefinitionAdminException(string detail) : Exception(detail);
+public class AgentDefinitionAdminException(string detail) : Exception(detail);
+
+/// <summary>
+/// CAT-05: uma definição referenciou um item de catálogo (modelo, ferramenta, skill, equipe ou
+/// especialidade) que não existe (ou está desabilitado). Em vez de falhar de forma silenciosa e
+/// genérica, carregamos os dados ACIONÁVEIS: QUAL catálogo, QUAL referência faltou e a ROTA para
+/// criá-lo/gerenciá-lo — consistente com o padrão do catálogo de team/specialty (CAT-04). A API
+/// materializa esses campos num problema tipado para que o cliente possa "criar quando não
+/// encontrar", nunca uma mensagem opaca. É uma especialização de
+/// <see cref="AgentDefinitionAdminException"/>: quem só distingue "definição inválida" continua
+/// tratando-a como antes; quem quer a resposta acionável captura o tipo específico primeiro.
+/// </summary>
+public sealed class AgentDefinitionCatalogMissingException(string catalog, string reference, string createRoute)
+    : AgentDefinitionAdminException($"Referenced {catalog} '{reference}' was not found in the catalog.")
+{
+    /// <summary>O catálogo faltante: "model", "tool", "skill", "team" ou "specialty".</summary>
+    public string Catalog { get; } = catalog;
+
+    /// <summary>A referência exata (id ULID ou nome) que a definição citou e não existe.</summary>
+    public string Reference { get; } = reference;
+
+    /// <summary>A rota (coleção) onde o item pode ser criado/gerenciado, p.ex. "/api/v1/skills".</summary>
+    public string CreateRoute { get; } = createRoute;
+}
 
 public sealed record AgentMetricsRecord(
     long TasksCompleted,

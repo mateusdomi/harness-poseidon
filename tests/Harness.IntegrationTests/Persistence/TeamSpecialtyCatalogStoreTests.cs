@@ -78,10 +78,17 @@ public sealed class TeamSpecialtyCatalogStoreTests
                 var definition = await agents.CreateDefinitionAsync(new(tenantA, tenantA, NewId(), content, Now), timeout.Token);
                 Assert.Equal("Platform Engineering", definition.Team);
                 Assert.Equal("Backend", definition.Specialty);
-                await Assert.ThrowsAsync<AgentDefinitionAdminException>(() =>
+                // CAT-05: um item de catálogo faltante é recusado de forma ACIONÁVEL — o erro carrega
+                // qual catálogo, a referência e a rota de criação (e continua sendo um
+                // AgentDefinitionAdminException para quem só distingue "definição inválida").
+                var ghostTeam = await Assert.ThrowsAsync<AgentDefinitionCatalogMissingException>(() =>
                     agents.CreateDefinitionAsync(new(tenantA, tenantA, NewId(), content with { Key = "ghost-team", Team = "Ghost Team" }, Now), timeout.Token));
-                await Assert.ThrowsAsync<AgentDefinitionAdminException>(() =>
+                Assert.Equal(("team", "Ghost Team", "/api/v1/teams"),
+                    (ghostTeam.Catalog, ghostTeam.Reference, ghostTeam.CreateRoute));
+                var ghostSpecialty = await Assert.ThrowsAsync<AgentDefinitionCatalogMissingException>(() =>
                     agents.CreateDefinitionAsync(new(tenantA, tenantA, NewId(), content with { Key = "ghost-spec", Specialty = "Ghost Specialty" }, Now), timeout.Token));
+                Assert.Equal(("specialty", "/api/v1/specialties"),
+                    (ghostSpecialty.Catalog, ghostSpecialty.CreateRoute));
 
                 // The specialty and team are now referenced by the definition -> both deletions conflict.
                 await Assert.ThrowsAsync<TeamSpecialtyCatalogConflictException>(() =>
