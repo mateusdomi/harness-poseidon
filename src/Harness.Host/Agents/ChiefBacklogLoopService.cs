@@ -43,6 +43,12 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Ciclo do chefe falhou: {ErrorType}")]
     private static partial void LogFailure(ILogger logger, string errorType);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: tentativa NÃO iniciada para o card {TaskId}: {Status}")]
+    private static partial void LogAttemptNotStarted(ILogger logger, string taskId, string status);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: run REJEITADO para o card {TaskId}: {Status}/{Code}")]
+    private static partial void LogRunRejected(ILogger logger, string taskId, string status, string code);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!settings.AutoDispatchEnabled)
@@ -77,7 +83,9 @@ public sealed partial class ChiefBacklogLoopService(
         }
     }
 
-    private async Task<(int Dispatched, int Deferred)> RunCycleAsync(CancellationToken token)
+    // `internal` (não `private`) para a prova determinística de dispatch: um teste roda UM ciclo
+    // e inspeciona o par (Dispatched, Deferred) — ver InternalsVisibleTo no .csproj.
+    internal async Task<(int Dispatched, int Deferred)> RunCycleAsync(CancellationToken token)
     {
         using var scope = scopes.CreateScope();
         var profiles = scope.ServiceProvider.GetRequiredService<ILocalProfileStore>();
@@ -108,13 +116,15 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
-            // Cards prontos para delegar: `Ready`, não arquivados.
+            // Cards prontos para delegar: board_state `ready` (minúsculo — o enum é case-sensitive
+            // no SQLite), não arquivados. Cards nascem em `backlog`; a triagem (humano/DoR) promove
+            // a `ready` antes de o loop os enxergar.
             var page = await board.PageTasksAsync(
                 profile.TenantId,
-                new BoardTaskPageQuery(project.Id, null, null, "Ready", null, null, "active", null, 0, 50),
+                new BoardTaskPageQuery(project.Id, null, null, "ready", null, null, "active", null, 0, 50),
                 token);
 
-            var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task)>();
+            var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)>();
             foreach (var task in page.Items)
             {
                 var instructions = await board.ListInstructionsAsync(profile.TenantId, task.Id, null, 50, token);
@@ -128,7 +138,7 @@ public sealed partial class ChiefBacklogLoopService(
                 cards.Add((
                     new ChiefCard(task.Id, project.Id, resolution.Role, resolution.RequiredCapability,
                         PriorityWeight(task.Priority), resolution.ScopeClaims),
-                    resolution, task));
+                    resolution, task, instructions[^1].Id));
             }
 
             if (cards.Count == 0)
@@ -146,7 +156,7 @@ public sealed partial class ChiefBacklogLoopService(
                 var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
                 if (await LaunchAsync(
                         profile.TenantId, project, entry.Resolution, decision.AccountAlias,
-                        entry.Task, personas, controlledRoot, board, chain, token))
+                        entry.Task, entry.InstructionVersionId, personas, controlledRoot, board, chain, token))
                 {
                     dispatched++;
                 }
@@ -162,6 +172,7 @@ public sealed partial class ChiefBacklogLoopService(
         ChiefCardResolution resolution,
         string accountAlias,
         BoardTaskRecord task,
+        string instructionVersionId,
         IReadOnlyList<AgentDefinitionRecord> personas,
         string controlledRoot,
         IWorkBoardStore board,
@@ -174,11 +185,12 @@ public sealed partial class ChiefBacklogLoopService(
         var attemptId = UlidValue.New(now).ToString();
         var started = await chain.StartAttemptAsync(
             new WorkAttemptStartCommand(
-                tenantId, task.BackingSolicitationId, task.Id, task.BackingDemandId, attemptId,
-                accountAlias, task.Version, $"chief-loop:{attemptId}", now),
+                tenantId, task.BackingSolicitationId, task.Id, instructionVersionId, attemptId,
+                accountAlias, task.Version, $"chief-loop-attempt:{attemptId}", now),
             token);
         if (started.Status is not (WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay))
         {
+            LogAttemptNotStarted(logger, task.Id, started.Status.ToString());
             return false;
         }
 
@@ -220,12 +232,14 @@ public sealed partial class ChiefBacklogLoopService(
 
         if (snapshot.Status is AgentRunStatus.Rejected or AgentRunStatus.ScopeConflict)
         {
+            LogRunRejected(logger, task.Id, snapshot.Status.ToString(), snapshot.FinalError ?? string.Empty);
             return false;
         }
 
-        // O card sai do backlog: passa a `Running` (não é re-despachado no próximo ciclo).
+        // O card sai da fila `ready`: passa a `development` (o board_state válido que projeta o
+        // estado interno `running` — ver migration 0013). Assim não é re-despachado no próximo ciclo.
         await board.MoveTaskAsync(
-            new BoardTaskMoveCommand(tenantId, task.Id, "Running", $"chief:{attemptId}", "agent", now),
+            new BoardTaskMoveCommand(tenantId, task.Id, "development", $"chief:{attemptId}", "agent", now),
             token);
         return true;
     }

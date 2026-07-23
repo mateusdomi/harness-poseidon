@@ -13,6 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Seam de teste: a prova determinística do dispatch do Chefe roda UM ciclo do loop e
+         inspeciona o par (despachados, adiados). Só expõe o membro interno aos testes. -->
+    <InternalsVisibleTo Include="Harness.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="../../governance/**" Link="governance/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../docs/**" Link="docs/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
