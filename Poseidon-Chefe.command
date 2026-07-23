@@ -10,4 +10,6 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 export PATH="${HOME}/.local/bin:${PATH}"
 echo "== Poseidon — abrindo o Chefe no projeto: $(pwd) =="
-exec claude
+# Permissões full: o Chefe é um orquestrador de confiança; sem isto ele pede
+# permissão a cada ação. bypassPermissions = age direto (rede/arquivos/git locais).
+exec claude --permission-mode bypassPermissions
