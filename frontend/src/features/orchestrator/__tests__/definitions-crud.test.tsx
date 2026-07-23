@@ -1,7 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
 import OrchestratorPage from '@/features/orchestrator/pages/orchestrator-page';
@@ -12,7 +11,7 @@ function renderDefinitions(
   route = '/orchestrator?tab=definitions',
 ) {
   return renderWithApi(
-    <MemoryRouter initialEntries={[route]} future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter initialEntries={[route]}>
       <OrchestratorPage />
     </MemoryRouter>,
     bundle,

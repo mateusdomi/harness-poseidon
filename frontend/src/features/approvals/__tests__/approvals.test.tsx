@@ -1,7 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import ApprovalsPage from '@/features/approvals/pages/approvals-page';
@@ -14,7 +13,7 @@ function renderApprovals() {
   // Bundle novo por teste: o store do mock é mutável (aprovações).
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/approvals']}>
+    <MemoryRouter initialEntries={['/approvals']}>
       <Routes>
         <Route path="/approvals" element={<ApprovalsPage />} />
       </Routes>

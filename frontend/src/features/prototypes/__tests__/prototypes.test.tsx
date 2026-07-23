@@ -1,6 +1,5 @@
 import { screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import {
@@ -21,7 +20,7 @@ const orgPoseidon = fixtures.organizations.find((o) => o.id === projetoPoseidon.
 function renderPage() {
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/prototypes']}>
+    <MemoryRouter initialEntries={['/prototypes']}>
       <Routes>
         <Route path="/prototypes" element={<PrototypesPage />} />
       </Routes>

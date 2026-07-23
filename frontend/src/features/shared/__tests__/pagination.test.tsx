@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { act, render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import '@/i18n';
 import { PaginationBar } from '@/features/shared/components/pagination';
@@ -87,7 +86,7 @@ describe('usePagination', () => {
       return null;
     }
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/documentos?doc=doc-1']}>
+      <MemoryRouter initialEntries={['/documentos?doc=doc-1']}>
         <SearchProbe />
         {children}
       </MemoryRouter>

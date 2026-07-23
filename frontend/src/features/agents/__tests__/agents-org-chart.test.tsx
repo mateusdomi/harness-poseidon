@@ -1,7 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import type { Agent } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
@@ -20,7 +19,7 @@ import { renderWithApi } from '@/test/render-with-providers';
 function renderAgents() {
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/agents']}>
+    <MemoryRouter initialEntries={['/agents']}>
       <Routes>
         <Route path="/agents" element={<AgentsPage />} />
       </Routes>
@@ -132,7 +131,7 @@ function renderDetail(agent: Agent) {
   const bundle = createTestBundle();
   const data = bundle.fixtures.data;
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <AgentDetail
         agent={agent}
         definition={data['agent-definitions'].find((d) => d.id === agent.definitionId) ?? null}
@@ -197,7 +196,7 @@ describe('AgentOrgChart — grupos por time', () => {
     );
 
     renderWithApi(
-      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+      <MemoryRouter>
         <AgentOrgChart
           team={{ chief: null, specialists: [nina] }}
           definitions={defsSemTime}

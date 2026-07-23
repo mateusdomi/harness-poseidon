@@ -5,7 +5,6 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import i18n from '@/i18n';
 import { AppShell } from '@/app/app-shell';
 import { AppProviders } from '@/app/providers';
-import { ROUTER_FUTURE_FLAGS, ROUTER_PROVIDER_FUTURE_FLAGS } from '@/app/router-future';
 
 function renderShell(initialPath = '/') {
   const router = createMemoryRouter(
@@ -19,11 +18,11 @@ function renderShell(initialPath = '/') {
         ],
       },
     ],
-    { initialEntries: [initialPath], future: ROUTER_FUTURE_FLAGS },
+    { initialEntries: [initialPath] },
   );
   return render(
     <AppProviders>
-      <RouterProvider router={router} future={ROUTER_PROVIDER_FUTURE_FLAGS} />
+      <RouterProvider router={router} />
     </AppProviders>,
   );
 }

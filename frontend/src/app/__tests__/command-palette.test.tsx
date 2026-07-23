@@ -4,7 +4,6 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 import i18n from '@/i18n';
 import { CommandPalette } from '@/app/components/command-palette';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 function RoutesLocation() {
   const location = useLocation();
@@ -13,7 +12,7 @@ function RoutesLocation() {
 
 function renderPalette() {
   return render(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/cockpit']}>
+    <MemoryRouter initialEntries={['/cockpit']}>
       <Routes>
         <Route
           path="*"

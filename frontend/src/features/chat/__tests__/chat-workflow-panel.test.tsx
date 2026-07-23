@@ -1,7 +1,6 @@
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { buildFixtures, type Document, type Gate, type Phase } from '@/api';
 import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
@@ -124,7 +123,7 @@ function DocumentsMarker() {
 
 function renderPanel(bundle: TestBundle = createTestBundle()) {
   const utils = renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <Routes>
         <Route path="/" element={<WorkflowPanel projectId={project.id} />} />
         <Route path="/documents" element={<DocumentsMarker />} />
@@ -260,7 +259,7 @@ afterEach(() => {
 describe('ChatPage — painel de workflow responsivo', () => {
   function renderChat() {
     return renderWithApi(
-      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+      <MemoryRouter>
         <ChatPage />
       </MemoryRouter>,
       createTestBundle(),

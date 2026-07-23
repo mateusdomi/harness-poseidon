@@ -3,7 +3,6 @@ import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom';
 import { vi } from 'vitest';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { buildFixtures, type AuditEvent } from '@/api';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
@@ -92,7 +91,7 @@ function ChatMarker() {
 
 function renderCockpit(bundle?: TestBundle) {
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/cockpit']}>
+    <MemoryRouter initialEntries={['/cockpit']}>
       <Routes>
         <Route path="/cockpit" element={<CockpitPage />} />
         <Route path="/board" element={<BoardMarker />} />
@@ -209,7 +208,7 @@ describe('ActivityFeed', () => {
   function renderFeed(events: AuditEvent[]) {
     const sorted = [...events].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
     return render(
-      <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+      <MemoryRouter>
         <ActivityFeed events={sorted} />
       </MemoryRouter>,
     );
