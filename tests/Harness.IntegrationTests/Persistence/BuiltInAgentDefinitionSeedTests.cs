@@ -20,12 +20,19 @@ public sealed class BuiltInAgentDefinitionSeedTests
         "delivery-risk-dependency-analyst", "delivery-forecast-analyst",
         "delivery-quality-release-auditor", "delivery-documentation-steward",
         "delivery-executive-reporting", "delivery-benefits-analyst",
+        // ARC-09: as personas de Architecture ("sob demanda").
+        "architecture-chief", "architecture-discovery",
+        "architecture-solution-architect", "architecture-enterprise",
+        "architecture-integration", "architecture-data",
+        "architecture-security", "architecture-infrastructure",
+        "architecture-rationalization-analyst", "architecture-critic",
+        "architecture-adr-writer",
     ];
 
     // As personas que são crítico/auditor (ActorCritic == "critic"); as demais são "actor".
     private static readonly string[] CriticKeys =
     [
-        "critic-qa", "delivery-quality-release-auditor",
+        "critic-qa", "delivery-quality-release-auditor", "architecture-critic",
     ];
 
     private static readonly string[] ValidEfforts = ["low", "medium", "high", "max"];
