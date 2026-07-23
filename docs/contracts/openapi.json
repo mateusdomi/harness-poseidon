@@ -11692,6 +11692,207 @@
                 }
             }
         },
+        "/api/v1/demands/{demandId}/plan": {
+            "post": {
+                "tags": [
+                    "demand-plans"
+                ],
+                "parameters": [
+                    {
+                        "name": "demandId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/GeneratePlanRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DemandPlanContract"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DemandPlanContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "demand-plans"
+                ],
+                "parameters": [
+                    {
+                        "name": "demandId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DemandPlanContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/demands/{demandId}/plan/materialize": {
+            "post": {
+                "tags": [
+                    "demand-plans"
+                ],
+                "parameters": [
+                    {
+                        "name": "demandId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MaterializePlanResult"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/solicitations/{solicitationId}/attachments": {
             "get": {
                 "tags": [
@@ -18546,6 +18747,53 @@
                     }
                 }
             },
+            "DemandPlanContract": {
+                "required": [
+                    "id",
+                    "projectId",
+                    "demandId",
+                    "featureId",
+                    "status",
+                    "cards",
+                    "createdAt",
+                    "materializedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "demandId": {
+                        "type": "string"
+                    },
+                    "featureId": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "cards": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProposedCardContract"
+                        }
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "materializedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
             "DiagnosticCheck": {
                 "required": [
                     "key",
@@ -19437,6 +19685,31 @@
                         ]
                     }
                 }
+            },
+            "GeneratePlanRequest": {
+                "type": "object",
+                "properties": {
+                    "acceptanceCriteria": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "hints": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/PlanHintsPayload"
+                            }
+                        ]
+                    }
+                },
+                "additionalProperties": false
             },
             "GovernanceMetricContract": {
                 "required": [
@@ -20869,6 +21142,54 @@
                 },
                 "additionalProperties": false
             },
+            "MaterializedCardResult": {
+                "required": [
+                    "proposedTitle",
+                    "cardType",
+                    "taskId"
+                ],
+                "type": "object",
+                "properties": {
+                    "proposedTitle": {
+                        "type": "string"
+                    },
+                    "cardType": {
+                        "type": "string"
+                    },
+                    "taskId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "MaterializePlanResult": {
+                "required": [
+                    "planId",
+                    "status",
+                    "alreadyMaterialized",
+                    "cards"
+                ],
+                "type": "object",
+                "properties": {
+                    "planId": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "alreadyMaterialized": {
+                        "type": "boolean"
+                    },
+                    "cards": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/MaterializedCardResult"
+                        }
+                    }
+                }
+            },
             "McpServerContract": {
                 "required": [
                     "id",
@@ -21599,6 +21920,36 @@
                     }
                 }
             },
+            "PlanHintsPayload": {
+                "type": "object",
+                "properties": {
+                    "hasFrontendSurface": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
+                    },
+                    "requiresExternalCredential": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
+                    },
+                    "hasTechnicalUncertainty": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
+                    },
+                    "requiresDecision": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
             "PluginContract": {
                 "required": [
                     "id",
@@ -22251,6 +22602,58 @@
                             "string"
                         ],
                         "format": "int32"
+                    }
+                }
+            },
+            "ProposedCardContract": {
+                "required": [
+                    "proposedTitle",
+                    "cardType",
+                    "requiredRole",
+                    "instruction",
+                    "inScope",
+                    "outOfScope",
+                    "acceptanceCriteria",
+                    "gates",
+                    "dependencies"
+                ],
+                "type": "object",
+                "properties": {
+                    "proposedTitle": {
+                        "type": "string"
+                    },
+                    "cardType": {
+                        "type": "string"
+                    },
+                    "requiredRole": {
+                        "type": "string"
+                    },
+                    "instruction": {
+                        "type": "string"
+                    },
+                    "inScope": {
+                        "type": "string"
+                    },
+                    "outOfScope": {
+                        "type": "string"
+                    },
+                    "acceptanceCriteria": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "gates": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "dependencies": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },
@@ -25258,6 +25661,9 @@
         },
         {
             "name": "attempt-events"
+        },
+        {
+            "name": "demand-plans"
         },
         {
             "name": "po-assistant"

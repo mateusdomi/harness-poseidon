@@ -270,6 +270,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IChiefContextNoteStore, PostgresChiefContextNoteStore>();
             builder.Services.AddSingleton<IWorkChainStore, PostgresWorkChainStore>();
             builder.Services.AddSingleton<IWorkBoardStore, PostgresWorkBoardStore>();
+            builder.Services.AddSingleton<IDemandPlanStore, PostgresDemandPlanStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, PostgresAttemptWorkspaceStore>();
         }
         else
@@ -281,6 +282,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IChiefContextNoteStore, SqliteChiefContextNoteStore>();
             builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
             builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
+            builder.Services.AddSingleton<IDemandPlanStore, SqliteDemandPlanStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
         }
         var isolatedSettings = builder.Configuration
@@ -568,6 +570,7 @@ public static class HostApplication
         app.MapConversations();
         app.MapChannels();
         app.MapWorkBoard();
+        app.MapDemandPlans();
         app.MapSolicitationAttachments();
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
