@@ -255,6 +255,7 @@ public static class HostApplication
         builder.Services.AddSingleton<TeamsChannelBackgroundService>();
         builder.Services.AddSingleton<IHostedService>(services =>
             services.GetRequiredService<TeamsChannelBackgroundService>());
+        RegisterSmtpNotificationChannel(builder);
         builder.Services.AddSingleton<RunTargetAgentFallback>();
         builder.Services.AddSingleton<RunTargetDetector>();
         builder.Services.AddSingleton<DockerRunTargetLifecycle>();
@@ -630,6 +631,32 @@ public static class HostApplication
         }).ExcludeFromDescription();
 
         return app;
+    }
+
+    /// <summary>
+    /// Registra o canal de e-mail SMTP e o gateway de notificações externas. O canal só é
+    /// injetado como <see cref="IExternalNotificationChannel"/> quando o deploy o configurou
+    /// (<c>Harness:Notifications:Smtp</c> com Enabled + referências opacas); sem isso, o
+    /// gateway existe mas roteia para nada, preservando o comportamento padrão (canal OFF).
+    /// </summary>
+    private static void RegisterSmtpNotificationChannel(WebApplicationBuilder builder)
+    {
+        var options = builder.Configuration
+            .GetSection("Harness:Notifications:Smtp")
+            .Get<SmtpNotificationOptions>() ?? new SmtpNotificationOptions();
+        // Recusa referência literal já na composição: falha rápido em deploy mal configurado,
+        // sem nunca aceitar um segredo embutido.
+        SmtpNotificationOptionsValidator.EnsureOpaqueReferences(options);
+
+        builder.Services.AddSingleton(options);
+        builder.Services.AddSingleton<ISecretReferenceResolver, EnvironmentSecretReferenceResolver>();
+        builder.Services.AddSingleton<ISmtpTransport, SystemNetSmtpTransport>();
+        if (options.IsConfigured)
+        {
+            builder.Services.AddSingleton<IExternalNotificationChannel, SmtpNotificationChannel>();
+        }
+
+        builder.Services.AddSingleton<ExternalNotificationGateway>();
     }
 
     private static string? ResolveFrontendPath(string contentRoot, string? configured)
