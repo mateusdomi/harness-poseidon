@@ -16,6 +16,8 @@ knownOwners:
 markdownAllowlist:
 - path: docs/frontend/evidence/**
   reason: Artefatos transitórios de evidência de UI (screenshots + README por correção) mantidos pela frente frontend; não são documentos canônicos de governança e não exigem entrada completa no manifest.
+- path: docs/product/**
+  reason: Fonte da verdade de FUNCIONALIDADES para revisão humana (feature ledger), ainda não declarada canônica — serve de visão garantida quando consultada; não é contexto de governança carregado automaticamente e não exige entrada completa no manifest até a decisão de registro formal.
 documents:
 - id: adapter-agents
   path: AGENTS.md
