@@ -110,7 +110,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Poseidon — núcleo canônico de governança](../governance/core.md) | * | Active | Platform Governance | Always | 828 |
+| [Poseidon — núcleo canônico de governança](../governance/core.md) | * | Active | Platform Governance | Always | 876 |
 
 #### rule
 
@@ -148,8 +148,8 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Codex and compatible agents repository instructions](../AGENTS.md) | * | Active | Platform Governance | Entry | 270 |
-| [Claude Code repository instructions](../CLAUDE.md) | * | Active | Platform Governance | Entry | 267 |
+| [Codex and compatible agents repository instructions](../AGENTS.md) | * | Active | Platform Governance | Entry | 314 |
+| [Claude Code repository instructions](../CLAUDE.md) | * | Active | Platform Governance | Entry | 311 |
 
 ### Generated
 

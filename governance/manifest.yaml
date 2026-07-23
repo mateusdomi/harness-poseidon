@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-22T20:46:31.4569780+00:00
+lastGeneratedAt: 2026-07-23T20:45:16.4940360+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -50,7 +50,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 990
-  tokenEstimate: 270
+  tokenEstimate: 314
   owner: Platform Governance
   status: active
   version: 1.0.0
@@ -70,7 +70,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:248903c3e7dcd24eefe5fb8e3bcd459da4c74971f06e11bd8c12e0f4fd94223e
+  checksum: sha256:5aecdb8c15379f6fbbce254a59a644f2e606f8cb8ef714525a6988acd8ba2fd6
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -104,7 +104,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 990
-  tokenEstimate: 267
+  tokenEstimate: 311
   owner: Platform Governance
   status: active
   version: 1.0.0
@@ -124,7 +124,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:ddf7d5a1c4a98eb1ce8f2720d246f1e50fbc33a89d936a5f401cbcba663a2d1c
+  checksum: sha256:953b52553ad16bf58d066667c3ce2f0fcffd821bf15c7dcd1c9aa659d15e03ba
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -221,7 +221,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:435eaaaff086b338bb7bf21c50fdfb7b00d3a861be5df57bdd7eda883b3dc20a
+  checksum: sha256:306fe2b297a505616fa39b77ffcd49542df88a7e84440917ccb47a67e585b706
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -9504,7 +9504,7 @@ documents:
   - '**'
   loadPolicy: always
   priority: 1000
-  tokenEstimate: 828
+  tokenEstimate: 876
   owner: Platform Governance
   status: active
   version: 1.0.0
@@ -9516,7 +9516,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - runtime:governance-policy
-  checksum: sha256:0416fa62b234cd6d1f8a24c82e3f1adac5d22aaa8388602b418f85a8417c3411
+  checksum: sha256:a01ea49f348e56b5abcdd4cac54ee9439af1a95667d5bc76aa09b558c5db7472
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/core.md

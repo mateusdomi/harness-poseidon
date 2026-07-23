@@ -97,7 +97,7 @@ public sealed class GovernanceDocumentGenerator
         var checksum = ComputeChecksum(sourceBuilder.ToString());
         var identity = "Poseidon is a production .NET control plane with durable agent execution, typed contracts and proof gates.";
         var minimumRules = "- Work only on `develop`; never force push or merge `main` without explicit human authorization.\n" +
-            "- Do not modify `frontend/**` or `docs/frontend/**`; shared paths require an applicable claim/policy.\n" +
+            "- `frontend/**` and `docs/frontend/**` may be changed under explicit owner/Chief authorization (full-stack autonomy) and the appropriate role/claim (the `frontend-specialist` role scopes there); keep the frontend gates (build, typecheck, lint, tests, a11y) and backend↔frontend contract drift green. Shared paths require an applicable claim/policy.\n" +
             "- Preserve unrelated work. Never reset, overwrite or delete it to resolve a conflict.\n" +
             "- Never expose secrets in Git, prompts, logs, receipts, evidence or command arguments; use secret references and redaction.\n" +
             "- Production work includes typed code, tests, documentation, execution evidence and operational rollback flags where required.\n" +

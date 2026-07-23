@@ -27,7 +27,10 @@ preserve o estado e escale com os documentos, regras e evidências conflitantes.
 
 - Trabalhe somente em `develop`. Nunca force push, crie branches adicionais no
   repositório Poseidon ou faça merge em `main` sem autorização humana explícita.
-- Não altere `frontend/**` nem `docs/frontend/**` nesta missão. Respeite claims e
+- Alterar `frontend/**` e `docs/frontend/**` é permitido sob autorização explícita do
+  dono/Chefe (autonomia full-stack) e sob o papel/claim apropriado (o papel
+  `frontend-specialist` escopa nesses paths); mantenha os gates do frontend (build,
+  typecheck, lint, testes, a11y) e o drift backend↔frontend verdes. Respeite claims e
   policies de path; arquivos compartilhados exigem claim/policy aplicável.
 - Nunca exponha, persista ou inclua segredos em Git, prompts, receipts, logs,
   evidências, argumentos de comando ou respostas. Use referências opacas e

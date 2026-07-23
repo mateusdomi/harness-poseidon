@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/core.md+governance/rules/*+governance/manifest.yaml version=1.0.0 checksum=sha256:ac7e4a20b2fc97284b50e3b2447e24261276a95612a767de4330b1ec035353fe -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/core.md+governance/rules/*+governance/manifest.yaml version=1.0.0 checksum=sha256:97dde20b906058641d4335f387fcf57d72dc895c20856e5d919243153be0f41e -->
 # Codex and compatible agents repository instructions
 
 Poseidon is a production .NET control plane with durable agent execution, typed contracts and proof gates.
@@ -6,7 +6,7 @@ Poseidon is a production .NET control plane with durable agent execution, typed 
 ## Always-enforced minimum
 
 - Work only on `develop`; never force push or merge `main` without explicit human authorization.
-- Do not modify `frontend/**` or `docs/frontend/**`; shared paths require an applicable claim/policy.
+- `frontend/**` and `docs/frontend/**` may be changed under explicit owner/Chief authorization (full-stack autonomy) and the appropriate role/claim (the `frontend-specialist` role scopes there); keep the frontend gates (build, typecheck, lint, tests, a11y) and backend↔frontend contract drift green. Shared paths require an applicable claim/policy.
 - Preserve unrelated work. Never reset, overwrite or delete it to resolve a conflict.
 - Never expose secrets in Git, prompts, logs, receipts, evidence or command arguments; use secret references and redaction.
 - Production work includes typed code, tests, documentation, execution evidence and operational rollback flags where required.
