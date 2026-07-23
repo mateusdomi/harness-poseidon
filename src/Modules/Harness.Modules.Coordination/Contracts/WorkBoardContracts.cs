@@ -71,6 +71,14 @@ public sealed record MoveTaskRequest(string ToState, string? Note = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SetTaskPriorityRequest(string Priority);
 
+// Operação em lote do quadro: aplica uma única ação a muitas tasks numa requisição.
+// 'operation' escolhe a ação; 'toState'/'note' alimentam 'move'; 'priority' alimenta 'priority'.
+// A resposta traz um resultado POR item (nunca aborta o lote inteiro por causa de um id).
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record BatchTaskOperationRequest(
+    string Operation, IReadOnlyList<string> TaskIds, string? ToState = null,
+    string? Note = null, string? Priority = null);
+
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AppendTaskInstructionRequest(string Body);
 

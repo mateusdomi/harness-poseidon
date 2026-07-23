@@ -82,6 +82,42 @@ public static class WorkBoardApplicationService
         return Choice(request.Priority, Priorities);
     }
 
+    private static readonly HashSet<string> BatchOperations =
+        new(["move", "priority", "archive", "unarchive"], StringComparer.Ordinal);
+
+    // Valida os argumentos DE NÍVEL DE OPERAÇÃO do lote (não os ids). Uma falha aqui é 400 do
+    // request inteiro; os ids são validados/aplicados por item pelo endpoint. Devolve a operação
+    // normalizada + a lista de ids distintos (preservando ordem) + os args já validados.
+    public static (string Operation, IReadOnlyList<string> TaskIds, string? ToState, string? Note,
+        string? Priority) ValidateBatchTaskOperation(BatchTaskOperationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var operation = Choice(request.Operation, BatchOperations);
+        if (request.TaskIds is null || request.TaskIds.Count == 0)
+            throw new ArgumentException("At least one task id is required.", nameof(request));
+        if (request.TaskIds.Count > 500)
+            throw new ArgumentException("At most 500 task ids are supported.", nameof(request));
+        var ids = request.TaskIds.Distinct(StringComparer.Ordinal).ToArray();
+
+        string? toState = null;
+        string? note = null;
+        string? priority = null;
+        switch (operation)
+        {
+            case "move":
+                (toState, note) = MoveTask(new MoveTaskRequest(
+                    request.ToState ?? throw new ArgumentException("toState is required.", nameof(request)),
+                    request.Note));
+                break;
+            case "priority":
+                priority = SetTaskPriority(new SetTaskPriorityRequest(
+                    request.Priority ?? throw new ArgumentException("priority is required.", nameof(request))));
+                break;
+        }
+
+        return (operation, ids, toState, note, priority);
+    }
+
     private static string? OptionalText(string? value, int maxLength) =>
         string.IsNullOrWhiteSpace(value) ? null : Text(value, maxLength);
 

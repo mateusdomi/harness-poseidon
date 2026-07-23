@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Harness.Host.Profiles;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Coordination.Contracts;
@@ -36,6 +38,8 @@ public static class WorkBoardEndpoints
 
         var tasks = endpoints.MapGroup("/api/v1/tasks").WithTags("tasks");
         tasks.MapGet("/", ListTasksAsync).Produces<TaskPage>().ProducesProblem(400).ProducesProblem(401);
+        tasks.MapGet("/export.csv", ExportTasksCsvAsync).Produces(200, contentType: "text/csv").ProducesProblem(400).ProducesProblem(401);
+        tasks.MapPost("/batch", BatchTasksAsync).Produces<BatchTaskOperationResult>().ProducesProblem(400).ProducesProblem(401);
         tasks.MapGet("/{id}", GetTaskAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         tasks.MapPost("/", CreateTaskAsync).Produces<BoardTaskContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         tasks.MapPost("/{id}/moves", MoveTaskAsync).Produces<BoardTaskContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
@@ -310,6 +314,139 @@ public static class WorkBoardEndpoints
         }
     }
 
+    private static async Task<IResult> BatchTasksAsync(BatchTaskOperationRequest input,
+        HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore store, IClock clock,
+        CancellationToken token)
+    {
+        (string Operation, IReadOnlyList<string> TaskIds, string? ToState, string? Note, string? Priority) op;
+        try { op = WorkBoardApplicationService.ValidateBatchTaskOperation(input); }
+        catch (ArgumentException e) { return Invalid("task_batch", e.Message); }
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var results = new List<BatchTaskItemResult>(op.TaskIds.Count);
+        var succeeded = 0;
+        // Uma origem de tempo monotônica por item mantém ids de auditoria/outbox distintos e
+        // preserva a ordem cronológica das mutações do lote.
+        var baseNow = clock.UtcNow;
+        var index = 0;
+        foreach (var taskId in op.TaskIds)
+        {
+            var now = baseNow.AddMilliseconds(index++);
+            if (!Valid(taskId))
+            {
+                results.Add(new BatchTaskItemResult(taskId, "failed", "invalid_task_id"));
+                continue;
+            }
+
+            try
+            {
+                switch (op.Operation)
+                {
+                    case "move":
+                        await store.MoveTaskAsync(new(profile.TenantId, taskId, op.ToState!, op.Note,
+                            "user", now), token);
+                        break;
+                    case "priority":
+                        await store.SetTaskPriorityAsync(new(profile.TenantId, taskId, op.Priority!, now), token);
+                        break;
+                    case "archive":
+                        await store.SetTaskArchivedAsync(new(profile.TenantId, taskId, true, "user", now), token);
+                        break;
+                    default: // unarchive
+                        await store.SetTaskArchivedAsync(new(profile.TenantId, taskId, false, "user", now), token);
+                        break;
+                }
+
+                results.Add(new BatchTaskItemResult(taskId, "succeeded", null));
+                succeeded++;
+            }
+            catch (WorkBoardReferenceNotFoundException e)
+            {
+                results.Add(new BatchTaskItemResult(taskId, "failed", $"{e.Reference}_not_found"));
+            }
+            catch (WorkBoardInvalidStateException)
+            {
+                results.Add(new BatchTaskItemResult(taskId, "failed", "state_conflict"));
+            }
+            catch (ArgumentException)
+            {
+                results.Add(new BatchTaskItemResult(taskId, "failed", "invalid_task"));
+            }
+        }
+
+        return Results.Ok(new BatchTaskOperationResult(
+            op.Operation, results.Count, succeeded, results.Count - succeeded, results));
+    }
+
+    private static async Task<IResult> ExportTasksCsvAsync(
+        string? projectId, string? demandId, string? q, string? state, string? priority,
+        string? phaseName, string? agent, string? period, string? archive, HttpRequest request,
+        ILocalProfileStore profiles, IWorkBoardStore store, IClock clock, CancellationToken token)
+    {
+        var invalid = ValidateTaskPage(projectId, demandId, q, state, priority, phaseName, agent,
+            period, archive, null, null, null, null);
+        if (invalid is not null) return invalid;
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var now = clock.UtcNow;
+        var updatedSince = (period ?? "all") switch
+        {
+            "today" => new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero),
+            "7d" => now.AddDays(-7),
+            "30d" => now.AddDays(-30),
+            _ => (DateTimeOffset?)null,
+        };
+        var search = string.IsNullOrWhiteSpace(q) ? null : $"%{EscapeLike(q.Trim().ToLowerInvariant())}%";
+        var normalizedPhase = string.IsNullOrWhiteSpace(phaseName) ? null : phaseName.Trim();
+        var tenantId = profile.TenantId;
+
+        return Results.Stream(async stream =>
+        {
+            // BOM UTF-8 + CRLF + campos entre aspas quando necessário = CSV compatível com Excel.
+            await stream.WriteAsync(Utf8Bom, token);
+            await using var writer = new StreamWriter(stream, new UTF8Encoding(false)) { NewLine = "\r\n" };
+            await writer.WriteAsync(
+                "id,title,state,priority,cardType,demandId,assigneeAgentId,phaseName,createdAt,updatedAt,dueAt,archivedAt\r\n");
+
+            const int pageSize = 500;
+            var offset = 0;
+            while (true)
+            {
+                var pageRecord = await store.PageTasksAsync(tenantId, new(projectId, demandId, search,
+                    state, priority, agent, archive ?? "active", updatedSince, offset, pageSize,
+                    normalizedPhase), token);
+                foreach (var row in pageRecord.Items)
+                {
+                    await writer.WriteAsync(string.Join(',',
+                        CsvCell(row.Id), CsvCell(row.Title), CsvCell(row.State), CsvCell(row.Priority),
+                        CsvCell(row.CardType), CsvCell(row.DemandId), CsvCell(row.AssigneeAgentId),
+                        CsvCell(row.PhaseName), CsvCell(Iso(row.CreatedAt)), CsvCell(Iso(row.UpdatedAt)),
+                        CsvCell(row.DueAt is null ? null : Iso(row.DueAt.Value)),
+                        CsvCell(row.ArchivedAt is null ? null : Iso(row.ArchivedAt.Value))));
+                    await writer.WriteAsync("\r\n");
+                }
+
+                offset += pageSize;
+                if (pageRecord.Items.Count < pageSize || offset >= pageRecord.Total) break;
+            }
+
+            await writer.FlushAsync(token);
+        }, "text/csv; charset=utf-8", "board-tasks.csv");
+    }
+
+    private static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
+    private static string Iso(DateTimeOffset value) =>
+        value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+    private static string CsvCell(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return value.IndexOfAny([',', '"', '\r', '\n']) < 0
+            ? value
+            : $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+    }
+
     private static async Task<IResult> AppendTaskInstructionAsync(string id,
         AppendTaskInstructionRequest input, HttpRequest request, ILocalProfileStore profiles,
         IWorkBoardStore store, IClock clock, CancellationToken token)
@@ -464,6 +601,10 @@ public sealed record DemandPage(IReadOnlyList<DemandContract> Items, string? Nex
 public sealed record TaskPage(
     IReadOnlyList<BoardTaskContract> Items, string? NextCursor, int Total = 0,
     int Page = 1, int PageSize = 15);
+public sealed record BatchTaskItemResult(string TaskId, string Status, string? Reason);
+public sealed record BatchTaskOperationResult(
+    string Operation, int Total, int Succeeded, int Failed,
+    IReadOnlyList<BatchTaskItemResult> Results);
 public sealed record InstructionPage(IReadOnlyList<TaskInstructionContract> Items, string? NextCursor);
 public sealed record AttemptPage(IReadOnlyList<AttemptContract> Items, string? NextCursor);
 public sealed record AttemptEventPage(IReadOnlyList<AttemptEventContract> Items, string? NextCursor);
