@@ -411,7 +411,258 @@ public sealed class PostgresArchitectureStore(NpgsqlDataSource dataSource) : IAr
         return results;
     }
 
+    // Descobertas (ARC-06) ---------------------------------------------------------------------------
+
+    public async Task CreateDiscoveryAsync(ArchitectureDiscoveryRecord discovery, CancellationToken cancellationToken = default)
+    {
+        ValidateDiscovery(discovery);
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var cmd = c.CreateCommand();
+        cmd.CommandText =
+            """
+            INSERT INTO harness.architecture_discoveries
+                (id,tenant_id,project_id,system_id,source_kind,confidence,status,payload_json,created_at,updated_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);
+            """;
+        BindDiscovery(cmd, discovery);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task ReplaceDiscoveryAsync(ArchitectureDiscoveryRecord discovery, CancellationToken cancellationToken = default)
+    {
+        ValidateDiscovery(discovery);
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var cmd = c.CreateCommand();
+        cmd.CommandText =
+            """
+            UPDATE harness.architecture_discoveries SET
+                project_id=$3,system_id=$4,source_kind=$5,confidence=$6,status=$7,payload_json=$8,updated_at=$10
+            WHERE tenant_id=$2 AND id=$1;
+            """;
+        BindDiscovery(cmd, discovery);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<ArchitectureDiscoveryRecord?> GetDiscoveryAsync(
+        string tenantId, string id, CancellationToken cancellationToken = default)
+    {
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var q = c.CreateCommand();
+        q.CommandText = "SELECT payload_json FROM harness.architecture_discoveries WHERE tenant_id=$1 AND id=$2;";
+        q.Parameters.Add(Text(tenantId));
+        q.Parameters.Add(Text(id));
+        await using var r = await q.ExecuteReaderAsync(cancellationToken);
+        return await r.ReadAsync(cancellationToken) ? Read<ArchitectureDiscoveryRecord>(r.GetString(0)) : null;
+    }
+
+    public async Task<IReadOnlyList<ArchitectureDiscoveryRecord>> ListDiscoveriesAsync(
+        string tenantId, string? projectId, string? systemId, string? afterId, int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var q = c.CreateCommand();
+        var n = 1;
+        var project = projectId is null ? null : "$" + (++n);
+        var system = systemId is null ? null : "$" + (++n);
+        var after = afterId is null ? null : "$" + (++n);
+        var limitParam = "$" + (++n);
+        q.CommandText =
+            "SELECT payload_json FROM harness.architecture_discoveries WHERE tenant_id=$1" +
+            (project is null ? string.Empty : $" AND project_id={project}") +
+            (system is null ? string.Empty : $" AND system_id={system}") +
+            (after is null ? string.Empty : $" AND id>{after}") +
+            $" ORDER BY id ASC LIMIT {limitParam};";
+        q.Parameters.Add(Text(tenantId));
+        if (projectId is not null) q.Parameters.Add(Text(projectId));
+        if (systemId is not null) q.Parameters.Add(Text(systemId));
+        if (afterId is not null) q.Parameters.Add(Text(afterId));
+        q.Parameters.Add(Int(Math.Clamp(limit, 1, 500)));
+        var results = new List<ArchitectureDiscoveryRecord>();
+        await using var r = await q.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken)) results.Add(Read<ArchitectureDiscoveryRecord>(r.GetString(0)));
+        return results;
+    }
+
+    // Padrões & Decisões (ARC-08) --------------------------------------------------------------------
+
+    public async Task UpsertPatternAsync(ArchitecturePatternRecord pattern, CancellationToken cancellationToken = default)
+    {
+        ValidatePattern(pattern);
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var cmd = c.CreateCommand();
+        cmd.CommandText =
+            """
+            INSERT INTO harness.architecture_patterns
+                (id,tenant_id,project_id,kind,status,payload_json,created_at,updated_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            ON CONFLICT(id) DO UPDATE SET
+                project_id=excluded.project_id,kind=excluded.kind,status=excluded.status,
+                payload_json=excluded.payload_json,updated_at=excluded.updated_at;
+            """;
+        cmd.Parameters.Add(Text(pattern.Id));
+        cmd.Parameters.Add(Text(pattern.TenantId));
+        cmd.Parameters.Add(NullableText(pattern.ProjectId));
+        cmd.Parameters.Add(Text(pattern.Kind));
+        cmd.Parameters.Add(Text(pattern.Status));
+        cmd.Parameters.Add(Jsonb(Json(pattern)));
+        cmd.Parameters.Add(Timestamp(pattern.CreatedAt));
+        cmd.Parameters.Add(Timestamp(pattern.UpdatedAt));
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<ArchitecturePatternRecord?> GetPatternAsync(
+        string tenantId, string id, CancellationToken cancellationToken = default)
+    {
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var q = c.CreateCommand();
+        q.CommandText = "SELECT payload_json FROM harness.architecture_patterns WHERE tenant_id=$1 AND id=$2;";
+        q.Parameters.Add(Text(tenantId));
+        q.Parameters.Add(Text(id));
+        await using var r = await q.ExecuteReaderAsync(cancellationToken);
+        return await r.ReadAsync(cancellationToken) ? Read<ArchitecturePatternRecord>(r.GetString(0)) : null;
+    }
+
+    public async Task<IReadOnlyList<ArchitecturePatternRecord>> ListPatternsAsync(
+        string tenantId, string? projectId, string? kind, string? afterId, int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var q = c.CreateCommand();
+        var n = 1;
+        var project = projectId is null ? null : "$" + (++n);
+        var kindParam = kind is null ? null : "$" + (++n);
+        var after = afterId is null ? null : "$" + (++n);
+        var limitParam = "$" + (++n);
+        q.CommandText =
+            "SELECT payload_json FROM harness.architecture_patterns WHERE tenant_id=$1" +
+            (project is null ? string.Empty : $" AND project_id={project}") +
+            (kindParam is null ? string.Empty : $" AND kind={kindParam}") +
+            (after is null ? string.Empty : $" AND id>{after}") +
+            $" ORDER BY id ASC LIMIT {limitParam};";
+        q.Parameters.Add(Text(tenantId));
+        if (projectId is not null) q.Parameters.Add(Text(projectId));
+        if (kind is not null) q.Parameters.Add(Text(kind));
+        if (afterId is not null) q.Parameters.Add(Text(afterId));
+        q.Parameters.Add(Int(Math.Clamp(limit, 1, 500)));
+        var results = new List<ArchitecturePatternRecord>();
+        await using var r = await q.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken)) results.Add(Read<ArchitecturePatternRecord>(r.GetString(0)));
+        return results;
+    }
+
+    // Baselines de entrega (ARC-10) ------------------------------------------------------------------
+
+    public async Task UpsertBaselineAsync(ArchitectureBaselineRecord baseline, CancellationToken cancellationToken = default)
+    {
+        ValidateBaseline(baseline);
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var cmd = c.CreateCommand();
+        cmd.CommandText =
+            """
+            INSERT INTO harness.architecture_baselines
+                (id,tenant_id,project_id,status,payload_json,created_at,updated_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)
+            ON CONFLICT(id) DO UPDATE SET
+                project_id=excluded.project_id,status=excluded.status,payload_json=excluded.payload_json,
+                updated_at=excluded.updated_at;
+            """;
+        cmd.Parameters.Add(Text(baseline.Id));
+        cmd.Parameters.Add(Text(baseline.TenantId));
+        cmd.Parameters.Add(Text(baseline.ProjectId));
+        cmd.Parameters.Add(Text(baseline.Status));
+        cmd.Parameters.Add(Jsonb(Json(baseline)));
+        cmd.Parameters.Add(Timestamp(baseline.CreatedAt));
+        cmd.Parameters.Add(Timestamp(baseline.UpdatedAt));
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<ArchitectureBaselineRecord?> GetBaselineAsync(
+        string tenantId, string id, CancellationToken cancellationToken = default)
+    {
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var q = c.CreateCommand();
+        q.CommandText = "SELECT payload_json FROM harness.architecture_baselines WHERE tenant_id=$1 AND id=$2;";
+        q.Parameters.Add(Text(tenantId));
+        q.Parameters.Add(Text(id));
+        await using var r = await q.ExecuteReaderAsync(cancellationToken);
+        return await r.ReadAsync(cancellationToken) ? Read<ArchitectureBaselineRecord>(r.GetString(0)) : null;
+    }
+
+    public async Task<IReadOnlyList<ArchitectureBaselineRecord>> ListBaselinesAsync(
+        string tenantId, string? projectId, string? afterId, int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var c = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var q = c.CreateCommand();
+        var n = 1;
+        var project = projectId is null ? null : "$" + (++n);
+        var after = afterId is null ? null : "$" + (++n);
+        var limitParam = "$" + (++n);
+        q.CommandText =
+            "SELECT payload_json FROM harness.architecture_baselines WHERE tenant_id=$1" +
+            (project is null ? string.Empty : $" AND project_id={project}") +
+            (after is null ? string.Empty : $" AND id>{after}") +
+            $" ORDER BY id ASC LIMIT {limitParam};";
+        q.Parameters.Add(Text(tenantId));
+        if (projectId is not null) q.Parameters.Add(Text(projectId));
+        if (afterId is not null) q.Parameters.Add(Text(afterId));
+        q.Parameters.Add(Int(Math.Clamp(limit, 1, 500)));
+        var results = new List<ArchitectureBaselineRecord>();
+        await using var r = await q.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken)) results.Add(Read<ArchitectureBaselineRecord>(r.GetString(0)));
+        return results;
+    }
+
     // Binding / leitura ------------------------------------------------------------------------------
+
+    private static void BindDiscovery(NpgsqlCommand cmd, ArchitectureDiscoveryRecord d)
+    {
+        cmd.Parameters.Add(Text(d.Id));
+        cmd.Parameters.Add(Text(d.TenantId));
+        cmd.Parameters.Add(NullableText(d.ProjectId));
+        cmd.Parameters.Add(NullableText(d.SystemId));
+        cmd.Parameters.Add(Text(d.SourceKind));
+        cmd.Parameters.Add(Text(d.Confidence));
+        cmd.Parameters.Add(Text(d.Status));
+        cmd.Parameters.Add(Jsonb(Json(d)));
+        cmd.Parameters.Add(Timestamp(d.CreatedAt));
+        cmd.Parameters.Add(Timestamp(d.UpdatedAt));
+    }
+
+    private static T Read<T>(string json) =>
+        JsonSerializer.Deserialize<T>(json, JsonOptions)
+            ?? throw new InvalidOperationException($"Architecture {typeof(T).Name} could not be read back.");
+
+    private static void ValidateDiscovery(ArchitectureDiscoveryRecord discovery)
+    {
+        ArgumentNullException.ThrowIfNull(discovery);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discovery.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discovery.Id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discovery.SourceKind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discovery.Confidence);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discovery.Status);
+        ArgumentNullException.ThrowIfNull(discovery.PendingQuestions);
+    }
+
+    private static void ValidatePattern(ArchitecturePatternRecord pattern)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentException.ThrowIfNullOrWhiteSpace(pattern.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(pattern.Id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(pattern.Kind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(pattern.Status);
+        ArgumentNullException.ThrowIfNull(pattern.Tags);
+    }
+
+    private static void ValidateBaseline(ArchitectureBaselineRecord baseline)
+    {
+        ArgumentNullException.ThrowIfNull(baseline);
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseline.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseline.Id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseline.ProjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseline.Status);
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseline.BaselineSnapshotJson);
+    }
 
     private const string ElementSelect =
         "SELECT tenant_id,id,project_id,kind,name,description,properties_json,state,locked,version," +

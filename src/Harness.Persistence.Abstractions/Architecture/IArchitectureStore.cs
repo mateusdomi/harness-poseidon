@@ -49,7 +49,77 @@ public interface IArchitectureStore
     Task AppendHistoryAsync(ArchitectureHistoryRecord entry, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ArchitectureHistoryRecord>> ListHistoryAsync(
         string tenantId, string entityId, int limit, CancellationToken cancellationToken = default);
+
+    // Descobertas (ARC-06) ---------------------------------------------------------------------------
+    Task CreateDiscoveryAsync(ArchitectureDiscoveryRecord discovery, CancellationToken cancellationToken = default);
+    Task<ArchitectureDiscoveryRecord?> GetDiscoveryAsync(string tenantId, string id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArchitectureDiscoveryRecord>> ListDiscoveriesAsync(
+        string tenantId, string? projectId, string? systemId, string? afterId, int limit,
+        CancellationToken cancellationToken = default);
+    Task ReplaceDiscoveryAsync(ArchitectureDiscoveryRecord discovery, CancellationToken cancellationToken = default);
+
+    // Padrões & Decisões (ARC-08) --------------------------------------------------------------------
+    Task UpsertPatternAsync(ArchitecturePatternRecord pattern, CancellationToken cancellationToken = default);
+    Task<ArchitecturePatternRecord?> GetPatternAsync(string tenantId, string id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArchitecturePatternRecord>> ListPatternsAsync(
+        string tenantId, string? projectId, string? kind, string? afterId, int limit,
+        CancellationToken cancellationToken = default);
+
+    // Baselines de entrega (ARC-10) ------------------------------------------------------------------
+    Task UpsertBaselineAsync(ArchitectureBaselineRecord baseline, CancellationToken cancellationToken = default);
+    Task<ArchitectureBaselineRecord?> GetBaselineAsync(string tenantId, string id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArchitectureBaselineRecord>> ListBaselinesAsync(
+        string tenantId, string? projectId, string? afterId, int limit,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>Uma informação descoberta sobre um sistema existente (ARC-06): confiança + evidência + perguntas.</summary>
+public sealed record ArchitectureDiscoveryRecord(
+    string TenantId,
+    string Id,
+    string? ProjectId,
+    string? SystemId,
+    string SubjectName,
+    string SourceKind,
+    string Field,
+    string Value,
+    string Confidence,
+    string Evidence,
+    IReadOnlyList<string> PendingQuestions,
+    string Status,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+/// <summary>Um ADR corporativo ou padrão reutilizável (ARC-08). Reusa Documents/ADR via DocumentId.</summary>
+public sealed record ArchitecturePatternRecord(
+    string TenantId,
+    string Id,
+    string? ProjectId,
+    string Kind,
+    string Title,
+    string Status,
+    string Context,
+    string Body,
+    string? Problem,
+    string Consequences,
+    IReadOnlyList<string> Tags,
+    string? SupersedesId,
+    string? DocumentId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+/// <summary>Baseline arquitetural de uma entrega (ARC-10): proposta aprovada + AS-IS de produção.</summary>
+public sealed record ArchitectureBaselineRecord(
+    string TenantId,
+    string Id,
+    string ProjectId,
+    string Status,
+    string Title,
+    string? ProposalId,
+    string BaselineSnapshotJson,
+    string? AsBuiltSnapshotJson,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
 
 public sealed record ArchitectureElementRecord(
     string TenantId,
