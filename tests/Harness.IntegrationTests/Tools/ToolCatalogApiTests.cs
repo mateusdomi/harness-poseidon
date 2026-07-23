@@ -49,12 +49,20 @@ public sealed class ToolCatalogApiTests
                     var knownSkills = skills.Items.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
                     var knownTools = tools.Items.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
                     var definitions = (await client.GetFromJsonAsync<AgentDefinitionPage>("/api/v1/agent-definitions?limit=10", timeout.Token))!;
+                    // Todo id de skill/tool vinculado é conhecido no catálogo — para qualquer persona.
                     Assert.All(definitions.Items, definition =>
                     {
-                        Assert.NotEmpty(definition.SkillIds); Assert.NotEmpty(definition.ToolIds);
                         Assert.All(definition.SkillIds, id => Assert.Contains(id, knownSkills));
                         Assert.All(definition.ToolIds, id => Assert.Contains(id, knownTools));
                     });
+                    // As personas de sistema têm skills/tools vinculados; as de Delivery (DEL-08) são
+                    // "sob demanda" (definições de catálogo, sem vínculos por padrão).
+                    Assert.All(
+                        definitions.Items.Where(d => !d.Key.StartsWith("delivery-", StringComparison.Ordinal)),
+                        definition =>
+                        {
+                            Assert.NotEmpty(definition.SkillIds); Assert.NotEmpty(definition.ToolIds);
+                        });
 
                     toolId = tools.Items.Single(x => x.Key == "shell").Id;
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/tools/{toolId}",

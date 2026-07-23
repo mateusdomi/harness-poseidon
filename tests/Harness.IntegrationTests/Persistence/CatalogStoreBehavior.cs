@@ -16,6 +16,11 @@ public static class CatalogStoreBehavior
     [
         "chief-orchestrator", "critic-qa", "product-requirements-analyst",
         "software-architect", "software-engineer", "technical-writer",
+        // DEL-08: as personas de Delivery ("sob demanda").
+        "delivery-tech-lead-copilot", "delivery-daily-intelligence",
+        "delivery-risk-dependency-analyst", "delivery-forecast-analyst",
+        "delivery-quality-release-auditor", "delivery-documentation-steward",
+        "delivery-executive-reporting", "delivery-benefits-analyst",
     ];
 
     public static async Task AssertAsync(

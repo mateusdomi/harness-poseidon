@@ -12501,6 +12501,258 @@
                 }
             }
         },
+        "/api/v1/deliveries/{deliveryId}/daily/briefing": {
+            "get": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DailyBriefingContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/deliveries/{deliveryId}/daily/captures": {
+            "post": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/DailyCaptureRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DailyCaptureContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/deliveries/{deliveryId}/daily/summary": {
+            "get": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DailySummaryContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/deliveries/{deliveryId}/metrics": {
+            "get": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeliveryMetricsContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/solicitations/{solicitationId}/attachments": {
             "get": {
                 "tags": [
@@ -19318,6 +19570,273 @@
                     }
                 }
             },
+            "DailyBriefingContract": {
+                "required": [
+                    "deliveryId",
+                    "generatedAt",
+                    "isFirstDaily",
+                    "lastDailyAt",
+                    "snapshot",
+                    "changesSinceLast",
+                    "itemsNeedingAttention",
+                    "recommendedQuestions"
+                ],
+                "type": "object",
+                "properties": {
+                    "deliveryId": {
+                        "type": "string"
+                    },
+                    "generatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "isFirstDaily": {
+                        "type": "boolean"
+                    },
+                    "lastDailyAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "snapshot": {
+                        "$ref": "#/components/schemas/DailySnapshotContract"
+                    },
+                    "changesSinceLast": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DailyChangeContract"
+                        }
+                    },
+                    "itemsNeedingAttention": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttentionSignalContract"
+                        }
+                    },
+                    "recommendedQuestions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DailyQuestionContract"
+                        }
+                    }
+                }
+            },
+            "DailyCaptureContract": {
+                "required": [
+                    "id",
+                    "deliveryId",
+                    "kind",
+                    "note",
+                    "capturedBy",
+                    "createdAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "deliveryId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "note": {
+                        "type": "string"
+                    },
+                    "capturedBy": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DailyCaptureKindCountContract": {
+                "required": [
+                    "kind",
+                    "count"
+                ],
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "DailyCaptureRequest": {
+                "required": [
+                    "kind",
+                    "note",
+                    "capturedBy"
+                ],
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string"
+                    },
+                    "note": {
+                        "type": "string"
+                    },
+                    "capturedBy": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "DailyChangeContract": {
+                "required": [
+                    "code",
+                    "detail"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DailyQuestionContract": {
+                "required": [
+                    "topic",
+                    "question"
+                ],
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string"
+                    },
+                    "question": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DailySnapshotContract": {
+                "required": [
+                    "health",
+                    "predictability",
+                    "openTaskCount",
+                    "blockedTaskCount",
+                    "milestonesTotal",
+                    "milestonesDone",
+                    "forecast"
+                ],
+                "type": "object",
+                "properties": {
+                    "health": {
+                        "type": "string"
+                    },
+                    "predictability": {
+                        "type": "string"
+                    },
+                    "openTaskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blockedTaskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "milestonesTotal": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "milestonesDone": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "forecast": {
+                        "$ref": "#/components/schemas/DeliveryForecastContract"
+                    }
+                }
+            },
+            "DailySummaryContract": {
+                "required": [
+                    "deliveryId",
+                    "generatedAt",
+                    "sessionSince",
+                    "totalCaptures",
+                    "byKind",
+                    "captures",
+                    "snapshot",
+                    "createdPoCards"
+                ],
+                "type": "object",
+                "properties": {
+                    "deliveryId": {
+                        "type": "string"
+                    },
+                    "generatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "sessionSince": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "totalCaptures": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "byKind": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DailyCaptureKindCountContract"
+                        }
+                    },
+                    "captures": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DailyCaptureContract"
+                        }
+                    },
+                    "snapshot": {
+                        "$ref": "#/components/schemas/DailySnapshotContract"
+                    },
+                    "createdPoCards": {
+                        "type": "boolean"
+                    }
+                }
+            },
             "Delivery360Contract": {
                 "required": [
                     "deliveryId",
@@ -19710,6 +20229,77 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/DeliveryForecastContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryMetricContract": {
+                "required": [
+                    "key",
+                    "label",
+                    "category",
+                    "measured",
+                    "value",
+                    "unit",
+                    "basis"
+                ],
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "measured": {
+                        "type": "boolean"
+                    },
+                    "value": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "unit": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "basis": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DeliveryMetricsContract": {
+                "required": [
+                    "deliveryId",
+                    "generatedAt",
+                    "dora",
+                    "own"
+                ],
+                "type": "object",
+                "properties": {
+                    "deliveryId": {
+                        "type": "string"
+                    },
+                    "generatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "dora": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliveryMetricContract"
+                        }
+                    },
+                    "own": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliveryMetricContract"
                         }
                     }
                 }

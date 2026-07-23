@@ -13,7 +13,7 @@ namespace Harness.IntegrationTests.Persistence;
 /// </summary>
 public sealed class SqliteMigrationUpgradeTests
 {
-    private const int HeadCount = 55;
+    private const int HeadCount = 57;
 
     [Theory]
     [InlineData(10)]
