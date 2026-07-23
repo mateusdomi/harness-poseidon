@@ -264,6 +264,7 @@ public static class HostApplication
             builder.Services.AddSingleton<PostgresConversationStore>();
             builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<PostgresConversationStore>());
             builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<PostgresConversationStore>());
+            builder.Services.AddSingleton<IChiefContextNoteStore, PostgresChiefContextNoteStore>();
             builder.Services.AddSingleton<IWorkChainStore, PostgresWorkChainStore>();
             builder.Services.AddSingleton<IWorkBoardStore, PostgresWorkBoardStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, PostgresAttemptWorkspaceStore>();
@@ -274,6 +275,7 @@ public static class HostApplication
             builder.Services.AddSingleton<SqliteConversationStore>();
             builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<SqliteConversationStore>());
             builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<SqliteConversationStore>());
+            builder.Services.AddSingleton<IChiefContextNoteStore, SqliteChiefContextNoteStore>();
             builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
             builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
@@ -424,6 +426,23 @@ public static class HostApplication
                 ContextBundlesEnabled = governanceFeatures.ContextBundlesEnabled,
                 ContextTokenBudget = governanceFeatures.ContextTokenBudget,
             });
+        // PLAT-02: estratégia de contexto do Chief registrada atrás da interface (trocável por
+        // deployment). O orçamento/limiar vem das settings Harness:Governance:Features com defaults
+        // seguros; a estratégia só é aplicada na montagem do turno quando explicitamente ligada.
+        builder.Services.AddSingleton<IContextStrategy, DefaultContextStrategy>();
+        builder.Services.AddSingleton(new ChiefContextStrategyOptions(
+            governanceFeatures.ChiefContextStrategyEnabled,
+            new ContextStrategyBudget(
+                governanceFeatures.ChiefContextMaxTokens,
+                governanceFeatures.ChiefContextRecentTurns,
+                governanceFeatures.ChiefContextToolResultWindow),
+            governanceFeatures.ChiefContextHistoryScanLimit));
+        builder.Services.AddSingleton(services => new ChiefContextComposer(
+            services.GetRequiredService<IConversationStore>(),
+            services.GetRequiredService<IContextStrategy>(),
+            services.GetRequiredService<IChiefContextNoteStore>(),
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<ChiefContextStrategyOptions>()));
         var governanceRoot = ResolveGovernanceRoot(builder.Environment.ContentRootPath)
             ?? throw new DirectoryNotFoundException("governance/manifest.yaml is required by the Chief runtime.");
         builder.Services.AddSingleton(new ContextBundleBuilder(governanceRoot));

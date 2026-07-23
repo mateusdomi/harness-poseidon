@@ -22,6 +22,8 @@ public sealed partial class ChiefTurnBackgroundService(
     IAgentExecutor executor,
     IClock clock,
     ChiefTurnWorkerOptions options,
+    ChiefContextComposer contextComposer,
+    ChiefContextStrategyOptions contextStrategyOptions,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -113,9 +115,34 @@ public sealed partial class ChiefTurnBackgroundService(
                     null,
                     clock.UtcNow),
                 cancellationToken);
-            var governedDigestJson = JsonSerializer.Serialize(
-                new ChiefGovernanceContext(digestJson, bundle.RenderedContext, bundle.BundleChecksum),
-                JsonOptions);
+            // PLAT-02: quando a estratégia de contexto está ligada, monta a janela de trabalho
+            // limitada (compactação + limpeza de tool-result) e externaliza os fatos críticos como
+            // notas duráveis ANTES de invocar o modelo. Desligada (default), o contexto governado é
+            // byte a byte idêntico ao comportamento anterior — nenhuma regressão.
+            string governedDigestJson;
+            if (contextStrategyOptions.Enabled)
+            {
+                var composition = await contextComposer.ComposeAsync(
+                    lease.Turn.TenantId,
+                    lease.Turn.ProjectId,
+                    lease.Turn.ConversationId,
+                    lease.Turn.TurnId,
+                    cancellationToken);
+                governedDigestJson = JsonSerializer.Serialize(
+                    new ChiefGovernanceContextWithMemory(
+                        digestJson,
+                        bundle.RenderedContext,
+                        bundle.BundleChecksum,
+                        composition.RenderedContext,
+                        composition.PersistedNoteCount),
+                    JsonOptions);
+            }
+            else
+            {
+                governedDigestJson = JsonSerializer.Serialize(
+                    new ChiefGovernanceContext(digestJson, bundle.RenderedContext, bundle.BundleChecksum),
+                    JsonOptions);
+            }
             var execution = await executor.ExecuteAsync(
                 new AgentExecutionRequest(
                     lease.Turn.TenantId,
@@ -283,6 +310,13 @@ public sealed partial class ChiefTurnBackgroundService(
         string StatusDigestJson,
         string ContextBundle,
         string BundleChecksum);
+
+    private sealed record ChiefGovernanceContextWithMemory(
+        string StatusDigestJson,
+        string ContextBundle,
+        string BundleChecksum,
+        string ChiefContext,
+        int PersistedNoteCount);
 
     [LoggerMessage(
         EventId = 2101,
