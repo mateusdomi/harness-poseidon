@@ -102,6 +102,12 @@ public sealed class ChiefOrchestrationApiTests
                     var definitions = (await client.GetFromJsonAsync<AgentDefinitionPage>("/api/v1/agent-definitions?limit=10", timeout.Token))!;
                     var specialist = definitions.Items.Single(x => x.Name == "Software Engineer");
                     string customDefinitionId;
+                    // CAT-04: a definição referencia team/specialty que agora precisam existir no
+                    // catálogo real tenant-scoped — criamos ambos via API antes de criar a definição.
+                    using (var createTeam = await client.PostAsJsonAsync("/api/v1/teams", new TeamWriteRequest("Platform"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.Created, createTeam.StatusCode);
+                    using (var createSpecialty = await client.PostAsJsonAsync("/api/v1/specialties", new SpecialtyWriteRequest("Application security"), timeout.Token))
+                        Assert.Equal(HttpStatusCode.Created, createSpecialty.StatusCode);
                     var custom = new AgentDefinitionWriteRequest(
                         "security-reviewer", "Security Reviewer", "specialist", "Application security",
                         "Reviews threats and evidence.", specialist.DefaultModelId, specialist.SkillIds,

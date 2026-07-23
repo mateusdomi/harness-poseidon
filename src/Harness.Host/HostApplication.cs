@@ -202,6 +202,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IOrganizationStore, PostgresOrganizationStore>();
             builder.Services.AddSingleton<IProjectStore, PostgresProjectStore>();
             builder.Services.AddSingleton<IAgentCatalogStore, PostgresAgentCatalogStore>();
+            builder.Services.AddSingleton<ITeamSpecialtyCatalogStore, PostgresTeamSpecialtyCatalogStore>();
             builder.Services.AddSingleton<IChiefOrchestratorStore, PostgresChiefOrchestratorStore>();
             builder.Services.AddSingleton<IToolCatalogStore, PostgresToolCatalogStore>();
             builder.Services.AddSingleton<IProviderCatalogStore, PostgresProviderCatalogStore>();
@@ -226,6 +227,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
             builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();
             builder.Services.AddSingleton<IAgentCatalogStore, SqliteAgentCatalogStore>();
+            builder.Services.AddSingleton<ITeamSpecialtyCatalogStore, SqliteTeamSpecialtyCatalogStore>();
             builder.Services.AddSingleton<IChiefOrchestratorStore, SqliteChiefOrchestratorStore>();
             builder.Services.AddSingleton<IToolCatalogStore, SqliteToolCatalogStore>();
             builder.Services.AddSingleton<IProviderCatalogStore, SqliteProviderCatalogStore>();
@@ -509,6 +511,7 @@ public static class HostApplication
         app.MapProjects();
         app.MapReadiness();
         app.MapAgents();
+        app.MapTeamSpecialtyCatalog();
         app.MapIsolatedExecutions();
         app.MapAgentRuns();
         app.MapToolCatalog();

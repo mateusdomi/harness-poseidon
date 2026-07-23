@@ -32,6 +32,7 @@ public sealed class SqliteIdentityCoreStoreTests
                     new SqliteAgentCatalogStore(dispatcher),
                     new SqliteToolCatalogStore(dispatcher),
                     new SqliteProviderCatalogStore(dispatcher),
+                    new SqliteTeamSpecialtyCatalogStore(dispatcher),
                     profile.TenantId,
                     timeout.Token);
                 await GovernanceRuntimeStoreBehavior.AssertAsync(

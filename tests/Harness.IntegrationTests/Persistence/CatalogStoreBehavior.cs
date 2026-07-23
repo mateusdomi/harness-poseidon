@@ -1,6 +1,7 @@
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.Tools;
+using Harness.SharedKernel.Identifiers;
 
 namespace Harness.IntegrationTests.Persistence;
 
@@ -21,6 +22,7 @@ public static class CatalogStoreBehavior
         IAgentCatalogStore agents,
         IToolCatalogStore tools,
         IProviderCatalogStore providers,
+        ITeamSpecialtyCatalogStore catalog,
         string tenantId,
         CancellationToken cancellationToken)
     {
@@ -143,6 +145,21 @@ public static class CatalogStoreBehavior
             Assert.Equal("max", selected.Effort);
             Assert.NotNull(selected.ProviderEffortValue);
         }
+
+        // CAT-04: a definição referencia team/specialty que agora precisam existir no catálogo
+        // real tenant-scoped — semeamos ambos (arrange mínimo) antes de criar a definição, e de
+        // passagem exercemos o CRUD do novo catálogo com isolamento por tenant.
+        var catalogAt = DateTimeOffset.Parse("2026-07-19T12:04:30Z", System.Globalization.CultureInfo.InvariantCulture);
+        var teamRecord = await catalog.CreateTeamAsync(new(tenantId, tenantId,
+            UlidValue.New(catalogAt).ToString(), null, "Platform", "Platform team.", catalogAt), cancellationToken);
+        Assert.Equal("platform", teamRecord.Key);
+        var specialtyRecord = await catalog.CreateSpecialtyAsync(new(tenantId, tenantId,
+            UlidValue.New(catalogAt.AddMilliseconds(1)).ToString(), null, "Review", null, teamRecord.Id, catalogAt), cancellationToken);
+        Assert.Equal(teamRecord.Id, specialtyRecord.TeamId);
+        Assert.Equal("Platform", Assert.Single(await catalog.ListTeamsAsync(tenantId, null, 50, cancellationToken)).Name);
+        Assert.Equal("Review", Assert.Single(await catalog.ListSpecialtiesAsync(tenantId, teamRecord.Id, null, 50, cancellationToken)).Name);
+        await Assert.ThrowsAsync<TeamSpecialtyCatalogConflictException>(() => catalog.DeleteTeamAsync(
+            new(tenantId, tenantId, teamRecord.Id, catalogAt), cancellationToken));
 
         var definitionModels = models.Where(value => value.ProviderId == account.ProviderId && value.Enabled).ToArray();
         var definitionContent = new AgentDefinitionContent(
