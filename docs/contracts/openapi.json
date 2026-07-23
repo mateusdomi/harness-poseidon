@@ -1949,6 +1949,217 @@
                 }
             }
         },
+        "/api/v1/agent-definitions/export": {
+            "get": {
+                "tags": [
+                    "agents"
+                ],
+                "parameters": [
+                    {
+                        "name": "includeArchived",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentDefinitionExportDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-definitions/{definitionId}/export": {
+            "get": {
+                "tags": [
+                    "agents"
+                ],
+                "parameters": [
+                    {
+                        "name": "definitionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentDefinitionExportDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent-definitions/import": {
+            "post": {
+                "tags": [
+                    "agents"
+                ],
+                "parameters": [
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "onConflict",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AgentDefinitionExportDocument"
+                            }
+                        },
+                        "application/yaml": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AgentDefinitionExportDocument"
+                            }
+                        },
+                        "application/x-yaml": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AgentDefinitionExportDocument"
+                            }
+                        },
+                        "text/yaml": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AgentDefinitionExportDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentImportResultContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-definitions/{definitionId}/{action}": {
             "post": {
                 "tags": [
@@ -14936,6 +15147,135 @@
                     }
                 }
             },
+            "AgentDefinitionDocument": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "specialty": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "defaultModelId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "skillIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "toolIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "persona": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "mission": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "operatingPrinciples": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "deliverables": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "qualityCriteria": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "communicationStyle": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "limitations": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "stacks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "defaultEffort": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAccountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "fallbackModelIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "team": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "actorCritic": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "risk": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
             "AgentDefinitionDuplicateRequest": {
                 "required": [
                     "key",
@@ -14950,6 +15290,21 @@
                         "type": "string"
                     }
                 }
+            },
+            "AgentDefinitionExportDocument": {
+                "type": "object",
+                "properties": {
+                    "schemaVersion": {
+                        "type": "string"
+                    },
+                    "definitions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AgentDefinitionDocument"
+                        }
+                    }
+                },
+                "additionalProperties": false
             },
             "AgentDefinitionPage": {
                 "required": [
@@ -15370,6 +15725,43 @@
                     },
                     "availabilityReason": {
                         "type": "string"
+                    }
+                }
+            },
+            "AgentImportItemContract": {
+                "required": [
+                    "id",
+                    "key",
+                    "name",
+                    "outcome"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    }
+                }
+            },
+            "AgentImportResultContract": {
+                "required": [
+                    "imported"
+                ],
+                "type": "object",
+                "properties": {
+                    "imported": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AgentImportItemContract"
+                        }
                     }
                 }
             },

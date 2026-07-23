@@ -21,6 +21,9 @@ public static class AgentEndpoints
         definitions.MapPost("/", CreateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
         definitions.MapPatch("/{definitionId}", UpdateDefinitionAsync).Produces<AgentDefinitionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
         definitions.MapPost("/{definitionId}/duplicate", DuplicateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        definitions.MapGet("/export", ExportDefinitionsAsync).Produces<AgentDefinitionExportDocument>().ProducesProblem(400).ProducesProblem(401);
+        definitions.MapGet("/{definitionId}/export", ExportDefinitionAsync).Produces<AgentDefinitionExportDocument>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        definitions.MapPost("/import", ImportDefinitionsAsync).Accepts<AgentDefinitionExportDocument>("application/json", "application/yaml", "application/x-yaml", "text/yaml").Produces<AgentImportResultContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
         definitions.MapPost("/{definitionId}/{action:regex(^(enable|disable|archive)$)}", SetDefinitionLifecycleAsync).Produces<AgentDefinitionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
         definitions.MapDelete("/{definitionId}", DeleteDefinitionAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
 
@@ -164,6 +167,111 @@ public static class AgentEndpoints
     private static async Task<IResult> SetDefinitionLifecycleAsync(string definitionId, string action, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { return Results.Ok(ToContract(await store.SetDefinitionLifecycleAsync(new(profile.TenantId, profile.Id, definitionId, action, clock.UtcNow), token))); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static async Task<IResult> DeleteDefinitionAsync(string definitionId, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { await store.DeleteDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, clock.UtcNow), token); return Results.NoContent(); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static AgentDefinitionContent ToContent(AgentDefinitionWriteRequest value) => new(value.Key, value.Name, value.Role, value.Specialty, value.Description, value.DefaultModelId, value.SkillIds, value.ToolIds, value.Persona, value.Mission, value.OperatingPrinciples, value.Deliverables, value.QualityCriteria, value.CommunicationStyle, value.Limitations, value.Stacks, value.DefaultEffort, value.PreferredAccountId, value.FallbackModelIds, value.Team, value.ActorCritic, value.Risk);
+
+    // CAT-06 — export/import portável. O export emite um envelope (único ou em lote) em JSON
+    // ou YAML; o import valida, cria ou (por colisão de chave) atualiza a definição via o mesmo
+    // application service, reaproveitando toda a validação de conteúdo e de referências.
+    private static async Task<IResult> ExportDefinitionAsync(
+        string definitionId, string? format, HttpRequest request, ILocalProfileStore profiles,
+        IAgentCatalogStore store, CancellationToken token)
+    {
+        if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition");
+        if (!AgentDefinitionPortability.TryResolveFormat(format, request.Headers.Accept.ToString(), out var documentFormat))
+            return InvalidFormat();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired();
+        var value = await store.GetDefinitionForTenantAsync(profile.TenantId, definitionId, token);
+        if (value is null) return NotFound("agent_definition");
+        var document = new AgentDefinitionExportDocument { Definitions = { AgentDefinitionPortability.ToDocument(value) } };
+        return SerializeDocument(document, documentFormat);
+    }
+
+    private static async Task<IResult> ExportDefinitionsAsync(
+        bool? includeArchived, string? format, HttpRequest request, ILocalProfileStore profiles,
+        IAgentCatalogStore store, CancellationToken token)
+    {
+        if (!AgentDefinitionPortability.TryResolveFormat(format, request.Headers.Accept.ToString(), out var documentFormat))
+            return InvalidFormat();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired();
+        var records = new List<AgentDefinitionRecord>();
+        string? cursor = null;
+        do
+        {
+            var page = await store.ListDefinitionsForTenantAsync(profile.TenantId, cursor, 200, includeArchived == true, token);
+            records.AddRange(page);
+            cursor = page.Count == 200 ? page[^1].Id : null;
+        } while (cursor is not null);
+        var document = new AgentDefinitionExportDocument
+        {
+            Definitions = records.Select(AgentDefinitionPortability.ToDocument).ToList(),
+        };
+        return SerializeDocument(document, documentFormat);
+    }
+
+    private static async Task<IResult> ImportDefinitionsAsync(
+        string? format, string? onConflict, HttpRequest request, ILocalProfileStore profiles,
+        IAgentCatalogStore store, IClock clock, CancellationToken token)
+    {
+        if (!AgentDefinitionPortability.TryResolveFormat(format, request.ContentType, out var documentFormat))
+            return InvalidFormat();
+        var fork = string.Equals(onConflict, "fork", StringComparison.OrdinalIgnoreCase);
+        if (onConflict is not null && !fork && !string.Equals(onConflict, "update", StringComparison.OrdinalIgnoreCase))
+            return Problem(400, "invalid_import_conflict_mode", "onConflict must be 'update' or 'fork'.");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired();
+
+        string body;
+        using (var reader = new StreamReader(request.Body)) body = await reader.ReadToEndAsync(token);
+        AgentDefinitionExportDocument document;
+        try { document = AgentDefinitionPortability.Deserialize(body, documentFormat); }
+        catch (AgentDocumentFormatException e) { return Problem(400, "invalid_agent_definition_document", e.Message); }
+        if (document.Definitions.Count == 0)
+            return Problem(400, "invalid_agent_definition_document", "The document contains no definitions.");
+        if (document.Definitions.Count > 200)
+            return Problem(400, "invalid_agent_definition_document", "The document exceeds the import batch limit of 200.");
+
+        var now = clock.UtcNow;
+        var existing = new List<AgentDefinitionRecord>(
+            await store.ListDefinitionsForTenantAsync(profile.TenantId, null, 500, includeArchived: true, token));
+        var results = new List<AgentImportItemContract>();
+        try
+        {
+            foreach (var definition in document.Definitions)
+            {
+                var content = AgentDefinitionPortability.ToContent(definition);
+                var match = string.IsNullOrWhiteSpace(content.Key)
+                    ? null
+                    : existing.FirstOrDefault(record => string.Equals(record.Key, content.Key, StringComparison.OrdinalIgnoreCase));
+                if (match is not null && !fork)
+                {
+                    var updated = await store.UpdateDefinitionAsync(
+                        new(profile.TenantId, profile.Id, match.Id, match.Version, content, now), token);
+                    existing[existing.IndexOf(match)] = updated;
+                    results.Add(new(updated.Id, updated.Key, updated.Name, "updated"));
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(content.Key) || (match is not null && fork))
+                        content = content with { Key = AgentKeyGenerator.Generate(content.Name, existing.Select(record => record.Key)) };
+                    var id = UlidValue.New(now).ToString();
+                    var created = await store.CreateDefinitionAsync(
+                        new(profile.TenantId, profile.Id, id, content, now), token);
+                    existing.Add(created);
+                    results.Add(new(created.Id, created.Key, created.Name, "created"));
+                }
+            }
+        }
+        catch (AgentDefinitionAdminException e) { return Problem(400, "invalid_agent_definition", e.Message); }
+        catch (Exception e) when (e is Microsoft.Data.Sqlite.SqliteException or Npgsql.PostgresException)
+        {
+            return Problem(409, "agent_definition_conflict", "Definition key already exists.");
+        }
+
+        return Results.Ok(new AgentImportResultContract(results));
+    }
+
+    private static IResult SerializeDocument(AgentDefinitionExportDocument document, AgentDocumentFormat format) =>
+        Results.Text(AgentDefinitionPortability.Serialize(document, format), AgentDefinitionPortability.ContentType(format));
+
+    private static IResult InvalidFormat() => Problem(400, "invalid_document_format", "format must be 'json' or 'yaml'.");
 
     private static async Task<IResult> ListAgentsAsync(
         string? projectId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles,
