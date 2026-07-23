@@ -18,9 +18,9 @@ public static class AgentEndpoints
         definitions.MapGet("/{definitionId}/versions", ListDefinitionVersionsAsync)
             .Produces<AgentDefinitionVersionPage>().ProducesProblem(400).ProducesProblem(401)
             .ProducesProblem(404);
-        definitions.MapPost("/", CreateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
-        definitions.MapPatch("/{definitionId}", UpdateDefinitionAsync).Produces<AgentDefinitionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
-        definitions.MapPost("/{definitionId}/duplicate", DuplicateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        definitions.MapPost("/", CreateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(409).ProducesProblem(422);
+        definitions.MapPatch("/{definitionId}", UpdateDefinitionAsync).Produces<AgentDefinitionContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(409).ProducesProblem(422);
+        definitions.MapPost("/{definitionId}/duplicate", DuplicateDefinitionAsync).Produces<AgentDefinitionContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409).ProducesProblem(422);
         definitions.MapGet("/export", ExportDefinitionsAsync).Produces<AgentDefinitionExportDocument>().ProducesProblem(400).ProducesProblem(401);
         definitions.MapGet("/{definitionId}/export", ExportDefinitionAsync).Produces<AgentDefinitionExportDocument>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         definitions.MapPost("/import", ImportDefinitionsAsync).Accepts<AgentDefinitionExportDocument>("application/json", "application/yaml", "application/x-yaml", "text/yaml").Produces<AgentImportResultContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(409);
@@ -150,7 +150,7 @@ public static class AgentEndpoints
             items, more ? items[^1].Version : null));
     }
 
-    private static async Task<IResult> CreateDefinitionAsync(AgentDefinitionWriteRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var content = await ResolveAutoKeyAsync(store, profile.TenantId, ToContent(input), token); var value = await store.CreateDefinitionAsync(new(profile.TenantId, profile.Id, id, content, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionAdminException e) { return Problem(400, "invalid_agent_definition", e.Message); } catch (Exception e) when (e is Microsoft.Data.Sqlite.SqliteException or Npgsql.PostgresException) { return Problem(409, "agent_definition_conflict", "Definition key already exists."); } }
+    private static async Task<IResult> CreateDefinitionAsync(AgentDefinitionWriteRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var content = await ResolveAutoKeyAsync(store, profile.TenantId, ToContent(input), token); var value = await store.CreateDefinitionAsync(new(profile.TenantId, profile.Id, id, content, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionCatalogMissingException e) { return MissingCatalog(e); } catch (AgentDefinitionAdminException e) { return Problem(400, "invalid_agent_definition", e.Message); } catch (Exception e) when (e is Microsoft.Data.Sqlite.SqliteException or Npgsql.PostgresException) { return Problem(409, "agent_definition_conflict", "Definition key already exists."); } }
 
     // Auto-key P1: quando o cliente não informa a chave, ela é derivada do nome de forma
     // determinística e versionada, evitando as chaves já existentes do tenant. O UNIQUE do
@@ -162,8 +162,8 @@ public static class AgentEndpoints
         var existing = await store.ListDefinitionsForTenantAsync(tenantId, null, 500, includeArchived: true, token);
         return content with { Key = AgentKeyGenerator.Generate(content.Name, existing.Select(definition => definition.Key)) };
     }
-    private static async Task<IResult> UpdateDefinitionAsync(string definitionId, AgentDefinitionWriteRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { return Results.Ok(ToContract(await store.UpdateDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, input.ExpectedVersion, ToContent(input), clock.UtcNow), token))); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
-    private static async Task<IResult> DuplicateDefinitionAsync(string definitionId, AgentDefinitionDuplicateRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var value = await store.DuplicateDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, id, input.Key, input.Name, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
+    private static async Task<IResult> UpdateDefinitionAsync(string definitionId, AgentDefinitionWriteRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { return Results.Ok(ToContract(await store.UpdateDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, input.ExpectedVersion, ToContent(input), clock.UtcNow), token))); } catch (AgentDefinitionCatalogMissingException e) { return MissingCatalog(e); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
+    private static async Task<IResult> DuplicateDefinitionAsync(string definitionId, AgentDefinitionDuplicateRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var value = await store.DuplicateDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, id, input.Key, input.Name, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionCatalogMissingException e) { return MissingCatalog(e); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static async Task<IResult> SetDefinitionLifecycleAsync(string definitionId, string action, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { return Results.Ok(ToContract(await store.SetDefinitionLifecycleAsync(new(profile.TenantId, profile.Id, definitionId, action, clock.UtcNow), token))); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static async Task<IResult> DeleteDefinitionAsync(string definitionId, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { await store.DeleteDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, clock.UtcNow), token); return Results.NoContent(); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static AgentDefinitionContent ToContent(AgentDefinitionWriteRequest value) => new(value.Key, value.Name, value.Role, value.Specialty, value.Description, value.DefaultModelId, value.SkillIds, value.ToolIds, value.Persona, value.Mission, value.OperatingPrinciples, value.Deliverables, value.QualityCriteria, value.CommunicationStyle, value.Limitations, value.Stacks, value.DefaultEffort, value.PreferredAccountId, value.FallbackModelIds, value.Team, value.ActorCritic, value.Risk);
@@ -259,6 +259,9 @@ public static class AgentEndpoints
                 }
             }
         }
+        // O import é uma operação em LOTE cujo corpo é um agregado por-item; um catálogo faltante
+        // aqui permanece um 400 tipado (compatível), enquanto o fluxo "criar quando não encontrar"
+        // (422 acionável) vive nos endpoints de item — create/update/duplicate.
         catch (AgentDefinitionAdminException e) { return Problem(400, "invalid_agent_definition", e.Message); }
         catch (Exception e) when (e is Microsoft.Data.Sqlite.SqliteException or Npgsql.PostgresException)
         {
@@ -418,6 +421,22 @@ public static class AgentEndpoints
     private static IResult SessionRequired() => Problem(401, "local_session_required", "A local profile session is required.");
     private static IResult NotFound(string resource) => Problem(404, $"{resource}_not_found", "The requested resource does not exist.");
     private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
+
+    // CAT-05: uma referência a um item de catálogo inexistente vira um problema ACIONÁVEL — o
+    // cliente recebe QUAL catálogo faltou, QUAL referência e a ROTA para criá-lo ("criar quando não
+    // encontrar"), em vez de uma falha opaca. É um 422 (o corpo é sintaticamente válido, mas
+    // semanticamente impossível de satisfazer até que o item seja criado).
+    private static IResult MissingCatalog(AgentDefinitionCatalogMissingException e) =>
+        Results.Problem(
+            statusCode: 422,
+            title: "agent_definition_missing_catalog_item",
+            detail: e.Message,
+            extensions: new Dictionary<string, object?>
+            {
+                ["catalog"] = e.Catalog,
+                ["reference"] = e.Reference,
+                ["createRoute"] = e.CreateRoute,
+            });
 }
 
 public sealed record AgentDefinitionContract(

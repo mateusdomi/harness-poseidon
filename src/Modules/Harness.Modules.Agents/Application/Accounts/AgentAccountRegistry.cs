@@ -47,6 +47,7 @@ public sealed class AgentAccountRegistry
         ArgumentNullException.ThrowIfNull(account);
         ValidateAlias(account.Alias);
         ValidateCredentialReference(account.CredentialReference);
+        ValidateRoles(account.AllowedRoles);
         if (ExecutorCatalog.Find(account.ExecutorId) is null)
         {
             throw new AgentAccountValidationException("account.executor_unknown");
@@ -59,6 +60,26 @@ public sealed class AgentAccountRegistry
 
         _accounts[account.Alias] = account;
         return account;
+    }
+
+    /// <summary>
+    /// CAT-09/ADR-022: o PAPEL de runtime é o eixo de escopo/claim e pertence ao conjunto
+    /// canônico fechado (<see cref="AgentRoles.IsKnown"/>): chief-orchestrator,
+    /// frontend-specialist, backend-specialist, critic. Um "novo papel de negócio" NÃO vira um
+    /// enum arbitrário — ele é modelado como especialidade/template/persona no catálogo de
+    /// agentes. Uma conta que declare um papel fora do conjunto é rejeitada de forma tipada, em
+    /// vez de silenciosamente conceder (ou negar) escopo com base num rótulo desconhecido.
+    /// </summary>
+    public static void ValidateRoles(IReadOnlyList<string> roles)
+    {
+        ArgumentNullException.ThrowIfNull(roles);
+        foreach (var role in roles)
+        {
+            if (!AgentRoles.IsKnown(role))
+            {
+                throw new AgentAccountValidationException("account.role_unknown");
+            }
+        }
     }
 
     /// <summary>

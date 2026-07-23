@@ -484,6 +484,8 @@ public static class HostApplication
         // Central de Relatórios (DEL-04/05/10): renderizadores reais (BCL) + serviço de relatórios.
         builder.Services.AddSingleton(Harness.Modules.Delivery.Application.ReportRendererRegistry.Default());
         builder.Services.AddSingleton<Harness.Host.Delivery.DeliveryReportService>();
+        // CAT-07: read-model de atividade recente por projeto (sobre work board + previsões).
+        builder.Services.AddSingleton<Harness.Host.Projects.ProjectActivityReadModelService>();
         var evalJudgeOptions = builder.Configuration
             .GetSection("Harness:Governance:EvalJudge")
             .Get<EvalJudgeOptions>() ?? new EvalJudgeOptions();
@@ -564,6 +566,7 @@ public static class HostApplication
         app.MapLocalProfiles();
         app.MapOrganizations();
         app.MapProjects();
+        app.MapProjectActivity();
         app.MapReadiness();
         app.MapAgents();
         app.MapTeamSpecialtyCatalog();

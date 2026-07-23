@@ -28,3 +28,6 @@ storybook-static/
 
 # Frontend build output embarcado no Host (gerado por tools/backend/build-frontend.sh)
 src/Harness.Host/wwwroot/
+
+# Worktrees efêmeros de agentes da fleet (nunca versionar)
+.claude/worktrees/
