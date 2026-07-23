@@ -27,6 +27,18 @@ public static class DeliveryEndpoints
             .Produces<DeliveryForecastHistoryContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         group.MapPost("/{deliveryId}/forecast", AppendForecastAsync)
             .Produces<DeliveryForecastContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+
+        // DEL-04/DEL-05/DEL-10 — Central de Relatórios (documentos versionados, aprovação humana, envio).
+        group.MapPost("/{deliveryId}/reports", GenerateReportAsync)
+            .Produces<DeliveryReportContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        group.MapGet("/{deliveryId}/reports", ListReportsAsync)
+            .Produces<DeliveryReportListContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        group.MapGet("/{deliveryId}/reports/{reportId}", GetReportAsync)
+            .Produces<DeliveryReportContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        group.MapPost("/{deliveryId}/reports/{reportId}/approve", ApproveReportAsync)
+            .Produces<DeliveryReportContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        group.MapPost("/{deliveryId}/reports/{reportId}/send", SendReportAsync)
+            .Produces<DeliveryReportSendReceiptContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         return endpoints;
     }
 
@@ -112,6 +124,85 @@ public static class DeliveryEndpoints
         return Results.Created($"/api/v1/deliveries/{deliveryId}/forecast", ToContract(record));
     }
 
+    private static async Task<IResult> GenerateReportAsync(
+        string deliveryId, GenerateReportRequest? body, HttpRequest request, ILocalProfileStore profiles,
+        DeliveryReportService service, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        if (body is null) return Invalid("body", "A request body is required.");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var result = await service.GenerateAsync(
+            profile.TenantId, deliveryId, body.Type ?? string.Empty, body.Format ?? string.Empty,
+            body.Audience, body.Classification, token);
+        return result.IsError
+            ? FromError(result.Error!)
+            : Results.Created($"/api/v1/deliveries/{deliveryId}/reports/{result.Value!.Id}", result.Value);
+    }
+
+    private static async Task<IResult> ListReportsAsync(
+        string deliveryId, HttpRequest request, ILocalProfileStore profiles,
+        DeliveryReportService service, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var result = await service.ListAsync(profile.TenantId, deliveryId, token);
+        return result.IsError ? FromError(result.Error!) : Results.Ok(result.Value);
+    }
+
+    private static async Task<IResult> GetReportAsync(
+        string deliveryId, string reportId, HttpRequest request, ILocalProfileStore profiles,
+        DeliveryReportService service, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        if (!Valid(reportId)) return InvalidId("report");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var result = await service.GetAsync(profile.TenantId, deliveryId, reportId, token);
+        return result.IsError ? FromError(result.Error!) : Results.Ok(result.Value);
+    }
+
+    private static async Task<IResult> ApproveReportAsync(
+        string deliveryId, string reportId, ApproveReportRequest? body, HttpRequest request,
+        ILocalProfileStore profiles, DeliveryReportService service, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        if (!Valid(reportId)) return InvalidId("report");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        // O aprovador é o humano em sessão (identidade estável); um rótulo opcional pode acompanhá-lo.
+        var approvedBy = string.IsNullOrWhiteSpace(body?.ApprovedBy)
+            ? profile.DisplayName ?? profile.Id
+            : body!.ApprovedBy!.Trim();
+        var result = await service.ApproveAsync(profile.TenantId, deliveryId, reportId, approvedBy, token);
+        return result.IsError ? FromError(result.Error!) : Results.Ok(result.Value);
+    }
+
+    private static async Task<IResult> SendReportAsync(
+        string deliveryId, string reportId, SendReportRequest? body, HttpRequest request,
+        ILocalProfileStore profiles, DeliveryReportService service, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        if (!Valid(reportId)) return InvalidId("report");
+        if (body is null) return Invalid("body", "A request body is required.");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var sentBy = profile.DisplayName ?? profile.Id;
+        var result = await service.SendAsync(
+            profile.TenantId, deliveryId, reportId, body.Channel ?? string.Empty,
+            body.RecipientReference ?? string.Empty, sentBy, token);
+        return result.IsError ? FromError(result.Error!) : Results.Ok(result.Value);
+    }
+
+    private static IResult FromError(ReportError error) =>
+        Results.Problem(statusCode: error.Status, title: error.Title, detail: error.Detail);
+
     private static DeliveryForecastContract ToContract(DeliveryForecastRecord record) => new(
         record.Id, record.ForecastDate, record.Confidence, record.ConfidencePercent,
         record.HasSufficientEvidence,
@@ -125,3 +216,15 @@ public static class DeliveryEndpoints
     private static IResult NotFound(string resource) => Problem(404, $"{resource}_not_found", "The resource does not exist.");
     private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
 }
+
+/// <summary>Pedido para gerar um relatório de {tipo, formato} — vira um snapshot em rascunho (DEL-04).</summary>
+public sealed record GenerateReportRequest(string? Type, string? Format, string? Audience, string? Classification);
+
+/// <summary>Aprovação humana de um relatório (DEL-04). O aprovador padrão é o humano em sessão.</summary>
+public sealed record ApproveReportRequest(string? ApprovedBy);
+
+/// <summary>
+/// Envio externo de um relatório aprovado (DEL-10). O destinatário é uma REFERÊNCIA OPACA
+/// (`env://`, `secret://`, `keychain://`) — nunca um endereço literal.
+/// </summary>
+public sealed record SendReportRequest(string Channel, string RecipientReference);

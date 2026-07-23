@@ -274,6 +274,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IWorkBoardStore, PostgresWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, PostgresDemandPlanStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
+            builder.Services.AddSingleton<IDeliveryReportStore, PostgresDeliveryReportStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, PostgresAttemptWorkspaceStore>();
         }
         else
@@ -287,6 +288,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, SqliteDemandPlanStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();
+            builder.Services.AddSingleton<IDeliveryReportStore, SqliteDeliveryReportStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
         }
         var isolatedSettings = builder.Configuration
@@ -477,6 +479,9 @@ public static class HostApplication
         builder.Services.AddSingleton<SemanticStuckDetector>();
         // Central de Entregas (DEL-01/02/09): read-model sobre Projects/Coordination/Documents/PLAT-04.
         builder.Services.AddSingleton<Harness.Host.Delivery.DeliveryReadModelService>();
+        // Central de Relatórios (DEL-04/05/10): renderizadores reais (BCL) + serviço de relatórios.
+        builder.Services.AddSingleton(Harness.Modules.Delivery.Application.ReportRendererRegistry.Default());
+        builder.Services.AddSingleton<Harness.Host.Delivery.DeliveryReportService>();
         var evalJudgeOptions = builder.Configuration
             .GetSection("Harness:Governance:EvalJudge")
             .Get<EvalJudgeOptions>() ?? new EvalJudgeOptions();
