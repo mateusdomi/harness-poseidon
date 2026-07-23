@@ -15,6 +15,17 @@ public sealed class BuiltInAgentDefinitionSeedTests
     [
         "chief-orchestrator", "critic-qa", "product-requirements-analyst",
         "software-architect", "software-engineer", "technical-writer",
+        // DEL-08: as personas de Delivery ("sob demanda").
+        "delivery-tech-lead-copilot", "delivery-daily-intelligence",
+        "delivery-risk-dependency-analyst", "delivery-forecast-analyst",
+        "delivery-quality-release-auditor", "delivery-documentation-steward",
+        "delivery-executive-reporting", "delivery-benefits-analyst",
+    ];
+
+    // As personas que são crítico/auditor (ActorCritic == "critic"); as demais são "actor".
+    private static readonly string[] CriticKeys =
+    [
+        "critic-qa", "delivery-quality-release-auditor",
     ];
 
     private static readonly string[] ValidEfforts = ["low", "medium", "high", "max"];
@@ -60,10 +71,12 @@ public sealed class BuiltInAgentDefinitionSeedTests
                 seeded.Select(definition => definition.Key).Order(StringComparer.Ordinal));
             Assert.All(seeded, AssertFullyPopulated);
 
-            // O crítico é ator/crítico "critic"; os demais são "actor" — prova das defaults por papel.
-            Assert.Equal("critic", seeded.Single(definition => definition.Key == "critic-qa").ActorCritic);
+            // Os auditores/críticos têm ActorCritic "critic"; os demais são "actor" — prova das defaults por papel.
             Assert.All(
-                seeded.Where(definition => definition.Key != "critic-qa"),
+                seeded.Where(definition => CriticKeys.Contains(definition.Key)),
+                definition => Assert.Equal("critic", definition.ActorCritic));
+            Assert.All(
+                seeded.Where(definition => !CriticKeys.Contains(definition.Key)),
                 definition => Assert.Equal("actor", definition.ActorCritic));
 
             // Idempotência: reexecutar não semeia nada e não duplica linhas nem altera conteúdo.

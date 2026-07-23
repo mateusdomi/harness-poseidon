@@ -39,7 +39,114 @@ public static class DeliveryEndpoints
             .Produces<DeliveryReportContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         group.MapPost("/{deliveryId}/reports/{reportId}/send", SendReportAsync)
             .Produces<DeliveryReportSendReceiptContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+
+        // DEL-03 — Daily Copilot (briefing pré-daily, captura de marcações tipadas, resumo pós-daily).
+        group.MapGet("/{deliveryId}/daily/briefing", GetDailyBriefingAsync)
+            .Produces<DailyBriefingContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        group.MapPost("/{deliveryId}/daily/captures", CaptureDailyAsync)
+            .Produces<DailyCaptureContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        group.MapGet("/{deliveryId}/daily/summary", GetDailySummaryAsync)
+            .Produces<DailySummaryContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+
+        // DEL-06 — Métricas DORA + próprias, derivadas estritamente de dados gravados.
+        group.MapGet("/{deliveryId}/metrics", GetMetricsAsync)
+            .Produces<DeliveryMetricsContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         return endpoints;
+    }
+
+    private static async Task<IResult> GetDailyBriefingAsync(
+        string deliveryId, HttpRequest request, ILocalProfileStore profiles,
+        DeliveryReadModelService service, IDeliveryDailyStore daily, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var input = await service.BuildForProjectAsync(profile.TenantId, deliveryId, token);
+        if (input is null) return NotFound("delivery");
+
+        var captures = await LoadCapturesAsync(daily, profile.TenantId, deliveryId, token);
+        return Results.Ok(DailyCopilotComposer.Briefing(input, captures));
+    }
+
+    private static async Task<IResult> CaptureDailyAsync(
+        string deliveryId, DailyCaptureRequest? body, HttpRequest request, ILocalProfileStore profiles,
+        DeliveryReadModelService service, IDeliveryDailyStore daily, IClock clock, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        if (body is null) return Invalid("body", "A request body is required.");
+        var kind = body.Kind?.Trim();
+        if (!DailyCaptureKinds.IsValid(kind))
+        {
+            return Invalid("kind",
+                $"kind must be one of: {string.Join(", ", DailyCaptureKinds.All)}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(body.Note))
+        {
+            return Invalid("note", "A note is required.");
+        }
+
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        // A entrega precisa existir; NÃO tocamos em cards de PO — só persistimos a nota durável.
+        if (await service.BuildForProjectAsync(profile.TenantId, deliveryId, token) is null)
+        {
+            return NotFound("delivery");
+        }
+
+        var capturedBy = string.IsNullOrWhiteSpace(body.CapturedBy)
+            ? profile.DisplayName ?? profile.Id
+            : body.CapturedBy!.Trim();
+        var now = clock.UtcNow;
+        var record = await daily.AppendAsync(new DeliveryDailyCaptureAppendCommand(
+            profile.TenantId, UlidValue.New(now).ToString(), deliveryId, kind!, body.Note.Trim(),
+            capturedBy, now), token);
+
+        return Results.Created(
+            $"/api/v1/deliveries/{deliveryId}/daily/summary",
+            new DailyCaptureContract(
+                record.Id, record.ProjectId, record.Kind, record.Note, record.CapturedBy,
+                record.CreatedAt));
+    }
+
+    private static async Task<IResult> GetDailySummaryAsync(
+        string deliveryId, HttpRequest request, ILocalProfileStore profiles,
+        DeliveryReadModelService service, IDeliveryDailyStore daily, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var input = await service.BuildForProjectAsync(profile.TenantId, deliveryId, token);
+        if (input is null) return NotFound("delivery");
+
+        var captures = await LoadCapturesAsync(daily, profile.TenantId, deliveryId, token);
+        return Results.Ok(DailyCopilotComposer.Summary(input, captures));
+    }
+
+    private static async Task<IResult> GetMetricsAsync(
+        string deliveryId, HttpRequest request, ILocalProfileStore profiles,
+        DeliveryReadModelService service, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+
+        var input = await service.BuildForProjectAsync(profile.TenantId, deliveryId, token);
+        if (input is null) return NotFound("delivery");
+        return Results.Ok(DeliveryMetricsCalculator.Compute(input));
+    }
+
+    private static async Task<IReadOnlyList<DeliveryDailyCaptureFacts>> LoadCapturesAsync(
+        IDeliveryDailyStore daily, string tenantId, string deliveryId, CancellationToken token)
+    {
+        var records = await daily.ListByProjectAsync(tenantId, deliveryId, 500, token);
+        return records
+            .Select(c => new DeliveryDailyCaptureFacts(
+                c.Id, c.Kind, c.Note, c.CapturedBy, c.CreatedAt))
+            .ToArray();
     }
 
     private static async Task<IResult> ListDeliveriesAsync(

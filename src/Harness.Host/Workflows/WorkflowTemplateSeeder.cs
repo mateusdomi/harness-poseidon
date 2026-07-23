@@ -37,29 +37,54 @@ public sealed class WorkflowTemplateSeeder(
                 UlidValue.New(now.AddTicks(1)).ToString(),
                 canonical.ToRequest(),
                 now);
+            // Ticks altos e crescentes para os ids dos objetivos-documento, fora da faixa que o
+            // CreateTemplate usa internamente — evita qualquer colisão de identidade.
+            var documentTick = 1_000L;
             var phases = creation.Phases
-                .Select(phase => new WorkflowPhaseCreateInput(
-                    phase.Id,
-                    phase.Key,
-                    phase.Name,
-                    phase.Order,
-                    phase.Objectives
+                .Select(phase =>
+                {
+                    var objectives = phase.Objectives
                         .Select(objective => new WorkflowObjectiveCreateInput(
                             objective.Id,
                             objective.Key,
                             objective.Name,
                             objective.Kind,
                             objective.Weight))
-                        .ToArray(),
-                    phase.Gates
-                        .Select(gate => new WorkflowGateCreateInput(
-                            gate.Id,
-                            gate.ObjectiveId,
-                            gate.Key,
-                            gate.Name,
-                            gate.MinimumRequiredState,
-                            gate.RequiredObjectiveIds))
-                        .ToArray()))
+                        .ToList();
+
+                    // DEL-07 — documentos obrigatórios da fase viram objetivos de tipo 'document',
+                    // reusando o motor de Workflows (não um mecanismo novo). Ordem estável.
+                    if (canonical.DocumentsByPhase.TryGetValue(phase.Name, out var documents))
+                    {
+                        var index = 0;
+                        foreach (var document in documents)
+                        {
+                            index++;
+                            objectives.Add(new WorkflowObjectiveCreateInput(
+                                UlidValue.New(now.AddTicks(documentTick++)).ToString(),
+                                $"document-{index}",
+                                document,
+                                "document",
+                                1m));
+                        }
+                    }
+
+                    return new WorkflowPhaseCreateInput(
+                        phase.Id,
+                        phase.Key,
+                        phase.Name,
+                        phase.Order,
+                        objectives,
+                        phase.Gates
+                            .Select(gate => new WorkflowGateCreateInput(
+                                gate.Id,
+                                gate.ObjectiveId,
+                                gate.Key,
+                                gate.Name,
+                                gate.MinimumRequiredState,
+                                gate.RequiredObjectiveIds))
+                            .ToArray());
+                })
                 .ToArray();
             try
             {

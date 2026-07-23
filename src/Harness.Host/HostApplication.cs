@@ -275,6 +275,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IDemandPlanStore, PostgresDemandPlanStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, PostgresDeliveryReportStore>();
+            builder.Services.AddSingleton<IDeliveryDailyStore, PostgresDeliveryDailyStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, PostgresAttemptWorkspaceStore>();
         }
         else
@@ -289,6 +290,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IDemandPlanStore, SqliteDemandPlanStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, SqliteDeliveryReportStore>();
+            builder.Services.AddSingleton<IDeliveryDailyStore, SqliteDeliveryDailyStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
         }
         var isolatedSettings = builder.Configuration

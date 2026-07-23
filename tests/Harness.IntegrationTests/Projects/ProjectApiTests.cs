@@ -90,12 +90,17 @@ public sealed class ProjectApiTests
                         "/api/v1/agent-definitions?limit=10", timeout.Token);
                     Assert.Equal(
                         [
+                            // Ordenadas por id: as 6 personas de sistema, depois as de Delivery (DEL-08).
                             "Chief Orchestrator",
                             "Product/Requirements Analyst",
                             "Software Architect",
                             "Software Engineer",
                             "Critic/QA",
                             "Technical Writer",
+                            "Tech Lead Copilot",
+                            "Daily Intelligence",
+                            "Risk & Dependency Analyst",
+                            "Delivery Forecast",
                         ],
                         definitions?.Items.Select(definition => definition.Name));
                     var chief = await client.GetFromJsonAsync<AgentContract>(
