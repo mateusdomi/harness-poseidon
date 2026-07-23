@@ -348,27 +348,11 @@ public static class WorkflowEndpoints
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
         var template = await store.GetTemplateAsync(profile.TenantId, input.TemplateId, token);
         if (template is null) return NotFound("workflow_template");
-        if (template.State == "archived")
-            return Problem(409, "workflow_lifecycle_conflict", "An archived workflow template cannot be linked.");
-        var versionId = input.VersionId ?? template.CurrentVersionId;
-        if (versionId is null)
-            return Problem(409, "workflow_template_unpublished", "Publish a workflow version before linking the template.");
-        var version = await store.GetVersionAsync(profile.TenantId, versionId, token);
-        if (version is null || version.TemplateId != template.Id || version.State != "published")
-            return Problem(409, "workflow_version_invalid", "The workflow version must be active, published, and belong to the template.");
-        var mode = version.DefaultOperationMode ?? "manual";
-        if (mode is not ("manual" or "semiautonomous" or "autonomous"))
-            return Problem(409, "workflow_version_invalid", "The workflow version has an invalid default operation mode.");
-        try
-        {
-            var now = clock.UtcNow; var workflowId = UlidValue.New(now).ToString();
-            var row = await store.LinkTemplateAsync(new(profile.TenantId, workflowId, id,
-                template.Id, version.Id, mode, profile.Id, now), token);
-            return Results.Created($"/api/v1/workflows/{workflowId}", ToContract(row));
-        }
-        catch (WorkflowCatalogReferenceNotFoundException e) { return NotFound(e.Reference); }
-        catch (WorkflowCatalogLifecycleException e) { return Problem(409, "workflow_lifecycle_conflict", e.Message); }
-        catch (WorkflowBindingAlreadyExistsException) { return Problem(409, "workflow_already_exists", "The project already has a workflow."); }
+        var result = await ProjectWorkflowLinker.LinkAsync(store, profile.TenantId, id, template,
+            input.VersionId, profile.Id, clock, token);
+        return result.Outcome == ProjectWorkflowLinker.LinkOutcome.Applied
+            ? Results.Created($"/api/v1/workflows/{result.Binding!.Id}", ToContract(result.Binding))
+            : ProjectWorkflowLinker.ToProblem(result);
     }
 
     private static async Task<IResult> SetOperationModeAsync(string id, SetWorkflowOperationModeRequest input,

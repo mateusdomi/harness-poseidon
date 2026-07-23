@@ -34,6 +34,13 @@ public static class CanonicalWorkflowTemplates
             phase => (IReadOnlyList<string>)[$"Aprovação de {phase}"],
             StringComparer.Ordinal));
 
+    /// <summary>
+    /// A chave canônica do template recomendado (o "Software Delivery Standard"): o fluxo de
+    /// entrega padrão completo, pré-selecionado na criação de um projeto para não bloquear o
+    /// caminho dourado do Chief em um workflow ausente.
+    /// </summary>
+    public const string RecommendedKey = "delivery-standard";
+
     public static IReadOnlyList<CanonicalWorkflowTemplate> All { get; } =
     [
         Build(
@@ -79,4 +86,11 @@ public static class CanonicalWorkflowTemplates
             ["Triagem", "Descoberta", "Mapeamento", "Documentação", "Validação", "Sustentação"],
             "Mapeamento", "Documentação", "Validação"),
     ];
+
+    /// <summary>
+    /// O template recomendado, pré-selecionado na criação do projeto quando nenhum override é
+    /// informado.
+    /// </summary>
+    public static CanonicalWorkflowTemplate Recommended { get; } =
+        All.Single(template => template.Key == RecommendedKey);
 }

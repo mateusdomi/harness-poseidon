@@ -1,9 +1,11 @@
 using Harness.Host.Profiles;
+using Harness.Host.Workflows;
 using Harness.Modules.Projects.Application;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -37,10 +39,52 @@ public static class ProjectEndpoints
     {
         if (!UlidValue.TryParse(projectId, out _)) return InvalidId(); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var project = await store.GetAsync(profile.TenantId, projectId, token); return project is null ? NotFound() : Results.Ok(ToResponse(project));
     }
-    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IClock clock, CancellationToken token)
+    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IWorkflowCatalogStore workflows, WorkflowTemplateSeeder seeder, IClock clock, CancellationToken token)
     {
         var profile = await LocalProfileSession.ResolveAsync(http, profiles, token); if (profile is null) return SessionRequired();
-        try { var now = clock.UtcNow; var value = ProjectApplicationService.Create(UlidValue.New(now).ToString(), UlidValue.New(now.AddTicks(1)).ToString(), profile.Id, request, now); var record = ToRecord(profile.TenantId, value); var result = await store.CreateAsync(new(profile.TenantId, record, now), token); return result.Status switch { ProjectMutationStatus.Applied => Results.Created($"/api/v1/projects/{value.Id}", ToResponse(result.Project!)), ProjectMutationStatus.OrganizationNotFound => Problem(404, "organization_not_found", "The organization does not exist."), ProjectMutationStatus.AlreadyExists => Conflict(), _ => throw new InvalidOperationException($"Unexpected project create status {result.Status}.") }; } catch (ArgumentException e) { return Problem(400, "invalid_project", e.Message); }
+        ArgumentNullException.ThrowIfNull(request);
+        // GP-09: pré-seleção do workflow na criação. Empty string => opt-out; ULID => override;
+        // ausente => template recomendado. Resolvemos o template ANTES de criar o projeto para
+        // que um override inválido falhe rápido, sem deixar um projeto órfão.
+        var linkWorkflow = request.WorkflowTemplateId is not "";
+        if (request.WorkflowTemplateId is { Length: > 0 } && !UlidValue.TryParse(request.WorkflowTemplateId, out _))
+            return Problem(400, "invalid_workflow_template_id", "Workflow template ID must be a ULID.");
+        try
+        {
+            WorkflowTemplateCatalogRecord? template = null;
+            if (linkWorkflow)
+            {
+                template = request.WorkflowTemplateId is { Length: > 0 } overrideId
+                    ? await workflows.GetTemplateAsync(profile.TenantId, overrideId, token)
+                    : await ProjectWorkflowLinker.ResolveRecommendedAsync(workflows, seeder, profile.TenantId, token);
+                if (request.WorkflowTemplateId is { Length: > 0 } && template is null)
+                    return Problem(404, "workflow_template_not_found", "The workflow template does not exist.");
+            }
+
+            var now = clock.UtcNow;
+            var value = ProjectApplicationService.Create(UlidValue.New(now).ToString(), UlidValue.New(now.AddTicks(1)).ToString(), profile.Id, request, now);
+            var record = ToRecord(profile.TenantId, value);
+            var result = await store.CreateAsync(new(profile.TenantId, record, now), token);
+            if (result.Status != ProjectMutationStatus.Applied)
+            {
+                return result.Status switch
+                {
+                    ProjectMutationStatus.OrganizationNotFound => Problem(404, "organization_not_found", "The organization does not exist."),
+                    ProjectMutationStatus.AlreadyExists => Conflict(),
+                    _ => throw new InvalidOperationException($"Unexpected project create status {result.Status}.")
+                };
+            }
+
+            if (template is not null)
+            {
+                var link = await ProjectWorkflowLinker.LinkAsync(workflows, profile.TenantId, value.Id, template, null, profile.Id, clock, token);
+                if (link.Outcome is not (ProjectWorkflowLinker.LinkOutcome.Applied or ProjectWorkflowLinker.LinkOutcome.AlreadyExists))
+                    return ProjectWorkflowLinker.ToProblem(link);
+            }
+
+            return Results.Created($"/api/v1/projects/{value.Id}", ToResponse(result.Project!));
+        }
+        catch (ArgumentException e) { return Problem(400, "invalid_project", e.Message); }
     }
     private static async Task<IResult> PatchAsync(string projectId, UpdateProjectRequest patch, HttpRequest request, ILocalProfileStore profiles, IProjectStore store, IClock clock, CancellationToken token)
     {

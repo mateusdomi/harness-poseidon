@@ -18,6 +18,16 @@ public static class WorkflowTestBinding
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(client);
+        // Desde a GP-09 um projeto já nasce vinculado ao workflow recomendado. Este helper é
+        // idempotente: se o projeto já tem um workflow, reutiliza-o em vez de tentar vincular
+        // de novo (o que conflitaria com o vínculo automático).
+        var existing = await client.GetFromJsonAsync<WorkflowPage>(
+            $"/api/v1/workflows?projectId={projectId}", cancellationToken);
+        if (existing is not null && existing.Items.Count > 0)
+        {
+            return;
+        }
+
         var templates = await client.GetFromJsonAsync<WorkflowTemplatePage>(
             "/api/v1/workflow-templates?limit=50", cancellationToken)
             ?? throw new InvalidOperationException("Workflow templates were not published.");

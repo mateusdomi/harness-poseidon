@@ -277,6 +277,8 @@ public sealed class SemiautonomousWorkflowE2ETests
                 Name = "Poseidon",
                 Key = "POSEIDON",
                 Description = "Backend",
+                // Este teste vincula o workflow explicitamente; opta por não pré-selecionar.
+                WorkflowTemplateId = "",
             },
             token);
         response.EnsureSuccessStatusCode();
