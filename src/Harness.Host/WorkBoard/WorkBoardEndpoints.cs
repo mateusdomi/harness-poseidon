@@ -236,7 +236,7 @@ public static class WorkBoardEndpoints
                 values.Task.DemandId, UlidValue.New(now.AddMilliseconds(2)).ToString(),
                 UlidValue.New(now.AddMilliseconds(3)).ToString(), profile.Id, values.Task.Title,
                 values.Task.Priority, values.Task.AssigneeAgentId, values.Task.DueAt,
-                instructionId, values.Instruction.Body, now, values.Task.PhaseName), token);
+                instructionId, values.Instruction.Body, now, values.Task.PhaseName, values.CardType), token);
             return Results.Created($"/api/v1/tasks/{taskId}", ToContract(result.Task));
         }
         catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }

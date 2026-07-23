@@ -294,14 +294,15 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             phaseName ??= demand.PhaseName;
             backingSolicitation = await ReadBackingSolicitationIdAsync(c, tx, backingDemand, token);
         }
+        var cardType = string.IsNullOrWhiteSpace(command.CardType) ? "agent_task" : command.CardType;
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(command.InstructionBody)));
         await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText =
             """
             INSERT INTO work_tasks
                 (id,tenant_id,project_id,demand_id,title,risk_tier,weight,state,version,created_at,
-                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name)
+                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name,card_type)
             VALUES ($id,$tenant,$project,$backing,$title,$priority,1,'ready',1,$at,$at,$source,
-                    'backlog',$priority,$assignee,$due,$phase);
+                    'backlog',$priority,$assignee,$due,$phase,$cardType);
             INSERT INTO instruction_versions
                 (id,tenant_id,project_id,task_id,version,content,content_hash,created_at,
                  author_kind,author_id)
@@ -313,14 +314,14 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         Add(q, "$at", Store(command.OccurredAt)); AddNullable(q, "$source", command.DemandId);
         AddNullable(q, "$assignee", command.AssigneeAgentId);
         AddNullable(q, "$due", command.DueAt is null ? null : Store(command.DueAt.Value));
-        AddNullable(q, "$phase", phaseName);
+        AddNullable(q, "$phase", phaseName); Add(q, "$cardType", cardType);
         Add(q, "$instruction", command.InstructionId); Add(q, "$body", command.InstructionBody);
         Add(q, "$hash", hash); await q.ExecuteNonQueryAsync(token);
         var task = new BoardTaskRecord(command.TenantId, command.Id, command.ProjectId,
             command.DemandId, command.Title, "backlog", command.Priority,
             command.AssigneeAgentId, null, 1, new BoardProgressRecord(0, 0, 0),
             command.OccurredAt, command.OccurredAt, command.DueAt, null, 1, "ready",
-            backingSolicitation, backingDemand, phaseName);
+            backingSolicitation, backingDemand, phaseName, cardType);
         var instruction = new BoardInstructionRecord(command.TenantId, command.InstructionId,
             command.Id, 1, command.InstructionBody, "chief", null, command.OccurredAt);
         var payload = TaskPayload(task); await AppendAuditAsync(c, tx, command.TenantId,
@@ -440,7 +441,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             r.IsDBNull(12) ? null : Parse(r.GetString(12)),
             r.IsDBNull(13) ? null : Parse(r.GetString(13)), r.GetInt64(14),
             internalState, r.GetString(15), r.GetString(16),
-            r.IsDBNull(18) ? null : r.GetString(18));
+            r.IsDBNull(18) ? null : r.GetString(18), r.GetString(19));
     }
     private static BoardInstructionRecord ReadInstruction(SqliteDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetString(4),
@@ -529,7 +530,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
                t.assignee_agent_id,t.blocked_reason,
                (SELECT MAX(version) FROM instruction_versions i WHERE i.task_id=t.id),
                t.created_at,t.updated_at,t.due_at,t.archived_at,t.version,
-               d.solicitation_id,t.demand_id,t.state,t.phase_name
+               d.solicitation_id,t.demand_id,t.state,t.phase_name,t.card_type
         FROM work_tasks t JOIN demands d ON d.id=t.demand_id
         """;
     private const string InstructionSelect =

@@ -63,7 +63,7 @@ public sealed record CreateDemandRequest(
 public sealed record CreateTaskRequest(
     string ProjectId, string Title, string Instruction, string? DemandId = null,
     string? Priority = null, string? AssigneeAgentId = null, DateTimeOffset? DueAt = null,
-    string? PhaseName = null);
+    string? PhaseName = null, string? CardType = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record MoveTaskRequest(string ToState, string? Note = null);

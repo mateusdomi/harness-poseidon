@@ -16827,6 +16827,12 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "cardType": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 },
                 "additionalProperties": false

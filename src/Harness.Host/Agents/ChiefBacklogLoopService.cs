@@ -1,5 +1,6 @@
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
+using Harness.Modules.Coordination.Application;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
@@ -48,6 +49,9 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: run REJEITADO para o card {TaskId}: {Status}/{Code}")]
     private static partial void LogRunRejected(ILogger logger, string taskId, string status, string code);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} (card_type={CardType}) NÃO despachável — pulado por prontidão (DoR): {Blockers}")]
+    private static partial void LogCardNotDispatchable(ILogger logger, string taskId, string cardType, string blockers);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -128,8 +132,20 @@ public sealed partial class ChiefBacklogLoopService(
             foreach (var task in page.Items)
             {
                 var instructions = await board.ListInstructionsAsync(profile.TenantId, task.Id, null, 50, token);
-                if (instructions.Count == 0)
+
+                // Gate fail-safe da Definition of Ready: SÓ cards 'agent_task' com instrução e não
+                // bloqueados entram na fila de despacho. 'human_gate'/'decision'/'feature'/'spike'
+                // NUNCA são auto-despachados — mesmo já em `ready`, são pulados aqui com bloqueador
+                // tipado (a triagem/humano cuida deles fora do loop).
+                var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
+                    task.CardType,
+                    instructions.Count >= 1,
+                    string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
+                        !string.IsNullOrWhiteSpace(task.BlockedReason)));
+                if (!readiness.IsDispatchable)
                 {
+                    LogCardNotDispatchable(
+                        logger, task.Id, task.CardType, string.Join(",", readiness.Blockers));
                     continue;
                 }
 

@@ -15,6 +15,10 @@ public static class WorkBoardApplicationService
         new(["backlog", "ready", "development", "review", "corrections", "testsGates", "blocked", "done"], StringComparer.Ordinal);
     private static readonly HashSet<string> SolicitationStates =
         new(["open", "inAnalysis", "converted", "answered", "closed"], StringComparer.Ordinal);
+    // Conjunto fechado de tipos de card. Só 'agent_task' é auto-despachável pelo loop do Chefe;
+    // os demais exigem um humano (gate/decisão) ou são portadores de escopo (feature/spike).
+    private static readonly HashSet<string> CardTypes =
+        new(["feature", "agent_task", "human_gate", "spike", "decision"], StringComparer.Ordinal);
 
     public static SolicitationContract CreateSolicitation(
         string id, string profileId, CreateSolicitationRequest request, DateTimeOffset now)
@@ -38,7 +42,7 @@ public static class WorkBoardApplicationService
             OptionalText(request.PhaseName, 200));
     }
 
-    public static (BoardTaskContract Task, TaskInstructionContract Instruction) CreateTask(
+    public static (BoardTaskContract Task, TaskInstructionContract Instruction, string CardType) CreateTask(
         string taskId, string instructionId, CreateTaskRequest request, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -50,6 +54,11 @@ public static class WorkBoardApplicationService
             throw new ArgumentException("DueAt must be UTC.", nameof(request));
         }
 
+        // O tipo de card fica FORA da resposta pública da task (BoardTaskContract é drift-checked
+        // contra o frontend); é validado aqui e devolvido à parte para alimentar o comando de
+        // persistência. Ausente => 'agent_task' (fail-safe: o card nasce auto-despachável).
+        var cardType = request.CardType is null ? "agent_task" : Choice(request.CardType, CardTypes);
+
         var task = new BoardTaskContract(
             Id(taskId), projectId, demandId, Text(request.Title, 500), "backlog",
             Choice(request.Priority ?? "medium", Priorities), assignee, null, 1,
@@ -57,7 +66,7 @@ public static class WorkBoardApplicationService
             OptionalText(request.PhaseName, 200));
         var instruction = new TaskInstructionContract(
             Id(instructionId), task.Id, 1, Text(request.Instruction, 100_000), "chief", null, now);
-        return (task, instruction);
+        return (task, instruction, cardType);
     }
 
     public static (string State, string? Note) MoveTask(MoveTaskRequest request)

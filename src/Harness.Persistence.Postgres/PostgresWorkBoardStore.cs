@@ -23,7 +23,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
                t.assignee_agent_id,t.blocked_reason,
                (SELECT MAX(i.version) FROM harness.instruction_versions i WHERE i.task_id=t.id),
                t.created_at,t.updated_at,t.due_at,t.archived_at,t.version,
-               d.solicitation_id,t.demand_id,t.state,t.phase_name
+               d.solicitation_id,t.demand_id,t.state,t.phase_name,t.card_type
         FROM harness.work_tasks t JOIN harness.demands d ON d.id=t.demand_id
         """;
     private const string InstructionSelect =
@@ -427,20 +427,21 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
                 connection, transaction, backingDemand, cancellationToken);
         }
 
+        var cardType = string.IsNullOrWhiteSpace(command.CardType) ? "agent_task" : command.CardType;
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(command.InstructionBody)));
         await ExecuteAsync(
             connection, transaction,
             """
             INSERT INTO harness.work_tasks
                 (id,tenant_id,project_id,demand_id,title,risk_tier,weight,state,version,created_at,
-                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name)
-            VALUES ($1,$2,$3,$4,$5,$6,1,'ready',1,$7,$7,$8,'backlog',$6,$9,$10,$11);
+                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name,card_type)
+            VALUES ($1,$2,$3,$4,$5,$6,1,'ready',1,$7,$7,$8,'backlog',$6,$9,$10,$11,$12);
             """,
             cancellationToken,
             Text(command.Id), Text(command.TenantId), Text(command.ProjectId), Text(backingDemand),
             Text(command.Title), Text(command.Priority), Timestamp(command.OccurredAt),
             NullableText(command.DemandId), NullableText(command.AssigneeAgentId),
-            NullableTimestamp(command.DueAt), NullableText(phaseName));
+            NullableTimestamp(command.DueAt), NullableText(phaseName), Text(cardType));
         await ExecuteAsync(
             connection, transaction,
             """
@@ -457,7 +458,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             command.TenantId, command.Id, command.ProjectId, command.DemandId, command.Title,
             "backlog", command.Priority, command.AssigneeAgentId, null, 1,
             new BoardProgressRecord(0, 0, 0), command.OccurredAt, command.OccurredAt,
-            command.DueAt, null, 1, "ready", backingSolicitation, backingDemand, phaseName);
+            command.DueAt, null, 1, "ready", backingSolicitation, backingDemand, phaseName, cardType);
         var instruction = new BoardInstructionRecord(
             command.TenantId, command.InstructionId, command.Id, 1, command.InstructionBody,
             "chief", null, command.OccurredAt);
@@ -619,7 +620,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             reader.IsDBNull(13) ? null : reader.GetFieldValue<DateTimeOffset>(13),
             reader.GetInt64(14), internalState, reader.GetString(15).TrimEnd(),
             reader.GetString(16).TrimEnd(),
-            reader.IsDBNull(18) ? null : reader.GetString(18));
+            reader.IsDBNull(18) ? null : reader.GetString(18), reader.GetString(19).TrimEnd());
     }
 
     private static BoardInstructionRecord ReadInstruction(NpgsqlDataReader reader) => new(

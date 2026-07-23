@@ -17,10 +17,12 @@ public sealed class WorkBoardApplicationTests
             "01ARZ3NDEKTSV4RRFFQ69G5FAY",
             new CreateDemandRequest(solicitation.ProjectId, "Entrega", "Descrição", solicitation.Id,
                 PhaseName: "  Execução  "), Now);
-        var (task, instruction) = WorkBoardApplicationService.CreateTask(
+        var (task, instruction, cardType) = WorkBoardApplicationService.CreateTask(
             "01ARZ3NDEKTSV4RRFFQ69G5FAZ", "01ARZ3NDEKTSV4RRFFQ69G5FB0",
             new CreateTaskRequest(demand.ProjectId, "Implementar", "Faça com testes", demand.Id,
                 PhaseName: " Execução "), Now);
+
+        Assert.Equal("agent_task", cardType);
 
         Assert.Equal("open", solicitation.State);
         Assert.Equal("medium", demand.Priority);
