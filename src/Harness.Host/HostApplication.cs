@@ -493,6 +493,8 @@ public static class HostApplication
         // Architecture Hub (ARC-01/02/03/05): read-model + comandos sobre o modelo arquitetural estruturado.
         builder.Services.AddSingleton<Harness.Host.Architecture.ArchitectureReadModelService>();
         builder.Services.AddSingleton<Harness.Host.Architecture.ArchitectureCommandService>();
+        // Architecture Hub estendido (ARC-06/07/08/10): descoberta, insights, padrões e baseline da entrega.
+        builder.Services.AddSingleton<Harness.Host.Architecture.ArchitectureHubCommandService>();
         var evalJudgeOptions = builder.Configuration
             .GetSection("Harness:Governance:EvalJudge")
             .Get<EvalJudgeOptions>() ?? new EvalJudgeOptions();
@@ -596,6 +598,7 @@ public static class HostApplication
         app.MapDemandPlans();
         app.MapDeliveries();
         app.MapArchitecture();
+        app.MapArchitectureHub();
         app.MapSolicitationAttachments();
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
