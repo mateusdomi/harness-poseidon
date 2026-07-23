@@ -197,6 +197,12 @@
           "Harness.SharedKernel": "[1.0.0, )"
         }
       },
+      "harness.modules.delivery": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
       "harness.modules.documents": {
         "type": "Project",
         "dependencies": {

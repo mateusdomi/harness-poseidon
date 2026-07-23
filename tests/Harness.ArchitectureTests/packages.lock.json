@@ -382,6 +382,7 @@
           "Harness.Modules.Agents": "[1.0.0, )",
           "Harness.Modules.Conversations": "[1.0.0, )",
           "Harness.Modules.Coordination": "[1.0.0, )",
+          "Harness.Modules.Delivery": "[1.0.0, )",
           "Harness.Modules.Documents": "[1.0.0, )",
           "Harness.Modules.Execution": "[1.0.0, )",
           "Harness.Modules.Governance": "[1.0.0, )",
@@ -424,6 +425,12 @@
         }
       },
       "harness.modules.coordination": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "harness.modules.delivery": {
         "type": "Project",
         "dependencies": {
           "Harness.SharedKernel": "[1.0.0, )"

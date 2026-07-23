@@ -33,7 +33,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
         {
             await using (var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
             {
-                Assert.Equal(53, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+                Assert.Equal(54, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
                 await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
                     ProductionDurableRecoveryScenario.ProvisionCommand(),
                     timeout.Token);
@@ -77,7 +77,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
             repositoryRoot,
             timeout.Token);
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
-        Assert.Equal(53, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
+        Assert.Equal(54, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
         await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
             ProductionDurableRecoveryScenario.ProvisionCommand(),
             timeout.Token);

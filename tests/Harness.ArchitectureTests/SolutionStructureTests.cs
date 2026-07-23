@@ -18,6 +18,7 @@ public sealed class SolutionStructureTests
         "src/Modules/Harness.Modules.Projects/Harness.Modules.Projects.csproj",
         "src/Modules/Harness.Modules.Conversations/Harness.Modules.Conversations.csproj",
         "src/Modules/Harness.Modules.Coordination/Harness.Modules.Coordination.csproj",
+        "src/Modules/Harness.Modules.Delivery/Harness.Modules.Delivery.csproj",
         "src/Modules/Harness.Modules.Workflows/Harness.Modules.Workflows.csproj",
         "src/Modules/Harness.Modules.Execution/Harness.Modules.Execution.csproj",
         "src/Modules/Harness.Modules.Agents/Harness.Modules.Agents.csproj",

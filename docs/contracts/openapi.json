@@ -11893,6 +11893,229 @@
                 }
             }
         },
+        "/api/v1/deliveries": {
+            "get": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "view",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeliveryPortfolioContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/deliveries/{deliveryId}/overview": {
+            "get": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Delivery360Contract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/deliveries/{deliveryId}/forecast": {
+            "get": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeliveryForecastHistoryContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "deliveries"
+                ],
+                "parameters": [
+                    {
+                        "name": "deliveryId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeliveryForecastContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/solicitations/{solicitationId}/attachments": {
             "get": {
                 "tags": [
@@ -17079,6 +17302,25 @@
                     }
                 }
             },
+            "AttentionSignalContract": {
+                "required": [
+                    "code",
+                    "severity",
+                    "detail"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "severity": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                }
+            },
             "AuditEventContract": {
                 "required": [
                     "id",
@@ -18677,6 +18919,660 @@
                     }
                 }
             },
+            "Delivery360Contract": {
+                "required": [
+                    "deliveryId",
+                    "projectId",
+                    "executiveSummary",
+                    "planAndMilestones",
+                    "technicalHealth",
+                    "risksAndDependencies",
+                    "decisions",
+                    "documentation",
+                    "valueAndMetrics"
+                ],
+                "type": "object",
+                "properties": {
+                    "deliveryId": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "executiveSummary": {
+                        "$ref": "#/components/schemas/DeliveryExecutiveSummaryContract"
+                    },
+                    "planAndMilestones": {
+                        "$ref": "#/components/schemas/DeliveryPlanMilestonesContract"
+                    },
+                    "technicalHealth": {
+                        "$ref": "#/components/schemas/DeliveryTechnicalHealthContract"
+                    },
+                    "risksAndDependencies": {
+                        "$ref": "#/components/schemas/DeliveryRiskDependencyContract"
+                    },
+                    "decisions": {
+                        "$ref": "#/components/schemas/DeliveryDecisionsContract"
+                    },
+                    "documentation": {
+                        "$ref": "#/components/schemas/DeliveryDocumentationContract"
+                    },
+                    "valueAndMetrics": {
+                        "$ref": "#/components/schemas/DeliveryValueMetricsContract"
+                    }
+                }
+            },
+            "DeliveryDecisionContract": {
+                "required": [
+                    "taskId",
+                    "state",
+                    "detail",
+                    "resolved"
+                ],
+                "type": "object",
+                "properties": {
+                    "taskId": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "resolved": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "DeliveryDecisionsContract": {
+                "required": [
+                    "total",
+                    "open",
+                    "decisions"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "open": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "decisions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliveryDecisionContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryDocumentationContract": {
+                "required": [
+                    "expected",
+                    "present",
+                    "checklist"
+                ],
+                "type": "object",
+                "properties": {
+                    "expected": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "present": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "checklist": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DocumentationChecklistItemContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryExecutiveSummaryContract": {
+                "required": [
+                    "name",
+                    "key",
+                    "criticality",
+                    "health",
+                    "predictability",
+                    "owner",
+                    "milestonesTotal",
+                    "milestonesDone",
+                    "openTaskCount",
+                    "blockedTaskCount",
+                    "committedDate",
+                    "forecastDate",
+                    "lastActivityAt",
+                    "attentionSignalCount"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "criticality": {
+                        "type": "string"
+                    },
+                    "health": {
+                        "type": "string"
+                    },
+                    "predictability": {
+                        "type": "string"
+                    },
+                    "owner": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "milestonesTotal": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "milestonesDone": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "openTaskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blockedTaskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "committedDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "forecastDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "lastActivityAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "attentionSignalCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "DeliveryFeatureMetricContract": {
+                "required": [
+                    "featureId",
+                    "taskCount",
+                    "attemptCount",
+                    "successCount",
+                    "failureCount",
+                    "totalCostUsd",
+                    "totalTokensInput",
+                    "totalTokensOutput",
+                    "totalDurationMs"
+                ],
+                "type": "object",
+                "properties": {
+                    "featureId": {
+                        "type": "string"
+                    },
+                    "taskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "attemptCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "successCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "failureCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "totalCostUsd": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "totalTokensInput": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "totalTokensOutput": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "totalDurationMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
+            "DeliveryForecastContract": {
+                "required": [
+                    "id",
+                    "forecastDate",
+                    "confidence",
+                    "confidencePercent",
+                    "hasSufficientEvidence",
+                    "basis",
+                    "createdAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "forecastDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "confidence": {
+                        "type": "string"
+                    },
+                    "confidencePercent": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "hasSufficientEvidence": {
+                        "type": "boolean"
+                    },
+                    "basis": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ForecastBasisContract"
+                        }
+                    },
+                    "createdAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DeliveryForecastHistoryContract": {
+                "required": [
+                    "deliveryId",
+                    "latest",
+                    "history"
+                ],
+                "type": "object",
+                "properties": {
+                    "deliveryId": {
+                        "type": "string"
+                    },
+                    "latest": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/DeliveryForecastContract"
+                            }
+                        ]
+                    },
+                    "history": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliveryForecastContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryPlanMilestonesContract": {
+                "required": [
+                    "milestonesTotal",
+                    "milestonesDone",
+                    "committedDate",
+                    "forecast",
+                    "forecastHistory"
+                ],
+                "type": "object",
+                "properties": {
+                    "milestonesTotal": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "milestonesDone": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "committedDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "forecast": {
+                        "$ref": "#/components/schemas/DeliveryForecastContract"
+                    },
+                    "forecastHistory": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliveryForecastContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryPortfolioContract": {
+                "required": [
+                    "view",
+                    "total",
+                    "deliveries"
+                ],
+                "type": "object",
+                "properties": {
+                    "view": {
+                        "type": "string"
+                    },
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "deliveries": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliverySummaryContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryRiskDependencyContract": {
+                "required": [
+                    "risks",
+                    "openDependencies",
+                    "blockedTaskCount"
+                ],
+                "type": "object",
+                "properties": {
+                    "risks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttentionSignalContract"
+                        }
+                    },
+                    "openDependencies": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blockedTaskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "DeliverySummaryContract": {
+                "required": [
+                    "deliveryId",
+                    "projectId",
+                    "name",
+                    "key",
+                    "health",
+                    "predictability",
+                    "owner",
+                    "committedDate",
+                    "forecastDate",
+                    "forecastConfidence",
+                    "milestonesTotal",
+                    "milestonesDone",
+                    "openTaskCount",
+                    "blockedTaskCount",
+                    "lastActivityAt",
+                    "attentionSignals"
+                ],
+                "type": "object",
+                "properties": {
+                    "deliveryId": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "health": {
+                        "type": "string"
+                    },
+                    "predictability": {
+                        "type": "string"
+                    },
+                    "owner": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "committedDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "forecastDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "forecastConfidence": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "milestonesTotal": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "milestonesDone": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "openTaskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blockedTaskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "lastActivityAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "attentionSignals": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttentionSignalContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryTechnicalHealthContract": {
+                "required": [
+                    "indicators"
+                ],
+                "type": "object",
+                "properties": {
+                    "indicators": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TechnicalHealthIndicatorContract"
+                        }
+                    }
+                }
+            },
+            "DeliveryValueMetricsContract": {
+                "required": [
+                    "features",
+                    "totalCostUsd",
+                    "totalTasks"
+                ],
+                "type": "object",
+                "properties": {
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeliveryFeatureMetricContract"
+                        }
+                    },
+                    "totalCostUsd": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "totalTasks": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
             "DemandContract": {
                 "required": [
                     "id",
@@ -18841,6 +19737,32 @@
                     "generatedAt": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "DocumentationChecklistItemContract": {
+                "required": [
+                    "kind",
+                    "label",
+                    "present",
+                    "state"
+                ],
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "present": {
+                        "type": "boolean"
+                    },
+                    "state": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -19544,6 +20466,21 @@
                         "items": {
                             "$ref": "#/components/schemas/FeatureMetricContract"
                         }
+                    }
+                }
+            },
+            "ForecastBasisContract": {
+                "required": [
+                    "signal",
+                    "detail"
+                ],
+                "type": "object",
+                "properties": {
+                    "signal": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
                     }
                 }
             },
@@ -24610,6 +25547,33 @@
                 },
                 "additionalProperties": false
             },
+            "TechnicalHealthIndicatorContract": {
+                "required": [
+                    "key",
+                    "label",
+                    "status",
+                    "value",
+                    "detail"
+                ],
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                }
+            },
             "ToolContract": {
                 "required": [
                     "id",
@@ -25664,6 +26628,9 @@
         },
         {
             "name": "demand-plans"
+        },
+        {
+            "name": "deliveries"
         },
         {
             "name": "po-assistant"
