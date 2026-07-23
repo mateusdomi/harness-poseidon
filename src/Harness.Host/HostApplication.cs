@@ -15,6 +15,7 @@ using Harness.Host.Persistence;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Host.Providers;
+using Harness.Host.Architecture;
 using Harness.Host.Delivery;
 using Harness.Host.Prototyping;
 using Harness.Host.Readiness;
@@ -42,6 +43,7 @@ using Harness.Modules.Governance.Patching;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Agents;
+using Harness.Persistence.Abstractions.Architecture;
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
@@ -276,6 +278,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, PostgresDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, PostgresDeliveryDailyStore>();
+            builder.Services.AddSingleton<IArchitectureStore, PostgresArchitectureStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, PostgresAttemptWorkspaceStore>();
         }
         else
@@ -291,6 +294,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, SqliteDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, SqliteDeliveryDailyStore>();
+            builder.Services.AddSingleton<IArchitectureStore, SqliteArchitectureStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
         }
         var isolatedSettings = builder.Configuration
@@ -486,6 +490,9 @@ public static class HostApplication
         builder.Services.AddSingleton<Harness.Host.Delivery.DeliveryReportService>();
         // CAT-07: read-model de atividade recente por projeto (sobre work board + previsões).
         builder.Services.AddSingleton<Harness.Host.Projects.ProjectActivityReadModelService>();
+        // Architecture Hub (ARC-01/02/03/05): read-model + comandos sobre o modelo arquitetural estruturado.
+        builder.Services.AddSingleton<Harness.Host.Architecture.ArchitectureReadModelService>();
+        builder.Services.AddSingleton<Harness.Host.Architecture.ArchitectureCommandService>();
         var evalJudgeOptions = builder.Configuration
             .GetSection("Harness:Governance:EvalJudge")
             .Get<EvalJudgeOptions>() ?? new EvalJudgeOptions();
@@ -588,6 +595,7 @@ public static class HostApplication
         app.MapWorkBoard();
         app.MapDemandPlans();
         app.MapDeliveries();
+        app.MapArchitecture();
         app.MapSolicitationAttachments();
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();

@@ -185,6 +185,12 @@
           "Harness.SharedKernel": "[1.0.0, )"
         }
       },
+      "harness.modules.architecture": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
       "harness.modules.conversations": {
         "type": "Project",
         "dependencies": {
