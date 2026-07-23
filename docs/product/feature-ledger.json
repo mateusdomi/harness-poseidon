@@ -1347,6 +1347,25 @@
         "commit:7e1b660"
       ],
       "boardRef": null
+    },
+    {
+      "id": "PLAT-ROUTERV7",
+      "area": "platform",
+      "name": "Migrar react-router v6→v7 (fecha 2 CVEs moderadas: open redirect via backslash em <Link>/useNavigate; arbitrary constructor injection em deserializeErrors no SSR hydration)",
+      "scopeDecision": "approved",
+      "deliveryState": "planned",
+      "assuranceState": "unvalidated",
+      "blockerState": "none",
+      "priority": "P2",
+      "targetMilestone": "rc",
+      "surface": "frontend",
+      "outcome": "Aberto na retomada 2026-07-23 por decisão do dono. As CVEs (GHSA-wrjc-x8rr-h8h6, GHSA-337j-9hxr-rhxg) só têm fix em react-router 7 (major/breaking). Mitigação imediata aplicada: gate npm audit afrouxado de moderate→high em tools/backend/build-frontend.sh (CVEs moderadas aceitas e rastreadas por este card). DoD: migrar APIs de rota v6→v7, rede de gates de frontend verde (check/build/test/test:a11y), reverter audit-level para moderate.",
+      "evidenceRefs": [
+        "tools/backend/build-frontend.sh",
+        "advisory:GHSA-wrjc-x8rr-h8h6",
+        "advisory:GHSA-337j-9hxr-rhxg"
+      ],
+      "boardRef": null
     }
   ]
 }

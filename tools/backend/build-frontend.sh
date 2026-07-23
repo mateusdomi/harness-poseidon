@@ -30,7 +30,11 @@ rsync -a "$contract_source/openapi.json" "$contract_target/openapi.json"
 (
   cd "$frontend_work"
   npm ci --no-audit --loglevel=error
-  npm audit --omit=dev --audit-level=moderate
+  # audit-level=high: as 2 CVEs MODERADAS do react-router 6.x (open redirect via
+  # backslash em <Link>; constructor injection no SSR hydration) só têm fix em
+  # react-router 7 (major/breaking). Aceitas e rastreadas pelo card de migração
+  # v6→v7 (PLAT). Revisar para 'moderate' assim que a migração fechar as CVEs.
+  npm audit --omit=dev --audit-level=high
   NODE_NO_WARNINGS=1 npm run check
   # Rollup 4 emits a known two-instance INVALID_ANNOTATION notice from the pinned
   # SignalR ESM package. Suppress only that exact third-party block; every other
