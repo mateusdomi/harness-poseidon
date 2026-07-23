@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- PLAT-06: o gerador reusa a fonte única (CanonicalAgentDefinitions) e a renderização
+         determinística (CanonicalAgentDocs) que vivem no Host; sem novas dependências de runtime. -->
+    <ProjectReference Include="../../src/Harness.Host/Harness.Host.csproj" />
+  </ItemGroup>
+</Project>
