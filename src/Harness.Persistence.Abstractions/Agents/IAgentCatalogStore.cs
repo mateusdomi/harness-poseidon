@@ -37,7 +37,24 @@ public interface IAgentCatalogStore
     Task<AgentDefinitionRecord> DuplicateDefinitionAsync(AgentDefinitionDuplicateCommand command, CancellationToken cancellationToken = default);
     Task<AgentDefinitionRecord> SetDefinitionLifecycleAsync(AgentDefinitionLifecycleCommand command, CancellationToken cancellationToken = default);
     Task DeleteDefinitionAsync(AgentDefinitionDeleteCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Semeia, de forma idempotente, as definições canônicas built-in (tenant_id IS NULL) com o
+    /// conteúdo completo das personas e o proprietário (owner). Cada linha só é preenchida uma vez
+    /// (guarda em owner IS NULL): reexecutar não duplica nem sobrescreve. Retorna o número de
+    /// definições efetivamente semeadas nesta chamada.
+    /// </summary>
+    Task<int> EnsureBuiltInDefinitionsAsync(
+        IReadOnlyList<BuiltInAgentDefinitionSeed> definitions,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Conteúdo canônico de uma definição built-in: o id estável da linha semeada na migração
+/// inicial, o proprietário (owner, p.ex. "system") e o conteúdo completo da persona.
+/// </summary>
+public sealed record BuiltInAgentDefinitionSeed(
+    string Id, string Owner, AgentDefinitionContent Content);
 
 public sealed record AgentDefinitionRecord(
     string Id,
@@ -56,7 +73,7 @@ public sealed record AgentDefinitionRecord(
     DateTimeOffset? ArchivedAt = null, IReadOnlyList<string>? Stacks = null,
     string? DefaultEffort = null, string? PreferredAccountId = null,
     IReadOnlyList<string>? FallbackModelIds = null, string? Team = null,
-    string? ActorCritic = null, string? Risk = null);
+    string? ActorCritic = null, string? Risk = null, string? Owner = null);
 
 public sealed record AgentDefinitionContent(
     string Key, string Name, string Role, string? Specialty, string Description,

@@ -26,7 +26,7 @@ public sealed class GovernanceReceiptRecoveryTests
         {
             await using (var firstDispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
             {
-                Assert.Equal(50, await SqliteMigrationRunner.ApplyAsync(firstDispatcher, timeout.Token));
+                Assert.Equal(51, await SqliteMigrationRunner.ApplyAsync(firstDispatcher, timeout.Token));
                 var firstStore = new SqliteGovernanceRuntimeStore(firstDispatcher);
                 var created = await firstStore.CreateReceiptAsync(
                     new GovernanceTurnReceiptCreateCommand(

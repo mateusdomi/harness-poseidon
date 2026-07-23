@@ -12,6 +12,48 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SqliteWriteDispatcher _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
+    // CAT-02: enriquece as definições canônicas built-in (tenant_id IS NULL) com o conteúdo
+    // completo da persona e o owner. A guarda `owner IS NULL` torna o seed idempotente: cada
+    // linha é preenchida uma única vez; reexecutar não duplica nem sobrescreve. Não gera versão
+    // nem trilha de auditoria — é conteúdo de sistema, não uma edição de tenant.
+    public Task<int> EnsureBuiltInDefinitionsAsync(IReadOnlyList<BuiltInAgentDefinitionSeed> definitions, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            var seeded = 0;
+            await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token);
+            foreach (var definition in definitions)
+            {
+                await using var command = connection.CreateCommand();
+                command.Transaction = tx;
+                command.CommandText =
+                    "UPDATE agent_definitions SET persona=$persona,mission=$mission," +
+                    "operating_principles_json=$principles,deliverables_json=$deliverables," +
+                    "quality_criteria_json=$quality,communication_style=$communication," +
+                    "limitations_json=$limitations,stacks_json=$stacks,default_effort=$effort," +
+                    "team=$team,actor_critic=$actorCritic,risk=$risk,owner=$owner " +
+                    "WHERE id=$id AND tenant_id IS NULL AND owner IS NULL;";
+                var content = definition.Content;
+                Add(command, "$persona", content.Persona?.Trim() ?? (object)DBNull.Value);
+                Add(command, "$mission", content.Mission?.Trim() ?? (object)DBNull.Value);
+                Add(command, "$principles", JsonSerializer.Serialize(content.OperatingPrinciples, JsonOptions));
+                Add(command, "$deliverables", JsonSerializer.Serialize(content.Deliverables, JsonOptions));
+                Add(command, "$quality", JsonSerializer.Serialize(content.QualityCriteria, JsonOptions));
+                Add(command, "$communication", content.CommunicationStyle?.Trim() ?? (object)DBNull.Value);
+                Add(command, "$limitations", JsonSerializer.Serialize(content.Limitations, JsonOptions));
+                Add(command, "$stacks", JsonSerializer.Serialize(content.Stacks ?? [], JsonOptions));
+                Add(command, "$effort", content.DefaultEffort ?? (object)DBNull.Value);
+                Add(command, "$team", content.Team?.Trim() ?? (object)DBNull.Value);
+                Add(command, "$actorCritic", content.ActorCritic ?? (object)DBNull.Value);
+                Add(command, "$risk", content.Risk ?? (object)DBNull.Value);
+                Add(command, "$owner", definition.Owner);
+                Add(command, "$id", definition.Id);
+                seeded += await command.ExecuteNonQueryAsync(token);
+            }
+
+            await tx.CommitAsync(token);
+            return seeded;
+        }, cancellationToken);
+
     public Task<AgentDefinitionRecord?> GetDefinitionAsync(string definitionId, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync(async (connection, token) =>
         {
@@ -187,7 +229,8 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
         JsonSerializer.Deserialize<string[]>(reader.GetString(22), JsonOptions) ?? [],
         reader.IsDBNull(23) ? null : reader.GetString(23),
         reader.IsDBNull(24) ? null : reader.GetString(24),
-        reader.IsDBNull(25) ? null : reader.GetString(25));
+        reader.IsDBNull(25) ? null : reader.GetString(25),
+        reader.IsDBNull(26) ? null : reader.GetString(26));
 
     private static AgentDefinitionVersionRecord ReadDefinitionVersion(SqliteDataReader reader) => new(
         reader.GetString(0), reader.GetString(1), reader.GetInt32(2),
@@ -212,7 +255,7 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
             reader.IsDBNull(20) ? null : reader.GetString(20), reader.IsDBNull(21) ? null : Parse(reader.GetString(21)));
     }
 
-    private const string DefinitionSelect = "SELECT id,agent_key,name,role,specialty,description,default_model_id,skill_ids_json,tool_ids_json,persona,mission,operating_principles_json,deliverables_json,quality_criteria_json,communication_style,limitations_json,version,enabled,archived_at,stacks_json,default_effort,preferred_account_id,fallback_model_ids_json,team,actor_critic,risk FROM agent_definitions";
+    private const string DefinitionSelect = "SELECT id,agent_key,name,role,specialty,description,default_model_id,skill_ids_json,tool_ids_json,persona,mission,operating_principles_json,deliverables_json,quality_criteria_json,communication_style,limitations_json,version,enabled,archived_at,stacks_json,default_effort,preferred_account_id,fallback_model_ids_json,team,actor_critic,risk,owner FROM agent_definitions";
     private const string AgentSelect = "SELECT tenant_id,id,definition_id,project_id,name,state,current_task_id,model_id,lease_fencing_token,lease_expires_at,tasks_completed,tokens_input,tokens_output,cost_usd,uptime_ms,last_heartbeat_at,account_id,effort,provider_effort_value,fallback_model_ids_json,selection_reason,selection_updated_at FROM agents";
     private static string Store(DateTimeOffset value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);

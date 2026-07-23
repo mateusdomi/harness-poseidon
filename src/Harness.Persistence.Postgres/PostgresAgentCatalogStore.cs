@@ -14,7 +14,7 @@ public sealed class PostgresAgentCatalogStore(NpgsqlDataSource dataSource) : IAg
         "skill_ids_json::text,tool_ids_json::text,persona,mission,operating_principles_json::text," +
         "deliverables_json::text,quality_criteria_json::text,communication_style,limitations_json::text," +
         "version,enabled,archived_at,stacks_json::text,default_effort,preferred_account_id," +
-        "fallback_model_ids_json::text,team,actor_critic,risk FROM harness.agent_definitions";
+        "fallback_model_ids_json::text,team,actor_critic,risk,owner FROM harness.agent_definitions";
 
     private const string AgentSelect =
         "SELECT tenant_id,id,definition_id,project_id,name,state,current_task_id,model_id," +
@@ -101,6 +101,45 @@ public sealed class PostgresAgentCatalogStore(NpgsqlDataSource dataSource) : IAg
     public async Task<AgentDefinitionRecord> UpdateDefinitionAsync(AgentDefinitionUpdateCommand command, CancellationToken cancellationToken = default) { ValidateDefinition(command.Content); await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken); await using var tx = await connection.BeginTransactionAsync(cancellationToken); await ExecuteAsync(connection, tx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0));", cancellationToken, Text($"audit-ledger:{command.TenantId}")); await ValidateDefinitionReferencesAsync(connection, tx, command.TenantId, command.Content, cancellationToken); var parameters = DefinitionParameters(command.Content); await ExecuteDefinitionUpdateAsync(connection, tx, command, parameters, cancellationToken); await InsertDefinitionVersionAsync(connection, tx, command.Id, command.ExpectedVersion + 1, command.ActorProfileId, command.Content, command.OccurredAt, cancellationToken); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.updated", "update", command.OccurredAt, cancellationToken); await tx.CommitAsync(cancellationToken); return (await GetDefinitionForTenantAsync(command.TenantId, command.Id, cancellationToken))!; }
     public async Task<AgentDefinitionRecord> DuplicateDefinitionAsync(AgentDefinitionDuplicateCommand command, CancellationToken cancellationToken = default) { var source = await GetDefinitionForTenantAsync(command.TenantId, command.SourceId, cancellationToken) ?? throw new AgentDefinitionAdminException("Source definition was not found."); return await CreateDefinitionCoreAsync(new(command.TenantId, command.ActorProfileId, command.Id, ToContent(source) with { Key = command.Key, Name = command.Name }, command.OccurredAt), cancellationToken); }
     public async Task<AgentDefinitionRecord> SetDefinitionLifecycleAsync(AgentDefinitionLifecycleCommand command, CancellationToken cancellationToken = default) { if (command.Action is not ("enable" or "disable" or "archive")) throw new AgentDefinitionAdminException("Definition lifecycle action is invalid."); await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken); await using var tx = await connection.BeginTransactionAsync(cancellationToken); await ExecuteAsync(connection, tx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0));", cancellationToken, Text($"audit-ledger:{command.TenantId}")); await using var update = connection.CreateCommand(); update.Transaction = tx; update.CommandText = command.Action switch { "enable" => "UPDATE harness.agent_definitions SET enabled=true,updated_at=$1 WHERE id=$2 AND tenant_id=$3 AND archived_at IS NULL;", "disable" => "UPDATE harness.agent_definitions SET enabled=false,updated_at=$1 WHERE id=$2 AND tenant_id=$3 AND archived_at IS NULL;", _ => "UPDATE harness.agent_definitions SET enabled=false,archived_at=$1,updated_at=$1 WHERE id=$2 AND tenant_id=$3 AND archived_at IS NULL;" }; update.Parameters.Add(Timestamp(command.OccurredAt)); update.Parameters.Add(Text(command.Id)); update.Parameters.Add(Text(command.TenantId)); if (await update.ExecuteNonQueryAsync(cancellationToken) != 1) throw new AgentDefinitionAdminException("Definition cannot transition from its current state."); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, $"agentDefinition.{command.Action}d", command.Action, command.OccurredAt, cancellationToken); await tx.CommitAsync(cancellationToken); return (await GetDefinitionForTenantAsync(command.TenantId, command.Id, cancellationToken))!; }
+    // CAT-02: enriquece as definições canônicas built-in (tenant_id IS NULL) com o conteúdo
+    // completo da persona e o owner, de forma idempotente (guarda `owner IS NULL`). Não gera
+    // versão nem trilha de auditoria — é conteúdo de sistema, não uma edição de tenant.
+    public async Task<int> EnsureBuiltInDefinitionsAsync(IReadOnlyList<BuiltInAgentDefinitionSeed> definitions, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+        var seeded = 0;
+        foreach (var definition in definitions)
+        {
+            var c = definition.Content;
+            await using var command = connection.CreateCommand();
+            command.Transaction = tx;
+            command.CommandText =
+                "UPDATE harness.agent_definitions SET persona=$1,mission=$2,operating_principles_json=$3," +
+                "deliverables_json=$4,quality_criteria_json=$5,communication_style=$6,limitations_json=$7," +
+                "stacks_json=$8,default_effort=$9,team=$10,actor_critic=$11,risk=$12,owner=$13 " +
+                "WHERE id=$14 AND tenant_id IS NULL AND owner IS NULL;";
+            command.Parameters.Add(NullableText(c.Persona?.Trim()));
+            command.Parameters.Add(NullableText(c.Mission?.Trim()));
+            command.Parameters.Add(Json(JsonSerializer.Serialize(c.OperatingPrinciples, JsonOptions)));
+            command.Parameters.Add(Json(JsonSerializer.Serialize(c.Deliverables, JsonOptions)));
+            command.Parameters.Add(Json(JsonSerializer.Serialize(c.QualityCriteria, JsonOptions)));
+            command.Parameters.Add(NullableText(c.CommunicationStyle?.Trim()));
+            command.Parameters.Add(Json(JsonSerializer.Serialize(c.Limitations, JsonOptions)));
+            command.Parameters.Add(Json(JsonSerializer.Serialize(c.Stacks ?? [], JsonOptions)));
+            command.Parameters.Add(NullableText(c.DefaultEffort));
+            command.Parameters.Add(NullableText(c.Team?.Trim()));
+            command.Parameters.Add(NullableText(c.ActorCritic));
+            command.Parameters.Add(NullableText(c.Risk));
+            command.Parameters.Add(Text(definition.Owner));
+            command.Parameters.Add(Text(definition.Id));
+            seeded += await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return seeded;
+    }
+
     public async Task DeleteDefinitionAsync(AgentDefinitionDeleteCommand command, CancellationToken cancellationToken = default) { await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken); await using var tx = await connection.BeginTransactionAsync(cancellationToken); await ExecuteAsync(connection, tx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0));", cancellationToken, Text($"audit-ledger:{command.TenantId}")); await using (var check = connection.CreateCommand()) { check.Transaction = tx; check.CommandText = "SELECT EXISTS(SELECT 1 FROM harness.agents WHERE definition_id=$1),EXISTS(SELECT 1 FROM harness.agent_definitions WHERE id=$1 AND tenant_id=$2);"; check.Parameters.Add(Text(command.Id)); check.Parameters.Add(Text(command.TenantId)); await using var reader = await check.ExecuteReaderAsync(cancellationToken); await reader.ReadAsync(cancellationToken); if (!reader.GetBoolean(1)) throw new AgentDefinitionAdminException("Definition was not found."); if (reader.GetBoolean(0)) throw new AgentDefinitionAdminException("A definition that has been used cannot be deleted."); } await ExecuteAsync(connection, tx, "DELETE FROM harness.agent_definition_versions WHERE definition_id=$1;", cancellationToken, Text(command.Id)); await ExecuteAsync(connection, tx, "DELETE FROM harness.agent_definitions WHERE id=$1 AND tenant_id=$2;", cancellationToken, Text(command.Id), Text(command.TenantId)); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.deleted", "delete", command.OccurredAt, cancellationToken); await tx.CommitAsync(cancellationToken); }
 
     private async Task<AgentDefinitionRecord> CreateDefinitionCoreAsync(AgentDefinitionCreateCommand command, CancellationToken token) { ValidateDefinition(command.Content); await using var connection = await _dataSource.OpenConnectionAsync(token); await using var tx = await connection.BeginTransactionAsync(token); await ExecuteAsync(connection, tx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0));", token, Text($"audit-ledger:{command.TenantId}")); await ValidateDefinitionReferencesAsync(connection, tx, command.TenantId, command.Content, token); var p = DefinitionParameters(command.Content); await ExecuteAsync(connection, tx, "INSERT INTO harness.agent_definitions(id,agent_key,name,role,specialty,description,default_model_id,skill_ids_json,tool_ids_json,tenant_id,persona,mission,operating_principles_json,deliverables_json,quality_criteria_json,communication_style,limitations_json,version,enabled,created_at,updated_at,stacks_json,default_effort,preferred_account_id,fallback_model_ids_json,team,actor_critic,risk) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,1,true,$18,$18,$19,$20,$21,$22,$23,$24,$25);", token, Text(command.Id), p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], Text(command.TenantId), p[8], p[9], p[10], p[11], p[12], p[13], p[14], Timestamp(command.OccurredAt), p[15], p[16], p[17], p[18], p[19], p[20], p[21]); await InsertDefinitionVersionAsync(connection, tx, command.Id, 1, command.ActorProfileId, command.Content, command.OccurredAt, token); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.created", "create", command.OccurredAt, token); await tx.CommitAsync(token); return (await GetDefinitionForTenantAsync(command.TenantId, command.Id, token))!; }
@@ -158,7 +197,8 @@ public sealed class PostgresAgentCatalogStore(NpgsqlDataSource dataSource) : IAg
             reader.IsDBNull(21) ? null : reader.GetString(21).TrimEnd(), Deserialize(reader.GetString(22)),
             reader.IsDBNull(23) ? null : reader.GetString(23),
             reader.IsDBNull(24) ? null : reader.GetString(24),
-            reader.IsDBNull(25) ? null : reader.GetString(25));
+            reader.IsDBNull(25) ? null : reader.GetString(25),
+            reader.IsDBNull(26) ? null : reader.GetString(26).TrimEnd());
 
     private static AgentDefinitionVersionRecord ReadDefinitionVersion(NpgsqlDataReader reader) => new(
         reader.GetString(0).TrimEnd(), reader.GetString(1).TrimEnd(), reader.GetInt32(2),

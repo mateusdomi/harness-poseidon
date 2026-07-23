@@ -174,6 +174,8 @@ public static class HostApplication
         }
         builder.Services.AddSingleton<WorkflowTemplateSeeder>();
         builder.Services.AddSingleton<IHostedService, WorkflowTemplateSeedHostedService>();
+        builder.Services.AddSingleton<BuiltInAgentDefinitionSeeder>();
+        builder.Services.AddSingleton<IHostedService, BuiltInAgentDefinitionSeedHostedService>();
         builder.Services.AddSingleton<IWorkflowConsistencyReviewer, DeterministicWorkflowConsistencyReviewer>();
         // O executor simulado só participa sob configuração explícita de demonstração ou
         // desenvolvimento (ADR-019). No pacote de homologação normal não há executor simulado:
