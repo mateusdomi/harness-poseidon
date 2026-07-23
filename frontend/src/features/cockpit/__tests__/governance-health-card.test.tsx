@@ -3,7 +3,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 import { GovernanceHealthCard } from '@/features/cockpit/components/governance-health-card';
 import { renderWithApi } from '@/test/render-with-providers';
 
@@ -17,7 +16,7 @@ it('resume receipts reais do projeto sem inferir findings globais', async () => 
   }]);
 
   renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <GovernanceHealthCard projectId="project-1" />
     </MemoryRouter>,
     bundle,

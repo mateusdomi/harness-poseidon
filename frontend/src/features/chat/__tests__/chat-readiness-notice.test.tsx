@@ -1,7 +1,6 @@
 import { screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 import { ChatReadinessNotice } from '@/features/chat/components/chat-readiness-notice';
 import { renderWithApi } from '@/test/render-with-providers';
 
@@ -16,7 +15,7 @@ function renderNotice(props: {
   hasWorkflow: boolean;
 }) {
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <ChatReadinessNotice {...props} />
     </MemoryRouter>,
   );

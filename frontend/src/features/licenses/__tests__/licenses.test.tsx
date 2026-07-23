@@ -1,7 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import LicensesPage from '@/features/licenses/pages/licenses-page';
@@ -10,7 +9,7 @@ import { renderWithApi } from '@/test/render-with-providers';
 function renderPage() {
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/licenses']}>
+    <MemoryRouter initialEntries={['/licenses']}>
       <Routes>
         <Route path="/licenses" element={<LicensesPage />} />
       </Routes>

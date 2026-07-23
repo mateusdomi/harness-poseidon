@@ -16,7 +16,6 @@ import '@/i18n';
 
 import { AppProviders } from '@/app/providers';
 import { router } from '@/app/router';
-import { ROUTER_PROVIDER_FUTURE_FLAGS } from '@/app/router-future';
 
 async function bootstrap() {
   // msw opcional em dev (VITE_MSW=on): serve as fixtures via HTTP /api/v1.
@@ -28,7 +27,7 @@ async function bootstrap() {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <AppProviders>
-        <RouterProvider router={router} future={ROUTER_PROVIDER_FUTURE_FLAGS} />
+        <RouterProvider router={router} />
       </AppProviders>
     </StrictMode>,
   );

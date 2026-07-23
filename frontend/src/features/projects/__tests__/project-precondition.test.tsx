@@ -2,7 +2,6 @@ import { screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 import type { Page, ResourceKind, ResourceMap } from '@/api';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import ProjectsPage from '@/features/projects/pages/projects-page';
 import { renderWithApi } from '@/test/render-with-providers';
@@ -25,7 +24,7 @@ function renderWithoutOrganizations() {
   );
 
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <ProjectsPage />
     </MemoryRouter>,
     bundle,

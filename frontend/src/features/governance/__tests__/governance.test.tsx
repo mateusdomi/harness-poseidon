@@ -1,7 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import GovernancePage from '@/features/governance/pages/governance-page';
@@ -13,7 +12,7 @@ function renderGovernance() {
   // Bundle novo por teste: o store do mock é mutável (audit-events).
   const bundle = createTestBundle();
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/governance']}>
+    <MemoryRouter initialEntries={['/governance']}>
       <Routes>
         <Route path="/governance" element={<GovernancePage />} />
       </Routes>

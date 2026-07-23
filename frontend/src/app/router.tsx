@@ -5,7 +5,6 @@ import { AppShell } from '@/app/app-shell';
 import { RequireProfile } from '@/app/components/require-profile';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
 import { NAV_ITEMS } from '@/app/navigation';
-import { ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 const pageModules = import.meta.glob<{ default: React.ComponentType }>(
   '../features/*/pages/*-page.tsx',
@@ -53,5 +52,4 @@ export const router = createBrowserRouter(
       children: [{ index: true, element: <Navigate to="/cockpit" replace /> }, ...featureRoutes],
     },
   ],
-  { future: ROUTER_FUTURE_FLAGS },
 );

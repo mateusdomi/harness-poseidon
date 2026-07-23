@@ -1,7 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import {
   buildFixtures,
@@ -117,7 +116,7 @@ describe('orchestrator-derive', () => {
 
 function renderOrchestrator(bundle: TestBundle = createTestBundle()) {
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <OrchestratorPage />
     </MemoryRouter>,
     bundle,

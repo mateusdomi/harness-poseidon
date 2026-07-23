@@ -1,6 +1,5 @@
 import { screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { COMPONENT_ROUTER_FUTURE_FLAGS } from '@/app/router-future';
 
 import '@/i18n';
 import { ApiError } from '@/api';
@@ -22,7 +21,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 function renderGuard(bundle: TestBundle = createTestBundle()) {
   return renderWithApi(
-    <MemoryRouter future={COMPONENT_ROUTER_FUTURE_FLAGS} initialEntries={['/projetos']}>
+    <MemoryRouter initialEntries={['/projetos']}>
       <RequireProfile>
         <div>conteúdo protegido</div>
       </RequireProfile>
