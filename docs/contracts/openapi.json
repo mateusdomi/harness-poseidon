@@ -12116,6 +12116,1437 @@
                 }
             }
         },
+        "/api/v1/architecture/elements": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/CreateElementRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureElementContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureElementPageContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/elements/{id}": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureElementContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/elements/{id}/dependents": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureDependencyQueryContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/elements/{id}/history": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureHistoryContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/elements/{id}/lock": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/LockRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureElementContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/elements/{id}/rollback": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/RollbackRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureElementContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/relationships": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/CreateRelationshipRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureRelationshipContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureRelationshipListContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/views": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/CreateViewRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureViewContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureViewListContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/views/{id}": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureViewContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/systems/{id}/metadata": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/UpsertSystemMetadataRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SystemCatalogEntryContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/systems": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SystemCatalogContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/systems/{id}/overview": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/System360Contract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/maps/domains": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainMapContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/maps/capabilities": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CapabilityMapContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/maps/integration": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IntegrationGraphContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/maps/heatmap": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SystemHeatmapContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/proposals": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/CreateProposalRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureProposalContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureProposalListContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/proposals/{id}": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureProposalContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/proposals/{id}/diff": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureDiffContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/proposals/{id}/impact": {
+            "get": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureImpactContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/architecture/proposals/{id}/apply": {
+            "post": {
+                "tags": [
+                    "architecture"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/ApplyProposalRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArchitectureApplyResultContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/solicitations/{solicitationId}/attachments": {
             "get": {
                 "tags": [
@@ -16986,6 +18417,20 @@
                 },
                 "additionalProperties": false
             },
+            "ApplyProposalRequest": {
+                "required": [
+                    "justification"
+                ],
+                "type": "object",
+                "properties": {
+                    "justification": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
             "ApprovalContract": {
                 "required": [
                     "id",
@@ -17122,6 +18567,686 @@
                         ],
                         "format": "int32",
                         "default": 15
+                    }
+                }
+            },
+            "ArchDocumentRefContract": {
+                "required": [
+                    "id",
+                    "title",
+                    "kind",
+                    "state"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ArchitectureApplyResultContract": {
+                "required": [
+                    "proposalId",
+                    "status",
+                    "applied",
+                    "skippedLocked",
+                    "appliedChanges",
+                    "skippedChanges",
+                    "draftedDocuments"
+                ],
+                "type": "object",
+                "properties": {
+                    "proposalId": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "applied": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "skippedLocked": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "appliedChanges": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureChangeContract"
+                        }
+                    },
+                    "skippedChanges": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureChangeContract"
+                        }
+                    },
+                    "draftedDocuments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchDocumentRefContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureChangeContract": {
+                "required": [
+                    "entityType",
+                    "changeKind",
+                    "counterpartId",
+                    "proposedId",
+                    "label",
+                    "targetsLockedElement",
+                    "critical",
+                    "fieldChanges"
+                ],
+                "type": "object",
+                "properties": {
+                    "entityType": {
+                        "type": "string"
+                    },
+                    "changeKind": {
+                        "type": "string"
+                    },
+                    "counterpartId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "proposedId": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "targetsLockedElement": {
+                        "type": "boolean"
+                    },
+                    "critical": {
+                        "type": "boolean"
+                    },
+                    "fieldChanges": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "ArchitectureDependencyQueryContract": {
+                "required": [
+                    "elementId",
+                    "name",
+                    "directCount",
+                    "transitiveCount",
+                    "dependents"
+                ],
+                "type": "object",
+                "properties": {
+                    "elementId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "directCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "transitiveCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "dependents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureDependentContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureDependentContract": {
+                "required": [
+                    "elementId",
+                    "name",
+                    "kind",
+                    "via",
+                    "direct"
+                ],
+                "type": "object",
+                "properties": {
+                    "elementId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "via": {
+                        "type": "string"
+                    },
+                    "direct": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ArchitectureDiffContract": {
+                "required": [
+                    "proposalId",
+                    "added",
+                    "modified",
+                    "removed",
+                    "blockedByLock",
+                    "requiresJustification",
+                    "changes"
+                ],
+                "type": "object",
+                "properties": {
+                    "proposalId": {
+                        "type": "string"
+                    },
+                    "added": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "modified": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "removed": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blockedByLock": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "requiresJustification": {
+                        "type": "boolean"
+                    },
+                    "changes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureChangeContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureElementContract": {
+                "required": [
+                    "id",
+                    "projectId",
+                    "kind",
+                    "name",
+                    "description",
+                    "properties",
+                    "state",
+                    "locked",
+                    "version"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "properties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "locked": {
+                        "type": "boolean"
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "ArchitectureElementPageContract": {
+                "required": [
+                    "total",
+                    "nextCursor",
+                    "elements"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "nextCursor": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "elements": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureElementContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureHistoryContract": {
+                "required": [
+                    "entityId",
+                    "history"
+                ],
+                "type": "object",
+                "properties": {
+                    "entityId": {
+                        "type": "string"
+                    },
+                    "history": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureHistoryEntryContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureHistoryEntryContract": {
+                "required": [
+                    "id",
+                    "entityType",
+                    "entityId",
+                    "version",
+                    "changeKind",
+                    "actor",
+                    "justification",
+                    "occurredAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "entityType": {
+                        "type": "string"
+                    },
+                    "entityId": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "changeKind": {
+                        "type": "string"
+                    },
+                    "actor": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "justification": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "occurredAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ArchitectureImpactContract": {
+                "required": [
+                    "proposalId",
+                    "affectedDependents",
+                    "affectedDocuments",
+                    "blockedChanges",
+                    "requiresJustification"
+                ],
+                "type": "object",
+                "properties": {
+                    "proposalId": {
+                        "type": "string"
+                    },
+                    "affectedDependents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureDependentContract"
+                        }
+                    },
+                    "affectedDocuments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchDocumentRefContract"
+                        }
+                    },
+                    "blockedChanges": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureChangeContract"
+                        }
+                    },
+                    "requiresJustification": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ArchitectureProposalContract": {
+                "required": [
+                    "id",
+                    "projectId",
+                    "title",
+                    "status",
+                    "justification",
+                    "createdAt",
+                    "appliedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "justification": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "appliedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ArchitectureProposalListContract": {
+                "required": [
+                    "total",
+                    "proposals"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "proposals": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureProposalContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureRelationshipContract": {
+                "required": [
+                    "id",
+                    "projectId",
+                    "sourceId",
+                    "targetId",
+                    "kind",
+                    "properties",
+                    "state",
+                    "version"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "sourceId": {
+                        "type": "string"
+                    },
+                    "targetId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "properties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "ArchitectureRelationshipListContract": {
+                "required": [
+                    "total",
+                    "relationships"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "relationships": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureRelationshipContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureViewContract": {
+                "required": [
+                    "id",
+                    "projectId",
+                    "name",
+                    "description",
+                    "notation",
+                    "elements",
+                    "relationships"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "notation": {
+                        "type": "string"
+                    },
+                    "elements": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureElementContract"
+                        }
+                    },
+                    "relationships": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureRelationshipContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureViewListContract": {
+                "required": [
+                    "total",
+                    "views"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "views": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureViewSummaryContract"
+                        }
+                    }
+                }
+            },
+            "ArchitectureViewSummaryContract": {
+                "required": [
+                    "id",
+                    "projectId",
+                    "name",
+                    "notation",
+                    "elementCount"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "notation": {
+                        "type": "string"
+                    },
+                    "elementCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     }
                 }
             },
@@ -17748,6 +19873,56 @@
                     }
                 }
             },
+            "CapabilityMapContract": {
+                "required": [
+                    "total",
+                    "capabilities"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "capabilities": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CapabilityMapNodeContract"
+                        }
+                    }
+                }
+            },
+            "CapabilityMapNodeContract": {
+                "required": [
+                    "capability",
+                    "systemCount",
+                    "systemIds"
+                ],
+                "type": "object",
+                "properties": {
+                    "capability": {
+                        "type": "string"
+                    },
+                    "systemCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "systemIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "ChannelLinkContract": {
                 "required": [
                     "id",
@@ -18330,6 +20505,51 @@
                 },
                 "additionalProperties": false
             },
+            "CreateElementRequest": {
+                "required": [
+                    "projectId",
+                    "kind",
+                    "name",
+                    "description",
+                    "properties"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "kind": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "name": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "properties": {
+                        "type": [
+                            "null",
+                            "object"
+                        ],
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "CreateMessageRequest": {
                 "required": [
                     "conversationId",
@@ -18489,6 +20709,47 @@
                 },
                 "additionalProperties": false
             },
+            "CreateProposalRequest": {
+                "required": [
+                    "projectId",
+                    "title",
+                    "elements",
+                    "relationships"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "title": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "elements": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/ProposedElementRequest"
+                        }
+                    },
+                    "relationships": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/ProposedRelationshipRequest"
+                        }
+                    }
+                }
+            },
             "CreateProviderAccountRequest": {
                 "required": [
                     "providerId",
@@ -18613,6 +20874,45 @@
                     }
                 }
             },
+            "CreateRelationshipRequest": {
+                "required": [
+                    "projectId",
+                    "sourceId",
+                    "targetId",
+                    "kind",
+                    "properties"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "sourceId": {
+                        "type": "string"
+                    },
+                    "targetId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "properties": {
+                        "type": [
+                            "null",
+                            "object"
+                        ],
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "CreateSolicitationRequest": {
                 "required": [
                     "projectId",
@@ -18715,6 +21015,81 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "CreateViewRequest": {
+                "required": [
+                    "projectId",
+                    "name",
+                    "description",
+                    "notation",
+                    "elementIds",
+                    "relationshipIds",
+                    "filterKinds",
+                    "filterTags"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "name": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "notation": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "elementIds": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "relationshipIds": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "filterKinds": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "filterTags": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
             },
             "CreateWorkflowRequest": {
                 "required": [
@@ -20009,6 +22384,56 @@
                     }
                 }
             },
+            "DomainMapContract": {
+                "required": [
+                    "total",
+                    "domains"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "domains": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DomainMapNodeContract"
+                        }
+                    }
+                }
+            },
+            "DomainMapNodeContract": {
+                "required": [
+                    "domain",
+                    "systemCount",
+                    "systemIds"
+                ],
+                "type": "object",
+                "properties": {
+                    "domain": {
+                        "type": "string"
+                    },
+                    "systemCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "systemIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "DrainChiefRequest": {
                 "required": [
                     "note"
@@ -20942,6 +23367,21 @@
                     }
                 }
             },
+            "HeatSignalContract": {
+                "required": [
+                    "code",
+                    "detail"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                }
+            },
             "InstructionPage": {
                 "required": [
                     "items",
@@ -20960,6 +23400,65 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "IntegrationEdgeContract": {
+                "required": [
+                    "sourceId",
+                    "sourceName",
+                    "targetId",
+                    "targetName",
+                    "kind"
+                ],
+                "type": "object",
+                "properties": {
+                    "sourceId": {
+                        "type": "string"
+                    },
+                    "sourceName": {
+                        "type": "string"
+                    },
+                    "targetId": {
+                        "type": "string"
+                    },
+                    "targetName": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    }
+                }
+            },
+            "IntegrationGraphContract": {
+                "required": [
+                    "systemCount",
+                    "edgeCount",
+                    "edges"
+                ],
+                "type": "object",
+                "properties": {
+                    "systemCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "edgeCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "edges": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/IntegrationEdgeContract"
+                        }
                     }
                 }
             },
@@ -22078,6 +24577,17 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "LockRequest": {
+                "required": [
+                    "locked"
+                ],
+                "type": "object",
+                "properties": {
+                    "locked": {
+                        "type": "boolean"
+                    }
+                }
             },
             "MaterializedCardResult": {
                 "required": [
@@ -23594,6 +26104,110 @@
                     }
                 }
             },
+            "ProposedElementRequest": {
+                "required": [
+                    "changeKind",
+                    "counterpartId",
+                    "kind",
+                    "name",
+                    "description",
+                    "properties"
+                ],
+                "type": "object",
+                "properties": {
+                    "changeKind": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "counterpartId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "kind": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "name": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "properties": {
+                        "type": [
+                            "null",
+                            "object"
+                        ],
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "ProposedRelationshipRequest": {
+                "required": [
+                    "changeKind",
+                    "counterpartId",
+                    "sourceId",
+                    "targetId",
+                    "kind",
+                    "properties"
+                ],
+                "type": "object",
+                "properties": {
+                    "changeKind": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "counterpartId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "sourceId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "targetId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "kind": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "properties": {
+                        "type": [
+                            "null",
+                            "object"
+                        ],
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "PrototypeContract": {
                 "required": [
                     "id",
@@ -24089,6 +26703,29 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "RollbackRequest": {
+                "required": [
+                    "toVersion",
+                    "justification"
+                ],
+                "type": "object",
+                "properties": {
+                    "toVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "justification": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
             },
             "RoutingPolicyContract": {
                 "required": [
@@ -25237,6 +27874,465 @@
                     }
                 }
             },
+            "System360BusinessContract": {
+                "required": [
+                    "name",
+                    "description",
+                    "domain",
+                    "capabilities",
+                    "criticality",
+                    "owner"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "domain": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "capabilities": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "criticality": {
+                        "type": "string"
+                    },
+                    "owner": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "System360Contract": {
+                "required": [
+                    "systemId",
+                    "business",
+                    "technology",
+                    "integrations",
+                    "operation",
+                    "data",
+                    "governance"
+                ],
+                "type": "object",
+                "properties": {
+                    "systemId": {
+                        "type": "string"
+                    },
+                    "business": {
+                        "$ref": "#/components/schemas/System360BusinessContract"
+                    },
+                    "technology": {
+                        "$ref": "#/components/schemas/System360TechnologyContract"
+                    },
+                    "integrations": {
+                        "$ref": "#/components/schemas/System360IntegrationsContract"
+                    },
+                    "operation": {
+                        "$ref": "#/components/schemas/System360OperationContract"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/System360DataContract"
+                    },
+                    "governance": {
+                        "$ref": "#/components/schemas/System360GovernanceContract"
+                    }
+                }
+            },
+            "System360DataContract": {
+                "required": [
+                    "pii",
+                    "sensitive",
+                    "retention",
+                    "dataClasses"
+                ],
+                "type": "object",
+                "properties": {
+                    "pii": {
+                        "type": "boolean"
+                    },
+                    "sensitive": {
+                        "type": "boolean"
+                    },
+                    "retention": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "dataClasses": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "System360GovernanceContract": {
+                "required": [
+                    "documents",
+                    "adrCount",
+                    "risks",
+                    "lastReviewAt",
+                    "reviewConfidence",
+                    "busFactor"
+                ],
+                "type": "object",
+                "properties": {
+                    "documents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchDocumentRefContract"
+                        }
+                    },
+                    "adrCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "risks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "lastReviewAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "reviewConfidence": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "busFactor": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "System360IntegrationsContract": {
+                "required": [
+                    "outgoing",
+                    "incoming"
+                ],
+                "type": "object",
+                "properties": {
+                    "outgoing": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/IntegrationEdgeContract"
+                        }
+                    },
+                    "incoming": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/IntegrationEdgeContract"
+                        }
+                    }
+                }
+            },
+            "System360OperationContract": {
+                "required": [
+                    "sla",
+                    "incidentCount",
+                    "lastIncidentAt",
+                    "backupPolicy",
+                    "drPolicy",
+                    "costMonthlyUsd"
+                ],
+                "type": "object",
+                "properties": {
+                    "sla": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "incidentCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "lastIncidentAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "backupPolicy": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "drPolicy": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "costMonthlyUsd": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "null",
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    }
+                }
+            },
+            "System360TechnologyContract": {
+                "required": [
+                    "techStack",
+                    "lifecycleStatus",
+                    "containers"
+                ],
+                "type": "object",
+                "properties": {
+                    "techStack": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "lifecycleStatus": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "containers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArchitectureElementContract"
+                        }
+                    }
+                }
+            },
+            "SystemCatalogContract": {
+                "required": [
+                    "total",
+                    "nextCursor",
+                    "systems"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "nextCursor": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "systems": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SystemCatalogEntryContract"
+                        }
+                    }
+                }
+            },
+            "SystemCatalogEntryContract": {
+                "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "domain",
+                    "capabilities",
+                    "owner",
+                    "criticality",
+                    "lifecycleStatus",
+                    "heatSignals",
+                    "heatScore"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "domain": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "capabilities": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "owner": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "criticality": {
+                        "type": "string"
+                    },
+                    "lifecycleStatus": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "heatSignals": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "heatScore": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "SystemDocumentInput": {
+                "required": [
+                    "id",
+                    "title",
+                    "kind",
+                    "state"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
+            "SystemHeatmapContract": {
+                "required": [
+                    "total",
+                    "signalTotals",
+                    "systems"
+                ],
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "signalTotals": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    },
+                    "systems": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SystemHeatmapEntryContract"
+                        }
+                    }
+                }
+            },
+            "SystemHeatmapEntryContract": {
+                "required": [
+                    "id",
+                    "name",
+                    "domain",
+                    "score",
+                    "signals"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "domain": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "score": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "signals": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/HeatSignalContract"
+                        }
+                    }
+                }
+            },
             "TaskInstructionContract": {
                 "required": [
                     "id",
@@ -25817,6 +28913,210 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "UpsertSystemMetadataRequest": {
+                "required": [
+                    "domain",
+                    "capabilities",
+                    "owner",
+                    "criticality",
+                    "techStack",
+                    "lifecycleStatus",
+                    "costMonthlyUsd",
+                    "incidentCount",
+                    "busFactor",
+                    "duplicateOfId",
+                    "riskLevel",
+                    "sla",
+                    "backupPolicy",
+                    "drPolicy",
+                    "lastIncidentAt",
+                    "pii",
+                    "sensitive",
+                    "retention",
+                    "dataClasses",
+                    "documents",
+                    "adrCount",
+                    "risks",
+                    "lastReviewAt",
+                    "reviewConfidence"
+                ],
+                "type": "object",
+                "properties": {
+                    "domain": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "capabilities": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "owner": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "criticality": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "techStack": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "lifecycleStatus": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "costMonthlyUsd": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "null",
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "incidentCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "busFactor": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "duplicateOfId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "riskLevel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "sla": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "backupPolicy": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "drPolicy": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "lastIncidentAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "pii": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
+                    },
+                    "sensitive": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
+                    },
+                    "retention": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "dataClasses": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "documents": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/SystemDocumentInput"
+                        }
+                    },
+                    "adrCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "risks": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "lastReviewAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "reviewConfidence": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
             },
             "VisualReferenceAssetContract": {
                 "required": [
@@ -26631,6 +29931,9 @@
         },
         {
             "name": "deliveries"
+        },
+        {
+            "name": "architecture"
         },
         {
             "name": "po-assistant"
