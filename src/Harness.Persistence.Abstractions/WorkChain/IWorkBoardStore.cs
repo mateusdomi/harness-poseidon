@@ -55,7 +55,21 @@ public interface IWorkBoardStore
     Task<IReadOnlyList<BoardAttemptEventRecord>> ListAttemptEventsAsync(
         string tenantId, string? attemptId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
+
+    // PLAT-04: read-model row for the per-feature evaluation metrics and semantic stuck detection.
+    // Joins each durable attempt to its task title (feature id is parsed from the title) and its
+    // instruction content hash (to detect repeated/near-identical instructions). Ordered by
+    // (task, attempt_number) so the stuck detector receives the attempt history in sequence.
+    Task<IReadOnlyList<FeatureAttemptRow>> ListFeatureAttemptRowsAsync(
+        string tenantId, string projectId, CancellationToken cancellationToken = default);
 }
+
+// PLAT-04: strictly-recorded attempt facts used by the measurement layer. Never fabricated —
+// every field maps to a persisted work_attempts column (or the joined task title / instruction hash).
+public sealed record FeatureAttemptRow(
+    string TaskId, string TaskTitle, int AttemptNumber, string State, string OperationalState,
+    decimal CostUsd, long TokensInput, long TokensOutput, long? DurationMs,
+    string? FailureReason, string? InstructionContentHash);
 
 public sealed record BoardSolicitationRecord(
     string TenantId, string Id, string ProjectId, string AuthorProfileId, string Kind,

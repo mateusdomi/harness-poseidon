@@ -261,6 +261,37 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         return values;
     }
 
+    public async Task<IReadOnlyList<FeatureAttemptRow>> ListFeatureAttemptRowsAsync(
+        string tenantId, string projectId, CancellationToken cancellationToken = default)
+    {
+        var values = new List<FeatureAttemptRow>();
+        await using var query = _dataSource.CreateCommand(
+            """
+            SELECT a.task_id,t.title,a.attempt_number,a.state,a.operational_state,a.cost_usd,
+                   a.tokens_input,a.tokens_output,a.duration_ms,a.failure_reason,i.content_hash
+            FROM harness.work_attempts a
+            JOIN harness.work_tasks t ON t.tenant_id=a.tenant_id AND t.id=a.task_id
+            JOIN harness.instruction_versions i
+                ON i.tenant_id=a.tenant_id AND i.id=a.instruction_version_id
+            WHERE a.tenant_id=$1 AND a.project_id=$2
+            ORDER BY a.task_id,a.attempt_number;
+            """);
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(projectId));
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            values.Add(new FeatureAttemptRow(
+                reader.GetString(0).TrimEnd(), reader.GetString(1), reader.GetInt32(2),
+                reader.GetString(3), reader.GetString(4), reader.GetDecimal(5), reader.GetInt64(6),
+                reader.GetInt64(7), reader.IsDBNull(8) ? null : reader.GetInt64(8),
+                reader.IsDBNull(9) ? null : reader.GetString(9),
+                reader.IsDBNull(10) ? null : reader.GetString(10)));
+        }
+
+        return values;
+    }
+
     public async Task<BoardAttemptEventRecord?> GetAttemptEventAsync(
         string tenantId, string eventId, CancellationToken cancellationToken = default)
     {

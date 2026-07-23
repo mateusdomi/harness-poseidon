@@ -5,12 +5,15 @@ using Harness.Modules.Agents.Infrastructure.OmpRpc;
 using Harness.Modules.Governance.Coordination;
 using Harness.Modules.Governance.Documentation;
 using Harness.Modules.Governance.Evaluation;
+using Harness.Modules.Governance.Judging;
+using Harness.Modules.Governance.Metrics;
 using Harness.Modules.Governance.Patching;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -31,7 +34,115 @@ public static class GovernanceRuntimeEndpoints
             .Produces<IReadOnlyList<PatchBenchmarkContract>>();
         group.MapGet("/executors", (AgentExecutorCatalog catalog) => Results.Ok(catalog.List().Select(ToContract).ToArray()))
             .Produces<IReadOnlyList<AgentExecutorContract>>();
+        // PLAT-04: camada de medição (read-only, não muta o board).
+        group.MapGet("/feature-metrics", ListFeatureMetricsAsync).Produces<FeatureMetricsResponse>().ProducesProblem(400).ProducesProblem(401);
+        group.MapGet("/stuck-tasks", ListStuckTasksAsync).Produces<StuckTasksResponse>().ProducesProblem(400).ProducesProblem(401);
+        group.MapPost("/eval-judge", JudgeAttemptAsync).Produces<EvalJudgeVerdictContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(503);
         return endpoints;
+    }
+
+    // PLAT-04: métricas por feature derivadas ESTRITAMENTE das tentativas gravadas. O id da feature
+    // vem do título da tarefa (token estável como CAT-04/PLAT-04); nada é inventado.
+    private static async Task<IResult> ListFeatureMetricsAsync(
+        string? projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IWorkBoardStore board,
+        CancellationToken token)
+    {
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(projectId) || !UlidValue.TryParse(projectId, out _))
+            return Invalid("invalid_project", "projectId must be a ULID.");
+        var rows = await board.ListFeatureAttemptRowsAsync(session.TenantId, projectId, token);
+        var snapshot = FeatureMetricsAggregator.Aggregate(
+            projectId,
+            rows.Select(row => new FeatureAttemptInput(
+                row.TaskId, row.TaskTitle, row.State, row.OperationalState,
+                row.CostUsd, row.TokensInput, row.TokensOutput, row.DurationMs)).ToArray());
+        return Results.Ok(new FeatureMetricsResponse(
+            snapshot.ProjectId,
+            snapshot.Features.Select(feature => new FeatureMetricContract(
+                feature.FeatureId, feature.TaskCount, feature.AttemptCount, feature.SuccessCount,
+                feature.FailureCount, feature.InProgressCount, feature.TotalCostUsd,
+                feature.TotalTokensInput, feature.TotalTokensOutput, feature.TotalDurationMs)).ToArray()));
+    }
+
+    // PLAT-04: detecção pura de travamento semântico. Read-only: surface as tarefas travadas com a
+    // razão tipada; NÃO muta o board destrutivamente.
+    private static async Task<IResult> ListStuckTasksAsync(
+        string? projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IWorkBoardStore board,
+        SemanticStuckDetector detector,
+        CancellationToken token)
+    {
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(projectId) || !UlidValue.TryParse(projectId, out _))
+            return Invalid("invalid_project", "projectId must be a ULID.");
+        var rows = await board.ListFeatureAttemptRowsAsync(session.TenantId, projectId, token);
+        var stuck = new List<StuckTaskContract>();
+        foreach (var taskGroup in rows.GroupBy(row => row.TaskId, StringComparer.Ordinal))
+        {
+            var ordered = taskGroup.OrderBy(row => row.AttemptNumber).ToArray();
+            var history = ordered.Select(row => new StuckAttemptSignal(
+                row.AttemptNumber,
+                FeatureMetricsAggregator.Classify(row.State, row.OperationalState) switch
+                {
+                    AttemptOutcome.Succeeded => StuckOutcome.Succeeded,
+                    AttemptOutcome.Failed => StuckOutcome.Failed,
+                    _ => StuckOutcome.Pending,
+                },
+                row.FailureReason,
+                row.InstructionContentHash)).ToArray();
+            var verdict = detector.Evaluate(history);
+            if (verdict.IsStuck)
+            {
+                stuck.Add(new StuckTaskContract(
+                    taskGroup.Key, FeatureIdParser.Parse(ordered[0].TaskTitle), ordered[0].TaskTitle,
+                    verdict.Reason.ToString(), verdict.NoProgressStreak, verdict.Detail,
+                    ordered.Length));
+            }
+        }
+
+        return Results.Ok(new StuckTasksResponse(
+            projectId, stuck.OrderBy(item => item.TaskId, StringComparer.Ordinal).ToArray()));
+    }
+
+    // PLAT-04: LLM-as-judge. Default determinístico e sempre disponível; o juiz real (se configurado)
+    // entra pela mesma interface via EvalJudgeFactory.
+    private static async Task<IResult> JudgeAttemptAsync(
+        EvalJudgeApiRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IEvalJudge judge,
+        CancellationToken token)
+    {
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        try
+        {
+            var verdict = await judge.JudgeAsync(
+                new EvalJudgeRequest(
+                    input.AcceptanceCriteria ?? [],
+                    input.Diff ?? string.Empty,
+                    input.Evidence ?? [],
+                    (input.TestResults ?? []).Select(test => new EvalJudgeTestResult(
+                        test.Name, test.Passed, test.EvidenceReference)).ToArray()),
+                token);
+            return Results.Ok(new EvalJudgeVerdictContract(
+                verdict.Passed, verdict.Reason, verdict.Score, verdict.Provider));
+        }
+        catch (EvalJudgeUnavailableException exception)
+        {
+            return Results.Problem(statusCode: 503, title: "eval_judge_unavailable", detail: exception.Reason);
+        }
+        catch (ArgumentException exception)
+        {
+            return Invalid("invalid_eval_judge", exception.Message);
+        }
     }
 
     private static async Task<IResult> ListReceiptsAsync(
@@ -361,3 +472,23 @@ public sealed record StaleDocumentFindingContract(string FindingId, string Docum
 public sealed record HashlinePatchContract(string Status, string RelativePath, string ExpectedChecksum, string ActualChecksum, string? AppliedChecksum, string Action);
 public sealed record PatchBenchmarkContract(string Strategy, int EditSuccesses, int StaleRejections, int Retries, int EstimatedTokens, long DurationMicroseconds, int Regressions);
 public sealed record AgentExecutorContract(string Id, bool Available, bool Enabled, string? ExecutableName, string License, string AvailabilityReason);
+
+// PLAT-04: novos contratos de resposta/requisição (endpoints novos — não alteram contratos existentes).
+public sealed record FeatureMetricContract(
+    string FeatureId, int TaskCount, int AttemptCount, int SuccessCount, int FailureCount,
+    int InProgressCount, decimal TotalCostUsd, long TotalTokensInput, long TotalTokensOutput,
+    long TotalDurationMs);
+public sealed record FeatureMetricsResponse(string ProjectId, IReadOnlyList<FeatureMetricContract> Features);
+public sealed record StuckTaskContract(
+    string TaskId, string FeatureId, string Title, string Reason, int NoProgressStreak,
+    string Detail, int AttemptCount);
+public sealed record StuckTasksResponse(string ProjectId, IReadOnlyList<StuckTaskContract> Tasks);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record EvalJudgeApiRequest(
+    IReadOnlyList<string>? AcceptanceCriteria,
+    string? Diff,
+    IReadOnlyList<string>? Evidence,
+    IReadOnlyList<EvalJudgeTestApiContract>? TestResults);
+public sealed record EvalJudgeTestApiContract(string Name, bool Passed, string EvidenceReference);
+public sealed record EvalJudgeVerdictContract(bool Passed, string Reason, decimal Score, string Provider);

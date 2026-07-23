@@ -206,6 +206,37 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             while (await r.ReadAsync(t)) values.Add(ReadAttemptEvent(r)); return values;
         }, cancellationToken);
 
+    public Task<IReadOnlyList<FeatureAttemptRow>> ListFeatureAttemptRowsAsync(
+        string tenantId, string projectId, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<IReadOnlyList<FeatureAttemptRow>>(async (c, t) =>
+        {
+            var values = new List<FeatureAttemptRow>(); await using var q = c.CreateCommand();
+            q.CommandText =
+                """
+                SELECT a.task_id,t.title,a.attempt_number,a.state,a.operational_state,a.cost_usd,
+                       a.tokens_input,a.tokens_output,a.duration_ms,a.failure_reason,i.content_hash
+                FROM work_attempts a
+                JOIN work_tasks t ON t.tenant_id=a.tenant_id AND t.id=a.task_id
+                JOIN instruction_versions i
+                    ON i.tenant_id=a.tenant_id AND i.id=a.instruction_version_id
+                WHERE a.tenant_id=$tenant AND a.project_id=$project
+                ORDER BY a.task_id,a.attempt_number;
+                """;
+            Add(q, "$tenant", tenantId); Add(q, "$project", projectId);
+            await using var r = await q.ExecuteReaderAsync(t);
+            while (await r.ReadAsync(t))
+            {
+                values.Add(new FeatureAttemptRow(
+                    r.GetString(0), r.GetString(1), r.GetInt32(2), r.GetString(3), r.GetString(4),
+                    r.GetDecimal(5), r.GetInt64(6), r.GetInt64(7),
+                    r.IsDBNull(8) ? null : r.GetInt64(8),
+                    r.IsDBNull(9) ? null : r.GetString(9),
+                    r.IsDBNull(10) ? null : r.GetString(10)));
+            }
+
+            return values;
+        }, cancellationToken);
+
     private static async Task<BoardSolicitationRecord> CreateSolicitationCoreAsync(
         SqliteConnection c, BoardSolicitationCreateCommand command, CancellationToken token)
     {

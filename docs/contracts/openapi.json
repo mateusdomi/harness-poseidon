@@ -6915,6 +6915,161 @@
                 }
             }
         },
+        "/api/v1/governance-runtime/feature-metrics": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FeatureMetricsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/stuck-tasks": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StuckTasksResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/governance-runtime/eval-judge": {
+            "post": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EvalJudgeApiRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EvalJudgeVerdictContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/governance-runtime/learning-candidates": {
             "get": {
                 "tags": [
@@ -18767,6 +18922,98 @@
                     }
                 }
             },
+            "EvalJudgeApiRequest": {
+                "required": [
+                    "acceptanceCriteria",
+                    "diff",
+                    "evidence",
+                    "testResults"
+                ],
+                "type": "object",
+                "properties": {
+                    "acceptanceCriteria": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "diff": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "evidence": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "testResults": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/EvalJudgeTestApiContract"
+                        }
+                    }
+                },
+                "additionalProperties": false
+            },
+            "EvalJudgeTestApiContract": {
+                "required": [
+                    "name",
+                    "passed",
+                    "evidenceReference"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "passed": {
+                        "type": "boolean"
+                    },
+                    "evidenceReference": {
+                        "type": "string"
+                    }
+                }
+            },
+            "EvalJudgeVerdictContract": {
+                "required": [
+                    "passed",
+                    "reason",
+                    "score",
+                    "provider"
+                ],
+                "type": "object",
+                "properties": {
+                    "passed": {
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "provider": {
+                        "type": "string"
+                    }
+                }
+            },
             "EvaluateWorkflowGateRequest": {
                 "required": [
                     "phaseKey",
@@ -18938,6 +19185,116 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/RealtimeEventEnvelope"
+                        }
+                    }
+                }
+            },
+            "FeatureMetricContract": {
+                "required": [
+                    "featureId",
+                    "taskCount",
+                    "attemptCount",
+                    "successCount",
+                    "failureCount",
+                    "inProgressCount",
+                    "totalCostUsd",
+                    "totalTokensInput",
+                    "totalTokensOutput",
+                    "totalDurationMs"
+                ],
+                "type": "object",
+                "properties": {
+                    "featureId": {
+                        "type": "string"
+                    },
+                    "taskCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "attemptCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "successCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "failureCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "inProgressCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "totalCostUsd": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "totalTokensInput": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "totalTokensOutput": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "totalDurationMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    }
+                }
+            },
+            "FeatureMetricsResponse": {
+                "required": [
+                    "projectId",
+                    "features"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FeatureMetricContract"
                         }
                     }
                 }
@@ -23476,6 +23833,69 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "StuckTaskContract": {
+                "required": [
+                    "taskId",
+                    "featureId",
+                    "title",
+                    "reason",
+                    "noProgressStreak",
+                    "detail",
+                    "attemptCount"
+                ],
+                "type": "object",
+                "properties": {
+                    "taskId": {
+                        "type": "string"
+                    },
+                    "featureId": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "noProgressStreak": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "attemptCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "StuckTasksResponse": {
+                "required": [
+                    "projectId",
+                    "tasks"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "tasks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StuckTaskContract"
+                        }
+                    }
+                }
             },
             "TaskInstructionContract": {
                 "required": [

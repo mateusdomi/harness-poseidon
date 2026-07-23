@@ -35,6 +35,8 @@ using Harness.Modules.Execution.Infrastructure.Sandbox;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
 using Harness.Modules.Governance.Documentation;
+using Harness.Modules.Governance.Judging;
+using Harness.Modules.Governance.Metrics;
 using Harness.Modules.Governance.Patching;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.DurableExecution;
@@ -458,6 +460,22 @@ public static class HostApplication
             .Get<FreshContextEvaluatorOptions>() ?? new FreshContextEvaluatorOptions();
         builder.Services.AddSingleton(evaluatorOptions);
         builder.Services.AddSingleton<IFreshContextEvaluator, FreshContextEvaluator>();
+        // PLAT-04: camada de medição. O detector de travamento é PURO (sempre disponível, read-only).
+        // O juiz default é determinístico e sem credenciais; o juiz real ligado a um LLM só entra
+        // quando explicitamente habilitado E com transport configurado (default: DESLIGADO).
+        var stuckOptions = builder.Configuration
+            .GetSection("Harness:Governance:StuckDetector")
+            .Get<StuckDetectorOptions>() ?? new StuckDetectorOptions();
+        builder.Services.AddSingleton(stuckOptions);
+        builder.Services.AddSingleton<SemanticStuckDetector>();
+        var evalJudgeOptions = builder.Configuration
+            .GetSection("Harness:Governance:EvalJudge")
+            .Get<EvalJudgeOptions>() ?? new EvalJudgeOptions();
+        builder.Services.AddSingleton(evalJudgeOptions);
+        builder.Services.AddSingleton(services => new EvalJudgeFactory(
+            services.GetRequiredService<EvalJudgeOptions>()));
+        builder.Services.AddSingleton<IEvalJudge>(services =>
+            services.GetRequiredService<EvalJudgeFactory>().Create());
         var ompOptions = builder.Configuration
             .GetSection("Harness:AgentExecutors:OmpRpc")
             .Get<OmpRpcAgentExecutorOptions>() ?? new OmpRpcAgentExecutorOptions();
