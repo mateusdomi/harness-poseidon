@@ -1,6 +1,7 @@
 using Harness.Host.Profiles;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
+using Harness.Modules.Conversations.Domain;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
@@ -22,6 +23,9 @@ public static class ConversationEndpoints
             .Produces<ConversationResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         conversations.MapPost("/", CreateConversationAsync)
             .Produces<ConversationResponse>(201).ProducesProblem(400).ProducesProblem(401)
+            .ProducesProblem(404).ProducesProblem(409);
+        conversations.MapPatch("/{conversationId}", RenameConversationAsync)
+            .Produces<ConversationResponse>().ProducesProblem(400).ProducesProblem(401)
             .ProducesProblem(404).ProducesProblem(409);
         conversations.MapDelete("/{conversationId}", DeleteConversationAsync)
             .Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404)
@@ -177,6 +181,52 @@ public static class ConversationEndpoints
                     .First())),
                 _ => throw new InvalidOperationException(
                     $"Unexpected conversation create status {result.Status}."),
+            };
+        }
+        catch (ArgumentException exception)
+        {
+            return Problem(400, "invalid_conversation", exception.Message);
+        }
+    }
+
+    private static async Task<IResult> RenameConversationAsync(
+        string conversationId,
+        RenameConversationRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IConversationStore store,
+        IClock clock,
+        CancellationToken cancellationToken)
+    {
+        if (!UlidValue.TryParse(conversationId, out _)) return InvalidConversationId();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, cancellationToken);
+        if (profile is null) return SessionRequired();
+        var current = await store.GetConversationAsync(
+            profile.TenantId, conversationId, cancellationToken);
+        if (current is null) return ConversationNotFound();
+        try
+        {
+            if (input is null || input.Title is null)
+            {
+                throw new ArgumentException("A conversation title is required.", nameof(input));
+            }
+
+            var now = clock.UtcNow;
+            // Reaproveita a validação canônica de título do domínio (obrigatório, <=200).
+            var renamed = new Conversation(
+                current.Id, current.ProjectId, current.Title, current.State,
+                current.CreatedByProfileId, current.CreatedAt, current.LastMessageAt, current.Version)
+                .Rename(input.Title, now);
+            var result = await store.RenameConversationAsync(
+                profile.TenantId, conversationId, current.Version, renamed.Title, now, cancellationToken);
+            return result.Status switch
+            {
+                ConversationMutationStatus.Applied => Results.Ok(ToResponse(result.Conversation!)),
+                ConversationMutationStatus.NotFound => ConversationNotFound(),
+                ConversationMutationStatus.VersionConflict => Problem(
+                    409, "conversation_version_conflict", "The conversation changed concurrently."),
+                _ => throw new InvalidOperationException(
+                    $"Unexpected conversation rename status {result.Status}."),
             };
         }
         catch (ArgumentException exception)
@@ -485,6 +535,8 @@ public sealed record MessageResponse(
     string Content,
     int? TokenCount,
     DateTimeOffset CreatedAt);
+
+public sealed record RenameConversationRequest(string? Title);
 
 public sealed record ConversationPage(IReadOnlyList<ConversationResponse> Items, string? NextCursor);
 public sealed record MessagePage(IReadOnlyList<MessageResponse> Items, string? NextCursor);

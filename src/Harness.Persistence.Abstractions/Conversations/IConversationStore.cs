@@ -25,6 +25,14 @@ public interface IConversationStore
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken = default);
 
+    Task<ConversationMutationResult> RenameConversationAsync(
+        string tenantId,
+        string conversationId,
+        long expectedVersion,
+        string title,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken = default);
+
     Task<MessageRecord?> GetMessageAsync(
         string tenantId,
         string messageId,

@@ -78,7 +78,6 @@ export function ModalDialog({
       <button
         type="button"
         tabIndex={-1}
-        aria-hidden="true"
         aria-label={t('common.actions.cancel')}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-background/70"

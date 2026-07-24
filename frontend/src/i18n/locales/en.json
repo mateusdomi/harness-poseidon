@@ -133,6 +133,11 @@
       "slow": "The API is taking longer than expected at {{path}} ({{count}} request(s)). The operation is still monitored.",
       "routeTimeout": "This screen exceeded the safe loading time. Try again."
     },
+    "routeError": {
+      "title": "Something went wrong on this screen",
+      "body": "An unexpected error occurred while rendering this screen. Try again — if it keeps happening, reload the page.",
+      "reload": "Reload page"
+    },
     "session": {
       "validationError": "The local session could not be validated."
     },

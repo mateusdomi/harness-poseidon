@@ -20,7 +20,9 @@ const TABS: Tab[] = ['overview', 'reports', 'daily'];
  */
 export function DeliveryCenter() {
   const { t } = useTranslation();
-  const [view, setView] = useState('all');
+  // Contrato do backend: `GET /api/v1/deliveries?view=portfolio|attention`
+  // (`portfolio` = todas as entregas). "all" não é um valor aceito (400).
+  const [view, setView] = useState('portfolio');
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -48,7 +50,7 @@ export function DeliveryCenter() {
             </div>
             <Field htmlFor="portfolio-view" label={t('delivery.portfolio.viewLabel')} className="w-64">
               <Select id="portfolio-view" value={view} onChange={(e) => setView(e.target.value)}>
-                <option value="all">{t('delivery.portfolio.views.all')}</option>
+                <option value="portfolio">{t('delivery.portfolio.views.all')}</option>
                 <option value="attention">{t('delivery.portfolio.views.attention')}</option>
               </Select>
             </Field>

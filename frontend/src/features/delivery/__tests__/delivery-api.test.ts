@@ -10,7 +10,8 @@ const D1 = MOCK_DELIVERY_IDS.d1;
 describe('MockDeliveryApi (DEL-01..10)', () => {
   it('lista o portfólio e filtra por "precisa de atenção"', async () => {
     const api = new MockDeliveryApi();
-    const all = await api.listPortfolio('all');
+    // Contrato do backend: `view=portfolio` (todas) e `view=attention`; "all" não é aceito.
+    const all = await api.listPortfolio('portfolio');
     expect(all.total).toBe(3);
 
     const attention = await api.listPortfolio('attention');

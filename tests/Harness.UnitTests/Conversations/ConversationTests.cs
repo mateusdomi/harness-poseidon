@@ -31,6 +31,31 @@ public sealed class ConversationTests
     }
 
     [Fact]
+    public void RenameNormalizesTitleBumpsVersionAndRejectsBlankOrOversizedTitles()
+    {
+        var conversation = Conversation.Create(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            "Planejamento principal",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+            Now);
+
+        var renamed = conversation.Rename("  Sprint 12 — replanejamento  ", Now.AddMinutes(1));
+        Assert.Equal("Sprint 12 — replanejamento", renamed.Title);
+        Assert.Equal(2, renamed.Version);
+        Assert.Equal(conversation.State, renamed.State);
+        Assert.Equal(conversation.Id, renamed.Id);
+
+        // Renomear preserva o estado (arquivada continua arquivada) e a versão avança.
+        var archivedRenamed = conversation.Archive(Now.AddMinutes(1)).Rename("Arquivo", Now.AddMinutes(2));
+        Assert.Equal("archived", archivedRenamed.State);
+        Assert.Equal(3, archivedRenamed.Version);
+
+        Assert.Throws<ArgumentException>(() => conversation.Rename("   ", Now.AddMinutes(1)));
+        Assert.Throws<ArgumentException>(() => conversation.Rename(new string('x', 201), Now.AddMinutes(1)));
+    }
+
+    [Fact]
     public void MessageAuthorityMatchesRoleAndReplyIsDeterministic()
     {
         var user = ConversationApplicationService.CreateUserMessage(

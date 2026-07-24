@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-do
 
 import { AppShell } from '@/app/app-shell';
 import { RequireProfile } from '@/app/components/require-profile';
+import { RouteError } from '@/app/components/route-error';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
 import { NAV_ITEMS } from '@/app/navigation';
 
@@ -27,6 +28,9 @@ const featureRoutes: RouteObject[] = NAV_ITEMS.filter((item) => item.key !== 'on
   (item) => ({
     path: item.path,
     Component: featurePage(item.key),
+    // Um crash de render numa feature é contido aqui — o shell permanece de pé
+    // e a tela crua do react-router nunca aparece (BUG-01).
+    errorElement: <RouteError />,
   }),
 );
 
@@ -41,6 +45,7 @@ export const router = createBrowserRouter(
           <OnboardingPage />
         </Suspense>
       ),
+      errorElement: <RouteError />,
     },
     {
       path: '/',
@@ -49,6 +54,7 @@ export const router = createBrowserRouter(
           <AppShell />
         </RequireProfile>
       ),
+      errorElement: <RouteError />,
       children: [{ index: true, element: <Navigate to="/cockpit" replace /> }, ...featureRoutes],
     },
   ],
