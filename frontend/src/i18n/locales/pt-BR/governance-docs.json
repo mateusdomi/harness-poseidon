@@ -10,7 +10,13 @@
     "viewer": {
       "empty": "Selecione um documento na árvore para visualizar.",
       "modified": "Modificado em {{date}}",
-      "size": "{{size}} bytes"
+      "size": "{{size}} bytes",
+      "viewModeLabel": "Modo de visualização",
+      "rendered": "Renderizado",
+      "source": "Fonte .md",
+      "sourceLabel": "Fonte do documento (.md cru)",
+      "diagram": "Diagrama {{lang}}",
+      "diagramLabel": "Diagrama (fonte)"
     },
     "actions": {
       "view": "Visualizar",

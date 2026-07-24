@@ -10,7 +10,13 @@
     "viewer": {
       "empty": "Select a document from the tree to view it.",
       "modified": "Modified {{date}}",
-      "size": "{{size}} bytes"
+      "size": "{{size}} bytes",
+      "viewModeLabel": "View mode",
+      "rendered": "Rendered",
+      "source": "Source .md",
+      "sourceLabel": "Document source (raw .md)",
+      "diagram": "{{lang}} diagram",
+      "diagramLabel": "Diagram (source)"
     },
     "actions": {
       "view": "View",
