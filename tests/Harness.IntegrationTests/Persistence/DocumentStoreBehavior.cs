@@ -559,7 +559,8 @@ internal static class DocumentStoreBehavior
         "agent",
         "01ARZ3NDEKTSV4RRFFQ69G5FZT",
         "document:create:architecture-decision",
-        new DateTimeOffset(2026, 7, 18, 17, 0, 0, TimeSpan.Zero));
+        new DateTimeOffset(2026, 7, 18, 17, 0, 0, TimeSpan.Zero),
+        "01ARZ3NDEKTSV4RRFFQ69G5FF2");
 
     private static DocumentVersionAppendCommand AppendCommand() => new(
         FoundationTransactionBehavior.TenantId,
@@ -584,7 +585,7 @@ internal static class DocumentStoreBehavior
         await store.CreateAsync(new(
             tenantId, projectId, documentId, "Manual approval edit", "spec", [], null,
             initialVersionId, $"docs/manual/{documentId}-v1.md", new string('A', 64),
-            "agent", Id(5), $"document:create:{documentId}", at), cancellationToken);
+            "agent", Id(5), $"document:create:{documentId}", at, Id(13)), cancellationToken);
         var review = await store.TransitionAsync(new(
             tenantId, documentId, Id(6), "in_review", null, "user", Id(7), 1,
             $"document:review:{documentId}", at.AddMinutes(1)), cancellationToken);

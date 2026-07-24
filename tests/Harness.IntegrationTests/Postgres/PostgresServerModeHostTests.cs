@@ -66,7 +66,9 @@ public sealed class PostgresServerModeHostTests
                 await WorkflowTestBinding.BindRecommendedAsync(client, project.Id, timeout.Token);
                 var templates = (await client.GetFromJsonAsync<Harness.Host.Workflows.WorkflowTemplatePage>(
                     "/api/v1/workflow-templates?limit=50", timeout.Token))!;
-                Assert.Equal(6, templates.Items.Count);
+                Assert.Equal(
+                    Harness.Host.Workflows.CanonicalWorkflowTemplates.All.Count,
+                    templates.Items.Count);
 
                 using var conversationResponse = await client.PostAsJsonAsync(
                     "/api/v1/conversations",

@@ -67,7 +67,9 @@ public sealed class SqliteToPostgresMigrationTests
 
             // Domain data was copied fresh; migration-seeded catalog rows were skipped, not doubled.
             Assert.Equal(2, TableFor(report, "tenants").Inserted);
-            Assert.Equal(6, TableFor(report, "agent_definitions").SkippedExisting);
+            Assert.Equal(
+                Harness.Host.Agents.CanonicalAgentDefinitions.All.Count,
+                TableFor(report, "agent_definitions").SkippedExisting);
             Assert.Equal(0, TableFor(report, "agent_definitions").Inserted);
 
             // Spot counts across the covered surface.

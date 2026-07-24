@@ -38,9 +38,9 @@ public sealed class CreateProjectRequest
     public IReadOnlyList<string>? MemberProfileIds { get; init; }
 
     /// <summary>
-    /// Pré-seleção do workflow na criação (GP-09). Ausente/nulo vincula o template recomendado
-    /// publicado (o "Software Delivery Standard"); um ULID vincula o template informado; uma
-    /// string vazia cria o projeto sem workflow.
+    /// Pré-seleção do workflow na criação (GP-09). Ausente, nulo ou vazio vincula o template
+    /// recomendado publicado (o "Software Delivery Standard"); um ULID vincula o template
+    /// informado. Projetos operacionais não nascem sem workflow.
     /// </summary>
     public string? WorkflowTemplateId { get; init; }
 }

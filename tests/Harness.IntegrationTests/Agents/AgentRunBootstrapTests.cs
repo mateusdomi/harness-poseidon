@@ -123,10 +123,10 @@ public sealed class AgentRunBootstrapTests : IDisposable
     }
 
     [Fact]
-    public async Task TheRequestCannotSmuggleItsOwnPathScope()
+    public async Task AnUnknownScopeFieldIsRejectedByTheTypedContract()
     {
-        // `scopeClaims` NÃO existe no contrato de entrada: o escopo vem do papel. Um corpo
-        // que tente declará-lo é recusado pelo próprio desserializador.
+        // `scopeClaims` é um estreitamento governado válido. Um campo alternativo não tipado
+        // não pode criar um caminho paralelo para ampliar o escopo.
         await using var app = BuildHost(enabled: true);
         using var client = await ClientAsync(app);
 
@@ -140,7 +140,7 @@ public sealed class AgentRunBootstrapTests : IDisposable
                 role = "frontend-specialist",
                 account = "worker-codex-frontend",
                 instruction = "faça algo",
-                scopeClaims = SmuggledScopeClaims,
+                expandedScopeClaims = SmuggledScopeClaims,
             },
             CancellationToken.None);
 

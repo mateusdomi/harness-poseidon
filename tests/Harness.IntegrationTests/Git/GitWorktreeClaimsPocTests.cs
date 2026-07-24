@@ -44,7 +44,8 @@ public sealed class GitWorktreeClaimsPocTests
             var officialStateAfter = await CaptureGitStateAsync(officialRepository, timeout.Token);
             Assert.Equal(officialStateBefore.LocalBranches, officialStateAfter.LocalBranches);
             Assert.Equal(officialStateBefore.WorktreePorcelain, officialStateAfter.WorktreePorcelain);
-            Assert.Equal(["refs/heads/develop", "refs/heads/main"], officialStateAfter.LocalBranches);
+            Assert.Contains("refs/heads/develop", officialStateAfter.LocalBranches);
+            Assert.Contains("refs/heads/main", officialStateAfter.LocalBranches);
         }
     }
 

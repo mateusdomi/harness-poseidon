@@ -49,12 +49,12 @@ public sealed class WorkflowConsistencyApiTests
                     "/api/v1/workflow-templates?limit=50", timeout.Token))!;
                 var standard = templates.Items.Single(template =>
                     template.Name.StartsWith("Entrega padrão", StringComparison.Ordinal));
+                var defaultBinding = Assert.Single((await client.GetFromJsonAsync<WorkflowPage>(
+                    $"/api/v1/workflows?projectId={project.Id}", timeout.Token))!.Items);
+                Assert.Equal(standard.Id, defaultBinding.TemplateId);
                 using var bindingResponse = await client.PostAsJsonAsync(
-                    "/api/v1/workflows",
-                    new CreateWorkflowRequest(
-                        project.Id,
-                        standard.Id,
-                        null,
+                    $"/api/v1/workflows/{defaultBinding.Id}/operation-mode",
+                    new SetWorkflowOperationModeRequest(
                         "semiautonomous",
                         ["Aprovação de Homologação"],
                         "Aceite de risco para verificação de consistência."),
@@ -168,7 +168,7 @@ public sealed class WorkflowConsistencyApiTests
                 Name = "Poseidon",
                 Key = "POSEIDON",
                 Description = "Backend",
-                // Este teste vincula o workflow explicitamente; opta por não pré-selecionar.
+                // Vazio converge para o workflow recomendado; não existe opt-out operacional.
                 WorkflowTemplateId = "",
             },
             token);

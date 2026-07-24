@@ -58,12 +58,12 @@ public sealed class WorkflowApiTests
                     using (var deletedTemplate = await client.DeleteAsync($"/api/v1/workflow-templates/{draftTemplateId}", timeout.Token))
                         Assert.Equal(HttpStatusCode.NoContent, deletedTemplate.StatusCode);
                     string organizationId; using (var response = await client.PostAsJsonAsync("/api/v1/organizations", new CreateOrganizationRequest { Name = "Poseidon", Slug = "poseidon" }, timeout.Token)) { response.EnsureSuccessStatusCode(); organizationId = (await response.Content.ReadFromJsonAsync<OrganizationResponse>(timeout.Token))!.Id; }
-                    using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon", Key = "POSEIDON", Description = "Backend", WorkflowTemplateId = "" }, timeout.Token)) { response.EnsureSuccessStatusCode(); var project = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!; projectId = project.Id; chiefAgentId = project.ChiefAgentId; }
 
                     using (var response = await client.PostAsJsonAsync("/api/v1/workflow-templates", new CreateWorkflowTemplateRequest(
                         "Entrega padrão", "Planejar, executar e validar.", ["Planejamento", "Execução"],
                         new Dictionary<string, IReadOnlyList<string>> { { "Execução", ["Qualidade"] } }, "v1"), timeout.Token))
                     { Assert.Equal(HttpStatusCode.Created, response.StatusCode); var template = await response.Content.ReadFromJsonAsync<WorkflowTemplateContract>(timeout.Token); Assert.NotNull(template); templateId = template.Id; Assert.NotNull(template.CurrentVersionId); }
+                    using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon", Key = "POSEIDON", Description = "Backend", WorkflowTemplateId = templateId }, timeout.Token)) { response.EnsureSuccessStatusCode(); var project = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!; projectId = project.Id; chiefAgentId = project.ChiefAgentId; }
                     var versions = await client.GetFromJsonAsync<WorkflowVersionPage>($"/api/v1/workflow-versions?templateId={templateId}", timeout.Token);
                     var version = Assert.Single(versions!.Items); Assert.Equal(["Planejamento", "Execução"], version.Phases); Assert.Equal(["Qualidade"], version.GatesByPhase["Execução"]);
                     using (var publish = await client.PostAsJsonAsync($"/api/v1/workflow-templates/{templateId}/versions",
@@ -107,15 +107,14 @@ public sealed class WorkflowApiTests
                     var unchangedTemplate = await client.GetFromJsonAsync<WorkflowTemplateContract>($"/api/v1/workflow-templates/{templateId}", timeout.Token);
                     Assert.Equal("published", unchangedTemplate?.State); Assert.Equal(draftVersionId, unchangedTemplate?.CurrentVersionId);
                     string defaultModeProjectId;
-                    using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon Default", Key = "POSEIDON-DEFAULT", Description = "Default workflow mode", WorkflowTemplateId = "" }, timeout.Token))
+                    using (var response = await client.PostAsJsonAsync("/api/v1/projects", new CreateProjectRequest { OrganizationId = organizationId, Name = "Poseidon Default", Key = "POSEIDON-DEFAULT", Description = "Default workflow mode", WorkflowTemplateId = templateId }, timeout.Token))
                     {
                         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
                         defaultModeProjectId = (await response.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token))!.Id;
                     }
-                    using (var response = await client.PostAsJsonAsync($"/api/v1/projects/{defaultModeProjectId}/workflow", new LinkWorkflowTemplateRequest(templateId), timeout.Token))
                     {
-                        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-                        var linked = (await response.Content.ReadFromJsonAsync<WorkflowContract>(timeout.Token))!;
+                        var linked = Assert.Single((await client.GetFromJsonAsync<WorkflowPage>(
+                            $"/api/v1/workflows?projectId={defaultModeProjectId}", timeout.Token))!.Items);
                         Assert.Equal(draftVersionId, linked.ActiveVersionId);
                         Assert.Equal("semiautonomous", linked.OperationMode);
                         Assert.Empty(linked.SemiautonomousPauseGates); Assert.Empty(linked.RiskAcceptances);
@@ -163,8 +162,14 @@ public sealed class WorkflowApiTests
                         Assert.Equal(HttpStatusCode.Conflict, templateDelete.StatusCode);
                     using (var archivedBind = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/workflow", new LinkWorkflowTemplateRequest(templateId, publishedV2Id), timeout.Token))
                         Assert.Equal(HttpStatusCode.Conflict, archivedBind.StatusCode);
-                    using (var response = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/workflow", new LinkWorkflowTemplateRequest(templateId, version.Id), timeout.Token))
-                    { Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync(timeout.Token)); var workflow = await response.Content.ReadFromJsonAsync<WorkflowContract>(timeout.Token); Assert.NotNull(workflow); workflowId = workflow.Id; Assert.Equal("manual", workflow.OperationMode); Assert.Empty(workflow.RiskAcceptances); }
+                    {
+                        var workflow = Assert.Single((await client.GetFromJsonAsync<WorkflowPage>(
+                            $"/api/v1/workflows?projectId={projectId}", timeout.Token))!.Items);
+                        workflowId = workflow.Id;
+                        Assert.Equal(version.Id, workflow.ActiveVersionId);
+                        Assert.Equal("manual", workflow.OperationMode);
+                        Assert.Empty(workflow.RiskAcceptances);
+                    }
                     using (var duplicate = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/workflow", new LinkWorkflowTemplateRequest(templateId, version.Id), timeout.Token)) Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
                     using (var mode = await client.PostAsJsonAsync($"/api/v1/workflows/{workflowId}/operation-mode",
                         new SetWorkflowOperationModeRequest("semiautonomous", ["Qualidade"], "Pausar no gate crítico."), timeout.Token))
