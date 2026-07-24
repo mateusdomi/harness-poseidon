@@ -82,6 +82,7 @@ import type {
   AgentAccountRoster,
   ChannelLink,
   ChannelMessagePage,
+  CreateChannelLinkInput,
 } from '../contracts';
 
 /**
@@ -371,6 +372,12 @@ export interface ApiClient {
 
   /** Canais externos vinculados (ex.: Telegram) do tenant. */
   listChannelLinks(): Promise<ChannelLink[]>;
+
+  /**
+   * Vincula um canal externo (Telegram/Teams) a um projeto. Idempotente por
+   * identidade: revincular a mesma identidade devolve o vínculo existente.
+   */
+  createChannelLink(input: CreateChannelLinkInput): Promise<ChannelLink>;
 
   /** Histórico de mensagens de um canal externo (cursor opaco `afterMessageId`). */
   listChannelMessages(

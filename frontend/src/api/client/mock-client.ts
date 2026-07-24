@@ -103,6 +103,7 @@ import {
   type AgentAccountRoster,
   type ChannelLink,
   type ChannelMessagePage,
+  type CreateChannelLinkInput,
 } from '../contracts';
 import { streams } from '../contracts';
 import { product } from '@/config/product';
@@ -209,6 +210,8 @@ export class MockApiClient implements ApiClient {
     realtime?: MockRealtimeClient;
   };
   readonly #errorQueue: ProblemDetails[] = [];
+  /** Vínculos de canal criados via UI (mock in-memory, além do Telegram semente). */
+  readonly #channelLinks: ChannelLink[] = [];
   readonly #governanceDocs = new Map<string, { content: string; modifiedAt: string }>([
     ['governance/core.md', { content: '# Núcleo da governança\n\nRegras canônicas do sistema.\n', modifiedAt: '2026-07-01T09:00:00Z' }],
     ['governance/rules/frontend.md', { content: '# Regras de frontend\n\nGates verdes obrigatórios.\n', modifiedAt: '2026-07-05T10:00:00Z' }],
@@ -1827,7 +1830,30 @@ export class MockApiClient implements ApiClient {
         conversationId: conversation?.id ?? project.id,
         linkedAt: this.#options.now(),
       },
+      ...this.#channelLinks,
     ];
+  }
+
+  async createChannelLink(input: CreateChannelLinkInput): Promise<ChannelLink> {
+    await this.#simulate();
+    const project = this.#table('projects').get(input.projectId);
+    if (!project) throw this.#notFound('projects', input.projectId);
+    const identity = input.externalIdentity.trim();
+    // Idempotente por identidade, como o backend.
+    const existing = this.#channelLinks.find(
+      (link) => link.kind === input.kind && link.externalIdentity === identity,
+    );
+    if (existing) return existing;
+    const link: ChannelLink = {
+      id: this.#options.nextId(),
+      kind: input.kind,
+      externalIdentity: identity,
+      projectId: input.projectId,
+      conversationId: this.#options.nextId(),
+      linkedAt: this.#options.now(),
+    };
+    this.#channelLinks.push(link);
+    return link;
   }
 
   async listChannelMessages(): Promise<ChannelMessagePage> {

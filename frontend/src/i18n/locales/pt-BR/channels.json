@@ -18,13 +18,55 @@
       "linkedAt": "Vinculado em"
     },
     "empty": {
-      "title": "Nenhum canal vinculado",
-      "body": "Ainda não há canal externo vinculado. Vincule um chat do Telegram a um projeto pela CLI ou pelo gateway para vê-lo aqui."
+      "title": "Nenhum canal vinculado a um projeto",
+      "body": "Ter um bot do Telegram configurado no gateway não é o mesmo que ter um canal vinculado. Aqui listamos apenas os vínculos identidade-externa → projeto. Vincule o seu chat abaixo para que as mensagens entrem na caixa durável do Chefe.",
+      "cta": "Vincular um canal"
     },
     "error": {
       "title": "Não foi possível carregar os canais",
       "body": "O gateway de canais não respondeu. Tente novamente em instantes.",
       "cta": "Tentar novamente"
+    },
+    "concepts": {
+      "title": "Bot configurado ≠ canal vinculado",
+      "body": "Configurar o bot (token do BotFather no gateway) apenas habilita o Telegram no servidor. Para que uma conversa vire trabalho, é preciso vincular a identidade do chat a um projeto — é isso que esta tela mostra. Se você já fala com o bot mas não vê nada aqui, o vínculo ainda não foi criado neste tenant."
+    },
+    "link": {
+      "title": "Vincular um canal a um projeto",
+      "subtitle": "Vincule a identidade de um chat (Telegram/Teams) a um projeto. O vínculo é idempotente: revincular a mesma identidade devolve o vínculo existente.",
+      "open": "Vincular novo canal",
+      "cancel": "Cancelar",
+      "required": "*",
+      "fields": {
+        "kind": "Tipo de canal",
+        "identity": "Identidade externa",
+        "identityHintTelegram": "Chat id numérico do Telegram (ex.: 5774120296). O bot informa o chat id na primeira mensagem de um chat ainda não vinculado. Nunca cole aqui o token do bot.",
+        "identityHintTeams": "Identidade da conversa do Teams (id do canal/conversa).",
+        "identityPlaceholder": "5774120296",
+        "project": "Projeto",
+        "projectPlaceholder": "Selecione o projeto"
+      },
+      "submit": "Vincular canal",
+      "submitting": "Vinculando…",
+      "success": "Canal vinculado ao projeto. As próximas mensagens do chat entrarão na caixa do Chefe.",
+      "noProjects": "Crie um projeto antes de vincular um canal — o vínculo sempre aponta para um projeto.",
+      "errors": {
+        "invalid_channel_kind": "Tipo de canal inválido.",
+        "invalid_external_identity": "A identidade externa é obrigatória e limitada a 200 caracteres.",
+        "invalid_project_id": "Selecione um projeto válido.",
+        "project_not_found": "O projeto selecionado não existe mais.",
+        "generic": "Não foi possível vincular o canal. Verifique os dados e tente de novo."
+      }
+    },
+    "cli": {
+      "title": "Prefere fazer pela CLI/gateway?",
+      "intro": "O vínculo também pode ser criado direto na API do gateway. Passo a passo para o Telegram:",
+      "step1": "1. Habilite o bot no servidor (uma vez): defina o token do BotFather antes de subir o Host.",
+      "step1Cmd": "export Harness__Channels__Telegram__BotToken=\"<token-do-BotFather>\"",
+      "step2": "2. Descubra o chat id: mande qualquer mensagem ao bot; ele responde com o chat id numérico do chat ainda não vinculado.",
+      "step3": "3. Crie o vínculo (kind telegram, externalIdentity = chat id, projectId = ULID do projeto):",
+      "step3Cmd": "curl -X POST \"$HARNESS_BASE_URL/api/v1/channels/links\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"kind\":\"telegram\",\"externalIdentity\":\"<chat-id>\",\"projectId\":\"<projeto-ULID>\"}'",
+      "note": "O token do bot fica só no servidor (variável de ambiente). Ele nunca é enviado nem exibido nesta tela — aqui usamos apenas o chat id (identidade externa)."
     },
     "messages": {
       "title": "Histórico de mensagens",
@@ -35,6 +77,10 @@
         "user": "Usuário",
         "agent": "Agente"
       }
+    },
+    "manage": {
+      "title": "Gerenciar",
+      "unlinkNote": "Desvincular um canal é feito pelo gateway/CLI (não há ação de exclusão nesta tela). Enquanto o vínculo existir, as mensagens do chat continuam entrando na caixa do Chefe."
     }
   }
 }

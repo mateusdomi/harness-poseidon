@@ -53,6 +53,18 @@ export const channelLinkSchema = z.object({
 });
 export type ChannelLink = z.infer<typeof channelLinkSchema>;
 
+/**
+ * Entrada para vincular um canal externo a um projeto.
+ * Espelha `CreateChannelLinkRequest` de `POST /api/v1/channels/links`.
+ */
+export const createChannelLinkInputSchema = z.object({
+  kind: channelKindSchema,
+  /** Identidade externa (ex.: chat id numérico do Telegram). Nunca um token de bot. */
+  externalIdentity: z.string().trim().min(1).max(200),
+  projectId: ulidSchema,
+});
+export type CreateChannelLinkInput = z.infer<typeof createChannelLinkInputSchema>;
+
 /** Mensagem trocada por um canal externo (histórico do link). */
 export const channelMessageSchema = z.object({
   id: ulidSchema,
