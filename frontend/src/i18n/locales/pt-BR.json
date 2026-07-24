@@ -1023,9 +1023,14 @@
         "rejected": "Rejeitado/inconsistente",
         "notApplicable": "Não aplicável"
       },
+      "notStarted": {
+        "title": "Execução ainda não iniciada",
+        "body": "O projeto já tem um workflow atribuído. As fases, o progresso e os documentos aparecem aqui assim que a primeira execução começar.",
+        "cta": "Ver workflow"
+      },
       "empty": {
-        "title": "Nenhum workflow ativo",
-        "body": "Vincule um workflow ao projeto para acompanhar fases, progresso e documentos sem sair da conversa.",
+        "title": "Workflow não vinculado",
+        "body": "Todo projeto recebe um workflow padrão automaticamente — encontrar este projeto sem vínculo é uma exceção. Vincule um workflow para acompanhar fases, progresso e documentos sem sair da conversa.",
         "cta": "Ver workflows"
       }
     },

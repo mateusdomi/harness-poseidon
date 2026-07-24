@@ -17,10 +17,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Harness.IntegrationTests.Projects;
 
 /// <summary>
-/// GP-09: um projeto criado sem workflow explícito nasce já vinculado ao template recomendado
+/// GP-09 + RN-02: um projeto criado sem workflow explícito nasce já vinculado ao template recomendado
 /// publicado (o "Software Delivery Standard"), para que o caminho dourado do Chief não fique
-/// bloqueado em um workflow ausente. Um override explícito seleciona outro template, e a
-/// opção de opt-out cria o projeto sem workflow.
+/// bloqueado em um workflow ausente. Um override explícito (ULID) seleciona outro template; ausência
+/// OU string vazia caem no recomendado — RN-02: nunca há opt-out, um projeto nunca fica sem workflow.
 /// </summary>
 public sealed class ProjectWorkflowPreselectionTests
 {
@@ -168,13 +168,15 @@ public sealed class ProjectWorkflowPreselectionTests
     }
 
     [Fact]
-    public async Task CreatingAProjectWithAnEmptyTemplateOptsOutOfAnyWorkflow()
+    public async Task CreatingAProjectWithAnEmptyTemplateStillLinksTheRecommendedWorkflow()
     {
+        // RN-02: não há opt-out. Uma string vazia (o antigo "opt-out" do GP-09) cai no template
+        // recomendado — é impossível criar um projeto sem workflow.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         var root = Path.Combine(
             AppContext.BaseDirectory,
             "integration-artifacts",
-            $"gp09-optout-{Guid.NewGuid():N}");
+            $"rn02-empty-{Guid.NewGuid():N}");
         var database = Path.Combine(root, "gp09.db");
         Directory.CreateDirectory(root);
         var cookies = new CookieContainer();
@@ -190,12 +192,14 @@ public sealed class ProjectWorkflowPreselectionTests
                 await CreateProfileAsync(client, timeout.Token);
                 var organization = await CreateOrganizationAsync(client, timeout.Token);
 
+                var recommended = await RecommendedTemplateAsync(client, timeout.Token);
                 var project = await CreateProjectAsync(
-                    client, organization.Id, "OPTOUT", string.Empty, timeout.Token);
+                    client, organization.Id, "EMPTY", string.Empty, timeout.Token);
 
                 var workflows = (await client.GetFromJsonAsync<WorkflowPage>(
                     $"/api/v1/workflows?projectId={project.Id}", timeout.Token))!;
-                Assert.Empty(workflows.Items);
+                var workflow = Assert.Single(workflows.Items);
+                Assert.Equal(recommended.Id, workflow.TemplateId);
             }
             finally
             {

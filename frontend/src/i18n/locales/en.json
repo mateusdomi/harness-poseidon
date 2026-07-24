@@ -1023,9 +1023,14 @@
         "rejected": "Rejected/inconsistent",
         "notApplicable": "Not applicable"
       },
+      "notStarted": {
+        "title": "Execution not started yet",
+        "body": "This project already has a workflow assigned. Phases, progress and documents appear here as soon as the first run begins.",
+        "cta": "View workflow"
+      },
       "empty": {
-        "title": "No active workflow",
-        "body": "Link a workflow to the project to track phases, progress and documents without leaving the conversation.",
+        "title": "Workflow not linked",
+        "body": "Every project gets a default workflow automatically — finding this project without one is an exception. Link a workflow to track phases, progress and documents without leaving the conversation.",
         "cta": "View workflows"
       }
     },
