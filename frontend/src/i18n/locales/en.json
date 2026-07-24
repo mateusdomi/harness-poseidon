@@ -8,6 +8,16 @@
     "closeMenu": "Close menu",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
+    "groups": {
+      "expand": "Expand {{name}} section",
+      "collapse": "Collapse {{name}} section"
+    },
+    "profile": {
+      "menuLabel": "{{name}}'s profile — open menu",
+      "noEmail": "No email on file",
+      "switch": "Switch profile",
+      "signOut": "Sign out"
+    },
     "toggleTheme": {
       "toLight": "Switch to light theme",
       "toDark": "Switch to dark theme"

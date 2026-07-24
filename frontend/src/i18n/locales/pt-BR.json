@@ -8,6 +8,16 @@
     "closeMenu": "Fechar menu",
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral",
+    "groups": {
+      "expand": "Expandir seção {{name}}",
+      "collapse": "Recolher seção {{name}}"
+    },
+    "profile": {
+      "menuLabel": "Perfil de {{name}} — abrir menu",
+      "noEmail": "Sem e-mail cadastrado",
+      "switch": "Trocar de perfil",
+      "signOut": "Sair"
+    },
     "toggleTheme": {
       "toLight": "Mudar para tema claro",
       "toDark": "Mudar para tema escuro"

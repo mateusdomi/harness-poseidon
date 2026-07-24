@@ -42,6 +42,13 @@ export interface NavGroup {
 /**
  * Navegação principal agrupada em seções rotuladas (apenas apresentação:
  * rotas, itens e ordem de registro de feature não mudam).
+ *
+ * Ordem = prioridade de uso (G-MENUS): os grupos e itens mais usados no topo,
+ * os pouco usados no fim. A `operation` vem primeiro e abre com Cockpit, Chat,
+ * Quadro e Conversas (o dia a dia do operador); `administration` — telas de
+ * configuração de uso esporádico — fica por último. Cada grupo é recolhível na
+ * sidebar (ver `NavMenu`/`ui-store`), então o usuário mantém aberto só o que
+ * lhe interessa.
  */
 export const NAV_GROUPS: NavGroup[] = [
   {

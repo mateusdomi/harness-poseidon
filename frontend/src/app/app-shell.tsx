@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 
 import { Button } from '@/design-system';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ import { CommandPalette } from '@/app/components/command-palette';
 import { HeaderContext } from '@/app/components/header-context';
 import { LanguageSelector } from '@/app/components/language-selector';
 import { NotificationsButton } from '@/app/components/notifications-button';
+import { ProfileMenu } from '@/app/components/profile-menu';
 import { RouteSkeleton } from '@/app/components/route-skeleton';
 import { PermissionDenied } from '@/app/components/permission-denied';
 import { ThemeToggle } from '@/app/components/theme-toggle';
@@ -32,50 +33,97 @@ function BrandMark({ className }: { className?: string }) {
   );
 }
 
-/** Rótulo da seção (expandida) ou separador sutil entre grupos (colapsada). */
-function NavGroupLabel({
+/**
+ * Cabeçalho recolhível de um grupo (sidebar expandida / drawer mobile): botão
+ * que expande/recolhe a seção. O estado é persistido em localStorage (G-MENUS),
+ * então o usuário mantém aberto só os grupos que lhe interessam.
+ */
+function NavGroupHeader({
   groupKey,
-  collapsed,
+  expanded,
   first,
+  onToggle,
 }: {
   groupKey: string;
-  collapsed: boolean;
+  expanded: boolean;
   first: boolean;
+  onToggle: () => void;
 }) {
   const { t } = useTranslation();
-
-  if (collapsed) {
-    // Colapsada: sem rótulos; apenas separador entre grupos (nunca antes do 1º).
-    return first ? null : <li aria-hidden="true" className="mx-auto my-1 h-px w-8 bg-border" />;
-  }
+  const label = t(`nav.groups.${groupKey}`);
   return (
-    <li
-      aria-hidden="true"
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      aria-label={t(expanded ? 'shell.groups.collapse' : 'shell.groups.expand', { name: label })}
       className={cn(
-        'px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-foreground-muted',
-        first ? 'pt-1' : 'pt-3',
+        'flex w-full items-center justify-between gap-2 rounded-md px-3 py-1',
+        'text-[11px] font-semibold uppercase tracking-wider text-foreground-muted',
+        'motion-safe:transition-colors motion-safe:duration-fast hover:text-foreground',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        first ? 'mt-1' : 'mt-3',
       )}
     >
-      {t(`nav.groups.${groupKey}`)}
-    </li>
+      <span className="truncate">{label}</span>
+      <ChevronDown
+        aria-hidden="true"
+        className={cn(
+          'size-3.5 shrink-0 motion-safe:transition-transform motion-safe:duration-fast',
+          !expanded && '-rotate-90',
+        )}
+      />
+    </button>
   );
 }
 
 function NavMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  const collapsedGroups = useUiStore((s) => s.collapsedNavGroups);
+  const toggleNavGroup = useUiStore((s) => s.toggleNavGroup);
+
   return (
     <ul className="flex flex-col gap-1">
-      {NAV_GROUPS.map((group, groupIndex) => (
-        <li key={group.key}>
-          <ul className="flex flex-col gap-1">
-            <NavGroupLabel groupKey={group.key} collapsed={collapsed} first={groupIndex === 0} />
-            {group.items.map((item) => (
-              <li key={item.key}>
-                <AppNavLink item={item} collapsed={collapsed} tooltip={collapsed} onNavigate={onNavigate} />
-              </li>
-            ))}
-          </ul>
-        </li>
-      ))}
+      {NAV_GROUPS.map((group, groupIndex) => {
+        // Sidebar recolhida (só ícones): sem rótulos nem grupos recolhíveis —
+        // apenas um separador sutil entre grupos (nunca antes do primeiro).
+        if (collapsed) {
+          return (
+            <li key={group.key}>
+              <ul className="flex flex-col gap-1">
+                {groupIndex > 0 && (
+                  <li aria-hidden="true" className="mx-auto my-1 h-px w-8 bg-border" />
+                )}
+                {group.items.map((item) => (
+                  <li key={item.key}>
+                    <AppNavLink item={item} collapsed tooltip onNavigate={onNavigate} />
+                  </li>
+                ))}
+              </ul>
+            </li>
+          );
+        }
+
+        const groupExpanded = !collapsedGroups[group.key];
+        return (
+          <li key={group.key}>
+            <NavGroupHeader
+              groupKey={group.key}
+              expanded={groupExpanded}
+              first={groupIndex === 0}
+              onToggle={() => toggleNavGroup(group.key)}
+            />
+            {groupExpanded && (
+              <ul className="mt-1 flex flex-col gap-1">
+                {group.items.map((item) => (
+                  <li key={item.key}>
+                    <AppNavLink item={item} onNavigate={onNavigate} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -107,6 +155,9 @@ function Sidebar() {
       <nav aria-label={t('shell.primaryNav')} className="flex-1 overflow-y-auto p-2">
         <NavMenu collapsed={collapsed} />
       </nav>
+      <div className="border-t border-border p-2">
+        <ProfileMenu variant={collapsed ? 'collapsed' : 'expanded'} placement="top" />
+      </div>
       <div className="border-t border-border p-2">
         <Button
           variant="ghost"
@@ -202,6 +253,11 @@ function Header() {
         <LanguageSelector />
         <ThemeToggle />
         <NotificationsButton />
+        {/* Perfil ativo no header apenas no mobile (no desktop ele vive no rodapé
+            da sidebar). */}
+        <div className="lg:hidden">
+          <ProfileMenu variant="collapsed" placement="bottom" />
+        </div>
       </div>
     </header>
   );
