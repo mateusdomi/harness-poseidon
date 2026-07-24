@@ -21,6 +21,13 @@ public static class CatalogStoreBehavior
         "delivery-risk-dependency-analyst", "delivery-forecast-analyst",
         "delivery-quality-release-auditor", "delivery-documentation-steward",
         "delivery-executive-reporting", "delivery-benefits-analyst",
+        // ARC-09: as personas de Architecture ("sob demanda").
+        "architecture-chief", "architecture-discovery",
+        "architecture-solution-architect", "architecture-enterprise",
+        "architecture-integration", "architecture-data",
+        "architecture-security", "architecture-infrastructure",
+        "architecture-rationalization-analyst", "architecture-critic",
+        "architecture-adr-writer",
     ];
 
     public static async Task AssertAsync(
