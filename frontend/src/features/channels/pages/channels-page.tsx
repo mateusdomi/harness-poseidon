@@ -46,14 +46,20 @@ function CliGuide() {
       <CardContent className="flex flex-col gap-3 text-sm">
         <div className="flex flex-col gap-1">
           <p>{t('channels.cli.step1')}</p>
-          <pre className="overflow-x-auto rounded-md border bg-surface-elevated p-3 text-xs">
+          <pre
+            tabIndex={0}
+            className="overflow-x-auto rounded-md border bg-surface-elevated p-3 text-xs"
+          >
             <code>{t('channels.cli.step1Cmd')}</code>
           </pre>
         </div>
         <p>{t('channels.cli.step2')}</p>
         <div className="flex flex-col gap-1">
           <p>{t('channels.cli.step3')}</p>
-          <pre className="overflow-x-auto rounded-md border bg-surface-elevated p-3 text-xs">
+          <pre
+            tabIndex={0}
+            className="overflow-x-auto rounded-md border bg-surface-elevated p-3 text-xs"
+          >
             <code>{t('channels.cli.step3Cmd')}</code>
           </pre>
         </div>

@@ -16,7 +16,11 @@
       "source": "Source .md",
       "sourceLabel": "Document source (raw .md)",
       "diagram": "{{lang}} diagram",
-      "diagramLabel": "Diagram (source)"
+      "diagramLabel": "Diagram (source)",
+      "diagramVisualLabel": "Locally rendered diagram",
+      "diagramLoading": "Rendering diagram…",
+      "diagramRendered": "Mermaid diagram visualization",
+      "diagramFallback": "This diagram could not be rendered. Its source is preserved below."
     },
     "actions": {
       "view": "View",

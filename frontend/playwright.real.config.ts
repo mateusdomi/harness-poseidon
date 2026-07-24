@@ -4,6 +4,11 @@ const backendUrl = process.env.POSEIDON_BACKEND_URL ?? 'http://127.0.0.1:5090';
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(backendUrl)) {
   throw new Error('POSEIDON_BACKEND_URL deve apontar para um Host em loopback HTTP.');
 }
+const frontendPort = process.env.POSEIDON_FRONTEND_PORT ?? '5173';
+const frontendUrl = process.env.POSEIDON_FRONTEND_URL ?? `http://127.0.0.1:${frontendPort}`;
+if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(frontendUrl)) {
+  throw new Error('POSEIDON_FRONTEND_URL deve apontar para o Vite em loopback HTTP.');
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -14,7 +19,7 @@ export default defineConfig({
   reporter: 'list',
   outputDir: 'test-results/http-real',
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: frontendUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -33,9 +38,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev:real',
-    url: 'http://127.0.0.1:5173',
-    reuseExistingServer: true,
+    command: `npm run dev:real -- --host 127.0.0.1 --port ${frontendPort}`,
+    url: frontendUrl,
+    reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {
       VITE_API_MODE: 'http',

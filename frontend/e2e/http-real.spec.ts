@@ -11,13 +11,16 @@ const ROUTES = [
   '/board',
   '/workflows',
   '/documents',
+  '/governance-docs',
   '/prototypes',
+  '/architecture',
   '/approvals',
   '/orchestrator',
   '/agents',
   '/tools',
   '/run-project',
   '/providers',
+  '/channels',
   '/po-assistant',
   '/governance',
   '/licenses',
@@ -138,7 +141,7 @@ async function ensureProject(page: Page, profileName: string) {
   await page.getByLabel('Slug (sigla)').fill('HOMOLOG');
   await page.getByLabel('Descrição').fill('Validação técnica do frontend contra o Host real.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
-  await page.getByLabel(new RegExp(profileName)).check();
+  await page.getByRole('checkbox', { name: profileName, exact: true }).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
   await expect(page.getByRole('button', { name: PROJECT_NAME, exact: false })).toBeVisible();
 }
@@ -164,6 +167,22 @@ async function captureEvidence(page: Page, testInfo: TestInfo, route: string) {
     ? path.join(evidenceDirectory, name)
     : testInfo.outputPath(name);
   await page.screenshot({ path: screenshotPath, fullPage: true });
+}
+
+async function exerciseMermaidDocument(page: Page, testInfo: TestInfo) {
+  if (testInfo.project.name !== 'desktop-13-dark') return;
+
+  await page.goto('/governance-docs');
+  await expect(page.getByRole('heading', { name: 'Documentos de Governança' })).toBeVisible();
+  await page.getByRole('button', { name: 'MERMAID-RENDERING-EVIDENCE.md' }).click();
+  const diagram = page.getByRole('img', { name: 'Visualização do diagrama Mermaid' });
+  await expect(diagram).toBeVisible({ timeout: 20_000 });
+  await expect(diagram.locator('svg')).toBeVisible();
+  await assertA11y(page, 'documento Mermaid renderizado localmente');
+  await page.screenshot({
+    path: testInfo.outputPath('desktop-13-dark-governance-doc-mermaid.png'),
+    fullPage: true,
+  });
 }
 
 async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
@@ -286,9 +305,11 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   // Sem nenhuma conversa, a CTA única é a do estado vazio; com conversa, o
   // botão do cabeçalho assume (§4 — nunca as duas ao mesmo tempo).
   const newConversationCta = page.getByRole('button', { name: 'Nova conversa', exact: true });
+  const startConversationCta = page.getByRole('button', { name: 'Iniciar conversa', exact: true });
+  await expect(newConversationCta.or(startConversationCta)).toBeVisible();
   await ((await newConversationCta.isVisible())
     ? newConversationCta
-    : page.getByRole('button', { name: 'Iniciar conversa', exact: true })
+    : startConversationCta
   ).click();
   const createdConversation = (await (await createdConversationResponse).json()) as { id: string };
   const conversation = page.locator('select#chat-conversation');
@@ -452,7 +473,7 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
 }
 
 test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11y', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const runtime = watchRuntime(page);
   await setTheme(page, testInfo.project.name.includes('light'));
   const profileName = await ensureSession(page);
@@ -470,6 +491,7 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
   }
 
   await exerciseRealtimeAndAudit(page, testInfo);
+  await exerciseMermaidDocument(page, testInfo);
   await exerciseLearningP2(page, testInfo);
 
   await page.goto('/cockpit');

@@ -69,6 +69,20 @@ public sealed class GovernanceDocumentLinterTests
         Assert.DoesNotContain(report.Findings, finding => finding.Code == "GOV019");
     }
 
+    [Fact]
+    public void MarkdownCoverageIgnoresGeneratedBrowserTestResults()
+    {
+        using var repository = TemporaryGovernanceRepository.Create("valid");
+        var results = System.IO.Path.Combine(repository.Path, "frontend", "test-results", "run-1");
+        Directory.CreateDirectory(results);
+        File.WriteAllText(System.IO.Path.Combine(results, "error-context.md"), "# Generated trace\n");
+
+        var report = new GovernanceDocumentLinter(repository.Path, checkGeneratedDocuments: false)
+            .Lint(new DateTimeOffset(2026, 7, 24, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.DoesNotContain(report.Findings, finding => finding.Code == "GOV019");
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

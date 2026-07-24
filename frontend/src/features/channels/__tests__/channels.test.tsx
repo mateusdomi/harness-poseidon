@@ -49,6 +49,10 @@ describe('ChannelsPage', () => {
     expect(screen.getByText(/Bot configurado ≠ canal vinculado/i)).toBeInTheDocument();
     // E oferece o passo a passo exato via CLI/gateway.
     expect(screen.getByText(/Harness__Channels__Telegram__BotToken/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Harness__Channels__Telegram__BotToken/)[0].closest('pre')).toHaveAttribute(
+      'tabindex',
+      '0',
+    );
     // O formulário de vínculo está disponível já no empty-state.
     expect(await screen.findByRole('button', { name: /Vincular canal/i })).toBeInTheDocument();
   });

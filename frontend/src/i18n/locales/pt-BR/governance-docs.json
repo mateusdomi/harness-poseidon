@@ -16,7 +16,11 @@
       "source": "Fonte .md",
       "sourceLabel": "Fonte do documento (.md cru)",
       "diagram": "Diagrama {{lang}}",
-      "diagramLabel": "Diagrama (fonte)"
+      "diagramLabel": "Diagrama (fonte)",
+      "diagramVisualLabel": "Diagrama renderizado localmente",
+      "diagramLoading": "Renderizando diagrama…",
+      "diagramRendered": "Visualização do diagrama Mermaid",
+      "diagramFallback": "Não foi possível renderizar este diagrama. A fonte foi preservada abaixo."
     },
     "actions": {
       "view": "Visualizar",

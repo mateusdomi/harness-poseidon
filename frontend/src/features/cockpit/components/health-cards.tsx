@@ -27,7 +27,7 @@ function FactoryKpi({
         : 'text-foreground';
   return (
     <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-elevated/40 p-3">
-      <span className="flex items-center gap-1 text-xs text-foreground-muted">
+      <dt className="flex items-center gap-1 text-xs text-foreground-muted">
         {label}
         <Tooltip label={tooltip}>
           <button
@@ -38,10 +38,10 @@ function FactoryKpi({
             <Info aria-hidden="true" className="size-3.5" />
           </button>
         </Tooltip>
-      </span>
-      <span className={cn('font-heading text-2xl font-semibold tabular-nums', valueClass)}>
+      </dt>
+      <dd className={cn('font-heading text-2xl font-semibold tabular-nums', valueClass)}>
         {formatNumber(value)}
-      </span>
+      </dd>
     </div>
   );
 }

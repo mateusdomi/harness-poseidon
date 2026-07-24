@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:b929f8d2b71294248f0aeb686930333dc211b5176195b6d29df5180a2018c34a -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:9195d279160a70960ee11880b38b00a18a581a39f2541ca904e100cf02524995 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 24
-- `Evidence`: 152
+- `Evidence`: 153
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 22
 - `entrypoint`: 1
-- `evidence`: 152
+- `evidence`: 153
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 209
+- `*`: 210
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 218
+- `Active`: 219
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 15
 - `Product Security`: 6
-- `Quality Engineering`: 151
+- `Quality Engineering`: 152
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 204
+- `OnDemand`: 205
 
 ## Documents by authority and domain
 
@@ -402,6 +402,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [GP-C3 — eventos do ciclo de vida do turno](backend/execution/evidence/GP-C3-TURN-LIFECYCLE-EVENTS.md) | * | Active | Quality Engineering | OnDemand | 707 |
 | [GP-C4 — primeira conversa idempotente](backend/execution/evidence/GP-C4-PRIMARY-CONVERSATION.md) | * | Active | Quality Engineering | OnDemand | 519 |
 | [GP-C5 — smoke condicional da execução real](backend/execution/evidence/GP-C5-REAL-EXECUTION-SMOKE.md) | * | Active | Quality Engineering | OnDemand | 584 |
+| [Renderização local e sanitizada de Mermaid](backend/execution/evidence/MERMAID-RENDERING-EVIDENCE.md) | * | Active | Quality Engineering | OnDemand | 272 |
 | [N3 — Antigravity first-class critic](backend/execution/evidence/N3-ANTIGRAVITY-CRITIC.md) | * | Active | Quality Engineering | OnDemand | 1463 |
 | [N4 — scheduler, quotas and fallback](backend/execution/evidence/N4-SCHEDULER-QUOTAS.md) | * | Active | Quality Engineering | OnDemand | 891 |
 | [Turno noturno — relatório](backend/execution/evidence/NIGHT-SHIFT-REPORT.md) | * | Active | Quality Engineering | OnDemand | 1559 |

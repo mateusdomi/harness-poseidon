@@ -213,6 +213,8 @@ describe('CockpitPage', () => {
     expect(screen.getByLabelText(/projeto ativo/i)).toBeInTheDocument();
     expect(screen.getByText('Aprovar Gate de Qualidade')).toBeInTheDocument();
     expect(screen.getByText('Fábrica de agentes')).toBeInTheDocument();
+    expect(screen.getByText('Online').tagName).toBe('DT');
+    expect(screen.getByText('58').tagName).toBe('DD');
     expect(screen.getByText('Cotas críticas')).toBeInTheDocument();
     expect(screen.getByText('Atividade recente')).toBeInTheDocument();
   });

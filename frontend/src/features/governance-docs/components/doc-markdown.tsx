@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
+import { MermaidDiagram } from '@/features/governance-docs/components/mermaid-diagram';
 
 /**
  * Render legível de documentos de governança (.md). Reúso do react-markdown já
@@ -11,10 +12,9 @@ import { cn } from '@/lib/utils';
  * (tabelas, listas de tarefas, strikethrough) — pois o MarkdownContent do chat
  * não renderiza tabelas — e com um bloco dedicado a diagramas.
  *
- * Diagramas (```mermaid```, C4/PlantUML): o bundle não embarca um renderizador
- * de diagramas (sem rede externa/CSP), então formatamos a fonte num bloco
- * legível e rotulado. Se um render nativo (mermaid) for adicionado ao bundle no
- * futuro, basta trocar o corpo de DiagramBlock.
+ * Mermaid é renderizado localmente, sem CDN, sob `securityLevel: strict` e uma
+ * segunda sanitização do SVG. C4/PlantUML/Graphviz permanecem com fallback
+ * honesto para a fonte porque o pacote não incorpora esses motores.
  */
 
 const DIAGRAM_LANGS = new Set([
@@ -26,6 +26,7 @@ const DIAGRAM_LANGS = new Set([
   'graphviz',
   'dot',
 ]);
+const MERMAID_LANGS = new Set(['mermaid', 'c4']);
 
 function extractLang(className?: string): string | null {
   if (!className) return null;
@@ -113,11 +114,17 @@ export function DocMarkdown({ content }: { content: string }) {
                     <span className="rounded bg-surface px-1.5 py-0.5 font-mono uppercase text-brand-strong">
                       {lang}
                     </span>
-                    {t('governanceDocs.viewer.diagramLabel')}
+                    {MERMAID_LANGS.has(lang)
+                      ? t('governanceDocs.viewer.diagramVisualLabel')
+                      : t('governanceDocs.viewer.diagramLabel')}
                   </figcaption>
-                  <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed">
-                    {source.replace(/\n$/, '')}
-                  </pre>
+                  {MERMAID_LANGS.has(lang) ? (
+                    <MermaidDiagram source={source} />
+                  ) : (
+                    <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed">
+                      {source.replace(/\n$/, '')}
+                    </pre>
+                  )}
                 </figure>
               );
             }
