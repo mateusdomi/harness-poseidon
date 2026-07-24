@@ -193,6 +193,9 @@ public sealed class ConversationApiTests
                     // vêm antes da execução; `provider.invoked` marca a chamada real do
                     // provider e `model.responded` a resposta do modelo — distinta do
                     // `chat.turnCompleted`, que é conclusão de transporte.
+                    // O ciclo emite estados granulares do Chief (reading_context/thinking/
+                    // planning) como chief.turnStateChanged adicionais entre provider.invoked e
+                    // chat.turnStarted — os marcadores de atividade que orientam o balão do chat.
                     Assert.Equal(
                         [
                             "message.appended",
@@ -202,6 +205,9 @@ public sealed class ConversationApiTests
                             "execution.enqueued",
                             "chief.turnStateChanged",
                             "provider.invoked",
+                            "chief.turnStateChanged",
+                            "chief.turnStateChanged",
+                            "chief.turnStateChanged",
                             "chief.turnStateChanged",
                             "chat.turnStarted",
                             "chat.turnChunk",
@@ -214,7 +220,7 @@ public sealed class ConversationApiTests
                         snapshot.Delta.Select(item => item.Type));
                     // Sequência contígua sem lacuna nem duplicata em todo o ciclo.
                     Assert.Equal(
-                        Enumerable.Range(1, 15).Select(value => (long)value),
+                        Enumerable.Range(1, 18).Select(value => (long)value),
                         snapshot.Delta.Select(item => item.Sequence));
                     var completed = snapshot.Delta
                         .Last(item => item.Type == "chat.turnCompleted").Payload;
