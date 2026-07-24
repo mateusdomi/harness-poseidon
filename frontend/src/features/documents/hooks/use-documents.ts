@@ -201,6 +201,25 @@ export function useRequestDocumentApproval() {
   });
 }
 
+/**
+ * Cria um documento do zero (POST /documents): título + categoria + conteúdo
+ * viram a versão 1. Retorna o documento criado para o chamador abrir o detalhe.
+ */
+export function useCreateDocument() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      projectId: Ulid;
+      title: string;
+      kind: Document['kind'];
+      body: string;
+      classifications?: string[];
+    }) => api.create('documents', input),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: DOCUMENTS_PREFIX }),
+  });
+}
+
 /** Upload de documento externo (arquivo já lido como texto pelo chamador). */
 export function useUploadDocument() {
   const api = useApi();

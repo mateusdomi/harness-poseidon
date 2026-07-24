@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Check, Copy, FileCheck, Pencil } from 'lucide-react';
+import { AlertTriangle, Check, Copy, FileCheck, Pencil, Trash2 } from 'lucide-react';
 
 import type { Approval, DocumentState, DocumentVersion, Ulid } from '@/api';
 import { Badge, Button, Select, Skeleton } from '@/design-system';
@@ -9,12 +9,14 @@ import { documentStateVariant } from '@/lib/status';
 import { ApprovalResolveActions } from '@/features/shared/components/approval-resolve-actions';
 import { BackLink } from '@/features/shared/components/back-link';
 import { MarkdownContent } from '@/features/shared/components/markdown-content';
+import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import { DocumentManualEdit } from '@/features/documents/components/document-manual-edit';
 import { diffLines } from '@/features/documents/lib/diff';
 import {
   useDocumentDetail,
   useRequestDocumentApproval,
   useResolveDocumentApproval,
+  useTransitionDocument,
 } from '@/features/documents/hooks/use-documents';
 
 /** Tempo do feedback visual "copiado" (mesmo padrão da cópia do chat). */
@@ -49,10 +51,13 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
   const { document, versions, isPending, isError, refetch } = useDocumentDetail(documentId);
   const resolveApproval = useResolveDocumentApproval();
   const requestApproval = useRequestDocumentApproval();
+  const transitionDocument = useTransitionDocument();
 
   const [diffFrom, setDiffFrom] = useState<number | null>(null);
   const [diffTo, setDiffTo] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const [discardFailed, setDiscardFailed] = useState(false);
   const [copied, setCopied] = useState(false);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -105,6 +110,23 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
     (v) => v.version === document.currentVersion,
   );
   const editable = EDITABLE_STATES.includes(document.state) && currentVersion !== undefined;
+  // Sem endpoint de DELETE no contrato: "descartar" = transição honesta para
+  // `notApplicable` (o histórico de versões permanece auditável).
+  const discardable = document.state !== 'notApplicable';
+
+  async function discard() {
+    if (!document) return;
+    setDiscardFailed(false);
+    try {
+      await transitionDocument.mutateAsync({
+        documentId: document.id,
+        input: { toState: 'notApplicable', note: t('documents.detail.discard.note') },
+      });
+      setConfirmingDiscard(false);
+    } catch {
+      setDiscardFailed(true);
+    }
+  }
 
   async function copyContent() {
     if (!currentVersion) return;
@@ -186,6 +208,23 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
                 )}
                 {copied ? t('documents.detail.copied') : t('documents.detail.copy')}
               </Button>
+              {document.state === 'planned' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={transitionDocument.isPending}
+                  onClick={() =>
+                    transitionDocument.mutate({
+                      documentId: document.id,
+                      input: { toState: 'inElaboration' },
+                    })
+                  }
+                >
+                  <Pencil aria-hidden="true" />
+                  {t('documents.detail.startElaboration')}
+                </Button>
+              )}
               {editable && (
                 <Button
                   type="button"
@@ -195,6 +234,21 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
                 >
                   <Pencil aria-hidden="true" />
                   {t('documents.detail.edit.open')}
+                </Button>
+              )}
+              {discardable && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-error"
+                  onClick={() => {
+                    setDiscardFailed(false);
+                    setConfirmingDiscard(true);
+                  }}
+                >
+                  <Trash2 aria-hidden="true" />
+                  {t('documents.detail.discard.open')}
                 </Button>
               )}
             </div>
@@ -366,6 +420,44 @@ export function DocumentDetail({ documentId, approvals, chiefAgentId, onBack }: 
           </div>
         )}
       </section>
+
+      {confirmingDiscard && (
+        <ModalDialog
+          label={t('documents.detail.discard.confirmTitle', { title: document.title })}
+          onClose={() => setConfirmingDiscard(false)}
+        >
+          <h3 className="font-heading text-lg font-semibold">
+            {t('documents.detail.discard.confirmTitle', { title: document.title })}
+          </h3>
+          <p className="text-sm text-foreground-muted">
+            {t('documents.detail.discard.confirmBody')}
+          </p>
+          {discardFailed && (
+            <p role="alert" className="text-sm text-error">
+              {t('documents.detail.discard.error')}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={transitionDocument.isPending}
+              onClick={() => void discard()}
+            >
+              <Trash2 aria-hidden="true" />
+              {t('documents.detail.discard.confirm')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={transitionDocument.isPending}
+              onClick={() => setConfirmingDiscard(false)}
+            >
+              {t('common.actions.cancel')}
+            </Button>
+          </div>
+        </ModalDialog>
+      )}
     </article>
   );
 }
