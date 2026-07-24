@@ -63,3 +63,6 @@ react-router 7.18.1 tem advisory HIGH (faixa 7.12.0-8.2.0); sem versão limpa ho
 ## ✅ BACKLOG CONSTRUÍVEL ZERADO (2026-07-24)
 Todos os itens 🔨 foram entregues e verificados no host: bugs T0, RN-01..05, guardrail de docs, todas as UX por tela, i18n, identidade/tema-claro, responsivo, menus recolhíveis, perfil, tempo-real+gráficos, porta fixa, auto-update (detecção+gatilho), auto-reconhecimento (workflow/protótipo/arquitetura), e FLEET-EXEC (6/7 executores pagos provados).
 RESTA (não-construível pelo Chefe): adapter do worker-kimi-ui (decisão do dono), PLAT-ROUTERV8 (upstream react-router), smokes Entra/Teams, GNG-4, GNG-3. Follow-ups menores: fonte de marca empacotada, feed remoto de update, sync de chat ao-vivo no orquestrador.
+
+## REABERTO (2026-07-24) — G-IDENTITY-v2 (subentrega)
+O passe de identidade ficou sutil demais (tokens + fonte Inter comum, mesmos layouts) — o dono viu "continua igual". Refazer com IMPACTO VISÍVEL: empacotar fonte de display distinta (woff2 local, CSP-safe, ex.: Space Grotesk), uso BOLD do gradiente de marca, mais personalidade (acentos, cards/hero mais ricos, empty-states ilustrados), público 18-30. VERIFICAR com screenshot renderizado (antes/depois), não só testes verdes.
