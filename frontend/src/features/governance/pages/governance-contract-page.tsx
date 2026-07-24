@@ -9,6 +9,7 @@ import {
   FlaskConical,
   Gauge,
   History,
+  Info,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
@@ -36,6 +37,7 @@ import {
   Select,
   Skeleton,
   Textarea,
+  Tooltip,
 } from '@/design-system';
 import { ApiError } from '@/api';
 import {
@@ -148,16 +150,27 @@ function OverviewPanel({ data }: { data: ReturnType<typeof useGovernanceRuntimeO
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {[
-            [t('governance.runtime.summary.receipts'), receipts.length, `${completed} ${t('governance.runtime.summary.completed')}`],
-            [t('governance.runtime.summary.findings'), findings.length, t('governance.runtime.summary.staleDetail')],
-            [t('governance.runtime.summary.executors'), executors.filter((item) => item.available && item.enabled).length, `${executors.length} ${t('governance.runtime.summary.registered')}`],
-            [t('governance.runtime.summary.conflicts'), conflicts, conflicts === 0 ? t('governance.runtime.summary.none') : t('governance.runtime.summary.requiresAction')],
-          ].map(([label, value, detail]) => (
-            <Card key={String(label)}>
+            { label: t('governance.runtime.summary.receipts'), value: receipts.length, detail: `${completed} ${t('governance.runtime.summary.completed')}`, tooltip: t('governance.runtime.summary.tooltips.receipts') },
+            { label: t('governance.runtime.summary.findings'), value: findings.length, detail: t('governance.runtime.summary.staleDetail', { count: findings.length }), tooltip: t('governance.runtime.summary.tooltips.findings') },
+            { label: t('governance.runtime.summary.executors'), value: executors.filter((item) => item.available && item.enabled).length, detail: `${executors.length} ${t('governance.runtime.summary.registered')}`, tooltip: t('governance.runtime.summary.tooltips.executors') },
+            { label: t('governance.runtime.summary.conflicts'), value: conflicts, detail: conflicts === 0 ? t('governance.runtime.summary.none') : t('governance.runtime.summary.requiresAction'), tooltip: t('governance.runtime.summary.tooltips.conflicts') },
+          ].map((metric) => (
+            <Card key={metric.label}>
               <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">{label}</p>
-                <p className="mt-2 font-heading text-3xl font-semibold">{value}</p>
-                <p className="mt-1 text-xs text-foreground-muted">{detail}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">{metric.label}</p>
+                  <Tooltip label={metric.tooltip}>
+                    <button
+                      type="button"
+                      aria-label={`${metric.label}: ${metric.tooltip}`}
+                      className="inline-flex rounded-full text-foreground-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                      <Info aria-hidden="true" className="size-3.5" />
+                    </button>
+                  </Tooltip>
+                </div>
+                <p className="mt-2 font-heading text-3xl font-semibold">{metric.value}</p>
+                <p className="mt-1 text-xs text-foreground-muted">{metric.detail}</p>
               </CardContent>
             </Card>
           ))}
@@ -586,6 +599,16 @@ export default function GovernanceContractPage() {
         <div className="flex flex-wrap items-center gap-3"><h1 className="font-heading text-2xl font-semibold">{t('governance.runtime.title')}</h1><Badge variant="success">{t('governance.runtime.gate')}</Badge></div>
         <p className="mt-1 text-sm text-foreground-muted">{t('governance.runtime.subtitle')}</p>
       </div>
+      <Card className="border-primary/30 bg-surface-elevated">
+        <CardContent className="flex gap-3 p-5">
+          <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <h2 className="font-heading font-semibold">{t('governance.runtime.purpose.title')}</h2>
+            <p className="mt-1 text-sm text-foreground-muted">{t('governance.runtime.purpose.body')}</p>
+            <p className="mt-2 text-sm text-foreground-muted">{t('governance.runtime.purpose.testHint')}</p>
+          </div>
+        </CardContent>
+      </Card>
       <div role="tablist" aria-label={t('governance.runtime.tabs.label')} className="flex gap-1 overflow-x-auto border-b border-border pb-px">
         {TABS.map(({ id, icon: Icon }) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-t-md px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${tab === id ? 'border-b-2 border-primary text-foreground' : 'text-foreground-muted hover:text-foreground'}`}><Icon aria-hidden="true" className="size-4" />{t(`governance.runtime.tabs.${id}`)}</button>)}
       </div>

@@ -52,9 +52,14 @@
       "csv": "Exportar CSV"
     },
     "runtime": {
-      "title": "Governança de agentes",
-      "subtitle": "Visão operacional baseada exclusivamente nos contratos P1 e P2 publicados pelo backend.",
+      "title": "Governança e prova de execução",
+      "subtitle": "Painel de auditoria dos agentes: reúne os comprovantes de cada execução governada, as detecções automáticas em documentos, os executores registrados e os conflitos de lote.",
       "gate": "P1 + P2",
+      "purpose": {
+        "title": "Para que serve esta tela",
+        "body": "Aqui você confere e comprova o que os agentes fizeram — não é onde se cria conteúdo, e sim onde se audita e homologa. Cada execução governada gera um comprovante reproduzível (o \"bundle\": o que foi lido, o modelo usado e o resultado). Uma varredura automática sinaliza trechos sensíveis ou desatualizados em documentos. E você acompanha quais executores estão registrados e se algum lote teve conflito.",
+        "testHint": "Como testar: na Visão geral, confira os quatro números e o sinal técnico GO/NO-GO; depois abra a aba \"Comprovantes de execução\" e expanda um comprovante para ver o bundle reproduzível e as métricas do turno."
+      },
       "unknown": "desconhecido",
       "empty": "Nenhum dado publicado pelo runtime.",
       "enabled": "habilitado",
@@ -78,27 +83,34 @@
       "tabs": {
         "label": "Áreas da governança",
         "overview": "Visão geral",
-        "receipts": "Bundles e receipts",
+        "receipts": "Comprovantes de execução",
         "documents": "Documentos e saúde",
         "evaluation": "Avaliação",
         "audit": "Auditoria",
         "learning": "Aprendizado P2"
       },
       "summary": {
-        "receipts": "Receipts carregados",
+        "receipts": "Comprovantes carregados",
         "completed": "concluídos",
-        "findings": "Findings de documentos",
-        "staleDetail": "detecções sem exclusão automática",
+        "findings": "Detecções em documentos",
+        "staleDetail": "{{count}} trecho(s) sinalizado(s) por varredura, não documentos",
         "executors": "Executores ativos",
         "registered": "registrados",
-        "conflicts": "Conflitos em bundles",
+        "conflicts": "Conflitos em lotes",
         "none": "nenhum no lote atual",
-        "requiresAction": "exigem investigação"
+        "requiresAction": "exigem investigação",
+        "explain": "O que significa esta métrica?",
+        "tooltips": {
+          "receipts": "Registro reproduzível de cada execução governada de agente.",
+          "findings": "Alertas automáticos por trecho — não é a contagem de documentos.",
+          "executors": "Motores de agente registrados e prontos para rodar.",
+          "conflicts": "Divergências dentro de um lote; zero significa consistente."
+        }
       },
       "goNoGo": {
         "go": "Sinal técnico: GO",
         "noGo": "Sinal técnico: NO-GO",
-        "goBody": "A API responde e o lote atual de receipts não registra conflitos de seleção.",
+        "goBody": "A API responde e o lote atual de comprovantes não registra conflitos de seleção.",
         "noGoBody": "A API não está saudável ou há conflito em bundle; investigue antes de homologar."
       },
       "executors": {
@@ -119,11 +131,11 @@
         "search": "Buscar no lote",
         "state": "Estado",
         "limitNote": "A API P1 retorna um lote de até 100 receipts e não publica cursor de próxima página; a UI não simula paginação.",
-        "emptyTitle": "Nenhum receipt disponível",
+        "emptyTitle": "Nenhum comprovante disponível",
         "emptyBody": "Execute um turno real do Chief e tente novamente. O perfil de homologação não injeta fixtures.",
-        "view": "Ver bundle",
-        "hide": "Ocultar bundle",
-        "bundle": "Context bundle reproduzível",
+        "view": "Ver comprovante",
+        "hide": "Ocultar comprovante",
+        "bundle": "Comprovante reproduzível (bundle)",
         "documents": "Documentos selecionados",
         "metrics": "Métricas do turno"
       },
@@ -132,13 +144,13 @@
         "catalogUnavailableBody": "O OpenAPI P1 não expõe o manifest ou a saúde do linter. A lista abaixo contém somente documentos observados em receipts reais, sem inventar owner, autoridade ou status.",
         "observedTitle": "Documentos observados",
         "observedBody": "Seleção, checksum e orçamento capturados pelos receipts do lote atual.",
-        "findingsTitle": "Stale-doc findings",
+        "findingsTitle": "Detecções de documentos desatualizados",
         "findingsBody": "Detecções do runtime agrupadas por documento; nenhuma ação é executada automaticamente.",
         "noFindings": "Nenhum finding publicado pelo runtime."
       },
       "evaluation": {
-        "title": "Fresh-context evaluator",
-        "body": "Submete critérios, diff e evidências ao evaluator independente e read-only do P1. Não inclua segredos ou conteúdo classificado.",
+        "title": "Avaliação em contexto limpo",
+        "body": "Submete critérios, diff e evidências ao avaliador independente e somente-leitura do P1. Não inclua segredos ou conteúdo classificado.",
         "onePerLine": "Um item por linha.",
         "requiredError": "Preencha os identificadores, critérios, diff e evidências obrigatórios.",
         "run": "Executar avaliação",
@@ -177,8 +189,8 @@
       }
     },
     "learning": {
-      "title": "Learning candidates",
-      "body": "Fila paginada, tenant-scoped e governada. Nenhuma promoção é automática.",
+      "title": "Candidatos de aprendizado",
+      "body": "Fila paginada, isolada por tenant e governada. Nenhuma promoção é automática.",
       "empty": "Nenhum candidate encontrado para os filtros atuais.",
       "select": "Selecione um candidate para ver evidência, comparação, ações e histórico.",
       "loadMore": "Carregar próxima página",
