@@ -1,0 +1,40 @@
+{
+  "channels": {
+    "title": "Canais externos",
+    "subtitle": "Gateways de conversa externos (Telegram, Teams) vinculados a projetos. As mensagens entram na caixa durável do Chefe sem duplicação.",
+    "count": "{{count}} canal(is) vinculado(s)",
+    "kind": {
+      "telegram": "Telegram",
+      "teams": "Microsoft Teams",
+      "terminal": "Terminal"
+    },
+    "status": {
+      "linked": "Vinculado",
+      "active": "Ativo"
+    },
+    "columns": {
+      "identity": "Identidade externa",
+      "project": "Projeto",
+      "linkedAt": "Vinculado em"
+    },
+    "empty": {
+      "title": "Nenhum canal vinculado",
+      "body": "Ainda não há canal externo vinculado. Vincule um chat do Telegram a um projeto pela CLI ou pelo gateway para vê-lo aqui."
+    },
+    "error": {
+      "title": "Não foi possível carregar os canais",
+      "body": "O gateway de canais não respondeu. Tente novamente em instantes.",
+      "cta": "Tentar novamente"
+    },
+    "messages": {
+      "title": "Histórico de mensagens",
+      "subtitle": "Mensagens recentes trocadas por este canal.",
+      "empty": "Ainda não há mensagens neste canal.",
+      "select": "Selecione um canal para ver o histórico de mensagens.",
+      "author": {
+        "user": "Usuário",
+        "agent": "Agente"
+      }
+    }
+  }
+}

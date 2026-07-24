@@ -79,6 +79,9 @@ import type {
   LearningTransitionInput,
   GovernanceDocTree,
   GovernanceDocContent,
+  AgentAccountRoster,
+  ChannelLink,
+  ChannelMessagePage,
 } from '../contracts';
 
 /**
@@ -357,4 +360,21 @@ export interface ApiClient {
   saveGovernanceDoc(path: string, content: string): Promise<GovernanceDocContent>;
   /** Exclui um documento de governança do disco. */
   deleteGovernanceDoc(path: string): Promise<void>;
+  /* ---- fleet de execução + canais externos ---- */
+
+  /**
+   * Roster REDIGIDO das identidades de execução do Chefe (as 7 contas de agent-run:
+   * chief/worker × provider). Só alias/provider/executor/papéis/estado — NUNCA credencial
+   * ou token. São as identidades de execução da fleet, distintas das personas/definições.
+   */
+  listAgentAccounts(): Promise<AgentAccountRoster[]>;
+
+  /** Canais externos vinculados (ex.: Telegram) do tenant. */
+  listChannelLinks(): Promise<ChannelLink[]>;
+
+  /** Histórico de mensagens de um canal externo (cursor opaco `afterMessageId`). */
+  listChannelMessages(
+    linkId: Ulid,
+    query?: { afterMessageId?: string; limit?: number },
+  ): Promise<ChannelMessagePage>;
 }

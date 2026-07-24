@@ -62,6 +62,15 @@ public static class AgentRunEndpoints
             .ProducesProblem(401)
             .ProducesProblem(409);
 
+        // Roster REDIGIDO das identidades de execução (CA-5): apenas alias/provider/executor/
+        // papéis/estado. Nunca a referência de credencial, jamais o token. Leitura pura da
+        // configuração local — não executa probe, por isso não conflita (409) como o doctor.
+        endpoints.MapGet("/api/v1/agent-accounts", RosterAsync)
+            .WithTags("agent-runs")
+            .Produces<AgentAccountRosterResponse>()
+            .ProducesProblem(401)
+            .ProducesProblem(409);
+
         return endpoints;
     }
 
@@ -537,6 +546,53 @@ public static class AgentRunEndpoints
                 report.Authenticated))]));
     }
 
+    private static async Task<IResult> RosterAsync(
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        AgentRunSettings settings,
+        CancellationToken token)
+    {
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null)
+        {
+            return SessionRequired();
+        }
+
+        IReadOnlyList<AgentAccountDefinition> definitions;
+        try
+        {
+            definitions = AgentAccountConfigurationLoader.LoadDefinitions(settings.AccountsFilePath);
+        }
+        catch (AgentAccountValidationException exception)
+        {
+            return Problem(409, "account_configuration_invalid", exception.Code);
+        }
+
+        return Results.Ok(RedactRoster(definitions));
+    }
+
+    /// <summary>
+    /// Mapeia definições de conta para o contrato REDIGIDO. Este é o único ponto de saída do
+    /// roster e, por construção, não pode carregar <c>CredentialRef</c> nem qualquer segredo:
+    /// o contrato de resposta simplesmente não tem esse campo. Extraído como método puro para
+    /// ser provado por teste sem levantar o pipeline HTTP.
+    /// </summary>
+    public static AgentAccountRosterResponse RedactRoster(
+        IReadOnlyList<AgentAccountDefinition> definitions)
+    {
+        ArgumentNullException.ThrowIfNull(definitions);
+        return new AgentAccountRosterResponse(
+            [.. definitions.Select(definition => new AgentAccountRosterContract(
+                definition.Alias,
+                definition.ProviderKind,
+                definition.ExecutorId,
+                definition.AllowedRoles,
+                Math.Max(1, definition.ConcurrencyLimit),
+                definition.Priority,
+                definition.Enabled,
+                definition.Enabled ? "authentication-required" : "disabled"))]);
+    }
+
     private static AgentRunResponse ToResponse(AgentRunSnapshot snapshot) =>
         new(snapshot.RunId,
             snapshot.AttemptId,
@@ -718,3 +774,20 @@ public sealed record AgentAccountDoctorContract(
     bool ProfileHealthy,
     IReadOnlyList<string> ProfileFindings,
     bool Authenticated);
+
+public sealed record AgentAccountRosterResponse(IReadOnlyList<AgentAccountRosterContract> Accounts);
+
+/// <summary>
+/// Identidade de execução da fleet, REDIGIDA. Contém apenas o que é seguro exibir: alias,
+/// provider, executor, papéis lógicos, limites e estado. NÃO existe campo de credencial ou
+/// segredo neste contrato — a redação é estrutural, não um filtro que possa ser esquecido.
+/// </summary>
+public sealed record AgentAccountRosterContract(
+    string Alias,
+    string ProviderKind,
+    string ExecutorId,
+    IReadOnlyList<string> Roles,
+    int ConcurrencyLimit,
+    int Priority,
+    bool Enabled,
+    string State);

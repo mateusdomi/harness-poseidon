@@ -18,4 +18,5 @@ export * from './registry';
 export * from './streams';
 export * from './governance-runtime';
 export * from './governance-docs';
+export * from './runtime';
 export * from './readiness';

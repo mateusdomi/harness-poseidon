@@ -9,6 +9,7 @@ import {
   Network,
   Play,
   Puzzle,
+  Radio,
   Rocket,
   Scale,
   ScrollText,
@@ -79,6 +80,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'organizations', path: '/organizations', icon: Building2 },
       { key: 'providers', path: '/providers', icon: ScrollText },
+      { key: 'channels', path: '/channels', icon: Radio },
       { key: 'tools', path: '/tools', icon: Wrench },
       { key: 'licenses', path: '/licenses', icon: ShieldCheck },
       { key: 'po-assistant', path: '/po-assistant', icon: UserRoundCheck },

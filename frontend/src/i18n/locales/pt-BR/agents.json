@@ -1,5 +1,19 @@
 {
   "agents": {
+    "roster": {
+      "title": "Roster da fleet de execução",
+      "subtitle": "As identidades de execução (contas de agent-run) que o Chefe usa para rodar o trabalho — chief/worker por provedor. Distintas das personas/definições acima: aqui é QUEM executa. Somente leitura e redigido — nunca há credencial ou token.",
+      "count": "{{count}} identidades",
+      "provider": "Provedor",
+      "executor": "Executor",
+      "roles": "Papéis",
+      "state": {
+        "authentication-required": "Autenticação necessária",
+        "disabled": "Desabilitada"
+      },
+      "empty": "Nenhuma identidade de execução configurada.",
+      "error": "Não foi possível carregar o roster de execução."
+    },
     "count": "{{count}} agente(s) na equipe",
     "groups": {
       "chief": "Chefe"

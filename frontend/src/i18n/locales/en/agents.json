@@ -1,5 +1,19 @@
 {
   "agents": {
+    "roster": {
+      "title": "Execution fleet roster",
+      "subtitle": "The execution identities (agent-run accounts) the Chief uses to run work — chief/worker per provider. Distinct from the personas/definitions above: this is WHO executes. Read-only and redacted — never a credential or token.",
+      "count": "{{count}} identities",
+      "provider": "Provider",
+      "executor": "Executor",
+      "roles": "Roles",
+      "state": {
+        "authentication-required": "Auth required",
+        "disabled": "Disabled"
+      },
+      "empty": "No execution identity configured.",
+      "error": "Could not load the execution roster."
+    },
     "count": "{{count}} agent(s) on the team",
     "groups": {
       "chief": "Chief"
