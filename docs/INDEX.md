@@ -166,7 +166,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Decisões pendentes e suposições](backend/execution/DECISIONS_PENDING.md) | * | Active | Platform Engineering | OnDemand | 588 |
-| [Harness Desktop — instalação, operação e desinstalação (modo pessoal)](backend/execution/DESKTOP.md) | * | Active | Platform Engineering | OnDemand | 596 |
+| [Harness Desktop — instalação, operação e desinstalação (modo pessoal)](backend/execution/DESKTOP.md) | * | Active | Platform Engineering | OnDemand | 1314 |
 | [Ambiente de execução](backend/execution/ENVIRONMENT.md) | * | Active | Platform Engineering | OnDemand | 1721 |
 | [Escopo da Fase 0](backend/execution/PHASE_0_SCOPE.md) | * | Active | Platform Engineering | OnDemand | 227 |
 | [Progresso e evidências](backend/execution/PROGRESS.md) | * | Active | Platform Engineering | OnDemand | 6416 |

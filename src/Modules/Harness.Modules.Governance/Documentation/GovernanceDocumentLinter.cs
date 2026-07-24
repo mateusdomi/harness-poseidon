@@ -7,7 +7,7 @@ public sealed partial class GovernanceDocumentLinter
 {
     private static readonly string[] ExcludedDirectoryNames =
     [
-        ".git", ".artifacts", ".tooling", "bin", "obj", "node_modules"
+        ".claude", ".git", ".artifacts", ".tooling", "bin", "obj", "node_modules"
     ];
 
     private readonly string _repositoryRoot;

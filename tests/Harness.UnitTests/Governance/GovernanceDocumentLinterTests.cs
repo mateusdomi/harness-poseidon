@@ -55,6 +55,20 @@ public sealed class GovernanceDocumentLinterTests
         Assert.Contains(findings, finding => finding.Code == "GOV021" && finding.Path == "AGENTS.md");
     }
 
+    [Fact]
+    public void MarkdownCoverageIgnoresClaudeManagedWorktrees()
+    {
+        using var repository = TemporaryGovernanceRepository.Create("valid");
+        var worktree = System.IO.Path.Combine(repository.Path, ".claude", "worktrees", "agent-1");
+        Directory.CreateDirectory(worktree);
+        File.WriteAllText(System.IO.Path.Combine(worktree, "README.md"), "# Auxiliary worktree\n");
+
+        var report = new GovernanceDocumentLinter(repository.Path, checkGeneratedDocuments: false)
+            .Lint(new DateTimeOffset(2026, 7, 24, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.DoesNotContain(report.Findings, finding => finding.Code == "GOV019");
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

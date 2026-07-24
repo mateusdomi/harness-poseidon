@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-23T20:45:16.4940360+00:00
+lastGeneratedAt: 2026-07-24T20:26:04.3122710+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -221,7 +221,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:306fe2b297a505616fa39b77ffcd49542df88a7e84440917ccb47a67e585b706
+  checksum: sha256:c228e175cad06cd460cdb8bcc5d1aecb8f13631662e2ce1ee930aaf365f32c99
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -529,7 +529,7 @@ documents:
   - docs/testing/**
   loadPolicy: on-demand
   priority: 450
-  tokenEstimate: 596
+  tokenEstimate: 1314
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -539,7 +539,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:55787c9471ec3a4a851bb08e841462209e0165eabc9d46df5a764d5dffe756f3
+  checksum: sha256:cf01e7f8ce544a748e74a50c63200c2a31e87edaaefa5da316d63763dfa39964
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/DESKTOP.md
