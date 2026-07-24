@@ -146,6 +146,27 @@
         }
       }
     },
+    "charts": {
+      "milestones": {
+        "title": "Progresso dos marcos",
+        "caption": "{{done}} de {{total}} marcos concluídos.",
+        "aria": "{{done}} de {{total}} marcos concluídos ({{pct}}%).",
+        "empty": "Nenhum marco definido para esta entrega."
+      },
+      "features": {
+        "title": "Tentativas por feature",
+        "success": "Sucesso",
+        "failure": "Falhas",
+        "empty": "Sem dados de tentativas por feature ainda.",
+        "bar": "{{feature}}: {{success}} tentativas com sucesso, {{failure}} com falha"
+      },
+      "forecast": {
+        "title": "Tendência de confiança da previsão",
+        "caption": "Confiança de cada recálculo ao longo do tempo (0–100%).",
+        "empty": "Histórico insuficiente para traçar uma tendência ainda — uma medição não é tendência.",
+        "aria": "Tendência de confiança da previsão de {{from}}% a {{to}}% em {{count}} recálculos."
+      }
+    },
     "reports": {
       "title": "Central de Relatórios",
       "subtitle": "Gere, aprove e envie relatórios. Aprovação humana é obrigatória antes do envio externo.",

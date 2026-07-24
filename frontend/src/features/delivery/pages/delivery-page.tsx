@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button, Card, CardContent, Field, Select, Skeleton } from '@/design-system';
 
 import { DeliveryApiProvider } from '../api/delivery-provider';
-import { usePortfolio } from '../hooks/use-delivery';
+import { useDeliveryRealtime, usePortfolio } from '../hooks/use-delivery';
 import { PortfolioList } from '../components/portfolio-list';
 import { DeliveryOverview } from '../components/delivery-overview';
 import { ReportsCenter } from '../components/reports-center';
@@ -27,6 +27,14 @@ export function DeliveryCenter() {
   const [tab, setTab] = useState<Tab>('overview');
 
   const portfolioQuery = usePortfolio(view);
+
+  // Tempo real: assina os projetos das entregas visíveis; qualquer evento que
+  // mexa na agregação (tarefa/gate/aprovação/decisão) invalida a Central.
+  const projectIds = useMemo(
+    () => (portfolioQuery.data?.deliveries ?? []).map((d) => d.projectId),
+    [portfolioQuery.data],
+  );
+  useDeliveryRealtime(projectIds);
 
   function openDelivery(deliveryId: string) {
     const summary = portfolioQuery.data?.deliveries.find((d) => d.deliveryId === deliveryId);

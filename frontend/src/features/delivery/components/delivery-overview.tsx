@@ -13,6 +13,7 @@ import {
 import { formatDate, formatDateTime, formatUsd } from '../lib/format';
 import { useForecast, useMetrics, useOverview, useRecalcForecast } from '../hooks/use-delivery';
 import type { DeliveryForecast, DeliveryMetric } from '../api/types';
+import { DeliveryCharts } from './delivery-charts';
 import {
   ConfidenceBadge,
   HealthBadge,
@@ -147,6 +148,13 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
           </dl>
         </CardContent>
       </Card>
+
+      <DeliveryCharts
+        features={o.valueAndMetrics.features}
+        milestonesDone={o.planAndMilestones.milestonesDone}
+        milestonesTotal={o.planAndMilestones.milestonesTotal}
+        forecastHistory={forecastQuery.data?.history ?? o.planAndMilestones.forecastHistory}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

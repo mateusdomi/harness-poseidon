@@ -15,6 +15,12 @@
       "error": "Could not load the execution roster."
     },
     "count": "{{count}} agent(s) on the team",
+    "chart": {
+      "title": "Team utilization",
+      "subtitle": "Tasks completed by each agent (accumulated) — where the team's throughput sits right now.",
+      "empty": "The team has not completed any tasks yet.",
+      "bar": "{{agent}}: {{count}} tasks completed"
+    },
     "groups": {
       "chief": "Chief"
     },
