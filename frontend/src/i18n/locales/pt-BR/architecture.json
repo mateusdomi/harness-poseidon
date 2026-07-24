@@ -1,0 +1,71 @@
+{
+  "architecture": {
+    "title": "Architecture Studio",
+    "subtitle": "Modelo estruturado da arquitetura — elementos, propriedades e relacionamentos. As views C4 e ArchiMate são projeções do mesmo grafo.",
+    "projectLabel": "Projeto",
+    "noProject": "Selecione um projeto para começar.",
+    "groups": {
+      "model": "Modelo",
+      "c4": "C4",
+      "archimate": "ArchiMate",
+      "extra": "Vistas extras"
+    },
+    "views": {
+      "model": "Modelo completo",
+      "c4-context": "Contexto do sistema",
+      "c4-container": "Containers",
+      "c4-component": "Componentes",
+      "c4-deployment": "Deployment",
+      "c4-dynamic": "Dinâmica",
+      "archimate-business": "Negócio",
+      "archimate-application": "Aplicação",
+      "archimate-data": "Dados",
+      "archimate-technology": "Tecnologia",
+      "archimate-motivation": "Motivação",
+      "data": "Dados e PII",
+      "sequence": "Sequência",
+      "security": "Segurança e fronteiras de confiança",
+      "infrastructure": "Infraestrutura",
+      "network": "Rede",
+      "cost": "Custos",
+      "observability": "Observabilidade",
+      "savedName": "{{view}} (salva)"
+    },
+    "selector": {
+      "title": "Views",
+      "presetLabel": "Projeção do modelo",
+      "savedLabel": "Views salvas",
+      "savedEmpty": "Nenhuma view salva ainda.",
+      "backToPresets": "Voltar às projeções",
+      "saveView": "Salvar view atual"
+    },
+    "canvas": {
+      "label": "Canvas da arquitetura",
+      "summary": "{{elements}} elementos · {{relationships}} relacionamentos",
+      "empty": "Nenhum elemento nesta view."
+    },
+    "add": {
+      "title": "Adicionar elemento",
+      "label": "Adicionar elemento ao modelo",
+      "name": "Nome",
+      "namePlaceholder": "Ex.: Serviço de Faturamento",
+      "kind": "Tipo",
+      "kindPlaceholder": "Ex.: container, component, dataObject",
+      "description": "Descrição",
+      "submit": "Adicionar ao modelo"
+    },
+    "inspector": {
+      "label": "Propriedades do elemento",
+      "empty": "Selecione um elemento no canvas para ver e editar suas propriedades.",
+      "locked": "Bloqueado",
+      "unlocked": "Editável",
+      "version": "v{{version}}",
+      "properties": "Propriedades",
+      "noProperties": "Sem propriedades.",
+      "relationships": "Relacionamentos",
+      "noRelationships": "Sem relacionamentos.",
+      "lockAction": "Bloquear elemento",
+      "unlockAction": "Desbloquear elemento"
+    }
+  }
+}

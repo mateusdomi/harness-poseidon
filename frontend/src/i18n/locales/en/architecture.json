@@ -1,0 +1,71 @@
+{
+  "architecture": {
+    "title": "Architecture Studio",
+    "subtitle": "Structured architecture model — elements, properties and relationships. C4 and ArchiMate views are projections of the same graph.",
+    "projectLabel": "Project",
+    "noProject": "Select a project to get started.",
+    "groups": {
+      "model": "Model",
+      "c4": "C4",
+      "archimate": "ArchiMate",
+      "extra": "Extra views"
+    },
+    "views": {
+      "model": "Full model",
+      "c4-context": "System context",
+      "c4-container": "Containers",
+      "c4-component": "Components",
+      "c4-deployment": "Deployment",
+      "c4-dynamic": "Dynamic",
+      "archimate-business": "Business",
+      "archimate-application": "Application",
+      "archimate-data": "Data",
+      "archimate-technology": "Technology",
+      "archimate-motivation": "Motivation",
+      "data": "Data & PII",
+      "sequence": "Sequence",
+      "security": "Security & trust boundaries",
+      "infrastructure": "Infrastructure",
+      "network": "Network",
+      "cost": "Cost",
+      "observability": "Observability",
+      "savedName": "{{view}} (saved)"
+    },
+    "selector": {
+      "title": "Views",
+      "presetLabel": "Model projection",
+      "savedLabel": "Saved views",
+      "savedEmpty": "No saved views yet.",
+      "backToPresets": "Back to projections",
+      "saveView": "Save current view"
+    },
+    "canvas": {
+      "label": "Architecture canvas",
+      "summary": "{{elements}} elements · {{relationships}} relationships",
+      "empty": "No elements in this view."
+    },
+    "add": {
+      "title": "Add element",
+      "label": "Add element to the model",
+      "name": "Name",
+      "namePlaceholder": "e.g. Billing Service",
+      "kind": "Kind",
+      "kindPlaceholder": "e.g. container, component, dataObject",
+      "description": "Description",
+      "submit": "Add to model"
+    },
+    "inspector": {
+      "label": "Element properties",
+      "empty": "Select an element on the canvas to view and edit its properties.",
+      "locked": "Locked",
+      "unlocked": "Editable",
+      "version": "v{{version}}",
+      "properties": "Properties",
+      "noProperties": "No properties.",
+      "relationships": "Relationships",
+      "noRelationships": "No relationships.",
+      "lockAction": "Lock element",
+      "unlockAction": "Unlock element"
+    }
+  }
+}
