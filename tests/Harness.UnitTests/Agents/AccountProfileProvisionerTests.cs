@@ -93,6 +93,55 @@ public sealed class AccountProfileProvisionerTests : IDisposable
     }
 
     [Fact]
+    public void UserIsDerivedFromTheSystemWhenTheHostEnvironmentOmitsIt()
+    {
+        // Regressão do bloqueio da fleet: um Host iniciado por duplo-clique no Finder /
+        // launchd pode não ter USER no ambiente. Sem USER o Claude Code não alcança o item do
+        // Keychain no macOS e responde "Not logged in" MESMO com a conta autenticada e o
+        // doctor verde. A execução do worker não pode depender do modo de inicialização do
+        // Host: USER (declarado na allowlist) é derivado do SO quando ausente.
+        var provisioner = Provisioner();
+        var handle = provisioner.Ensure(
+            Account("worker-claude-secondary", ExecutorCatalog.ClaudeCode),
+            Profile(ExecutorCatalog.ClaudeCode), Now);
+
+        var environment = provisioner.BuildEnvironment(
+            handle.Layout,
+            Profile(ExecutorCatalog.ClaudeCode),
+            // Ambiente do Host SEM USER — exatamente o contexto do Finder/launchd.
+            new Dictionary<string, string?> { ["PATH"] = "/usr/bin", ["HOME"] = "/Users/operator" });
+
+        Assert.True(environment.ContainsKey("USER"));
+        Assert.Equal(Environment.UserName, environment["USER"]);
+        // HOME herdado continua vencendo (identidade Git global preservada).
+        Assert.Equal("/Users/operator", environment["HOME"]);
+        Assert.Equal(handle.Layout.ConfigHomePath, environment["CLAUDE_CONFIG_DIR"]);
+    }
+
+    [Fact]
+    public void HomeIsDerivedFromTheSystemForKeychainReachWhenAbsentAndAConfigHomeVariableExists()
+    {
+        // Onde há variável de config home dedicada (Claude Code/GLM), HOME NÃO é trocado —
+        // mas PRECISA existir para o Keychain. Ausente no ambiente do Host, deriva-se do SO
+        // em vez de apontá-lo ao config home (o que quebraria a identidade Git).
+        var provisioner = Provisioner();
+        var handle = provisioner.Ensure(
+            Account("chief-claude-primary", ExecutorCatalog.ClaudeCode),
+            Profile(ExecutorCatalog.ClaudeCode), Now);
+
+        var environment = provisioner.BuildEnvironment(
+            handle.Layout,
+            Profile(ExecutorCatalog.ClaudeCode),
+            new Dictionary<string, string?> { ["PATH"] = "/usr/bin" });
+
+        Assert.True(environment.ContainsKey("HOME"));
+        Assert.Equal(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            environment["HOME"]);
+        Assert.NotEqual(handle.Layout.ConfigHomePath, environment["HOME"]);
+    }
+
+    [Fact]
     public void OnlyAllowlistedEnvironmentVariablesAreInherited()
     {
         var provisioner = Provisioner();
