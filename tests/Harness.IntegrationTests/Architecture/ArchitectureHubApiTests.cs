@@ -58,21 +58,36 @@ public sealed class ArchitectureHubApiTests
                 // ARC-06: registra descobertas com confiança + evidência + perguntas pendentes.
                 var d1 = await CreateDiscoveryAsync(client, new
                 {
-                    projectId = project.Id, systemId = billing.Id, subjectName = "Billing", sourceKind = "openapi",
-                    field = "capabilities", value = "billing", confidence = "high",
-                    evidence = "GET /invoices in openapi.json", pendingQuestions = OwnerQuestion,
+                    projectId = project.Id,
+                    systemId = billing.Id,
+                    subjectName = "Billing",
+                    sourceKind = "openapi",
+                    field = "capabilities",
+                    value = "billing",
+                    confidence = "high",
+                    evidence = "GET /invoices in openapi.json",
+                    pendingQuestions = OwnerQuestion,
                 }, timeout.Token);
                 await CreateDiscoveryAsync(client, new
                 {
-                    projectId = project.Id, systemId = billing.Id, subjectName = "Billing", sourceKind = "repo",
-                    field = "techStack", value = "dotnet", confidence = "low",
-                    evidence = "csproj net10.0", pendingQuestions = RepoQuestions,
+                    projectId = project.Id,
+                    systemId = billing.Id,
+                    subjectName = "Billing",
+                    sourceKind = "repo",
+                    field = "techStack",
+                    value = "dotnet",
+                    confidence = "low",
+                    evidence = "csproj net10.0",
+                    pendingQuestions = RepoQuestions,
                 }, timeout.Token);
 
                 // Evidência é OBRIGATÓRIA em toda descoberta.
                 using (var noEvidence = await client.PostAsJsonAsync("/api/v1/architecture/discoveries", new
                 {
-                    subjectName = "X", sourceKind = "repo", field = "f", confidence = "low",
+                    subjectName = "X",
+                    sourceKind = "repo",
+                    field = "f",
+                    confidence = "low",
                 }, timeout.Token))
                 {
                     Assert.Equal(HttpStatusCode.BadRequest, noEvidence.StatusCode);
@@ -95,13 +110,19 @@ public sealed class ArchitectureHubApiTests
                 // ARC-02/03: metadados p/ a racionalização (heatmaps/insights derivam destes fatos).
                 await SetMetadataAsync(client, billing.Id, new
                 {
-                    criticality = "critical", domain = "payments", capabilities = BillingCapability,
-                    lifecycleStatus = "eol", owner = "team",
+                    criticality = "critical",
+                    domain = "payments",
+                    capabilities = BillingCapability,
+                    lifecycleStatus = "eol",
+                    owner = "team",
                 }, timeout.Token);
                 await SetMetadataAsync(client, gateway.Id, new
                 {
-                    criticality = "high", domain = "integration", capabilities = IntegrationCapability,
-                    lifecycleStatus = "active", owner = "platform",
+                    criticality = "high",
+                    domain = "integration",
+                    capabilities = IntegrationCapability,
+                    lifecycleStatus = "active",
+                    owner = "platform",
                 }, timeout.Token);
                 await CreateRelationshipAsync(client, project.Id, gateway.Id, billing.Id, "depends-on", timeout.Token);
 
@@ -114,9 +135,14 @@ public sealed class ArchitectureHubApiTests
                 // ARC-08: ADR corporativo + padrão reutilizável.
                 var adr = await CreatePatternAsync(client, new
                 {
-                    projectId = project.Id, kind = "adr", title = "Use event bus for integration",
-                    status = "accepted", context = "Point-to-point sprawl", body = "Adopt a shared bus.",
-                    consequences = "Looser coupling.", tags = IntegrationTag,
+                    projectId = project.Id,
+                    kind = "adr",
+                    title = "Use event bus for integration",
+                    status = "accepted",
+                    context = "Point-to-point sprawl",
+                    body = "Adopt a shared bus.",
+                    consequences = "Looser coupling.",
+                    tags = IntegrationTag,
                 }, timeout.Token);
                 Assert.Equal("adr", adr!.Kind);
                 var patterns = await client.GetFromJsonAsync<ArchitecturePatternListContract>(
