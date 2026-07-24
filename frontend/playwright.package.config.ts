@@ -12,7 +12,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: 'list',
-  outputDir: 'test-results/package-clean',
+  outputDir: process.env.POSEIDON_PACKAGE_OUTPUT_DIR ?? 'test-results/package-clean',
   use: {
     ...devices['Desktop Chrome'],
     baseURL: packageUrl,

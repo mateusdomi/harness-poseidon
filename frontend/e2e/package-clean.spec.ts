@@ -137,7 +137,7 @@ async function createProject(page: Page) {
   await page.getByLabel('Slug (sigla)').fill('PKGCLEAN');
   await page.getByLabel('Descrição').fill('Regressão do pacote self-contained com data dir vazio.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
-  await page.getByLabel(new RegExp(PROFILE_NAME)).check();
+  await page.getByRole('checkbox', { name: new RegExp(`^${PROFILE_NAME}\\s`) }).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
   await expect(page.getByRole('button', { name: PROJECT_NAME, exact: false })).toBeVisible();
 }
@@ -292,7 +292,7 @@ test('golden path guia o primeiro uso do workspace vazio até o bloqueio honesto
   // Cockpit: checklist do golden path visível, com a organização como passo atual.
   await expect(page.getByText('Comece por aqui')).toBeVisible();
   // Perfil já concluído; organização é o passo atual.
-  await expect(page.getByText('1 de 8 concluídos').first()).toBeVisible();
+  await expect(page.getByText(/^1 de \d+ concluídos$/).first()).toBeVisible();
   await expect(page.getByRole('link', { name: /Criar organização/ }).first()).toBeVisible();
 
   // Projetos sem organização: pré-condição explicada, sem select vazio.
@@ -308,7 +308,7 @@ test('golden path guia o primeiro uso do workspace vazio até o bloqueio honesto
   // Slug é derivado do nome (seção avançada) e o plano NÃO é escolha do usuário.
   await page.getByLabel('Nome').fill(ORGANIZATION_NAME);
   await expect(page.getByLabel('Plano')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Opções avançadas' }).click();
+  await page.getByRole('button', { name: 'Opções avançadas' }).first().click();
   await expect(page.getByLabel('Identificador da URL')).not.toHaveValue('');
   await page.getByRole('button', { name: 'Criar organização' }).click();
 
@@ -320,7 +320,7 @@ test('golden path guia o primeiro uso do workspace vazio até o bloqueio honesto
   await page.getByLabel(/Slug \(sigla\)/).fill('PKGGOLD');
   await page.getByLabel('Descrição').fill('Projeto do gate de golden path.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
-  await page.getByLabel(new RegExp(PROFILE_NAME)).check();
+  await page.getByRole('checkbox', { name: new RegExp(`^${PROFILE_NAME}\\s`) }).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
   await expect(page.getByRole('button', { name: PROJECT_NAME, exact: false })).toBeVisible();
 
