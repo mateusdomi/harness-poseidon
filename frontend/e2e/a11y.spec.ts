@@ -17,6 +17,7 @@ import { expect, test, type Page } from '@playwright/test';
 const ROUTES: Array<{ key: string; path: string }> = [
   { key: 'cockpit', path: '/cockpit' },
   { key: 'projects', path: '/projects' },
+  { key: 'delivery', path: '/delivery' },
   { key: 'chat', path: '/chat' },
   { key: 'conversations', path: '/conversations' },
   { key: 'board', path: '/board' },
