@@ -5,11 +5,16 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { streams } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import BoardPage from '@/features/board/pages/board-page';
-import { groupTasksByState, parseTaskStateParam } from '@/features/board/lib/board-derive';
+import {
+  assigneeAgents,
+  groupTasksByState,
+  parseTaskStateParam,
+  shortTaskId,
+} from '@/features/board/lib/board-derive';
 import { renderWithApi } from '@/test/render-with-providers';
 
 const fixtures = createTestBundle().fixtures.data;
-const { tasks, projects } = fixtures;
+const { tasks, projects, agents } = fixtures;
 const firstProject = projects[0];
 const projectTasks = tasks.filter((task) => task.projectId === firstProject.id);
 
@@ -30,6 +35,33 @@ describe('board-derive', () => {
     expect(parseTaskStateParam('testsGates')).toBe('testsGates');
     expect(parseTaskStateParam('invalid')).toBeNull();
     expect(parseTaskStateParam(null)).toBeNull();
+  });
+
+  it('shortTaskId: sufixo de 6 chars em caixa alta, contido no ID completo', () => {
+    const id = tasks[0].id;
+    const short = shortTaskId(id);
+    expect(short).toHaveLength(6);
+    expect(short).toBe(short.toUpperCase());
+    // O que o usuário vê no card é sufixo do ID → a busca por ID casa.
+    expect(id.toUpperCase().endsWith(short)).toBe(true);
+    expect(shortTaskId('01hzzzzzzzabcdef')).toBe('ABCDEF');
+  });
+
+  it('assigneeAgents lista só responsáveis reais, ordenados e sem chefes', () => {
+    const result = assigneeAgents(tasks, agents);
+    const assignedIds = new Set(
+      tasks.map((task) => task.assigneeAgentId).filter((id): id is string => id !== null),
+    );
+    expect(result.length).toBeGreaterThan(0);
+    // Todo item filtra de verdade: é responsável real de ao menos um card.
+    expect(result.every((agent) => assignedIds.has(agent.id))).toBe(true);
+    // Sem opções mortas: chefes orquestram, não recebem cards.
+    expect(result.some((agent) => agent.name.startsWith('Chefe'))).toBe(false);
+    // Nomes legíveis, ordenados alfabeticamente.
+    const names = result.map((agent) => agent.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    // Cada responsável real aparece no máximo uma vez.
+    expect(new Set(result.map((agent) => agent.id)).size).toBe(result.length);
   });
 });
 
@@ -96,6 +128,56 @@ describe('BoardPage', () => {
     // Não existe botão "nova tarefa" — humano não cria tarefa técnica.
     expect(screen.queryByRole('button', { name: /nova tarefa/i })).not.toBeInTheDocument();
     expect(screen.getByText(/cadeia solicitação → demanda → tarefa/)).toBeInTheDocument();
+  });
+
+  it('mostra o ID curto (discreto) no card, buscável pelo que o usuário vê', async () => {
+    const user = userEvent.setup();
+    renderBoard();
+
+    const task = projectTasks.find((entry) => entry.title === 'Mapear endpoints de billing')!;
+    const backlogColumn = await screen.findByRole('region', { name: /Backlog/ });
+    // O sufixo do ULID aparece no card, com o ID completo no tooltip nativo.
+    const idChip = within(backlogColumn).getByText(`#${shortTaskId(task.id)}`);
+    expect(idChip).toHaveAttribute('title', `ID da tarefa: ${task.id}`);
+
+    // Buscar pelo sufixo visível encontra a tarefa (busca por ID casa).
+    await user.type(await screen.findByLabelText('Buscar'), shortTaskId(task.id));
+    expect(
+      await within(backlogColumn).findByRole('button', { name: /Mapear endpoints de billing/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('expõe o ID completo copiável no detalhe da tarefa', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const task = projectTasks.find((entry) => entry.title === 'Mapear endpoints de billing')!;
+    renderBoard(`/board?task=${task.id}`);
+
+    expect(await screen.findByText(task.id)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copiar ID' }));
+    expect(writeText).toHaveBeenCalledWith(task.id);
+    expect(await screen.findByRole('button', { name: 'ID copiado' })).toBeInTheDocument();
+  });
+
+  it('o filtro "Responsável" abre em "Todos os responsáveis" e lista responsáveis reais', async () => {
+    renderBoard();
+
+    const assigneeSelect = await screen.findByLabelText('Responsável');
+    // Opção neutra clara (não mais um "Todas" ambíguo).
+    expect(within(assigneeSelect).getByRole('option', { name: 'Todos os responsáveis' })).toBeInTheDocument();
+    // Sem opções mortas: nenhum chefe entra na lista de responsáveis.
+    expect(within(assigneeSelect).queryByRole('option', { name: /^Chefe/ })).not.toBeInTheDocument();
+    // Só entra quem tem card: cada opção corresponde a um assignee real.
+    const assignedIds = new Set(
+      projectTasks.map((entry) => entry.assigneeAgentId).filter((id): id is string => id !== null),
+    );
+    const options = within(assigneeSelect)
+      .getAllByRole('option')
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => value !== '');
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.every((value) => assignedIds.has(value))).toBe(true);
   });
 
   it('move o card de coluna ao receber task.stateChanged no stream do projeto', async () => {

@@ -905,12 +905,16 @@
       "blocked": "Bloqueada: {{reason}}",
       "blockedUnknown": "motivo não informado",
       "updated": "Atualizada {{time}}",
-      "archived": "Arquivada"
+      "archived": "Arquivada",
+      "idLabel": "ID da tarefa: {{id}}"
     },
     "detail": {
       "back": "Voltar ao quadro",
       "close": "Fechar detalhes da tarefa",
       "dialogLabel": "Detalhes da tarefa",
+      "id": "ID",
+      "copyId": "Copiar ID",
+      "copiedId": "ID copiado",
       "assignee": "Responsável",
       "updated": "Última atividade",
       "progressTitle": "Progresso",
@@ -977,6 +981,7 @@
       "searchPlaceholder": "Título ou ID da tarefa…",
       "state": "Coluna",
       "agent": "Responsável",
+      "agentAll": "Todos os responsáveis",
       "priority": "Prioridade",
       "period": "Última atividade",
       "periodAll": "Tudo",

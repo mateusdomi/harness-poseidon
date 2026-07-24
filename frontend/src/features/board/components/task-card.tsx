@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react';
 
 import type { Task, TaskState } from '@/api';
 import { Badge } from '@/design-system';
+import { shortTaskId } from '@/features/board/lib/board-derive';
 import { formatRelativeTime } from '@/lib/format';
 import { priorityVariant, taskStateVariant } from '@/lib/status';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,14 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
           {task.archivedAt !== null && (
             <Badge variant="outline">{t('board.card.archived')}</Badge>
           )}
+          {/* ID curto e discreto: buscável (sufixo do ULID) e com o ID
+              completo no tooltip nativo — o usuário busca pelo que vê. */}
+          <span
+            className="ml-auto font-mono text-[0.7rem] text-foreground-muted"
+            title={t('board.card.idLabel', { id: task.id })}
+          >
+            #{shortTaskId(task.id)}
+          </span>
         </span>
         {task.state === 'blocked' && (
           <span className="flex items-start gap-1.5 text-xs text-error">

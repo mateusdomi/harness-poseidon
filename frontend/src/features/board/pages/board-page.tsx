@@ -19,6 +19,7 @@ import {
   useNow,
 } from '@/features/board/hooks/use-board';
 import { useMediaQuery } from '@/features/board/hooks/use-media-query';
+import { assigneeAgents } from '@/features/board/lib/board-derive';
 import {
   boardFiltersToSearchParams,
   filterBoardTasks,
@@ -108,6 +109,10 @@ export default function UboardPage() {
     [tasks, filters, now],
   );
   const filteredState = filters.state === '' ? null : filters.state;
+  // Opções do filtro "Responsável": só quem realmente tem card (dado real),
+  // com nome legível — sem opções mortas (ex.: chefes). Derivado de todas as
+  // tarefas do projeto (não do conjunto filtrado), para a lista ficar estável.
+  const filterAssignees = useMemo(() => assigneeAgents(tasks, agents), [tasks, agents]);
   // Elegíveis ao arquivamento em lote: concluídas e ainda ativas (do projeto).
   const archivableTasks = useMemo(
     () => tasks.filter((task) => task.state === 'done' && task.archivedAt === null),
@@ -227,7 +232,7 @@ export default function UboardPage() {
             <>
               <BoardFiltersBar
                 filters={filters}
-                agents={agents}
+                agents={filterAssignees}
                 filteredCount={filteredTasks.length}
                 totalCount={tasks.length}
                 archivableCount={archivableTasks.length}

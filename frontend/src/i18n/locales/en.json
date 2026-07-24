@@ -905,12 +905,16 @@
       "blocked": "Blocked: {{reason}}",
       "blockedUnknown": "no reason given",
       "updated": "Updated {{time}}",
-      "archived": "Archived"
+      "archived": "Archived",
+      "idLabel": "Task ID: {{id}}"
     },
     "detail": {
       "back": "Back to the board",
       "close": "Close task details",
       "dialogLabel": "Task details",
+      "id": "ID",
+      "copyId": "Copy ID",
+      "copiedId": "ID copied",
       "assignee": "Assignee",
       "updated": "Last activity",
       "progressTitle": "Progress",
@@ -977,6 +981,7 @@
       "searchPlaceholder": "Task title or ID…",
       "state": "Column",
       "agent": "Assignee",
+      "agentAll": "All assignees",
       "priority": "Priority",
       "period": "Last activity",
       "periodAll": "All time",
