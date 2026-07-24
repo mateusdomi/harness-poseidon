@@ -11,6 +11,7 @@ cd "${REPOSITORY_ROOT}"
 
 "${DOTNET}" restore Harness.sln --locked-mode
 "${TOOLS_DIR}/scan-secrets.sh"
+"${TOOLS_DIR}/verify-homologation-campaign.sh"
 "${TOOLS_DIR}/verify-governance.sh"
 "${FRONTEND_BUILD}"
 "${DOTNET}" format Harness.sln --verify-no-changes --no-restore
