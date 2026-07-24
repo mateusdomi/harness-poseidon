@@ -176,9 +176,20 @@ export function workflowContentStateVariant(state: WorkflowContentState): BadgeP
   return WORKFLOW_CONTENT_STATE_VARIANTS[state];
 }
 
-/** Estado do turno do chefe: atenção só quando aguarda aprovação humana. */
+/**
+ * Estado do turno do chefe: atenção só quando aguarda aprovação humana. Inclui as
+ * fases granulares observáveis (🧠 pensando, 📖 lendo contexto, 🤝 delegando…) que
+ * o worker publica em tempo real para o balão da conversa.
+ */
 export const CHIEF_TURN_STATE_VARIANTS: Record<ChiefTurnState, BadgeProps['variant']> = {
   pending: 'warning',
+  received: 'warning',
+  reading_context: 'info',
+  thinking: 'info',
+  planning: 'info',
+  delegating: 'accent',
+  agent_working: 'brand',
+  awaiting_review: 'warning',
   processing: 'brand',
   completed: 'success',
   failed: 'error',

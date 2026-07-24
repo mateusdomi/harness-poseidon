@@ -10,6 +10,7 @@ import { Composer, type ChatAttachment } from '@/features/chat/components/compos
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { MessageBubble } from '@/features/chat/components/message-bubble';
 import { QuickActions } from '@/features/chat/components/quick-actions';
+import { TurnStatusBadge } from '@/features/chat/components/turn-status-badge';
 import { WorkflowPanel, WorkflowPanelDrawer } from '@/features/chat/components/workflow-panel';
 import {
   useChatModels,
@@ -342,7 +343,7 @@ export default function ChatPage() {
                     turno e executar não são resposta inteligente (§13). */}
                 <div
                   role="status"
-                  className="flex max-w-[85%] items-center gap-2 self-start rounded-lg border border-dashed border-border bg-surface px-3 py-2 text-xs text-foreground-muted lg:max-w-[70%]"
+                  className="flex max-w-[85%] flex-wrap items-center gap-2 self-start rounded-lg border border-dashed border-border bg-surface px-3 py-2 text-xs text-foreground-muted lg:max-w-[70%]"
                 >
                   <span aria-hidden="true" className="flex items-center gap-1">
                     {[0, 1, 2].map((dot) => (
@@ -357,10 +358,11 @@ export default function ChatPage() {
                     {turn.text === ''
                       ? t('chat.turn.acknowledged')
                       : t('chat.turn.coordinating')}
-                    {turn.phase && (
-                      <span> · {t(`chat.turn.states.${turn.phase}`)}</span>
-                    )}
                   </span>
+                  {/* Tag de estado granular no balão: o usuário vê o que o Chefe
+                      está fazendo agora (pensando, lendo contexto, delegando…),
+                      o cronômetro para fases longas e o sinal de "travado". */}
+                  <TurnStatusBadge turn={turn} />
                 </div>
                 {/* RESPOSTA REAL em streaming — só aparece quando há conteúdo
                     do chefe, aí sim como mensagem dele. */}

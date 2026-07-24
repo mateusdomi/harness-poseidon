@@ -132,9 +132,23 @@ export type MessageAuthorRole = z.infer<typeof messageAuthorRoleSchema>;
 export const conversationStateSchema = z.enum(['active', 'archived']);
 export type ConversationState = z.infer<typeof conversationStateSchema>;
 
-/** Estado do turno do chefe (orquestração visível no chat). */
+/**
+ * Estado do turno do chefe (orquestração visível no chat). Além dos estados
+ * grossos (`pending`/`processing`/terminal), o worker publica fases granulares
+ * e HONESTAS pelas quais o turno realmente passa — para o balão da conversa
+ * mostrar o que está acontecendo em tempo real (🧠 pensando, 📖 lendo contexto,
+ * 🤝 delegando…). Deve espelhar `ChiefTurnActivityState.Wire` do backend e o
+ * enum de `docs/contracts/events.json`.
+ */
 export const chiefTurnStateSchema = z.enum([
   'pending',
+  'received',
+  'reading_context',
+  'thinking',
+  'planning',
+  'delegating',
+  'agent_working',
+  'awaiting_review',
   'processing',
   'completed',
   'failed',

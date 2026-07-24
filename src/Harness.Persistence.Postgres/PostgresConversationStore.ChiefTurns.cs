@@ -32,6 +32,41 @@ public sealed partial class PostgresConversationStore
         return BlockCoreAsync(command, cancellationToken);
     }
 
+    public async Task RecordActivityAsync(
+        ChiefTurnActivityCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var payload = ChiefTurnStatePayload(
+            command.TurnId, command.ConversationId, command.ProjectId, command.State,
+            command.LastActivityAt, null, command.AgentName, command.ActivityStartedAt, command.Detail);
+        await AppendTurnLifecycleAsync(
+            connection, transaction, command.TenantId, "chief.turnStateChanged", payload,
+            command.LastActivityAt, command.LastActivityAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    // Payload canônico do evento chief.turnStateChanged: identificadores, estado
+    // granular, heartbeat (lastActivityAt) e metadados opcionais de delegação —
+    // nunca conteúdo de prompt, resposta do modelo, credencial ou segredo.
+    private static string ChiefTurnStatePayload(
+        string turnId, string conversationId, string projectId, string state,
+        DateTimeOffset lastActivityAt, string? errorCode,
+        string? agentName, DateTimeOffset? activityStartedAt, string? detail) =>
+        JsonSerializer.Serialize(new
+        {
+            turnId,
+            conversationId,
+            projectId,
+            state,
+            errorCode,
+            lastActivityAt,
+            agentName,
+            activityStartedAt,
+            detail,
+        }, JsonOptions);
+
     private async Task<ChiefTurnBlockRecord> BlockCoreAsync(
         ChiefTurnBlockCommand command, CancellationToken cancellationToken)
     {
@@ -346,13 +381,9 @@ public sealed partial class PostgresConversationStore
             command.OccurredAt, command.OccurredAt.AddTicks(3), cancellationToken);
         await AppendTurnLifecycleAsync(
             connection, transaction, command.TenantId, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = command.TurnId,
-                conversationId = command.ConversationId,
-                projectId = command.ProjectId,
-                state = "pending",
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                command.TurnId, command.ConversationId, command.ProjectId, "pending",
+                command.OccurredAt, null, null, null, null),
             command.OccurredAt, command.OccurredAt.AddTicks(4), cancellationToken);
         if (command.Selection is not null)
         {
@@ -509,13 +540,9 @@ public sealed partial class PostgresConversationStore
             command.Now, command.Now, cancellationToken);
         await AppendTurnLifecycleAsync(
             connection, transaction, command.TenantId, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = turn.TurnId,
-                conversationId = turn.ConversationId,
-                projectId = turn.ProjectId,
-                state = "processing",
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                turn.TurnId, turn.ConversationId, turn.ProjectId, "processing",
+                command.Now, null, null, null, null),
             command.Now, command.Now.AddTicks(1), cancellationToken);
         return new ChiefTurnLease(
             turn with { State = "processing", AttemptCount = turn.AttemptCount + 1 },
@@ -725,14 +752,9 @@ public sealed partial class PostgresConversationStore
         // C3: falha também é transição observável do ciclo do turno.
         await AppendTurnLifecycleAsync(
             connection, transaction, command.Lease.Turn.TenantId, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = command.Lease.Turn.TurnId,
-                conversationId = command.Lease.Turn.ConversationId,
-                projectId = command.Lease.Turn.ProjectId,
-                state = next,
-                errorCode = command.ErrorCode,
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                command.Lease.Turn.TurnId, command.Lease.Turn.ConversationId,
+                command.Lease.Turn.ProjectId, next, command.OccurredAt, command.ErrorCode, null, null, null),
             command.OccurredAt, command.OccurredAt, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
@@ -842,13 +864,9 @@ public sealed partial class PostgresConversationStore
             command.OccurredAt.AddTicks(command.Chunks.Count + 3), cancellationToken);
         await AppendTurnLifecycleAsync(
             connection, transaction, tenant, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = command.Lease.Turn.TurnId,
-                conversationId = command.Lease.Turn.ConversationId,
-                projectId = command.Lease.Turn.ProjectId,
-                state = "completed",
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                command.Lease.Turn.TurnId, command.Lease.Turn.ConversationId,
+                command.Lease.Turn.ProjectId, "completed", command.OccurredAt, null, null, null, null),
             command.OccurredAt, command.OccurredAt.AddTicks(command.Chunks.Count + 4),
             cancellationToken);
     }
