@@ -58,3 +58,8 @@ Backlog derivado da 1ª homologação humana do dono.
 
 ## CARD NOVO (2026-07-24) — PLAT-ROUTERV8 (P1 segurança)
 react-router 7.18.1 tem advisory HIGH (faixa 7.12.0-8.2.0); sem versão limpa hoje (7.11.0 reintroduz a moderada). Gate npm audit afrouxado para critical TEMPORARIAMENTE em build-frontend.sh. AÇÃO: monitorar release do react-router com fix (>8.2.0 ou 7.19+) e travar o gate de volta para moderate. Tool é local (não SSR), risco prático baixo, mas resolver assim que houver fix.
+
+
+## ✅ BACKLOG CONSTRUÍVEL ZERADO (2026-07-24)
+Todos os itens 🔨 foram entregues e verificados no host: bugs T0, RN-01..05, guardrail de docs, todas as UX por tela, i18n, identidade/tema-claro, responsivo, menus recolhíveis, perfil, tempo-real+gráficos, porta fixa, auto-update (detecção+gatilho), auto-reconhecimento (workflow/protótipo/arquitetura), e FLEET-EXEC (6/7 executores pagos provados).
+RESTA (não-construível pelo Chefe): adapter do worker-kimi-ui (decisão do dono), PLAT-ROUTERV8 (upstream react-router), smokes Entra/Teams, GNG-4, GNG-3. Follow-ups menores: fonte de marca empacotada, feed remoto de update, sync de chat ao-vivo no orquestrador.
