@@ -33,13 +33,20 @@ public sealed partial class ChiefTurnBackgroundService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(options.PollInterval);
-        do
+        try
         {
-            while (await ProcessNextAsync(stoppingToken))
+            do
             {
+                while (await ProcessNextAsync(stoppingToken))
+                {
+                }
             }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Encerramento normal do Host; não deve contaminar logs nem disparar StopHost.
+        }
     }
 
     [SuppressMessage(

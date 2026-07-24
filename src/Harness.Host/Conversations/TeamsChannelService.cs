@@ -64,22 +64,29 @@ public sealed partial class TeamsChannelBackgroundService(
         if (!options.Enabled) return;
         LogEnabled(logger);
         using var timer = new PeriodicTimer(options.DeliveryInterval);
-        do
+        try
         {
-            try
+            do
             {
-                await DeliverRepliesAsync(stoppingToken);
+                try
+                {
+                    await DeliverRepliesAsync(stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    LogDeliveryFailure(logger, exception.GetType().Name);
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                LogDeliveryFailure(logger, exception.GetType().Name);
-            }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Encerramento normal do Host.
+        }
     }
 
     public async Task<TeamsActivityReceipt> ReceiveAsync(

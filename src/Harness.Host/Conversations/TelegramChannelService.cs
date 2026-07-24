@@ -58,23 +58,30 @@ public sealed partial class TelegramChannelBackgroundService(
 
         LogEnabled(logger);
         using var timer = new PeriodicTimer(options.PollInterval);
-        do
+        try
         {
-            try
+            do
             {
-                await PollOnceAsync(stoppingToken);
-                await DeliverRepliesAsync(stoppingToken);
+                try
+                {
+                    await PollOnceAsync(stoppingToken);
+                    await DeliverRepliesAsync(stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    LogPollFailure(logger, exception.GetType().Name);
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                LogPollFailure(logger, exception.GetType().Name);
-            }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Encerramento normal do Host.
+        }
     }
 
     public async Task PollOnceAsync(CancellationToken cancellationToken)
