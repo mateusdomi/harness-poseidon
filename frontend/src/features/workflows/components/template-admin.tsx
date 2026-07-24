@@ -399,6 +399,19 @@ export function TemplateAdmin({
                         </Button>
                       </div>
 
+                      {version.phases.length > 0 && (
+                        <ol
+                          aria-label={t('workflows.templates.phasesListLabel')}
+                          className="flex flex-wrap items-center gap-1"
+                        >
+                          {version.phases.map((phase, index) => (
+                            <li key={`${phase}-${index}`}>
+                              <Badge variant="outline">{phase}</Badge>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+
                       {publishIssues?.versionId === version.id && (
                         <div role="alert" className="rounded-md border border-error p-3">
                           <p className="text-xs font-medium text-error">
@@ -551,6 +564,10 @@ export function TemplateAdmin({
         <VersionCompare
           from={comparing.from}
           to={comparing.to}
+          fromTemplate={
+            templates.find((tpl) => tpl.id === comparing.from.templateId) ?? null
+          }
+          toTemplate={templates.find((tpl) => tpl.id === comparing.to.templateId) ?? null}
           onClose={() => setComparing(null)}
         />
       )}
