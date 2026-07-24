@@ -98,6 +98,9 @@ import {
   type LearningCandidateMetrics,
   type LearningCandidatePage,
   type LearningEvidenceRecord,
+  type AgentAccountRoster,
+  type ChannelLink,
+  type ChannelMessagePage,
 } from '../contracts';
 import { streams } from '../contracts';
 import { product } from '@/config/product';
@@ -176,6 +179,20 @@ export const PO_ANALYSIS_CONTRADICTION_TRIGGER = /\[contradição\]/i;
 
 /** Intervalo entre linhas de log simuladas de um run-target (ms). */
 const RUN_LOG_STEP_MS = 400;
+
+/**
+ * Roster canônico de identidades de execução (ADR-021) — as 7 contas de agent-run da fleet.
+ * REDIGIDO por construção: só alias/provider/executor/papéis/estado, nunca credencial.
+ */
+const MOCK_AGENT_ROSTER: readonly AgentAccountRoster[] = [
+  { alias: 'chief-claude-primary', providerKind: 'anthropic', executorId: 'claude-code', roles: ['chief-orchestrator'], concurrencyLimit: 1, priority: 100, enabled: true, state: 'authentication-required' },
+  { alias: 'worker-claude-secondary', providerKind: 'anthropic', executorId: 'claude-code', roles: ['backend-specialist'], concurrencyLimit: 1, priority: 100, enabled: true, state: 'authentication-required' },
+  { alias: 'worker-codex-frontend', providerKind: 'openai', executorId: 'codex', roles: ['frontend-specialist'], concurrencyLimit: 1, priority: 100, enabled: true, state: 'authentication-required' },
+  { alias: 'worker-codex-critic', providerKind: 'openai', executorId: 'codex', roles: ['critic'], concurrencyLimit: 1, priority: 80, enabled: true, state: 'authentication-required' },
+  { alias: 'worker-antigravity-review', providerKind: 'antigravity', executorId: 'antigravity', roles: ['critic'], concurrencyLimit: 1, priority: 90, enabled: true, state: 'authentication-required' },
+  { alias: 'worker-glm-general', providerKind: 'zhipu', executorId: 'glm', roles: ['backend-specialist'], concurrencyLimit: 1, priority: 60, enabled: true, state: 'authentication-required' },
+  { alias: 'worker-kimi-ui', providerKind: 'moonshot', executorId: 'kimi-code', roles: ['frontend-specialist'], concurrencyLimit: 1, priority: 70, enabled: true, state: 'authentication-required' },
+];
 
 /**
  * Cliente de API em memória (modo `VITE_API_MODE=mock`).
@@ -1712,6 +1729,56 @@ export class MockApiClient implements ApiClient {
 
   decideLearningCandidate(): Promise<LearningCandidate> {
     return this.#governanceRequiresHttp();
+  }
+
+  /**
+   * Roster de execução REDIGIDO. O perfil mock devolve as 7 identidades canônicas
+   * (ADR-021) — apenas alias/provider/executor/papéis/estado, jamais credencial ou token.
+   */
+  async listAgentAccounts(): Promise<AgentAccountRoster[]> {
+    await this.#simulate();
+    return MOCK_AGENT_ROSTER.map((account) => ({ ...account, roles: [...account.roles] }));
+  }
+
+  async listChannelLinks(): Promise<ChannelLink[]> {
+    await this.#simulate();
+    const project = [...this.#table('projects').values()][0] ?? null;
+    if (!project) return [];
+    const conversation = [...this.#table('conversations').values()].find(
+      (entry) => entry.projectId === project.id,
+    );
+    return [
+      {
+        id: '01J0CHANNELTELEGRAM000000001',
+        kind: 'telegram',
+        externalIdentity: '@poseidon_ops_bot:512044',
+        projectId: project.id,
+        conversationId: conversation?.id ?? project.id,
+        linkedAt: this.#options.now(),
+      },
+    ];
+  }
+
+  async listChannelMessages(): Promise<ChannelMessagePage> {
+    await this.#simulate();
+    const now = this.#options.now();
+    return {
+      items: [
+        {
+          id: '01J0CHANNELMSG0000000000001',
+          authorRole: 'user',
+          content: 'Qual o status do golden path?',
+          createdAt: now,
+        },
+        {
+          id: '01J0CHANNELMSG0000000000002',
+          authorRole: 'agent',
+          content: 'Portfólio verde; 2 tarefas em desenvolvimento e 1 aguardando gate.',
+          createdAt: now,
+        },
+      ],
+      nextCursor: null,
+    };
   }
 
   #governanceRequiresHttp<T>(): Promise<T> {

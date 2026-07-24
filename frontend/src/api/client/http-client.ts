@@ -100,6 +100,12 @@ import {
   type ProjectReadinessSnapshot,
   chatTurnHandleSchema,
   projectReadinessSnapshotSchema,
+  agentAccountRosterSchema,
+  channelLinkSchema,
+  channelMessagePageSchema,
+  type AgentAccountRoster,
+  type ChannelLink,
+  type ChannelMessagePage,
 } from '../contracts';
 import type { ApiClient } from './api-client';
 import {
@@ -566,6 +572,31 @@ export class HttpApiClient implements ApiClient {
 
   async decideLearningCandidate(candidateId: string, input: LearningDecisionInput): Promise<LearningCandidate> {
     return this.#learningMutation(candidateId, 'decision', learningDecisionInputSchema.parse(input));
+  }
+
+  async listAgentAccounts(): Promise<AgentAccountRoster[]> {
+    const response = await this.#request<{ accounts?: unknown }>('GET', '/agent-accounts');
+    return agentAccountRosterSchema.array().parse(response?.accounts ?? []);
+  }
+
+  async listChannelLinks(): Promise<ChannelLink[]> {
+    const response = await this.#request<{ items?: unknown }>('GET', '/channels/links');
+    return channelLinkSchema.array().parse(response?.items ?? []);
+  }
+
+  async listChannelMessages(
+    linkId: string,
+    query?: { afterMessageId?: string; limit?: number },
+  ): Promise<ChannelMessagePage> {
+    const params = new URLSearchParams();
+    if (query?.afterMessageId) params.set('afterMessageId', query.afterMessageId);
+    if (query?.limit !== undefined) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    const response = await this.#request<unknown>(
+      'GET',
+      `/channels/links/${encodeURIComponent(linkId)}/messages${qs ? `?${qs}` : ''}`,
+    );
+    return channelMessagePageSchema.parse(response);
   }
 
   async #learningMutation(candidateId: string, action: string, body: unknown): Promise<LearningCandidate> {

@@ -77,6 +77,9 @@ import type {
   LearningShadowInput,
   LearningTransition,
   LearningTransitionInput,
+  AgentAccountRoster,
+  ChannelLink,
+  ChannelMessagePage,
 } from '../contracts';
 
 /**
@@ -340,4 +343,22 @@ export interface ApiClient {
   evaluateLearningCandidate(candidateId: string, input: LearningEvaluationInput): Promise<LearningCandidate>;
   shadowLearningCandidate(candidateId: string, input: LearningShadowInput): Promise<LearningCandidate>;
   decideLearningCandidate(candidateId: string, input: LearningDecisionInput): Promise<LearningCandidate>;
+
+  /* ---- fleet de execução + canais externos ---- */
+
+  /**
+   * Roster REDIGIDO das identidades de execução do Chefe (as 7 contas de agent-run:
+   * chief/worker × provider). Só alias/provider/executor/papéis/estado — NUNCA credencial
+   * ou token. São as identidades de execução da fleet, distintas das personas/definições.
+   */
+  listAgentAccounts(): Promise<AgentAccountRoster[]>;
+
+  /** Canais externos vinculados (ex.: Telegram) do tenant. */
+  listChannelLinks(): Promise<ChannelLink[]>;
+
+  /** Histórico de mensagens de um canal externo (cursor opaco `afterMessageId`). */
+  listChannelMessages(
+    linkId: Ulid,
+    query?: { afterMessageId?: string; limit?: number },
+  ): Promise<ChannelMessagePage>;
 }

@@ -1,0 +1,40 @@
+{
+  "channels": {
+    "title": "External channels",
+    "subtitle": "External conversation gateways (Telegram, Teams) linked to projects. Messages route to the Chief's durable inbox with zero duplication.",
+    "count": "{{count}} channel(s) linked",
+    "kind": {
+      "telegram": "Telegram",
+      "teams": "Microsoft Teams",
+      "terminal": "Terminal"
+    },
+    "status": {
+      "linked": "Linked",
+      "active": "Active"
+    },
+    "columns": {
+      "identity": "External identity",
+      "project": "Project",
+      "linkedAt": "Linked at"
+    },
+    "empty": {
+      "title": "No channels linked",
+      "body": "No external channel is linked yet. Link a Telegram chat to a project from the CLI or gateway to see it here."
+    },
+    "error": {
+      "title": "Could not load channels",
+      "body": "The channels gateway did not respond. Retry in a moment.",
+      "cta": "Retry"
+    },
+    "messages": {
+      "title": "Message history",
+      "subtitle": "Recent messages exchanged over this channel.",
+      "empty": "No messages on this channel yet.",
+      "select": "Select a channel to see its message history.",
+      "author": {
+        "user": "User",
+        "agent": "Agent"
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { FilterX, Users } from 'lucide-react';
 import { AGENT_STATES, type AgentState, type Ulid } from '@/api';
 import { Button, Card, CardContent, Select, Skeleton } from '@/design-system';
 import { AgentDetail } from '@/features/agents/components/agent-detail';
+import { AgentExecutionRoster } from '@/features/agents/components/agent-execution-roster';
 import { AgentOrgChart } from '@/features/agents/components/agent-org-chart';
 import { useAgentsData, useAgentsRealtime } from '@/features/agents/hooks/use-agents';
 import {
@@ -90,6 +91,8 @@ export default function UagentsPage() {
           </div>
         )}
       </div>
+
+      <AgentExecutionRoster />
 
       {loading ? (
         <div className="flex flex-col gap-4" role="status" aria-label={t('common.states.loading')}>
