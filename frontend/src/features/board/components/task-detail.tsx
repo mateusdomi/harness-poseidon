@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
+import { Check, Copy, X } from 'lucide-react';
 
 import type { Agent, Ulid } from '@/api';
 import { Badge, Button, Field, Select, Skeleton } from '@/design-system';
@@ -31,10 +31,23 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
     useTaskDetail(taskId);
 
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
   const agentNames = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
     [agents],
   );
+
+  async function copyId() {
+    if (!task) return;
+    try {
+      await navigator.clipboard.writeText(task.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2_000);
+    } catch {
+      // Ambiente sem clipboard (ex.: contexto não seguro): silencioso —
+      // o ID completo continua visível e selecionável no `<code>`.
+    }
+  }
 
   if (isPending) {
     return (
@@ -77,6 +90,28 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
             </Badge>
           </div>
           <dl className="flex flex-col gap-1 text-xs text-foreground-muted">
+            <div className="flex items-center gap-1.5">
+              <dt>{t('board.detail.id')}:</dt>
+              <dd className="flex items-center gap-1.5">
+                <code className="rounded bg-surface-elevated px-1.5 py-0.5 font-mono text-[0.7rem] text-foreground">
+                  {task.id}
+                </code>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  aria-label={copied ? t('board.detail.copiedId') : t('board.detail.copyId')}
+                  onClick={() => void copyId()}
+                >
+                  {copied ? (
+                    <Check aria-hidden="true" className="size-3.5 text-success" />
+                  ) : (
+                    <Copy aria-hidden="true" className="size-3.5" />
+                  )}
+                </Button>
+              </dd>
+            </div>
             <div className="flex gap-1">
               <dt>{t('board.detail.assignee')}:</dt>
               <dd>

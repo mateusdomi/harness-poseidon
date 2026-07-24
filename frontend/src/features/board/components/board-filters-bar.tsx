@@ -12,7 +12,10 @@ import {
 
 export interface BoardFiltersBarProps {
   filters: BoardFilters;
-  /** Agentes do projeto (opções do filtro de responsável). */
+  /**
+   * Responsáveis REAIS (agentes com ao menos um card) — opções do filtro
+   * "Responsável". Sem opções mortas: quem não recebe cards não aparece.
+   */
   agents: Agent[];
   /** Resultado do conjunto filtrado vs. total do projeto. */
   filteredCount: number;
@@ -91,7 +94,7 @@ export function BoardFiltersBar({
             value={filters.agentId}
             onChange={(event) => patch({ agentId: event.target.value })}
           >
-            <option value="">{t('board.filters.all')}</option>
+            <option value="">{t('board.filters.agentAll')}</option>
             {agents.map((agent) => (
               <option key={agent.id} value={agent.id}>
                 {agent.name}
