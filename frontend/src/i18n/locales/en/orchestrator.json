@@ -78,7 +78,13 @@
         "title": "Definition — {{name}}",
         "version": "Version {{version}}",
         "historyTitle": "Revision history",
-        "historyEmpty": "No revisions recorded."
+        "historyEmpty": "No revisions recorded.",
+        "sections": {
+          "profile": "Profile",
+          "behavior": "Behavior",
+          "competencies": "Skills & tools",
+          "execution": "Execution"
+        }
       },
       "fields": {
         "key": "Key",

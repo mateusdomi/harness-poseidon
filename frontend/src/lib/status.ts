@@ -1,6 +1,8 @@
 import type {
   AccountState,
   AccountHealth,
+  ActorCritic,
+  AgentRole,
   AgentState,
   ApprovalState,
   AttemptState,
@@ -9,6 +11,7 @@ import type {
   ComponentState,
   ConversationState,
   DocumentState,
+  EffortLevel,
   GateState,
   LicenseState,
   NotificationSeverity,
@@ -18,6 +21,7 @@ import type {
   Priority,
   ProjectState,
   PrototypeState,
+  RiskLevel,
   RunTargetState,
   TaskState,
   WorkflowContentState,
@@ -314,4 +318,46 @@ export const CONVERSATION_STATE_VARIANTS: Record<ConversationState, BadgeProps['
 
 export function conversationStateVariant(state: ConversationState): BadgeProps['variant'] {
   return CONVERSATION_STATE_VARIANTS[state];
+}
+
+/** Papel da definição: chefe em destaque (brand), especialista neutro. */
+export const AGENT_ROLE_VARIANTS: Record<AgentRole, BadgeProps['variant']> = {
+  chief: 'brand',
+  specialist: 'default',
+};
+
+export function agentRoleVariant(role: AgentRole): BadgeProps['variant'] {
+  return AGENT_ROLE_VARIANTS[role];
+}
+
+/** Risco da definição: baixo é tranquilo (sucesso), alto é crítico (erro). */
+export const RISK_LEVEL_VARIANTS: Record<RiskLevel, BadgeProps['variant']> = {
+  low: 'success',
+  medium: 'warning',
+  high: 'error',
+};
+
+export function riskLevelVariant(risk: RiskLevel): BadgeProps['variant'] {
+  return RISK_LEVEL_VARIANTS[risk];
+}
+
+/** Actor/Critic: quem produz (actor, info) vs. quem revisa (critic, accent). */
+export const ACTOR_CRITIC_VARIANTS: Record<ActorCritic, BadgeProps['variant']> = {
+  actor: 'info',
+  critic: 'accent',
+};
+
+export function actorCriticVariant(value: ActorCritic): BadgeProps['variant'] {
+  return ACTOR_CRITIC_VARIANTS[value];
+}
+
+/** Esforço padrão: baixo neutro, médio info, alto chama atenção. */
+export const EFFORT_LEVEL_VARIANTS: Record<EffortLevel, BadgeProps['variant']> = {
+  low: 'outline',
+  medium: 'info',
+  high: 'warning',
+};
+
+export function effortLevelVariant(effort: EffortLevel): BadgeProps['variant'] {
+  return EFFORT_LEVEL_VARIANTS[effort];
 }
