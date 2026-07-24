@@ -352,6 +352,13 @@ public static class HostApplication
         {
             builder.Services.AddSingleton<Workflows.ProjectWorkflowConvergenceSeeder>();
             builder.Services.AddHostedService<Workflows.ProjectWorkflowConvergenceHostedService>();
+
+            // RN-03: logo após garantir o workflow, converge o ESTADO REAL do projeto Poseidon —
+            // inicia a run do binding (fase/em andamento), registra o front como protótipo e preenche
+            // a marca da organização quando vazia. Idempotente e honesto (nunca fabrica progresso).
+            // Registrado DEPOIS da convergência de workflow para que o binding já exista quando roda.
+            builder.Services.AddSingleton<Projects.ProjectStateConvergenceSeeder>();
+            builder.Services.AddHostedService<Projects.ProjectStateConvergenceHostedService>();
         }
 
         if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
