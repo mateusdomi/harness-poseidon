@@ -1,6 +1,16 @@
-# Feedback de Homologação — 2026-07-24 (triagem do Chefe)
+# BACKLOG ÚNICO — Poseidon (fonte da verdade de trabalho aberto)
 
-Backlog derivado da 1ª homologação humana do dono. Fonte da verdade da triagem; vira cards no board.
+**Este é o ÚNICO backlog. Não criar outros documentos — todo feedback novo APPENDA aqui.** O dono NÃO testa enquanto houver item aberto (RB-02). Trabalhar até ZERAR.
+
+## STATUS
+✅ **FEITOS (entregues + verificados no host):** BUG-01, BUG-02, BUG-03, BUG-04, RN-02, RN-03, UX-COCKPIT, UX-HUMANIZE, UX-ORQUESTRADOR, UX-AGENT-CARD, UX-GOV-DOCS, UX-PROVIDERS, UX-BOARD, UX-WORKFLOWS, UX-CHANNELS, UX-SETTINGS, UX-ORG (marca via RN-03).
+🔨 **ABERTOS (a fazer até zerar):** RN-01 (guardrail card-discipline), RN-04 (saúde do backlog), RN-05 (binding real modelo/esforço), UX-DOCS, UX-PROTO/ARCH (arquitetura mapeada — protótipo já via RN-03), UX-NOTIF, UX-GOVERNANCA, UX-PO/TOOLS/LICENSE/ONBOARDING, G-I18N, G-RESPONSIVE, G-IDENTITY, G-REALTIME (além do cockpit), G-CHARTS (além do cockpit), G-MENUS, G-PROFILE, G-AUTOUPDATE, PORTA-DINAMICA (host muda de porta a cada start — fixar/persistir), FLEET-EXEC (fleet paga executar de verdade).
+⛔ **DEPENDE DO DONO:** smokes Entra/Teams, GNG-4, GNG-3. · **BLOQUEIO UPSTREAM:** PLAT-ROUTERV8 (sem versão limpa do react-router).
+
+---
+_(triagem original abaixo)_
+
+Backlog derivado da 1ª homologação humana do dono.
 **Princípio reafirmado pelo dono (crítico):** todo trabalho flui por CARD no backlog (Solicitação→Demanda→Tarefa), auditável. Agente NÃO executa nada que não esteja cadastrado como card. Chefe/PO cuidam da saúde do backlog.
 
 ## TIER 0 — Bugs que travam telas (corrigir primeiro)
