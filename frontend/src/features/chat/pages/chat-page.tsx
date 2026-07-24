@@ -6,7 +6,11 @@ import { MessagesSquare, PanelRight, Plus } from 'lucide-react';
 import type { ChatTurnHandle, ReadinessStep, Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton } from '@/design-system';
 import { useMediaQuery } from '@/features/board/hooks/use-media-query';
-import { Composer, type ChatAttachment } from '@/features/chat/components/composer';
+import {
+  Composer,
+  type ChatAttachment,
+  type ChatTurnSelection,
+} from '@/features/chat/components/composer';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { MessageBubble } from '@/features/chat/components/message-bubble';
 import { QuickActions } from '@/features/chat/components/quick-actions';
@@ -71,19 +75,29 @@ export default function ChatPage() {
     setBlockedTurn(null);
   }, [conversationId, resetSendMessage]);
 
-  const submitTurn = (content: string) => {
-    sendMessage.mutate(content, {
-      onSuccess: (handle) => setBlockedTurn(handle.state === 'blocked' ? handle : null),
-    });
+  const submitTurn = (content: string, selection?: ChatTurnSelection) => {
+    sendMessage.mutate(
+      {
+        content,
+        // `''` = sem override → default do agente/definição resolvido no backend.
+        modelId: selection?.modelId || undefined,
+        effort: selection?.effort,
+      },
+      {
+        onSuccess: (handle) => setBlockedTurn(handle.state === 'blocked' ? handle : null),
+      },
+    );
   };
   /**
    * Envio pendente de uma conversa recém-criada: a mutation é ligada ao id da
-   * conversa, então guardamos o conteúdo e disparamos quando o id passa a ser
-   * o corrente (§13 — criação automática da conversa ao enviar).
+   * conversa, então guardamos o conteúdo e a seleção e disparamos quando o id
+   * passa a ser o corrente (§13 — criação automática da conversa ao enviar).
    */
-  const [pendingSend, setPendingSend] = useState<{ conversationId: Ulid; content: string } | null>(
-    null,
-  );
+  const [pendingSend, setPendingSend] = useState<{
+    conversationId: Ulid;
+    content: string;
+    selection?: ChatTurnSelection;
+  } | null>(null);
   const turn = useChatTurnStream(conversationId);
   const modelsQuery = useChatModels();
   const { tasks, documents, agents } = useChatReferences(projectId);
@@ -110,7 +124,7 @@ export default function ChatPage() {
   // Dispara o envio pendente assim que a conversa criada vira a corrente.
   useEffect(() => {
     if (pendingSend && pendingSend.conversationId === conversationId) {
-      submitTurn(pendingSend.content);
+      submitTurn(pendingSend.content, pendingSend.selection);
       setPendingSend(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,14 +143,18 @@ export default function ChatPage() {
    * `creatingRef` torna a criação idempotente sob cliques/Enter repetidos.
    */
   const creatingRef = useRef(false);
-  async function send(content: string, attachments: ChatAttachment[] = []) {
+  async function send(
+    content: string,
+    attachments: ChatAttachment[] = [],
+    selection?: ChatTurnSelection,
+  ) {
     const withAttachments =
       attachments.length > 0
         ? `${content}\n\n${attachments.map((a) => `- ${a.name}`).join('\n')}`
         : content;
 
     if (conversationId) {
-      submitTurn(withAttachments);
+      submitTurn(withAttachments, selection);
       return;
     }
     if (!projectId || creatingRef.current) return;
@@ -148,8 +166,8 @@ export default function ChatPage() {
       });
       setSelectedId(created.id);
       // A mutation de envio é ligada ao id da conversa; para a recém-criada
-      // enviamos direto pelo cliente, mantendo o mesmo contrato.
-      setPendingSend({ conversationId: created.id, content: withAttachments });
+      // enviamos direto pelo cliente, mantendo o mesmo contrato (modelo/esforço).
+      setPendingSend({ conversationId: created.id, content: withAttachments, selection });
     } finally {
       creatingRef.current = false;
     }
@@ -473,7 +491,7 @@ export default function ChatPage() {
           sending={sendMessage.isPending || turnActive || createConversation.isPending}
           draft={draft}
           onDraftConsumed={() => setDraft('')}
-          onSend={(content, attachments) => void send(content, attachments)}
+          onSend={(content, attachments, selection) => void send(content, attachments, selection)}
         />
       </div>
 

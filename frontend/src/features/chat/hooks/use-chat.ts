@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   streams,
+  type ChatTurnEffort,
   type CreateInputMap,
   type Document,
   type Message,
@@ -94,10 +95,24 @@ export function useCreateConversation() {
   });
 }
 
+/** Turno enviado com a seleção explícita de modelo/esforço (§16.7). */
+export interface SendTurnInput {
+  content: string;
+  /** `''`/undefined = default do agente; caso contrário força o modelo. */
+  modelId?: string;
+  effort?: ChatTurnEffort;
+}
+
 export function useSendMessage(conversationId: Ulid | null) {
   const api = useApi();
   return useMutation({
-    mutationFn: (content: string) => api.startChatTurn(conversationId!, { content }),
+    mutationFn: ({ content, modelId, effort }: SendTurnInput) =>
+      api.startChatTurn(conversationId!, {
+        content,
+        // Só envia o modelo quando o usuário escolheu um explicitamente.
+        ...(modelId ? { modelId } : {}),
+        ...(effort ? { effort } : {}),
+      }),
   });
 }
 
