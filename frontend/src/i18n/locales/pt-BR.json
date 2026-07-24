@@ -1033,12 +1033,22 @@
     "turn": {
       "coordinating": "Chefe está coordenando…",
       "states": {
-        "pending": "pendente",
-        "processing": "processando",
-        "completed": "concluído",
-        "failed": "falhou",
-        "blocked": "bloqueado"
+        "pending": "📥 Recebido — na fila",
+        "received": "📥 Recebido",
+        "reading_context": "📖 Lendo contexto…",
+        "thinking": "🧠 Pensando…",
+        "planning": "🧭 Planejando…",
+        "delegating": "🤝 Delegando…",
+        "agent_working": "🤝 Delegado a {{agent}} — trabalhando",
+        "awaiting_review": "⏳ Aguardando review",
+        "processing": "⚙️ Processando…",
+        "completed": "✅ Concluído",
+        "failed": "⛔ Falhou",
+        "blocked": "⛔ Bloqueado"
       },
+      "agentFallback": "um agente",
+      "elapsedLabel": "há {{elapsed}}",
+      "stuck": "sem sinal — possivelmente travado",
       "acknowledged": "Turno registrado — o chefe vai executar.",
       "streamingLabel": "Resposta do chefe"
     },

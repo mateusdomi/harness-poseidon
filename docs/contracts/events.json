@@ -408,6 +408,13 @@
           "type": "string",
           "enum": [
             "pending",
+            "received",
+            "reading_context",
+            "thinking",
+            "planning",
+            "delegating",
+            "agent_working",
+            "awaiting_review",
             "processing",
             "completed",
             "failed",
@@ -415,6 +422,32 @@
           ]
         },
         "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastActivityAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "agentName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "activityStartedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "detail": {
           "type": [
             "string",
             "null"

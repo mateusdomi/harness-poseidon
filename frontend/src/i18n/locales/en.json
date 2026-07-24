@@ -1033,12 +1033,22 @@
     "turn": {
       "coordinating": "Chief is coordinating…",
       "states": {
-        "pending": "pending",
-        "processing": "processing",
-        "completed": "completed",
-        "failed": "failed",
-        "blocked": "blocked"
+        "pending": "📥 Received — queued",
+        "received": "📥 Received",
+        "reading_context": "📖 Reading context…",
+        "thinking": "🧠 Thinking…",
+        "planning": "🧭 Planning…",
+        "delegating": "🤝 Delegating…",
+        "agent_working": "🤝 Delegated to {{agent}} — working",
+        "awaiting_review": "⏳ Awaiting review",
+        "processing": "⚙️ Processing…",
+        "completed": "✅ Completed",
+        "failed": "⛔ Failed",
+        "blocked": "⛔ Blocked"
       },
+      "agentFallback": "an agent",
+      "elapsedLabel": "{{elapsed}} elapsed",
+      "stuck": "no signal — possibly stuck",
       "acknowledged": "Turn registered — the chief will run.",
       "streamingLabel": "Chief response"
     },

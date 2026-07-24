@@ -62,6 +62,41 @@ public sealed partial class SqliteConversationStore
         ChiefTurnBlockCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((connection, token) => BlockCoreAsync(connection, command, token), cancellationToken);
 
+    public Task RecordActivityAsync(
+        ChiefTurnActivityCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<object?>(async (connection, token) =>
+        {
+            await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token);
+            var payload = ChiefTurnStatePayload(
+                command.TurnId, command.ConversationId, command.ProjectId, command.State,
+                command.LastActivityAt, null, command.AgentName, command.ActivityStartedAt, command.Detail);
+            await AppendTurnLifecycleAsync(
+                connection, tx, command.TenantId, "chief.turnStateChanged", payload,
+                command.LastActivityAt, command.LastActivityAt, token);
+            await tx.CommitAsync(token);
+            return null;
+        }, cancellationToken);
+
+    // Payload canônico do evento chief.turnStateChanged: identificadores, estado
+    // granular, heartbeat (lastActivityAt) e metadados opcionais de delegação —
+    // nunca conteúdo de prompt, resposta do modelo, credencial ou segredo.
+    private static string ChiefTurnStatePayload(
+        string turnId, string conversationId, string projectId, string state,
+        DateTimeOffset lastActivityAt, string? errorCode,
+        string? agentName, DateTimeOffset? activityStartedAt, string? detail) =>
+        JsonSerializer.Serialize(new
+        {
+            turnId,
+            conversationId,
+            projectId,
+            state,
+            errorCode,
+            lastActivityAt,
+            agentName,
+            activityStartedAt,
+            detail,
+        }, JsonOptions);
+
     private static async Task<ChiefTurnBlockRecord> BlockCoreAsync(
         SqliteConnection connection, ChiefTurnBlockCommand command, CancellationToken token)
     {
@@ -234,13 +269,9 @@ public sealed partial class SqliteConversationStore
             command.OccurredAt, command.OccurredAt.AddTicks(3), token);
         await AppendTurnLifecycleAsync(
             connection, tx, command.TenantId, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = command.TurnId,
-                conversationId = command.ConversationId,
-                projectId = command.ProjectId,
-                state = "pending",
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                command.TurnId, command.ConversationId, command.ProjectId, "pending",
+                command.OccurredAt, null, null, null, null),
             command.OccurredAt, command.OccurredAt.AddTicks(4), token);
         if (command.Selection is not null)
         {
@@ -323,13 +354,9 @@ public sealed partial class SqliteConversationStore
             command.Now, command.Now, token);
         await AppendTurnLifecycleAsync(
             connection, tx, command.TenantId, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = turn.TurnId,
-                conversationId = turn.ConversationId,
-                projectId = turn.ProjectId,
-                state = "processing",
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                turn.TurnId, turn.ConversationId, turn.ProjectId, "processing",
+                command.Now, null, null, null, null),
             command.Now, command.Now.AddTicks(1), token);
         await tx.CommitAsync(token);
         return new ChiefTurnLease(turn with { State = "processing", AttemptCount = turn.AttemptCount + 1 }, command.OwnerId, fencing, leaseExpires, agent, userMessage.Content, session);
@@ -444,14 +471,9 @@ public sealed partial class SqliteConversationStore
         // C3: falha também é transição observável do ciclo do turno.
         await AppendTurnLifecycleAsync(
             connection, tx, command.Lease.Turn.TenantId, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = command.Lease.Turn.TurnId,
-                conversationId = command.Lease.Turn.ConversationId,
-                projectId = command.Lease.Turn.ProjectId,
-                state = next,
-                errorCode = command.ErrorCode,
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                command.Lease.Turn.TurnId, command.Lease.Turn.ConversationId,
+                command.Lease.Turn.ProjectId, next, command.OccurredAt, command.ErrorCode, null, null, null),
             command.OccurredAt, command.OccurredAt, token);
         await tx.CommitAsync(token);
     }
@@ -498,13 +520,9 @@ public sealed partial class SqliteConversationStore
             command.OccurredAt.AddTicks(command.Chunks.Count + 3), token);
         await AppendTurnLifecycleAsync(
             connection, tx, tenant, "chief.turnStateChanged",
-            JsonSerializer.Serialize(new
-            {
-                turnId = command.Lease.Turn.TurnId,
-                conversationId = command.Lease.Turn.ConversationId,
-                projectId = command.Lease.Turn.ProjectId,
-                state = "completed",
-            }, JsonOptions),
+            ChiefTurnStatePayload(
+                command.Lease.Turn.TurnId, command.Lease.Turn.ConversationId,
+                command.Lease.Turn.ProjectId, "completed", command.OccurredAt, null, null, null, null),
             command.OccurredAt, command.OccurredAt.AddTicks(command.Chunks.Count + 4), token);
     }
 

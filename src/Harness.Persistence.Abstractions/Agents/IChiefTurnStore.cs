@@ -22,7 +22,28 @@ public interface IChiefTurnStore
     /// </summary>
     Task<ChiefTurnBlockRecord> BlockAsync(
         ChiefTurnBlockCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Publica um estado granular do turno em andamento (ex.: <c>reading_context</c>,
+    /// <c>thinking</c>, <c>planning</c>, <c>delegating</c>) como evento
+    /// <c>chief.turnStateChanged</c> em tempo real, carregando um heartbeat
+    /// (<c>lastActivityAt</c>) para o front distinguir "trabalhando" de "travado".
+    /// É observabilidade honesta: só reporta fases pelas quais o turno realmente
+    /// passa, nunca uma resposta fabricada. Não altera o estado durável do mailbox.
+    /// </summary>
+    Task RecordActivityAsync(
+        ChiefTurnActivityCommand command, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Comando de observabilidade do turno: estado granular + heartbeat, com metadados
+/// opcionais de delegação (agente e início do trabalho) para o balão da conversa.
+/// </summary>
+public sealed record ChiefTurnActivityCommand(
+    string TenantId, string ProjectId, string ConversationId, string TurnId,
+    string State, DateTimeOffset LastActivityAt,
+    string? AgentName = null, DateTimeOffset? ActivityStartedAt = null,
+    string? Detail = null);
 
 /// <summary>Bloqueador tipado do turno: código estável e IDs relacionados, nunca texto livre.</summary>
 public sealed record ChiefTurnBlockerRecord(string Code, IReadOnlyList<string> RelatedIds);

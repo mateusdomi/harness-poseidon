@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   agentStateSchema,
   approvalStateSchema,
+  chiefTurnStateSchema,
   componentStateSchema,
   documentStateSchema,
   gateStateSchema,
@@ -145,8 +146,16 @@ export const chiefTurnStateChangedPayloadSchema = z.object({
   turnId: z.string(),
   conversationId: z.string(),
   projectId: z.string(),
-  state: z.enum(['pending', 'processing', 'completed', 'failed', 'blocked']),
+  state: chiefTurnStateSchema,
   errorCode: z.string().nullable().optional(),
+  /** Heartbeat: instante da última atividade. Front usa p/ "trabalhando" vs "travado". */
+  lastActivityAt: isoDateTimeSchema.nullable().optional(),
+  /** Nome do agente delegado, quando a fase é delegação/execução de agente. */
+  agentName: z.string().nullable().optional(),
+  /** Início da fase corrente — base do cronômetro de elapsed. */
+  activityStartedAt: isoDateTimeSchema.nullable().optional(),
+  /** Detalhe granular opcional (ex.: nº de demandas delegadas). */
+  detail: z.string().nullable().optional(),
 });
 
 export const agentRunStateChangedPayloadSchema = z.object({

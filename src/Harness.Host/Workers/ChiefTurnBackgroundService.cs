@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
+using Harness.Modules.Conversations.Domain;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
 using Harness.Persistence.Abstractions.Agents;
@@ -51,8 +52,24 @@ public sealed partial class ChiefTurnBackgroundService(
             _ownerId, clock.UtcNow, options.LeaseDuration, cancellationToken);
         if (lease is null) return false;
         GovernanceTurnReceiptRecord? receipt = null;
+
+        // C3+: reporta as fases granulares reais pelas quais o turno passa como
+        // eventos chief.turnStateChanged (com heartbeat lastActivityAt), para o
+        // balão da conversa distinguir "trabalhando" de "travado". Observabilidade
+        // honesta: só reporta fases que de fato acontecem, nunca resposta fabricada.
+        async Task ReportAsync(ChiefTurnActivity activity, string? detail = null)
+        {
+            await turns.RecordActivityAsync(
+                new ChiefTurnActivityCommand(
+                    lease.Turn.TenantId, lease.Turn.ProjectId, lease.Turn.ConversationId,
+                    lease.Turn.TurnId, ChiefTurnActivityState.Wire(activity), clock.UtcNow,
+                    AgentName: null, ActivityStartedAt: clock.UtcNow, Detail: detail),
+                cancellationToken);
+        }
+
         try
         {
+            await ReportAsync(ChiefTurnActivity.ReadingContext);
             var digest = await digests.ReadAsync(
                 lease.Turn.TenantId, lease.Turn.ProjectId, 20, cancellationToken);
             var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
@@ -143,6 +160,7 @@ public sealed partial class ChiefTurnBackgroundService(
                     new ChiefGovernanceContext(digestJson, bundle.RenderedContext, bundle.BundleChecksum),
                     JsonOptions);
             }
+            await ReportAsync(ChiefTurnActivity.Thinking);
             var execution = await executor.ExecuteAsync(
                 new AgentExecutionRequest(
                     lease.Turn.TenantId,
@@ -157,6 +175,7 @@ public sealed partial class ChiefTurnBackgroundService(
                     lease.Turn.Selection?.ProviderEffortValue),
                 cancellationToken);
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
+            await ReportAsync(ChiefTurnActivity.Planning);
             var evaluation = evaluator.Evaluate(
                 new FreshContextEvaluationRequest(
                     $"evaluation:{lease.Turn.TurnId}",
@@ -197,6 +216,14 @@ public sealed partial class ChiefTurnBackgroundService(
                     demand.RiskTier,
                     demand.AcceptanceCriteria))
                 .ToArray();
+            if (demandSeeds.Length > 0)
+            {
+                // O Chefe está delegando: demandas serão materializadas para agentes.
+                await ReportAsync(
+                    ChiefTurnActivity.Delegating,
+                    demandSeeds.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
             await turns.CompleteAsync(
                 new ChiefTurnCompleteCommand(
                     lease,
