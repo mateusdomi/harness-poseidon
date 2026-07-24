@@ -20,6 +20,8 @@ import {
   latestAttemptOf,
   resolveChiefAccount,
   resolveChiefModel,
+  resolveLastActivityAt,
+  resolveOperationMode,
   runningAttemptOf,
   sortAttemptEvents,
   STALE_HEARTBEAT_MS,
@@ -98,6 +100,39 @@ describe('orchestrator-derive', () => {
     const budgets = chiefBudgets(fixtures.data.budgets, project.id, accountBudget.scopeId);
     expect(budgets.map((budget) => budget.scope).sort()).toEqual(['account', 'project']);
     expect(chiefBudgets(fixtures.data.budgets, project.id, null)).toHaveLength(1);
+  });
+
+  it('modo de operação efetivo vem do workflow vinculado, não do default do projeto', () => {
+    const workflow = fixtures.data.workflows.find((entry) => entry.projectId === project.id)!;
+    // O default do projeto ('manual') não deve mascarar o modo que o dono
+    // realmente configurou no workflow.
+    expect(resolveOperationMode(project, { ...workflow, operationMode: 'autonomous' })).toBe(
+      'autonomous',
+    );
+    expect(resolveOperationMode(project, { ...workflow, operationMode: 'semiautonomous' })).toBe(
+      'semiautonomous',
+    );
+    // Sem workflow vinculado, cai no default do projeto.
+    expect(resolveOperationMode({ ...project, operationMode: 'manual' }, null)).toBe('manual');
+  });
+
+  it('última atividade considera turnos de conversa recentes, não só a config do projeto', () => {
+    const conversation = fixtures.data.conversations.find(
+      (entry) => entry.projectId === project.id,
+    )!;
+    const base = { ...project, lastActivityAt: '2026-07-20T00:00:00.000Z' };
+    // Conversa de hoje avança a "última atividade" mesmo com a config antiga.
+    expect(
+      resolveLastActivityAt(base, [
+        { ...conversation, lastMessageAt: '2026-07-23T10:00:00.000Z' },
+        { ...conversation, lastMessageAt: null },
+      ]),
+    ).toBe('2026-07-23T10:00:00.000Z');
+    // Conversa mais antiga que a atividade do projeto não regride o valor.
+    expect(
+      resolveLastActivityAt(base, [{ ...conversation, lastMessageAt: '2026-07-01T00:00:00.000Z' }]),
+    ).toBe('2026-07-20T00:00:00.000Z');
+    expect(resolveLastActivityAt(base, [])).toBe('2026-07-20T00:00:00.000Z');
   });
 
   it('ordena eventos por occurredAt e filtra por tipo + texto (sem inventar nível)', () => {

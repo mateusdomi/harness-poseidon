@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { Info } from 'lucide-react';
 
-import type { Account, Agent, Budget, ChiefTurnState, Model, Project } from '@/api';
+import type { Account, Agent, Budget, ChiefTurnState, Model, OperationMode, Project } from '@/api';
 import {
   Badge,
   Button,
@@ -11,6 +12,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  Tooltip,
   type BadgeProps,
 } from '@/design-system';
 import { formatCurrencyUSD, formatDateTime, formatNumber, formatRelativeTime } from '@/lib/format';
@@ -70,15 +72,47 @@ export interface ChiefCardProps {
   isRunning: boolean;
   /** Origem do vínculo do modelo (instância vs padrão da definição). */
   modelBinding: BindingSource;
+  /**
+   * Modo de operação efetivo (fonte da verdade: modo do workflow vinculado),
+   * já resolvido pela página — ver `resolveOperationMode`.
+   */
+  operationMode: OperationMode;
+  /**
+   * Última atividade real (máximo entre atividade do projeto e a última
+   * mensagem das conversas do chefe), já resolvida — ver `resolveLastActivityAt`.
+   */
+  lastActivityAt: string;
 }
 
 /** Linha rótulo/valor da ficha do chefe (definição, mobile-first). */
-function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+function InfoRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <dt className="text-sm text-foreground-muted">{label}</dt>
       <dd className="text-sm font-medium">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * Rótulo com dica: texto do diagnóstico + botão de ajuda que abre um tooltip
+ * explicando, em pt-BR simples, um conceito técnico (fencing/lease). O balão é
+ * `aria-hidden`; o botão carrega o mesmo texto em `aria-label` para leitores.
+ */
+function DiagnosticLabel({ text, hint }: { text: string; hint: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      {text}
+      <Tooltip label={hint}>
+        <button
+          type="button"
+          aria-label={hint}
+          className="rounded-full text-foreground-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Info aria-hidden="true" className="size-3.5" />
+        </button>
+      </Tooltip>
+    </span>
   );
 }
 
@@ -99,6 +133,8 @@ export function ChiefCard({
   hasWorkflow,
   isRunning,
   modelBinding,
+  operationMode,
+  lastActivityAt,
 }: ChiefCardProps) {
   const { t } = useTranslation();
   const pauseMutation = usePauseChief(project.id);
@@ -140,7 +176,7 @@ export function ChiefCard({
         </div>
         <p className="text-xs text-foreground-muted">
           {t('orchestrator.chief.lastActivity', {
-            time: formatRelativeTime(project.lastActivityAt, undefined, now),
+            time: formatRelativeTime(lastActivityAt, undefined, now),
           })}
         </p>
       </CardHeader>
@@ -170,8 +206,8 @@ export function ChiefCard({
             <Badge variant={HEALTH_VARIANTS[health]}>{t(`orchestrator.health.${health}`)}</Badge>
           </InfoRow>
           <InfoRow label={t('orchestrator.chief.operationMode')}>
-            <Badge variant={operationModeVariant(project.operationMode)}>
-              {t(`status.operationMode.${project.operationMode}`)}
+            <Badge variant={operationModeVariant(operationMode)}>
+              {t(`status.operationMode.${operationMode}`)}
             </Badge>
           </InfoRow>
           <InfoRow label={t('orchestrator.chief.model')}>
@@ -218,10 +254,24 @@ export function ChiefCard({
           <dl className="mt-2 flex flex-col gap-2">
             {chief.lease ? (
               <>
-                <InfoRow label={t('orchestrator.chief.diagnostics.fencingToken')}>
+                <InfoRow
+                  label={
+                    <DiagnosticLabel
+                      text={t('orchestrator.chief.diagnostics.fencingToken')}
+                      hint={t('orchestrator.chief.diagnostics.fencingTokenHint')}
+                    />
+                  }
+                >
                   {formatNumber(chief.lease.fencingToken)}
                 </InfoRow>
-                <InfoRow label={t('orchestrator.chief.diagnostics.leaseExpiresAt')}>
+                <InfoRow
+                  label={
+                    <DiagnosticLabel
+                      text={t('orchestrator.chief.diagnostics.leaseExpiresAt')}
+                      hint={t('orchestrator.chief.diagnostics.leaseHint')}
+                    />
+                  }
+                >
                   {formatDateTime(chief.lease.expiresAt)}
                 </InfoRow>
               </>
