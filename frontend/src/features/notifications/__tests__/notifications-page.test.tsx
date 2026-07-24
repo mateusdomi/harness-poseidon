@@ -109,7 +109,12 @@ describe('UnotificationsPage', () => {
       .find((li) => within(li).queryByText('Gate aprovado') !== null)!;
     expect(within(item).getByText('Lida')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Workflow' }));
+    // Semântica positiva: a categoria começa marcada (recebendo); desmarcá-la silencia.
+    const workflowToggle = screen.getByRole('checkbox', {
+      name: 'Receber notificações de Workflow',
+    });
+    expect(workflowToggle).toBeChecked();
+    await user.click(workflowToggle);
     expect(await within(item).findByText('Silenciada')).toBeInTheDocument();
 
     // Filtro de silenciadas passa a incluir itens da categoria mutada.
