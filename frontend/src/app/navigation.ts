@@ -6,6 +6,7 @@ import {
   Gauge,
   LayoutGrid,
   MessagesSquare,
+  Network,
   Play,
   Puzzle,
   Rocket,
@@ -64,6 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'documents', path: '/documents', icon: FileText },
       { key: 'prototypes', path: '/prototypes', icon: LayoutGrid },
+      { key: 'architecture', path: '/architecture', icon: Network },
       { key: 'approvals', path: '/approvals', icon: UserRoundCheck },
       { key: 'governance', path: '/governance', icon: Scale },
     ],

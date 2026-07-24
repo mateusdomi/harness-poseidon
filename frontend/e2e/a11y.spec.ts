@@ -23,6 +23,7 @@ const ROUTES: Array<{ key: string; path: string }> = [
   { key: 'workflows', path: '/workflows' },
   { key: 'documents', path: '/documents' },
   { key: 'prototypes', path: '/prototypes' },
+  { key: 'architecture', path: '/architecture' },
   { key: 'approvals', path: '/approvals' },
   { key: 'orchestrator', path: '/orchestrator' },
   { key: 'agents', path: '/agents' },
