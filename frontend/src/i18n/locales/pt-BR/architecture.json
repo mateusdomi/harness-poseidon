@@ -1,7 +1,7 @@
 {
   "architecture": {
-    "title": "Architecture Studio",
-    "subtitle": "Modelo estruturado da arquitetura — elementos, propriedades e relacionamentos. As views C4 e ArchiMate são projeções do mesmo grafo.",
+    "title": "Estúdio de Arquitetura",
+    "subtitle": "Modelo estruturado da arquitetura — elementos, propriedades e relacionamentos. As vistas C4 e ArchiMate são projeções do mesmo grafo.",
     "projectLabel": "Projeto",
     "noProject": "Selecione um projeto para começar.",
     "groups": {
@@ -13,9 +13,9 @@
     "views": {
       "model": "Modelo completo",
       "c4-context": "Contexto do sistema",
-      "c4-container": "Containers",
+      "c4-container": "Contêineres",
       "c4-component": "Componentes",
-      "c4-deployment": "Deployment",
+      "c4-deployment": "Implantação",
       "c4-dynamic": "Dinâmica",
       "archimate-business": "Negócio",
       "archimate-application": "Aplicação",
@@ -32,17 +32,17 @@
       "savedName": "{{view}} (salva)"
     },
     "selector": {
-      "title": "Views",
+      "title": "Vistas",
       "presetLabel": "Projeção do modelo",
-      "savedLabel": "Views salvas",
-      "savedEmpty": "Nenhuma view salva ainda.",
+      "savedLabel": "Vistas salvas",
+      "savedEmpty": "Nenhuma vista salva ainda.",
       "backToPresets": "Voltar às projeções",
-      "saveView": "Salvar view atual"
+      "saveView": "Salvar vista atual"
     },
     "canvas": {
       "label": "Canvas da arquitetura",
       "summary": "{{elements}} elementos · {{relationships}} relacionamentos",
-      "empty": "Nenhum elemento nesta view."
+      "empty": "Nenhum elemento nesta vista."
     },
     "add": {
       "title": "Adicionar elemento",
@@ -68,16 +68,16 @@
       "unlockAction": "Desbloquear elemento"
     },
     "hub": {
-      "title": "Architecture Hub",
-      "subtitle": "Modelo, catálogo corporativo de sistemas, descobertas, racionalização, padrões e baselines — tudo sobre a mesma fonte de arquitetura.",
-      "tabsLabel": "Seções do Architecture Hub",
+      "title": "Central de Arquitetura",
+      "subtitle": "Modelo, catálogo corporativo de sistemas, descobertas, racionalização, padrões e linhas de base — tudo sobre a mesma fonte de arquitetura.",
+      "tabsLabel": "Seções da Central de Arquitetura",
       "tabs": {
-        "studio": "Studio",
+        "studio": "Estúdio",
         "systems": "Mapa de Sistemas",
-        "discovery": "Discovery",
-        "insights": "Insights",
+        "discovery": "Descobertas",
+        "insights": "Análises",
         "patterns": "Padrões & ADRs",
-        "baselines": "Baselines"
+        "baselines": "Linhas de base"
       },
       "criticality": {
         "high": "Crítico",
@@ -114,7 +114,7 @@
           "domains": "Domínios",
           "capabilities": "Capacidades",
           "integration": "Integrações",
-          "heatmap": "Heatmap"
+          "heatmap": "Mapa de calor"
         }
       },
       "system360": {
@@ -131,7 +131,7 @@
         "domain": "Domínio",
         "owner": "Dono",
         "lifecycle": "Ciclo de vida",
-        "containers": "Containers",
+        "containers": "Contêineres",
         "outgoing": "Saída",
         "incoming": "Entrada",
         "sla": "SLA",
@@ -163,9 +163,9 @@
       },
       "insights": {
         "systemCount": "Sistemas analisados",
-        "insightCount": "Insights",
+        "insightCount": "Análises",
         "title": "Racionalização do portfólio",
-        "empty": "Nenhum insight de racionalização.",
+        "empty": "Nenhuma análise de racionalização.",
         "dependents": "{{count}} dependente(s)",
         "classification": {
           "eliminate": "Eliminar",
@@ -202,8 +202,8 @@
         }
       },
       "baselines": {
-        "title": "Baseline",
-        "empty": "Nenhuma baseline registrada.",
+        "title": "Linha de base",
+        "empty": "Nenhuma linha de base registrada.",
         "compare": "Comparar",
         "conformance": "{{percent}}% conforme",
         "conformanceLabel": "Conformidade",
@@ -212,8 +212,8 @@
         "edges": "Integrações (ok · faltando · não previsto)",
         "drifts": "Desvios",
         "noDrift": "Sem desvios detectados.",
-        "asBuilt": "As-built",
-        "elementCount": "{{count}} elemento(s) na baseline",
+        "asBuilt": "Como construído",
+        "elementCount": "{{count}} elemento(s) na linha de base",
         "status": {
           "closed": "Fechada",
           "open": "Aberta"

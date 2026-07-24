@@ -126,12 +126,12 @@
         "title": "Valor & métricas",
         "totalCost": "Custo total",
         "totalTasks": "Tarefas",
-        "feature": "Feature",
+        "feature": "Funcionalidade",
         "tasks": "Tarefas",
         "success": "Sucesso",
         "failures": "Falhas",
         "cost": "Custo",
-        "empty": "Sem métricas de feature ainda."
+        "empty": "Sem métricas de funcionalidade ainda."
       },
       "metrics": {
         "title": "Métricas",

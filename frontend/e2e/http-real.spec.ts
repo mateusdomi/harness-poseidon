@@ -229,7 +229,7 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
 
   await page.getByRole('button', { name: 'Registrar avaliação independente' }).click();
   await page.getByLabel('Agente avaliador').fill(evaluator.id);
-  await page.getByLabel('Provider avaliador').fill('e2e-independent');
+  await page.getByLabel('Provedor avaliador').fill('e2e-independent');
   await page.getByLabel('Modelo avaliador').fill('critic-model');
   await page.getByLabel('Justificativa').fill('Avaliação independente aprovada.');
   await page.getByRole('button', { name: 'Confirmar transição' }).click();
@@ -237,7 +237,7 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
 
   await page.getByRole('button', { name: 'Registrar shadow validation' }).click();
   await page.getByLabel('Amostra').fill('30');
-  await page.getByLabel('Delta first-pass').fill('0.12');
+  await page.getByLabel('Delta de primeira tentativa').fill('0.12');
   await page.getByLabel('Delta de erro repetido').fill('-0.08');
   await page.getByLabel('Impacto em tokens').fill('-120');
   await page.getByLabel('Delta de custo').fill('-0.05');

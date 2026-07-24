@@ -68,17 +68,17 @@
       "unavailable": "indisponível",
       "labels": {
         "api": "API",
-        "manifest": "Manifest",
+        "manifest": "Manifesto",
         "checksum": "Checksum",
-        "provider": "Provider",
+        "provider": "Provedor",
         "tokens": "Tokens",
-        "cacheHits": "Cache hits",
+        "cacheHits": "Acertos de cache",
         "gate": "Gate",
         "tokenCount": "{{count}} tokens",
         "truncatedCount": "{{count}} trunc.",
         "documentCount": "{{count}} docs",
         "projectTask": "Projeto {{project}} · Tarefa {{task}}",
-        "observedUsage": "{{receipts}} receipt(s) · {{tokens}} tokens · {{date}}"
+        "observedUsage": "{{receipts}} comprovante(s) · {{tokens}} tokens · {{date}}"
       },
       "tabs": {
         "label": "Áreas da governança",
@@ -141,7 +141,7 @@
       },
       "documents": {
         "catalogUnavailable": "Catálogo canônico não publicado",
-        "catalogUnavailableBody": "O OpenAPI P1 não expõe o manifest ou a saúde do linter. A lista abaixo contém somente documentos observados em receipts reais, sem inventar owner, autoridade ou status.",
+        "catalogUnavailableBody": "O OpenAPI P1 não expõe o manifesto ou a saúde do linter. A lista abaixo contém somente documentos observados em comprovantes reais, sem inventar responsável, autoridade ou status.",
         "observedTitle": "Documentos observados",
         "observedBody": "Seleção, checksum e orçamento capturados pelos receipts do lote atual.",
         "findingsTitle": "Detecções de documentos desatualizados",
@@ -191,8 +191,8 @@
     "learning": {
       "title": "Candidatos de aprendizado",
       "body": "Fila paginada, isolada por tenant e governada. Nenhuma promoção é automática.",
-      "empty": "Nenhum candidate encontrado para os filtros atuais.",
-      "select": "Selecione um candidate para ver evidência, comparação, ações e histórico.",
+      "empty": "Nenhum candidato encontrado para os filtros atuais.",
+      "select": "Selecione um candidato para ver evidência, comparação, ações e histórico.",
       "loadMore": "Carregar próxima página",
       "loaded": "{{loaded}} carregados de {{total}}",
       "candidateMetadata": "{{id}} · versão {{version}} · {{date}}",
@@ -205,22 +205,22 @@
       "history": "Histórico imutável",
       "monitoring": "Monitoramento do shadow",
       "adminRequired": "admin obrigatório",
-      "independentEvaluator": "O evaluator deve ser diferente do actor e, para aprovação, devolver verdict pass; o servidor aplica a política autoritativa.",
+      "independentEvaluator": "O avaliador deve ser diferente do ator e, para aprovação, devolver veredito aprovado; o servidor aplica a política autoritativa.",
       "manualPromotion": "Confirmo a promoção manual desta versão após revisão humana das evidências, avaliação independente e shadow.",
       "permissionDenied": "Seu perfil não possui permissão para esta transição.",
       "verdicts": { "pass": "aprovado", "fail": "reprovado" },
-      "labels": { "actor": "Actor", "fingerprint": "Fingerprint", "reviewer": "Revisor", "verdict": "Veredito", "active": "Versão ativa", "previous": "Versão anterior" },
+      "labels": { "actor": "Ator", "fingerprint": "Impressão digital", "reviewer": "Revisor", "verdict": "Veredito", "active": "Versão ativa", "previous": "Versão anterior" },
       "saving": "Aplicando…",
       "confirm": "Confirmar transição",
       "filters": { "project": "Projeto", "type": "Tipo", "state": "Estado", "from": "Criado desde", "to": "Criado até" },
       "fields": {
         "note": "Justificativa",
         "evaluatorAgentId": "Agente avaliador",
-        "evaluatorProvider": "Provider avaliador",
+        "evaluatorProvider": "Provedor avaliador",
         "evaluatorModel": "Modelo avaliador",
-        "verdict": "Verdict",
+        "verdict": "Veredito",
         "sampleSize": "Amostra",
-        "firstPassSuccessDelta": "Delta first-pass",
+        "firstPassSuccessDelta": "Delta de primeira tentativa",
         "repeatedErrorRateDelta": "Delta de erro repetido",
         "tokenImpact": "Impacto em tokens",
         "costPerAcceptedTaskDelta": "Delta de custo",
@@ -243,7 +243,7 @@
         "body": "Agregados reais do tenant/projeto selecionado.",
         "created": "Criados", "deduplicated": "Deduplicados", "approved": "Aprovados",
         "promoted": "Promovidos", "rejected": "Rejeitados", "rolledBack": "Rollbacks",
-        "successDelta": "Delta first-pass", "errorDelta": "Delta erro repetido",
+        "successDelta": "Delta de primeira tentativa", "errorDelta": "Delta erro repetido",
         "tokenImpact": "Impacto tokens", "costDelta": "Delta custo", "regressions": "Regressões pós-promoção"
       }
     }

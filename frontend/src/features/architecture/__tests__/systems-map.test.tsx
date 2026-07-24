@@ -47,7 +47,7 @@ describe('SystemsMap (ARC-02)', () => {
     renderMap();
     await screen.findByRole('button', { name: /Poseidon/ });
 
-    await user.click(screen.getByRole('tab', { name: 'Heatmap' }));
+    await user.click(screen.getByRole('tab', { name: 'Mapa de calor' }));
     const heatmap = await screen.findByTestId('systems-heatmap');
     expect(heatmap).toBeInTheDocument();
     expect(screen.getByText('Fim de vida')).toBeInTheDocument();
