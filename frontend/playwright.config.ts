@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const previewPort = process.env.PLAYWRIGHT_PREVIEW_PORT ?? '4173';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${previewPort}`;
+
 export default defineConfig({
   testDir: './e2e',
   testIgnore: ['**/http-real.spec.ts', '**/package-clean.spec.ts'],
@@ -8,7 +11,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -22,8 +25,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run build && npm run preview',
-    url: 'http://localhost:4173',
+    command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${previewPort}`,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
   },

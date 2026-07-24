@@ -32,13 +32,18 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
+    <div
+      className={cn(
+        'poseidon-hero flex flex-col gap-3 rounded-xl border border-border px-5 py-5 shadow-glow sm:px-6',
+        className,
+      )}
+    >
       {breadcrumb && breadcrumb.length > 0 ? <Breadcrumb items={breadcrumb} /> : null}
       {back ? <BackLink {...back} /> : null}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tightest text-balance">{title}</h1>
-          {description ? <p className="text-sm text-foreground-muted">{description}</p> : null}
+          <h1 className="font-heading text-3xl font-bold tracking-tightest text-balance">{title}</h1>
+          {description ? <p className="max-w-3xl text-sm text-foreground-muted">{description}</p> : null}
         </div>
         {actions ? <div className="ml-auto flex items-center gap-2">{actions}</div> : null}
       </div>

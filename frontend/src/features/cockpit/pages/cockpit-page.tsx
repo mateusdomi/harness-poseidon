@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Activity } from 'lucide-react';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton } from '@/design-system';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
@@ -89,19 +90,32 @@ export default function CockpitPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-heading text-2xl font-semibold">{t('features.cockpit.title')}</h1>
-        {/* O cockpit mostra cotas/orçamento e saúde: quando a origem é fixture,
-            dizemos isso explicitamente em vez de passar por dado real (§15). */}
-        <SimulatedModeBadge />
+      <section className="poseidon-hero flex flex-wrap items-center gap-4 rounded-xl border border-border p-5 shadow-glow sm:p-6">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-brand text-primary-foreground shadow-glow"
+        >
+          <Activity className="size-6" />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-heading text-3xl font-bold tracking-tightest">
+              {t('features.cockpit.title')}
+            </h1>
+            {/* O cockpit mostra cotas/orçamento e saúde: quando a origem é fixture,
+                dizemos isso explicitamente em vez de passar por dado real (§15). */}
+            <SimulatedModeBadge />
+          </div>
+          <p className="text-sm text-foreground-muted">{t('features.cockpit.description')}</p>
+        </div>
         {projects.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            <label htmlFor="cockpit-project" className="text-sm text-foreground-muted">
+          <div className="ml-auto flex flex-col gap-1.5 sm:min-w-64">
+            <label htmlFor="cockpit-project" className="text-xs font-medium text-foreground-muted">
               {t('cockpit.projectSelector.label')}
             </label>
             <Select
               id="cockpit-project"
-              className="w-auto min-w-48"
+              className="w-full"
               value={activeProject?.id ?? ''}
               onChange={(event) => setActiveProject(event.target.value)}
             >
@@ -113,7 +127,7 @@ export default function CockpitPage() {
             </Select>
           </div>
         )}
-      </div>
+      </section>
 
       <GoldenPathChecklist hideWhenComplete />
 

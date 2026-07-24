@@ -43,7 +43,7 @@ export function FeatureIntro({
     <section
       aria-labelledby={headingId}
       className={cn(
-        'relative flex flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface bg-gradient-ambient p-4 shadow-card',
+        'poseidon-hero flex flex-col gap-3 rounded-xl border border-border bg-surface p-5 shadow-glow',
         className,
       )}
     >
@@ -51,12 +51,12 @@ export function FeatureIntro({
         {Icon ? (
           <span
             aria-hidden="true"
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-brand text-primary-foreground shadow-sm [&_svg]:size-5"
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-brand text-primary-foreground shadow-glow [&_svg]:size-5"
           >
             <Icon />
           </span>
         ) : null}
-        <h2 id={headingId} className="font-heading text-base font-semibold tracking-tightest">
+        <h2 id={headingId} className="font-heading text-lg font-bold tracking-tightest">
           {title}
         </h2>
       </div>

@@ -32,10 +32,10 @@ export function AppNavLink({ item, collapsed = false, tooltip = false, onNavigat
           'hover:bg-surface-elevated hover:text-foreground',
           isActive &&
             cn(
-              'bg-brand/10 font-semibold text-brand-strong',
-              // Barra vertical de 3px à esquerda; brilho MUITO sutil só no dark.
+              'bg-gradient-to-r from-brand/20 via-brand/10 to-transparent font-semibold text-brand-strong',
+              // Barra vertical da marca + brilho discreto para orientação rápida.
               'shadow-[inset_3px_0_0_0_var(--color-brand)]',
-              'dark:shadow-[inset_3px_0_0_0_var(--color-brand),0_0_16px_-6px_var(--color-brand)]',
+              'dark:shadow-[inset_3px_0_0_0_var(--color-brand),0_0_22px_-6px_var(--color-brand)]',
             ),
           collapsed && 'justify-center px-0',
         )

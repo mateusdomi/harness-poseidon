@@ -28,7 +28,7 @@ function BrandMark({ className }: { className?: string }) {
     <img
       src={logoUrl}
       alt={product.name}
-      className={cn('h-12 w-auto object-contain dark:brightness-125', className)}
+      className={cn('poseidon-logo h-12 w-auto object-contain dark:brightness-125', className)}
     />
   );
 }
@@ -136,17 +136,22 @@ function Sidebar() {
   return (
     <aside
       className={cn(
-        'sticky top-0 hidden h-svh shrink-0 flex-col border-r border-border bg-surface lg:flex',
+        'poseidon-sidebar sticky top-0 hidden h-svh shrink-0 flex-col border-r border-border bg-surface/95 lg:flex',
         'motion-safe:transition-[width] motion-safe:duration-base',
         collapsed ? 'w-16' : 'w-64',
       )}
     >
-      <div className={cn('flex items-center border-b border-border px-4', collapsed ? 'h-20 justify-center px-0' : 'h-20')}>
+      <div
+        className={cn(
+          'flex items-center border-b border-border bg-gradient-ambient px-4',
+          collapsed ? 'h-20 justify-center px-0' : 'h-20',
+        )}
+      >
         {collapsed ? (
           <img
             src={logoIconUrl}
             alt={product.name}
-            className="h-12 w-auto object-contain dark:brightness-125"
+            className="poseidon-logo h-12 w-auto object-contain dark:brightness-125"
           />
         ) : (
           <BrandMark className="h-auto w-[134px]" />
@@ -211,7 +216,7 @@ function BottomNav() {
   return (
     <nav
       aria-label={t('shell.bottomNav')}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 shadow-lg backdrop-blur lg:hidden"
     >
       <ul className="grid grid-cols-5">
         {MOBILE_PRIMARY_ITEMS.map((item) => (
@@ -234,7 +239,7 @@ function Header() {
   const setOpen = useUiStore((s) => s.setMobileNavOpen);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur lg:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-background/80 px-4 shadow-sm backdrop-blur-xl lg:px-6">
       <Button
         variant="ghost"
         size="icon"
@@ -280,7 +285,7 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex min-h-svh bg-background">
+    <div className="poseidon-shell flex min-h-svh bg-background/90">
       <a
         href="#main-content"
         className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:absolute focus:left-2 focus:top-2"
@@ -291,7 +296,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
         <ReconnectionBanner />
-        <main id="main-content" className="flex-1 p-4 pb-24 lg:p-6 lg:pb-6">
+        <main id="main-content" className="poseidon-main flex-1 p-4 pb-24 lg:p-6 lg:pb-6">
           {permissionDenied ? (
             <PermissionDenied
               onRetry={() => {

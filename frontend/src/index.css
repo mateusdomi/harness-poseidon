@@ -8,7 +8,9 @@
   }
 
   body {
-    @apply bg-background font-sans text-foreground;
+    @apply min-h-svh bg-background font-sans text-foreground;
+    background-image: var(--gradient-shell);
+    background-attachment: fixed;
   }
 
   /* Troca de tema suave (desligada com prefers-reduced-motion). */
@@ -32,5 +34,74 @@
   :focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .poseidon-shell {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .poseidon-shell::before {
+    position: fixed;
+    z-index: 60;
+    inset: 0 0 auto;
+    height: 3px;
+    pointer-events: none;
+    background-image: var(--gradient-brand);
+    content: '';
+  }
+
+  .poseidon-sidebar {
+    background-image:
+      var(--gradient-panel),
+      var(--pattern-grid);
+    background-size:
+      auto,
+      28px 28px;
+  }
+
+  .poseidon-main {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .poseidon-main::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    background-image: var(--pattern-grid);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.7), transparent 42rem);
+    opacity: 0.45;
+    content: '';
+  }
+
+  .poseidon-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-image: var(--gradient-panel), var(--gradient-ambient);
+  }
+
+  .poseidon-hero::after {
+    position: absolute;
+    z-index: -1;
+    right: -4rem;
+    top: -5rem;
+    width: 13rem;
+    height: 13rem;
+    border: 1px solid color-mix(in srgb, var(--color-brand) 34%, transparent);
+    border-radius: 9999px;
+    box-shadow:
+      0 0 0 1.25rem color-mix(in srgb, var(--color-brand-magenta) 8%, transparent),
+      0 0 0 3.25rem color-mix(in srgb, var(--color-brand) 5%, transparent);
+    content: '';
+  }
+
+  .poseidon-logo {
+    filter: drop-shadow(0 0 14px color-mix(in srgb, var(--color-brand) 44%, transparent));
   }
 }

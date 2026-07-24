@@ -54,11 +54,13 @@ export default {
         'gradient-brand': 'var(--gradient-brand)',
         'gradient-primary': 'var(--gradient-primary)',
         'gradient-ambient': 'var(--gradient-ambient)',
+        'gradient-shell': 'var(--gradient-shell)',
+        'gradient-panel': 'var(--gradient-panel)',
+        'pattern-grid': 'var(--pattern-grid)',
       },
       fontFamily: {
-        // As faces de marca (Space Grotesk / Inter) só são aplicadas se
-        // presentes no sistema; caso contrário caem para stacks nativos ricos.
-        // CSP proíbe fontes externas — nada de CDN.
+        // Fontes empacotadas localmente por @fontsource; os fallbacks preservam
+        // legibilidade caso um asset seja bloqueado pelo ambiente.
         heading: [
           '"Space Grotesk"',
           'ui-rounded',
