@@ -183,5 +183,12 @@ describe('Aba Definições de agentes', () => {
     expect(
       within(dialog).getByText('Campos alterados: fallbackModelIds, defaultEffort.'),
     ).toBeInTheDocument();
+    // Reformatação de leitura (UX-AGENT-CARD): identidade humanizada da persona
+    // no topo e responsabilidades quebradas em bullets legíveis (não texto
+    // corrido separado por vírgula). Só apresentação — o conteúdo é o mesmo.
+    expect(within(dialog).getByText('Rafael Prado')).toBeInTheDocument();
+    expect(within(dialog).getByText('Perfil')).toBeInTheDocument();
+    const responsibility = within(dialog).getByText('decompor demandas');
+    expect(responsibility.tagName).toBe('LI');
   });
 });
