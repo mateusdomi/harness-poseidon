@@ -1,18 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Paperclip, SendHorizonal, X } from 'lucide-react';
 
-import type { Model } from '@/api';
+import type { ChatTurnEffort, Model } from '@/api';
 import { Button, Select, Textarea } from '@/design-system';
 import { formatNumber } from '@/lib/format';
 
-export type EffortLevel = 'low' | 'medium' | 'high';
+export type EffortLevel = ChatTurnEffort;
 
 export interface ChatAttachment {
   id: string;
   name: string;
   /** Progresso do upload simulado (0–100). */
   progress: number;
+}
+
+/** Seleção explícita da invocação, resolvida no envio do turno. */
+export interface ChatTurnSelection {
+  /** `''` = default do agente/definição (não força modelo). */
+  modelId: string;
+  effort: EffortLevel;
 }
 
 interface ComposerProps {
@@ -22,10 +29,29 @@ interface ComposerProps {
   /** Valor inicial (rascunho vindo do cockpit, sugestões, ações rápidas). */
   draft: string;
   onDraftConsumed: () => void;
-  onSend: (content: string, attachments: ChatAttachment[]) => void;
+  onSend: (content: string, attachments: ChatAttachment[], selection: ChatTurnSelection) => void;
 }
 
-const EFFORT_LEVELS: readonly EffortLevel[] = ['low', 'medium', 'high'];
+/** Ordem canônica dos esforços do Harness (do menor ao maior). */
+const CANONICAL_EFFORTS: readonly EffortLevel[] = ['low', 'medium', 'high', 'max'];
+
+/**
+ * Opções de esforço reais do modelo selecionado: derivadas dos
+ * `effortMappings` publicados no catálogo (Baixo/Médio/Alto/Máximo), na ordem
+ * canônica. Sem modelo escolhido (Padrão do chefe) ou sem mapeamentos
+ * publicados, caímos no subconjunto seguro low/medium/high — o backend valida
+ * o esforço contra o modelo default do agente e devolve bloqueio tipado se
+ * não houver mapeamento, nunca uma resposta fabricada.
+ */
+function effortOptionsFor(model: Model | undefined): EffortLevel[] {
+  const mapped = (model?.effortMappings ?? [])
+    .map((mapping) => mapping.effort)
+    .filter((effort): effort is EffortLevel =>
+      (CANONICAL_EFFORTS as readonly string[]).includes(effort),
+    );
+  const available = mapped.length > 0 ? mapped : (['low', 'medium', 'high'] as EffortLevel[]);
+  return CANONICAL_EFFORTS.filter((effort) => available.includes(effort));
+}
 
 /**
  * Barra de composição: texto (Enter envia, Shift+Enter quebra linha),
@@ -46,6 +72,20 @@ export function Composer({
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentSeq = useRef(0);
+
+  // Esforços realmente oferecidos pelo modelo corrente (do catálogo).
+  const selectedModel = useMemo(
+    () => models.find((model) => model.id === modelId),
+    [models, modelId],
+  );
+  const effortOptions = useMemo(() => effortOptionsFor(selectedModel), [selectedModel]);
+  // Ao trocar de modelo, mantém o esforço se ainda for suportado; senão volta
+  // ao mais próximo disponível (evita enviar um esforço que o modelo não mapeia).
+  useEffect(() => {
+    if (!effortOptions.includes(effort)) {
+      setEffort(effortOptions.includes('medium') ? 'medium' : (effortOptions[0] ?? 'medium'));
+    }
+  }, [effortOptions, effort]);
 
   // Consome rascunho externo (ex.: "Executar no chat" do cockpit).
   useEffect(() => {
@@ -84,7 +124,7 @@ export function Composer({
   function send() {
     const text = content.trim();
     if (text === '' || sending || disabled) return;
-    onSend(text, attachments.filter((a) => a.progress >= 100));
+    onSend(text, attachments.filter((a) => a.progress >= 100), { modelId, effort });
     setContent('');
     setAttachments([]);
   }
@@ -219,7 +259,7 @@ export function Composer({
           onChange={(event) => setEffort(event.target.value as EffortLevel)}
           disabled={disabled}
         >
-          {EFFORT_LEVELS.map((level) => (
+          {effortOptions.map((level) => (
             <option key={level} value={level}>
               {t(`chat.composer.effortOptions.${level}`)}
             </option>

@@ -1146,7 +1146,8 @@
       "effortOptions": {
         "low": "Low",
         "medium": "Medium",
-        "high": "High"
+        "high": "High",
+        "max": "Max"
       }
     },
     "sendError": "Could not send the message. Please try again.",

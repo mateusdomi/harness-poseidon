@@ -150,9 +150,21 @@ export const setOperationModeInputSchema = z.object({
 });
 export type SetOperationModeInput = z.infer<typeof setOperationModeInputSchema>;
 
-/** Inicia um turno do chefe numa conversa (resposta chega via realtime). */
+/** Esforço enviado no turno: os quatro níveis canônicos do Harness. */
+export const chatTurnEffortSchema = z.union([effortLevelSchema, z.literal('max')]);
+export type ChatTurnEffort = z.infer<typeof chatTurnEffortSchema>;
+
+/**
+ * Inicia um turno do chefe numa conversa (resposta chega via realtime).
+ * `modelId`/`effort` são a seleção explícita por invocação (§16.7): quando
+ * omitidos, o backend resolve pelo default do agente/definição. Quando
+ * presentes, o roteamento valida contra as capacidades do provider e o
+ * esforço escolhido chega DE VERDADE ao executor (`--effort`).
+ */
 export const startChatTurnInputSchema = z.object({
   content: z.string().min(1),
+  modelId: ulidSchema.optional(),
+  effort: chatTurnEffortSchema.optional(),
 });
 export type StartChatTurnInput = z.infer<typeof startChatTurnInputSchema>;
 
