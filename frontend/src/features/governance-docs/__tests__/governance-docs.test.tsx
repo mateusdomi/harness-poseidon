@@ -31,6 +31,27 @@ describe('GovernanceDocsPage', () => {
     expect(screen.getByText('governance/core.md')).toBeInTheDocument();
   });
 
+  it('alterna entre markdown renderizado e a fonte .md crua', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /core\.md/ }));
+
+    // Padrão: renderizado — o título vira heading (sem o "#" da fonte).
+    const heading = await screen.findByRole('heading', { name: 'Núcleo da governança' });
+    expect(heading).toBeInTheDocument();
+    const renderedToggle = screen.getByRole('button', { name: 'Renderizado' });
+    expect(renderedToggle).toHaveAttribute('aria-pressed', 'true');
+
+    // Alterna para a fonte: mostra o markdown cru (com o "#").
+    await user.click(screen.getByRole('button', { name: 'Fonte .md' }));
+    const source = screen.getByLabelText('Fonte do documento (.md cru)');
+    expect(source.tagName).toBe('PRE');
+    expect(source.textContent).toContain('# Núcleo da governança');
+    // Em modo fonte não há mais o heading renderizado.
+    expect(screen.queryByRole('heading', { name: 'Núcleo da governança' })).toBeNull();
+  });
+
   it('edita e salva um documento no store', async () => {
     const user = userEvent.setup();
     const { bundle } = renderPage();
