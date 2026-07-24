@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PackageOpen } from 'lucide-react';
+import { PackageOpen, Wrench } from 'lucide-react';
 
 import { Button, Card, CardContent, Skeleton } from '@/design-system';
+import { FeatureIntro } from '@/features/shared/components/feature-intro';
 import {
   CatalogTabs,
 } from '@/features/tools/components/catalog-tabs';
@@ -56,6 +57,10 @@ export default function UtoolsPage() {
         <p className="text-sm text-foreground-muted">{t('features.tools.description')}</p>
       </div>
 
+      <FeatureIntro icon={Wrench} title={t('tools.intro.title')} note={t('tools.intro.note')}>
+        {t('tools.intro.body')}
+      </FeatureIntro>
+
       {isPending ? (
         <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
           <Skeleton className="h-11 w-full" />
@@ -81,6 +86,9 @@ export default function UtoolsPage() {
             id={catalogPanelId(activeTab)}
             aria-labelledby={catalogTabId(activeTab)}
           >
+            <p className="mb-3 text-sm text-foreground-muted">
+              {t(`tools.tabs.hint.${activeTab}`)}
+            </p>
             {lists[activeTab] === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-6 text-center">

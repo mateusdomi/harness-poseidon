@@ -525,6 +525,9 @@
     }
   },
   "onboarding": {
+    "page": {
+      "lead": "Choose or create a local profile to use Poseidon on this device. The profile keeps your preferences (language, theme, working directory) locally, without sending anything out. This screen appears on first use and whenever no profile is active in the session."
+    },
     "selectProfile": {
       "title": "Who is using Poseidon?",
       "description": "Pick a local profile to continue or create a new one.",

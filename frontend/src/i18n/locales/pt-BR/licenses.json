@@ -1,5 +1,10 @@
 {
   "licenses": {
+    "intro": {
+      "title": "Licenciamento deste dispositivo",
+      "body": "O Poseidon é liberado por uma chave de licença assinada. Esta tela não gera chaves — ela ativa uma chave emitida para você e mostra o estado atual, o plano, os recursos incluídos e a validade. Depois de ativar, os recursos do plano ficam disponíveis.",
+      "howToTest": "Para testar a ativação, cole uma chave no formato XXXX-XXXX-XXXX-XXXX e clique em \"Ativar licença\". Chaves fora do formato são recusadas na hora; a chave também precisa ter sido emitida e assinada pelo fornecedor para ser aceita."
+    },
     "postExpiryNotice": "Mesmo após a expiração da licença, a leitura e a exportação dos seus dados continuam disponíveis.",
     "state": {
       "title": "Estado da licença",
@@ -24,8 +29,8 @@
       "error": "Não foi possível ativar a licença. Tente novamente."
     },
     "entitlements": {
-      "title": "Entitlements",
-      "empty": "Nenhum entitlement disponível.",
+      "title": "Recursos do plano",
+      "empty": "Nenhum recurso disponível.",
       "included": "Incluído no plano",
       "notIncluded": "Não incluído no plano"
     }
