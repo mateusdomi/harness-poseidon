@@ -13,7 +13,10 @@
     "workspace": {
       "title": "Working directories",
       "directory": "Working directory",
-      "hint": "Local folder where agents read and write files."
+      "hint": "Local folder where agents read and write files.",
+      "placeholder": "e.g. /Users/you/projects/my-app",
+      "empty": "No working directory configured. While blank, agents use the device default directory. Enter the path to your project's local folder and save.",
+      "current": "Current directory: {{path}}"
     },
     "sandbox": {
       "title": "Sandbox and unsafe mode",
@@ -26,11 +29,12 @@
     },
     "backup": {
       "title": "Backup and restore",
+      "description": "A backup produces a local file with the device state (database and document catalog). The file is stored in Poseidon's local data area, on your computer — nothing is sent to the cloud. Use a backup before risky changes so you can restore later.",
       "create": "Create backup",
       "createTitle": "Create local backup",
-      "createBody": "A local backup of the device data will be created. Continue?",
+      "createBody": "A local backup file with the device data (database and catalog) will be created on your computer. Nothing is sent to the cloud. Continue?",
       "createConfirm": "Create backup",
-      "created": "Backup created on {{date}}.",
+      "created": "Backup created on {{date}} (identifier {{id}}). Stored in Poseidon's local data area, on your computer.",
       "restore": "Restore last backup",
       "restoreTitle": "Restore backup",
       "restoreBody": "Restore the backup created on {{date}}? Current data will be replaced.",
@@ -47,10 +51,42 @@
         "ok": "OK",
         "warning": "Warning",
         "error": "Error"
+      },
+      "keys": {
+        "database": "Database",
+        "catalog": "Document catalog",
+        "backups": "Backups",
+        "realtime": "Real-time",
+        "api": "API",
+        "license": "License",
+        "sandbox": "Sandbox"
+      },
+      "apiModes": {
+        "mock": "Simulated (mock)",
+        "http": "Connected to backend (HTTP)"
+      },
+      "realtimeStates": {
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "reconnecting": "Reconnecting",
+        "available": "Available",
+        "unavailable": "Unavailable"
+      },
+      "messages": {
+        "databaseOk": "SQLite integrity check passed.",
+        "databaseCheck": "SQLite integrity check: {{detail}}.",
+        "databaseError": "SQLite error {{code}}.",
+        "catalogAvailable": "Document catalog is available.",
+        "catalogMissing": "The document catalog has not been created yet.",
+        "backupsAvailable": "Local backup directory is available.",
+        "backupsMissing": "No local backup has been created yet.",
+        "realtimeEnabled": "Persisted real-time endpoint and SignalR hub are enabled."
       }
     },
     "license": {
       "title": "License",
+      "status": "Status",
+      "plan": "Plan {{plan}}",
       "none": "No license activated.",
       "open": "View license details"
     },

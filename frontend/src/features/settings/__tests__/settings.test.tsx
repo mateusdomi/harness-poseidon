@@ -28,9 +28,16 @@ describe('SettingsPage', () => {
     // Fixture: aceite do modo inseguro preenchido → data exibida + revogar.
     expect(screen.getByText(/Modo inseguro \(execução sem sandbox\) aceito em/)).toBeInTheDocument();
     expect(screen.getByText('Backup e restauração')).toBeInTheDocument();
+    // Backup: orientação sobre o que é / onde fica.
+    expect(screen.getByText(/arquivo local com o estado do dispositivo/)).toBeInTheDocument();
     expect(screen.getByText('Diagnóstico')).toBeInTheDocument();
     // Diagnóstico do mock: checks de api/realtime/licença/sandbox.
     expect((await screen.findAllByText('OK')).length).toBeGreaterThan(0);
+    // Licença: rótulos explícitos (Situação + Plano), sem contradição.
+    expect(screen.getByText('Situação')).toBeInTheDocument();
+    expect(screen.getByText('Plano Pro')).toBeInTheDocument();
+    // Diretório de trabalho: fixture com caminho → leitura do valor atual.
+    expect(screen.getByText(/Diretório atual: ~\/poseidon/)).toBeInTheDocument();
     // Sobre: produto com codinome Harness.
     expect(screen.getByText(/codinome Harness/)).toBeInTheDocument();
   });

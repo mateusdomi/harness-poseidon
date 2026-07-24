@@ -28,6 +28,12 @@ import {
   useRestoreBackup,
   useUpdateSettings,
 } from '@/features/settings/hooks/use-settings';
+import {
+  apiModeLabel,
+  diagnosticKeyLabel,
+  realtimeStateLabel,
+  translateDiagnosticDetail,
+} from '@/features/settings/lib/diagnostics-i18n';
 import { useThemeStore } from '@/stores/theme-store';
 
 const DIAGNOSTIC_VARIANTS = { ok: 'success', warning: 'warning', error: 'error' } as const;
@@ -77,6 +83,30 @@ export default function UsettingsPage() {
   function changeTheme(theme: ThemePreference) {
     setThemePreference(theme);
     update({ theme });
+  }
+
+  /** Rótulo pt-BR de um check de diagnóstico (fallback: código cru). */
+  function checkKeyLabel(key: string): string {
+    const label = diagnosticKeyLabel(key);
+    return label ? t(label) : key;
+  }
+
+  /** Detalhe pt-BR de um check (fallback: string original do backend/mock). */
+  function checkDetailLabel(detail: string): string {
+    const translated = translateDiagnosticDetail(detail);
+    return translated ? t(translated.key, translated.params) : detail;
+  }
+
+  /** Modo da API traduzido (fallback: valor cru). */
+  function apiModeText(mode: string): string {
+    const label = apiModeLabel(mode);
+    return label ? t(label) : mode;
+  }
+
+  /** Estado de tempo real traduzido (fallback: valor cru). */
+  function realtimeText(state: string): string {
+    const label = realtimeStateLabel(state);
+    return label ? t(label) : state;
   }
 
   const loading = settingsQuery.isLoading;
@@ -161,9 +191,17 @@ export default function UsettingsPage() {
             <Input
               id="settings-workdir"
               value={workingDirectory}
+              placeholder={t('settings.workspace.placeholder')}
               onChange={(event) => setWorkingDirectory(event.target.value)}
             />
             <p className="text-xs text-foreground-muted">{t('settings.workspace.hint')}</p>
+            {settings?.workingDirectory ? (
+              <p className="text-xs text-foreground-muted">
+                {t('settings.workspace.current', { path: settings.workingDirectory })}
+              </p>
+            ) : (
+              <p className="text-xs text-warning">{t('settings.workspace.empty')}</p>
+            )}
           </div>
           <div>
             <Button
@@ -209,6 +247,7 @@ export default function UsettingsPage() {
           <CardTitle>{t('settings.backup.title')}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-foreground-muted">{t('settings.backup.description')}</p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setConfirmBackup(true)}>
               {t('settings.backup.create')}
@@ -257,11 +296,15 @@ export default function UsettingsPage() {
               <dl className="grid gap-2 text-sm sm:grid-cols-3">
                 <div>
                   <dt className="font-medium">{t('settings.diagnostics.apiMode')}</dt>
-                  <dd className="text-foreground-muted">{diagnosticsQuery.data!.apiMode}</dd>
+                  <dd className="text-foreground-muted">
+                    {apiModeText(diagnosticsQuery.data!.apiMode)}
+                  </dd>
                 </div>
                 <div>
                   <dt className="font-medium">{t('settings.diagnostics.realtime')}</dt>
-                  <dd className="text-foreground-muted">{diagnosticsQuery.data!.realtimeState}</dd>
+                  <dd className="text-foreground-muted">
+                    {realtimeText(diagnosticsQuery.data!.realtimeState)}
+                  </dd>
                 </div>
                 <div>
                   <dt className="font-medium">{t('settings.diagnostics.generatedAt')}</dt>
@@ -276,8 +319,8 @@ export default function UsettingsPage() {
                     <Badge variant={DIAGNOSTIC_VARIANTS[check.state]}>
                       {t(`settings.diagnostics.states.${check.state}`)}
                     </Badge>
-                    <span className="font-medium">{check.key}</span>
-                    <span className="text-foreground-muted">{check.detail}</span>
+                    <span className="font-medium">{checkKeyLabel(check.key)}</span>
+                    <span className="text-foreground-muted">{checkDetailLabel(check.detail)}</span>
                   </li>
                 ))}
               </ul>
@@ -293,10 +336,15 @@ export default function UsettingsPage() {
         <CardContent className="flex flex-wrap items-center gap-3">
           {licenseQuery.data ? (
             <>
+              <span className="text-sm text-foreground-muted">{t('settings.license.status')}</span>
               <Badge variant={licenseStateVariant(licenseQuery.data.state)}>
                 {t(`status.licenseState.${licenseQuery.data.state}`)}
               </Badge>
-              <span className="text-sm">{licenseQuery.data.plan}</span>
+              {licenseQuery.data.state !== 'unlicensed' && licenseQuery.data.plan ? (
+                <span className="text-sm">
+                  {t('settings.license.plan', { plan: licenseQuery.data.plan })}
+                </span>
+              ) : null}
             </>
           ) : (
             <span className="text-sm text-foreground-muted">
@@ -364,7 +412,10 @@ export default function UsettingsPage() {
                     onSuccess: (handle) => {
                       setLastBackup(handle);
                       setFeedback(
-                        t('settings.backup.created', { date: formatDateTime(handle.createdAt) }),
+                        t('settings.backup.created', {
+                          date: formatDateTime(handle.createdAt),
+                          id: handle.backupId,
+                        }),
                       );
                     },
                     onSettled: () => setConfirmBackup(false),
