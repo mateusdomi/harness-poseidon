@@ -243,6 +243,16 @@ describe('TemplateAdmin (FR-4)', () => {
     );
   });
 
+  it('mostra as fases da versão como chips no card do template', async () => {
+    renderWorkflows();
+
+    const card = await templateCard('Fluxo de Entrega Padrão');
+    const chips = await card.findByRole('list', { name: 'Fases desta versão' });
+    for (const phase of ['Planejamento', 'Execução', 'Validação', 'Publicação']) {
+      expect(within(chips).getByText(phase)).toBeInTheDocument();
+    }
+  });
+
   it('compara duas versões e mostra o diff estrutural', async () => {
     const user = userEvent.setup();
     renderWorkflows();
@@ -266,10 +276,17 @@ describe('TemplateAdmin (FR-4)', () => {
     await user.click(within(section).getByRole('button', { name: 'Comparar versões' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Comparar versões' });
-    expect(within(dialog).getByText('Diff estrutural: v1 → v2')).toBeInTheDocument();
-    expect(within(dialog).getByText('Fases adicionadas')).toBeInTheDocument();
+    // Cada lado é rotulado com nome + versão para desambiguar (não "v1 → v1").
+    expect(within(dialog).getByText('Origem (antes)')).toBeInTheDocument();
+    expect(within(dialog).getByText('Destino (depois)')).toBeInTheDocument();
+    // Diff explícito sobre de qual lado veio o quê.
+    expect(
+      within(dialog).getByText('Fases adicionadas em Fluxo de Entrega Padrão v2'),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText('+ Publicação Final')).toBeInTheDocument();
-    expect(within(dialog).getByText('Fases removidas')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Fases removidas de Fluxo de Entrega Padrão v1'),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText('− Publicação')).toBeInTheDocument();
   });
 
