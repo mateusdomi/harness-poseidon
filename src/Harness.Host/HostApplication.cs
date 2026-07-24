@@ -359,6 +359,13 @@ public static class HostApplication
             // Registrado DEPOIS da convergência de workflow para que o binding já exista quando roda.
             builder.Services.AddSingleton<Projects.ProjectStateConvergenceSeeder>();
             builder.Services.AddHostedService<Projects.ProjectStateConvergenceHostedService>();
+
+            // UX-PROTO/ARCH: com a execução de agentes ligada, semeia (idempotente) o MAPA DE
+            // ARQUITETURA do próprio Poseidon — elementos + relacionamentos derivados da estrutura
+            // REAL do repositório (src/, src/Modules/, frontend/) — para que a tela /architecture
+            // deixe de nascer vazia e o dono abra o projeto e veja o produto já mapeado.
+            builder.Services.AddSingleton<Architecture.ArchitectureSelfMapSeeder>();
+            builder.Services.AddHostedService<Architecture.ArchitectureSelfMapSeedHostedService>();
         }
 
         if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
