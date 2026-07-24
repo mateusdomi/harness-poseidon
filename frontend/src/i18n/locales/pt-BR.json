@@ -525,6 +525,9 @@
     }
   },
   "onboarding": {
+    "page": {
+      "lead": "Escolha ou crie um perfil local para usar o Poseidon neste dispositivo. O perfil guarda suas preferências (idioma, tema, diretório de trabalho) localmente, sem enviar nada para fora. Esta tela aparece no primeiro acesso e sempre que nenhum perfil está ativo na sessão."
+    },
     "selectProfile": {
       "title": "Quem está usando o Poseidon?",
       "description": "Escolha um perfil local para continuar ou crie um novo.",

@@ -1,5 +1,10 @@
 {
   "licenses": {
+    "intro": {
+      "title": "Licensing for this device",
+      "body": "Poseidon is unlocked by a signed license key. This screen does not generate keys — it activates a key issued to you and shows the current state, plan, included features and validity. Once activated, the plan's features become available.",
+      "howToTest": "To test activation, paste a key in the XXXX-XXXX-XXXX-XXXX format and click \"Activate license\". Malformed keys are rejected immediately; the key must also have been issued and signed by the vendor to be accepted."
+    },
     "postExpiryNotice": "Even after the license expires, reading and exporting your data remain available.",
     "state": {
       "title": "License state",

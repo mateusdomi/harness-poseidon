@@ -80,6 +80,9 @@ export default function OnboardingPage() {
         alt={product.name}
         className="h-auto w-60 object-contain dark:brightness-125 md:w-80"
       />
+      <p className="max-w-xl text-center text-sm text-foreground-muted">
+        {t('onboarding.page.lead')}
+      </p>
       {content}
     </main>
   );

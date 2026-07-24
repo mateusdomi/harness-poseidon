@@ -1,5 +1,15 @@
 {
   "poAssistant": {
+    "intro": {
+      "title": "Transforme um pedido em requisitos e demandas estruturadas",
+      "body": "Escreva a necessidade do usuário em linguagem natural. O assistente extrai requisitos, aponta ambiguidades e contradições, levanta perguntas e propõe critérios de aceite para você revisar antes de virar uma demanda para a equipe de agentes.",
+      "stepsLabel": "Como usar o assistente de PO",
+      "step1": "Descreva o pedido em texto livre e, se ajudar, anexe arquivos de apoio.",
+      "step2": "Clique em \"Analisar pedido\" para organizar o conteúdo em painéis.",
+      "step3": "Revise cada painel: edite, marque como resolvido ou descarte o que não se aplica.",
+      "step4": "Clique em \"Criar demanda estruturada\" — ela vai para o quadro e para o chefe do projeto.",
+      "note": "A análise é um apoio: revise e ajuste os painéis antes de criar a demanda."
+    },
     "noProject": {
       "body": "Selecione ou crie um projeto para analisar solicitações com o assistente de PO."
     },

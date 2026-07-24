@@ -1,11 +1,22 @@
 {
   "tools": {
+    "intro": {
+      "title": "Catálogo do que os agentes podem usar",
+      "body": "Aqui ficam as ferramentas, skills, plugins e servidores MCP disponíveis para a equipe de agentes. Habilite ou desabilite cada item para controlar, por política, o que os agentes podem usar durante as execuções.",
+      "note": "Habilitar ou desabilitar não instala nem remove nada: apenas libera ou bloqueia o uso do item pelos agentes. A mudança vale para todos os agentes."
+    },
     "tabs": {
       "label": "Categorias do catálogo",
       "tools": "Ferramentas",
       "skills": "Skills",
       "plugins": "Plugins",
-      "mcp": "Servidores MCP"
+      "mcp": "Servidores MCP",
+      "hint": {
+        "tools": "Ações que um agente executa, como rodar comandos ou abrir pull requests. A origem indica se a ferramenta é interna, vem de um plugin ou de um servidor MCP.",
+        "skills": "Pacotes de instruções e procedimentos que um agente carrega sob demanda para uma tarefa específica.",
+        "plugins": "Extensões que empacotam e fornecem novas ferramentas ao catálogo.",
+        "mcp": "Servidores externos (Model Context Protocol) que expõem ferramentas por um endpoint. O transporte e a contagem de ferramentas aparecem em cada servidor."
+      }
     },
     "list": {
       "tools": "Lista de ferramentas",

@@ -1,10 +1,11 @@
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
-import { Check, X } from 'lucide-react';
+import { Check, KeyRound, X } from 'lucide-react';
 
 import { ApiError, activateLicenseInputSchema } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Skeleton } from '@/design-system';
+import { FeatureIntro } from '@/features/shared/components/feature-intro';
 import { licenseStateVariant } from '@/lib/status';
 import { formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import { zodResolver } from '@/lib/form';
@@ -53,6 +54,14 @@ export default function UlicensesPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-heading text-2xl font-semibold">{t('features.licenses.title')}</h1>
+
+      <FeatureIntro
+        icon={KeyRound}
+        title={t('licenses.intro.title')}
+        note={t('licenses.intro.howToTest')}
+      >
+        {t('licenses.intro.body')}
+      </FeatureIntro>
 
       {loading ? (
         <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>

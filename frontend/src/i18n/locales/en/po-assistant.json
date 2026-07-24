@@ -1,5 +1,15 @@
 {
   "poAssistant": {
+    "intro": {
+      "title": "Turn a request into structured requirements and demands",
+      "body": "Write the user's need in plain language. The assistant extracts requirements, flags ambiguities and contradictions, raises questions and proposes acceptance criteria for you to review before it becomes a demand for the agent team.",
+      "stepsLabel": "How to use the PO assistant",
+      "step1": "Describe the request in free text and attach supporting files if useful.",
+      "step2": "Click \"Analyze request\" to organize the content into panels.",
+      "step3": "Review each panel: edit, mark as resolved, or discard what does not apply.",
+      "step4": "Click \"Create structured demand\" — it goes to the board and to the project's chief.",
+      "note": "The analysis is a support tool: review and adjust the panels before creating the demand."
+    },
     "noProject": {
       "body": "Select or create a project to analyze solicitations with the PO assistant."
     },

@@ -5,6 +5,7 @@ import { Send, Sparkles, X } from 'lucide-react';
 
 import type { SolicitationAnalysis } from '@/api';
 import { Button, Card, CardContent, Select, Skeleton, Textarea } from '@/design-system';
+import { FeatureIntro } from '@/features/shared/components/feature-intro';
 import { AnalysisPanelCard } from '@/features/po-assistant/components/analysis-panel-card';
 import {
   useAnalyzeSolicitation,
@@ -123,6 +124,21 @@ export default function UpoAssistantPage() {
           </div>
         )}
       </div>
+
+      <FeatureIntro
+        icon={Sparkles}
+        title={t('poAssistant.intro.title')}
+        steps={[
+          t('poAssistant.intro.step1'),
+          t('poAssistant.intro.step2'),
+          t('poAssistant.intro.step3'),
+          t('poAssistant.intro.step4'),
+        ]}
+        stepsLabel={t('poAssistant.intro.stepsLabel')}
+        note={t('poAssistant.intro.note')}
+      >
+        {t('poAssistant.intro.body')}
+      </FeatureIntro>
 
       {loading ? (
         <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>

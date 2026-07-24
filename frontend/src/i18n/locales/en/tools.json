@@ -1,11 +1,22 @@
 {
   "tools": {
+    "intro": {
+      "title": "Catalog of what agents can use",
+      "body": "This is where the tools, skills, plugins and MCP servers available to the agent team live. Enable or disable each item to control, by policy, what agents may use during runs.",
+      "note": "Enabling or disabling installs or removes nothing: it only allows or blocks the item's use by agents. The change applies to every agent."
+    },
     "tabs": {
       "label": "Catalog categories",
       "tools": "Tools",
       "skills": "Skills",
       "plugins": "Plugins",
-      "mcp": "MCP servers"
+      "mcp": "MCP servers",
+      "hint": {
+        "tools": "Actions an agent performs, such as running commands or opening pull requests. The origin shows whether the tool is built-in, from a plugin, or from an MCP server.",
+        "skills": "Packages of instructions and procedures an agent loads on demand for a specific task.",
+        "plugins": "Extensions that bundle and provide new tools to the catalog.",
+        "mcp": "External servers (Model Context Protocol) that expose tools over an endpoint. The transport and tool count are shown for each server."
+      }
     },
     "list": {
       "tools": "Tool list",
