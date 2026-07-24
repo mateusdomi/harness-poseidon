@@ -60,10 +60,18 @@ describe('GovernanceContractPage P1/P2', () => {
     expect(await screen.findByText('Sinal técnico: GO')).toBeInTheDocument();
     expect(screen.getByText('omp-rpc')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'Bundles e receipts' }));
+    // Propósito da tela em pt-BR e métricas traduzidas/esclarecidas.
+    expect(screen.getByText('Para que serve esta tela')).toBeInTheDocument();
+    expect(screen.getByText('Comprovantes carregados')).toBeInTheDocument();
+    expect(screen.getByText('Detecções em documentos')).toBeInTheDocument();
+    expect(screen.getByText('Conflitos em lotes')).toBeInTheDocument();
+    // A contagem de detecções deixa claro que são trechos sinalizados, não documentos a revisar.
+    expect(screen.getByText('1 trecho(s) sinalizado(s) por varredura, não documentos')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Comprovantes de execução' }));
     expect(await screen.findByText('turn-1')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Ver bundle' }));
-    expect(await screen.findByText('Context bundle reproduzível')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ver comprovante' }));
+    expect(await screen.findByText('Comprovante reproduzível (bundle)')).toBeInTheDocument();
     expect(await screen.findByText('Delivered')).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Documentos e saúde' }));
@@ -71,7 +79,7 @@ describe('GovernanceContractPage P1/P2', () => {
     expect(screen.getByText('ReviewOverdue')).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Aprendizado P2' }));
-    expect(await screen.findByText('Learning candidates')).toBeInTheDocument();
+    expect(await screen.findByText('Candidatos de aprendizado')).toBeInTheDocument();
     expect(await screen.findByText('Retry seguro')).toBeInTheDocument();
   });
 

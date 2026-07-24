@@ -52,9 +52,14 @@
       "csv": "Export CSV"
     },
     "runtime": {
-      "title": "Agent governance",
-      "subtitle": "Operational view based exclusively on the P1 and P2 contracts published by the backend.",
+      "title": "Governance and execution proof",
+      "subtitle": "Agent audit panel: gathers the proof of every governed execution, the automatic detections in documents, the registered executors, and the batch conflicts.",
       "gate": "P1 + P2",
+      "purpose": {
+        "title": "What this screen is for",
+        "body": "This is where you inspect and prove what the agents did — not where content is created, but where it is audited and accepted. Each governed execution produces a reproducible proof (the \"bundle\": what was read, the model used, and the result). An automatic sweep flags sensitive or stale passages in documents. And you track which executors are registered and whether any batch had a conflict.",
+        "testHint": "How to test: on Overview, check the four numbers and the GO/NO-GO technical signal; then open the \"Execution proofs\" tab and expand a proof to see the reproducible bundle and the turn metrics."
+      },
       "unknown": "unknown",
       "empty": "No data published by the runtime.",
       "enabled": "enabled",
@@ -69,27 +74,34 @@
       "tabs": {
         "label": "Governance areas",
         "overview": "Overview",
-        "receipts": "Bundles and receipts",
+        "receipts": "Execution proofs",
         "documents": "Documents and health",
         "evaluation": "Evaluation",
         "audit": "Audit",
         "learning": "P2 learning"
       },
       "summary": {
-        "receipts": "Loaded receipts",
+        "receipts": "Loaded proofs",
         "completed": "completed",
-        "findings": "Document findings",
-        "staleDetail": "detections with no automatic deletion",
+        "findings": "Document detections",
+        "staleDetail": "{{count}} passage(s) flagged by the sweep, not documents",
         "executors": "Active executors",
         "registered": "registered",
-        "conflicts": "Bundle conflicts",
+        "conflicts": "Batch conflicts",
         "none": "none in the current batch",
-        "requiresAction": "require investigation"
+        "requiresAction": "require investigation",
+        "explain": "What does this metric mean?",
+        "tooltips": {
+          "receipts": "Reproducible record of each governed agent execution.",
+          "findings": "Automatic alerts per passage — not the count of documents.",
+          "executors": "Agent engines registered and ready to run.",
+          "conflicts": "Divergences within a batch; zero means consistent."
+        }
       },
       "goNoGo": {
         "go": "Technical signal: GO",
         "noGo": "Technical signal: NO-GO",
-        "goBody": "The API responds and the current receipt batch reports no selection conflicts.",
+        "goBody": "The API responds and the current proof batch reports no selection conflicts.",
         "noGoBody": "The API is unhealthy or a bundle conflict exists; investigate before acceptance."
       },
       "executors": { "title": "Executor catalog", "body": "Availability and enablement reported by the runtime." },
@@ -102,17 +114,17 @@
       "receipts": {
         "search": "Search current batch", "state": "State",
         "limitNote": "The P1 API returns a batch of up to 100 receipts and does not publish a next-page cursor; the UI does not simulate pagination.",
-        "emptyTitle": "No receipt available", "emptyBody": "Run a real Chief turn and try again. The acceptance profile does not inject fixtures.",
-        "view": "View bundle", "hide": "Hide bundle", "bundle": "Reproducible context bundle", "documents": "Selected documents", "metrics": "Turn metrics"
+        "emptyTitle": "No proof available", "emptyBody": "Run a real Chief turn and try again. The acceptance profile does not inject fixtures.",
+        "view": "View proof", "hide": "Hide proof", "bundle": "Reproducible proof (bundle)", "documents": "Selected documents", "metrics": "Turn metrics"
       },
       "documents": {
         "catalogUnavailable": "Canonical catalog not published",
         "catalogUnavailableBody": "The P1 OpenAPI does not expose the manifest or linter health. The list below only contains documents observed in real receipts, without fabricated owners, authority, or status.",
         "observedTitle": "Observed documents", "observedBody": "Selection, checksum, and budget captured by receipts in the current batch.",
-        "findingsTitle": "Stale-doc findings", "findingsBody": "Runtime detections grouped by document; no action is performed automatically.", "noFindings": "No finding published by the runtime."
+        "findingsTitle": "Stale document detections", "findingsBody": "Runtime detections grouped by document; no action is performed automatically.", "noFindings": "No finding published by the runtime."
       },
       "evaluation": {
-        "title": "Fresh-context evaluator", "body": "Submits criteria, diff, and evidence to the independent read-only P1 evaluator. Do not include secrets or classified content.",
+        "title": "Clean-context evaluation", "body": "Submits criteria, diff, and evidence to the independent read-only P1 evaluator. Do not include secrets or classified content.",
         "onePerLine": "One item per line.", "requiredError": "Fill in the required identifiers, criteria, diff, and evidence.",
         "run": "Run evaluation", "running": "Evaluating…", "result": "Result from this session", "resultMetadata": "{{provider}}/{{model}} · {{date}} · schema {{schema}}", "independence": "readOnly={{readOnly}} · cleanContext={{cleanContext}}", "noFindings": "No finding returned.",
         "historyUnavailable": "History and replay unavailable", "historyUnavailableBody": "P1 only publishes POST /evaluations. The current result remains in the screen session; no list or replay endpoint exists.", "risks": { "low": "low", "medium": "medium", "high": "high" },
@@ -132,7 +144,7 @@
     },
     "learning": {
       "title": "Learning candidates",
-      "body": "Paginated, tenant-scoped governed queue. Promotion is never automatic.",
+      "body": "Paginated, tenant-scoped, governed queue. Promotion is never automatic.",
       "empty": "No candidate matches the current filters.",
       "select": "Select a candidate to inspect evidence, comparison, actions, and history.",
       "loadMore": "Load next page",
