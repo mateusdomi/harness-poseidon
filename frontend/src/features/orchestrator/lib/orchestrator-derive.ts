@@ -6,8 +6,12 @@ import type {
   Attempt,
   AttemptEvent,
   Budget,
+  Conversation,
   Model,
+  OperationMode,
+  Project,
   Ulid,
+  Workflow,
 } from '@/api';
 import { AGENT_STATES } from '@/api';
 
@@ -201,6 +205,41 @@ export function chiefBudgets(
       (budget.scope === 'project' && budget.scopeId === projectId) ||
       (budget.scope === 'account' && accountId !== null && budget.scopeId === accountId),
   );
+}
+
+/**
+ * Modo de operação efetivo do chefe. A fonte da verdade EDITÁVEL é o modo do
+ * workflow vinculado (alterado na tela de workflows, com aceite de risco);
+ * `project.operationMode` é apenas o default herdado na criação e nunca é
+ * atualizado depois — exibi-lo faria a tela "voltar pra Manual" mesmo após o
+ * dono trocar o modo. Sem workflow vinculado, cai no default do projeto.
+ */
+export function resolveOperationMode(project: Project, workflow: Workflow | null): OperationMode {
+  return workflow?.operationMode ?? project.operationMode;
+}
+
+/**
+ * Última atividade real do projeto: o instante mais recente entre a atividade
+ * registrada no projeto (`project.lastActivityAt`, que só avança em mudanças de
+ * configuração) e a última mensagem de qualquer conversa do chefe. Um turno de
+ * conversa recente CONTA como atividade — sem isto a ficha do chefe reportaria
+ * "há N dias" mesmo com o dono conversando hoje.
+ */
+export function resolveLastActivityAt(
+  project: Project,
+  conversations: readonly Conversation[],
+): string {
+  let latest = project.lastActivityAt;
+  let latestMs = Date.parse(latest);
+  for (const conversation of conversations) {
+    if (conversation.lastMessageAt === null) continue;
+    const candidateMs = Date.parse(conversation.lastMessageAt);
+    if (candidateMs > latestMs) {
+      latest = conversation.lastMessageAt;
+      latestMs = candidateMs;
+    }
+  }
+  return latest;
 }
 
 /** Eventos da tentativa em ordem cronológica (estável por id no empate). */

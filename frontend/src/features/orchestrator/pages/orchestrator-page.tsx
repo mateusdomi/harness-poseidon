@@ -14,7 +14,9 @@ import {
   chiefBudgets,
   resolveChiefAccount,
   resolveChiefModel,
+  resolveLastActivityAt,
   resolveModelBindingSource,
+  resolveOperationMode,
 } from '@/features/orchestrator/lib/orchestrator-derive';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useNow } from '@/features/shared/hooks/use-now';
@@ -164,6 +166,8 @@ export default function UorchestratorPage() {
             hasWorkflow={workflowQuery.data != null}
             isRunning={chiefIsRunning}
             modelBinding={modelBinding}
+            operationMode={resolveOperationMode(activeProject, workflowQuery.data ?? null)}
+            lastActivityAt={resolveLastActivityAt(activeProject, data.conversations)}
           />
           <AgentGrid agents={gridAgents} tasks={data.tasks} attempts={projectAttempts} now={now} />
         </>

@@ -293,9 +293,11 @@
       "lastActivity": "Última atividade {{time}}",
       "diagnostics": {
         "toggle": "Diagnóstico avançado",
-        "fencingToken": "Fencing token",
-        "leaseExpiresAt": "Lease expira em",
-        "noLease": "Sem lease ativo"
+        "fencingToken": "Trava de concorrência",
+        "fencingTokenHint": "Trava de concorrência (fencing token): impede que duas instâncias do chefe assumam o mesmo trabalho ao mesmo tempo. O número cresce a cada nova concessão, e o sistema recusa quem tentar agir com um número antigo.",
+        "leaseExpiresAt": "Concessão expira em",
+        "leaseHint": "Concessão (lease): por quanto tempo esta instância tem o direito de executar o turno. Se expirar sem renovação, outra instância pode assumir o trabalho com segurança.",
+        "noLease": "Sem concessão ativa"
       },
       "bindingPending": "Binding pendente"
     },

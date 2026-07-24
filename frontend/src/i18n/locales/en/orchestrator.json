@@ -293,8 +293,10 @@
       "lastActivity": "Last activity {{time}}",
       "diagnostics": {
         "toggle": "Advanced diagnostics",
-        "fencingToken": "Fencing token",
+        "fencingToken": "Concurrency lock",
+        "fencingTokenHint": "Concurrency lock (fencing token): prevents two chief instances from taking the same work at the same time. The number grows with each new lease, and the system rejects anyone acting with an old number.",
         "leaseExpiresAt": "Lease expires at",
+        "leaseHint": "Lease: how long this instance holds the right to run the turn. If it expires without renewal, another instance can safely take over the work.",
         "noLease": "No active lease"
       },
       "bindingPending": "Binding pending"
