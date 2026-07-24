@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { ChannelLink, ChannelMessagePage, Ulid } from '@/api';
+import type { ChannelLink, ChannelMessagePage, CreateChannelLinkInput, Ulid } from '@/api';
 import { useApi } from '@/app/api-context';
 
 /** Query keys da feature de canais externos. */
@@ -15,6 +15,22 @@ export function useChannelLinks() {
   return useQuery({
     queryKey: channelKeys.links,
     queryFn: async (): Promise<ChannelLink[]> => api.listChannelLinks(),
+  });
+}
+
+/**
+ * Vincula um canal externo (Telegram/Teams) a um projeto e revalida a lista.
+ * Idempotente no backend por identidade — revincular devolve o mesmo vínculo.
+ */
+export function useCreateChannelLink() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateChannelLinkInput): Promise<ChannelLink> =>
+      api.createChannelLink(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: channelKeys.links });
+    },
   });
 }
 

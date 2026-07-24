@@ -18,13 +18,55 @@
       "linkedAt": "Linked at"
     },
     "empty": {
-      "title": "No channels linked",
-      "body": "No external channel is linked yet. Link a Telegram chat to a project from the CLI or gateway to see it here."
+      "title": "No channel linked to a project",
+      "body": "Having a configured Telegram bot on the gateway is not the same as having a linked channel. This screen lists only external-identity → project links. Link your chat below so its messages reach the Chief's durable inbox.",
+      "cta": "Link a channel"
     },
     "error": {
       "title": "Could not load channels",
       "body": "The channels gateway did not respond. Retry in a moment.",
       "cta": "Retry"
+    },
+    "concepts": {
+      "title": "Configured bot ≠ linked channel",
+      "body": "Configuring the bot (BotFather token on the gateway) only enables Telegram on the server. For a conversation to become work, you must link the chat identity to a project — that is what this screen shows. If you already talk to the bot but see nothing here, the link has not been created in this tenant yet."
+    },
+    "link": {
+      "title": "Link a channel to a project",
+      "subtitle": "Link a chat identity (Telegram/Teams) to a project. Linking is idempotent: re-linking the same identity returns the existing link.",
+      "open": "Link new channel",
+      "cancel": "Cancel",
+      "required": "*",
+      "fields": {
+        "kind": "Channel kind",
+        "identity": "External identity",
+        "identityHintTelegram": "Numeric Telegram chat id (e.g. 5774120296). The bot reports the chat id on the first message from a not-yet-linked chat. Never paste the bot token here.",
+        "identityHintTeams": "Teams conversation identity (channel/conversation id).",
+        "identityPlaceholder": "5774120296",
+        "project": "Project",
+        "projectPlaceholder": "Select the project"
+      },
+      "submit": "Link channel",
+      "submitting": "Linking…",
+      "success": "Channel linked to the project. New chat messages will now reach the Chief's inbox.",
+      "noProjects": "Create a project before linking a channel — a link always points to a project.",
+      "errors": {
+        "invalid_channel_kind": "Invalid channel kind.",
+        "invalid_external_identity": "External identity is required and limited to 200 characters.",
+        "invalid_project_id": "Select a valid project.",
+        "project_not_found": "The selected project no longer exists.",
+        "generic": "Could not link the channel. Check the data and try again."
+      }
+    },
+    "cli": {
+      "title": "Prefer the CLI/gateway?",
+      "intro": "The link can also be created directly on the gateway API. Telegram walkthrough:",
+      "step1": "1. Enable the bot on the server (once): set the BotFather token before starting the Host.",
+      "step1Cmd": "export Harness__Channels__Telegram__BotToken=\"<botfather-token>\"",
+      "step2": "2. Find the chat id: send any message to the bot; it replies with the numeric chat id of the not-yet-linked chat.",
+      "step3": "3. Create the link (kind telegram, externalIdentity = chat id, projectId = project ULID):",
+      "step3Cmd": "curl -X POST \"$HARNESS_BASE_URL/api/v1/channels/links\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"kind\":\"telegram\",\"externalIdentity\":\"<chat-id>\",\"projectId\":\"<project-ULID>\"}'",
+      "note": "The bot token stays on the server (environment variable). It is never sent or shown on this screen — here we only use the chat id (external identity)."
     },
     "messages": {
       "title": "Message history",
@@ -35,6 +77,10 @@
         "user": "User",
         "agent": "Agent"
       }
+    },
+    "manage": {
+      "title": "Manage",
+      "unlinkNote": "Unlinking a channel is done via the gateway/CLI (there is no delete action on this screen). While the link exists, chat messages keep reaching the Chief's inbox."
     }
   }
 }

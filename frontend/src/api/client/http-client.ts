@@ -110,6 +110,7 @@ import {
   type AgentAccountRoster,
   type ChannelLink,
   type ChannelMessagePage,
+  type CreateChannelLinkInput,
 } from '../contracts';
 import type { ApiClient } from './api-client';
 import {
@@ -598,6 +599,15 @@ export class HttpApiClient implements ApiClient {
   async listChannelLinks(): Promise<ChannelLink[]> {
     const response = await this.#request<{ items?: unknown }>('GET', '/channels/links');
     return channelLinkSchema.array().parse(response?.items ?? []);
+  }
+
+  async createChannelLink(input: CreateChannelLinkInput): Promise<ChannelLink> {
+    const response = await this.#request<unknown>('POST', '/channels/links', {
+      kind: input.kind,
+      externalIdentity: input.externalIdentity.trim(),
+      projectId: input.projectId,
+    });
+    return channelLinkSchema.parse(response);
   }
 
   async listChannelMessages(
