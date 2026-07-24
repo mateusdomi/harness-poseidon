@@ -131,12 +131,13 @@ function hashString(value: string): number {
 /**
  * Cor do avatar derivada por hash da semente (o nome humano por padrão): a
  * mesma "pessoa" recebe sempre a mesma cor em qualquer tela. Saturação e
- * luminância fixas e escuras garantem contraste do texto branco em tema claro
- * e escuro. Sem rede: é só uma string HSL.
+ * luminância fixas e escuras garantem contraste WCAG AA do texto branco em
+ * todo o círculo cromático, nos temas claro e escuro. Sem rede: é só uma
+ * string HSL.
  */
 export function avatarColorsFor(seed: string): AvatarColors {
   const hue = hashString(seed) % 360;
-  return { background: `hsl(${hue} 55% 38%)`, foreground: '#ffffff' };
+  return { background: `hsl(${hue} 55% 30%)`, foreground: '#ffffff' };
 }
 
 /**

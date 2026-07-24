@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
  * Gate visual do controle de seleção compartilhado (Checkbox do design
@@ -42,9 +42,9 @@ async function gotoNotifications(page: Page) {
   await expect(page).toHaveURL(/\/notifications$/);
 }
 
-/** Localiza o check (lucide) dentro do label que contém o texto informado. */
-function checkIconWithin(page: Page, labelText: string) {
-  return page.locator('label', { hasText: labelText }).locator('.lucide-check').first();
+/** Localiza o check (lucide) sobreposto ao input nativo. */
+function checkIconFor(checkbox: Locator) {
+  return checkbox.locator('xpath=..').locator('.lucide-check');
 }
 
 test.describe('Feedback visual do Checkbox compartilhado', () => {
@@ -57,18 +57,23 @@ test.describe('Feedback visual do Checkbox compartilhado', () => {
 
     await gotoNotifications(page);
 
-    // Toggle global "Notificações ativadas": marcado por padrão no mock.
-    const global = page.getByRole('checkbox', { name: 'Notificações ativadas' });
+    // Toggle global: marcado por padrão no mock.
+    const global = page.getByRole('checkbox').first();
+    await expect(global).toHaveAccessibleName(/^Receber notificações/);
     await expect(global).toBeChecked();
     // Prova do defeito corrigido: o check está renderizado E revelado.
-    await expect(checkIconWithin(page, 'Notificações ativadas')).toHaveCSS('opacity', '1');
+    await expect(checkIconFor(global)).toHaveCSS('opacity', '1');
 
-    // Categoria "Sistema": desmarcada → check oculto (opacidade 0).
-    // (Marcar-revela é coberto pelo teste de teclado abaixo, sem a corrida
-    // de re-render da mutation.)
-    const system = page.getByRole('checkbox', { name: 'Sistema' });
+    // Categoria "Sistema": ativa por padrão; desmarcar oculta o indicador.
+    const system = page.getByRole('checkbox', {
+      name: 'Receber notificações de Sistema',
+      exact: true,
+    });
+    await expect(system).toBeChecked();
+    await expect(checkIconFor(system)).toHaveCSS('opacity', '1');
+    await system.click();
     await expect(system).not.toBeChecked();
-    await expect(checkIconWithin(page, 'Sistema')).toHaveCSS('opacity', '0');
+    await expect(checkIconFor(system)).toHaveCSS('opacity', '0');
 
     // Sem violações críticas/sérias de acessibilidade na tela.
     const results = await new AxeBuilder({ page })
@@ -85,11 +90,18 @@ test.describe('Feedback visual do Checkbox compartilhado', () => {
   test('Teclado: Space marca o controle e revela o checkmark', async ({ page }) => {
     await gotoNotifications(page);
 
-    const system = page.getByRole('checkbox', { name: 'Sistema' });
+    const system = page.getByRole('checkbox', {
+      name: 'Receber notificações de Sistema',
+      exact: true,
+    });
+    await expect(system).toBeChecked();
+    await system.focus();
+    await page.keyboard.press(' ');
     await expect(system).not.toBeChecked();
+    await expect(checkIconFor(system)).toHaveCSS('opacity', '0');
     await system.focus();
     await page.keyboard.press(' ');
     await expect(system).toBeChecked();
-    await expect(checkIconWithin(page, 'Sistema')).toHaveCSS('opacity', '1');
+    await expect(checkIconFor(system)).toHaveCSS('opacity', '1');
   });
 });
