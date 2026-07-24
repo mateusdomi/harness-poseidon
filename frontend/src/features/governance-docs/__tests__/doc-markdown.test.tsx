@@ -1,4 +1,6 @@
+import { StrictMode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import mermaid from 'mermaid';
 import { describe, expect, it, vi } from 'vitest';
 
 import '@/i18n';
@@ -42,6 +44,23 @@ describe('DocMarkdown', () => {
     expect(diagram.querySelector('svg')).not.toBeNull();
     expect(diagram.textContent).toContain('Fluxo seguro');
     await waitFor(() => expect(figure.textContent).not.toContain('graph TD'));
+  });
+
+  it('não reutiliza o ID temporário do Mermaid nos efeitos duplicados do StrictMode', async () => {
+    const renderMock = vi.mocked(mermaid.render);
+    const callsBefore = renderMock.mock.calls.length;
+    render(
+      <StrictMode>
+        <DocMarkdown content={'```mermaid\ngraph TD;\n  A-->B;\n```'} />
+      </StrictMode>,
+    );
+
+    await screen.findByRole('img', { name: /Visualização do diagrama Mermaid/i });
+    const identifiers = renderMock.mock.calls
+      .slice(callsBefore)
+      .map(([identifier]) => identifier);
+    expect(identifiers.length).toBeGreaterThan(1);
+    expect(new Set(identifiers).size).toBe(identifiers.length);
   });
 
   it('mantém fallback de fonte explícito para PlantUML sem motor local', () => {

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { sanitizeMermaidSvg } from '@/features/governance-docs/lib/mermaid-sanitize';
@@ -9,26 +9,45 @@ type RenderState =
   | { kind: 'ready'; svg: string }
   | { kind: 'fallback' };
 
+// Mermaid mantém configuração/DOM temporário globais e não garante segurança
+// para renders concorrentes. StrictMode duplica efeitos em desenvolvimento;
+// a fila preserva a ordem sem desativar esse diagnóstico do React.
+let mermaidRenderQueue: Promise<void> = Promise.resolve();
+
+function enqueueMermaidRender<T>(render: () => Promise<T>): Promise<T> {
+  const result = mermaidRenderQueue.then(render, render);
+  mermaidRenderQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
 export function MermaidDiagram({ source }: { source: string }) {
   const { t } = useTranslation();
   const theme = useThemeStore((state) => state.resolved);
   const reactId = useId();
+  const renderSequence = useRef(0);
   const [state, setState] = useState<RenderState>({ kind: 'loading' });
 
   useEffect(() => {
     let active = true;
-    const diagramId = `poseidon-mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+    renderSequence.current += 1;
+    const diagramId =
+      `poseidon-mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}-${renderSequence.current}`;
     setState({ kind: 'loading' });
 
-    void import('mermaid')
-      .then(async ({ default: mermaid }) => {
+    void enqueueMermaidRender(async () => {
+      const { default: mermaid } = await import('mermaid');
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: 'strict',
           suppressErrorRendering: true,
           theme: theme === 'dark' ? 'dark' : 'neutral',
         });
-        const rendered = await mermaid.render(diagramId, source);
+      return mermaid.render(diagramId, source);
+    })
+      .then((rendered) => {
         if (active) setState({ kind: 'ready', svg: sanitizeMermaidSvg(rendered.svg) });
       })
       .catch(() => {
