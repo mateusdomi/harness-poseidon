@@ -390,6 +390,12 @@ public static class HostApplication
                 services.GetRequiredService<IClock>(),
                 services.GetRequiredService<AgentRunSettings>(),
                 services.GetRequiredService<AccountAvailabilityLedger>()));
+
+            // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
+            // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para
+            // eles e vincula o workflow recomendado. Sobrevive a restart: reexecuta e converge.
+            builder.Services.AddSingleton<Providers.ChiefCliProviderCatalogSeeder>();
+            builder.Services.AddHostedService<Providers.ChiefCliProviderCatalogSeedHostedService>();
         }
 
         if (serverMode)
