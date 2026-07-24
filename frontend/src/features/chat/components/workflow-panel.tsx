@@ -69,6 +69,9 @@ function useWorkflowPanel(projectId: Ulid | null) {
 
   return {
     hasWorkflow: workflow !== null && run !== null,
+    // RN-02: todo projeto tem um workflow atribuído automaticamente. Distinguimos o caso normal
+    // "workflow vinculado, execução ainda não iniciada" (sem run) do caso de exceção "sem vínculo".
+    hasBinding: workflow !== null,
     phases: runDetails.phases,
     gates: runDetails.gates,
     documents: documentsQuery.data ?? [],
@@ -261,12 +264,16 @@ export function WorkflowPanel({ projectId }: { projectId: Ulid | null }) {
   }
 
   if (!panel.hasWorkflow) {
+    // RN-02: com vínculo mas sem run, o estado normal é "execução ainda não iniciada" — não pedimos
+    // para vincular um workflow (o sistema já atribuiu o padrão). O texto de "sem vínculo" vira
+    // orientação de exceção, mostrado só quando, atipicamente, nenhum workflow está vinculado.
+    const scope = panel.hasBinding ? 'notStarted' : 'empty';
     return (
       <div className="flex flex-col items-start gap-3">
-        <p className="text-sm font-medium">{t('chat.workflowPanel.empty.title')}</p>
-        <p className="text-sm text-foreground-muted">{t('chat.workflowPanel.empty.body')}</p>
+        <p className="text-sm font-medium">{t(`chat.workflowPanel.${scope}.title`)}</p>
+        <p className="text-sm text-foreground-muted">{t(`chat.workflowPanel.${scope}.body`)}</p>
         <Button asChild variant="outline" size="sm">
-          <Link to="/workflows">{t('chat.workflowPanel.empty.cta')}</Link>
+          <Link to="/workflows">{t(`chat.workflowPanel.${scope}.cta`)}</Link>
         </Button>
       </div>
     );

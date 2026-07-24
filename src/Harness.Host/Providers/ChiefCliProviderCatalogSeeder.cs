@@ -249,37 +249,14 @@ public sealed class ChiefCliProviderCatalogSeeder(
         return wired;
     }
 
-    private async Task<int> BindWorkflowsAsync(
+    // RN-02: a garantia de "todo projeto tem workflow" vive no ProjectWorkflowConvergenceSeeder.
+    // Aqui apenas delegamos, reusando a página já lida, para que o fecho GP-06 continue reportando
+    // quantos workflows vinculou sem duplicar a regra de vínculo.
+    private Task<int> BindWorkflowsAsync(
         string tenantId,
         string actorProfileId,
         IReadOnlyList<ProjectRecord> projectPage,
-        CancellationToken cancellationToken)
-    {
-        var bound = 0;
-        foreach (var project in projectPage)
-        {
-            var existing = await _workflows.ListBindingsAsync(tenantId, project.Id, null, 1, cancellationToken);
-            if (existing.Count > 0)
-            {
-                continue;
-            }
-
-            var template = await ProjectWorkflowLinker.ResolveRecommendedAsync(
-                _workflows, _workflowSeeder, tenantId, cancellationToken);
-            if (template is null)
-            {
-                continue;
-            }
-
-            var result = await ProjectWorkflowLinker.LinkAsync(
-                _workflows, tenantId, project.Id, template, versionId: null, actorProfileId,
-                _clock, cancellationToken);
-            if (result.Outcome is ProjectWorkflowLinker.LinkOutcome.Applied)
-            {
-                bound++;
-            }
-        }
-
-        return bound;
-    }
+        CancellationToken cancellationToken) =>
+        new ProjectWorkflowConvergenceSeeder(_projects, _workflows, _workflowSeeder, _clock)
+            .EnsureBoundAsync(tenantId, actorProfileId, projectPage, cancellationToken);
 }

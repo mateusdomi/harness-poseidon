@@ -343,6 +343,17 @@ public static class HostApplication
             .GetSection("Harness:AgentRuns")
             .Get<AgentRunSettings>() ?? new AgentRunSettings();
         builder.Services.AddSingleton(agentRunSettings);
+
+        // RN-02: com a execução de agentes ligada, garante a invariante "todo projeto tem workflow"
+        // — vinculando o recomendado a projetos sem workflow no startup. Gate PURO em AgentRuns.Enabled
+        // (não exige conta do Chefe nem raiz controlada), para que projetos antigos (ex.: "Poseidon")
+        // ganhem fase/workflow e o chat do Chefe nunca fique em "Nenhum workflow ativo".
+        if (agentRunSettings.Enabled)
+        {
+            builder.Services.AddSingleton<Workflows.ProjectWorkflowConvergenceSeeder>();
+            builder.Services.AddHostedService<Workflows.ProjectWorkflowConvergenceHostedService>();
+        }
+
         if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
         {
             var profilesRoot = string.IsNullOrWhiteSpace(agentRunSettings.ProfilesRoot)

@@ -13,6 +13,13 @@ namespace Harness.Host.Projects;
 
 public static class ProjectEndpoints
 {
+    private static readonly Action<ILogger, string, Exception?> WorkflowlessProjectCreated =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(1012, nameof(WorkflowlessProjectCreated)),
+            "RN-02: projeto {ProjectId} criado sem workflow — nenhum template recomendado publicável " +
+            "disponível; a convergência de startup vinculará quando existir.");
+
     public static IEndpointRouteBuilder MapProjects(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/projects").WithTags("projects");
@@ -39,27 +46,23 @@ public static class ProjectEndpoints
     {
         if (!UlidValue.TryParse(projectId, out _)) return InvalidId(); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var project = await store.GetAsync(profile.TenantId, projectId, token); return project is null ? NotFound() : Results.Ok(ToResponse(project));
     }
-    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IWorkflowCatalogStore workflows, WorkflowTemplateSeeder seeder, IClock clock, CancellationToken token)
+    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IWorkflowCatalogStore workflows, WorkflowTemplateSeeder seeder, IClock clock, ILoggerFactory loggers, CancellationToken token)
     {
         var profile = await LocalProfileSession.ResolveAsync(http, profiles, token); if (profile is null) return SessionRequired();
         ArgumentNullException.ThrowIfNull(request);
-        // GP-09: pré-seleção do workflow na criação. Empty string => opt-out; ULID => override;
-        // ausente => template recomendado. Resolvemos o template ANTES de criar o projeto para
-        // que um override inválido falhe rápido, sem deixar um projeto órfão.
-        var linkWorkflow = request.WorkflowTemplateId is not "";
+        // RN-02: é impossível um projeto sem workflow — não há opt-out. Um ULID seleciona um template
+        // específico (override); ausência OU string vazia caem no template recomendado publicado.
+        // Resolvemos o template ANTES de criar o projeto para que um override inválido falhe rápido,
+        // sem deixar um projeto órfão.
         if (request.WorkflowTemplateId is { Length: > 0 } && !UlidValue.TryParse(request.WorkflowTemplateId, out _))
             return Problem(400, "invalid_workflow_template_id", "Workflow template ID must be a ULID.");
         try
         {
-            WorkflowTemplateCatalogRecord? template = null;
-            if (linkWorkflow)
-            {
-                template = request.WorkflowTemplateId is { Length: > 0 } overrideId
-                    ? await workflows.GetTemplateAsync(profile.TenantId, overrideId, token)
-                    : await ProjectWorkflowLinker.ResolveRecommendedAsync(workflows, seeder, profile.TenantId, token);
-                if (request.WorkflowTemplateId is { Length: > 0 } && template is null)
-                    return Problem(404, "workflow_template_not_found", "The workflow template does not exist.");
-            }
+            var template = request.WorkflowTemplateId is { Length: > 0 } overrideId
+                ? await workflows.GetTemplateAsync(profile.TenantId, overrideId, token)
+                : await ProjectWorkflowLinker.ResolveRecommendedAsync(workflows, seeder, profile.TenantId, token);
+            if (request.WorkflowTemplateId is { Length: > 0 } && template is null)
+                return Problem(404, "workflow_template_not_found", "The workflow template does not exist.");
 
             var now = clock.UtcNow;
             var value = ProjectApplicationService.Create(UlidValue.New(now).ToString(), UlidValue.New(now.AddTicks(1)).ToString(), profile.Id, request, now);
@@ -80,6 +83,12 @@ public static class ProjectEndpoints
                 var link = await ProjectWorkflowLinker.LinkAsync(workflows, profile.TenantId, value.Id, template, null, profile.Id, clock, token);
                 if (link.Outcome is not (ProjectWorkflowLinker.LinkOutcome.Applied or ProjectWorkflowLinker.LinkOutcome.AlreadyExists))
                     return ProjectWorkflowLinker.ToProblem(link);
+            }
+            else
+            {
+                // RN-02: nenhum template recomendado publicável existe (nem após semear os canônicos).
+                // Não quebramos a criação — log honesto; a convergência de startup vincula quando existir.
+                WorkflowlessProjectCreated(loggers.CreateLogger("Harness.Host.Projects.ProjectEndpoints"), value.Id, null);
             }
 
             return Results.Created($"/api/v1/projects/{value.Id}", ToResponse(result.Project!));
