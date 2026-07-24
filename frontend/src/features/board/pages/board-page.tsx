@@ -104,7 +104,7 @@ export default function UboardPage() {
   const loading = isPending || tasksQuery.isLoading || agentsQuery.isLoading;
   const errored = isError || tasksQuery.isError || agentsQuery.isError;
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
-  const agents = agentsQuery.data ?? [];
+  const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
 
   const filteredTasks = useMemo(
     () => filterBoardTasks(tasks, filters, now),
