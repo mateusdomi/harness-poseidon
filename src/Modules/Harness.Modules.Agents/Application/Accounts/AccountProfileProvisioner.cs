@@ -183,6 +183,14 @@ public sealed class AccountProfileProvisioner
             // O config home da CONTA sempre vence o do ambiente herdado: é o que garante
             // que duas contas do mesmo binário não sobrescrevam o login uma da outra.
             environment[configHomeVariable] = layout.ConfigHomePath;
+
+            // HOME é a identidade Git global do worker: onde há variável de config home
+            // dedicada, NÃO se troca o HOME. Mas ele PRECISA existir — um Host iniciado por
+            // duplo-clique no Finder / launchd pode não ter HOME no ambiente, e sem HOME o
+            // Claude Code não localiza o Keychain no macOS. Deriva-se do SO quando ausente.
+            EnsureSystemIdentity(
+                environment, profile, "HOME",
+                () => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         }
         else
         {
@@ -193,7 +201,43 @@ public sealed class AccountProfileProvisioner
             environment["HOME"] = layout.ConfigHomePath;
         }
 
+        // USER é a identidade do sistema que o Claude Code EXIGE para alcançar o item do
+        // Keychain no macOS: sem ele o CLI responde "Not logged in · Please run /login" MESMO
+        // com a conta vinculada e o doctor verde (observado por probe). O Host pode ser
+        // iniciado num contexto sem USER (duplo-clique no Finder, launchd, serviço), então a
+        // execução do worker não pode DEPENDER de o USER estar no ambiente herdado: quando o
+        // executor o declara na allowlist mas o ambiente não o traz, deriva-se do SO. É
+        // identidade do sistema, nunca credencial herdada — o isolamento por allowlist segue
+        // intacto (uma variável fora da allowlist continua nunca sendo injetada).
+        EnsureSystemIdentity(environment, profile, "USER", () => Environment.UserName);
+
         return environment;
+    }
+
+    /// <summary>
+    /// Garante que uma variável de IDENTIDADE DO SISTEMA declarada na allowlist do executor
+    /// esteja presente, derivando-a do SO quando o ambiente herdado não a traz. Só age sobre
+    /// variáveis que o executor DECLAROU precisar — nunca injeta uma variável fora da
+    /// allowlist —, então o isolamento por allowlist é preservado: isto fecha apenas o buraco
+    /// de a execução do worker depender do modo de inicialização do Host (Finder/launchd/serviço).
+    /// </summary>
+    private static void EnsureSystemIdentity(
+        Dictionary<string, string> environment,
+        ExecutorProfile profile,
+        string name,
+        Func<string?> fromSystem)
+    {
+        if (environment.ContainsKey(name) ||
+            !profile.EnvironmentAllowlist.Contains(name, StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        var value = fromSystem();
+        if (!string.IsNullOrEmpty(value))
+        {
+            environment[name] = value;
+        }
     }
 
     /// <summary>
