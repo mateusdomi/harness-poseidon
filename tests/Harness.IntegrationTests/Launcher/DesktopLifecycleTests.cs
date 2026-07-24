@@ -96,6 +96,82 @@ public sealed class DesktopLifecycleTests
     }
 
     [Fact]
+    public async Task DetectsNewVersionAndAppliesUpdateReusingLifecycleMachinery()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var root = Path.Combine(
+            AppContext.BaseDirectory,
+            "integration-artifacts",
+            $"auto-update-{Guid.NewGuid():N}");
+        var packageV1 = Path.Combine(root, "package-v1");
+        var packageV2 = Path.Combine(root, "package-v2");
+        var install = Path.Combine(root, "Applications", "Harness");
+        var data = Path.Combine(root, "data");
+        Directory.CreateDirectory(packageV1);
+        Directory.CreateDirectory(packageV2);
+        Directory.CreateDirectory(data);
+        try
+        {
+            await CreatePackageAsync(packageV1, "v1", timeout.Token);
+            await DesktopLifecycleManager.ExecuteAsync(
+                Command(DesktopLifecycleAction.Install, packageV1, install, data), timeout.Token);
+
+            // Sem fonte configurada: detecção honesta de "nada novo".
+            var noSource = await DesktopLifecycleManager.ExecuteAsync(
+                CheckCommand(install, data, source: null), timeout.Token);
+            Assert.Equal(DesktopLifecycleStatus.AlreadyCurrent, noSource.Status);
+            Assert.False(noSource.UpdateAvailable);
+            Assert.Equal("v1", noSource.CurrentVersion);
+
+            // Fonte aponta a MESMA versão instalada: sem atualização.
+            var sameVersion = await DesktopLifecycleManager.ExecuteAsync(
+                CheckCommand(install, data, packageV1), timeout.Token);
+            Assert.Equal(DesktopLifecycleStatus.AlreadyCurrent, sameVersion.Status);
+            Assert.False(sameVersion.UpdateAvailable);
+
+            // Fonte aponta versão nova: detecção positiva, read-only (nada muda no disco).
+            await CreatePackageAsync(packageV2, "v2", timeout.Token);
+            var detected = await DesktopLifecycleManager.ExecuteAsync(
+                CheckCommand(install, data, packageV2), timeout.Token);
+            Assert.Equal(DesktopLifecycleStatus.Completed, detected.Status);
+            Assert.True(detected.UpdateAvailable);
+            Assert.Equal("v1", detected.CurrentVersion);
+            Assert.Equal("v2", detected.AvailableVersion);
+            Assert.Equal("v1", await File.ReadAllTextAsync(
+                Path.Combine(install, "assets", "version.txt"), timeout.Token));
+
+            // Fonte configurada no data dir (arquivo update-source.json) + self-update aplica a v2,
+            // reusando o backup offline consistente (exige um banco no data dir).
+            await CreateDatabaseAsync(Path.Combine(data, "harness.db"), timeout.Token);
+            await File.WriteAllTextAsync(
+                Path.Combine(data, DesktopLifecycleManager.UpdateSourceFileName),
+                $"{{\"packageDirectory\":{JsonSerializer.Serialize(packageV2)}}}",
+                timeout.Token);
+            var applied = await DesktopLifecycleManager.ExecuteAsync(
+                SelfUpdateCommand(install, data, source: null), timeout.Token);
+            Assert.Equal(DesktopLifecycleAction.SelfUpdate, applied.Action);
+            Assert.Equal(DesktopLifecycleStatus.Completed, applied.Status);
+            Assert.True(applied.UpdateAvailable);
+            Assert.NotNull(applied.BackupId);
+            Assert.Equal("v2", await File.ReadAllTextAsync(
+                Path.Combine(install, "assets", "version.txt"), timeout.Token));
+
+            // Reaplicar é no-op verificável; detecção volta a "nada novo".
+            var reapplied = await DesktopLifecycleManager.ExecuteAsync(
+                SelfUpdateCommand(install, data, source: null), timeout.Token);
+            Assert.Equal(DesktopLifecycleStatus.AlreadyCurrent, reapplied.Status);
+            Assert.False(reapplied.UpdateAvailable);
+            var afterUpdate = await DesktopLifecycleManager.ExecuteAsync(
+                CheckCommand(install, data, packageV2), timeout.Token);
+            Assert.False(afterUpdate.UpdateAvailable);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ParsesLifecycleCommandsStrictly()
     {
         var command = DesktopLifecycleCommand.Parse(
@@ -105,7 +181,32 @@ public sealed class DesktopLifecycleTests
         Assert.Throws<ArgumentException>(() => DesktopLifecycleCommand.Parse(["install", "--wat", "x"]));
         Assert.Throws<ArgumentException>(() => DesktopLifecycleCommand.Parse(
             ["package-manifest", "--package-dir", "/package"]));
+
+        var check = DesktopLifecycleCommand.Parse(
+            ["check-update", "--install-dir", "/install", "--data-dir", "/data", "--source", "/new"]);
+        Assert.Equal(DesktopLifecycleAction.CheckUpdate, check.Action);
+        Assert.Equal("/new", check.SourceDirectory);
+        var self = DesktopLifecycleCommand.Parse(
+            ["self-update", "--install-dir", "/install", "--data-dir", "/data"]);
+        Assert.Equal(DesktopLifecycleAction.SelfUpdate, self.Action);
+        Assert.Throws<ArgumentException>(() => DesktopLifecycleCommand.Parse(["check-update"]));
     }
+
+    private static DesktopLifecycleCommand CheckCommand(string install, string data, string? source) => new()
+    {
+        Action = DesktopLifecycleAction.CheckUpdate,
+        InstallDirectory = install,
+        DataDirectory = data,
+        SourceDirectory = source,
+    };
+
+    private static DesktopLifecycleCommand SelfUpdateCommand(string install, string data, string? source) => new()
+    {
+        Action = DesktopLifecycleAction.SelfUpdate,
+        InstallDirectory = install,
+        DataDirectory = data,
+        SourceDirectory = source,
+    };
 
     private static DesktopLifecycleCommand Command(
         DesktopLifecycleAction action,

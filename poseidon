@@ -7,10 +7,14 @@ readonly POSEIDON_RUNTIME_DIR="${POSEIDON_DATA_DIR}/runtime"
 readonly POSEIDON_STATE_FILE="${POSEIDON_RUNTIME_DIR}/poseidon.json"
 readonly POSEIDON_LOG_DIR="${POSEIDON_DATA_DIR}/logs"
 readonly POSEIDON_HOST_LOG="${POSEIDON_LOG_DIR}/poseidon.log"
+# PORTA-DINAMICA: porta fixa persistida no primeiro start (gravada pelo Launcher).
+readonly POSEIDON_PORT_FILE="${POSEIDON_DATA_DIR}/port"
 
 usage() {
-  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|agent|release-candidate} [opções]"
+  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|agent|release-candidate} [opções]"
   echo "  start [--no-browser] [--port PORT] [--demo]"
+  echo "  check-update [--source <dir-do-pacote-novo>]"
+  echo "  update [--source <dir-do-pacote-novo>]"
   echo "  logs [--follow]"
   echo "  agent start --project <id> --task <id> --role <papel>"
   echo "              --account <alias> --instruction <texto>"
@@ -405,6 +409,7 @@ status_poseidon() {
   address="$(json_string address)"
   if operational_probe "${address}"; then
     echo "Poseidon: operacional em ${address} (readiness: ${POSEIDON_PROBE_MODE})"
+    [[ -s "${POSEIDON_PORT_FILE}" ]] && echo "Porta fixa: $(tr -d '[:space:]' < "${POSEIDON_PORT_FILE}")"
     echo "Launcher PID: $(json_number launcherPid); Runner PID: $(json_number runnerPid)"
   else
     echo "Poseidon: processo ativo, APIs essenciais indisponíveis: ${POSEIDON_PROBE_ERROR}" >&2
@@ -438,11 +443,50 @@ doctor_poseidon() {
   [[ ${failures} -eq 0 ]]
 }
 
+# ---------------------------------------------------------------------------
+# Auto-update (G-AUTOUPDATE): detecção de nova versão + gatilho reusando a
+# maquinaria de update do Launcher (verificação de integridade, backup offline,
+# troca por rename e rollback automático). Só disponível na instalação
+# empacotada, onde ${POSEIDON_ROOT} é o próprio diretório de instalação e o
+# recibo gerenciado existe. A fonte da versão nova é um diretório de pacote
+# publicado, informado por --source ou pelo arquivo update-source.json no data
+# dir. Não há servidor remoto de update por ora (ver docs/.../DESKTOP.md).
+# ---------------------------------------------------------------------------
+resolve_installed_launcher() {
+  if [[ -x "${POSEIDON_ROOT}/Harness.Launcher" ]]; then
+    echo "${POSEIDON_ROOT}/Harness.Launcher"
+    return 0
+  fi
+  echo "As atualizações self-service só existem na instalação empacotada (Harness.Launcher ausente)." >&2
+  return 2
+}
+
+check_update_poseidon() {
+  local launcher
+  launcher="$(resolve_installed_launcher)" || return 2
+  "${launcher}" check-update \
+    --install-dir "${POSEIDON_ROOT}" --data-dir "${POSEIDON_DATA_DIR}" "$@"
+}
+
+update_poseidon() {
+  local launcher
+  launcher="$(resolve_installed_launcher)" || return 2
+  # Update muta a instalação: exige o Launcher encerrado. Encerra de forma graciosa se no ar.
+  if is_running; then
+    echo "Encerrando o Poseidon para aplicar a atualização…"
+    stop_poseidon
+  fi
+  "${launcher}" self-update \
+    --install-dir "${POSEIDON_ROOT}" --data-dir "${POSEIDON_DATA_DIR}" "$@"
+}
+
 case "${1:-}" in
   start) shift; start_poseidon "$@" ;;
   status) status_poseidon ;;
   stop) stop_poseidon ;;
   restart) shift; stop_poseidon; start_poseidon "$@" ;;
+  check-update) shift; check_update_poseidon "$@" ;;
+  update) shift; update_poseidon "$@" ;;
   doctor) doctor_poseidon ;;
   agent) shift; agent_poseidon "$@" ;;
   logs) mkdir -p "${POSEIDON_LOG_DIR}"; [[ "${2:-}" == "--follow" ]] && exec tail -f "${POSEIDON_HOST_LOG}" || { echo "Logs: ${POSEIDON_LOG_DIR}"; tail -n 200 "${POSEIDON_HOST_LOG}" 2>/dev/null || true; } ;;

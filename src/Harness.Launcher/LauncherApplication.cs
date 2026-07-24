@@ -134,7 +134,10 @@ public static class LauncherApplication
         Process? runner = null;
         CancellationTokenSource? runnerOutputCancellation = null;
         IReadOnlyList<Task> runnerOutputTasks = [];
-        var urls = $"http://127.0.0.1:{options.Port ?? 0}";
+        // PORTA-DINAMICA: sem --port explícito, reusa a porta fixa persistida (ou adota/persiste o
+        // padrão no primeiro start), com fallback só quando a porta preferida está ocupada.
+        var resolvedPort = LauncherPort.Resolve(dataDirectory, options.Port);
+        var urls = $"http://127.0.0.1:{resolvedPort}";
         var tokenValue = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var tokenFile = Path.Combine(runtimeDirectory, "runner.token");
         var runtimeFile = Path.Combine(runtimeDirectory, "poseidon.json");

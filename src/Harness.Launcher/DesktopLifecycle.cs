@@ -11,6 +11,12 @@ public enum DesktopLifecycleAction
     Install,
     Update,
     Uninstall,
+
+    /// <summary>Detecção read-only: compara a versão instalada com a da fonte de atualização (G-AUTOUPDATE).</summary>
+    CheckUpdate,
+
+    /// <summary>Gatilho de atualização que reusa a maquinaria de <see cref="Update"/> a partir da fonte configurada.</summary>
+    SelfUpdate,
 }
 
 public enum DesktopLifecycleStatus
@@ -33,8 +39,12 @@ public sealed record DesktopLifecycleCommand
 
     public string? Version { get; init; }
 
+    /// <summary>Diretório do pacote candidato à atualização (fonte de versão). G-AUTOUPDATE.</summary>
+    public string? SourceDirectory { get; init; }
+
     public static bool IsLifecycleCommand(IReadOnlyList<string> args) =>
-        args.Count > 0 && args[0] is "package-manifest" or "install" or "update" or "uninstall";
+        args.Count > 0 && args[0] is
+            "package-manifest" or "install" or "update" or "uninstall" or "check-update" or "self-update";
 
     public static DesktopLifecycleCommand Parse(IReadOnlyList<string> args)
     {
@@ -47,6 +57,8 @@ public sealed record DesktopLifecycleCommand
             "install" => DesktopLifecycleAction.Install,
             "update" => DesktopLifecycleAction.Update,
             "uninstall" => DesktopLifecycleAction.Uninstall,
+            "check-update" => DesktopLifecycleAction.CheckUpdate,
+            "self-update" => DesktopLifecycleAction.SelfUpdate,
             _ => throw new ArgumentException("Comando de ciclo de vida desktop desconhecido."),
         };
         string? packageDirectory = null;
@@ -54,6 +66,7 @@ public sealed record DesktopLifecycleCommand
         string? dataDirectory = null;
         string? runtimeIdentifier = null;
         string? version = null;
+        string? sourceDirectory = null;
         for (var index = 1; index < args.Count; index++)
         {
             if (index + 1 >= args.Count)
@@ -66,6 +79,7 @@ public sealed record DesktopLifecycleCommand
                 case "--data-dir": dataDirectory = value; break;
                 case "--rid": runtimeIdentifier = value; break;
                 case "--version": version = value; break;
+                case "--source": sourceDirectory = value; break;
                 default: throw new ArgumentException($"Argumento desconhecido: {args[index - 1]}.");
             }
         }
@@ -90,6 +104,7 @@ public sealed record DesktopLifecycleCommand
             DataDirectory = dataDirectory,
             RuntimeIdentifier = runtimeIdentifier,
             Version = version,
+            SourceDirectory = sourceDirectory,
         };
     }
 }
@@ -97,7 +112,27 @@ public sealed record DesktopLifecycleCommand
 public sealed record DesktopLifecycleResult(
     DesktopLifecycleAction Action,
     DesktopLifecycleStatus Status,
-    string? BackupId);
+    string? BackupId)
+{
+    /// <summary>Versão atualmente instalada (recibo). Preenchido por check-update/self-update.</summary>
+    public string? CurrentVersion { get; init; }
+
+    /// <summary>Versão disponível na fonte de atualização. Preenchido por check-update/self-update.</summary>
+    public string? AvailableVersion { get; init; }
+
+    /// <summary>Indica que há uma versão diferente disponível para aplicar.</summary>
+    public bool UpdateAvailable { get; init; }
+
+    /// <summary>Diretório do pacote a partir do qual a atualização seria/foi aplicada.</summary>
+    public string? PackageDirectory { get; init; }
+}
+
+/// <summary>
+/// Fonte de atualização local (G-AUTOUPDATE): aponta para o diretório de um pacote publicado mais
+/// novo. Sem servidor remoto por ora, é o "arquivo de versão local" com que a versão instalada é
+/// comparada. Persistido em <c>&lt;data-dir&gt;/update-source.json</c>.
+/// </summary>
+public sealed record DesktopUpdateSource(string PackageDirectory);
 
 public sealed record DesktopPackageFile(string Path, long Size, string Sha256);
 
@@ -120,6 +155,7 @@ public static class DesktopLifecycleManager
     public const string PackageManifestFileName = ".harness-desktop-package.json";
     public const string InstallReceiptFileName = ".harness-desktop-install.json";
     public const string ProcessLeaseFileName = "launcher.pid";
+    public const string UpdateSourceFileName = "update-source.json";
     private const int SchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -140,6 +176,14 @@ public static class DesktopLifecycleManager
         var installDirectory = Canonical(command.InstallDirectory!);
         var dataDirectory = Canonical(command.DataDirectory!);
         ValidateTargets(installDirectory, dataDirectory);
+
+        // check-update é READ-ONLY: não exige o Launcher parado (você checa com o app no ar) e não
+        // toca em disco. As demais ações mutam a instalação e exigem o Launcher encerrado.
+        if (command.Action == DesktopLifecycleAction.CheckUpdate)
+        {
+            return await CheckUpdateAsync(command, installDirectory, dataDirectory, cancellationToken);
+        }
+
         EnsureLauncherStopped(dataDirectory);
         return command.Action switch
         {
@@ -147,9 +191,142 @@ public static class DesktopLifecycleManager
                 command, installDirectory, dataDirectory, isUpdate: false, cancellationToken),
             DesktopLifecycleAction.Update => await InstallOrUpdateAsync(
                 command, installDirectory, dataDirectory, isUpdate: true, cancellationToken),
+            DesktopLifecycleAction.SelfUpdate => await SelfUpdateAsync(
+                command, installDirectory, dataDirectory, cancellationToken),
             DesktopLifecycleAction.Uninstall => Uninstall(installDirectory, dataDirectory),
             _ => throw new InvalidOperationException("Ação desktop inválida."),
         };
+    }
+
+    /// <summary>
+    /// Detecção de nova versão (G-AUTOUPDATE): compara a versão do recibo instalado com a versão do
+    /// manifesto do pacote na fonte de atualização configurada. Não altera nada. Quando não há fonte
+    /// configurada ou o pacote não é mais novo, devolve <see cref="DesktopLifecycleStatus.AlreadyCurrent"/>.
+    /// </summary>
+    private static async Task<DesktopLifecycleResult> CheckUpdateAsync(
+        DesktopLifecycleCommand command,
+        string installDirectory,
+        string dataDirectory,
+        CancellationToken cancellationToken)
+    {
+        var receipt = await ReadReceiptAsync(
+            Path.Combine(installDirectory, InstallReceiptFileName), cancellationToken);
+        if (receipt is null)
+            throw new InvalidOperationException("O destino não é uma instalação Harness gerenciada.");
+        ValidateReceipt(receipt, dataDirectory);
+
+        var source = ResolveUpdateSource(command, dataDirectory);
+        if (source is null)
+        {
+            return new(DesktopLifecycleAction.CheckUpdate, DesktopLifecycleStatus.AlreadyCurrent, null)
+            {
+                CurrentVersion = receipt.Version,
+                UpdateAvailable = false,
+            };
+        }
+
+        var manifest = await ReadSourceManifestAsync(source, receipt.RuntimeIdentifier, cancellationToken);
+        var available = !string.Equals(manifest.Version, receipt.Version, StringComparison.Ordinal);
+        return new(
+            DesktopLifecycleAction.CheckUpdate,
+            available ? DesktopLifecycleStatus.Completed : DesktopLifecycleStatus.AlreadyCurrent,
+            null)
+        {
+            CurrentVersion = receipt.Version,
+            AvailableVersion = manifest.Version,
+            UpdateAvailable = available,
+            PackageDirectory = available ? source : null,
+        };
+    }
+
+    /// <summary>
+    /// Gatilho de atualização (G-AUTOUPDATE): resolve a fonte configurada e reusa integralmente a
+    /// maquinaria de <see cref="DesktopLifecycleAction.Update"/> (verificação de integridade, backup
+    /// offline consistente, troca por rename e rollback automático). No-op verificável quando o
+    /// pacote da fonte já é o instalado.
+    /// </summary>
+    private static async Task<DesktopLifecycleResult> SelfUpdateAsync(
+        DesktopLifecycleCommand command,
+        string installDirectory,
+        string dataDirectory,
+        CancellationToken cancellationToken)
+    {
+        var receipt = await ReadReceiptAsync(
+            Path.Combine(installDirectory, InstallReceiptFileName), cancellationToken);
+        if (receipt is null)
+            throw new InvalidOperationException("A atualização exige uma instalação Harness gerenciada existente.");
+        ValidateReceipt(receipt, dataDirectory);
+
+        var source = ResolveUpdateSource(command, dataDirectory)
+            ?? throw new InvalidOperationException(
+                "Nenhuma fonte de atualização configurada (use --source ou " +
+                $"{UpdateSourceFileName} no data dir).");
+
+        // Confere RID e captura a versão-alvo antes de mutar (impede atualizar por cima com uma
+        // arquitetura diferente — o InstallOrUpdate valida integridade, mas não o RID da instalação).
+        var manifest = await ReadSourceManifestAsync(source, receipt.RuntimeIdentifier, cancellationToken);
+
+        var updateCommand = command with
+        {
+            Action = DesktopLifecycleAction.Update,
+            PackageDirectory = source,
+        };
+        var result = await InstallOrUpdateAsync(
+            updateCommand, installDirectory, dataDirectory, isUpdate: true, cancellationToken);
+        return result with
+        {
+            Action = DesktopLifecycleAction.SelfUpdate,
+            CurrentVersion = receipt.Version,
+            AvailableVersion = manifest.Version,
+            PackageDirectory = source,
+            UpdateAvailable = result.Status == DesktopLifecycleStatus.Completed,
+        };
+    }
+
+    private static string? ResolveUpdateSource(DesktopLifecycleCommand command, string dataDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(command.SourceDirectory))
+        {
+            return Canonical(command.SourceDirectory);
+        }
+
+        var pointer = Path.Combine(dataDirectory, UpdateSourceFileName);
+        if (!File.Exists(pointer))
+        {
+            return null;
+        }
+
+        RejectReparsePoint(pointer);
+        using var stream = File.OpenRead(pointer);
+        var descriptor = JsonSerializer.Deserialize<DesktopUpdateSource>(stream, JsonOptions);
+        return descriptor is null || string.IsNullOrWhiteSpace(descriptor.PackageDirectory)
+            ? null
+            : Canonical(descriptor.PackageDirectory);
+    }
+
+    private static async Task<DesktopPackageManifest> ReadSourceManifestAsync(
+        string sourceDirectory,
+        string expectedRuntimeIdentifier,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(sourceDirectory))
+            throw new DirectoryNotFoundException("O diretório da fonte de atualização não existe.");
+        var manifestPath = Path.Combine(sourceDirectory, PackageManifestFileName);
+        if (!File.Exists(manifestPath))
+            throw new InvalidOperationException("A fonte de atualização não possui manifesto de pacote.");
+        RejectReparsePoint(manifestPath);
+        var manifest = await ReadJsonAsync<DesktopPackageManifest>(manifestPath, cancellationToken);
+        if (manifest.SchemaVersion != SchemaVersion || string.IsNullOrWhiteSpace(manifest.Version) ||
+            string.IsNullOrWhiteSpace(manifest.RuntimeIdentifier))
+        {
+            throw new InvalidOperationException("O manifesto da fonte de atualização é inválido.");
+        }
+        if (!string.Equals(manifest.RuntimeIdentifier, expectedRuntimeIdentifier, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "A fonte de atualização tem arquitetura (RID) diferente da instalação corrente.");
+        }
+        return manifest;
     }
 
     private static async Task CreatePackageManifestAsync(
