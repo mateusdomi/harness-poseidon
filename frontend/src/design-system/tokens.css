@@ -1,8 +1,15 @@
 /*
  * Design tokens do Poseidon.
+ *
+ * Identidade: um "centro de controle" para times de agentes de IA — sério e
+ * operacional, mas vivo (público 18–30). A marca é o gradiente violeta→magenta;
+ * o acento lima é a "energia". Os neutros NÃO são cinza puro: têm um viés sutil
+ * de violeta (escolhidos, não herdados) para dar coesão à identidade.
+ *
  * Tema escuro é o padrão. O tema claro é derivado dos mesmos tokens semânticos
- * (não é uma inversão automática). Componentes NUNCA hardcodam cores — usam
- * apenas as variáveis abaixo (via classes utilitárias do Tailwind mapeadas em
+ * (não é uma inversão automática) e recebe o MESMO cuidado — superfícies com
+ * tom, elevação visível e contraste correto. Componentes NUNCA hardcodam cores:
+ * usam apenas as variáveis abaixo (via utilitários do Tailwind mapeados em
  * tailwind.config.js).
  *
  * Ação primária (CTA): gradiente violeta→magenta da marca. Todos os pontos do
@@ -15,21 +22,27 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  /* Superfícies — 3 níveis de profundidade claramente separados */
-  --color-background: #0b0b12;
-  --color-surface: #17171f;
-  --color-surface-elevated: #21212e;
+  /* Superfícies — tinta de ink violeta, 3 níveis de profundidade separados */
+  --color-background: #0a0a12;
+  --color-surface: #15141f;
+  --color-surface-elevated: #201f2e;
+  /* Overlay para hover em superfícies (elementos de lista, linhas, itens) */
+  --color-surface-hover: rgb(255 255 255 / 0.05);
 
   /* Texto */
-  --color-foreground: #f5f5f7;
-  --color-foreground-muted: #a6adbb;
+  --color-foreground: #f5f4fa;
+  --color-foreground-muted: #a8adbe;
 
   /* Bordas (branco com opacidade) — discretas porém visíveis */
   --color-border: rgb(255 255 255 / 0.1);
   --color-border-strong: rgb(255 255 255 / 0.18);
 
-  /* Sombra de superfície elevada (cards) */
-  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  /* Elevação — escala de sombras suaves (profundidade coesa) */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.45);
+  --shadow-card: 0 2px 4px -1px rgb(0 0 0 / 0.4), 0 6px 16px -4px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.55);
+  /* Realce de marca para superfícies em destaque (cards de herói/CTA) */
+  --shadow-glow: 0 0 0 1px rgb(124 92 252 / 0.16), 0 10px 34px -8px rgb(124 92 252 / 0.28);
 
   /* Marca (destaques controlados, não semânticos) */
   --color-brand: #7c5cfc;
@@ -37,6 +50,10 @@
   /* Violeta claro para texto/ícone da marca sobre fundos escuros (AA). */
   --color-brand-strong: #a78bfa;
   --gradient-brand: linear-gradient(135deg, #7c5cfc 0%, #ec4899 100%);
+  /* Halo ambiente: aplicado como background decorativo em cabeçalhos/heróis.
+     Fundido sobre a superfície, então usa alfa baixo (não vira "corporativo"). */
+  --gradient-ambient: radial-gradient(120% 140% at 0% 0%, rgb(124 92 252 / 0.16) 0%, transparent 55%),
+    radial-gradient(120% 140% at 100% 0%, rgb(236 72 153 / 0.1) 0%, transparent 50%);
 
   /* Ação primária (CTA) — gradiente da marca; pontos AA com branco (≥ 4.5:1) */
   --color-primary: #6d4bf7;
@@ -64,6 +81,12 @@
   /* Foco visível — violeta sólido da marca */
   --color-focus-ring: #7c5cfc;
 
+  /* Raios de canto — cantos mais generosos (menos "corporativo") */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
   /* Durações de transição (microinterações) */
   --duration-fast: 120ms;
   --duration-base: 180ms;
@@ -72,25 +95,36 @@
 [data-theme='light'] {
   color-scheme: light;
 
-  /* Fundo levemente acinzentado, superfícies brancas */
-  --color-background: #eff0f5;
+  /* Fundo com leve tom violeta (não cinza cru); superfícies claras que "sobem"
+     do fundo via elevação real. Corrige a "crueza"/lavado do tema claro. */
+  --color-background: #ecebf4;
   --color-surface: #ffffff;
-  --color-surface-elevated: #ffffff;
+  /* Elevada = branco levemente tingido de violeta. Precisa ser DISTINTA do
+     surface branco: controles sem borda (ex.: botão secundário, badge default)
+     ficavam brancos sobre cards brancos no tema claro (invisíveis). */
+  --color-surface-elevated: #f1f0f9;
+  --color-surface-hover: rgb(20 16 45 / 0.04);
 
-  --color-foreground: #17171d;
-  --color-foreground-muted: #525a6a;
+  --color-foreground: #1a1826;
+  --color-foreground-muted: #55596a;
 
-  /* Bordas sutis porém visíveis */
-  --color-border: rgb(10 10 15 / 0.14);
-  --color-border-strong: rgb(10 10 15 / 0.24);
+  /* Bordas visíveis (o tema claro precisava de contorno mais definido) */
+  --color-border: rgb(20 18 45 / 0.12);
+  --color-border-strong: rgb(20 18 45 / 0.22);
 
-  /* Sombra MUITO leve para superfícies elevadas */
-  --shadow-card: 0 1px 2px 0 rgb(16 16 24 / 0.05);
+  /* Elevação — sombras suaves porém REALMENTE visíveis, tingidas de violeta-ink
+     (antes eram quase invisíveis a 0.05 → cards pareciam recortes chapados). */
+  --shadow-sm: 0 1px 2px 0 rgb(30 27 65 / 0.07);
+  --shadow-card: 0 1px 3px 0 rgb(30 27 65 / 0.08), 0 6px 16px -6px rgb(30 27 65 / 0.12);
+  --shadow-lg: 0 16px 36px -12px rgb(30 27 65 / 0.22);
+  --shadow-glow: 0 0 0 1px rgb(106 62 240 / 0.14), 0 12px 32px -10px rgb(106 62 240 / 0.24);
 
   --color-brand: #6a3ef0;
   --color-brand-magenta: #d61c7f;
   --color-brand-strong: #6a3ef0;
   --gradient-brand: linear-gradient(135deg, #6a3ef0 0%, #d61c7f 100%);
+  --gradient-ambient: radial-gradient(120% 140% at 0% 0%, rgb(106 62 240 / 0.1) 0%, transparent 55%),
+    radial-gradient(120% 140% at 100% 0%, rgb(214 28 127 / 0.07) 0%, transparent 50%);
 
   /* Ação primária (CTA) — pontos do gradiente AA com branco (≥ 4.5:1) */
   --color-primary: #6a3ef0;

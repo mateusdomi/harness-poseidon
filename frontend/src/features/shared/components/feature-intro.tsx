@@ -43,13 +43,20 @@ export function FeatureIntro({
     <section
       aria-labelledby={headingId}
       className={cn(
-        'flex flex-col gap-2 rounded-lg border border-border bg-surface p-4',
+        'relative flex flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface bg-gradient-ambient p-4 shadow-card',
         className,
       )}
     >
-      <div className="flex items-center gap-2">
-        {Icon ? <Icon aria-hidden="true" className="size-5 shrink-0 text-brand-strong" /> : null}
-        <h2 id={headingId} className="font-heading text-base font-semibold">
+      <div className="flex items-center gap-3">
+        {Icon ? (
+          <span
+            aria-hidden="true"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-brand text-primary-foreground shadow-sm [&_svg]:size-5"
+          >
+            <Icon />
+          </span>
+        ) : null}
+        <h2 id={headingId} className="font-heading text-base font-semibold tracking-tightest">
           {title}
         </h2>
       </div>
