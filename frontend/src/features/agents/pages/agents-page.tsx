@@ -8,6 +8,7 @@ import { Button, Card, CardContent, Select, Skeleton } from '@/design-system';
 import { AgentDetail } from '@/features/agents/components/agent-detail';
 import { AgentExecutionRoster } from '@/features/agents/components/agent-execution-roster';
 import { AgentOrgChart } from '@/features/agents/components/agent-org-chart';
+import { AgentsUtilizationChart } from '@/features/agents/components/agents-utilization-chart';
 import { useAgentsData, useAgentsRealtime } from '@/features/agents/hooks/use-agents';
 import {
   definitionOf,
@@ -31,7 +32,7 @@ export default function UagentsPage() {
   const { projects, activeProject, setActiveProject, isPending, isError, refetch } =
     useActiveProject();
   const data = useAgentsData();
-  useAgentsRealtime();
+  useAgentsRealtime(activeProject?.id ?? null);
   const now = useNow();
 
   const [selectedAgentId, setSelectedAgentId] = useState<Ulid | null>(null);
@@ -183,6 +184,14 @@ export default function UagentsPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Utilização da equipe INTEIRA (chefe + especialistas), independente
+                dos filtros de estado/time aplicados ao organograma abaixo. */}
+            <AgentsUtilizationChart
+              agents={[filteredTeam.chief, ...(team?.specialists ?? [])].filter(
+                (agent): agent is NonNullable<typeof agent> => agent !== null,
+              )}
+            />
 
             <AgentOrgChart
               team={filteredTeam}

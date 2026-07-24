@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { streams, type EventType, type Ulid } from '@/api';
+import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
+
 import { useDeliveryApi } from '../api/delivery-context';
 import type {
   ApproveReportInput,
@@ -7,6 +10,28 @@ import type {
   GenerateReportInput,
   SendReportInput,
 } from '../api/types';
+
+/** Prefixo que cobre todas as queries da Central de Entregas. */
+const DELIVERY_PREFIX = ['delivery'] as const;
+
+/**
+ * Eventos que movem os números de uma entrega: mudança de estado/progresso de
+ * tarefa, gates, aprovações, decisões e bloqueios de execução. A Central de
+ * Entregas AGREGA tarefas do projeto — não há um stream/evento `delivery.*`
+ * dedicado no catálogo, então derrubamos o cache pelos eventos do projeto que
+ * alteram o que a agregação lê (previsão, marcos, saúde, métricas).
+ */
+const DELIVERY_EVENT_TYPES = [
+  'task.created',
+  'task.stateChanged',
+  'progress.updated',
+  'gate.changed',
+  'approval.requested',
+  'approval.resolved',
+  'decision.resolved',
+  'execution.blocked',
+  'execution.enqueued',
+] as const satisfies readonly EventType[];
 
 export const deliveryKeys = {
   portfolio: (view: string) => ['delivery', 'portfolio', view] as const,
@@ -136,5 +161,25 @@ export function useCaptureDaily(deliveryId: string) {
       void queryClient.invalidateQueries({ queryKey: deliveryKeys.summary(deliveryId) });
       void queryClient.invalidateQueries({ queryKey: deliveryKeys.briefing(deliveryId) });
     },
+  });
+}
+
+/**
+ * Tempo real da Central de Entregas: assina o stream global + os streams dos
+ * projetos das entregas visíveis e invalida o prefixo `delivery` quando um
+ * evento que altera a agregação chega (estado/progresso de tarefa, gate,
+ * aprovação, decisão, bloqueio). Portfólio, previsão, marcos e métricas se
+ * atualizam sozinhos — sem polling. `projectIds` vazio desliga a assinatura.
+ */
+export function useDeliveryRealtime(projectIds: readonly Ulid[]) {
+  // Ordena para uma chave de assinatura estável (evita re-subscrição por reordenação).
+  const uniqueSorted = [...new Set(projectIds)].sort();
+  const streamNames =
+    uniqueSorted.length === 0
+      ? null
+      : [streams.global(), ...uniqueSorted.map((id) => streams.project(id))];
+  useRealtimeStream(streamNames, {
+    types: DELIVERY_EVENT_TYPES,
+    invalidate: [DELIVERY_PREFIX],
   });
 }

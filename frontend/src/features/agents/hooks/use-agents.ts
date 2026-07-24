@@ -10,6 +10,7 @@ import {
   type Skill,
   type Task,
   type Tool,
+  type Ulid,
 } from '@/api';
 import { useApi } from '@/app/api-context';
 import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
@@ -106,12 +107,27 @@ export function useAgentsData() {
 }
 
 /**
- * Tempo real: `agent.statusChanged` chega pelo stream global e invalida
- * as queries da tela (badges de estado e métricas se atualizam sozinhos).
+ * Eventos que mantêm a tela viva: `agent.statusChanged` (badges de estado) vem
+ * do stream GLOBAL; `task.*`/`progress.updated` (conclusão de trabalho, que move
+ * `metrics.tasksCompleted` e o gráfico de utilização) vêm do stream do PROJETO.
  */
-export function useAgentsRealtime() {
-  useRealtimeStream(streams.global(), {
-    types: ['agent.statusChanged'],
+const AGENTS_EVENT_TYPES = [
+  'agent.statusChanged',
+  'task.created',
+  'task.stateChanged',
+  'progress.updated',
+] as const;
+
+/**
+ * Tempo real: assina o stream global (estado dos agentes) + o stream do projeto
+ * ativo (conclusão de trabalho) e invalida o prefixo `agents` — badges, métricas
+ * dos cards e o gráfico de utilização se atualizam sozinhos, sem polling.
+ */
+export function useAgentsRealtime(projectId: Ulid | null) {
+  const streamNames =
+    projectId === null ? streams.global() : [streams.global(), streams.project(projectId)];
+  useRealtimeStream(streamNames, {
+    types: AGENTS_EVENT_TYPES,
     invalidate: [AGENTS_PREFIX],
   });
 }

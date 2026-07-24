@@ -146,6 +146,27 @@
         }
       }
     },
+    "charts": {
+      "milestones": {
+        "title": "Milestones progress",
+        "caption": "{{done}} of {{total}} milestones completed.",
+        "aria": "{{done}} of {{total}} milestones completed ({{pct}}%).",
+        "empty": "No milestones defined for this delivery."
+      },
+      "features": {
+        "title": "Attempts by feature",
+        "success": "Success",
+        "failure": "Failures",
+        "empty": "No attempt data by feature yet.",
+        "bar": "{{feature}}: {{success}} successful, {{failure}} failed attempts"
+      },
+      "forecast": {
+        "title": "Forecast confidence trend",
+        "caption": "Confidence of each recalculation over time (0–100%).",
+        "empty": "Not enough history to plot a trend yet — one measurement is not a trend.",
+        "aria": "Forecast confidence trend from {{from}}% to {{to}}% across {{count}} recalculations."
+      }
+    },
     "reports": {
       "title": "Reports Center",
       "subtitle": "Generate, approve and send reports. Human approval is required before external sending.",

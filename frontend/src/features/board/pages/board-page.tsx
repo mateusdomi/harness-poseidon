@@ -10,6 +10,8 @@ import { BoardFlowDialog } from '@/features/board/components/board-flow-dialog';
 import { KanbanBoard } from '@/features/board/components/kanban-board';
 import { TaskDetail } from '@/features/board/components/task-detail';
 import { TaskDrawer } from '@/features/board/components/task-drawer';
+import { TasksByStateChart } from '@/features/cockpit/components/tasks-by-state-chart';
+import { countTasksByState } from '@/features/cockpit/lib/cockpit-derive';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import {
   useArchiveCompletedTasks,
@@ -243,6 +245,10 @@ export default function UboardPage() {
                 onArchiveCompleted={() => setArchiveAllOpen(true)}
                 onShowFlow={() => setFlowOpen(true)}
               />
+              {/* Distribuição por estado (fluxo simples): onde o trabalho está
+                  represado agora — o MESMO gráfico do cockpit, sobre a visão
+                  filtrada, atualizado ao vivo pelo tempo real do quadro. */}
+              <TasksByStateChart counts={countTasksByState(filteredTasks)} />
               <KanbanBoard
                 tasks={filteredTasks}
                 agents={agents}

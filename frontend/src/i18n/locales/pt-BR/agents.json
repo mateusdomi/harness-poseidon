@@ -15,6 +15,12 @@
       "error": "Não foi possível carregar o roster de execução."
     },
     "count": "{{count}} agente(s) na equipe",
+    "chart": {
+      "title": "Utilização da equipe",
+      "subtitle": "Tarefas concluídas por agente (acumulado) — onde está a vazão da equipe agora.",
+      "empty": "A equipe ainda não concluiu nenhuma tarefa.",
+      "bar": "{{agent}}: {{count}} tarefas concluídas"
+    },
     "groups": {
       "chief": "Chefe"
     },
