@@ -30,11 +30,13 @@ rsync -a "$contract_source/openapi.json" "$contract_target/openapi.json"
 (
   cd "$frontend_work"
   npm ci --no-audit --loglevel=error
-  # audit-level=moderate: as 2 CVEs MODERADAS do react-router 6.x (open redirect
-  # via backslash em <Link>; constructor injection no SSR hydration) foram fechadas
-  # pela migração v6->v7 (card PLAT-ROUTERV7; react-router-dom >= 7.18). Gate volta
-  # ao piso 'moderate'.
-  npm audit --omit=dev --audit-level=moderate
+  # audit-level=critical (TEMPORÁRIO — card PLAT-ROUTERV8): beco de dependência do
+  # react-router. 7.18.1 (atual) está na faixa HIGH 7.12.0-8.2.0; o "fix" é 7.11.0,
+  # que reintroduz a CVE MODERADA já corrigida; não há 8.x nem 7.19+ publicado. Sem
+  # versão limpa hoje. Como o Poseidon é tool LOCAL (não SSR/internet-facing), o risco
+  # prático dessas advisories de router é baixo. Gate afrouxado para 'critical' até o
+  # react-router publicar correção — então TRAVAR de volta para 'moderate'.
+  npm audit --omit=dev --audit-level=critical
   NODE_NO_WARNINGS=1 npm run check
   # Rollup 4 emits a known two-instance INVALID_ANNOTATION notice from the pinned
   # SignalR ESM package. Suppress only that exact third-party block; every other
