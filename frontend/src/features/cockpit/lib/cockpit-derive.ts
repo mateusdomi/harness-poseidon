@@ -82,6 +82,46 @@ export function countAgentsByState(agents: readonly Agent[]): Record<AgentState,
   return counts;
 }
 
+/** Estados de agente que representam capacidade produtiva parada. */
+const PROBLEM_AGENT_STATES: readonly AgentState[] = ['error', 'outOfQuota'];
+
+export interface FactoryAgentMetrics {
+  /** Prontos para produzir (não em erro/sem cota). */
+  online: number;
+  /** Capacidade parada (erro ou sem cota). */
+  problems: number;
+  /** Tarefas já entregues pela equipe (acumulado das métricas dos agentes). */
+  tasksDone: number;
+  /** Tarefas ainda não concluídas (fila de produção). */
+  tasksTodo: number;
+  /** Agentes produzindo agora (estado `working`). */
+  working: Agent[];
+  /** Agentes que precisam de atenção (erro/sem cota). */
+  attention: Agent[];
+}
+
+/**
+ * Métricas da "fábrica de agentes" — visão de dono. Combina o estado
+ * operacional dos agentes (capacidade) com a fila de tarefas do projeto
+ * (`taskCounts`) para responder "quanta produção há e quanto falta".
+ */
+export function factoryAgentMetrics(
+  agents: readonly Agent[],
+  taskCounts: Record<TaskState, number>,
+): FactoryAgentMetrics {
+  const problems = agents.filter((a) => PROBLEM_AGENT_STATES.includes(a.state));
+  const tasksDone = agents.reduce((sum, a) => sum + a.metrics.tasksCompleted, 0);
+  const total = TASK_STATES.reduce((sum, s) => sum + taskCounts[s], 0);
+  return {
+    online: agents.length - problems.length,
+    problems: problems.length,
+    tasksDone,
+    tasksTodo: total - taskCounts.done,
+    working: agents.filter((a) => a.state === 'working'),
+    attention: [...problems],
+  };
+}
+
 export type BudgetSeverity = 'ok' | 'warning' | 'critical';
 
 /** Percentual de uso do budget (0–100+); `null` quando o limite é 0. */

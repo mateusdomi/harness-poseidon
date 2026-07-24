@@ -1,10 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Info, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { useApi } from '@/app/api-context';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+  Tooltip,
+} from '@/design-system';
 
 /** Resumo P1 do projeto; só é montado quando a flag operacional está ligada. */
 export function GovernanceHealthCard({ projectId }: { projectId: string }) {
@@ -29,18 +38,40 @@ export function GovernanceHealthCard({ projectId }: { projectId: string }) {
   const receipts = query.data ?? [];
   const conflicts = receipts.reduce((sum, receipt) => sum + receipt.conflicts.length, 0);
   const truncated = receipts.reduce((sum, receipt) => sum + receipt.truncated.length, 0);
+  const metrics = [
+    { key: 'receipts' as const, value: receipts.length },
+    { key: 'conflicts' as const, value: conflicts },
+    { key: 'truncated' as const, value: truncated },
+  ];
   return (
     <Card className={`lg:col-span-2 ${conflicts > 0 ? 'border-error' : ''}`}>
       <CardHeader className="flex-row flex-wrap items-center gap-2">
         <ShieldCheck aria-hidden="true" className="size-5 text-brand-strong" />
-        <CardTitle>{t('cockpitGovernance.title')}</CardTitle>
+        <div className="flex flex-col">
+          <CardTitle>{t('cockpitGovernance.title')}</CardTitle>
+          <p className="text-xs text-foreground-muted">{t('cockpitGovernance.subtitle')}</p>
+        </div>
         <Badge className="ml-auto" variant={conflicts > 0 ? 'error' : 'success'}>{conflicts > 0 ? t('cockpitGovernance.attention') : t('cockpitGovernance.healthy')}</Badge>
       </CardHeader>
       <CardContent className="flex flex-wrap items-end gap-4">
         <dl className="grid flex-1 grid-cols-3 gap-3 text-center">
-          <div><dt className="text-xs text-foreground-muted">{t('cockpitGovernance.receipts')}</dt><dd className="font-heading text-2xl font-semibold">{receipts.length}</dd></div>
-          <div><dt className="text-xs text-foreground-muted">{t('cockpitGovernance.conflicts')}</dt><dd className="font-heading text-2xl font-semibold">{conflicts}</dd></div>
-          <div><dt className="text-xs text-foreground-muted">{t('cockpitGovernance.truncated')}</dt><dd className="font-heading text-2xl font-semibold">{truncated}</dd></div>
+          {metrics.map((metric) => (
+            <div key={metric.key}>
+              <dt className="flex items-center justify-center gap-1 text-xs text-foreground-muted">
+                {t(`cockpitGovernance.${metric.key}`)}
+                <Tooltip label={t(`cockpitGovernance.tooltips.${metric.key}`)}>
+                  <button
+                    type="button"
+                    aria-label={t(`cockpitGovernance.tooltips.${metric.key}`)}
+                    className="rounded-full text-foreground-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <Info aria-hidden="true" className="size-3.5" />
+                  </button>
+                </Tooltip>
+              </dt>
+              <dd className="font-heading text-2xl font-semibold">{metric.value}</dd>
+            </div>
+          ))}
         </dl>
         <Button asChild size="sm" variant="outline"><Link to="/governance">{t('cockpitGovernance.open')}</Link></Button>
       </CardContent>

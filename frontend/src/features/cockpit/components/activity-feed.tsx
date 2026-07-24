@@ -18,6 +18,7 @@ import {
 } from '@/features/cockpit/lib/cockpit-derive';
 import {
   humanizeActivity,
+  isMeaningfulActivity,
   type ActivityOutcome,
 } from '@/features/cockpit/lib/activity-humanize';
 import { useNow } from '@/features/shared/hooks/use-now';
@@ -141,7 +142,12 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
   const [period, setPeriod] = useState<ActivityPeriod>('24h');
   const [visibleCount, setVisibleCount] = useState(ACTIVITY_BATCH_SIZE);
 
-  const filtered = filterActivityByPeriod(events, period, now);
+  // "Visão de dono": o feed mostra o que muda a operação (tarefas, documentos,
+  // aprovações, conversas) e ESCONDE o vaivém técnico interno (turnos do chefe,
+  // mensagens anexadas, heartbeats). O histórico cru fica na Governança.
+  const meaningful = events.filter(isMeaningfulActivity);
+  const hiddenNoise = events.length - meaningful.length;
+  const filtered = filterActivityByPeriod(meaningful, period, now);
   const visible = filtered.slice(0, visibleCount);
   const remaining = filtered.length - visible.length;
 
@@ -181,13 +187,13 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
         {visible.length === 0 ? (
           <div className="flex flex-col gap-1">
             <p className="text-sm text-foreground-muted">
-              {events.length === 0
+              {meaningful.length === 0
                 ? t('cockpit.activity.empty')
                 : t('cockpit.activity.emptyPeriod', {
                     period: t(`cockpit.activity.period.options.${period}`).toLowerCase(),
                   })}
             </p>
-            {events.length > 0 && (
+            {meaningful.length > 0 && (
               <p className="text-xs text-foreground-muted">
                 {t('cockpit.activity.emptyPeriodHint')}
               </p>
@@ -218,6 +224,9 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
               )}
             </div>
           </>
+        )}
+        {hiddenNoise > 0 && (
+          <p className="text-xs text-foreground-muted">{t('cockpit.activity.noise')}</p>
         )}
         <Link
           to="/governance"

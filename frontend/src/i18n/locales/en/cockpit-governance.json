@@ -1,11 +1,17 @@
 {
   "cockpitGovernance": {
     "title": "Governance health",
+    "subtitle": "Proof that the agents worked within the rules. Hover each number.",
     "healthy": "no conflicts",
     "attention": "attention",
     "receipts": "Receipts",
     "conflicts": "Conflicts",
-    "truncated": "Truncated",
+    "truncated": "Context cuts",
+    "tooltips": {
+      "receipts": "Receipts = auditable records of governed execution. Every time an agent runs a task under the rules, it produces a receipt that proves what was done.",
+      "conflicts": "Conflicts = rules that contradicted each other during execution. The expected value is zero; above zero warrants a chief review.",
+      "truncated": "Context cuts = times the material handed to the agent was too large and had to be trimmed. Many cuts can lower work quality."
+    },
     "open": "Open governance",
     "error": "The P1 governance status for this project could not be loaded."
   }

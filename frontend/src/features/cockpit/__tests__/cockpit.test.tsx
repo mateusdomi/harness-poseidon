@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom';
 import { vi } from 'vitest';
 
-import { buildFixtures, type AuditEvent } from '@/api';
+import { buildFixtures, type Agent, type AuditEvent } from '@/api';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
 import CockpitPage from '@/features/cockpit/pages/cockpit-page';
 import {
@@ -12,10 +12,12 @@ import {
   budgetSeverity,
   countTasksByState,
   currentPhase,
+  factoryAgentMetrics,
   filterActivityByPeriod,
   recommendNextAction,
   tasksOfPhase,
 } from '@/features/cockpit/lib/cockpit-derive';
+import { isMeaningfulActivity } from '@/features/cockpit/lib/activity-humanize';
 import { renderWithApi } from '@/test/render-with-providers';
 import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
 
@@ -71,12 +73,61 @@ describe('cockpit-derive', () => {
     ).toBe('reviewPhase');
   });
 
+  it('métricas de fábrica: online, entregas, fila e capacidade parada', () => {
+    const base = { definitionId: 'd', projectId: 'p', currentTaskId: null, modelId: null, lease: null, lastHeartbeatAt: null } as const;
+    const mk = (id: string, state: Agent['state'], done: number): Agent => ({
+      ...base,
+      id,
+      name: `Agente ${id}`,
+      state,
+      metrics: { tasksCompleted: done, tokensInput: 0, tokensOutput: 0, costUsd: 0, uptimeMs: 0 },
+    });
+    const agents = [
+      mk('a', 'working', 5),
+      mk('b', 'idle', 3),
+      mk('c', 'error', 2),
+      mk('d', 'outOfQuota', 0),
+    ];
+    const taskCounts = { ...countTasksByState([]), backlog: 4, development: 2, done: 6 };
+    const m = factoryAgentMetrics(agents, taskCounts);
+    expect(m.online).toBe(2); // working + idle (erro/sem cota fora)
+    expect(m.problems).toBe(2);
+    expect(m.tasksDone).toBe(10); // 5+3+2+0
+    expect(m.tasksTodo).toBe(6); // total(12) - done(6)
+    expect(m.working.map((a) => a.id)).toEqual(['a']);
+    expect(m.attention.map((a) => a.id)).toEqual(['c', 'd']);
+  });
+
   it('classifica severidade de budget pelo limiar de alerta', () => {
     const account = budgets.find((b) => b.scope === 'account')!; // 80% com limiar 75%
     expect(budgetSeverity(account)).toBe('warning');
     const global = budgets.find((b) => b.scope === 'global')!; // 43% com limiar 80%
     expect(budgetSeverity(global)).toBe('ok');
     expect(budgetSeverity({ ...account, spentUsd: 60 })).toBe('critical');
+  });
+});
+
+describe('isMeaningfulActivity', () => {
+  it('mantém eventos de negócio e esconde vaivém técnico interno', () => {
+    const ev = (action: string, targetType: string): AuditEvent => ({
+      id: action,
+      actorKind: 'system',
+      actorId: null,
+      action,
+      targetType,
+      targetId: null,
+      detail: null,
+      occurredAt: new Date().toISOString(),
+    });
+    // Significativos para o dono.
+    expect(isMeaningfulActivity(ev('task.stateChanged', 'task'))).toBe(true);
+    expect(isMeaningfulActivity(ev('document.approved', 'document'))).toBe(true);
+    expect(isMeaningfulActivity(ev('conversation.created', 'conversation'))).toBe(true);
+    // Ruído técnico interno — escondido.
+    expect(isMeaningfulActivity(ev('chief.turnStateChanged', 'chiefTurn'))).toBe(false);
+    expect(isMeaningfulActivity(ev('message.appended', 'message'))).toBe(false);
+    expect(isMeaningfulActivity(ev('agent.heartbeat', 'heartbeat'))).toBe(false);
+    expect(isMeaningfulActivity(ev('progress.updated', 'task'))).toBe(false);
   });
 });
 
@@ -161,7 +212,7 @@ describe('CockpitPage', () => {
     expect(await screen.findByText('Deploy em staging (sem credencial)')).toBeInTheDocument();
     expect(screen.getByLabelText(/projeto ativo/i)).toBeInTheDocument();
     expect(screen.getByText('Aprovar Gate de Qualidade')).toBeInTheDocument();
-    expect(screen.getByText('Saúde dos agentes')).toBeInTheDocument();
+    expect(screen.getByText('Fábrica de agentes')).toBeInTheDocument();
     expect(screen.getByText('Cotas críticas')).toBeInTheDocument();
     expect(screen.getByText('Atividade recente')).toBeInTheDocument();
   });

@@ -12,6 +12,7 @@ import { GoldenPathChecklist } from '@/features/onboarding/components/golden-pat
 import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
 import { TaskStateCounters } from '@/features/cockpit/components/task-state-counters';
+import { TasksByStateChart } from '@/features/cockpit/components/tasks-by-state-chart';
 import {
   useCockpitActivity,
   useCockpitAgents,
@@ -154,17 +155,19 @@ export default function CockpitPage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>{t('cockpit.progress.globalTitle')}</CardTitle>
+              <p className="text-xs text-foreground-muted">{t('cockpit.progress.subtitle')}</p>
             </CardHeader>
             <CardContent>
               <ProgressTracks progress={aggregateProgress(tasks)} />
             </CardContent>
           </Card>
+          <TasksByStateChart counts={counts} />
           <div className="lg:col-span-2">
             <TaskStateCounters counts={counts} />
           </div>
           <BlockedTasksCard tasks={tasks} />
           <PendingApprovalsCard approvals={approvals} />
-          <AgentsHealthCard agents={agents} />
+          <AgentsHealthCard agents={agents} taskCounts={counts} />
           <QuotaCard budgets={budgets} />
           <div className="lg:col-span-2">
             <ActivityFeed events={events} />

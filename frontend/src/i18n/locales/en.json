@@ -748,11 +748,23 @@
     },
     "progress": {
       "globalTitle": "Project-wide progress",
+      "subtitle": "Three independent tracks — never summed. Hover each one to see what it measures.",
       "tracks": {
         "executed": "Executed",
         "validated": "Validated",
         "approved": "Approved"
+      },
+      "tooltips": {
+        "executed": "Executed = how much work the agents have already produced (code, documents). It does not yet mean it is correct.",
+        "validated": "Validated = how much work has already passed automated review and the quality tests/gates.",
+        "approved": "Approved = how much work you (or the chief) have formally approved as ready to deliver."
       }
+    },
+    "tasksChart": {
+      "title": "Task distribution",
+      "subtitle": "How many tasks are in each stage of the factory right now.",
+      "empty": "No tasks in this project yet.",
+      "bar": "{{state}}: {{count}} tasks"
     },
     "nextAction": {
       "title": "Recommended next action",
@@ -794,8 +806,20 @@
       "viewAll": "View all approvals"
     },
     "agents": {
-      "title": "Agent health",
-      "empty": "No agents linked to this project."
+      "title": "Agent factory",
+      "empty": "No agents linked to this project.",
+      "online": "Online",
+      "onlineTooltip": "Agents ready to produce (working, idle or waiting). Does not count those in error or out of quota.",
+      "tasksDone": "Tasks completed",
+      "tasksDoneTooltip": "Total tasks already delivered by this project's agent team (cumulative).",
+      "tasksTodo": "Tasks to do",
+      "tasksTodoTooltip": "Tasks not yet completed — the remaining production queue.",
+      "problems": "No capacity",
+      "problemsTooltip": "Agents in error or out of quota. Each one here is stalled production capacity.",
+      "workingNow": "Producing now",
+      "needAttention": "Need attention",
+      "idleLabel": "idle",
+      "problemState": "no capacity"
     },
     "quotas": {
       "title": "Critical quotas",
@@ -807,7 +831,8 @@
     },
     "activity": {
       "title": "Recent activity",
-      "empty": "No audit events yet.",
+      "empty": "No relevant activity yet. This shows tasks that change stage, documents created or approved, and conversations — not the internal technical churn.",
+      "noise": "Internal technical events were hidden to show only what changes the operation.",
       "period": {
         "label": "Activity period",
         "options": {
@@ -848,7 +873,14 @@
         "organization.created": "Organization created",
         "profile.settingsUpdated": "Profile preferences updated",
         "conversation.created": "Conversation started",
-        "workflow.linked": "Workflow linked to the project"
+        "workflow.linked": "Workflow linked to the project",
+        "task.stateChanged": "Task changed stage",
+        "task.completed": "Task completed",
+        "document.created": "Document created",
+        "document.approved": "Document approved",
+        "document.stateChanged": "Document changed state",
+        "approval.requested": "Approval requested",
+        "demand.completed": "Demand completed"
       }
     }
   },
