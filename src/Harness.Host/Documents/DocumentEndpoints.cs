@@ -103,6 +103,10 @@ public static class DocumentEndpoints
             await content.WriteAsync(prepared.CatalogPath, prepared.Body, prepared.ContentHash, token);
             try
             {
+                // Criação interativa por um humano na própria sessão ('user') é, ela própria, um
+                // fluxo legítimo — a origem programática é dispensada aqui. O guardrail anti-
+                // proliferação que EXIGE origem para criação de 'chief'/'agent' vive no
+                // DocumentCreateValidator, o ponto de estrangulamento comum a todos os stores.
                 await authority.CreateAsync(new(profile.TenantId, input.ProjectId, documentId,
                     normalized.Title, normalized.Kind, normalized.Classifications, normalized.PhaseName,
                     versionId, prepared.CatalogPath, prepared.ContentHash, "user", profile.Id,

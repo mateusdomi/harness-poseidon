@@ -650,6 +650,7 @@ public static class HostApplication
         app.MapConversations();
         app.MapChannels();
         app.MapWorkBoard();
+        app.MapBacklogHealth();
         app.MapDemandPlans();
         app.MapDeliveries();
         app.MapArchitecture();
