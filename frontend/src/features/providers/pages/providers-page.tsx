@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil, Plus, Power, PowerOff, RefreshCw, Trash2 } from 'lucide-react';
+import { Boxes, HeartPulse, Link2, Pencil, Sparkles, type LucideIcon } from 'lucide-react';
 
 import { ApiError, type Account, type RoutingPolicy, type Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
-import { accountHealthVariant, accountStateVariant } from '@/lib/status';
-import { formatCurrencyUSD, formatDate, formatNumber } from '@/lib/format';
+import { formatCurrencyUSD } from '@/lib/format';
 import { ConsumptionBar } from '@/features/providers/components/consumption-bar';
+import { ProviderCard } from '@/features/providers/components/provider-card';
+import { CollapsibleSection } from '@/features/providers/components/collapsible-section';
 import { AccountFormDialog } from '@/features/providers/components/account-form-dialog';
 import { RoutingPolicyDialog } from '@/features/providers/components/routing-policy-dialog';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
@@ -22,19 +23,36 @@ import {
   useRoutingPolicies,
   useSyncProviderCatalog,
 } from '@/features/providers/hooks/use-providers';
-import {
-  accountBudget,
-  modelDisplayName,
-  nextBudgetReset,
-} from '@/features/providers/lib/providers-derive';
+import { modelDisplayName } from '@/features/providers/lib/providers-derive';
 import { useNow } from '@/features/shared/hooks/use-now';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 
+/** Tile de resumo (número em destaque + rótulo) para a visão geral da tela. */
+function OverviewTile({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-elevated text-brand"
+        >
+          <Icon className="size-5" />
+        </span>
+        <span className="flex flex-col">
+          <span className="font-heading text-2xl font-semibold leading-none">{value}</span>
+          <span className="text-xs text-foreground-muted">{label}</span>
+        </span>
+      </CardContent>
+    </Card>
+  );
+}
+
 /**
- * Providers e contas: catálogo de modelos (somente leitura) com sync,
- * CRUD de contas (criar/editar/habilitar/desabilitar/remover — FR-5) com
- * saúde/cota/janela/reset, budgets por escopo e política de roteamento em
- * visualização estruturada com edição confirmada.
+ * Providers e contas — organizada para o fluxo do cliente:
+ * 1) visão geral (contas conectadas, saúde, modelos habilitados);
+ * 2) um cartão por provedor com CTA de conectar conta em destaque, estado
+ *    (habilitado/desabilitado, com/sem conta) e catálogo de modelos recolhível;
+ * 3) configurações avançadas (orçamentos e roteamento) em seções recolhíveis.
  * Realtime: `quota.updated` (stream global) atualiza as barras de cota.
  */
 export default function UprovidersPage() {
@@ -65,6 +83,7 @@ export default function UprovidersPage() {
   const accounts = accountsQuery.data ?? [];
   const models = modelsQuery.data ?? [];
   const budgets = budgetsQuery.data ?? [];
+  const routingPolicies = routingQuery.data ?? [];
 
   const projectName = (id: Ulid | null) =>
     id === null ? null : (projects.find((project) => project.id === id)?.name ?? id);
@@ -115,375 +134,203 @@ export default function UprovidersPage() {
     );
   }
 
+  const healthyAccounts = accounts.filter((account) => account.health === 'healthy').length;
+  const enabledModels = models.filter((model) => model.enabled).length;
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-2xl font-semibold">{t('features.providers.title')}</h1>
+      <header className="flex flex-col gap-1">
+        <h1 className="font-heading text-2xl font-semibold">{t('features.providers.title')}</h1>
+        <p className="text-sm text-foreground-muted">{t('providers.subtitle')}</p>
+      </header>
 
-      {providers.length === 0 && (
+      {providers.length === 0 ? (
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-foreground-muted">{t('providers.empty')}</p>
           </CardContent>
         </Card>
-      )}
-
-      {providers.map((provider) => {
-        const providerAccounts = accounts.filter((account) => account.providerId === provider.id);
-        const providerModels = models.filter((model) => model.providerId === provider.id);
-        return (
+      ) : (
+        <>
           <section
-            key={provider.id}
-            className="flex flex-col gap-3"
-            aria-labelledby={`provider-${provider.id}`}
+            aria-label={t('providers.overview.title')}
+            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
           >
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 id={`provider-${provider.id}`} className="font-heading text-lg font-semibold">
-                {provider.name}
-              </h2>
-              <Badge variant="outline">{t(`status.providerKind.${provider.kind}`)}</Badge>
-              <Badge variant={provider.enabled ? 'success' : 'outline'}>
-                {provider.enabled ? t('providers.enabled') : t('providers.disabled')}
-              </Badge>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-                disabled={syncCatalog.isPending}
-                onClick={() =>
+            <OverviewTile
+              icon={Boxes}
+              value={providers.length}
+              label={t('providers.overview.providers')}
+            />
+            <OverviewTile
+              icon={Link2}
+              value={accounts.length}
+              label={t('providers.overview.accounts')}
+            />
+            <OverviewTile
+              icon={HeartPulse}
+              value={healthyAccounts}
+              label={t('providers.overview.healthy')}
+            />
+            <OverviewTile
+              icon={Sparkles}
+              value={enabledModels}
+              label={t('providers.overview.models')}
+            />
+          </section>
+
+          <div className="flex flex-col gap-4">
+            {providers.map((provider) => (
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                accounts={accounts.filter((account) => account.providerId === provider.id)}
+                models={models.filter((model) => model.providerId === provider.id)}
+                budgets={budgets}
+                now={now}
+                syncPending={syncCatalog.isPending}
+                syncFeedbackCount={
+                  syncFeedback?.providerId === provider.id ? syncFeedback.count : null
+                }
+                enablePending={enableAccount.isPending}
+                disablePending={disableAccount.isPending}
+                onSync={() =>
                   syncCatalog.mutate(provider.id, {
                     onSuccess: (synced) =>
                       setSyncFeedback({ providerId: provider.id, count: synced.length }),
                   })
                 }
-              >
-                <RefreshCw aria-hidden="true" />
-                {t('providers.sync.action')}
-              </Button>
-            </div>
-            {syncFeedback?.providerId === provider.id && (
-              <p role="status" className="text-sm text-foreground-muted">
-                {t('providers.sync.feedback', { count: syncFeedback.count })}
-              </p>
-            )}
-
-            <div className="grid gap-3 lg:grid-cols-2">
-              <Card>
-                <CardHeader className="flex-row flex-wrap items-center gap-3">
-                  <CardTitle>{t('providers.accounts.title')}</CardTitle>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="ml-auto"
-                    onClick={() => setAccountForm({ providerId: provider.id, account: null })}
-                  >
-                    <Plus aria-hidden="true" />
-                    {t('providers.accounts.new')}
-                  </Button>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  {providerAccounts.length === 0 ? (
-                    <p className="text-sm text-foreground-muted">{t('providers.accounts.empty')}</p>
-                  ) : (
-                    providerAccounts.map((account) => {
-                      const budget = accountBudget(account, budgets);
-                      return (
-                        <div key={account.id} className="flex flex-col gap-2">
-                          <div className="flex flex-wrap items-center gap-2 text-sm">
-                            <span className="font-medium">{account.label}</span>
-                            <Badge variant={accountStateVariant(account.state)}>
-                              {t(`status.accountState.${account.state}`)}
-                            </Badge>
-                            {/* O contrato não tem flag "local" na conta/modelo:
-                                deriva-se de provider.kind === 'ollama'. */}
-                            {provider.kind === 'ollama' && (
-                              <Badge variant="info">{t('providers.local')}</Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-foreground-muted">
-                            {t('providers.accounts.meta', {
-                              identity: account.identity ?? t('providers.accounts.notProvided'),
-                              plan: t(`providers.accounts.plan.${account.plan}`),
-                              authentication: t(
-                                `providers.accounts.authentication.${account.authentication}`,
-                              ),
-                            })}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant={accountHealthVariant(account.health)}>
-                              {t(`providers.accounts.health.${account.health}`)}
-                            </Badge>
-                            {account.capabilities.map((capability) => (
-                              <Badge key={capability} variant="info">
-                                {t(`providers.accounts.capability.${capability}`)}
-                              </Badge>
-                            ))}
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setAccountForm({ providerId: provider.id, account })
-                              }
-                            >
-                              <Pencil aria-hidden="true" />
-                              {t('providers.accounts.actions.edit')}
-                            </Button>
-                            {account.state === 'active' ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={disableAccount.isPending}
-                                onClick={() => disableAccount.mutate(account.id)}
-                              >
-                                <PowerOff aria-hidden="true" />
-                                {t('providers.accounts.actions.disable')}
-                              </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={enableAccount.isPending}
-                                onClick={() => enableAccount.mutate(account.id)}
-                              >
-                                <Power aria-hidden="true" />
-                                {t('providers.accounts.actions.enable')}
-                              </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={account.state !== 'disabled'}
-                              title={
-                                account.state !== 'disabled'
-                                  ? t('providers.accounts.delete.disableFirst')
-                                  : undefined
-                              }
-                              onClick={() => {
-                                deleteAccount.reset();
-                                setDeletingAccount(account);
-                              }}
-                            >
-                              <Trash2 aria-hidden="true" />
-                              {t('providers.accounts.actions.remove')}
-                            </Button>
-                          </div>
-                          <ConsumptionBar
-                            used={account.quotaUsedUsd}
-                            limit={account.quotaLimitUsd}
-                            alertThresholdPct={budget?.alertThresholdPct ?? 80}
-                            label={t('providers.accounts.quotaBar', { label: account.label })}
-                          />
-                          <p className="text-xs text-foreground-muted">
-                            {account.quotaLimitUsd === null
-                              ? t('providers.accounts.quotaNoLimit', {
-                                  used: formatCurrencyUSD(account.quotaUsedUsd),
-                                })
-                              : t('providers.accounts.quota', {
-                                  used: formatCurrencyUSD(account.quotaUsedUsd),
-                                  limit: formatCurrencyUSD(account.quotaLimitUsd),
-                                })}
-                          </p>
-                          <p className="text-xs text-foreground-muted">
-                            {t('providers.accounts.window', {
-                              period: t(`providers.accounts.quotaWindow.${account.quotaWindow}`),
-                              reset:
-                                account.quotaResetsAt === null
-                                  ? t('providers.accounts.noReset')
-                                  : formatDate(account.quotaResetsAt),
-                            })}
-                          </p>
-                          {budget && account.quotaResetsAt === null && (
-                            <p className="text-xs text-foreground-muted">
-                              {t('providers.accounts.budgetReset', {
-                                reset: formatDate(nextBudgetReset(budget.period, now)),
-                              })}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('providers.models.title')}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {providerModels.length === 0 ? (
-                    <p className="text-sm text-foreground-muted">{t('providers.models.empty')}</p>
-                  ) : (
-                    providerModels.map((model) => (
-                      <div
-                        key={model.id}
-                        className="flex flex-col gap-1 rounded-md border border-border p-3"
-                      >
-                        <div className="flex flex-wrap items-center gap-2 text-sm">
-                          <span className="font-medium">{model.displayName}</span>
-                          <span className="text-xs text-foreground-muted">{model.name}</span>
-                          <Badge variant={model.enabled ? 'success' : 'outline'}>
-                            {model.enabled ? t('providers.enabled') : t('providers.disabled')}
-                          </Badge>
-                          {/* Sem flag "local" no contrato: deriva do provider (kind 'ollama'). */}
-                          {provider.kind === 'ollama' && (
-                            <Badge variant="info">{t('providers.local')}</Badge>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {model.capabilities.map((capability) => (
-                            <Badge key={capability} variant="info">
-                              {t(`status.modelCapability.${capability}`)}
-                            </Badge>
-                          ))}
-                        </div>
-                        <p className="text-xs text-foreground-muted">
-                          {t('providers.models.meta', {
-                            context: formatNumber(model.contextWindow),
-                            input:
-                              model.costPer1kInputUsd === null
-                                ? '—'
-                                : formatCurrencyUSD(model.costPer1kInputUsd),
-                            output:
-                              model.costPer1kOutputUsd === null
-                                ? '—'
-                                : formatCurrencyUSD(model.costPer1kOutputUsd),
-                          })}
-                        </p>
-                        {model.effortMappings.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1 text-xs text-foreground-muted">
-                            <span>{t('providers.models.effortMappings')}:</span>
-                            {model.effortMappings.map((mapping) => (
-                              <Badge key={mapping.effort} variant="outline">
-                                {t(`providers.models.effort.${mapping.effort}`, {
-                                  value: mapping.providerValue,
-                                })}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-        );
-      })}
-
-      <section className="flex flex-col gap-3" aria-labelledby="budgets-section">
-        <h2 id="budgets-section" className="font-heading text-lg font-semibold">
-          {t('providers.budgets.title')}
-        </h2>
-        {budgets.length === 0 ? (
-          <p className="text-sm text-foreground-muted">{t('providers.budgets.empty')}</p>
-        ) : (
-          <div className="grid gap-3 lg:grid-cols-3">
-            {budgets.map((budget) => (
-              <Card key={budget.id}>
-                <CardContent className="flex flex-col gap-2 p-4">
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Badge variant="outline">{t(`status.budgetScope.${budget.scope}`)}</Badge>
-                    <span className="font-medium">
-                      {budget.scope === 'project'
-                        ? projectName(budget.scopeId)
-                        : budget.scope === 'account'
-                          ? accountLabel(budget.scopeId)
-                          : t('providers.budgets.global')}
-                    </span>
-                    <span className="text-xs text-foreground-muted">
-                      {t(`status.budgetPeriod.${budget.period}`)}
-                    </span>
-                  </div>
-                  <ConsumptionBar
-                    used={budget.spentUsd}
-                    limit={budget.limitUsd}
-                    alertThresholdPct={budget.alertThresholdPct}
-                    label={t('providers.budgets.bar', {
-                      scope: t(`status.budgetScope.${budget.scope}`),
-                    })}
-                  />
-                  <p className="text-xs text-foreground-muted">
-                    {t('providers.budgets.consumption', {
-                      spent: formatCurrencyUSD(budget.spentUsd),
-                      limit: formatCurrencyUSD(budget.limitUsd),
-                      threshold: budget.alertThresholdPct,
-                    })}
-                  </p>
-                </CardContent>
-              </Card>
+                onNewAccount={() => setAccountForm({ providerId: provider.id, account: null })}
+                onEditAccount={(account) =>
+                  setAccountForm({ providerId: provider.id, account })
+                }
+                onEnableAccount={(account) => enableAccount.mutate(account.id)}
+                onDisableAccount={(account) => disableAccount.mutate(account.id)}
+                onDeleteAccount={(account) => {
+                  deleteAccount.reset();
+                  setDeletingAccount(account);
+                }}
+              />
             ))}
           </div>
-        )}
-      </section>
 
-      <section className="flex flex-col gap-3" aria-labelledby="routing-section">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 id="routing-section" className="font-heading text-lg font-semibold">
-            {t('providers.routing.title')}
-          </h2>
-        </div>
-        {(routingQuery.data ?? []).length === 0 ? (
-          <p className="text-sm text-foreground-muted">{t('providers.routing.empty')}</p>
-        ) : (
-          (routingQuery.data ?? []).map((policy) => (
-            <Card key={policy.id}>
-              <CardHeader className="flex-row flex-wrap items-center gap-3">
-                <CardTitle>{policy.name}</CardTitle>
-                <Badge variant={policy.active ? 'success' : 'outline'}>
-                  {policy.active ? t('providers.routing.active') : t('providers.routing.inactive')}
-                </Badge>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => setEditingPolicy(policy)}
-                >
-                  <Pencil aria-hidden="true" />
-                  {t('providers.routing.edit')}
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <ul className="flex flex-col gap-2">
-                  {policy.rules.map((rule, index) => (
-                    <li key={index} className="rounded-md border border-border p-3 text-sm">
-                      <span className="font-medium">
-                        {rule.taskKind ?? t('providers.routing.defaultRule')}
-                      </span>
-                      : {modelDisplayName(rule.preferredModelId, models)}
-                      {rule.fallbackModelIds.length > 0 && (
-                        <span className="text-foreground-muted">
-                          {' → '}
-                          {rule.fallbackModelIds
-                            .map((id) => modelDisplayName(id, models))
-                            .join(', ')}
-                        </span>
-                      )}
-                      {rule.maxCostPerAttemptUsd !== null && (
-                        <span className="text-foreground-muted">
-                          {' · '}
-                          {t('providers.routing.maxCostShort', {
-                            value: formatCurrencyUSD(rule.maxCostPerAttemptUsd),
+          <section aria-labelledby="advanced-section" className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <h2 id="advanced-section" className="font-heading text-lg font-semibold">
+                {t('providers.advanced.title')}
+              </h2>
+              <p className="text-sm text-foreground-muted">{t('providers.advanced.subtitle')}</p>
+            </div>
+
+            <CollapsibleSection
+              title={t('providers.budgets.title')}
+              summary={t('providers.budgets.count', { count: budgets.length })}
+            >
+              {budgets.length === 0 ? (
+                <p className="text-sm text-foreground-muted">{t('providers.budgets.empty')}</p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {budgets.map((budget) => (
+                    <Card key={budget.id}>
+                      <CardContent className="flex flex-col gap-2 p-4">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <Badge variant="outline">{t(`status.budgetScope.${budget.scope}`)}</Badge>
+                          <span className="font-medium">
+                            {budget.scope === 'project'
+                              ? projectName(budget.scopeId)
+                              : budget.scope === 'account'
+                                ? accountLabel(budget.scopeId)
+                                : t('providers.budgets.global')}
+                          </span>
+                          <span className="text-xs text-foreground-muted">
+                            {t(`status.budgetPeriod.${budget.period}`)}
+                          </span>
+                        </div>
+                        <ConsumptionBar
+                          used={budget.spentUsd}
+                          limit={budget.limitUsd}
+                          alertThresholdPct={budget.alertThresholdPct}
+                          label={t('providers.budgets.bar', {
+                            scope: t(`status.budgetScope.${budget.scope}`),
                           })}
-                        </span>
-                      )}
-                    </li>
+                        />
+                        <p className="text-xs text-foreground-muted">
+                          {t('providers.budgets.consumption', {
+                            spent: formatCurrencyUSD(budget.spentUsd),
+                            limit: formatCurrencyUSD(budget.limitUsd),
+                            threshold: budget.alertThresholdPct,
+                          })}
+                        </p>
+                      </CardContent>
+                    </Card>
                   ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </section>
+                </div>
+              )}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title={t('providers.routing.title')}
+              summary={t('providers.routing.count', { count: routingPolicies.length })}
+            >
+              {routingPolicies.length === 0 ? (
+                <p className="text-sm text-foreground-muted">{t('providers.routing.empty')}</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {routingPolicies.map((policy) => (
+                    <Card key={policy.id}>
+                      <CardHeader className="flex-row flex-wrap items-center gap-3">
+                        <CardTitle>{policy.name}</CardTitle>
+                        <Badge variant={policy.active ? 'success' : 'outline'}>
+                          {policy.active
+                            ? t('providers.routing.active')
+                            : t('providers.routing.inactive')}
+                        </Badge>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto"
+                          onClick={() => setEditingPolicy(policy)}
+                        >
+                          <Pencil aria-hidden="true" />
+                          {t('providers.routing.edit')}
+                        </Button>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="flex flex-col gap-2">
+                          {policy.rules.map((rule, index) => (
+                            <li key={index} className="rounded-md border border-border p-3 text-sm">
+                              <span className="font-medium">
+                                {rule.taskKind ?? t('providers.routing.defaultRule')}
+                              </span>
+                              : {modelDisplayName(rule.preferredModelId, models)}
+                              {rule.fallbackModelIds.length > 0 && (
+                                <span className="text-foreground-muted">
+                                  {' → '}
+                                  {rule.fallbackModelIds
+                                    .map((id) => modelDisplayName(id, models))
+                                    .join(', ')}
+                                </span>
+                              )}
+                              {rule.maxCostPerAttemptUsd !== null && (
+                                <span className="text-foreground-muted">
+                                  {' · '}
+                                  {t('providers.routing.maxCostShort', {
+                                    value: formatCurrencyUSD(rule.maxCostPerAttemptUsd),
+                                  })}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CollapsibleSection>
+          </section>
+        </>
+      )}
 
       {editingPolicy && (
         <RoutingPolicyDialog

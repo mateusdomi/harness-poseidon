@@ -1,9 +1,25 @@
 {
   "providers": {
+    "subtitle": "Connect your AI accounts and track each provider's models, health and usage.",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "local": "Local",
     "empty": "No providers configured. Providers appear here once the catalog is synced by the API.",
+    "overview": {
+      "title": "Overview",
+      "providers": "Providers",
+      "accounts": "Connected accounts",
+      "healthy": "Healthy accounts",
+      "models": "Enabled models"
+    },
+    "status": {
+      "withAccounts": "{{count}} connected account(s)",
+      "noAccount": "No connected account"
+    },
+    "advanced": {
+      "title": "Advanced settings",
+      "subtitle": "Budgets and routing — fine-tune usage and model selection."
+    },
     "sync": {
       "action": "Sync",
       "feedback": "Catalog synced: {{count}} model(s)."
@@ -11,7 +27,9 @@
     "accounts": {
       "title": "Accounts",
       "empty": "No accounts for this provider.",
+      "emptyCta": "No account connected yet. Connect an account to enable this provider.",
       "new": "New account",
+      "connect": "Connect account",
       "meta": "Identity: {{identity}} · plan: {{plan}} · authentication: {{authentication}}",
       "notProvided": "not provided",
       "health": {
@@ -79,16 +97,17 @@
         "capabilities": "Allowed capabilities",
         "error": "Could not save the account. Please try again."
       },
-  "delete": {
-    "title": "Remove account",
-    "body": "Remove the account \"{{label}}\"? This action cannot be undone.",
-    "disableFirst": "Disable the account before removing it.",
-    "confirm": "Remove account",
+      "delete": {
+        "title": "Remove account",
+        "body": "Remove the account \"{{label}}\"? This action cannot be undone.",
+        "disableFirst": "Disable the account before removing it.",
+        "confirm": "Remove account",
         "error": "Could not remove the account. Please try again."
       }
     },
     "models": {
       "title": "Model catalog",
+      "summary": "{{enabled}} of {{total}} model(s) enabled",
       "empty": "No models for this provider.",
       "meta": "Context: {{context}} tokens · cost/1k: {{input}} input · {{output}} output",
       "effortMappings": "Supported effort",
@@ -101,6 +120,7 @@
     },
     "budgets": {
       "title": "Budgets",
+      "count": "{{count}} budget(s) configured",
       "empty": "No budgets configured. Without a budget, usage follows only the account limits.",
       "global": "Global",
       "bar": "Budget usage {{scope}}",
@@ -112,6 +132,7 @@
     },
     "routing": {
       "title": "Routing policy",
+      "count": "{{count}} policy(ies) defined",
       "empty": "No routing policy defined. Routing falls back to each agent's default model.",
       "active": "Active",
       "inactive": "Inactive",
