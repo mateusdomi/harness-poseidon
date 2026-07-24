@@ -97,8 +97,8 @@ export function projectToFormValues(project: Project): ProjectFormValues {
     repositoryProvider: project.repositoryProvider,
     repositoryUrl: project.repositoryUrl ?? '',
     defaultBranch: project.defaultBranch,
-    technologies: project.technologies,
-    brand: project.brand,
-    memberProfileIds: project.memberProfileIds,
+    technologies: project.technologies ?? [],
+    brand: project.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+    memberProfileIds: project.memberProfileIds ?? [],
   };
 }

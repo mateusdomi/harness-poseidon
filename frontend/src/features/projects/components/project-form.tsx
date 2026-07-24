@@ -514,7 +514,7 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
           </div>
         </form>
 
-        {initial && initial.configHistory.length > 0 && (
+        {initial && (initial.configHistory?.length ?? 0) > 0 && (
           <section
             aria-labelledby="config-history-title"
             className="mt-6 flex flex-col gap-2 border-t border-border pt-4"
@@ -523,7 +523,7 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
               {t('projects.config.historyTitle')}
             </h3>
             <ul className="flex flex-col gap-1">
-              {[...initial.configHistory].reverse().map((entry) => (
+              {[...(initial.configHistory ?? [])].reverse().map((entry) => (
                 <li
                   key={entry.version}
                   className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted"

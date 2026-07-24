@@ -133,6 +133,11 @@
       "slow": "A API está demorando para responder em {{path}} ({{count}} requisição(ões)). A operação continua monitorada.",
       "routeTimeout": "A tela excedeu o tempo seguro de carregamento. Tente novamente."
     },
+    "routeError": {
+      "title": "Algo deu errado nesta tela",
+      "body": "Ocorreu um erro inesperado ao renderizar esta tela. Tente novamente — se persistir, recarregue a página.",
+      "reload": "Recarregar página"
+    },
     "session": {
       "validationError": "Não foi possível validar a sessão local."
     },

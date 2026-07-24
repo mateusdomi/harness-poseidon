@@ -68,6 +68,18 @@ public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispat
                 connection, tenantId, conversationId, expectedVersion, occurredAt, token),
             cancellationToken);
 
+    public Task<ConversationMutationResult> RenameConversationAsync(
+        string tenantId,
+        string conversationId,
+        long expectedVersion,
+        string title,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(
+            (connection, token) => RenameConversationCoreAsync(
+                connection, tenantId, conversationId, expectedVersion, title, occurredAt, token),
+            cancellationToken);
+
     public Task<MessageRecord?> GetMessageAsync(
         string tenantId,
         string messageId,
@@ -211,6 +223,50 @@ public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispat
                 : current.State != "active"
                     ? ConversationMutationStatus.Inactive
                     : ConversationMutationStatus.VersionConflict);
+    }
+
+    private static async Task<ConversationMutationResult> RenameConversationCoreAsync(
+        SqliteConnection connection,
+        string tenantId,
+        string conversationId,
+        long expectedVersion,
+        string title,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        await using var update = connection.CreateCommand();
+        update.Transaction = transaction;
+        update.CommandText =
+            """
+            UPDATE conversations
+            SET title=$title,version=version+1
+            WHERE tenant_id=$tenant AND id=$id AND deleted_at IS NULL AND version=$version;
+            """;
+        Add(update, "$title", title);
+        Add(update, "$tenant", tenantId);
+        Add(update, "$id", conversationId);
+        Add(update, "$version", expectedVersion);
+        if (await update.ExecuteNonQueryAsync(cancellationToken) == 1)
+        {
+            var renamed = await ReadConversationAsync(
+                connection, transaction, tenantId, conversationId, cancellationToken);
+            var payload = JsonSerializer.Serialize(new { conversationId, title }, JsonOptions);
+            await AppendAuditAsync(
+                connection, transaction, tenantId, "conversation.renamed", payload,
+                occurredAt, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new ConversationMutationResult(ConversationMutationStatus.Applied, renamed);
+        }
+
+        var current = await ReadConversationAsync(
+            connection, transaction, tenantId, conversationId, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new ConversationMutationResult(
+            current is null
+                ? ConversationMutationStatus.NotFound
+                : ConversationMutationStatus.VersionConflict);
     }
 
     private static async Task<MessageMutationResult> CreateMessageCoreAsync(

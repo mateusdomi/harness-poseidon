@@ -39,6 +39,21 @@ public sealed record Conversation(
         return this with { State = "archived", Version = checked(Version + 1) };
     }
 
+    /// <summary>
+    /// Renomeia o título da conversa. O título é normalizado e validado
+    /// (obrigatório, até 200 caracteres) e a versão é incrementada para o
+    /// controle otimista de concorrência.
+    /// </summary>
+    public Conversation Rename(string title, DateTimeOffset occurredAt)
+    {
+        _ = RequireUtc(occurredAt);
+        return this with
+        {
+            Title = Required(title, 200, nameof(title)),
+            Version = checked(Version + 1),
+        };
+    }
+
     public void EnsureTurnCanStart()
     {
         if (!string.Equals(State, "active", StringComparison.Ordinal))

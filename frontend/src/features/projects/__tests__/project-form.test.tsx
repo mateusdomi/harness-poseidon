@@ -166,6 +166,29 @@ describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
     expect(screen.getByText(/Campos alterados: technologies/)).toBeInTheDocument();
   });
 
+  it('não quebra quando o projeto vem sem configHistory (resposta real da API) — BUG-01', () => {
+    // O backend `GET /api/v1/projects/{id}` não devolve `configHistory`; a tela
+    // não pode ler `.length` de undefined (crash "Cannot read properties of undefined").
+    const withoutHistory = { ...fixtures.data.projects[0] };
+    delete (withoutHistory as { configHistory?: unknown }).configHistory;
+
+    renderWithApi(
+      <ProjectForm
+        organizations={organizations}
+        initial={withoutHistory}
+        submitting={false}
+        onSubmit={vi.fn()}
+        onCancel={() => {}}
+      />,
+    );
+
+    // Renderiza o cabeçalho de edição e OMITE a seção de histórico, sem lançar.
+    expect(screen.getByText('Configuração v3')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Histórico de configuração' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('metadados (título) salvam sem cerimônia mesmo em projeto iniciado', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderEditForm();

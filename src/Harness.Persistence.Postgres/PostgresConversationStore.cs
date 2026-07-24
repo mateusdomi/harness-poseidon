@@ -105,6 +105,49 @@ public sealed partial class PostgresConversationStore(NpgsqlDataSource dataSourc
                     : ConversationMutationStatus.VersionConflict);
     }
 
+    public async Task<ConversationMutationResult> RenameConversationAsync(
+        string tenantId,
+        string conversationId,
+        long expectedVersion,
+        string title,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using var update = connection.CreateCommand();
+        update.Transaction = transaction;
+        update.CommandText =
+            """
+            UPDATE harness.conversations
+            SET title=$1,version=version+1
+            WHERE tenant_id=$2 AND id=$3 AND deleted_at IS NULL AND version=$4;
+            """;
+        update.Parameters.Add(Text(title));
+        update.Parameters.Add(Text(tenantId));
+        update.Parameters.Add(Text(conversationId));
+        update.Parameters.Add(Bigint(expectedVersion));
+        if (await update.ExecuteNonQueryAsync(cancellationToken) == 1)
+        {
+            var renamed = await ReadConversationAsync(
+                connection, transaction, tenantId, conversationId, cancellationToken);
+            var payload = JsonSerializer.Serialize(new { conversationId, title }, JsonOptions);
+            await AppendAuditAsync(
+                connection, transaction, tenantId, "conversation.renamed", payload,
+                occurredAt, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new ConversationMutationResult(ConversationMutationStatus.Applied, renamed);
+        }
+
+        var current = await ReadConversationAsync(
+            connection, transaction, tenantId, conversationId, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new ConversationMutationResult(
+            current is null
+                ? ConversationMutationStatus.NotFound
+                : ConversationMutationStatus.VersionConflict);
+    }
+
     public async Task<MessageRecord?> GetMessageAsync(
         string tenantId,
         string messageId,

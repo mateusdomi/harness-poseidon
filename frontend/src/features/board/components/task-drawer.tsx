@@ -64,7 +64,6 @@ export function TaskDrawer({ taskId, agents, onClose }: TaskDrawerProps) {
       <button
         type="button"
         tabIndex={-1}
-        aria-hidden="true"
         aria-label={t('board.detail.close')}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-background/70"

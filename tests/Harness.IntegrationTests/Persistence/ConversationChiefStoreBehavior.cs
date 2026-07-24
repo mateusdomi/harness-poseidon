@@ -37,6 +37,23 @@ public static class ConversationChiefStoreBehavior
         Assert.NotNull(
             await conversations.GetConversationAsync(tenantId, conversationId, cancellationToken));
 
+        // Renomear (BUG-03): aplica o novo título, incrementa a versão e persiste — paridade
+        // Sqlite/Postgres. Versão desatualizada devolve conflito; id inexistente devolve NotFound.
+        var renamed = await conversations.RenameConversationAsync(
+            tenantId, conversationId, 1, "Título renomeado", now.AddMilliseconds(5), cancellationToken);
+        Assert.Equal(ConversationMutationStatus.Applied, renamed.Status);
+        Assert.Equal("Título renomeado", renamed.Conversation!.Title);
+        Assert.Equal(2, renamed.Conversation.Version);
+        var reread = await conversations.GetConversationAsync(tenantId, conversationId, cancellationToken);
+        Assert.Equal("Título renomeado", reread!.Title);
+        var staleRename = await conversations.RenameConversationAsync(
+            tenantId, conversationId, 1, "Ignorado", now.AddMilliseconds(6), cancellationToken);
+        Assert.Equal(ConversationMutationStatus.VersionConflict, staleRename.Status);
+        var missingRename = await conversations.RenameConversationAsync(
+            tenantId, UlidValue.New(now.AddMilliseconds(7)).ToString(), 1, "Fantasma",
+            now.AddMilliseconds(7), cancellationToken);
+        Assert.Equal(ConversationMutationStatus.NotFound, missingRename.Status);
+
         // Enfileiramento idempotente por turn id: replay devolve o mesmo turno.
         var turnId = UlidValue.New(now.AddMilliseconds(1)).ToString();
         var userMessageId = UlidValue.New(now.AddMilliseconds(2)).ToString();

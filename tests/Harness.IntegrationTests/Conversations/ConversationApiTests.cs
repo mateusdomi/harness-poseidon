@@ -318,6 +318,78 @@ public sealed class ConversationApiTests
         }
     }
 
+    [Fact]
+    public async Task RenameConversationUpdatesTitleAndValidatesInput()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory, "integration-artifacts", $"rename-{Guid.NewGuid():N}");
+        var databasePath = Path.Combine(artifactRoot, "rename.db");
+        Directory.CreateDirectory(artifactRoot);
+        try
+        {
+            await using var app = CreateHost(databasePath);
+            await app.StartAsync(timeout.Token);
+            try
+            {
+                using var client = new HttpClient { BaseAddress = GetBaseAddress(app.Services) };
+                var profile = await CreateProfileAsync(client, "Renamer", timeout.Token);
+                client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profile.Id}");
+                var organization = await CreateOrganizationAsync(client, timeout.Token);
+                var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+                using var createdResponse = await client.PostAsJsonAsync(
+                    "/api/v1/conversations",
+                    new CreateConversationRequest(project.Id, "Título original"),
+                    timeout.Token);
+                createdResponse.EnsureSuccessStatusCode();
+                var conversationId = (await createdResponse.Content
+                    .ReadFromJsonAsync<ConversationResponse>(timeout.Token))!.Id;
+
+                // Renomeia com sucesso e a leitura reflete o novo título.
+                using var renamed = await client.PatchAsJsonAsync(
+                    $"/api/v1/conversations/{conversationId}",
+                    new { title = "  Título renomeado  " },
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.OK, renamed.StatusCode);
+                var renamedBody = await renamed.Content
+                    .ReadFromJsonAsync<ConversationResponse>(timeout.Token);
+                Assert.Equal("Título renomeado", renamedBody!.Title);
+                var reread = await client.GetFromJsonAsync<ConversationResponse>(
+                    $"/api/v1/conversations/{conversationId}", timeout.Token);
+                Assert.Equal("Título renomeado", reread!.Title);
+
+                // Título em branco é rejeitado (400).
+                using var blank = await client.PatchAsJsonAsync(
+                    $"/api/v1/conversations/{conversationId}",
+                    new { title = "   " },
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.BadRequest, blank.StatusCode);
+
+                // Conversa inexistente devolve 404, sem quebrar.
+                using var missing = await client.PatchAsJsonAsync(
+                    $"/api/v1/conversations/{UlidValue.New(DateTimeOffset.UtcNow)}",
+                    new { title = "Fantasma" },
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+
+                // Id não-ULID devolve 400.
+                using var invalid = await client.PatchAsJsonAsync(
+                    "/api/v1/conversations/not-a-ulid",
+                    new { title = "X" },
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+            }
+            finally
+            {
+                await app.StopAsync(timeout.Token);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot)) Directory.Delete(artifactRoot, recursive: true);
+        }
+    }
+
     private static async Task<ProfileResponse> CreateProfileAsync(
         HttpClient client,
         string name,
