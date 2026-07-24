@@ -3,9 +3,20 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import type { Account, Agent, Budget, ChiefTurnState, Model, Project } from '@/api';
-import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, type BadgeProps } from '@/design-system';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  type BadgeProps,
+} from '@/design-system';
 import { formatCurrencyUSD, formatDateTime, formatNumber, formatRelativeTime } from '@/lib/format';
 import { agentStateVariant, chiefTurnStateVariant, operationModeVariant } from '@/lib/status';
+import { resolveAgentIdentity } from '@/lib/agent-persona';
+import { AgentAvatar } from '@/features/shared/components/agent-avatar';
 import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { DrainDialog } from '@/features/orchestrator/components/drain-dialog';
 import { HandoffWizard } from '@/features/orchestrator/components/handoff-wizard';
@@ -94,6 +105,7 @@ export function ChiefCard({
   const resumeMutation = useResumeChief(project.id);
   const [dialog, setDialog] = useState<'drain' | 'handoff' | null>(null);
 
+  const chiefIdentity = resolveAgentIdentity('chief-orchestrator', chief.name);
   const health = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
   const readiness = deriveChiefReadiness({
     model,
@@ -110,7 +122,13 @@ export function ChiefCard({
     <Card>
       <CardHeader className="gap-2">
         <div className="flex flex-wrap items-center gap-2 pr-8">
-          <CardTitle>{chief.name}</CardTitle>
+          {/* Nome/foto humanos do Chefe em destaque; o alias técnico da
+              instância (ex.: "Chefe — Poseidon Frontend") segue como subtítulo. */}
+          <AgentAvatar name={chiefIdentity.humanName} size={36} />
+          <div className="flex min-w-0 flex-col">
+            <CardTitle>{chiefIdentity.humanName}</CardTitle>
+            <span className="truncate text-xs text-foreground-muted">{chief.name}</span>
+          </div>
           <Badge variant={agentStateVariant(chief.state)}>
             {t(`status.agentState.${chief.state}`)}
           </Badge>

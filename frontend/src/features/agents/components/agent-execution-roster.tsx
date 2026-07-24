@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { Cpu, ServerCog } from 'lucide-react';
+import { ServerCog } from 'lucide-react';
 
 import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { AgentIdentity } from '@/features/shared/components/agent-identity';
 import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
 
 const STATE_VARIANT: Record<string, 'warning' | 'default'> = {
@@ -54,10 +55,9 @@ export function AgentExecutionRoster() {
                 className="flex flex-col gap-2 rounded-md border border-border p-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 font-medium">
-                    <Cpu className="size-4 text-foreground-muted" aria-hidden />
-                    {account.alias}
-                  </span>
+                  {/* Nome humano em destaque; o alias técnico (ex.: chief-claude-primary)
+                      permanece visível como subtítulo por transparência. */}
+                  <AgentIdentity alias={account.alias} technicalLabel={account.alias} size={36} />
                   <Badge variant={STATE_VARIANT[account.state] ?? 'default'}>
                     {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
                   </Badge>

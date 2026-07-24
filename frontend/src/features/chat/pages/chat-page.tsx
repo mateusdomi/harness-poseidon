@@ -22,9 +22,15 @@ import {
   useSendMessage,
 } from '@/features/chat/hooks/use-chat';
 import { ChatReadinessNotice } from '@/features/chat/components/chat-readiness-notice';
-import { deriveQuickActions, isTurnActive, type QuickActionKey } from '@/features/chat/lib/chat-derive';
+import {
+  deriveQuickActions,
+  isTurnActive,
+  type QuickActionKey,
+} from '@/features/chat/lib/chat-derive';
 import { useGoldenPath } from '@/features/onboarding/hooks/use-golden-path';
+import { AgentAvatar } from '@/features/shared/components/agent-avatar';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
+import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { useActiveProjectStore } from '@/stores/active-project-store';
 import { useUiStore } from '@/stores/ui-store';
 
@@ -41,9 +47,7 @@ export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const requestedId = searchParams.get('conversation');
   const allConversations = useMemo(() => conversationsQuery.data ?? [], [conversationsQuery.data]);
-  const requested = requestedId
-    ? allConversations.find((c) => c.id === requestedId)
-    : undefined;
+  const requested = requestedId ? allConversations.find((c) => c.id === requestedId) : undefined;
   const conversations = useMemo(() => {
     const active = allConversations.filter((c) => c.state === 'active');
     if (requested && requested.state !== 'active') return [requested, ...active];
@@ -236,228 +240,241 @@ export default function ChatPage() {
   return (
     <div className="flex w-full gap-4 lg:gap-6">
       <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-4 lg:h-[calc(100svh-10rem)]">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-heading text-2xl font-semibold">{t('features.chat.title')}</h1>
-        <div className="ml-auto flex items-center gap-2">
-          {conversations.length > 0 && (
-            <>
-              <label htmlFor="chat-conversation" className="text-sm text-foreground-muted">
-                {t('chat.conversation.label')}
-              </label>
-              <Select
-                id="chat-conversation"
-                className="w-auto min-w-48"
-                value={conversation?.id ?? ''}
-                onChange={(event) => setSelectedId(event.target.value)}
-              >
-                {conversations.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </Select>
-            </>
-          )}
-          {/* Sem nenhuma conversa, a CTA única vive no estado vazio — o botão
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-heading text-2xl font-semibold">{t('features.chat.title')}</h1>
+          <div className="ml-auto flex items-center gap-2">
+            {conversations.length > 0 && (
+              <>
+                <label htmlFor="chat-conversation" className="text-sm text-foreground-muted">
+                  {t('chat.conversation.label')}
+                </label>
+                <Select
+                  id="chat-conversation"
+                  className="w-auto min-w-48"
+                  value={conversation?.id ?? ''}
+                  onChange={(event) => setSelectedId(event.target.value)}
+                >
+                  {conversations.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </Select>
+              </>
+            )}
+            {/* Sem nenhuma conversa, a CTA única vive no estado vazio — o botão
               do cabeçalho só aparece quando já existe conversa (§4). */}
-          {conversation ? (
+            {conversation ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void newConversation()}
+                disabled={createConversation.isPending}
+              >
+                <Plus aria-hidden="true" />
+                {t('chat.conversation.new')}
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void newConversation()}
-              disabled={createConversation.isPending}
+              aria-expanded={isDesktop ? panelOpen : drawerOpen}
+              aria-label={
+                (isDesktop && panelOpen) || (!isDesktop && drawerOpen)
+                  ? t('chat.workflowPanel.close')
+                  : t('chat.workflowPanel.open')
+              }
+              onClick={() => (isDesktop ? togglePanel() : setDrawerOpen(true))}
             >
-              <Plus aria-hidden="true" />
-              {t('chat.conversation.new')}
+              <PanelRight aria-hidden="true" />
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-expanded={isDesktop ? panelOpen : drawerOpen}
-            aria-label={
-              (isDesktop && panelOpen) || (!isDesktop && drawerOpen)
-                ? t('chat.workflowPanel.close')
-                : t('chat.workflowPanel.open')
-            }
-            onClick={() => (isDesktop ? togglePanel() : setDrawerOpen(true))}
-          >
-            <PanelRight aria-hidden="true" />
-          </Button>
+          </div>
         </div>
-      </div>
 
-      <div
-        ref={scrollRef}
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 sm:p-5"
-        aria-live="polite"
-        aria-label={t('chat.messagesLabel')}
-      >
-        {!conversation || (messagesQuery.data ?? []).length === 0 ? (
-          <div className="relative flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden text-center">
-            {/* Aurora de marca MUITO discreta — permitida apenas em área vazia. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute left-1/2 top-1/2 size-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[image:var(--gradient-brand)] opacity-[0.07] blur-3xl"
-            />
-            <div className="relative flex size-12 items-center justify-center rounded-full bg-primary/10 text-brand-strong">
-              <MessagesSquare aria-hidden="true" className="size-6" />
-            </div>
-            <p className="relative font-heading text-lg font-semibold">{t('chat.empty.title')}</p>
-            <p className="relative max-w-prose text-sm text-foreground-muted">
-              {canExecute ? t('chat.empty.body') : t('chat.empty.blockedBody')}
-            </p>
-            {/* Sem conversa: o composer abaixo já está pronto quando a
+        <div
+          ref={scrollRef}
+          className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 sm:p-5"
+          aria-live="polite"
+          aria-label={t('chat.messagesLabel')}
+        >
+          {!conversation || (messagesQuery.data ?? []).length === 0 ? (
+            <div className="relative flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden text-center">
+              {/* Aurora de marca MUITO discreta — permitida apenas em área vazia. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 top-1/2 size-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[image:var(--gradient-brand)] opacity-[0.07] blur-3xl"
+              />
+              <div className="relative flex size-12 items-center justify-center rounded-full bg-primary/10 text-brand-strong">
+                <MessagesSquare aria-hidden="true" className="size-6" />
+              </div>
+              <p className="relative font-heading text-lg font-semibold">{t('chat.empty.title')}</p>
+              <p className="relative max-w-prose text-sm text-foreground-muted">
+                {canExecute ? t('chat.empty.body') : t('chat.empty.blockedBody')}
+              </p>
+              {/* Sem conversa: o composer abaixo já está pronto quando a
                 execução é possível (a conversa nasce no envio). A CTA explícita
                 fica disponível MESMO com a execução bloqueada, porque criar
                 conversa não é executar — o backend aceita a criação e só
                 recusa o turno (400 `invalid_chief_invocation_selection`). */}
-            {!conversation ? (
-              <Button
-                type="button"
-                className="relative"
-                onClick={() => void newConversation()}
-                disabled={createConversation.isPending}
-              >
-                {t('chat.empty.cta')}
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <>
-            {(messagesQuery.data ?? []).map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                authorName={message.authorAgentId ? agentNames.get(message.authorAgentId) : null}
-                tasks={tasks}
-                documents={documents}
-              />
-            ))}
-            {turnActive && (
-              <>
-                {/* ACKNOWLEDGEMENT / EXECUÇÃO — faixa de status, deliberadamente
+              {!conversation ? (
+                <Button
+                  type="button"
+                  className="relative"
+                  onClick={() => void newConversation()}
+                  disabled={createConversation.isPending}
+                >
+                  {t('chat.empty.cta')}
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              {(messagesQuery.data ?? []).map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  authorName={message.authorAgentId ? agentNames.get(message.authorAgentId) : null}
+                  // O Chefe é a persona `chief-orchestrator`; humanizamos nome/foto.
+                  authorAlias={message.authorRole === 'chief' ? 'chief-orchestrator' : null}
+                  tasks={tasks}
+                  documents={documents}
+                />
+              ))}
+              {turnActive && (
+                <>
+                  {/* ACKNOWLEDGEMENT / EXECUÇÃO — faixa de status, deliberadamente
                     NÃO estilizada como bolha de mensagem do chefe: registrar o
                     turno e executar não são resposta inteligente (§13). */}
-                <div
-                  role="status"
-                  className="flex max-w-[85%] flex-wrap items-center gap-2 self-start rounded-lg border border-dashed border-border bg-surface px-3 py-2 text-xs text-foreground-muted lg:max-w-[70%]"
-                >
-                  <span aria-hidden="true" className="flex items-center gap-1">
-                    {[0, 1, 2].map((dot) => (
-                      <span
-                        key={dot}
-                        className="size-1.5 rounded-full bg-brand-strong motion-safe:animate-pulse"
-                        style={{ animationDelay: `${dot * 150}ms` }}
-                      />
-                    ))}
-                  </span>
-                  <span>
-                    {turn.text === ''
-                      ? t('chat.turn.acknowledged')
-                      : t('chat.turn.coordinating')}
-                  </span>
-                  {/* Tag de estado granular no balão: o usuário vê o que o Chefe
+                  <div
+                    role="status"
+                    className="flex max-w-[85%] flex-wrap items-center gap-2 self-start rounded-lg border border-dashed border-border bg-surface px-3 py-2 text-xs text-foreground-muted lg:max-w-[70%]"
+                  >
+                    <span aria-hidden="true" className="flex items-center gap-1">
+                      {[0, 1, 2].map((dot) => (
+                        <span
+                          key={dot}
+                          className="size-1.5 rounded-full bg-brand-strong motion-safe:animate-pulse"
+                          style={{ animationDelay: `${dot * 150}ms` }}
+                        />
+                      ))}
+                    </span>
+                    <span>
+                      {turn.text === '' ? t('chat.turn.acknowledged') : t('chat.turn.coordinating')}
+                    </span>
+                    {/* Tag de estado granular no balão: o usuário vê o que o Chefe
                       está fazendo agora (pensando, lendo contexto, delegando…),
                       o cronômetro para fases longas e o sinal de "travado". */}
-                  <TurnStatusBadge turn={turn} />
-                </div>
-                {/* RESPOSTA REAL em streaming — só aparece quando há conteúdo
+                    <TurnStatusBadge turn={turn} />
+                  </div>
+                  {/* RESPOSTA REAL em streaming — só aparece quando há conteúdo
                     do chefe, aí sim como mensagem dele. */}
-                {turn.text !== '' && (
-                  <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-xl border border-border bg-surface-elevated p-3 shadow-card lg:max-w-[70%]">
-                    <header className="flex items-center gap-2 text-xs text-foreground-muted">
-                      <Badge variant="info">{t('chat.authors.chief')}</Badge>
-                      <span>{t('chat.turn.streamingLabel')}</span>
-                    </header>
-                    <MarkdownContent content={turn.text} />
-                  </article>
-                )}
-              </>
-            )}
-          </>
+                  {turn.text !== '' && (
+                    <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-xl border border-border bg-surface-elevated p-3 shadow-card lg:max-w-[70%]">
+                      <header className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
+                        <AgentAvatar
+                          name={resolveAgentIdentity('chief-orchestrator').humanName}
+                          size={28}
+                        />
+                        <span className="text-sm font-semibold text-foreground">
+                          {resolveAgentIdentity('chief-orchestrator').humanName}
+                        </span>
+                        <Badge variant="info">{t('chat.authors.chief')}</Badge>
+                        <span>{t('chat.turn.streamingLabel')}</span>
+                      </header>
+                      <MarkdownContent content={turn.text} />
+                    </article>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Bloqueia apenas a execução e explica o motivo — nunca esconde (§13). */}
+        {!canExecute && (
+          <ChatReadinessNotice
+            hasProvider={hasProvider}
+            hasModel={hasModel}
+            hasWorkflow={hasWorkflow}
+          />
         )}
-      </div>
 
-      {/* Bloqueia apenas a execução e explica o motivo — nunca esconde (§13). */}
-      {!canExecute && (
-        <ChatReadinessNotice
-          hasProvider={hasProvider}
-          hasModel={hasModel}
-          hasWorkflow={hasWorkflow}
-        />
-      )}
+        {sendMessage.isError && (
+          <p role="alert" className="text-sm text-error">
+            {t('chat.sendError')}
+          </p>
+        )}
 
-      {sendMessage.isError && (
-        <p role="alert" className="text-sm text-error">
-          {t('chat.sendError')}
-        </p>
-      )}
-
-      {blockedTurn && (
-        <Card role="status" className="border-warning/40">
-          <CardContent className="flex flex-col gap-3 p-4">
-            <div>
-              <p className="font-medium">{t('chat.turnBlocked.title')}</p>
-              <p className="text-sm text-foreground-muted">{t('chat.turnBlocked.body')}</p>
-              <p className="mt-1 text-xs text-foreground-muted">
-                {t('chat.turnBlocked.readiness', {
-                  overall: blockedTurn.readiness.overallState,
-                  execution: blockedTurn.readiness.executionState,
-                })}
-              </p>
-            </div>
-            <ul className="space-y-1 text-sm">
-              {blockedTurn.blockers.map((blocker) => (
-                <li key={`${blocker.code}:${blocker.relatedIds.join(',')}`}>
-                  {t(`chat.turnBlocked.blockers.${blocker.code}`, {
-                    defaultValue: t('chat.turnBlocked.blockers.unknown'),
+        {blockedTurn && (
+          <Card role="status" className="border-warning/40">
+            <CardContent className="flex flex-col gap-3 p-4">
+              <div>
+                <p className="font-medium">{t('chat.turnBlocked.title')}</p>
+                <p className="text-sm text-foreground-muted">{t('chat.turnBlocked.body')}</p>
+                <p className="mt-1 text-xs text-foreground-muted">
+                  {t('chat.turnBlocked.readiness', {
+                    overall: blockedTurn.readiness.overallState,
+                    execution: blockedTurn.readiness.executionState,
                   })}
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-wrap gap-2">
-              {blockedTurn.nextActions.map((action) => (
-                <Button key={`${action.code}:${action.route}`} asChild variant="outline" size="sm">
-                  <Link to={action.route}>
-                    {t(`chat.turnBlocked.actions.${action.code}`, {
-                      defaultValue: t('chat.turnBlocked.actions.unknown'),
+                </p>
+              </div>
+              <ul className="space-y-1 text-sm">
+                {blockedTurn.blockers.map((blocker) => (
+                  <li key={`${blocker.code}:${blocker.relatedIds.join(',')}`}>
+                    {t(`chat.turnBlocked.blockers.${blocker.code}`, {
+                      defaultValue: t('chat.turnBlocked.blockers.unknown'),
                     })}
-                  </Link>
-                </Button>
-              ))}
-            </div>
-            <details className="text-xs text-foreground-muted">
-              <summary>{t('chat.turnBlocked.technicalDetails')}</summary>
-              <code>
-                {[...blockedTurn.blockers.map((item) => item.code), ...blockedTurn.nextActions.map((item) => item.code)].join(', ')}
-              </code>
-            </details>
-          </CardContent>
-        </Card>
-      )}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-wrap gap-2">
+                {blockedTurn.nextActions.map((action) => (
+                  <Button
+                    key={`${action.code}:${action.route}`}
+                    asChild
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Link to={action.route}>
+                      {t(`chat.turnBlocked.actions.${action.code}`, {
+                        defaultValue: t('chat.turnBlocked.actions.unknown'),
+                      })}
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+              <details className="text-xs text-foreground-muted">
+                <summary>{t('chat.turnBlocked.technicalDetails')}</summary>
+                <code>
+                  {[
+                    ...blockedTurn.blockers.map((item) => item.code),
+                    ...blockedTurn.nextActions.map((item) => item.code),
+                  ].join(', ')}
+                </code>
+              </details>
+            </CardContent>
+          </Card>
+        )}
 
-      {conversation && !turnActive && (
-        <QuickActions
-          actions={quickActions}
-          disabled={sendMessage.isPending}
-          onSelect={(key: QuickActionKey) =>
-            send(t(`chat.quickActions.actions.${key}.message`))
-          }
-        />
-      )}
+        {conversation && !turnActive && (
+          <QuickActions
+            actions={quickActions}
+            disabled={sendMessage.isPending}
+            onSelect={(key: QuickActionKey) => send(t(`chat.quickActions.actions.${key}.message`))}
+          />
+        )}
 
-      {/* O backend aceita e persiste também turnos bloqueados; o handle 202
+        {/* O backend aceita e persiste também turnos bloqueados; o handle 202
           informa `state`, bloqueios e próximas ações. */}
-      <Composer
-        models={modelsQuery.data ?? []}
-        sending={sendMessage.isPending || turnActive || createConversation.isPending}
-        draft={draft}
-        onDraftConsumed={() => setDraft('')}
-        onSend={(content, attachments) => void send(content, attachments)}
-      />
+        <Composer
+          models={modelsQuery.data ?? []}
+          sending={sendMessage.isPending || turnActive || createConversation.isPending}
+          draft={draft}
+          onDraftConsumed={() => setDraft('')}
+          onSend={(content, attachments) => void send(content, attachments)}
+        />
       </div>
 
       {isDesktop && panelOpen && (

@@ -1,15 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
-import type {
-  Agent,
-  AgentDefinition,
-  Attempt,
-  AuditEvent,
-  Model,
-  Skill,
-  Task,
-  Tool,
-} from '@/api';
+import type { Agent, AgentDefinition, Attempt, AuditEvent, Model, Skill, Task, Tool } from '@/api';
 import { Badge } from '@/design-system';
 import {
   agentHistory,
@@ -18,7 +9,9 @@ import {
   agentTools,
   compatibleModels,
 } from '@/features/agents/lib/agents-derive';
+import { AgentAvatar } from '@/features/shared/components/agent-avatar';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
+import { resolveAgentIdentity } from '@/lib/agent-persona';
 import {
   formatCurrencyUSD,
   formatDurationMs,
@@ -74,6 +67,7 @@ export function AgentDetail({
     (mapping) => mapping.effort === effort,
   );
   const history = agentHistory(agent.id, auditEvents, attempts);
+  const identity = resolveAgentIdentity(definition?.key, agent.name);
 
   function taskTitle(taskId: string): string {
     return tasks.find((task) => task.id === taskId)?.title ?? '';
@@ -81,23 +75,30 @@ export function AgentDetail({
 
   return (
     <ModalDialog label={agent.name} onClose={onClose} className="max-w-2xl">
-      <div className="flex flex-col gap-1 pr-10">
-        <h2 className="font-heading text-xl font-semibold">{agent.name}</h2>
-        <p className="text-sm text-foreground-muted">
-          {definition?.name}
-          {definition?.specialty ? ` · ${definition.specialty}` : ''}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <Badge variant={agentStateVariant(agent.state)}>
-            {t(`status.agentState.${agent.state}`)}
-          </Badge>
-          <span className="text-xs text-foreground-muted">
-            {agent.lastHeartbeatAt
-              ? t('agents.detail.lastHeartbeat', {
-                  time: formatRelativeTime(agent.lastHeartbeatAt, 'pt-BR', now),
-                })
-              : t('agents.detail.heartbeatNever')}
-          </span>
+      <div className="flex items-start gap-3 pr-10">
+        <AgentAvatar name={identity.humanName} size={48} />
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 className="font-heading text-xl font-semibold">{identity.humanName}</h2>
+          {/* Alias técnico da instância (transparência). */}
+          {identity.humanName !== agent.name && (
+            <p className="text-xs text-foreground-muted">{agent.name}</p>
+          )}
+          <p className="text-sm text-foreground-muted">
+            {definition?.name}
+            {definition?.specialty ? ` · ${definition.specialty}` : ''}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Badge variant={agentStateVariant(agent.state)}>
+              {t(`status.agentState.${agent.state}`)}
+            </Badge>
+            <span className="text-xs text-foreground-muted">
+              {agent.lastHeartbeatAt
+                ? t('agents.detail.lastHeartbeat', {
+                    time: formatRelativeTime(agent.lastHeartbeatAt, 'pt-BR', now),
+                  })
+                : t('agents.detail.heartbeatNever')}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -117,7 +118,9 @@ export function AgentDetail({
             {resolvedSkills.map((skill) => (
               <li key={skill.id} className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{skill.name}</span>
-                <Badge variant="outline">{t('agents.detail.version', { version: skill.version })}</Badge>
+                <Badge variant="outline">
+                  {t('agents.detail.version', { version: skill.version })}
+                </Badge>
                 <Badge variant={componentStateVariant(skill.state)}>
                   {t(`status.componentState.${skill.state}`)}
                 </Badge>
@@ -217,10 +220,10 @@ export function AgentDetail({
                           value: agent.providerEffortValue,
                         })
                       : effortMapping
-                      ? t('agents.detail.route.providerEffort', {
-                          value: effortMapping.providerValue,
-                        })
-                      : t('agents.detail.route.effortUnavailable')}
+                        ? t('agents.detail.route.providerEffort', {
+                            value: effortMapping.providerValue,
+                          })
+                        : t('agents.detail.route.effortUnavailable')}
                   </span>
                 </>
               ) : (
@@ -298,7 +301,9 @@ export function AgentDetail({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">
                       {t('agents.detail.attempt', { number: entry.attempt.number })}
-                      {taskTitle(entry.attempt.taskId) ? ` — ${taskTitle(entry.attempt.taskId)}` : ''}
+                      {taskTitle(entry.attempt.taskId)
+                        ? ` — ${taskTitle(entry.attempt.taskId)}`
+                        : ''}
                     </span>
                     <Badge variant={attemptStateVariant(entry.attempt.state)}>
                       {t(`status.attemptState.${entry.attempt.state}`)}
