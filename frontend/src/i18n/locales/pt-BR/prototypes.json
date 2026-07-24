@@ -52,7 +52,7 @@
       "zipNotice": "Imagens e arquivos ZIP são usados apenas como referência visual. Um ZIP NUNCA é executado automaticamente.",
       "name": "Título",
       "tags": "Tags",
-      "tagsPlaceholder": "Separadas por vírgula (ex.: tema, dashboard)",
+      "tagsPlaceholder": "Separadas por vírgula (ex.: tema, painel)",
       "briefing": "Briefing (opcional)",
       "flowMoment": "Momento do fluxo (opcional)",
       "flowMomentPlaceholder": "Ex.: onboarding, checkout, pós-venda",

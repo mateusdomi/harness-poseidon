@@ -7,7 +7,7 @@
     },
     "definitions": {
       "title": "Definições de agentes",
-      "help": "A definição de agente é a configuração lógica do agente (papel, instruções, modelo padrão). A conta de provider é a credencial usada nas chamadas ao modelo — são conceitos diferentes.",
+      "help": "A definição de agente é a configuração lógica do agente (papel, instruções, modelo padrão). A conta de provedor é a credencial usada nas chamadas ao modelo — são conceitos diferentes.",
       "new": "Nova definição",
       "empty": "Nenhuma definição corresponde aos filtros.",
       "versionShort": "v{{version}}",
@@ -38,7 +38,7 @@
         "team": "Time",
         "stack": "Stack",
         "role": "Papel",
-        "provider": "Provider",
+        "provider": "Provedor",
         "model": "Modelo",
         "skill": "Skill",
         "status": "Status",
@@ -48,9 +48,9 @@
       "list": {
         "team": "Time:",
         "model": "Modelo padrão:",
-        "provider": "Provider:",
+        "provider": "Provedor:",
         "noModel": "Sem modelo padrão",
-        "noProvider": "Sem provider",
+        "noProvider": "Sem provedor",
         "inUse": "Definição em uso — utilize arquivar.",
         "bindingPending": "Binding pendente",
         "bindingPendingHint": "Sem provedor/modelo configurado, esta definição não pode executar."
@@ -122,7 +122,7 @@
         "noModel": "Nenhum",
         "noAccount": "Nenhuma",
         "notDefined": "Não definido",
-        "accountHint": "A conta de provider é a credencial (o segredo fica no backend); a definição apenas referencia qual credencial preferir.",
+        "accountHint": "A conta de provedor é a credencial (o segredo fica no backend); a definição apenas referencia qual credencial preferir.",
         "create": "Criar definição",
         "advanced": "Opções avançadas",
         "keyPreview": "Prévia: {{key}}",

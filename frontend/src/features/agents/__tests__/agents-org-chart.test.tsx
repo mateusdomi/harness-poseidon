@@ -166,7 +166,7 @@ describe('AgentDetail — modelo e rota', () => {
     expect(within(dialog).getByText('Fallbacks configurados')).toBeInTheDocument();
     expect(within(dialog).getByText('Esforço')).toBeInTheDocument();
     expect(within(dialog).getByText('Alto')).toBeInTheDocument();
-    expect(within(dialog).getByText(/valor enviado ao provider: high/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/valor enviado ao provedor: high/)).toBeInTheDocument();
     expect(within(dialog).getByText('Impacto estimado')).toBeInTheDocument();
     expect(within(dialog).getByText(/Tarifa-base por 1k tokens/)).toBeInTheDocument();
     // Fallback da definição backend: GPT-4o (também listado em modelos compatíveis).
