@@ -57,6 +57,7 @@
     "providers": "Provedores",
     "po-assistant": "Assistente de PO",
     "governance": "Governança",
+    "governance-docs": "Documentos de Governança",
     "licenses": "Licenças",
     "settings": "Configurações",
     "groups": {
@@ -81,6 +82,7 @@
       "architecture": "arquitetura studio c4 archimate elementos views diagramas modelo",
       "approvals": "pendências gates decisões revisar aprovar",
       "governance": "auditoria trilha políticas limites timeline",
+      "governance-docs": "governança comportamento chefe regras docs editar disco core manifest",
       "organizations": "orgs empresa workspace marca",
       "providers": "modelos llm integrações api",
       "tools": "skills plugins mcp servidores catálogo",

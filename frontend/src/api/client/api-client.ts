@@ -77,6 +77,8 @@ import type {
   LearningShadowInput,
   LearningTransition,
   LearningTransitionInput,
+  GovernanceDocTree,
+  GovernanceDocContent,
 } from '../contracts';
 
 /**
@@ -340,4 +342,19 @@ export interface ApiClient {
   evaluateLearningCandidate(candidateId: string, input: LearningEvaluationInput): Promise<LearningCandidate>;
   shadowLearningCandidate(candidateId: string, input: LearningShadowInput): Promise<LearningCandidate>;
   decideLearningCandidate(candidateId: string, input: LearningDecisionInput): Promise<LearningCandidate>;
+
+  /* ---- documentos de governança em disco (working tree) ---- */
+
+  /**
+   * Árvore dos arquivos de governança/documentação em disco (allowlist
+   * `governance/`, `docs/`). Editar/excluir passa a valer para o runtime/Chefe,
+   * que lê a governança do disco.
+   */
+  listGovernanceDocs(): Promise<GovernanceDocTree>;
+  /** Conteúdo de um documento de governança (path relativo dentro do allowlist). */
+  readGovernanceDoc(path: string): Promise<GovernanceDocContent>;
+  /** Salva (cria/sobrescreve) um documento de governança no disco. */
+  saveGovernanceDoc(path: string, content: string): Promise<GovernanceDocContent>;
+  /** Exclui um documento de governança do disco. */
+  deleteGovernanceDoc(path: string): Promise<void>;
 }

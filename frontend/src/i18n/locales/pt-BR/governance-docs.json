@@ -1,0 +1,43 @@
+{
+  "governanceDocs": {
+    "title": "Documentos de Governança",
+    "subtitle": "Leia, edite e exclua os documentos em disco que governam o comportamento do sistema. Edições passam a valer para o Chefe, que lê a governança do disco.",
+    "tree": {
+      "title": "Arquivos",
+      "empty": "Nenhum documento de governança encontrado.",
+      "roots": "Raízes: {{roots}}"
+    },
+    "viewer": {
+      "empty": "Selecione um documento na árvore para visualizar.",
+      "modified": "Modificado em {{date}}",
+      "size": "{{size}} bytes"
+    },
+    "actions": {
+      "view": "Visualizar",
+      "edit": "Editar",
+      "save": "Salvar",
+      "saving": "Salvando…",
+      "cancel": "Cancelar",
+      "delete": "Excluir",
+      "confirmDelete": "Confirmar exclusão",
+      "reload": "Recarregar"
+    },
+    "confirm": {
+      "deleteTitle": "Excluir este documento?",
+      "deleteBody": "Esta ação escreve no disco e remove {{path}}. Não pode ser desfeita pela interface."
+    },
+    "status": {
+      "loading": "Carregando…",
+      "error": "Não foi possível carregar os documentos de governança.",
+      "loadError": "Não foi possível carregar este documento.",
+      "saved": "Documento salvo.",
+      "saveError": "Não foi possível salvar o documento.",
+      "deleted": "Documento excluído.",
+      "deleteError": "Não foi possível excluir o documento.",
+      "unsaved": "Alterações não salvas"
+    },
+    "editor": {
+      "label": "Conteúdo do documento"
+    }
+  }
+}

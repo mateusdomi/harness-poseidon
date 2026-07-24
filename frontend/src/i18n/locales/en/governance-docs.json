@@ -1,0 +1,43 @@
+{
+  "governanceDocs": {
+    "title": "Governance Documents",
+    "subtitle": "Read, edit and delete the on-disk documents that govern the system's behavior. Edits take effect for the Chief, which reads governance from disk.",
+    "tree": {
+      "title": "Files",
+      "empty": "No governance documents found.",
+      "roots": "Roots: {{roots}}"
+    },
+    "viewer": {
+      "empty": "Select a document from the tree to view it.",
+      "modified": "Modified {{date}}",
+      "size": "{{size}} bytes"
+    },
+    "actions": {
+      "view": "View",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "confirmDelete": "Confirm delete",
+      "reload": "Reload"
+    },
+    "confirm": {
+      "deleteTitle": "Delete this document?",
+      "deleteBody": "This writes to disk and removes {{path}}. It cannot be undone from the interface."
+    },
+    "status": {
+      "loading": "Loading…",
+      "error": "Could not load the governance documents.",
+      "loadError": "Could not load this document.",
+      "saved": "Document saved.",
+      "saveError": "Could not save the document.",
+      "deleted": "Document deleted.",
+      "deleteError": "Could not delete the document.",
+      "unsaved": "Unsaved changes"
+    },
+    "editor": {
+      "label": "Document content"
+    }
+  }
+}

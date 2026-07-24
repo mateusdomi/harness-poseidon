@@ -98,6 +98,8 @@ import {
   type LearningCandidateMetrics,
   type LearningCandidatePage,
   type LearningEvidenceRecord,
+  type GovernanceDocTree,
+  type GovernanceDocContent,
 } from '../contracts';
 import { streams } from '../contracts';
 import { product } from '@/config/product';
@@ -190,6 +192,12 @@ export class MockApiClient implements ApiClient {
     realtime?: MockRealtimeClient;
   };
   readonly #errorQueue: ProblemDetails[] = [];
+  readonly #governanceDocs = new Map<string, { content: string; modifiedAt: string }>([
+    ['governance/core.md', { content: '# Núcleo da governança\n\nRegras canônicas do sistema.\n', modifiedAt: '2026-07-01T09:00:00Z' }],
+    ['governance/rules/frontend.md', { content: '# Regras de frontend\n\nGates verdes obrigatórios.\n', modifiedAt: '2026-07-05T10:00:00Z' }],
+    ['governance/manifest.yaml', { content: 'version: 1\ndocuments: []\n', modifiedAt: '2026-07-02T11:00:00Z' }],
+    ['docs/INDEX.md', { content: '# Índice da documentação\n\nMapa dos documentos.\n', modifiedAt: '2026-07-03T12:00:00Z' }],
+  ]);
 
   constructor(fixtures: FixtureData, options: MockApiClientOptions) {
     this.#store = createMockStore(fixtures);
@@ -1712,6 +1720,69 @@ export class MockApiClient implements ApiClient {
 
   decideLearningCandidate(): Promise<LearningCandidate> {
     return this.#governanceRequiresHttp();
+  }
+
+  async listGovernanceDocs(): Promise<GovernanceDocTree> {
+    await this.#simulate();
+    const files = [...this.#governanceDocs.entries()]
+      .map(([path, entry]) => ({
+        path,
+        name: path.slice(path.lastIndexOf('/') + 1),
+        size: new TextEncoder().encode(entry.content).length,
+        modifiedAt: entry.modifiedAt,
+      }))
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    return { files, roots: ['governance', 'docs'] };
+  }
+
+  async readGovernanceDoc(path: string): Promise<GovernanceDocContent> {
+    await this.#simulate();
+    this.#assertGovernanceDocPath(path);
+    const entry = this.#governanceDocs.get(path);
+    if (!entry) {
+      throw ApiError.of(404, 'Documento não encontrado', `O documento ${path} não existe.`);
+    }
+    return this.#toGovernanceDocContent(path, entry.content, entry.modifiedAt);
+  }
+
+  async saveGovernanceDoc(path: string, content: string): Promise<GovernanceDocContent> {
+    await this.#simulate();
+    this.#assertGovernanceDocPath(path);
+    const modifiedAt = this.#options.now();
+    this.#governanceDocs.set(path, { content, modifiedAt });
+    return this.#toGovernanceDocContent(path, content, modifiedAt);
+  }
+
+  async deleteGovernanceDoc(path: string): Promise<void> {
+    await this.#simulate();
+    this.#assertGovernanceDocPath(path);
+    if (!this.#governanceDocs.delete(path)) {
+      throw ApiError.of(404, 'Documento não encontrado', `O documento ${path} não existe.`);
+    }
+  }
+
+  #toGovernanceDocContent(path: string, content: string, modifiedAt: string): GovernanceDocContent {
+    return {
+      path,
+      name: path.slice(path.lastIndexOf('/') + 1),
+      content,
+      size: new TextEncoder().encode(content).length,
+      modifiedAt,
+    };
+  }
+
+  /** Espelha o allowlist/anti-traversal do backend para o perfil mock. */
+  #assertGovernanceDocPath(path: string): void {
+    const invalid = () =>
+      ApiError.of(400, 'Path inválido', 'O path escapa do allowlist de governança.');
+    if (!path || path.trim().length === 0) throw invalid();
+    const normalized = path.replace(/\\/g, '/');
+    if (normalized.startsWith('/')) throw invalid();
+    const segments = normalized.split('/');
+    for (const segment of segments) {
+      if (segment.length === 0 || segment === '.' || segment === '..') throw invalid();
+    }
+    if (segments[0] !== 'governance' && segments[0] !== 'docs') throw invalid();
   }
 
   #governanceRequiresHttp<T>(): Promise<T> {
