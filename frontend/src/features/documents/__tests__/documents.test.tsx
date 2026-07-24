@@ -239,4 +239,102 @@ describe('DocumentsPage', () => {
     // A leitura e a cópia continuam disponíveis.
     expect(screen.getByRole('button', { name: 'Copiar conteúdo' })).toBeInTheDocument();
   });
+
+  it('cria um documento do zero e abre o detalhe (fluxo criar → elaborar → editar)', async () => {
+    const user = userEvent.setup();
+    renderDocuments();
+
+    // O botão do cabeçalho abre o diálogo de criação.
+    await user.click((await screen.findAllByRole('button', { name: 'Criar documento' }))[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Novo documento' });
+
+    await user.type(within(dialog).getByLabelText(/Título/), 'Plano de rollout');
+    await user.type(
+      within(dialog).getByLabelText(/Conteúdo \(markdown\)/),
+      '# Rollout\n\nEtapas do lançamento.',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Criar documento' }));
+
+    // Abre o detalhe do novo documento (estado inicial "Planejado").
+    expect(
+      await screen.findByRole('heading', { name: 'Plano de rollout' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Etapas do lançamento/)).toBeInTheDocument();
+    expect(screen.getAllByText('Planejado').length).toBeGreaterThan(0);
+
+    // Planejado não é editável: inicia a elaboração para destravar a edição.
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Iniciar elaboração' }));
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument();
+  });
+
+  it('descarta um documento com confirmação (transição honesta para não aplicável)', async () => {
+    const user = userEvent.setup();
+    const guia = fixtures.documents.find((doc) => doc.title === 'Guia de UX do quadro')!;
+    renderDocuments(`/documents?doc=${guia.id}`);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Guia de UX do quadro' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Descartar documento' }));
+    const dialog = await screen.findByRole('dialog', { name: /Descartar "Guia de UX do quadro"/ });
+    await user.click(within(dialog).getByRole('button', { name: 'Descartar' }));
+
+    // O documento passa a "Não aplicável" e a ação de descartar some.
+    expect(await screen.findByText('Não aplicável')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Descartar documento' })).not.toBeInTheDocument();
+  });
+
+  it('estado vazio de filtros oferece limpar filtros', async () => {
+    const user = userEvent.setup();
+    renderDocuments();
+
+    expect((await screen.findAllByText('Spec da API v1')).length).toBeGreaterThan(0);
+
+    // Combinação de filtros que não bate com nenhum documento do projeto.
+    await user.selectOptions(screen.getByLabelText('Categoria'), 'runbook');
+    await user.selectOptions(screen.getByLabelText('Estado'), 'approved');
+
+    expect(await screen.findByText('Nenhum documento corresponde aos filtros')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect((await screen.findAllByText('Spec da API v1')).length).toBeGreaterThan(0);
+  });
+
+  it('estado vazio orientado quando o projeto não tem documentos', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    // Projeto novo sem documentos: o empty-state deve orientar, não só informar.
+    const empty = await bundle.api.create('projects', {
+      organizationId: bundle.fixtures.data.organizations[0].id,
+      name: 'Projeto Vazio',
+      key: 'VAZIO',
+      description: 'Sem documentos ainda.',
+    });
+
+    renderWithApi(
+      <MemoryRouter initialEntries={['/documents']}>
+        <Routes>
+          <Route path="/documents" element={<DocumentsPage />} />
+        </Routes>
+      </MemoryRouter>,
+      bundle,
+    );
+
+    // Seleciona o projeto vazio no seletor.
+    await screen.findByLabelText('Projeto ativo');
+    await user.selectOptions(screen.getByLabelText('Projeto ativo'), empty.id);
+
+    expect(
+      await screen.findByText('Ainda não há documentos neste projeto'),
+    ).toBeInTheDocument();
+    // Orienta sobre a diferença da tela de Governança e sobre como surgem.
+    expect(screen.getByText(/artefatos versionados do projeto/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Ir para Documentos de Governança' }),
+    ).toHaveAttribute('href', '/governance-docs');
+    // E expõe as ações de criar/enviar o primeiro documento.
+    expect(screen.getByRole('button', { name: 'Enviar arquivo' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Criar documento' }).length).toBeGreaterThan(0);
+  });
 });

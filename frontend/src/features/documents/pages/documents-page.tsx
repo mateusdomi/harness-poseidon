@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Upload } from 'lucide-react';
+import { FilePlus2, FileText, Upload } from 'lucide-react';
 
 import {
   documentKindSchema,
@@ -10,6 +10,7 @@ import {
   type DocumentState,
 } from '@/api';
 import { Button, Card, CardContent, Checkbox, Select, Skeleton } from '@/design-system';
+import { CreateDocumentDialog } from '@/features/documents/components/create-document-dialog';
 import { DocumentCatalog } from '@/features/documents/components/document-catalog';
 import { DocumentDetail } from '@/features/documents/components/document-detail';
 import { OrphanDocuments } from '@/features/documents/components/orphan-documents';
@@ -47,6 +48,15 @@ export default function UdocumentsPage() {
   const [onlyInconsistent, setOnlyInconsistent] = useState(false);
   const [onlyWaiver, setOnlyWaiver] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  function resetFilters() {
+    setKindFilter('');
+    setPhaseFilter('');
+    setStateFilter('');
+    setOnlyInconsistent(false);
+    setOnlyWaiver(false);
+  }
 
   const openDocumentId = searchParams.get('doc');
 
@@ -85,6 +95,9 @@ export default function UdocumentsPage() {
   }, [documentsQuery.data, kindFilter, phaseFilter, stateFilter, onlyInconsistent, onlyWaiver]);
 
   const orphans = (documentsQuery.data ?? []).filter((doc) => doc.phaseName === null);
+  // Distingue "projeto sem nenhum documento" (empty-state orientado) de
+  // "os filtros esconderam tudo" (empty-state de filtros com reset).
+  const hasAnyDocuments = (documentsQuery.data ?? []).length > 0;
 
   // Paginação client-side com estado na URL (?page=/?pageSize=), preservando
   // o deep-link ?doc=. Reset para a página 1 ao mudar filtros/projeto.
@@ -128,10 +141,16 @@ export default function UdocumentsPage() {
           </div>
         )}
         {activeProject && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
-            <Upload aria-hidden="true" />
-            {t('documents.upload.open')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+              <FilePlus2 aria-hidden="true" />
+              {t('documents.create.open')}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
+              <Upload aria-hidden="true" />
+              {t('documents.upload.open')}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -238,14 +257,54 @@ export default function UdocumentsPage() {
           </div>
 
           {documents.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-start gap-3 p-6">
-                <h2 className="font-heading text-lg font-semibold">
-                  {t('documents.empty.title')}
-                </h2>
-                <p className="text-sm text-foreground-muted">{t('documents.empty.body')}</p>
-              </CardContent>
-            </Card>
+            hasAnyDocuments ? (
+              <Card>
+                <CardContent className="flex flex-col items-start gap-3 p-6">
+                  <h2 className="font-heading text-lg font-semibold">
+                    {t('documents.emptyFiltered.title')}
+                  </h2>
+                  <p className="text-sm text-foreground-muted">
+                    {t('documents.emptyFiltered.body')}
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+                    {t('documents.emptyFiltered.reset')}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-start gap-4 p-6">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated text-accent">
+                      <FileText aria-hidden="true" className="size-5" />
+                    </span>
+                    <h2 className="font-heading text-lg font-semibold">
+                      {t('documents.empty.title')}
+                    </h2>
+                  </div>
+                  <p className="text-sm text-foreground-muted">{t('documents.empty.body')}</p>
+                  <p className="text-sm text-foreground-muted">{t('documents.empty.appears')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" onClick={() => setCreateOpen(true)}>
+                      <FilePlus2 aria-hidden="true" />
+                      {t('documents.empty.createCta')}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setUploadOpen(true)}>
+                      <Upload aria-hidden="true" />
+                      {t('documents.empty.uploadCta')}
+                    </Button>
+                  </div>
+                  <div className="mt-1 flex flex-col items-start gap-1 rounded-lg border border-border bg-surface p-3">
+                    <p className="text-xs text-foreground-muted">
+                      {t('documents.empty.governanceNote')}
+                    </p>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to="/governance-docs">{t('documents.empty.governanceLink')}</Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
           ) : (
             <>
               <DocumentCatalog documents={pagination.paginate(documents)} onOpen={openDocument} />
@@ -253,6 +312,17 @@ export default function UdocumentsPage() {
             </>
           )}
         </>
+      )}
+
+      {createOpen && activeProject && (
+        <CreateDocumentDialog
+          projectId={activeProject.id}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(id) => {
+            setCreateOpen(false);
+            openDocument(id);
+          }}
+        />
       )}
 
       {uploadOpen && activeProject && (

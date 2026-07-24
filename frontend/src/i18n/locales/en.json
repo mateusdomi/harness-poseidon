@@ -1467,8 +1467,30 @@
       "cta": "View projects"
     },
     "empty": {
-      "title": "No documents found",
-      "body": "Adjust the filters or wait for the chief to create documents in this project."
+      "title": "No documents in this project yet",
+      "body": "Documents are versioned project artifacts (PRD, spec, design, runbook, notes and reports). The chief and the agents produce them along the flow — each correction becomes a new immutable version, with history and diff.",
+      "appears": "As soon as an agent or a workflow phase generates an artifact, it shows up here with its state (draft, in review, approved). You can also create the first one right now.",
+      "governanceNote": "Looking to edit repository files (governance, policies, manifests)? That lives in Governance Documents — a separate screen.",
+      "governanceLink": "Go to Governance Documents",
+      "createCta": "Create document",
+      "uploadCta": "Upload file"
+    },
+    "emptyFiltered": {
+      "title": "No documents match the filters",
+      "body": "This project has documents, but none match the current filters.",
+      "reset": "Clear filters"
+    },
+    "create": {
+      "open": "Create document",
+      "title": "New document",
+      "titleLabel": "Title",
+      "kindLabel": "Category",
+      "bodyLabel": "Content (markdown)",
+      "bodyHint": "Becomes version 1 of the document. You can edit and create new versions later.",
+      "submit": "Create document",
+      "errors": {
+        "required": "Provide a title and content."
+      }
     },
     "filters": {
       "kind": "Category",
@@ -1502,6 +1524,7 @@
       "waiver": "Waiver: {{reason}} (granted on {{date}})",
       "contentTitle": "Content",
       "noContent": "Current version not found.",
+      "startElaboration": "Start elaboration",
       "copy": "Copy content",
       "copied": "Content copied",
       "edit": {
@@ -1519,6 +1542,15 @@
       "requestTitle": "Approve {{title}}",
       "requestDescription": "Document in review; approval requested from the documents screen.",
       "noPendingApproval": "No pending approval for this document.",
+      "discard": {
+        "open": "Discard document",
+        "confirmTitle": "Discard \"{{title}}\"?",
+        "confirmBody": "Documents are never permanently deleted — the version history stays auditable. Discarding marks the document as \"not applicable\", removing it from the active flow. This can be reverted with a new state transition.",
+        "confirm": "Discard",
+        "note": "Discarded manually from the documents screen.",
+        "error": "Could not discard. Please try again.",
+        "already": "This document is already marked as not applicable."
+      },
       "versionsTitle": "Versions",
       "authorKind": {
         "user": "You",

@@ -1467,8 +1467,30 @@
       "cta": "Ver projetos"
     },
     "empty": {
-      "title": "Nenhum documento encontrado",
-      "body": "Ajuste os filtros ou aguarde o chefe criar documentos neste projeto."
+      "title": "Ainda não há documentos neste projeto",
+      "body": "Documentos são artefatos versionados do projeto (PRD, spec, design, runbook, notas e relatórios). O chefe e os agentes os produzem ao longo do fluxo — cada correção vira uma nova versão imutável, com histórico e diff.",
+      "appears": "Assim que um agente ou uma fase do workflow gerar um artefato, ele aparece aqui com estado (rascunho, em revisão, aprovado). Você também pode criar o primeiro agora mesmo.",
+      "governanceNote": "Procurando editar arquivos do repositório (governança, políticas, manifestos)? Isso fica em Documentos de Governança — outra tela.",
+      "governanceLink": "Ir para Documentos de Governança",
+      "createCta": "Criar documento",
+      "uploadCta": "Enviar arquivo"
+    },
+    "emptyFiltered": {
+      "title": "Nenhum documento corresponde aos filtros",
+      "body": "Este projeto tem documentos, mas nenhum bate com os filtros atuais.",
+      "reset": "Limpar filtros"
+    },
+    "create": {
+      "open": "Criar documento",
+      "title": "Novo documento",
+      "titleLabel": "Título",
+      "kindLabel": "Categoria",
+      "bodyLabel": "Conteúdo (markdown)",
+      "bodyHint": "Vira a versão 1 do documento. Você pode editar e criar novas versões depois.",
+      "submit": "Criar documento",
+      "errors": {
+        "required": "Informe o título e o conteúdo."
+      }
     },
     "filters": {
       "kind": "Categoria",
@@ -1502,6 +1524,7 @@
       "waiver": "Waiver: {{reason}} (concedido em {{date}})",
       "contentTitle": "Conteúdo",
       "noContent": "Versão vigente não encontrada.",
+      "startElaboration": "Iniciar elaboração",
       "copy": "Copiar conteúdo",
       "copied": "Conteúdo copiado",
       "edit": {
@@ -1519,6 +1542,15 @@
       "requestTitle": "Aprovar {{title}}",
       "requestDescription": "Documento em revisão; aprovação solicitada pela tela de documentos.",
       "noPendingApproval": "Nenhuma aprovação pendente para este documento.",
+      "discard": {
+        "open": "Descartar documento",
+        "confirmTitle": "Descartar \"{{title}}\"?",
+        "confirmBody": "Documentos não são apagados de forma definitiva — o histórico de versões é auditável. Descartar marca o documento como \"não aplicável\", removendo-o do fluxo ativo. Isto pode ser revertido por uma nova transição de estado.",
+        "confirm": "Descartar",
+        "note": "Descartado manualmente na tela de documentos.",
+        "error": "Não foi possível descartar. Tente novamente.",
+        "already": "Este documento já está marcado como não aplicável."
+      },
       "versionsTitle": "Versões",
       "authorKind": {
         "user": "Você",
