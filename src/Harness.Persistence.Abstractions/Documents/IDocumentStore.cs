@@ -54,7 +54,12 @@ public sealed record DocumentCreateCommand(
     string AuthorKind,
     string? AuthorId,
     string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    // Anti-proliferação de documentos: a ORIGEM legítima que justifica a criação — o ULID de um
+    // card/fluxo (tarefa, demanda, gate) que ancora o documento. Opcional para criação interativa
+    // por um humano ('user'), OBRIGATÓRIA para criação programática ('chief'/'agent'): um agente
+    // não fabrica documento "à toa", só a partir de um fluxo rastreável. Ver DocumentCreateValidator.
+    string? OriginReference = null);
 
 public sealed record DocumentCreateReceipt(
     string DocumentId,
@@ -143,6 +148,25 @@ public static class DocumentCreateValidator
         if (command.AuthorId is not null)
         {
             ValidateId(command.AuthorId, nameof(command));
+        }
+
+        // GUARDRAIL ANTI-PROLIFERAÇÃO DE DOCUMENTOS. Este é o ponto de estrangulamento REAL: todo
+        // store (SQLite/Postgres) chama este validador antes de gravar, então a trava vale para
+        // QUALQUER caminho de criação, presente ou futuro — não é um filtro de endpoint que possa
+        // ser contornado. A regra: criação PROGRAMÁTICA (por 'chief'/'agent') exige uma ORIGEM
+        // legítima e rastreável (o ULID de um card/fluxo). Sem ela, a criação avulsa é recusada de
+        // forma tipada. A criação interativa por um humano ('user') é, ela própria, um fluxo
+        // legítimo, então a origem é opcional ali; quando informada, precisa ser um ULID válido.
+        if (command.OriginReference is not null)
+        {
+            ValidateId(command.OriginReference, nameof(command));
+        }
+        else if (command.AuthorKind is "chief" or "agent")
+        {
+            throw new ArgumentException(
+                "A programmatic document (chief/agent) requires a legitimate origin reference " +
+                "(a card/flow ULID); untethered creation is refused.",
+                nameof(command));
         }
 
         ValidateText(command.IdempotencyKey, 200, nameof(command));

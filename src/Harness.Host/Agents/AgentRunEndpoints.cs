@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Harness.Host.Profiles;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
+using Harness.Modules.Coordination.Application;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
@@ -164,6 +165,32 @@ public static class AgentRunEndpoints
             return NotFound("task");
         }
 
+        // RN-01 — DISCIPLINA DE CARD: nenhum trabalho de agente executa sem um CARD despachável.
+        // O card precisa EXISTIR (já validado acima) E estar em estado despachável — 'agent_task',
+        // com pelo menos uma instrução, não bloqueado e não arquivado. Um pedido contra um card
+        // fora desse estado (bloqueado, sem instrução, tipo não-executável ou arquivado) é recusado
+        // AQUI, antes de qualquer claim, conta ou execução, com código tipado e auditável. Espelha o
+        // mesmo gate fail-safe (`CardReadinessEvaluator`) que o loop autônomo do Chefe aplica, para
+        // que a superfície oficial da API não seja um atalho que contorne a Definition of Ready.
+        var instructions = await board.ListInstructionsAsync(profile.TenantId, input.TaskId, null, 50, token);
+        if (task.ArchivedAt is not null)
+        {
+            return Problem(
+                409, "card_archived", "The card is archived and cannot be dispatched to an agent.");
+        }
+
+        var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
+            task.CardType,
+            instructions.Count >= 1,
+            string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
+                !string.IsNullOrWhiteSpace(task.BlockedReason)));
+        if (!readiness.IsDispatchable)
+        {
+            return Problem(
+                409, "card_not_dispatchable",
+                $"The card is not in a dispatchable state: {string.Join(", ", readiness.Blockers)}.");
+        }
+
         // Continuação governada: recupera o artifact arquivado da tentativa reprovada e o
         // valida — checksum, receipt, review, projeto, tarefa, actor e escopo — antes de
         // permitir qualquer nova tentativa. Uma falha aqui é um código tipado, nunca um
@@ -249,16 +276,8 @@ public static class AgentRunEndpoints
         {
             // Sem tentativa informada, o bootstrap INICIA uma de verdade na cadeia de
             // trabalho: solicitação de origem, instrução corrente e versão esperada da
-            // tarefa. O identificador nasce de um agregado durável, nunca solto.
-            var instructions = await board.ListInstructionsAsync(
-                profile.TenantId, input.TaskId, null, 50, token);
-            if (instructions.Count == 0)
-            {
-                return Problem(
-                    409, "task_without_instruction",
-                    "The task has no instruction to attempt.");
-            }
-
+            // tarefa. O identificador nasce de um agregado durável, nunca solto. A existência
+            // de instrução já foi garantida pela disciplina de card (RN-01) acima.
             attemptId = UlidValue.New(clock.UtcNow).ToString();
             var started = await chain.StartAttemptAsync(
                 new WorkAttemptStartCommand(
