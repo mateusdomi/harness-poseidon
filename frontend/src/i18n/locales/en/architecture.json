@@ -66,6 +66,164 @@
       "noRelationships": "No relationships.",
       "lockAction": "Lock element",
       "unlockAction": "Unlock element"
+    },
+    "hub": {
+      "title": "Architecture Hub",
+      "subtitle": "Model, enterprise system catalog, discoveries, rationalization, patterns and baselines — all over the same architecture source.",
+      "tabsLabel": "Architecture Hub sections",
+      "tabs": {
+        "studio": "Studio",
+        "systems": "System Map",
+        "discovery": "Discovery",
+        "insights": "Insights",
+        "patterns": "Patterns & ADRs",
+        "baselines": "Baselines"
+      },
+      "criticality": {
+        "high": "Critical",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "lifecycle": {
+        "active": "Active",
+        "deprecated": "Deprecated"
+      },
+      "confidence": {
+        "high": "High confidence",
+        "medium": "Medium confidence",
+        "low": "Low confidence"
+      },
+      "heatSignal": {
+        "single-owner": "Single owner",
+        "high-cost": "High cost",
+        "end-of-life": "End of life",
+        "no-owner-backup": "Bus factor 1",
+        "stale-review": "Stale review"
+      },
+      "systems": {
+        "lensLabel": "System map lens",
+        "search": "Search system",
+        "searchPlaceholder": "Name, domain or capability…",
+        "empty": "No system matches the search.",
+        "heat": "Heat {{score}}",
+        "systemCount": "{{count}} system(s)",
+        "integrationSummary": "{{systems}} systems · {{edges}} integrations",
+        "heatmapEmpty": "No risk signals in the portfolio.",
+        "lens": {
+          "catalog": "Catalog",
+          "domains": "Domains",
+          "capabilities": "Capabilities",
+          "integration": "Integrations",
+          "heatmap": "Heatmap"
+        }
+      },
+      "system360": {
+        "notSet": "—",
+        "yes": "Yes",
+        "no": "No",
+        "business": "Business",
+        "technology": "Technology",
+        "integrations": "Integrations",
+        "operation": "Operation",
+        "data": "Data",
+        "governance": "Governance",
+        "criticality": "Criticality",
+        "domain": "Domain",
+        "owner": "Owner",
+        "lifecycle": "Lifecycle",
+        "containers": "Containers",
+        "outgoing": "Outgoing",
+        "incoming": "Incoming",
+        "sla": "SLA",
+        "incidents": "Incidents",
+        "cost": "Monthly cost",
+        "costValue": "US$ {{value}}",
+        "dr": "DR plan",
+        "pii": "Contains PII",
+        "sensitive": "Sensitive data",
+        "retention": "Retention",
+        "adrCount": "ADRs",
+        "busFactor": "Bus factor",
+        "reviewConfidence": "Review confidence"
+      },
+      "discovery": {
+        "title": "Discoveries",
+        "empty": "No discoveries recorded.",
+        "pending": "Pending questions",
+        "counts": "{{open}} open · {{confirmed}} confirmed",
+        "status": {
+          "confirmed": "Confirmed",
+          "open": "Open"
+        },
+        "source": {
+          "interview": "Interview",
+          "document": "Document",
+          "scan": "Scan"
+        }
+      },
+      "insights": {
+        "systemCount": "Systems analyzed",
+        "insightCount": "Insights",
+        "title": "Portfolio rationalization",
+        "empty": "No rationalization insights.",
+        "dependents": "{{count}} dependent(s)",
+        "classification": {
+          "eliminate": "Eliminate",
+          "migrate": "Migrate",
+          "tolerate": "Tolerate",
+          "invest": "Invest"
+        },
+        "category": {
+          "redundancy": "Redundancy",
+          "modernization": "Modernization",
+          "cost": "Cost"
+        }
+      },
+      "patterns": {
+        "filterLabel": "Patterns and decisions filter",
+        "empty": "No pattern or decision recorded.",
+        "context": "Context",
+        "problem": "Problem",
+        "decision": "Decision",
+        "consequences": "Consequences",
+        "filter": {
+          "all": "All",
+          "adr": "ADRs",
+          "pattern": "Patterns"
+        },
+        "kind": {
+          "adr": "ADR",
+          "pattern": "Pattern"
+        },
+        "status": {
+          "accepted": "Accepted",
+          "proposed": "Proposed",
+          "superseded": "Superseded"
+        }
+      },
+      "baselines": {
+        "title": "Baseline",
+        "empty": "No baseline recorded.",
+        "compare": "Compare",
+        "conformance": "{{percent}}% conformant",
+        "conformanceLabel": "Conformance",
+        "nodeStats": "{{matched}} ✓ · {{missing}} ✗ · {{unplanned}} +",
+        "nodes": "Elements (ok · missing · unplanned)",
+        "edges": "Integrations (ok · missing · unplanned)",
+        "drifts": "Drifts",
+        "noDrift": "No drift detected.",
+        "asBuilt": "As-built",
+        "elementCount": "{{count}} element(s) in baseline",
+        "status": {
+          "closed": "Closed",
+          "open": "Open"
+        },
+        "drift": {
+          "matched": "Conformant",
+          "missing": "Missing",
+          "unplanned": "Unplanned"
+        }
+      }
     }
   }
 }

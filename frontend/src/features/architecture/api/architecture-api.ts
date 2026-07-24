@@ -1,22 +1,67 @@
 import { ApiError, problemDetailsSchema } from '@/api';
 
 import {
+  architectureBaselineListSchema,
+  architectureBaselineSchema,
   architectureElementPageSchema,
   architectureElementSchema,
+  architecturePatternListSchema,
+  architecturePatternSchema,
   architectureRelationshipListSchema,
   architectureRelationshipSchema,
   architectureViewListSchema,
   architectureViewSchema,
+  baselineComparisonSchema,
+  capabilityMapSchema,
+  discoveryListSchema,
+  discoverySummaryListSchema,
+  domainMapSchema,
+  integrationGraphSchema,
+  portfolioReuseSchema,
+  rationalizationReportSchema,
+  system360Schema,
+  systemCatalogSchema,
+  systemHeatmapSchema,
+  type ArchitectureBaseline,
+  type ArchitectureBaselineList,
   type ArchitectureElement,
+  type ArchitecturePattern,
+  type ArchitecturePatternList,
   type ArchitectureRelationship,
   type ArchitectureView,
   type ArchitectureViewSummary,
+  type BaselineComparison,
+  type CapabilityMap,
   type CreateElementInput,
   type CreateRelationshipInput,
   type CreateViewInput,
+  type DiscoveryList,
+  type DiscoverySummaryList,
+  type DomainMap,
+  type IntegrationGraph,
   type LockInput,
+  type PortfolioReuse,
+  type RationalizationReport,
+  type System360,
+  type SystemCatalog,
+  type SystemHeatmap,
 } from './types';
 import { buildArchitectureFixture } from './mock-data';
+import {
+  buildBaselineComparison,
+  buildBaselines,
+  buildCapabilityMap,
+  buildDiscoveries,
+  buildDiscoverySummary,
+  buildDomainMap,
+  buildHeatmap,
+  buildInsights,
+  buildIntegrationGraph,
+  buildPatterns,
+  buildPortfolioReuse,
+  buildSystem360,
+  buildSystemCatalog,
+} from './hub-mock-data';
 
 /**
  * Cliente do Architecture Hub consumido pelo Studio (ARC-04). Mesma
@@ -37,6 +82,46 @@ export interface ArchitectureApi {
   createRelationship(input: CreateRelationshipInput): Promise<ArchitectureRelationship>;
   createView(input: CreateViewInput): Promise<ArchitectureView>;
   setElementLock(id: string, input: LockInput): Promise<ArchitectureElement>;
+
+  /* ---- Architecture Hub (somente leitura) ---- */
+  // ARC-02 Mapa Corporativo de Sistemas
+  listSystems(projectId: string | null): Promise<SystemCatalog>;
+  getDomainMap(projectId: string | null): Promise<DomainMap>;
+  getCapabilityMap(projectId: string | null): Promise<CapabilityMap>;
+  getIntegrationGraph(projectId: string | null): Promise<IntegrationGraph>;
+  getHeatmap(projectId: string | null): Promise<SystemHeatmap>;
+  // ARC-03 Sistema 360
+  getSystemOverview(systemId: string): Promise<System360>;
+  // ARC-06 Discovery
+  listDiscoveries(projectId: string | null, systemId?: string | null): Promise<DiscoveryList>;
+  getDiscoverySummary(
+    projectId: string | null,
+    systemId?: string | null,
+  ): Promise<DiscoverySummaryList>;
+  // ARC-07 Insights & Racionalização
+  getInsights(projectId: string | null): Promise<RationalizationReport>;
+  // ARC-08 Padrões & ADRs
+  listPatterns(projectId: string | null, kind?: string | null): Promise<ArchitecturePatternList>;
+  getPattern(id: string): Promise<ArchitecturePattern>;
+  // ARC-10 Baselines & Conformidade
+  listBaselines(projectId: string | null): Promise<ArchitectureBaselineList>;
+  getBaseline(id: string): Promise<ArchitectureBaseline>;
+  getBaselineComparison(id: string): Promise<BaselineComparison>;
+  getPortfolioReuse(
+    projectId: string | null,
+    capability?: string | null,
+    domain?: string | null,
+  ): Promise<PortfolioReuse>;
+}
+
+/** Monta uma query string a partir de pares opcionais (ignora nulos/vazios). */
+function query(params: Record<string, string | null | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== '') search.set(key, value);
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
 }
 
 /* ------------------------------------------------------------------ */
@@ -117,6 +202,105 @@ export class HttpArchitectureApi implements ArchitectureApi {
   async setElementLock(id: string, input: LockInput): Promise<ArchitectureElement> {
     return architectureElementSchema.parse(
       await this.#request('POST', `/elements/${id}/lock`, input),
+    );
+  }
+
+  async listSystems(projectId: string | null): Promise<SystemCatalog> {
+    return systemCatalogSchema.parse(await this.#request('GET', `/systems${query({ projectId })}`));
+  }
+
+  async getDomainMap(projectId: string | null): Promise<DomainMap> {
+    return domainMapSchema.parse(await this.#request('GET', `/maps/domains${query({ projectId })}`));
+  }
+
+  async getCapabilityMap(projectId: string | null): Promise<CapabilityMap> {
+    return capabilityMapSchema.parse(
+      await this.#request('GET', `/maps/capabilities${query({ projectId })}`),
+    );
+  }
+
+  async getIntegrationGraph(projectId: string | null): Promise<IntegrationGraph> {
+    return integrationGraphSchema.parse(
+      await this.#request('GET', `/maps/integration${query({ projectId })}`),
+    );
+  }
+
+  async getHeatmap(projectId: string | null): Promise<SystemHeatmap> {
+    return systemHeatmapSchema.parse(
+      await this.#request('GET', `/maps/heatmap${query({ projectId })}`),
+    );
+  }
+
+  async getSystemOverview(systemId: string): Promise<System360> {
+    return system360Schema.parse(
+      await this.#request('GET', `/systems/${encodeURIComponent(systemId)}/overview`),
+    );
+  }
+
+  async listDiscoveries(
+    projectId: string | null,
+    systemId?: string | null,
+  ): Promise<DiscoveryList> {
+    return discoveryListSchema.parse(
+      await this.#request('GET', `/discoveries${query({ projectId, systemId })}`),
+    );
+  }
+
+  async getDiscoverySummary(
+    projectId: string | null,
+    systemId?: string | null,
+  ): Promise<DiscoverySummaryList> {
+    return discoverySummaryListSchema.parse(
+      await this.#request('GET', `/discoveries/summary${query({ projectId, systemId })}`),
+    );
+  }
+
+  async getInsights(projectId: string | null): Promise<RationalizationReport> {
+    return rationalizationReportSchema.parse(
+      await this.#request('GET', `/insights${query({ projectId })}`),
+    );
+  }
+
+  async listPatterns(
+    projectId: string | null,
+    kind?: string | null,
+  ): Promise<ArchitecturePatternList> {
+    return architecturePatternListSchema.parse(
+      await this.#request('GET', `/patterns${query({ projectId, kind })}`),
+    );
+  }
+
+  async getPattern(id: string): Promise<ArchitecturePattern> {
+    return architecturePatternSchema.parse(
+      await this.#request('GET', `/patterns/${encodeURIComponent(id)}`),
+    );
+  }
+
+  async listBaselines(projectId: string | null): Promise<ArchitectureBaselineList> {
+    return architectureBaselineListSchema.parse(
+      await this.#request('GET', `/baselines${query({ projectId })}`),
+    );
+  }
+
+  async getBaseline(id: string): Promise<ArchitectureBaseline> {
+    return architectureBaselineSchema.parse(
+      await this.#request('GET', `/baselines/${encodeURIComponent(id)}`),
+    );
+  }
+
+  async getBaselineComparison(id: string): Promise<BaselineComparison> {
+    return baselineComparisonSchema.parse(
+      await this.#request('GET', `/baselines/${encodeURIComponent(id)}/comparison`),
+    );
+  }
+
+  async getPortfolioReuse(
+    projectId: string | null,
+    capability?: string | null,
+    domain?: string | null,
+  ): Promise<PortfolioReuse> {
+    return portfolioReuseSchema.parse(
+      await this.#request('GET', `/portfolio/reuse${query({ projectId, capability, domain })}`),
     );
   }
 }
@@ -245,6 +429,96 @@ export class MockArchitectureApi implements ArchitectureApi {
       }
     }
     throw ApiError.of(404, 'Elemento não encontrado');
+  }
+
+  async listSystems(projectId: string | null): Promise<SystemCatalog> {
+    return buildSystemCatalog(projectId);
+  }
+
+  async getDomainMap(projectId: string | null): Promise<DomainMap> {
+    return buildDomainMap(projectId);
+  }
+
+  async getCapabilityMap(projectId: string | null): Promise<CapabilityMap> {
+    return buildCapabilityMap(projectId);
+  }
+
+  async getIntegrationGraph(projectId: string | null): Promise<IntegrationGraph> {
+    return buildIntegrationGraph(projectId);
+  }
+
+  async getHeatmap(projectId: string | null): Promise<SystemHeatmap> {
+    return buildHeatmap(projectId);
+  }
+
+  async getSystemOverview(systemId: string): Promise<System360> {
+    const projectId = systemId.includes('::') ? systemId.split('::')[0] : null;
+    const overview = buildSystem360(projectId, systemId);
+    if (!overview) throw ApiError.of(404, 'Sistema não encontrado');
+    return overview;
+  }
+
+  async listDiscoveries(
+    projectId: string | null,
+    systemId?: string | null,
+  ): Promise<DiscoveryList> {
+    let discoveries = buildDiscoveries(projectId);
+    if (systemId) discoveries = discoveries.filter((d) => d.systemId === systemId);
+    return { total: discoveries.length, nextCursor: null, discoveries };
+  }
+
+  async getDiscoverySummary(
+    projectId: string | null,
+    systemId?: string | null,
+  ): Promise<DiscoverySummaryList> {
+    const summary = buildDiscoverySummary(projectId);
+    if (!systemId) return summary;
+    const subjects = summary.subjects.filter((s) => s.systemId === systemId);
+    return { total: subjects.length, subjects };
+  }
+
+  async getInsights(projectId: string | null): Promise<RationalizationReport> {
+    return buildInsights(projectId);
+  }
+
+  async listPatterns(
+    projectId: string | null,
+    kind?: string | null,
+  ): Promise<ArchitecturePatternList> {
+    let items = buildPatterns(projectId);
+    if (kind) items = items.filter((p) => p.kind === kind);
+    return { total: items.length, nextCursor: null, items };
+  }
+
+  async getPattern(id: string): Promise<ArchitecturePattern> {
+    const projectId = id.includes('::') ? id.split('::')[0] : null;
+    const pattern = buildPatterns(projectId).find((p) => p.id === id);
+    if (!pattern) throw ApiError.of(404, 'Padrão não encontrado');
+    return pattern;
+  }
+
+  async listBaselines(projectId: string | null): Promise<ArchitectureBaselineList> {
+    const baselines = buildBaselines(projectId ?? 'default');
+    return { total: baselines.length, baselines };
+  }
+
+  async getBaseline(id: string): Promise<ArchitectureBaseline> {
+    const projectId = id.includes('::') ? id.split('::')[0] : 'default';
+    const baseline = buildBaselines(projectId).find((b) => b.id === id);
+    if (!baseline) throw ApiError.of(404, 'Baseline não encontrada');
+    return baseline;
+  }
+
+  async getBaselineComparison(id: string): Promise<BaselineComparison> {
+    return buildBaselineComparison(id);
+  }
+
+  async getPortfolioReuse(
+    projectId: string | null,
+    capability?: string | null,
+    domain?: string | null,
+  ): Promise<PortfolioReuse> {
+    return buildPortfolioReuse(projectId, capability ?? null, domain ?? null);
   }
 }
 

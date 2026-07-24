@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Field, Select, Skeleton } from '@/design-system';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 
 import { ArchitectureApiProvider } from '../api/architecture-provider';
+import { SystemsMap } from '../components/hub/systems-map';
+import { System360Panel } from '../components/hub/system-360';
+import { DiscoveryPanel } from '../components/hub/discovery-panel';
+import { InsightsPanel } from '../components/hub/insights-panel';
+import { PatternsPanel } from '../components/hub/patterns-panel';
+import { BaselinesPanel } from '../components/hub/baselines-panel';
 import type { ArchitectureElement, ArchitectureRelationship } from '../api/types';
 import {
   useArchitectureElements,
@@ -209,10 +216,101 @@ export function ArchitectureStudio() {
   );
 }
 
+/* ================================================================== */
+/* Architecture Hub — casca de abas sobre o Studio + superfícies       */
+/* corporativas (ARC-02/03/06/07/08/10).                               */
+/* ================================================================== */
+
+const HUB_TABS = ['studio', 'systems', 'discovery', 'insights', 'patterns', 'baselines'] as const;
+type HubTab = (typeof HUB_TABS)[number];
+
+function isHubTab(value: string | null): value is HubTab {
+  return value !== null && (HUB_TABS as readonly string[]).includes(value);
+}
+
+/**
+ * Architecture Hub. Reúne, em abas, o Studio (ARC-04, canvas do modelo) e as
+ * superfícies corporativas do backend: Mapa de Sistemas + heatmaps (ARC-02),
+ * Sistema 360 (ARC-03, drill-in do mapa), Discovery (ARC-06), Insights &
+ * Racionalização (ARC-07), Padrões/ADRs (ARC-08) e Baselines/Conformidade
+ * (ARC-10). Estado de aba/sistema fica na URL (`?tab=…&system=…`) para
+ * deep-link. Tudo consome `/api/v1/architecture/*` — não há backend novo.
+ */
+export function ArchitectureHub() {
+  const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { activeProject } = useActiveProject();
+  const projectId = activeProject?.id ?? null;
+
+  const tabParam = searchParams.get('tab');
+  const activeTab: HubTab = isHubTab(tabParam) ? tabParam : 'studio';
+  const selectedSystem = searchParams.get('system');
+
+  function selectTab(tab: HubTab) {
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'studio') next.delete('tab');
+    else next.set('tab', tab);
+    next.delete('system');
+    setSearchParams(next);
+  }
+
+  function selectSystem(systemId: string | null) {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', 'systems');
+    if (systemId) next.set('system', systemId);
+    else next.delete('system');
+    setSearchParams(next);
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">{t('architecture.hub.title')}</h1>
+        <p className="text-sm text-foreground-muted">{t('architecture.hub.subtitle')}</p>
+      </div>
+
+      <div role="tablist" aria-label={t('architecture.hub.tabsLabel')} className="flex flex-wrap gap-1">
+        {HUB_TABS.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            id={`architecture-tab-${tab}`}
+            aria-selected={activeTab === tab}
+            onClick={() => selectTab(tab)}
+            className={
+              activeTab === tab
+                ? 'min-h-touch rounded-md border border-brand px-3 py-2 text-sm font-medium text-brand-strong'
+                : 'min-h-touch rounded-md border border-border px-3 py-2 text-sm text-foreground-muted hover:text-foreground'
+            }
+          >
+            {t(`architecture.hub.tabs.${tab}`)}
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel" aria-labelledby={`architecture-tab-${activeTab}`}>
+        {activeTab === 'studio' ? <ArchitectureStudio /> : null}
+        {activeTab === 'systems' ? (
+          selectedSystem ? (
+            <System360Panel systemId={selectedSystem} onBack={() => selectSystem(null)} />
+          ) : (
+            <SystemsMap projectId={projectId} onSelectSystem={(id) => selectSystem(id)} />
+          )
+        ) : null}
+        {activeTab === 'discovery' ? <DiscoveryPanel projectId={projectId} /> : null}
+        {activeTab === 'insights' ? <InsightsPanel projectId={projectId} /> : null}
+        {activeTab === 'patterns' ? <PatternsPanel projectId={projectId} /> : null}
+        {activeTab === 'baselines' ? <BaselinesPanel projectId={projectId} /> : null}
+      </div>
+    </div>
+  );
+}
+
 export default function ArchitecturePage() {
   return (
     <ArchitectureApiProvider>
-      <ArchitectureStudio />
+      <ArchitectureHub />
     </ArchitectureApiProvider>
   );
 }
