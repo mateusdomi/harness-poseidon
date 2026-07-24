@@ -35,9 +35,25 @@
     },
     "prefs": {
       "title": "Notification preferences",
-      "enabled": "Notifications enabled",
-      "categoriesLabel": "Mute by category",
-      "categoriesHint": "New notifications from muted categories are shown as muted."
+      "intro": "Choose what you want to receive. You can enable or mute as many categories as you like — changes are saved automatically when you click.",
+      "enabled": "Receive notifications",
+      "enabledHint": "Turn off to pause all notifications. The categories below keep your choices for when you turn it back on.",
+      "categoriesLabel": "Categories",
+      "categoriesHint": "Check to receive; uncheck to mute. Notifications from muted categories are not hidden — they arrive already marked as muted.",
+      "toggleLabel": "Receive {{category}} notifications",
+      "stateActive": "Active",
+      "stateMuted": "Muted",
+      "saving": "Saving…",
+      "saved": "Changes saved",
+      "descriptions": {
+        "system": "Alerts from Poseidon itself: updates, system health and incidents.",
+        "task": "Changes to cards and tasks: status, assignment and completion.",
+        "approval": "When something is waiting for your approval before proceeding.",
+        "quota": "Quota and budget usage approaching the limit.",
+        "license": "License state: activation, expiration and grace period.",
+        "chat": "New messages and replies in conversations.",
+        "workflow": "Flow and publish progress: approved gates and new versions."
+      }
     }
   }
 }

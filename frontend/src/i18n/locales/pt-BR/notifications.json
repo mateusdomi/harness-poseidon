@@ -35,9 +35,25 @@
     },
     "prefs": {
       "title": "Preferências de notificação",
-      "enabled": "Notificações ativadas",
-      "categoriesLabel": "Silenciar por categoria",
-      "categoriesHint": "Novas notificações de categorias silenciadas aparecem como silenciadas."
+      "intro": "Escolha o que quer receber. Você pode ativar ou silenciar quantas categorias quiser — as alterações são salvas automaticamente ao clicar.",
+      "enabled": "Receber notificações",
+      "enabledHint": "Desligue para pausar todas as notificações. As categorias abaixo guardam a sua escolha para quando você reativar.",
+      "categoriesLabel": "Categorias",
+      "categoriesHint": "Marque para receber; desmarque para silenciar. Notificações de categorias silenciadas não somem — chegam já marcadas como silenciadas.",
+      "toggleLabel": "Receber notificações de {{category}}",
+      "stateActive": "Ativas",
+      "stateMuted": "Silenciadas",
+      "saving": "Salvando…",
+      "saved": "Alterações salvas",
+      "descriptions": {
+        "system": "Avisos do próprio Poseidon: atualizações, saúde do sistema e incidentes.",
+        "task": "Mudanças em cards e tarefas: status, atribuição e conclusão.",
+        "approval": "Quando algo espera o seu aval antes de prosseguir.",
+        "quota": "Consumo de cota e orçamento se aproximando do limite.",
+        "license": "Estado da licença: ativação, expiração e período de carência.",
+        "chat": "Novas mensagens e respostas nas conversas.",
+        "workflow": "Progresso de fluxos e publicações: gates aprovados e novas versões."
+      }
     }
   }
 }
