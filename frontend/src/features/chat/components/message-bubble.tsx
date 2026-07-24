@@ -6,13 +6,17 @@ import { Check, ClipboardList, Copy, FileText } from 'lucide-react';
 import type { Document, Message, Task } from '@/api';
 import { extractReferences } from '@/features/chat/lib/chat-derive';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
+import { AgentAvatar } from '@/features/shared/components/agent-avatar';
+import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 interface MessageBubbleProps {
   message: Message;
-  /** Nome do agente autor (quando `authorAgentId` está presente). */
+  /** Nome da instância do agente autor (quando `authorAgentId` está presente). */
   authorName?: string | null;
+  /** Alias técnico da persona autora (ex.: `chief-orchestrator`) para humanizar. */
+  authorAlias?: string | null;
   tasks: Task[];
   documents: Document[];
 }
@@ -24,9 +28,19 @@ const COPIED_FEEDBACK_MS = 1600;
  * Bolha de mensagem com markdown, autor (nome + papel), horário, ação real de
  * copiar o conteúdo (clipboard) e chips de referência cruzada.
  */
-export function MessageBubble({ message, authorName, tasks, documents }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  authorName,
+  authorAlias,
+  tasks,
+  documents,
+}: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = message.authorRole === 'user';
+  // O Chefe e os especialistas ganham nome/foto humanos; o papel (ex.: "Chefe")
+  // e o alias técnico permanecem visíveis por transparência.
+  const isAgentAuthor = message.authorRole === 'chief' || message.authorRole === 'agent';
+  const identity = isAgentAuthor ? resolveAgentIdentity(authorAlias, authorName) : null;
   const references = extractReferences(message.content, tasks, documents);
 
   const [copied, setCopied] = useState(false);
@@ -60,17 +74,18 @@ export function MessageBubble({ message, authorName, tasks, documents }: Message
           : 'self-start border-border bg-surface-elevated shadow-card',
       )}
     >
-      <header className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span className="text-sm font-semibold text-foreground">
-          {authorName ?? roleLabel}
+      <header className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        {identity && <AgentAvatar name={identity.humanName} size={28} />}
+        <span
+          className="text-sm font-semibold text-foreground"
+          title={identity?.alias || undefined}
+        >
+          {identity?.humanName ?? authorName ?? roleLabel}
         </span>
-        {authorName && (
+        {(identity || authorName) && (
           <span className="text-xs text-foreground-muted">{roleLabel}</span>
         )}
-        <time
-          dateTime={message.createdAt}
-          className="text-xs tabular-nums text-foreground-muted"
-        >
+        <time dateTime={message.createdAt} className="text-xs tabular-nums text-foreground-muted">
           {formatDateTime(message.createdAt)}
         </time>
         <button
