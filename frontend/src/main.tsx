@@ -2,13 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 
-import '@fontsource/space-grotesk/400.css';
-import '@fontsource/space-grotesk/500.css';
-import '@fontsource/space-grotesk/600.css';
-import '@fontsource/space-grotesk/700.css';
+// Fonte de display da marca — Bricolage Grotesque (variável, eixo de peso
+// 200–800). Empacotada localmente (woff2 via fontsource): CSP-safe, sem CDN.
+// É a face que dá "cara própria" aos títulos; o corpo segue Inter.
+import '@fontsource-variable/bricolage-grotesque/wght.css';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
 
 import '@/design-system/tokens.css';
 import '@/index.css';

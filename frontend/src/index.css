@@ -27,10 +27,47 @@
   h5,
   h6 {
     @apply font-heading;
+    /* Bricolage Grotesque respira melhor com tracking justo e peso encorpado:
+       é o que dá o "caráter" dos títulos em vez do cinza chapado anterior. */
+    letter-spacing: -0.02em;
+    font-weight: 700;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Texto em gradiente da marca (violeta→magenta) — para números-herói,
+     acentos de título e destaques. Contorno de foco/legibilidade preservados
+     pelo peso encorpado da face de display. */
+  .text-gradient-brand {
+    background-image: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Faixa/hero de cabeçalho de página: superfície com halo ambiente da marca e
+     um fio de gradiente no topo. Tira as telas do "preto chapado" sem virar
+     banner corporativo (alfa baixo nos halos, definido nos tokens). */
+  .brand-hero {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--color-surface);
+    background-image: var(--gradient-ambient);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+  .brand-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background-image: var(--gradient-brand);
   }
 }

@@ -89,19 +89,26 @@ export default function CockpitPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-heading text-2xl font-semibold">{t('features.cockpit.title')}</h1>
-        {/* O cockpit mostra cotas/orçamento e saúde: quando a origem é fixture,
-            dizemos isso explicitamente em vez de passar por dado real (§15). */}
-        <SimulatedModeBadge />
+      <header className="brand-hero flex flex-col gap-4 p-5 sm:p-6">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="text-display font-heading text-foreground">
+            {t('features.cockpit.title')}
+          </h1>
+          {/* O cockpit mostra cotas/orçamento e saúde: quando a origem é fixture,
+              dizemos isso explicitamente em vez de passar por dado real (§15). */}
+          <SimulatedModeBadge />
+        </div>
+        <p className="max-w-prose text-sm text-foreground-muted">
+          {t('features.cockpit.description')}
+        </p>
         {projects.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="cockpit-project" className="text-sm text-foreground-muted">
               {t('cockpit.projectSelector.label')}
             </label>
             <Select
               id="cockpit-project"
-              className="w-auto min-w-48"
+              className="w-full min-w-48 sm:w-auto"
               value={activeProject?.id ?? ''}
               onChange={(event) => setActiveProject(event.target.value)}
             >
@@ -113,7 +120,7 @@ export default function CockpitPage() {
             </Select>
           </div>
         )}
-      </div>
+      </header>
 
       <GoldenPathChecklist hideWhenComplete />
 

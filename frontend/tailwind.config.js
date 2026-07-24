@@ -56,11 +56,12 @@ export default {
         'gradient-ambient': 'var(--gradient-ambient)',
       },
       fontFamily: {
-        // As faces de marca (Space Grotesk / Inter) só são aplicadas se
-        // presentes no sistema; caso contrário caem para stacks nativos ricos.
-        // CSP proíbe fontes externas — nada de CDN.
+        // Face de display da marca: Bricolage Grotesque (variável, empacotada
+        // localmente — CSP-safe). Tem caráter próprio (contraste, terminais
+        // recortados) e é claramente distinta de Inter/SF. Stacks nativos ricos
+        // como fallback caso a woff2 não carregue. CSP proíbe CDN.
         heading: [
-          '"Space Grotesk"',
+          '"Bricolage Grotesque Variable"',
           'ui-rounded',
           '"SF Pro Display"',
           '"Segoe UI"',
@@ -72,10 +73,11 @@ export default {
       },
       fontSize: {
         // Hierarquia mais marcante: display com leading justo e tracking negativo.
-        display: ['2.25rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '700' }],
+        display: ['2.25rem', { lineHeight: '1.05', letterSpacing: '-0.03em', fontWeight: '800' }],
+        'display-lg': ['3rem', { lineHeight: '1', letterSpacing: '-0.035em', fontWeight: '800' }],
       },
       letterSpacing: {
-        tightest: '-0.02em',
+        tightest: '-0.03em',
       },
       borderRadius: {
         DEFAULT: 'var(--radius-md)',
