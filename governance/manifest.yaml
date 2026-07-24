@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-24T20:46:57.5273640+00:00
+lastGeneratedAt: 2026-07-24T21:40:11.9592850+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -208,7 +208,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7832
+  tokenEstimate: 7863
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -221,7 +221,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:41eb7a485b4669ae0dded07f03c418973c7d7c160fb8da4b2cd98c97886837c6
+  checksum: sha256:0212067325a3dcaba40bd2083b9b45c6df7c75ddc9b934832dcaf409b4db8304
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11907,6 +11907,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/MERMAID-RENDERING-EVIDENCE.md
+- id: evidence-homologation-codex-final-report
+  path: docs/backend/execution/evidence/HOMOLOGATION-CODEX-FINAL-REPORT.md
+  title: Relatório final da campanha de correção da homologação
+  category: evidence
+  topic: evidence-homologation-codex-final-report
+  authority: evidence
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - codex
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  loadPolicy: on-demand
+  priority: 200
+  tokenEstimate: 4290
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-24T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-mermaid-rendering
+  enforcedBy:
+  - tools/backend/verify.sh
+  checksum: sha256:cd8053e4ea5513a5ff91ab7b843fdf29151034b3e953c0ff55de8ba2f9648ac8
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/HOMOLOGATION-CODEX-FINAL-REPORT.md
 - id: adr-022-persona-vs-card
   path: docs/decisions/ADR-022-persona-vs-card.md
   title: ADR-022 — Persona do agente vs. card de demanda
