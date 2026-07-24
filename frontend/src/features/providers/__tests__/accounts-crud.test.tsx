@@ -18,9 +18,9 @@ function renderPage() {
   );
 }
 
-/** Bloco de uma conta na lista (label + badges + ações + cota). */
+/** Cartão de uma conta na lista (article rotulado pelo apelido). */
 function accountBlock(label: string): HTMLElement {
-  return screen.getByText(label).closest('div')!.parentElement!;
+  return screen.getByRole('article', { name: label });
 }
 
 describe('ProvidersPage — CRUD de contas (FR-5)', () => {
@@ -38,7 +38,7 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     expect(within(ollama).getByText(/Local \(sem custo\)/)).toBeInTheDocument();
     // Badge "Local" derivado do provider (kind 'ollama'): conta + modelo.
     expect(within(ollama).getByText('Local')).toBeInTheDocument();
-    const model = screen.getByText('Llama 3.1 8B (local)').closest('div')!;
+    const model = screen.getByRole('listitem', { name: 'Llama 3.1 8B (local)' });
     expect(within(model).getByText('Local')).toBeInTheDocument();
   });
 
@@ -47,8 +47,8 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     const { bundle } = renderPage();
 
     expect(await screen.findByText('Conta principal')).toBeInTheDocument();
-    // Um botão "Nova conta" por provider; o primeiro é o da seção OpenAI.
-    await user.click(screen.getAllByRole('button', { name: 'Nova conta' })[0]);
+    // Um CTA "Conectar conta" por provedor; o primeiro é o do cartão OpenAI.
+    await user.click(screen.getAllByRole('button', { name: 'Conectar conta' })[0]);
 
     const dialog = await screen.findByRole('dialog', { name: 'Nova conta' });
     await user.type(within(dialog).getByLabelText(/Apelido/), 'Conta de testes');
@@ -74,7 +74,7 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     renderPage();
 
     expect(await screen.findByText('Conta principal')).toBeInTheDocument();
-    await user.click(screen.getAllByRole('button', { name: 'Nova conta' })[0]);
+    await user.click(screen.getAllByRole('button', { name: 'Conectar conta' })[0]);
 
     const dialog = await screen.findByRole('dialog', { name: 'Nova conta' });
     await user.click(within(dialog).getByRole('button', { name: 'Salvar' }));
@@ -94,8 +94,8 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     await user.click(within(block).getByRole('button', { name: 'Editar' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Editar conta' });
-    // Provider não pode ser trocado na edição.
-    expect(within(dialog).getByLabelText('Provider')).toBeDisabled();
+    // Provedor não pode ser trocado na edição.
+    expect(within(dialog).getByLabelText('Provedor')).toBeDisabled();
     const labelInput = within(dialog).getByLabelText(/Apelido/);
     await user.clear(labelInput);
     await user.type(labelInput, 'Conta corporativa');
@@ -162,10 +162,10 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     const user = userEvent.setup();
     renderPage();
 
-    // "Conta secundária" aparece na seção de contas e na de budgets — a
-    // primeira ocorrência é o bloco da conta.
-    const labels = await screen.findAllByText('Conta secundária');
-    const block = labels[0].closest('div')!.parentElement!;
+    // "Conta secundária" aparece na seção de contas e na de orçamentos — o
+    // article rotulado é o cartão da conta.
+    await screen.findByRole('article', { name: 'Conta secundária' });
+    const block = accountBlock('Conta secundária');
     await user.click(within(block).getByRole('button', { name: 'Desabilitar' }));
     await waitFor(() => {
       expect(within(block).getByText('Desabilitada')).toBeInTheDocument();

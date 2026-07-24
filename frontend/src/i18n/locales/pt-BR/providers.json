@@ -1,17 +1,35 @@
 {
   "providers": {
+    "subtitle": "Conecte suas contas de IA e acompanhe modelos, saúde e consumo de cada provedor.",
     "enabled": "Habilitado",
     "disabled": "Desabilitado",
     "local": "Local",
-    "empty": "Nenhum provider configurado. Os providers aparecem aqui quando o catálogo é sincronizado pela API.",
+    "empty": "Nenhum provedor configurado. Os provedores aparecem aqui quando o catálogo é sincronizado pela API.",
+    "overview": {
+      "title": "Visão geral",
+      "providers": "Provedores",
+      "accounts": "Contas conectadas",
+      "healthy": "Contas saudáveis",
+      "models": "Modelos habilitados"
+    },
+    "status": {
+      "withAccounts": "{{count}} conta(s) conectada(s)",
+      "noAccount": "Sem conta conectada"
+    },
+    "advanced": {
+      "title": "Configurações avançadas",
+      "subtitle": "Orçamentos e roteamento — ajuste fino do consumo e da escolha de modelos."
+    },
     "sync": {
       "action": "Sincronizar",
       "feedback": "Catálogo sincronizado: {{count}} modelo(s)."
     },
     "accounts": {
       "title": "Contas",
-      "empty": "Nenhuma conta neste provider.",
+      "empty": "Nenhuma conta neste provedor.",
+      "emptyCta": "Nenhuma conta conectada ainda. Conecte uma conta para habilitar este provedor.",
       "new": "Nova conta",
+      "connect": "Conectar conta",
       "meta": "Identidade: {{identity}} · plano: {{plan}} · autenticação: {{authentication}}",
       "notProvided": "não informado",
       "health": {
@@ -54,7 +72,7 @@
       "quotaNoLimit": "{{used}} usados (sem limite configurado)",
       "window": "Janela: {{period}} · próximo reset: {{reset}}",
       "noReset": "não programado",
-      "budgetReset": "Referência do budget: próximo período em {{reset}}.",
+      "budgetReset": "Referência do orçamento: próximo período em {{reset}}.",
       "actions": {
         "edit": "Editar",
         "enable": "Habilitar",
@@ -64,7 +82,7 @@
       "form": {
         "createTitle": "Nova conta",
         "editTitle": "Editar conta",
-        "provider": "Provider",
+        "provider": "Provedor",
         "label": "Apelido",
         "labelRequired": "Informe um apelido para a conta.",
         "credentialReference": "Referência da credencial",
@@ -79,17 +97,18 @@
         "capabilities": "Capacidades autorizadas",
         "error": "Não foi possível salvar a conta. Tente novamente."
       },
-  "delete": {
-    "title": "Remover conta",
-    "body": "Remover a conta \"{{label}}\"? Esta ação não pode ser desfeita.",
-    "disableFirst": "Desabilite a conta antes de removê-la.",
-    "confirm": "Remover conta",
+      "delete": {
+        "title": "Remover conta",
+        "body": "Remover a conta \"{{label}}\"? Esta ação não pode ser desfeita.",
+        "disableFirst": "Desabilite a conta antes de removê-la.",
+        "confirm": "Remover conta",
         "error": "Não foi possível remover a conta. Tente novamente."
       }
     },
     "models": {
       "title": "Catálogo de modelos",
-      "empty": "Nenhum modelo neste provider.",
+      "summary": "{{enabled}} de {{total}} modelo(s) habilitado(s)",
+      "empty": "Nenhum modelo neste provedor.",
       "meta": "Contexto: {{context}} tokens · custo/1k: {{input}} entrada · {{output}} saída",
       "effortMappings": "Esforço suportado",
       "effort": {
@@ -100,10 +119,11 @@
       }
     },
     "budgets": {
-      "title": "Budgets",
-      "empty": "Nenhum budget configurado. Sem budget, o consumo segue apenas os limites das contas.",
+      "title": "Orçamentos",
+      "count": "{{count}} orçamento(s) configurado(s)",
+      "empty": "Nenhum orçamento configurado. Sem orçamento, o consumo segue apenas os limites das contas.",
       "global": "Global",
-      "bar": "Consumo do budget {{scope}}",
+      "bar": "Consumo do orçamento {{scope}}",
       "consumption": "{{spent}} de {{limit}} · alerta em {{threshold}}%"
     },
     "bars": {
@@ -112,6 +132,7 @@
     },
     "routing": {
       "title": "Política de roteamento",
+      "count": "{{count}} política(s) definida(s)",
       "empty": "Nenhuma política de roteamento definida. O roteamento usa o modelo padrão de cada agente.",
       "active": "Ativa",
       "inactive": "Inativa",
