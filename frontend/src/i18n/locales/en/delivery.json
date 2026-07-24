@@ -1,0 +1,238 @@
+{
+  "delivery": {
+    "title": "Delivery Center",
+    "subtitle": "Portfolio by health and predictability, Delivery 360, honest forecast, reports and Daily Copilot.",
+    "loading": "Loading…",
+    "error": "Could not load delivery data.",
+    "back": "Back to portfolio",
+    "tabs": {
+      "overview": "Delivery 360",
+      "reports": "Reports",
+      "daily": "Daily Copilot"
+    },
+    "health": {
+      "label": "Health",
+      "green": "Healthy",
+      "yellow": "Watch",
+      "red": "Critical",
+      "unknown": "No signal"
+    },
+    "predictability": {
+      "label": "Predictability",
+      "on_track": "On track",
+      "at_risk": "At risk",
+      "off_track": "Off track",
+      "unknown": "Unknown"
+    },
+    "confidence": {
+      "label": "Confidence",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "criticality": {
+      "label": "Criticality",
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "indicatorStatus": {
+      "good": "Good",
+      "watch": "Watch",
+      "bad": "Bad",
+      "unknown": "No data"
+    },
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "portfolio": {
+      "title": "Delivery Portfolio",
+      "subtitle": "Deliveries by health and predictability — not dev cards.",
+      "viewLabel": "Filter",
+      "views": {
+        "all": "All",
+        "attention": "Needs my attention"
+      },
+      "count_one": "{{count}} delivery",
+      "count_other": "{{count}} deliveries",
+      "empty": "No deliveries in this filter.",
+      "noOwner": "No owner",
+      "noDate": "No date",
+      "columns": {
+        "name": "Delivery",
+        "health": "Health",
+        "predictability": "Predictability",
+        "owner": "Owner",
+        "committed": "Committed",
+        "forecast": "Forecast",
+        "milestones": "Milestones",
+        "attention": "Attention"
+      },
+      "open": "Open Delivery 360 for {{name}}",
+      "signalsCount_one": "{{count}} signal",
+      "signalsCount_other": "{{count}} signals"
+    },
+    "overview": {
+      "exec": {
+        "title": "Executive summary",
+        "owner": "Owner",
+        "milestones": "Milestones",
+        "openTasks": "Open tasks",
+        "blockedTasks": "Blocked tasks",
+        "committed": "Committed date",
+        "forecast": "Forecast date",
+        "lastActivity": "Last activity",
+        "attention": "Attention signals"
+      },
+      "plan": {
+        "title": "Plan & milestones",
+        "forecastTitle": "Honest forecast",
+        "forecastDate": "Forecast date",
+        "insufficient": "Insufficient evidence — the Delivery Forecast never invents a date.",
+        "basis": "Forecast basis",
+        "history": "Forecast history",
+        "recalc": "Recalculate forecast",
+        "noDate": "No date",
+        "committed": "Committed"
+      },
+      "technical": {
+        "title": "Technical health",
+        "empty": "No indicators available."
+      },
+      "risks": {
+        "title": "Risks & dependencies",
+        "empty": "No active risks.",
+        "openDependencies": "Open dependencies",
+        "blockedTasks": "Blocked tasks"
+      },
+      "decisions": {
+        "title": "Decisions",
+        "empty": "No decisions recorded.",
+        "open": "Open",
+        "total": "Total",
+        "resolved": "Resolved",
+        "unresolved": "Pending"
+      },
+      "docs": {
+        "title": "Documentation",
+        "coverage": "{{present}}/{{expected}} documents",
+        "present": "Present",
+        "missing": "Missing"
+      },
+      "value": {
+        "title": "Value & metrics",
+        "totalCost": "Total cost",
+        "totalTasks": "Tasks",
+        "feature": "Feature",
+        "tasks": "Tasks",
+        "success": "Success",
+        "failures": "Failures",
+        "cost": "Cost",
+        "empty": "No feature metrics yet."
+      },
+      "metrics": {
+        "title": "Metrics",
+        "dora": "DORA",
+        "own": "Own",
+        "measured": "Measured",
+        "notMeasured": "Not enough signal",
+        "columns": {
+          "metric": "Metric",
+          "value": "Value",
+          "basis": "Basis"
+        }
+      }
+    },
+    "reports": {
+      "title": "Reports Center",
+      "subtitle": "Generate, approve and send reports. Human approval is required before external sending.",
+      "empty": "No reports generated yet.",
+      "generate": {
+        "title": "Generate report",
+        "type": "Type",
+        "format": "Format",
+        "submit": "Generate"
+      },
+      "columns": {
+        "type": "Type",
+        "format": "Format",
+        "status": "Status",
+        "version": "Version",
+        "approvedBy": "Approved by",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "status": {
+        "draft": "Draft",
+        "approved": "Approved",
+        "sent": "Sent"
+      },
+      "types": {
+        "weekly_executive_status": "Weekly executive status",
+        "milestone_report": "Milestone report",
+        "homologation_readiness": "Homologation readiness",
+        "production_readiness": "Production readiness",
+        "closure_dossier": "Closure dossier"
+      },
+      "approve": "Approve",
+      "send": "Send",
+      "view": "View",
+      "close": "Close",
+      "unavailable": "Format unavailable ({{reason}})",
+      "approvedByLabel": "Approved by {{name}}",
+      "sentReceipt": "Sent via {{channel}} — {{result}}",
+      "sendDialog": {
+        "title": "External send (DEL-10)",
+        "channel": "Channel",
+        "recipient": "Recipient (opaque reference)",
+        "recipientHint": "Use a secret reference: env://, secret:// or keychain://. Never a literal address.",
+        "submit": "Send",
+        "cancel": "Cancel"
+      },
+      "channels": {
+        "email": "Email",
+        "teams": "Teams"
+      }
+    },
+    "daily": {
+      "title": "Daily Copilot",
+      "subtitle": "Pre-daily briefing, in-daily capture and post-daily summary. Does not create or update PO cards.",
+      "briefing": {
+        "title": "Pre-daily briefing",
+        "first": "First daily for this delivery.",
+        "last": "Last daily: {{date}}",
+        "snapshot": "Current snapshot",
+        "changes": "Changes since last daily",
+        "attention": "Needs attention",
+        "questions": "Recommended questions",
+        "empty": "Nothing to highlight."
+      },
+      "capture": {
+        "title": "Capture a marker",
+        "kind": "Kind",
+        "note": "Note",
+        "placeholder": "What was said in the daily…",
+        "submit": "Capture"
+      },
+      "kinds": {
+        "access": "Access",
+        "dependency": "Dependency",
+        "decision": "Decision",
+        "deadline": "Deadline",
+        "scope": "Scope",
+        "doc": "Documentation",
+        "risk": "Risk"
+      },
+      "summary": {
+        "title": "Post-daily summary",
+        "total_one": "{{count}} marker",
+        "total_other": "{{count}} markers",
+        "none": "No markers captured in this session.",
+        "poCards": "PO cards are not created by default."
+      }
+    }
+  }
+}

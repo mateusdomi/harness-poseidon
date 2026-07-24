@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Building2,
   FolderKanban,
+  PackageCheck,
   MessageSquare,
   Workflow,
   Wrench,
@@ -49,6 +50,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'board', path: '/board', icon: ClipboardList },
       { key: 'conversations', path: '/conversations', icon: MessagesSquare },
       { key: 'projects', path: '/projects', icon: FolderKanban },
+      { key: 'delivery', path: '/delivery', icon: PackageCheck },
     ],
   },
   {

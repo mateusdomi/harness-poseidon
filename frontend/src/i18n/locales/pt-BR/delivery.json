@@ -1,0 +1,238 @@
+{
+  "delivery": {
+    "title": "Central de Entregas",
+    "subtitle": "Portfólio por saúde e previsibilidade, Entrega 360, previsão honesta, relatórios e Daily Copilot.",
+    "loading": "Carregando…",
+    "error": "Não foi possível carregar os dados da entrega.",
+    "back": "Voltar ao portfólio",
+    "tabs": {
+      "overview": "Entrega 360",
+      "reports": "Relatórios",
+      "daily": "Daily Copilot"
+    },
+    "health": {
+      "label": "Saúde",
+      "green": "Saudável",
+      "yellow": "Atenção",
+      "red": "Crítica",
+      "unknown": "Sem sinal"
+    },
+    "predictability": {
+      "label": "Previsibilidade",
+      "on_track": "No prazo",
+      "at_risk": "Em risco",
+      "off_track": "Fora do prazo",
+      "unknown": "Indefinida"
+    },
+    "confidence": {
+      "label": "Confiança",
+      "high": "Alta",
+      "medium": "Média",
+      "low": "Baixa"
+    },
+    "criticality": {
+      "label": "Criticidade",
+      "critical": "Crítica",
+      "high": "Alta",
+      "medium": "Média",
+      "low": "Baixa"
+    },
+    "indicatorStatus": {
+      "good": "Bom",
+      "watch": "Observar",
+      "bad": "Ruim",
+      "unknown": "Sem dado"
+    },
+    "severity": {
+      "critical": "Crítico",
+      "warning": "Alerta",
+      "info": "Informação"
+    },
+    "portfolio": {
+      "title": "Portfólio de Entregas",
+      "subtitle": "Entregas por saúde e previsibilidade — não cards de dev.",
+      "viewLabel": "Filtro",
+      "views": {
+        "all": "Todas",
+        "attention": "Precisa da minha atenção"
+      },
+      "count_one": "{{count}} entrega",
+      "count_other": "{{count}} entregas",
+      "empty": "Nenhuma entrega neste filtro.",
+      "noOwner": "Sem dono",
+      "noDate": "Sem data",
+      "columns": {
+        "name": "Entrega",
+        "health": "Saúde",
+        "predictability": "Previsibilidade",
+        "owner": "Dono",
+        "committed": "Comprometida",
+        "forecast": "Prevista",
+        "milestones": "Marcos",
+        "attention": "Atenção"
+      },
+      "open": "Abrir Entrega 360 de {{name}}",
+      "signalsCount_one": "{{count}} sinal",
+      "signalsCount_other": "{{count}} sinais"
+    },
+    "overview": {
+      "exec": {
+        "title": "Resumo executivo",
+        "owner": "Dono",
+        "milestones": "Marcos",
+        "openTasks": "Tarefas abertas",
+        "blockedTasks": "Tarefas bloqueadas",
+        "committed": "Data comprometida",
+        "forecast": "Data prevista",
+        "lastActivity": "Última atividade",
+        "attention": "Sinais de atenção"
+      },
+      "plan": {
+        "title": "Plano & marcos",
+        "forecastTitle": "Previsão honesta",
+        "forecastDate": "Data prevista",
+        "insufficient": "Evidência insuficiente — o Delivery Forecast não inventa data.",
+        "basis": "Base da previsão",
+        "history": "Histórico de previsão",
+        "recalc": "Recalcular previsão",
+        "noDate": "Sem data",
+        "committed": "Comprometida"
+      },
+      "technical": {
+        "title": "Saúde técnica",
+        "empty": "Sem indicadores disponíveis."
+      },
+      "risks": {
+        "title": "Riscos & dependências",
+        "empty": "Nenhum risco ativo.",
+        "openDependencies": "Dependências abertas",
+        "blockedTasks": "Tarefas bloqueadas"
+      },
+      "decisions": {
+        "title": "Decisões",
+        "empty": "Nenhuma decisão registrada.",
+        "open": "Em aberto",
+        "total": "Total",
+        "resolved": "Resolvida",
+        "unresolved": "Pendente"
+      },
+      "docs": {
+        "title": "Documentação",
+        "coverage": "{{present}}/{{expected}} documentos",
+        "present": "Presente",
+        "missing": "Ausente"
+      },
+      "value": {
+        "title": "Valor & métricas",
+        "totalCost": "Custo total",
+        "totalTasks": "Tarefas",
+        "feature": "Feature",
+        "tasks": "Tarefas",
+        "success": "Sucesso",
+        "failures": "Falhas",
+        "cost": "Custo",
+        "empty": "Sem métricas de feature ainda."
+      },
+      "metrics": {
+        "title": "Métricas",
+        "dora": "DORA",
+        "own": "Próprias",
+        "measured": "Medida",
+        "notMeasured": "Sem sinal suficiente",
+        "columns": {
+          "metric": "Métrica",
+          "value": "Valor",
+          "basis": "Base"
+        }
+      }
+    },
+    "reports": {
+      "title": "Central de Relatórios",
+      "subtitle": "Gere, aprove e envie relatórios. Aprovação humana é obrigatória antes do envio externo.",
+      "empty": "Nenhum relatório gerado ainda.",
+      "generate": {
+        "title": "Gerar relatório",
+        "type": "Tipo",
+        "format": "Formato",
+        "submit": "Gerar"
+      },
+      "columns": {
+        "type": "Tipo",
+        "format": "Formato",
+        "status": "Situação",
+        "version": "Versão",
+        "approvedBy": "Aprovado por",
+        "created": "Criado",
+        "actions": "Ações"
+      },
+      "status": {
+        "draft": "Rascunho",
+        "approved": "Aprovado",
+        "sent": "Enviado"
+      },
+      "types": {
+        "weekly_executive_status": "Status executivo semanal",
+        "milestone_report": "Relatório de marcos",
+        "homologation_readiness": "Prontidão para homologação",
+        "production_readiness": "Prontidão para produção",
+        "closure_dossier": "Dossiê de encerramento"
+      },
+      "approve": "Aprovar",
+      "send": "Enviar",
+      "view": "Ver",
+      "close": "Fechar",
+      "unavailable": "Formato indisponível ({{reason}})",
+      "approvedByLabel": "Aprovado por {{name}}",
+      "sentReceipt": "Enviado por {{channel}} — {{result}}",
+      "sendDialog": {
+        "title": "Envio externo (DEL-10)",
+        "channel": "Canal",
+        "recipient": "Destinatário (referência opaca)",
+        "recipientHint": "Use uma referência de segredo: env://, secret:// ou keychain://. Nunca um endereço literal.",
+        "submit": "Enviar",
+        "cancel": "Cancelar"
+      },
+      "channels": {
+        "email": "E-mail",
+        "teams": "Teams"
+      }
+    },
+    "daily": {
+      "title": "Daily Copilot",
+      "subtitle": "Briefing pré-daily, captura durante e resumo pós-daily. Não cria nem atualiza cards de PO.",
+      "briefing": {
+        "title": "Briefing pré-daily",
+        "first": "Primeira daily desta entrega.",
+        "last": "Última daily: {{date}}",
+        "snapshot": "Foto atual",
+        "changes": "Mudanças desde a última daily",
+        "attention": "Precisa de atenção",
+        "questions": "Perguntas recomendadas",
+        "empty": "Nada a destacar."
+      },
+      "capture": {
+        "title": "Capturar marcação",
+        "kind": "Tipo",
+        "note": "Nota",
+        "placeholder": "O que foi dito na daily…",
+        "submit": "Capturar"
+      },
+      "kinds": {
+        "access": "Acesso",
+        "dependency": "Dependência",
+        "decision": "Decisão",
+        "deadline": "Prazo",
+        "scope": "Escopo",
+        "doc": "Documentação",
+        "risk": "Risco"
+      },
+      "summary": {
+        "title": "Resumo pós-daily",
+        "total_one": "{{count}} marcação",
+        "total_other": "{{count}} marcações",
+        "none": "Nenhuma marcação capturada nesta sessão.",
+        "poCards": "Cards de PO não são criados por padrão."
+      }
+    }
+  }
+}
