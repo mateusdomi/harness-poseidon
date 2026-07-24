@@ -14,6 +14,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  FileCog,
   Building2,
   FolderKanban,
   PackageCheck,
@@ -70,6 +71,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'architecture', path: '/architecture', icon: Network },
       { key: 'approvals', path: '/approvals', icon: UserRoundCheck },
       { key: 'governance', path: '/governance', icon: Scale },
+      { key: 'governance-docs', path: '/governance-docs', icon: FileCog },
     ],
   },
   {

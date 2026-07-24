@@ -57,6 +57,7 @@
     "providers": "Providers",
     "po-assistant": "PO Assistant",
     "governance": "Governance",
+    "governance-docs": "Governance Documents",
     "licenses": "Licenses",
     "settings": "Settings",
     "groups": {
@@ -81,6 +82,7 @@
       "architecture": "architecture studio c4 archimate elements views diagrams model",
       "approvals": "pending gates decisions review approve",
       "governance": "audit trail policies limits timeline",
+      "governance-docs": "governance behavior chief rules docs edit disk core manifest",
       "organizations": "orgs company workspace brand",
       "providers": "models llm integrations api",
       "tools": "skills plugins mcp servers catalog",

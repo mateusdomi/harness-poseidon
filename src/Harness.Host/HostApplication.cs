@@ -8,6 +8,7 @@ using Harness.Host.Execution;
 using Harness.Host.Ipc;
 using Harness.Host.Licensing;
 using Harness.Host.Governance;
+using Harness.Host.GovernanceDocs;
 using Harness.Host.Organizations;
 using Harness.Host.Notifications;
 using Harness.Host.Operations;
@@ -462,6 +463,12 @@ public static class HostApplication
             services.GetRequiredService<ChiefContextStrategyOptions>()));
         var governanceRoot = ResolveGovernanceRoot(builder.Environment.ContentRootPath)
             ?? throw new DirectoryNotFoundException("governance/manifest.yaml is required by the Chief runtime.");
+        // Raiz do repositório para leitura/escrita dos docs de governança pela UI.
+        // Prioriza config explícita; senão usa a raiz canônica da governança (mesma
+        // que o runtime lê do disco, logo edições passam a valer para o Chefe).
+        var governanceDocsRoot = builder.Configuration["Harness:GovernanceDocsRoot"];
+        builder.Services.AddSingleton(new GovernanceDocsService(
+            string.IsNullOrWhiteSpace(governanceDocsRoot) ? governanceRoot : governanceDocsRoot));
         builder.Services.AddSingleton(new ContextBundleBuilder(governanceRoot));
         builder.Services.AddSingleton(new StaleDocumentDetector(
             governanceRoot,
@@ -586,6 +593,7 @@ public static class HostApplication
         app.MapNotifications();
         app.MapGovernance();
         app.MapGovernanceRuntime();
+        app.MapGovernanceDocs();
         app.MapLearningCandidates();
         app.MapPrototypes();
         app.MapVisualReferenceAssets();

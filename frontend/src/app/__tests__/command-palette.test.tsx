@@ -131,7 +131,7 @@ describe('CommandPalette', () => {
     await user.click(screen.getByRole('button', { name: /buscar telas/i }));
     await user.type(screen.getByRole('combobox'), 'govern');
 
-    await user.click(screen.getByRole('option', { name: /governança/i }));
+    await user.click(screen.getByRole('option', { name: 'Governança' }));
     expect(screen.getByTestId('location')).toHaveTextContent('/governance');
   });
 

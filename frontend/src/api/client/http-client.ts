@@ -98,8 +98,12 @@ import {
   type LearningTransition,
   type LearningTransitionInput,
   type ProjectReadinessSnapshot,
+  type GovernanceDocTree,
+  type GovernanceDocContent,
   chatTurnHandleSchema,
   projectReadinessSnapshotSchema,
+  governanceDocTreeSchema,
+  governanceDocContentSchema,
 } from '../contracts';
 import type { ApiClient } from './api-client';
 import {
@@ -108,6 +112,18 @@ import {
   publishApiRequestTelemetry,
   safeRequestPath,
 } from '../request-observability';
+
+/**
+ * Codifica um path relativo de documento (rota catch-all `{**path}`):
+ * cada segmento é percent-encoded, mas as barras são preservadas. O backend
+ * revalida o allowlist e bloqueia traversal — isto é só higiene de URL.
+ */
+function encodeDocPath(path: string): string {
+  return path
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
 
 export interface HttpApiClientOptions {
   /** Base URL do backend (ex.: `https://localhost:5001`). Rotas em `/api/v1`. */
@@ -577,6 +593,29 @@ export class HttpApiClient implements ApiClient {
       { 'Idempotency-Key': key },
     );
     return learningCandidateSchema.parse(response);
+  }
+
+  async listGovernanceDocs(): Promise<GovernanceDocTree> {
+    const response = await this.#request<unknown>('GET', '/governance-docs');
+    return governanceDocTreeSchema.parse(response);
+  }
+
+  async readGovernanceDoc(path: string): Promise<GovernanceDocContent> {
+    const response = await this.#request<unknown>('GET', `/governance-docs/${encodeDocPath(path)}`);
+    return governanceDocContentSchema.parse(response);
+  }
+
+  async saveGovernanceDoc(path: string, content: string): Promise<GovernanceDocContent> {
+    const response = await this.#request<unknown>(
+      'PUT',
+      `/governance-docs/${encodeDocPath(path)}`,
+      { content },
+    );
+    return governanceDocContentSchema.parse(response);
+  }
+
+  async deleteGovernanceDoc(path: string): Promise<void> {
+    await this.#request<unknown>('DELETE', `/governance-docs/${encodeDocPath(path)}`);
   }
 
   async #request<T>(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
