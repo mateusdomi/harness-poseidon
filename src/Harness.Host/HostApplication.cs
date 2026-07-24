@@ -31,6 +31,7 @@ using Harness.Host.Tools;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Application.Execution;
+using Harness.Modules.Agents.Infrastructure.Conversation;
 using Harness.Modules.Agents.Infrastructure.Fake;
 using Harness.Modules.Agents.Infrastructure.OmpRpc;
 using Harness.Modules.Execution.Application.Sandbox;
@@ -363,6 +364,21 @@ public static class HostApplication
                     : Path.GetFullPath(agentRunSettings.ArchiveRoot)));
             builder.Services.AddSingleton(services => new ExternalAgentExecutorFactory(
                 services.GetRequiredService<AccountProfileProvisioner>()));
+
+            // GP-06: com AgentRuns habilitado e raiz controlada declarada, o turno de conversa
+            // do Chefe passa a ser executado DE VERDADE pela CLI (assinatura Claude Code da
+            // conta chief-orchestrator), no caminho LEVE (sem worktree/claim). Esta é a última
+            // registração de IAgentExecutor, então vence o UnavailableAgentExecutor default. O
+            // próprio executor cai para falha honesta (AgentExecutorUnavailableException,
+            // idêntica ao Unavailable) quando a conta do Chefe está ausente ou desabilitada.
+            builder.Services.AddSingleton<IAgentExecutor>(services => new ConversationChiefAgentExecutor(
+                services.GetRequiredService<AgentAccountRegistry>(),
+                services.GetRequiredService<AccountProfileProvisioner>(),
+                executorId => services.GetRequiredService<ExternalAgentExecutorFactory>().Create(executorId),
+                services.GetRequiredService<IClock>(),
+                new ConversationChiefExecutorOptions(
+                    Path.GetFullPath(agentRunSettings.ControlledRoot!))));
+
             builder.Services.AddSingleton(services => new AgentRunOrchestrator(
                 services.GetRequiredService<IAttemptWorkspaceStore>(),
                 services.GetRequiredService<IGovernanceRuntimeStore>(),
