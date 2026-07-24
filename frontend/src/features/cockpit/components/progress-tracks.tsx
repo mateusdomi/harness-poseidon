@@ -1,6 +1,8 @@
+import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { Progress, ProgressTrack } from '@/api';
+import { Tooltip } from '@/design-system';
 import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +25,18 @@ export function ProgressTracks({ progress }: { progress: Progress }) {
       {TRACKS.map((track) => (
         <div key={track} className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="text-foreground-muted">{t(`cockpit.progress.tracks.${track}`)}</span>
+            <span className="flex items-center gap-1.5 text-foreground-muted">
+              {t(`cockpit.progress.tracks.${track}`)}
+              <Tooltip label={t(`cockpit.progress.tooltips.${track}`)}>
+                <button
+                  type="button"
+                  aria-label={t(`cockpit.progress.tooltips.${track}`)}
+                  className="rounded-full text-foreground-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <Info aria-hidden="true" className="size-3.5" />
+                </button>
+              </Tooltip>
+            </span>
             <span className="font-medium tabular-nums">{formatNumber(progress[track])}%</span>
           </div>
           <div

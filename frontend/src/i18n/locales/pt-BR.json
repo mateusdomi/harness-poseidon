@@ -748,11 +748,23 @@
     },
     "progress": {
       "globalTitle": "Progresso global do projeto",
+      "subtitle": "Três trilhas independentes — nunca somadas. Passe o mouse em cada uma para entender o que ela mede.",
       "tracks": {
         "executed": "Executado",
         "validated": "Validado",
         "approved": "Aprovado"
+      },
+      "tooltips": {
+        "executed": "Executado = quanto do trabalho os agentes já produziram (código, documentos). Ainda não significa que está correto.",
+        "validated": "Validado = quanto do trabalho já passou pela revisão automática e pelos testes/gates de qualidade.",
+        "approved": "Aprovado = quanto do trabalho você (ou o chefe) já aprovou formalmente como pronto para entregar."
       }
+    },
+    "tasksChart": {
+      "title": "Distribuição de tarefas",
+      "subtitle": "Quantas tarefas há em cada estágio da fábrica agora.",
+      "empty": "Nenhuma tarefa neste projeto ainda.",
+      "bar": "{{state}}: {{count}} tarefas"
     },
     "nextAction": {
       "title": "Próxima ação recomendada",
@@ -794,8 +806,20 @@
       "viewAll": "Ver todas as aprovações"
     },
     "agents": {
-      "title": "Saúde dos agentes",
-      "empty": "Nenhum agente vinculado a este projeto."
+      "title": "Fábrica de agentes",
+      "empty": "Nenhum agente vinculado a este projeto.",
+      "online": "Online",
+      "onlineTooltip": "Agentes prontos para produzir (trabalhando, ociosos ou aguardando). Não conta os em erro ou sem cota.",
+      "tasksDone": "Tarefas concluídas",
+      "tasksDoneTooltip": "Total de tarefas já entregues pela equipe de agentes deste projeto (acumulado).",
+      "tasksTodo": "Tarefas a fazer",
+      "tasksTodoTooltip": "Tarefas que ainda não foram concluídas — a fila de produção que resta.",
+      "problems": "Sem capacidade",
+      "problemsTooltip": "Agentes em erro ou sem cota. Cada um aqui é capacidade de produção parada.",
+      "workingNow": "Produzindo agora",
+      "needAttention": "Precisam de atenção",
+      "idleLabel": "ocioso",
+      "problemState": "sem capacidade"
     },
     "quotas": {
       "title": "Cotas críticas",
@@ -807,7 +831,8 @@
     },
     "activity": {
       "title": "Atividade recente",
-      "empty": "Nenhum evento de auditoria ainda.",
+      "empty": "Nenhuma atividade relevante ainda. Aqui aparecem tarefas que mudam de estágio, documentos criados ou aprovados e conversas — não o vaivém técnico interno.",
+      "noise": "Eventos técnicos internos foram ocultados para mostrar só o que muda a operação.",
       "period": {
         "label": "Período da atividade",
         "options": {
@@ -848,7 +873,14 @@
         "organization.created": "Organização criada",
         "profile.settingsUpdated": "Preferências do perfil atualizadas",
         "conversation.created": "Conversa iniciada",
-        "workflow.linked": "Workflow vinculado ao projeto"
+        "workflow.linked": "Workflow vinculado ao projeto",
+        "task.stateChanged": "Tarefa mudou de estágio",
+        "task.completed": "Tarefa concluída",
+        "document.created": "Documento criado",
+        "document.approved": "Documento aprovado",
+        "document.stateChanged": "Documento mudou de estado",
+        "approval.requested": "Aprovação solicitada",
+        "demand.completed": "Demanda concluída"
       }
     }
   },

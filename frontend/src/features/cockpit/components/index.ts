@@ -5,3 +5,4 @@ export { NextActionCard } from './next-action-card';
 export { PhaseSummary } from './phase-summary';
 export { ProgressTracks } from './progress-tracks';
 export { TaskStateCounters } from './task-state-counters';
+export { TasksByStateChart } from './tasks-by-state-chart';

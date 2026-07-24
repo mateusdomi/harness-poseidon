@@ -1,36 +1,138 @@
+import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { AGENT_STATES, type Agent, type Budget } from '@/api';
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/design-system';
+import { type Agent, type Budget, type TaskState } from '@/api';
+import { Badge, Card, CardContent, CardHeader, CardTitle, Tooltip } from '@/design-system';
 import { formatCurrencyUSD, formatNumber } from '@/lib/format';
-import { agentStateVariant } from '@/lib/status';
-import { budgetSeverity, budgetUsagePct, countAgentsByState } from '@/features/cockpit/lib/cockpit-derive';
+import { budgetSeverity, budgetUsagePct, factoryAgentMetrics } from '@/features/cockpit/lib/cockpit-derive';
 import { cn } from '@/lib/utils';
 
-/** Saúde dos agentes do projeto: contadores por estado operacional. */
-export function AgentsHealthCard({ agents }: { agents: Agent[] }) {
+/** KPI da fábrica: rótulo, número e explicação (tooltip). */
+function FactoryKpi({
+  label,
+  tooltip,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  tooltip: string;
+  value: number;
+  tone?: 'default' | 'good' | 'alert';
+}) {
+  const valueClass =
+    tone === 'alert' && value > 0
+      ? 'text-error'
+      : tone === 'good'
+        ? 'text-success'
+        : 'text-foreground';
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-elevated/40 p-3">
+      <span className="flex items-center gap-1 text-xs text-foreground-muted">
+        {label}
+        <Tooltip label={tooltip}>
+          <button
+            type="button"
+            aria-label={tooltip}
+            className="rounded-full text-foreground-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Info aria-hidden="true" className="size-3.5" />
+          </button>
+        </Tooltip>
+      </span>
+      <span className={cn('font-heading text-2xl font-semibold tabular-nums', valueClass)}>
+        {formatNumber(value)}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Fábrica de agentes — visão de dono: capacidade produtiva em números
+ * (online, entregas, fila, capacidade parada) e nomes humanos de quem está
+ * produzindo agora e de quem precisa de atenção. Não é log técnico.
+ */
+export function AgentsHealthCard({
+  agents,
+  taskCounts,
+}: {
+  agents: Agent[];
+  taskCounts: Record<TaskState, number>;
+}) {
   const { t } = useTranslation();
-  const counts = countAgentsByState(agents);
+  const m = factoryAgentMetrics(agents, taskCounts);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>{t('cockpit.agents.title')}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
         {agents.length === 0 ? (
           <p className="text-sm text-foreground-muted">{t('cockpit.agents.empty')}</p>
         ) : (
-          <ul className="flex flex-wrap gap-2">
-            {AGENT_STATES.map((state) => (
-              <li key={state}>
-                <Badge variant={agentStateVariant(state)} className="px-3 py-1.5 text-sm">
-                  {t(`status.agentState.${state}`)}
-                  <span className="font-semibold tabular-nums">{formatNumber(counts[state])}</span>
-                </Badge>
-              </li>
-            ))}
-          </ul>
+          <>
+            <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <FactoryKpi
+                label={t('cockpit.agents.online')}
+                tooltip={t('cockpit.agents.onlineTooltip')}
+                value={m.online}
+                tone="good"
+              />
+              <FactoryKpi
+                label={t('cockpit.agents.tasksDone')}
+                tooltip={t('cockpit.agents.tasksDoneTooltip')}
+                value={m.tasksDone}
+              />
+              <FactoryKpi
+                label={t('cockpit.agents.tasksTodo')}
+                tooltip={t('cockpit.agents.tasksTodoTooltip')}
+                value={m.tasksTodo}
+              />
+              <FactoryKpi
+                label={t('cockpit.agents.problems')}
+                tooltip={t('cockpit.agents.problemsTooltip')}
+                value={m.problems}
+                tone="alert"
+              />
+            </dl>
+            {m.working.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-foreground-muted">
+                  {t('cockpit.agents.workingNow')}
+                </span>
+                <ul className="flex flex-wrap gap-2">
+                  {m.working.map((agent) => (
+                    <li key={agent.id}>
+                      <Badge variant="info" className="px-3 py-1.5 text-sm">
+                        {agent.name}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {m.attention.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-error">
+                  {t('cockpit.agents.needAttention')}
+                </span>
+                <ul className="flex flex-wrap gap-2">
+                  {m.attention.map((agent) => (
+                    <li key={agent.id}>
+                      <Badge variant="error" className="px-3 py-1.5 text-sm">
+                        {agent.name}
+                        <span className="font-normal">
+                          {agent.state === 'outOfQuota'
+                            ? t('status.agentState.outOfQuota')
+                            : t('status.agentState.error')}
+                        </span>
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

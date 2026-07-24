@@ -34,10 +34,17 @@ export interface HumanizedActivity {
 export const KNOWN_ACTIONS = [
   'agent.error',
   'approval.resolved',
+  'approval.requested',
   'demand.created',
+  'demand.completed',
   'license.validated',
   'solicitation.created',
   'task.created',
+  'task.stateChanged',
+  'task.completed',
+  'document.created',
+  'document.approved',
+  'document.stateChanged',
   'workflow.operationModeChanged',
   'workflow.versionPublished',
   'project.created',
@@ -48,6 +55,51 @@ export const KNOWN_ACTIONS = [
 ] as const;
 
 const KNOWN_ACTION_SET = new Set<string>(KNOWN_ACTIONS);
+
+/**
+ * Vaivém técnico interno que NÃO interessa ao dono da fábrica: troca de estado
+ * do turno do chefe, mensagens anexadas, heartbeats, progresso incremental,
+ * leases de orquestração. O feed de atividade é "o que mudou a operação", não
+ * o log de execução (esse vive na Governança). Marcamos por SUBSTRING do
+ * `action`/`targetType` porque o contrato de auditoria é de string aberta.
+ */
+const TECHNICAL_NOISE_MATCHERS = [
+  'turnstate',
+  'turn.',
+  'message.appended',
+  'message.',
+  'heartbeat',
+  'progress.updated',
+  'progress.recomputed',
+  'lease',
+  'fencing',
+  'probe',
+  'heartbeated',
+  '.synced',
+  '.ping',
+  'chiefturn',
+] as const;
+
+const NOISE_TARGET_TYPES = new Set<string>([
+  'chiefTurn',
+  'turn',
+  'message',
+  'heartbeat',
+  'lease',
+]);
+
+/**
+ * Um evento é "significativo" para o dono quando NÃO é vaivém técnico. Regra
+ * conservadora: reprova apenas o que casa o denylist; qualquer evento de
+ * negócio (tarefa, documento, aprovação, demanda, conversa, agente, projeto)
+ * passa e é humanizado normalmente. Nunca inventamos texto — só escondemos
+ * ruído (o histórico completo continua na Governança).
+ */
+export function isMeaningfulActivity(event: AuditEvent): boolean {
+  if (NOISE_TARGET_TYPES.has(event.targetType)) return false;
+  const action = event.action.toLowerCase();
+  return !TECHNICAL_NOISE_MATCHERS.some((needle) => action.includes(needle));
+}
 
 /** Sufixos de verbo que indicam falha/atenção — usados só como heurística. */
 const ERROR_SUFFIXES = ['error', 'failed', 'rejected', 'cancelled'];
