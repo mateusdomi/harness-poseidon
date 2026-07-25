@@ -245,6 +245,10 @@ describe('ChatPage', () => {
     const triggers = await screen.findAllByRole('button', {
       name: 'Abrir perfil de Bruna Magalhães',
     });
+    expect(within(triggers[0]).getByAltText('Foto de Bruna Magalhães')).toHaveAttribute(
+      'width',
+      '72',
+    );
     await user.click(triggers[0]);
 
     const dialog = await screen.findByRole('dialog', { name: 'Perfil de Bruna Magalhães' });

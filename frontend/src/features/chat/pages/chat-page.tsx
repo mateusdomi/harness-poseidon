@@ -390,16 +390,25 @@ export default function ChatPage() {
                   {/* RESPOSTA REAL em streaming — só aparece quando há conteúdo
                     do chefe, aí sim como mensagem dele. */}
                   {turn.text !== '' && (
-                    <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-xl border border-border bg-surface-elevated p-3 shadow-card lg:max-w-[70%]">
-                      <header className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
-                        <BrunaProfileAvatar size={28} />
-                        <span className="text-sm font-semibold text-foreground">
-                          {resolveAgentIdentity('chief-orchestrator').humanName}
-                        </span>
-                        <Badge variant="info">{t('chat.authors.chief')}</Badge>
-                        <span>{t('chat.turn.streamingLabel')}</span>
+                    <article className="flex max-w-[92%] flex-col gap-3 self-start rounded-xl border border-border bg-surface-elevated p-4 shadow-card md:p-5 lg:max-w-[78%]">
+                      <header className="flex flex-wrap items-start gap-3 text-xs text-foreground-muted">
+                        <BrunaProfileAvatar
+                          size={72}
+                          className="ring-2 ring-brand/40 shadow-glow ring-offset-2 ring-offset-surface-elevated"
+                        />
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              {resolveAgentIdentity('chief-orchestrator').humanName}
+                            </span>
+                            <Badge variant="info">{t('chat.authors.chief')}</Badge>
+                          </div>
+                          <span>{t('chat.turn.streamingLabel')}</span>
+                        </div>
                       </header>
-                      <MarkdownContent content={turn.text} />
+                      <div className="md:pl-[5.5rem]">
+                        <MarkdownContent content={turn.text} />
+                      </div>
                     </article>
                   )}
                 </>

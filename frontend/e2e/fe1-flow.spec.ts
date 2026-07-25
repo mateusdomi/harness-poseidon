@@ -74,6 +74,12 @@ test.describe('Gate FE-1', () => {
     await composer.fill(PLAN_MESSAGE);
     await page.getByRole('button', { name: 'Enviar mensagem' }).click();
     await expect(page.getByText(/Entendi o contexto/)).toBeVisible({ timeout: 10_000 });
+    const brunaAvatar = page
+      .getByRole('button', { name: 'Abrir perfil de Bruna Magalhães' })
+      .last();
+    await expect(brunaAvatar).toBeVisible();
+    await expect(brunaAvatar.locator('img')).toHaveCSS('width', '72px');
+    await expect(brunaAvatar.locator('img')).toHaveCSS('height', '72px');
 
     // 6. Quadro: o chefe criou demanda + tarefas (eventos no stream do projeto).
     await navTo(page, 'Quadro');

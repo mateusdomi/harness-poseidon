@@ -72,29 +72,44 @@ export function MessageBubble({
   return (
     <article
       className={cn(
-        'group relative flex max-w-[85%] flex-col gap-2 rounded-xl border p-3 motion-safe:transition-colors motion-safe:duration-fast lg:max-w-[70%]',
+        'group relative flex max-w-[92%] flex-col rounded-xl border motion-safe:transition-colors motion-safe:duration-fast',
         isUser
-          ? 'self-end border-primary/20 bg-primary/10'
-          : 'self-start border-border bg-surface-elevated shadow-card',
+          ? 'self-end gap-2 border-primary/20 bg-primary/10 p-3 lg:max-w-[70%]'
+          : 'self-start gap-3 border-border bg-surface-elevated p-4 shadow-card md:p-5 lg:max-w-[78%]',
       )}
     >
-      <header className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      <header
+        className={cn(
+          'flex flex-wrap gap-x-2 gap-y-0.5',
+          message.authorRole === 'chief' ? 'items-start gap-3' : 'items-center',
+        )}
+      >
         {message.authorRole === 'chief' ? (
-          <BrunaProfileAvatar size={40} />
-        ) : (
-          identity && <AgentAvatar name={identity.humanName} size={36} />
-        )}
-        <span className="text-sm font-semibold text-foreground">
-          {identity?.humanName ?? authorName ?? roleLabel}
-        </span>
-        {(identity || authorName) && (
-          <span className="text-xs text-foreground-muted">
-            {identity?.roleLabel ?? roleLabel}
-          </span>
-        )}
-        <time dateTime={message.createdAt} className="text-xs tabular-nums text-foreground-muted">
-          {formatDateTime(message.createdAt)}
-        </time>
+          <BrunaProfileAvatar
+            size={72}
+            className="ring-2 ring-brand/40 shadow-glow ring-offset-2 ring-offset-surface-elevated"
+          />
+        ) : identity ? (
+          <AgentAvatar name={identity.humanName} size={36} />
+        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-sm font-semibold text-foreground">
+              {identity?.humanName ?? authorName ?? roleLabel}
+            </span>
+            {(identity || authorName) && (
+              <span className="text-xs text-foreground-muted">
+                {identity?.roleLabel ?? roleLabel}
+              </span>
+            )}
+          </div>
+          <time
+            dateTime={message.createdAt}
+            className="text-xs tabular-nums text-foreground-muted"
+          >
+            {formatDateTime(message.createdAt)}
+          </time>
+        </div>
         <button
           type="button"
           onClick={() => void copyContent()}
@@ -114,7 +129,9 @@ export function MessageBubble({
           )}
         </button>
       </header>
-      <MarkdownContent content={visibleContent} />
+      <div className={cn(message.authorRole === 'chief' && 'md:pl-[5.5rem]')}>
+        <MarkdownContent content={visibleContent} />
+      </div>
       {/* Feedback da cópia para leitores de tela (o visual é o ícone ✓). */}
       <p role="status" aria-live="polite" className="sr-only">
         {copied ? t('chat.message.copied') : ''}
