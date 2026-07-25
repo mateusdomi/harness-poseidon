@@ -174,3 +174,15 @@ Evidências em viewport notebook:
 - [fotos finais na Fleet e no organograma](homologation-increment-03/followup-notebook-agentes-fotos.png)
 
 Validação adicional: `npm run check` (652/652), builds de produção e Storybook, `npm run test:e2e` (78/78), `npm run test:a11y` (46/46), `npm run test:e2e:real` (3/3) e `tools/backend/verify.sh` (governança 0/0, build .NET 0/0 e 817/817 testes). O advisory incompatível do React Router permanece a única pendência externa já registrada acima.
+
+## Auditoria final de publicação Git
+
+Auditoria executada em 2026-07-25 após o ajuste visual:
+
+- `develop` local e `origin/develop` apontavam para `a60b13e0bbc1b513fb5b721bf6a4305da24faf65`, sem divergência e com a árvore de trabalho limpa;
+- `main` local e `origin/main` apontavam para `de2190acd2445ae8693e13fa2bf979e8e6a77eaf`, sem divergência;
+- `main` é ancestral exata de `develop`: zero commits exclusivos em `main` e 426 commits de integração em `develop`;
+- o remoto continha somente as branches permanentes `main` e `develop`;
+- a API do GitHub informou zero pull requests abertos, inclusive drafts.
+
+O primeiro check remoto do commit `a60b13e` falhou antes dos demais gates porque o push reuniu paths de frontend e a evidência canônica de backend. A regra `verify-agent-scope.sh` exige publicações independentes para esses dois escopos. Não foi feito force-push nem reescrita de histórico. A remediação foi registrada e publicada por este commit documental isolado; o gate local foi repetido antes do push e o check remoto do novo `HEAD` foi acompanhado até o estado terminal.
