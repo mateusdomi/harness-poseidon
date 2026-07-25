@@ -7,6 +7,7 @@ import type {
   WorkflowRun,
   WorkflowTemplate,
 } from '@/api';
+import { resolveAgentIdentity } from '@/lib/agent-persona';
 
 export interface ProjectOperationalSummary {
   phaseName: string | null;
@@ -59,7 +60,10 @@ export function deriveProjectOperationalSummary(
     totalTasks: tasks.length,
     progressPercent:
       tasks.length === 0 ? null : Math.round((completedTasks / tasks.length) * 100),
-    responsibleName: responsible?.name ?? null,
+    responsibleName:
+      responsible === null
+        ? null
+        : resolveAgentIdentity('chief-orchestrator', responsible.name).humanName,
     health: tasks.length === 0 && !workflow ? 'unavailable' : hasAttention ? 'attention' : 'healthy',
     workflowName:
       workflow === null

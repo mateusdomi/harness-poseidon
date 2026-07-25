@@ -39,6 +39,54 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function publicDeliveryText(value: string): string {
+  return value
+    .replace(/milestones complete/gi, 'marcos concluídos')
+    .replace(/open dependencies/gi, 'dependências abertas')
+    .replace(/pending validations/gi, 'validações pendentes')
+    .replace(/no completed-milestone variance history yet/gi, 'ainda não há histórico de variação de marcos concluídos')
+    .replace(/average recorded variance ([+-]?[0-9.]+) day\(s\)/gi, 'variação média registrada de $1 dia(s)')
+    .replace(/no committed date recorded/gi, 'nenhuma data comprometida registrada')
+    .replace(/committed date ([0-9-]+)/gi, 'data comprometida $1')
+    .replace(/no plan milestones to project a delivery date from/gi, 'não há marcos de plano para projetar uma data de entrega')
+    .replace(/no committed date to anchor a forecast on/gi, 'não há data comprometida para ancorar a previsão');
+}
+
+const METRIC_LABELS: Readonly<Record<string, string>> = {
+  change_lead_time: 'Tempo de ciclo da mudança',
+  deployment_frequency: 'Frequência de implantação',
+  failed_deploy_recovery: 'Tempo de recuperação de implantação com falha',
+  change_fail_rate: 'Taxa de falha de mudança',
+  deploy_rework: 'Retrabalho de implantação',
+  forecast_accuracy: 'Acurácia da previsão',
+};
+
+const METRIC_BASIS: Readonly<Record<string, string>> = {
+  change_lead_time:
+    'Não há timestamps por mudança entre commit e implantação; o tempo de ciclo não pode ser derivado.',
+  deployment_frequency:
+    'Não há eventos de implantação com timestamps; a frequência ao longo do tempo não pode ser derivada.',
+  failed_deploy_recovery:
+    'Não há timestamps de falha e recuperação de implantação; o tempo de recuperação não pode ser derivado.',
+  change_fail_rate: 'Calculada a partir das tentativas de execução registradas e suas falhas.',
+  deploy_rework: 'Calculado a partir de itens que exigiram mais de uma tentativa registrada.',
+  forecast_accuracy:
+    'Exige uma data de entrega realizada para comparar com uma previsão datada.',
+  documentation_coverage: 'Calculada a partir dos documentos esperados presentes.',
+  homologation_defects: 'Contagem de tarefas atualmente no estado de correção.',
+  scope_changes: 'Contagem de solicitações que substituíram uma solicitação anterior.',
+  open_dependencies: 'Contagem de tarefas abertas bloqueadas por dependência não resolvida.',
+  time_waiting_access:
+    'Contagem de tarefas abertas aguardando acesso; a duração da espera não é registrada.',
+  planned_vs_realized_value: 'Relação entre marcos planejados e marcos realizados.',
+};
+
+const METRIC_UNITS: Readonly<Record<string, string>> = {
+  count: 'itens',
+  milestones: 'marcos',
+  days: 'dias',
+};
+
 function ForecastBlock({ forecast }: { forecast: DeliveryForecast }) {
   const { t, i18n } = useTranslation();
   const date = formatDate(forecast.forecastDate, i18n.language);
@@ -60,7 +108,7 @@ function ForecastBlock({ forecast }: { forecast: DeliveryForecast }) {
           <p className="text-xs font-medium text-foreground-muted">{t('delivery.overview.plan.basis')}</p>
           <ul className="mt-1 list-disc pl-5 text-xs text-foreground-muted">
             {forecast.basis.map((b) => (
-              <li key={b.signal}>{b.detail}</li>
+              <li key={b.signal}>{publicDeliveryText(b.detail)}</li>
             ))}
           </ul>
         </div>
@@ -86,18 +134,20 @@ function MetricTable({ title, metrics }: { title: string; metrics: DeliveryMetri
           <tbody>
             {metrics.map((m) => (
               <tr key={m.key} className="border-b border-border">
-                <td className="py-1 pr-2 text-foreground">{m.label}</td>
+                <td className="py-1 pr-2 text-foreground">{METRIC_LABELS[m.key] ?? m.label}</td>
                 <td className="py-1 pr-2">
                   {m.measured ? (
                     <span className="font-medium text-foreground">
                       {m.value}
-                      {m.unit ? ` ${m.unit}` : ''}
+                      {m.unit ? ` ${METRIC_UNITS[m.unit] ?? m.unit}` : ''}
                     </span>
                   ) : (
                     <Badge variant="outline">{t('delivery.overview.metrics.notMeasured')}</Badge>
                   )}
                 </td>
-                <td className="py-1 text-xs text-foreground-muted">{m.basis}</td>
+                <td className="py-1 text-xs text-foreground-muted">
+                  {METRIC_BASIS[m.key] ?? publicDeliveryText(m.basis)}
+                </td>
               </tr>
             ))}
           </tbody>

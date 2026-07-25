@@ -109,7 +109,7 @@
         "title": "Plano & marcos",
         "forecastTitle": "Previsão honesta",
         "forecastDate": "Data prevista",
-        "insufficient": "Evidência insuficiente — o Delivery Forecast não inventa data.",
+        "insufficient": "Evidência insuficiente — a previsão de entrega não inventa uma data.",
         "basis": "Base da previsão",
         "history": "Histórico de previsão",
         "recalc": "Recalcular previsão",

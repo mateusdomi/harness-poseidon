@@ -6,6 +6,7 @@ import { buildFixtures, streams, type Message } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { MessageBubble } from '@/features/chat/components/message-bubble';
+import { publicLeadershipContent } from '@/features/chat/lib/public-leadership';
 import {
   deriveQuickActions,
   extractReferences,
@@ -86,6 +87,14 @@ describe('chat-derive', () => {
 });
 
 describe('MessageBubble', () => {
+  it('humaniza referências históricas à liderança sem alterar o dado persistido', () => {
+    const persisted = 'Olá! Chief operacional e pronto. O Chefe acompanhará o fluxo.';
+    expect(publicLeadershipContent(persisted)).toBe(
+      'Olá! Bruna Magalhães está pronta. Bruna Magalhães acompanhará o fluxo.',
+    );
+    expect(persisted).toContain('Chief');
+  });
+
   it('copia o conteúdo e mostra feedback i18n', async () => {
     const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -110,7 +119,7 @@ describe('MessageBubble', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Copiar mensagem' }));
-    expect(writeText).toHaveBeenCalledWith('Resposta do chefe.');
+    expect(writeText).toHaveBeenCalledWith('Resposta de Bruna Magalhães.');
     expect(await screen.findByText('Mensagem copiada')).toBeInTheDocument();
   });
 });

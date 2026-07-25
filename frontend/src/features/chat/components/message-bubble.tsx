@@ -5,6 +5,7 @@ import { Check, ClipboardList, Copy, FileText } from 'lucide-react';
 
 import type { Document, Message, Task } from '@/api';
 import { extractReferences } from '@/features/chat/lib/chat-derive';
+import { publicLeadershipContent } from '@/features/chat/lib/public-leadership';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { AgentAvatar } from '@/features/shared/components/agent-avatar';
 import { BrunaProfileAvatar } from '@/features/chat/components/bruna-profile-avatar';
@@ -42,7 +43,9 @@ export function MessageBubble({
   // técnicos ficam fora da conversa e permanecem nos diagnósticos avançados.
   const isAgentAuthor = message.authorRole === 'chief' || message.authorRole === 'agent';
   const identity = isAgentAuthor ? resolveAgentIdentity(authorAlias, authorName) : null;
-  const references = extractReferences(message.content, tasks, documents);
+  const visibleContent =
+    message.authorRole === 'chief' ? publicLeadershipContent(message.content) : message.content;
+  const references = extractReferences(visibleContent, tasks, documents);
 
   const [copied, setCopied] = useState(false);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,7 +58,7 @@ export function MessageBubble({
 
   async function copyContent() {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(visibleContent);
       setCopied(true);
       if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
       feedbackTimer.current = setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
@@ -111,7 +114,7 @@ export function MessageBubble({
           )}
         </button>
       </header>
-      <MarkdownContent content={message.content} />
+      <MarkdownContent content={visibleContent} />
       {/* Feedback da cópia para leitores de tela (o visual é o ícone ✓). */}
       <p role="status" aria-live="polite" className="sr-only">
         {copied ? t('chat.message.copied') : ''}
