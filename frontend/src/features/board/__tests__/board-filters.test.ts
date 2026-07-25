@@ -4,6 +4,7 @@ import {
   DEFAULT_BOARD_FILTERS,
   filterBoardTasks,
   hasActiveBoardFilters,
+  isTaskStuck,
   normalizeBoardQuery,
   parseBoardFilters,
   periodCutoff,
@@ -25,12 +26,16 @@ describe('board-filters: parse e serialização da URL', () => {
 
   it('valida enums e descarta valores inválidos', () => {
     const params = new URLSearchParams(
-      'q=foo&state=blocked&priority=high&period=7d&archive=archived&agent=a1',
+      'q=foo&state=blocked&priority=high&period=7d&archive=archived&agent=a1&signature=front&specialty=Frontend&type=agent_task&phase=Implementação',
     );
     expect(parseBoardFilters(params)).toEqual({
       query: 'foo',
       state: 'blocked',
       agentId: 'a1',
+      signature: 'front',
+      specialty: 'Frontend',
+      cardType: 'agent_task',
+      phase: 'Implementação',
       priority: 'high',
       period: '7d',
       archive: 'archived',
@@ -136,6 +141,40 @@ describe('board-filters: filterBoardTasks', () => {
     expect(byAgent.every((task) => task.assigneeAgentId === withAgent.assigneeAgentId)).toBe(true);
   });
 
+  it('filtra por assinatura, especialidade, tipo e fase sem inventar metadados', () => {
+    const assigned = tasks.find((task) => task.assigneeAgentId !== null)!;
+    const sample = {
+      ...assigned,
+      cardType: 'human_gate' as const,
+      phaseName: 'Homologação',
+    };
+    const attributes = new Map([
+      [assigned.assigneeAgentId!, { signature: 'quality-critic', specialty: 'Qualidade' }],
+    ]);
+
+    const filtered = filterBoardTasks(
+      [sample],
+      {
+        ...DEFAULT_BOARD_FILTERS,
+        signature: 'quality-critic',
+        specialty: 'Qualidade',
+        cardType: 'human_gate',
+        phase: 'Homologação',
+      },
+      NOW,
+      attributes,
+    );
+    expect(filtered).toEqual([sample]);
+    expect(
+      filterBoardTasks(
+        [sample],
+        { ...DEFAULT_BOARD_FILTERS, signature: 'outra' },
+        NOW,
+        attributes,
+      ),
+    ).toEqual([]);
+  });
+
   it('filtra por período sobre a última atividade (updatedAt)', () => {
     const recent = new Date('2026-07-19T10:00:00Z');
     const old = new Date('2026-06-01T10:00:00Z');
@@ -147,6 +186,21 @@ describe('board-filters: filterBoardTasks', () => {
     expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: 'today' }, NOW)).toHaveLength(1);
     expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: '7d' }, NOW)).toHaveLength(1);
     expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: 'all' }, NOW)).toHaveLength(2);
+  });
+});
+
+describe('board-health: sinal conservador de estagnação', () => {
+  it('marca apenas trabalho ativo sem atualização por duas horas', () => {
+    const base = tasks[0];
+    expect(
+      isTaskStuck({ ...base, state: 'development', updatedAt: '2026-07-19T12:00:00Z' }, NOW),
+    ).toBe(true);
+    expect(
+      isTaskStuck({ ...base, state: 'development', updatedAt: '2026-07-19T14:00:01Z' }, NOW),
+    ).toBe(false);
+    expect(
+      isTaskStuck({ ...base, state: 'backlog', updatedAt: '2026-07-01T00:00:00Z' }, NOW),
+    ).toBe(false);
   });
 });
 

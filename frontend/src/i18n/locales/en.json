@@ -911,7 +911,8 @@
     }
   },
   "board": {
-    "hint": "Technical tasks are never created or edited by humans: they follow the solicitation → demand → task chain, driven by the chief. To ask for something new, create a solicitation in the chat.",
+    "kanbanLabel": "Horizontal Kanban board",
+    "hint": "Technical tasks follow the solicitation → demand → task chain coordinated by Bruna Magalhães. To ask for something new, create a solicitation in the chat; movements follow flow permissions and gates.",
     "hintCta": "Open the chat",
     "noProject": {
       "body": "The board shows a project's tasks. Create your first project to get started.",
@@ -919,7 +920,7 @@
     },
     "empty": {
       "title": "No tasks in this project",
-      "body": "The chief hasn't broken demands down into tasks yet. Talk to the chief in the chat: create a solicitation and follow the solicitation → demand → task chain.",
+      "body": "Bruna hasn't broken demands down into tasks yet. Talk to her in the chat: create a solicitation and follow the solicitation → demand → task chain.",
       "cta": "Create solicitation in the chat"
     },
     "column": {
@@ -932,7 +933,15 @@
       "blockedUnknown": "no reason given",
       "updated": "Updated {{time}}",
       "archived": "Archived",
-      "idLabel": "Task ID: {{id}}"
+      "idLabel": "Task ID: {{id}}",
+      "stuck": "Possible stagnation: active work has not been updated for at least 2 hours.",
+      "types": {
+        "feature": "Feature",
+        "agent_task": "Agent task",
+        "human_gate": "Human gate",
+        "spike": "Investigation",
+        "decision": "Decision"
+      }
     },
     "detail": {
       "back": "Back to the board",
@@ -987,14 +996,14 @@
       },
       "actions": {
         "title": "Human actions",
-        "explain": "You don't create or edit technical tasks — they follow the solicitation → demand → task chain, driven by the chief. Here you can reprioritize, pause, cancel, request review and decide gates. To ask for something new, use the chat.",
+        "explain": "Technical tasks follow the solicitation → demand → task chain coordinated by Bruna. Here you can reprioritize, pause, cancel, request review and decide gates. To ask for something new, use the chat.",
         "chatCta": "Create solicitation in the chat",
         "priorityLabel": "Change priority",
         "pause": "Pause",
         "cancel": "Cancel",
         "requestReview": "Request review",
         "pauseNote": "Paused by the user on the board.",
-        "cancelNote": "Cancelled by the user on the board; back to the backlog for the chief to re-plan.",
+        "cancelNote": "Cancelled by the user on the board; back to the backlog for Bruna to re-plan.",
         "reviewNote": "Review requested by the user on the board.",
         "error": "Could not complete the action. Please try again.",
         "archive": "Archive",
@@ -1008,6 +1017,13 @@
       "state": "Column",
       "agent": "Assignee",
       "agentAll": "All assignees",
+      "signature": "Signature",
+      "signatureAll": "All signatures",
+      "specialty": "Specialty",
+      "specialtyAll": "All specialties",
+      "type": "Type",
+      "phase": "Phase",
+      "phaseAll": "All phases",
       "priority": "Priority",
       "period": "Last activity",
       "periodAll": "All time",
@@ -1035,17 +1051,26 @@
     "flow": {
       "open": "How work flows",
       "title": "How work flows",
-      "intro": "Tasks advance through the columns in this order:",
+      "intro": "A card originates from a ready demand and advances only when each stage's criteria are met:",
+      "stages": {
+        "backlog": "Card origin: demand, expected result, scope and criteria still await Definition of Ready.",
+        "ready": "Definition of Ready is met; Bruna may dispatch it to a compatible agent.",
+        "development": "The agent implements with immutable instructions, attempts and traceable evidence.",
+        "review": "An independent critic reviews the result and records approval or findings.",
+        "corrections": "Rework after rejection; the card returns to the flow with a new versioned instruction.",
+        "testsGates": "Tests, technical gates and human decisions validate acceptance criteria.",
+        "done": "Completion only after evidence, gates and operational projections are reconciled."
+      },
       "blockedNote": "is transversal: it can happen from any column (external dependency, manual pause) and, once resolved, the task resumes to its origin column.",
       "humanTitle": "What you (human) do",
       "human": {
         "priority": "Change any task's priority",
         "pause": "Pause (the task goes to Blocked with a pause note)",
-        "cancel": "Cancel (returns to Backlog for the chief to re-plan)",
+        "cancel": "Cancel (returns to Backlog for Bruna to re-plan)",
         "requestReview": "Request review (moves to In review)",
         "gate": "Approve or reject gates and documents (rejection requires a note)"
       },
-      "agentsTitle": "What the chief and agents do",
+      "agentsTitle": "What Bruna and agents do",
       "agents": {
         "create": "Create tasks from the solicitation → demand → task chain",
         "move": "Move tasks across columns as work progresses",

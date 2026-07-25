@@ -54,16 +54,15 @@ public static class WorkBoardApplicationService
             throw new ArgumentException("DueAt must be UTC.", nameof(request));
         }
 
-        // O tipo de card fica FORA da resposta pública da task (BoardTaskContract é drift-checked
-        // contra o frontend); é validado aqui e devolvido à parte para alimentar o comando de
-        // persistência. Ausente => 'agent_task' (fail-safe: o card nasce auto-despachável).
+        // Ausente => 'agent_task' (fail-safe: o card nasce auto-despachável).
+        // O tipo também integra o contrato público para permitir filtros e rastreabilidade no quadro.
         var cardType = request.CardType is null ? "agent_task" : Choice(request.CardType, CardTypes);
 
         var task = new BoardTaskContract(
             Id(taskId), projectId, demandId, Text(request.Title, 500), "backlog",
             Choice(request.Priority ?? "medium", Priorities), assignee, null, 1,
             new WorkProgressContract(0m, 0m, 0m), Utc(now), now, request.DueAt, null,
-            OptionalText(request.PhaseName, 200));
+            OptionalText(request.PhaseName, 200), cardType);
         var instruction = new TaskInstructionContract(
             Id(instructionId), task.Id, 1, Text(request.Instruction, 100_000), "chief", null, now);
         return (task, instruction, cardType);

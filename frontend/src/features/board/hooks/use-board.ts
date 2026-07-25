@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   streams,
   type Agent,
+  type AgentDefinition,
   type Approval,
   type Attempt,
   type AttemptEvent,
@@ -21,6 +22,7 @@ import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
 export const boardKeys = {
   tasks: (projectId: Ulid) => ['board', 'tasks', projectId] as const,
   agents: (projectId: Ulid) => ['board', 'agents', projectId] as const,
+  definitions: ['board', 'agent-definitions'] as const,
   task: (taskId: Ulid) => ['board', 'task', taskId] as const,
   instructions: (taskId: Ulid) => ['board', 'task-instructions', taskId] as const,
   attempts: (taskId: Ulid) => ['board', 'attempts', taskId] as const,
@@ -49,6 +51,15 @@ export function useBoardAgents(projectId: Ulid | null) {
     queryFn: async (): Promise<Agent[]> =>
       (await api.list('agents', { filter: { projectId: projectId! } })).items,
     enabled: projectId !== null,
+  });
+}
+
+export function useBoardAgentDefinitions() {
+  const api = useApi();
+  return useQuery({
+    queryKey: boardKeys.definitions,
+    queryFn: async (): Promise<AgentDefinition[]> =>
+      (await api.list('agent-definitions', { filter: { includeArchived: true } })).items,
   });
 }
 

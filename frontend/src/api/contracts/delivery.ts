@@ -37,6 +37,10 @@ export const taskSchema = z.object({
   dueAt: isoDateTimeSchema.nullable(),
   /** Fase canônica do workflow associada à tarefa, quando informada. */
   phaseName: z.string().nullable().optional(),
+  /** Tipo operacional persistido do card (tarefa, gate, feature, spike ou decisão). */
+  cardType: z
+    .enum(['feature', 'agent_task', 'human_gate', 'spike', 'decision'])
+    .optional(),
   /**
    * Arquivamento é um METAESTADO (não entra na máquina de estados):
    * a tarefa arquivada some do quadro padrão, mas mantém estado/histórico

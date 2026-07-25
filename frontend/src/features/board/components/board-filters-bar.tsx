@@ -5,10 +5,17 @@ import { PRIORITIES, TASK_STATES, type Agent, type Priority, type TaskState } fr
 import { Button, Input, Select } from '@/design-system';
 import {
   hasActiveBoardFilters,
+  BOARD_CARD_TYPES,
   type BoardArchiveFilter,
+  type BoardCardType,
   type BoardFilters,
   type BoardPeriod,
 } from '@/features/board/lib/board-filters';
+
+export interface BoardSignatureOption {
+  value: string;
+  label: string;
+}
 
 export interface BoardFiltersBarProps {
   filters: BoardFilters;
@@ -17,6 +24,9 @@ export interface BoardFiltersBarProps {
    * "Responsável". Sem opções mortas: quem não recebe cards não aparece.
    */
   agents: Agent[];
+  signatures: BoardSignatureOption[];
+  specialties: string[];
+  phases: string[];
   /** Resultado do conjunto filtrado vs. total do projeto. */
   filteredCount: number;
   totalCount: number;
@@ -32,14 +42,18 @@ export interface BoardFiltersBarProps {
 
 /**
  * Barra de filtros do quadro (FR-3, 7.1): busca por título/ID, coluna,
- * responsável, prioridade, período (última atividade) e arquivamento —
+ * responsável, assinatura, especialidade, tipo, fase, prioridade, período
+ * (última atividade) e arquivamento —
  * tudo refletido na URL. Também concentra as ações da página: exportar
  * CSV do conjunto filtrado, arquivar concluídas (em lote) e a explicação
- * do fluxo. Filtro por fase NÃO existe (lacuna de contrato, D-075).
+ * do fluxo.
  */
 export function BoardFiltersBar({
   filters,
   agents,
+  signatures,
+  specialties,
+  phases,
   filteredCount,
   totalCount,
   archivableCount,
@@ -98,6 +112,74 @@ export function BoardFiltersBar({
             {agents.map((agent) => (
               <option key={agent.id} value={agent.id}>
                 {agent.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="board-filter-signature" className="text-xs font-medium">
+            {t('board.filters.signature')}
+          </label>
+          <Select
+            id="board-filter-signature"
+            value={filters.signature}
+            onChange={(event) => patch({ signature: event.target.value })}
+          >
+            <option value="">{t('board.filters.signatureAll')}</option>
+            {signatures.map((signature) => (
+              <option key={signature.value} value={signature.value}>
+                {signature.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="board-filter-specialty" className="text-xs font-medium">
+            {t('board.filters.specialty')}
+          </label>
+          <Select
+            id="board-filter-specialty"
+            value={filters.specialty}
+            onChange={(event) => patch({ specialty: event.target.value })}
+          >
+            <option value="">{t('board.filters.specialtyAll')}</option>
+            {specialties.map((specialty) => (
+              <option key={specialty} value={specialty}>
+                {specialty}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="board-filter-type" className="text-xs font-medium">
+            {t('board.filters.type')}
+          </label>
+          <Select
+            id="board-filter-type"
+            value={filters.cardType}
+            onChange={(event) => patch({ cardType: event.target.value as BoardCardType | '' })}
+          >
+            <option value="">{t('board.filters.all')}</option>
+            {BOARD_CARD_TYPES.map((cardType) => (
+              <option key={cardType} value={cardType}>
+                {t(`board.card.types.${cardType}`)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="board-filter-phase" className="text-xs font-medium">
+            {t('board.filters.phase')}
+          </label>
+          <Select
+            id="board-filter-phase"
+            value={filters.phase}
+            onChange={(event) => patch({ phase: event.target.value })}
+          >
+            <option value="">{t('board.filters.phaseAll')}</option>
+            {phases.map((phase) => (
+              <option key={phase} value={phase}>
+                {phase}
               </option>
             ))}
           </Select>

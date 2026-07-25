@@ -405,7 +405,7 @@ describe('BoardPage', () => {
     expect(within(steps).queryByText('Bloqueada')).not.toBeInTheDocument();
     expect(within(dialog).getByText(/transversal/)).toBeInTheDocument();
     expect(within(dialog).getByText('O que você (humano) faz')).toBeInTheDocument();
-    expect(within(dialog).getByText('O que o chefe e os agentes fazem')).toBeInTheDocument();
+    expect(within(dialog).getByText('O que Bruna e os agentes fazem')).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
     await waitFor(() => {

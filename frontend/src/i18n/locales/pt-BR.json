@@ -911,7 +911,8 @@
     }
   },
   "board": {
-    "hint": "Tarefas técnicas não são criadas nem editadas por humanos: elas nascem da cadeia solicitação → demanda → tarefa, conduzida pelo chefe. Para pedir algo novo, crie uma solicitação no chat.",
+    "kanbanLabel": "Quadro Kanban horizontal",
+    "hint": "Tarefas técnicas nascem da cadeia solicitação → demanda → tarefa, coordenada por Bruna Magalhães. Para pedir algo novo, crie uma solicitação no chat; movimentos seguem as permissões e os gates do fluxo.",
     "hintCta": "Abrir o chat",
     "noProject": {
       "body": "O quadro mostra as tarefas de um projeto. Crie o primeiro projeto para começar.",
@@ -919,7 +920,7 @@
     },
     "empty": {
       "title": "Nenhuma tarefa neste projeto",
-      "body": "O chefe ainda não decompôs demandas em tarefas. Converse com o chefe no chat: crie uma solicitação e acompanhe a cadeia solicitação → demanda → tarefa.",
+      "body": "Bruna ainda não decompôs demandas em tarefas. Converse com ela no chat: crie uma solicitação e acompanhe a cadeia solicitação → demanda → tarefa.",
       "cta": "Criar solicitação no chat"
     },
     "column": {
@@ -932,7 +933,15 @@
       "blockedUnknown": "motivo não informado",
       "updated": "Atualizada {{time}}",
       "archived": "Arquivada",
-      "idLabel": "ID da tarefa: {{id}}"
+      "idLabel": "ID da tarefa: {{id}}",
+      "stuck": "Possível estagnação: trabalho ativo sem atualização há pelo menos 2 horas.",
+      "types": {
+        "feature": "Funcionalidade",
+        "agent_task": "Tarefa de agente",
+        "human_gate": "Gate humano",
+        "spike": "Investigação",
+        "decision": "Decisão"
+      }
     },
     "detail": {
       "back": "Voltar ao quadro",
@@ -987,14 +996,14 @@
       },
       "actions": {
         "title": "Ações humanas",
-        "explain": "Você não cria nem edita tarefas técnicas — elas seguem a cadeia solicitação → demanda → tarefa, conduzida pelo chefe. Aqui você pode repriorizar, pausar, cancelar, pedir revisão e decidir gates. Para pedir algo novo, use o chat.",
+        "explain": "As tarefas técnicas seguem a cadeia solicitação → demanda → tarefa, coordenada por Bruna. Aqui você pode repriorizar, pausar, cancelar, pedir revisão e decidir gates. Para pedir algo novo, use o chat.",
         "chatCta": "Criar solicitação no chat",
         "priorityLabel": "Alterar prioridade",
         "pause": "Pausar",
         "cancel": "Cancelar",
         "requestReview": "Solicitar revisão",
         "pauseNote": "Pausada pelo usuário no quadro.",
-        "cancelNote": "Cancelada pelo usuário no quadro; volta ao backlog para o chefe replanejar.",
+        "cancelNote": "Cancelada pelo usuário no quadro; volta ao backlog para Bruna replanejar.",
         "reviewNote": "Revisão solicitada pelo usuário no quadro.",
         "error": "Não foi possível concluir a ação. Tente novamente.",
         "archive": "Arquivar",
@@ -1008,6 +1017,13 @@
       "state": "Coluna",
       "agent": "Responsável",
       "agentAll": "Todos os responsáveis",
+      "signature": "Assinatura",
+      "signatureAll": "Todas as assinaturas",
+      "specialty": "Especialidade",
+      "specialtyAll": "Todas as especialidades",
+      "type": "Tipo",
+      "phase": "Fase",
+      "phaseAll": "Todas as fases",
       "priority": "Prioridade",
       "period": "Última atividade",
       "periodAll": "Tudo",
@@ -1035,17 +1051,26 @@
     "flow": {
       "open": "Como o trabalho flui",
       "title": "Como o trabalho flui",
-      "intro": "As tarefas avançam pelas colunas nesta ordem:",
+      "intro": "O card nasce de uma demanda pronta e avança somente quando os critérios da etapa são atendidos:",
+      "stages": {
+        "backlog": "Origem do card: demanda, resultado esperado, escopo e critérios ainda aguardam Definition of Ready.",
+        "ready": "Definition of Ready atendida; Bruna pode fazer o dispatch para um agente compatível.",
+        "development": "O agente implementa com instruções imutáveis, attempts e evidências rastreáveis.",
+        "review": "Um critic independente revisa o resultado e registra aprovação ou findings.",
+        "corrections": "Retrabalho após reprovação; o card retorna ao fluxo com nova instrução versionada.",
+        "testsGates": "Testes, gates técnicos e decisões humanas validam os critérios de aceite.",
+        "done": "Conclusão somente após evidências, gates e projeção operacional reconciliados."
+      },
       "blockedNote": "é transversal: pode ocorrer a partir de qualquer coluna (dependência externa, pausa manual) e, ao ser resolvida, a tarefa retoma para a coluna de origem.",
       "humanTitle": "O que você (humano) faz",
       "human": {
         "priority": "Alterar a prioridade de qualquer tarefa",
         "pause": "Pausar (a tarefa vai para Bloqueada com nota de pausa)",
-        "cancel": "Cancelar (volta ao Backlog para o chefe replanejar)",
+        "cancel": "Cancelar (volta ao Backlog para Bruna replanejar)",
         "requestReview": "Solicitar revisão (vai para Em revisão)",
         "gate": "Aprovar ou reprovar gates e documentos (reprovação exige observação)"
       },
-      "agentsTitle": "O que o chefe e os agentes fazem",
+      "agentsTitle": "O que Bruna e os agentes fazem",
       "agents": {
         "create": "Criar tarefas a partir da cadeia solicitação → demanda → tarefa",
         "move": "Mover entre as colunas conforme o trabalho avança",

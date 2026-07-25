@@ -17,7 +17,7 @@ const FLOW_STEPS = [
 /** Ações humanas já implementadas no detalhe da tarefa. */
 const HUMAN_ACTIONS = ['priority', 'pause', 'cancel', 'requestReview', 'gate'] as const;
 
-/** Transições conduzidas pelo chefe/agentes. */
+/** Transições conduzidas por Bruna e pelos agentes. */
 const AGENT_ACTIONS = ['create', 'move', 'execute', 'unblock'] as const;
 
 export interface BoardFlowDialogProps {
@@ -48,7 +48,12 @@ export function BoardFlowDialog({ onClose }: BoardFlowDialogProps) {
             >
               {index + 1}
             </span>
-            <span className="text-sm font-medium">{t(`status.taskState.${state}`)}</span>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-sm font-medium">{t(`status.taskState.${state}`)}</span>
+              <span className="text-xs text-foreground-muted">
+                {t(`board.flow.stages.${state}`)}
+              </span>
+            </span>
           </li>
         ))}
       </ol>

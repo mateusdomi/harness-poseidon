@@ -16,7 +16,8 @@ public sealed record BoardTaskContract(
     string Id, string ProjectId, string? DemandId, string Title, string State, string Priority,
     string? AssigneeAgentId, string? BlockedReason, int InstructionVersion,
     WorkProgressContract Progress, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
-    DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt, string? PhaseName = null);
+    DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt, string? PhaseName = null,
+    string CardType = "agent_task");
 
 public sealed record TaskInstructionContract(
     string Id, string TaskId, int Version, string Body, string AuthorKind, string? AuthorId,

@@ -10,11 +10,10 @@ import { BoardFlowDialog } from '@/features/board/components/board-flow-dialog';
 import { KanbanBoard } from '@/features/board/components/kanban-board';
 import { TaskDetail } from '@/features/board/components/task-detail';
 import { TaskDrawer } from '@/features/board/components/task-drawer';
-import { TasksByStateChart } from '@/features/cockpit/components/tasks-by-state-chart';
-import { countTasksByState } from '@/features/cockpit/lib/cockpit-derive';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import {
   useArchiveCompletedTasks,
+  useBoardAgentDefinitions,
   useBoardAgents,
   useBoardRealtime,
   useBoardTasks,
@@ -57,6 +56,7 @@ export default function UboardPage() {
 
   const tasksQuery = useBoardTasks(projectId);
   const agentsQuery = useBoardAgents(projectId);
+  const definitionsQuery = useBoardAgentDefinitions();
   const recentlyMoved = useBoardRealtime(projectId);
   const archiveCompleted = useArchiveCompletedTasks();
   const now = useNow();
@@ -101,20 +101,86 @@ export default function UboardPage() {
     });
   }
 
-  const loading = isPending || tasksQuery.isLoading || agentsQuery.isLoading;
-  const errored = isError || tasksQuery.isError || agentsQuery.isError;
+  const loading =
+    isPending || tasksQuery.isLoading || agentsQuery.isLoading || definitionsQuery.isLoading;
+  const errored =
+    isError || tasksQuery.isError || agentsQuery.isError || definitionsQuery.isError;
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
   const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
+  const definitions = useMemo(() => definitionsQuery.data ?? [], [definitionsQuery.data]);
+
+  const definitionById = useMemo(
+    () => new Map(definitions.map((definition) => [definition.id, definition])),
+    [definitions],
+  );
+  const agentAttributes = useMemo(
+    () =>
+      new Map(
+        agents.flatMap((agent) => {
+          const definition = definitionById.get(agent.definitionId);
+          return definition
+            ? [
+                [
+                  agent.id,
+                  {
+                    signature: definition.key,
+                    specialty: definition.specialty ?? '',
+                  },
+                ] as const,
+              ]
+            : [];
+        }),
+      ),
+    [agents, definitionById],
+  );
 
   const filteredTasks = useMemo(
-    () => filterBoardTasks(tasks, filters, now),
-    [tasks, filters, now],
+    () => filterBoardTasks(tasks, filters, now, agentAttributes),
+    [tasks, filters, now, agentAttributes],
   );
   const filteredState = filters.state === '' ? null : filters.state;
   // Opções do filtro "Responsável": só quem realmente tem card (dado real),
   // com nome legível — sem opções mortas (ex.: chefes). Derivado de todas as
   // tarefas do projeto (não do conjunto filtrado), para a lista ficar estável.
   const filterAssignees = useMemo(() => assigneeAgents(tasks, agents), [tasks, agents]);
+  const assignedDefinitionIds = useMemo(
+    () =>
+      new Set(
+        filterAssignees.map((agent) => agent.definitionId),
+      ),
+    [filterAssignees],
+  );
+  const filterSignatures = useMemo(
+    () =>
+      definitions
+        .filter((definition) => assignedDefinitionIds.has(definition.id))
+        .map((definition) => ({ value: definition.key, label: definition.name }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [definitions, assignedDefinitionIds],
+  );
+  const filterSpecialties = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          definitions
+            .filter((definition) => assignedDefinitionIds.has(definition.id))
+            .map((definition) => definition.specialty)
+            .filter((specialty): specialty is string => Boolean(specialty)),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [definitions, assignedDefinitionIds],
+  );
+  const filterPhases = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          tasks
+            .map((task) => task.phaseName)
+            .filter((phase): phase is string => Boolean(phase)),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [tasks],
+  );
   // Elegíveis ao arquivamento em lote: concluídas e ainda ativas (do projeto).
   const archivableTasks = useMemo(
     () => tasks.filter((task) => task.state === 'done' && task.archivedAt === null),
@@ -137,6 +203,7 @@ export default function UboardPage() {
     refetch();
     void tasksQuery.refetch();
     void agentsQuery.refetch();
+    void definitionsQuery.refetch();
   }
 
   // Detalhe em página dedicada (mobile): substitui o quadro.
@@ -179,12 +246,12 @@ export default function UboardPage() {
 
       {loading ? (
         <div
-          className="flex gap-3 overflow-x-auto lg:grid lg:grid-cols-2 xl:grid-cols-4"
+          className="flex gap-3 overflow-x-auto pb-2"
           role="status"
           aria-label={t('common.states.loading')}
         >
           {Array.from({ length: 8 }, (_, index) => (
-            <Skeleton key={index} className="h-64 w-72 shrink-0 lg:w-auto" />
+            <Skeleton key={index} className="h-64 w-72 shrink-0 sm:w-80" />
           ))}
         </div>
       ) : errored ? (
@@ -235,6 +302,9 @@ export default function UboardPage() {
               <BoardFiltersBar
                 filters={filters}
                 agents={filterAssignees}
+                signatures={filterSignatures}
+                specialties={filterSpecialties}
+                phases={filterPhases}
                 filteredCount={filteredTasks.length}
                 totalCount={tasks.length}
                 archivableCount={archivableTasks.length}
@@ -245,10 +315,6 @@ export default function UboardPage() {
                 onArchiveCompleted={() => setArchiveAllOpen(true)}
                 onShowFlow={() => setFlowOpen(true)}
               />
-              {/* Distribuição por estado (fluxo simples): onde o trabalho está
-                  represado agora — o MESMO gráfico do cockpit, sobre a visão
-                  filtrada, atualizado ao vivo pelo tempo real do quadro. */}
-              <TasksByStateChart counts={countTasksByState(filteredTasks)} />
               <KanbanBoard
                 tasks={filteredTasks}
                 agents={agents}

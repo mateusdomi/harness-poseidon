@@ -582,7 +582,7 @@ public static class WorkBoardEndpoints
 
     private static SolicitationContract ToContract(BoardSolicitationRecord x) => new(x.Id, x.ProjectId, x.AuthorProfileId, x.Kind, x.Title, x.Body, x.State, x.SupersedesId, x.CreatedAt);
     private static DemandContract ToContract(BoardDemandRecord x) => new(x.Id, x.ProjectId, x.SolicitationId, x.Title, x.Description, x.State, x.Priority, x.CreatedAt, x.PhaseName);
-    private static BoardTaskContract ToContract(BoardTaskRecord x) => new(x.Id, x.ProjectId, x.DemandId, x.Title, x.State, x.Priority, x.AssigneeAgentId, x.BlockedReason, x.InstructionVersion, new(x.Progress.Executed, x.Progress.Validated, x.Progress.Approved), x.CreatedAt, x.UpdatedAt, x.DueAt, x.ArchivedAt, x.PhaseName);
+    private static BoardTaskContract ToContract(BoardTaskRecord x) => new(x.Id, x.ProjectId, x.DemandId, x.Title, x.State, x.Priority, x.AssigneeAgentId, x.BlockedReason, x.InstructionVersion, new(x.Progress.Executed, x.Progress.Validated, x.Progress.Approved), x.CreatedAt, x.UpdatedAt, x.DueAt, x.ArchivedAt, x.PhaseName, x.CardType);
     private static TaskInstructionContract ToContract(BoardInstructionRecord x) => new(x.Id, x.TaskId, x.Version, x.Body, x.AuthorKind, x.AuthorId, x.CreatedAt);
     private static AttemptContract ToContract(BoardAttemptRecord x) => new(x.Id, x.TaskId, x.Number, x.State, x.AgentId, x.StartedAt, x.FinishedAt, x.DurationMs, x.CostUsd, x.TokensInput, x.TokensOutput, x.CommitRefs, x.Summary, x.FailureReason);
     private static AttemptEventContract ToContract(BoardAttemptEventRecord x) => new(x.Id, x.AttemptId, x.Kind, x.Content, x.OccurredAt, x.Severity);

@@ -4,6 +4,7 @@ import { TriangleAlert } from 'lucide-react';
 import type { Task, TaskState } from '@/api';
 import { Badge } from '@/design-system';
 import { shortTaskId } from '@/features/board/lib/board-derive';
+import { isTaskStuck } from '@/features/board/lib/board-filters';
 import { formatRelativeTime } from '@/lib/format';
 import { priorityVariant, taskStateVariant } from '@/lib/status';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ export interface TaskCardProps {
  */
 export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardProps) {
   const { t, i18n } = useTranslation();
+  const stuck = isTaskStuck(task, now);
 
   return (
     <li>
@@ -41,7 +43,15 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
           justMoved && 'motion-safe:bg-surface-elevated motion-safe:ring-2 motion-safe:ring-info motion-safe:transition-shadow motion-safe:duration-200',
         )}
       >
-        <span className="line-clamp-2 text-sm font-medium">{task.title}</span>
+        <span className="flex min-w-0 items-start justify-between gap-2">
+          <span className="line-clamp-2 min-w-0 text-sm font-medium">{task.title}</span>
+          <span
+            className="shrink-0 font-mono text-[0.7rem] text-foreground-muted"
+            title={t('board.card.idLabel', { id: task.id })}
+          >
+            #{shortTaskId(task.id)}
+          </span>
+        </span>
         <span className="flex flex-wrap items-center gap-1.5">
           <Badge variant={taskStateVariant(task.state)}>
             {t(`status.taskState.${task.state}`)}
@@ -52,14 +62,8 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
           {task.archivedAt !== null && (
             <Badge variant="outline">{t('board.card.archived')}</Badge>
           )}
-          {/* ID curto e discreto: buscável (sufixo do ULID) e com o ID
-              completo no tooltip nativo — o usuário busca pelo que vê. */}
-          <span
-            className="ml-auto font-mono text-[0.7rem] text-foreground-muted"
-            title={t('board.card.idLabel', { id: task.id })}
-          >
-            #{shortTaskId(task.id)}
-          </span>
+          <Badge variant="outline">{t(`board.card.types.${task.cardType ?? 'agent_task'}`)}</Badge>
+          {task.phaseName && <Badge variant="outline">{task.phaseName}</Badge>}
         </span>
         {task.state === 'blocked' && (
           <span className="flex items-start gap-1.5 text-xs text-error">
@@ -69,6 +73,12 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
                 reason: task.blockedReason ?? t('board.card.blockedUnknown'),
               })}
             </span>
+          </span>
+        )}
+        {stuck && (
+          <span className="flex items-start gap-1.5 text-xs text-warning">
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+            <span>{t('board.card.stuck')}</span>
           </span>
         )}
         <span className="flex items-center justify-between gap-2 text-xs text-foreground-muted">

@@ -20,8 +20,7 @@ export interface BoardColumnProps {
 
 /**
  * Coluna do Kanban: região com heading (a11y), contador e lista de cards.
- * Largura fixa no mobile (scroll horizontal do quadro); fluida no grid
- * desktop.
+ * Largura fixa em todos os breakpoints para preservar o fluxo horizontal.
  */
 export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function BoardColumn(
   { state, tasks, agentNames, highlighted, recentlyMoved, now, onOpenTask },
@@ -36,13 +35,13 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
       data-state={state}
       data-highlighted={highlighted || undefined}
       className={cn(
-        'flex w-72 shrink-0 flex-col gap-2 rounded-lg p-2 lg:w-auto lg:shrink',
+        'flex w-72 shrink-0 snap-start flex-col gap-2 rounded-lg bg-surface-elevated p-2 sm:w-80',
         highlighted && 'bg-surface ring-2 ring-accent',
       )}
     >
       <h3
         id={`board-column-${state}`}
-        className="flex items-center gap-2 px-1 font-heading text-sm font-semibold"
+        className="sticky top-0 z-10 flex items-center gap-2 rounded-md bg-surface-elevated/95 px-1 py-2 font-heading text-sm font-semibold backdrop-blur"
       >
         {t(`status.taskState.${state}`)}
         <Badge variant="outline">{tasks.length}</Badge>

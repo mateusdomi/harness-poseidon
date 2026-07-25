@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { TASK_STATES, type Agent, type Task, type TaskState } from '@/api';
+import { type Agent, type Task, type TaskState } from '@/api';
 import { BoardColumn } from '@/features/board/components/board-column';
 import { groupTasksByState } from '@/features/board/lib/board-derive';
 
@@ -15,9 +16,23 @@ export interface KanbanBoardProps {
 }
 
 /**
- * Quadro Kanban com as 8 colunas do domínio: scroll horizontal no mobile
- * (colunas de largura fixa) e grid no desktop. O filtro `?state=` destaca
- * a coluna e rola até ela (respeitando prefers-reduced-motion).
+ * Ordem principal canônica. Bloqueada é transversal e fica ao final, fora
+ * da progressão linear.
+ */
+const KANBAN_STATES: readonly TaskState[] = [
+  'backlog',
+  'ready',
+  'development',
+  'review',
+  'corrections',
+  'testsGates',
+  'done',
+  'blocked',
+];
+
+/**
+ * Quadro Kanban horizontal em todos os breakpoints, com colunas de largura
+ * consistente. O filtro `?state=` destaca e rola até a coluna.
  */
 export function KanbanBoard({
   tasks,
@@ -27,6 +42,7 @@ export function KanbanBoard({
   now,
   onOpenTask,
 }: KanbanBoardProps) {
+  const { t } = useTranslation();
   const tasksByState = useMemo(() => groupTasksByState(tasks), [tasks]);
   const agentNames = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
@@ -49,8 +65,13 @@ export function KanbanBoard({
   }, [filteredState]);
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-2 lg:overflow-visible xl:grid-cols-4">
-      {TASK_STATES.map((state) => (
+    <div
+      className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3"
+      role="region"
+      aria-label={t('board.kanbanLabel')}
+      tabIndex={0}
+    >
+      {KANBAN_STATES.map((state) => (
         <BoardColumn
           key={state}
           ref={(element) => {
