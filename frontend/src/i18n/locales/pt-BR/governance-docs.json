@@ -1,7 +1,7 @@
 {
   "governanceDocs": {
     "title": "Documentos de Governança",
-    "subtitle": "Leia, edite e exclua os documentos em disco que governam o comportamento do sistema. Edições passam a valer para o Chefe, que lê a governança do disco.",
+    "subtitle": "Leia, edite e exclua os documentos em disco que governam o comportamento do sistema. Edições passam a valer para Bruna, que lê a governança do disco.",
     "tree": {
       "title": "Arquivos",
       "empty": "Nenhum documento de governança encontrado.",

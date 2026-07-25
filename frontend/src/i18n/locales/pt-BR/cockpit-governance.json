@@ -9,7 +9,7 @@
     "truncated": "Cortes de contexto",
     "tooltips": {
       "receipts": "Comprovantes = registros auditáveis de execução governada. Cada vez que um agente roda uma tarefa sob as regras, gera um comprovante que prova o que foi feito.",
-      "conflicts": "Conflitos = regras que se contradisseram durante a execução. O esperado é zero; acima de zero pede revisão do chefe.",
+      "conflicts": "Conflitos = regras que se contradisseram durante a execução. O esperado é zero; acima de zero pede revisão de Bruna.",
       "truncated": "Cortes de contexto = vezes em que o material entregue ao agente era grande demais e precisou ser cortado. Muitos cortes podem reduzir a qualidade do trabalho."
     },
     "open": "Abrir governança",

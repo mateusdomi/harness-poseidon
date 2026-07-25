@@ -79,13 +79,13 @@
     },
     "keywords": {
       "cockpit": "visão geral dashboard operação status painel",
-      "chat": "conversar chefe mensagem perguntar falar",
+      "chat": "conversar bruna liderança mensagem perguntar falar",
       "board": "tarefas kanban cartões colunas",
       "conversations": "histórico conversas antigas",
       "projects": "projetos lista repositório",
       "delivery": "entregas portfólio previsão forecast dora relatórios daily copilot 360 tech lead",
       "workflows": "fluxos pipeline automação fases",
-      "orchestrator": "coordenação chefe delegação agentes",
+      "orchestrator": "coordenação liderança delegação agentes",
       "agents": "agentes equipe especialistas robôs",
       "run-project": "executar rodar iniciar disparar",
       "documents": "docs catálogo arquivos especificação",
@@ -93,7 +93,7 @@
       "architecture": "arquitetura studio estúdio hub central c4 archimate elementos views vistas diagramas modelo",
       "approvals": "pendências gates decisões revisar aprovar",
       "governance": "auditoria trilha políticas limites timeline",
-      "governance-docs": "governança comportamento chefe regras docs editar disco core manifest",
+      "governance-docs": "governança comportamento liderança regras docs editar disco core manifest",
       "organizations": "orgs empresa workspace marca",
       "providers": "modelos llm integrações api",
       "channels": "telegram teams externo gateway mensagens vínculos canais caixa",
@@ -680,8 +680,8 @@
       "logoAlt": "Marca do projeto {{name}}",
       "poseidonDescription": "Plano de controle do Poseidon.",
       "phase": "Fase",
-      "progress": "Progresso",
-      "progressValue": "{{completed}}/{{total}} concluídas ({{percent}}%)",
+      "progress": "Progresso executado",
+      "progressValue": "{{completed}}/{{total}} pontos — {{percent}}%",
       "responsible": "Responsável",
       "health": "Saúde",
       "workflow": "Workflow",
@@ -797,7 +797,12 @@
       "title": "Fase atual",
       "noRun": "Nenhuma execução de workflow em andamento neste projeto.",
       "gate": "Gate associado:",
-      "noGate": "Sem gate nesta fase"
+      "noGate": "Sem gate nesta fase",
+      "progressLabel": "Progresso da fase {{phase}}",
+      "progressFraction": "{{completed}} de {{total}} itens concluídos",
+      "progressTooltip": "Fonte única: objetivos e gates persistidos da execução do workflow.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "deliverables": "Entregáveis esperados",
+      "deliverablesUnavailable": "Esta execução não publicou entregáveis para a fase."
     },
     "progress": {
       "globalTitle": "Progresso global do projeto",
@@ -820,6 +825,46 @@
         "pending_one": "{{count}} item pendente",
         "updatedAt": "Atualizado em {{value}}",
         "noUpdate": "Ainda sem atualização"
+      }
+    },
+    "fleet": {
+      "title": "Fleet operacional",
+      "subtitle": "Bruna e as identidades globais disponíveis para executar trabalho em qualquer projeto.",
+      "identities": "{{count}} identidades",
+      "error": "Não foi possível consultar o estado da fleet.",
+      "empty": "Nenhuma identidade de execução foi configurada nesta instalação.",
+      "kpis": {
+        "online": "Online",
+        "tasksDone": "Tarefas concluídas",
+        "tasksTodo": "Tarefas a fazer",
+        "withoutCapacity": "Sem capacidade"
+      },
+      "states": {
+        "authenticationRequired": "Autenticação necessária",
+        "offline": "Offline"
+      },
+      "health": {
+        "healthy": "Saúde: saudável",
+        "attention": "Saúde: atenção",
+        "unhealthy": "Saúde: crítica"
+      },
+      "quotaUnavailable": "Cota: o provedor não informa cota.",
+      "quotaReturns": "Sem cota. Retorno informado para {{time}}.",
+      "quotaNoReturn": "Sem cota. O provedor não informou quando ela retorna.",
+      "cooldownReturns": "Cooldown até {{time}}.",
+      "productivity": {
+        "title": "Produtividade por assinatura",
+        "source": "Fonte prevista: tarefas e tentativas persistidas, atribuídas à conta de execução. Nenhuma tentativa atribuível foi publicada nesta instalação.",
+        "columns": {
+          "provider": "Assinatura / provedor",
+          "completed": "Concluídas",
+          "success": "Sucesso",
+          "rework": "Retrabalho",
+          "failures": "Falhas",
+          "duration": "Duração média"
+        },
+        "unavailable": "Não disponível",
+        "zeroExplanation": "Os zeros são reais para o recorte disponível. A duração fica indisponível porque não há tentativa persistida atribuível a uma assinatura."
       }
     },
     "tasksChart": {
@@ -885,7 +930,7 @@
     },
     "quotas": {
       "title": "Cotas críticas",
-      "empty": "Nenhum budget perto do limite.",
+      "empty": "Nenhuma série temporal de cota foi publicada pelos provedores. Quando houver observações reais, este card mostrará consumo e retorno da cota em uma timeline; até lá, consulte o estado honesto de cada assinatura na Fleet.",
       "severity": {
         "warning": "Atenção: {{pct}}% do budget consumido.",
         "critical": "Limite atingido: {{pct}}% do budget consumido."
@@ -926,7 +971,7 @@
       "actions": {
         "agent.error": "Agente relatou um erro",
         "approval.resolved": "Aprovação resolvida",
-        "demand.created": "Demanda criada pelo chefe",
+        "demand.created": "Demanda criada por Bruna",
         "license.validated": "Licença validada",
         "solicitation.created": "Solicitação registrada",
         "task.created": "Tarefa criada",
@@ -993,6 +1038,15 @@
       "assignee": "Responsável",
       "updated": "Última atividade",
       "progressTitle": "Progresso",
+      "sourceUnavailable": "Indisponível no contrato atual; nenhum dado foi inferido.",
+      "scope": {
+        "title": "Objetivo, escopo e critérios",
+        "objective": "Objetivo do trabalho",
+        "included": "Incluído no escopo",
+        "excluded": "Fora de escopo",
+        "acceptanceCriteria": "Critérios de aceite",
+        "claims": "Claims e escopo autorizado"
+      },
       "instruction": {
         "title": "Instrução enviada ao agente",
         "immutable": "Instruções são imutáveis: uma correção gera uma nova versão, sem editar a anterior.",
@@ -1150,8 +1204,8 @@
       "expectedArtifacts": "Artefatos esperados",
       "progressEvidence": {
         "fraction": "{{completed}} de {{total}} itens concluídos",
-        "phaseFallback": "Sem itens vinculados; percentual derivado apenas do estado da fase.",
-        "tooltip": "Fonte: tarefas, documentos, gates e aprovações vinculados à fase.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nAprovações: {{approvalsDone}}/{{approvalsTotal}}"
+        "phaseFallback": "A execução não publicou objetivos para esta fase.",
+        "tooltip": "Fonte única: objetivos e gates persistidos da execução do workflow.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}"
       },
       "filters": {
         "label": "Filtrar documentos da fase {{phase}}"
@@ -1311,7 +1365,7 @@
     },
     "chat": {
       "title": "Chat",
-      "description": "Converse com o agente chefe e a equipe de IA."
+      "description": "Converse com Bruna e a equipe de IA."
     },
     "conversations": {
       "title": "Conversas",
@@ -1339,7 +1393,7 @@
     },
     "orchestrator": {
       "title": "Orquestrador",
-      "description": "Coordenação do agente chefe sobre os demais agentes."
+      "description": "Coordenação de Bruna sobre os demais agentes."
     },
     "agents": {
       "title": "Agentes",
@@ -1386,7 +1440,7 @@
     "empty": {
       "title": "Nenhum workflow vinculado",
       "body": "Este projeto ainda não tem um workflow. Vincule um template para começar.",
-      "explanation": "Um workflow define as fases do trabalho (ex.: descoberta, desenvolvimento, revisão) e os portões de aprovação entre elas. É ele que diz ao chefe como conduzir o projeto.",
+      "explanation": "Um workflow define as fases do trabalho (ex.: descoberta, desenvolvimento, revisão) e os portões de aprovação entre elas. É ele que orienta Bruna na condução do projeto.",
       "recommendedBadge": "Recomendado",
       "versionLabel": "versão {{version}}",
       "phasesLabel": "Fases",
@@ -1435,8 +1489,12 @@
       "title": "Fases do workflow",
       "label": "Fases do workflow",
       "gatesLabel": "Gates da fase {{phase}}",
-      "documentsLabel": "Documentos",
-      "noDocuments": "Nenhum documento vinculado.",
+      "progressLabel": "Progresso da fase {{phase}}",
+      "progressDetails": "Ver cálculo do progresso da fase {{phase}}",
+      "progressTooltip": "Fonte única: objetivos e gates persistidos da execução do workflow.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "deliverablesLabel": "Entregáveis esperados",
+      "deliverablesUnavailable": "A versão desta execução não publicou entregáveis para a fase.",
+      "producedDocumentsLabel": "Documentos produzidos",
       "documentVersion": "v{{version}}"
     },
     "templates": {
@@ -1575,7 +1633,7 @@
     },
     "empty": {
       "title": "Ainda não há documentos neste projeto",
-      "body": "Documentos são artefatos versionados do projeto (PRD, spec, design, runbook, notas e relatórios). O chefe e os agentes os produzem ao longo do fluxo — cada correção vira uma nova versão imutável, com histórico e diff.",
+      "body": "Documentos são artefatos versionados do projeto (PRD, especificação, design, runbook, notas e relatórios). Bruna e os agentes os produzem ao longo do fluxo — cada correção vira uma nova versão imutável, com histórico e comparação.",
       "appears": "Assim que um agente ou uma fase do workflow gerar um artefato, ele aparece aqui com estado (rascunho, em revisão, aprovado). Você também pode criar o primeiro agora mesmo.",
       "governanceNote": "Procurando editar arquivos do repositório (governança, políticas, manifestos)? Isso fica em Documentos de Governança — outra tela.",
       "governanceLink": "Ir para Documentos de Governança",
@@ -1661,7 +1719,7 @@
       "versionsTitle": "Versões",
       "authorKind": {
         "user": "Você",
-        "chief": "Chefe",
+        "chief": "Bruna",
         "agent": "Agente"
       },
       "diffFrom": "Comparar de",

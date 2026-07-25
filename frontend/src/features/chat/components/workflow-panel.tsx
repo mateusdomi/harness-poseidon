@@ -26,11 +26,11 @@ import {
 import { useApi } from '@/app/api-context';
 import { Badge, Button, Skeleton, Tooltip } from '@/design-system';
 import {
-  absentArtifactHealth,
   countDocumentsByHealth,
   DOCUMENT_HEALTH_FILTERS,
   documentHealth,
   documentsOfPhase,
+  expectedArtifactHealth,
   expectedArtifactsForPhase,
   filterDocumentsByHealth,
   phaseProgressEvidence,
@@ -182,8 +182,9 @@ function PhaseAccordion({
       return title.includes(normalized) || normalized.includes(title);
     });
   });
-  const absentHealth = absentArtifactHealth(phase);
   const progressTooltip = t('chat.workflowPanel.progressEvidence.tooltip', {
+    completed: progress.completed,
+    total: progress.total,
     tasksDone: progress.tasks.completed,
     tasksTotal: progress.tasks.total,
     documentsDone: progress.documents.completed,
@@ -285,13 +286,14 @@ function PhaseAccordion({
               </h4>
               <ul className="flex flex-col gap-1">
                 {missingExpectedArtifacts.map((artifact) => {
-                  const { Icon, className } = HEALTH_META[absentHealth];
+                  const health = expectedArtifactHealth(phase, artifact);
+                  const { Icon, className } = HEALTH_META[health];
                   return (
                     <li key={artifact} className="flex min-h-9 items-center gap-2 text-xs">
                       <Icon aria-hidden="true" className={cn('size-4 shrink-0', className)} />
                       <span className="min-w-0 flex-1">{artifact}</span>
                       <span className={cn('shrink-0', className)}>
-                        {t(`chat.workflowPanel.health.${absentHealth}`)}
+                        {t(`chat.workflowPanel.health.${health}`)}
                       </span>
                     </li>
                   );

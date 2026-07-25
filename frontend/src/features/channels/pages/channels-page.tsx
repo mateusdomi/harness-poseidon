@@ -125,8 +125,8 @@ export default function UchannelsPage() {
           </CardContent>
         </Card>
       ) : links.length === 0 ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Card>
+        <div className="grid min-w-0 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Radio className="size-5 text-foreground-muted" aria-hidden />

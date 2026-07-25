@@ -22,18 +22,20 @@ export default defineConfig({
     baseURL: frontendUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     {
-      name: 'desktop-13-dark',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+      name: 'desktop-wide-1920',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
     },
     {
-      name: 'tablet-light',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 820, height: 1180 } },
+      name: 'notebook-1440',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
     {
-      name: 'mobile-360-dark',
+      name: 'mobile-360',
       use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 800 } },
     },
   ],

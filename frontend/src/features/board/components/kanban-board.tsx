@@ -49,6 +49,10 @@ export function KanbanBoard({
     [agents],
   );
   const columnRefs = useRef(new Map<TaskState, HTMLElement>());
+  const pan = useRef<{ pointerId: number; startX: number; scrollLeft: number; moved: boolean } | null>(
+    null,
+  );
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!filteredState) return;
@@ -66,10 +70,53 @@ export function KanbanBoard({
 
   return (
     <div
-      className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3"
+      ref={scrollerRef}
+      className="flex cursor-grab snap-x snap-mandatory gap-3 overflow-x-auto pb-3 data-[panning=true]:cursor-grabbing data-[panning=true]:select-none"
       role="region"
       aria-label={t('board.kanbanLabel')}
       tabIndex={0}
+      onPointerDown={(event) => {
+        if (
+          event.button !== 0 ||
+          !(event.target instanceof Element) ||
+          event.target.closest('button, a, input, select, textarea, [data-no-board-pan]')
+        ) {
+          return;
+        }
+        const scroller = scrollerRef.current;
+        if (!scroller) return;
+        pan.current = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          scrollLeft: scroller.scrollLeft,
+          moved: false,
+        };
+        scroller.setPointerCapture(event.pointerId);
+        scroller.dataset.panning = 'true';
+      }}
+      onPointerMove={(event) => {
+        const state = pan.current;
+        const scroller = scrollerRef.current;
+        if (!state || !scroller || state.pointerId !== event.pointerId) return;
+        const delta = event.clientX - state.startX;
+        if (Math.abs(delta) > 4) state.moved = true;
+        if (!state.moved) return;
+        event.preventDefault();
+        scroller.scrollLeft = state.scrollLeft - delta;
+      }}
+      onPointerUp={(event) => {
+        const scroller = scrollerRef.current;
+        if (pan.current?.pointerId !== event.pointerId || !scroller) return;
+        if (scroller.hasPointerCapture(event.pointerId)) {
+          scroller.releasePointerCapture(event.pointerId);
+        }
+        delete scroller.dataset.panning;
+        pan.current = null;
+      }}
+      onPointerCancel={() => {
+        if (scrollerRef.current) delete scrollerRef.current.dataset.panning;
+        pan.current = null;
+      }}
     >
       {KANBAN_STATES.map((state) => (
         <BoardColumn

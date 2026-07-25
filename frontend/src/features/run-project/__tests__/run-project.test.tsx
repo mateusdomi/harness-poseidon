@@ -81,28 +81,26 @@ describe('RunProjectPage', () => {
     });
   });
 
-  it('credenciais demo ficam mascaradas até revelar', async () => {
-    const user = userEvent.setup();
+  it('não revela credenciais que não vieram do backend autorizado', async () => {
     renderPage();
 
     expect(await screen.findByText('Credenciais de demonstração')).toBeInTheDocument();
     expect(screen.queryByText('demo@poseidon.local')).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Revelar' }));
-    expect(screen.getByText('demo@poseidon.local')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Ocultar' }));
-    expect(screen.queryByText('demo@poseidon.local')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Nenhuma credencial de demonstração foi fornecida pelo backend/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Revelar' })).not.toBeInTheDocument();
   });
 
   it('card de modo local exibe estado do ambiente, diretório de dados e link de diagnóstico', async () => {
     renderPage();
 
     expect(await screen.findByText('Modo local')).toBeInTheDocument();
-    // Fixture: Frontend Vite (running) + Backend API (stopped).
-    expect(screen.getByText('1 de 2 serviço(s) em execução')).toBeInTheDocument();
-    // Diretório de dados vem das settings do perfil da sessão.
+    // Host/frontend observado + Frontend Vite (running) + Backend API (stopped).
+    expect(screen.getByText('2 de 3 serviço(s) em execução')).toBeInTheDocument();
+    // Diretório de trabalho vem das settings; dados locais têm caminho próprio.
     expect(screen.getByText('~/poseidon')).toBeInTheDocument();
+    expect(screen.getByText('~/.harness-poseidon')).toBeInTheDocument();
     // Sem âncora na seção de diagnóstico de /settings: link simples para a página.
     expect(screen.getByRole('link', { name: 'Diagnóstico' })).toHaveAttribute('href', '/settings');
     // Instrução estática de atalho — texto informativo, sem botão.

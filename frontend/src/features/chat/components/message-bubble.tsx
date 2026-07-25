@@ -80,9 +80,9 @@ export function MessageBubble({
     >
       <header className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         {message.authorRole === 'chief' ? (
-          <BrunaProfileAvatar size={28} />
+          <BrunaProfileAvatar size={40} />
         ) : (
-          identity && <AgentAvatar name={identity.humanName} size={28} />
+          identity && <AgentAvatar name={identity.humanName} size={36} />
         )}
         <span className="text-sm font-semibold text-foreground">
           {identity?.humanName ?? authorName ?? roleLabel}

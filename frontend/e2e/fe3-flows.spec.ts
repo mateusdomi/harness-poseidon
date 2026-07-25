@@ -56,14 +56,16 @@ test.describe('Gate FE-3 — rodar projeto', () => {
     await expect(page.getByText('Backend API (.NET)').first()).toBeVisible();
 
     // Iniciar tudo: comandos start por serviço → run.logAppended no stream.
-    await page.getByRole('button', { name: 'Iniciar tudo' }).click();
+    await page.getByRole('button', { name: /^Iniciar (tudo|\d+ parado)/ }).click();
     const logs = page.getByRole('log', { name: 'Logs em tempo real' });
-    await expect(logs.getByText(/Iniciando "Frontend Vite \(dev\)"/)).toBeVisible({
+    await expect(logs.getByText(/Iniciando "Backend API \(\.NET\)"/)).toBeVisible({
       timeout: 10_000,
     });
-    await expect(logs.getByText(/"Frontend Vite \(dev\)" pronto — health check OK/)).toBeVisible({
+    await expect(logs.getByText(/"Backend API \(\.NET\)" pronto — health check OK/)).toBeVisible({
       timeout: 10_000,
     });
+    await expect(page.getByRole('button', { name: 'Iniciar tudo' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Parar tudo' })).toBeEnabled();
 
     // Parar tudo: logs de encerramento/parada aparecem no painel.
     await page.getByRole('button', { name: 'Parar tudo' }).click();

@@ -89,73 +89,15 @@ export function countDocumentsByHealth(
   return counts;
 }
 
-/** Artefatos canônicos esperados. São templates, não documentos existentes. */
-const EXPECTED_ARTIFACTS: Readonly<Record<string, readonly string[]>> = {
-  'Ideação e recebimento': ['Registro da solicitação', 'Visão inicial'],
-  Descoberta: ['Visão', 'Stakeholders', 'Hipóteses', 'Riscos'],
-  Requisitos: ['Requisitos', 'Critérios de aceite', 'Backlog', 'Rastreabilidade'],
-  Arquitetura: [
-    'Modelo C4',
-    'ADRs',
-    'Segurança',
-    'Integrações',
-    'Modelo de dados',
-    'Plano de observabilidade',
-  ],
-  Planejamento: [
-    'Roadmap',
-    'Plano de releases',
-    'Decomposição',
-    'Dependências',
-    'Plano de riscos',
-    'Plano de testes',
-  ],
-  Implementação: ['Código', 'Migrations', 'Contratos', 'Documentação técnica', 'Evidências'],
-  'Verificação e qualidade': [
-    'Relatório de testes',
-    'Revisão independente',
-    'Segurança',
-    'Performance',
-    'Acessibilidade',
-  ],
-  'Prontidão para homologação': ['Checklist de prontidão para homologação'],
-  Homologação: ['Roteiro de homologação', 'Evidências', 'Findings', 'Aceite'],
-  'Prontidão para produção': [
-    'Checklist de prontidão para produção',
-    'Plano de implantação',
-    'Plano de rollback',
-  ],
-  Produção: ['Runbook operacional', 'Registro de implantação'],
-  Estabilização: ['Relatório de estabilização'],
-  Sustentação: ['Plano de operação', 'Monitoramento', 'Registro de incidentes'],
-  Encerramento: ['Dossiê de encerramento'],
-  'Revisão de benefícios': ['Relatório de benefícios'],
-  // Versão canônica anterior: permanece legível em runs imutáveis existentes.
-  Recebimento: ['Registro da solicitação', 'Critérios de aceite'],
-  Baseline: ['Baseline técnica', 'Mapa de dependências'],
-  'Execução acompanhada': [
-    'Código',
-    'Migrations',
-    'Contratos',
-    'Documentação técnica',
-    'Evidências',
-    'Log de decisões',
-  ],
-  'Prontidão homolog': ['Checklist de prontidão para homologação'],
-  'Prontidão prod': [
-    'Checklist de prontidão para produção',
-    'Plano de implantação',
-    'Plano de rollback',
-  ],
-};
-
 export function expectedArtifactsForPhase(phase: Phase): readonly string[] {
-  return EXPECTED_ARTIFACTS[phase.name] ?? [];
+  return phase.deliverables.map((deliverable) => deliverable.name);
 }
 
-export function absentArtifactHealth(phase: Phase): DocumentHealth {
-  if (phase.state === 'skipped') return 'notApplicable';
-  return phase.state === 'pending' ? 'planned' : 'notStarted';
+export function expectedArtifactHealth(phase: Phase, name: string): DocumentHealth {
+  return (
+    phase.deliverables.find((deliverable) => deliverable.name === name)?.status ??
+    (phase.state === 'pending' ? 'planned' : 'notStarted')
+  );
 }
 
 export interface PhaseProgressEvidence {
@@ -171,83 +113,40 @@ export interface PhaseProgressEvidence {
 
 export function phaseProgressEvidence(
   phase: Phase,
-  gates: readonly Gate[],
-  documents: readonly Document[],
-  tasks: readonly Task[],
-  approvals: readonly Approval[],
+  _gates: readonly Gate[],
+  _documents: readonly Document[],
+  _tasks: readonly Task[],
+  _approvals: readonly Approval[],
 ): PhaseProgressEvidence {
-  const phaseGates = gates.filter((gate) => gate.phaseId === phase.id);
-  const phaseDocs = documentsOfPhase(documents, phase);
-  const phaseTasks = tasks.filter((task) => task.phaseName === phase.name);
-  const gateIds = new Set(phaseGates.map((gate) => gate.id));
-  const taskIds = new Set(phaseTasks.map((task) => task.id));
-  const phaseApprovals = approvals.filter(
-    (approval) =>
-      (approval.gateId !== null && gateIds.has(approval.gateId)) ||
-      (approval.taskId !== null && taskIds.has(approval.taskId)),
-  );
-
-  const evidence = {
-    tasks: {
-      completed: phaseTasks.filter((task) => task.state === 'done').length,
-      total: phaseTasks.length,
-    },
-    documents: {
-      completed: phaseDocs.filter(
-        (document) => document.state === 'approved' || document.state === 'notApplicable',
-      ).length,
-      total: phaseDocs.length,
-    },
-    gates: {
-      completed: phaseGates.filter(
-        (gate) => gate.state === 'approved' || gate.state === 'waived',
-      ).length,
-      total: phaseGates.length,
-    },
-    approvals: {
-      completed: phaseApprovals.filter((approval) => approval.state === 'approved').length,
-      total: phaseApprovals.length,
-    },
-  };
-  const total =
-    evidence.tasks.total +
-    evidence.documents.total +
-    evidence.gates.total +
-    evidence.approvals.total;
-  const completed =
-    evidence.tasks.completed +
-    evidence.documents.completed +
-    evidence.gates.completed +
-    evidence.approvals.completed;
-  const phaseStateFallback = total === 0;
-
+  // Mantidos na assinatura por compatibilidade com os consumidores; a fonte
+  // canônica agora já chega agregada no próprio contrato da fase.
+  void _gates;
+  void _documents;
+  void _tasks;
+  void _approvals;
   return {
-    ...evidence,
-    total,
-    completed,
-    phaseStateFallback,
-    percent: phaseStateFallback
-      ? phase.state === 'completed' || phase.state === 'skipped'
-        ? 100
-        : 0
-      : Math.round((completed / total) * 100),
+    tasks: phase.progress.tasks,
+    documents: phase.progress.documents,
+    gates: phase.progress.gates,
+    approvals: { completed: 0, total: 0 },
+    total: phase.progress.total,
+    completed: phase.progress.completed,
+    phaseStateFallback: phase.progress.total === 0,
+    percent: phase.progress.percent,
   };
 }
 
 /**
- * Progresso 0–100 da fase (D-069) — o contrato de Phase NÃO tem
- * percentual pronto; derivação honesta a partir dos dados do run:
- *
- * - Itens concluíveis da fase = gates dela + documentos vinculados a ela.
- *   Concluído = gate `approved`/`waived` ou documento `approved`.
- * - Se a fase tem itens: percentual = concluídos / total (arredondado).
- * - Se NÃO tem itens: fallback pelo estado — `completed`/`skipped` = 100,
- *   demais = 0 (nenhum valor intermediário inventado).
+ * Progresso 0–100 da fase, já calculado pelo read model único do workflow.
+ * Os argumentos antigos permanecem por compatibilidade até a próxima revisão
+ * do contrato público do helper.
  */
 export function phaseProgress(
   phase: Phase,
-  gates: readonly Gate[],
-  documents: readonly Document[],
+  _gates: readonly Gate[],
+  _documents: readonly Document[],
 ): number {
-  return phaseProgressEvidence(phase, gates, documents, [], []).percent;
+  void _gates;
+  void _documents;
+  return phase.progress.percent;
 }

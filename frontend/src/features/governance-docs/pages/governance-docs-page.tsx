@@ -79,13 +79,13 @@ export default function GovernanceDocsPage() {
         <p className="max-w-3xl text-sm text-foreground-muted">{t('governanceDocs.subtitle')}</p>
       </header>
 
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(14rem,20rem)_1fr]">
-        <Card className="flex flex-col lg:min-h-0 lg:overflow-hidden">
-          <CardContent className="flex flex-col p-3 lg:min-h-0 lg:flex-1">
+      <div className="grid min-w-0 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(14rem,20rem)_1fr]">
+        <Card className="flex min-w-0 flex-col overflow-hidden lg:min-h-0">
+          <CardContent className="flex min-w-0 flex-col p-3 lg:min-h-0 lg:flex-1">
             <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-foreground-muted lg:shrink-0">
               {t('governanceDocs.tree.title')}
             </h2>
-            <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            <div className="min-w-0 overflow-hidden lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
               {treeQuery.isLoading ? (
                 <div className="flex flex-col gap-2">
                   <Skeleton className="h-6 w-full" />

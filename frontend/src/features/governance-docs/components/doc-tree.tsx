@@ -15,7 +15,11 @@ interface DocTreeProps {
 export function DocTree({ nodes, selectedPath, onSelect }: DocTreeProps) {
   const { t } = useTranslation();
   return (
-    <ul className="flex flex-col gap-0.5" role="tree" aria-label={t('governanceDocs.title')}>
+    <ul
+      className="flex min-w-0 flex-col gap-0.5 overflow-hidden"
+      role="tree"
+      aria-label={t('governanceDocs.title')}
+    >
       {nodes.map((node) => (
         <DocTreeItem
           key={node.path}
@@ -42,12 +46,12 @@ function DocTreeItem({ node, depth, selectedPath, onSelect }: DocTreeItemProps) 
 
   if (node.type === 'dir') {
     return (
-      <li role="treeitem" aria-expanded={open}>
+      <li className="min-w-0" role="treeitem" aria-expanded={open}>
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
           style={indent}
-          className="flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm text-foreground-muted hover:bg-surface-elevated"
+          className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-md py-1 pr-2 text-left text-sm text-foreground-muted hover:bg-surface-elevated"
         >
           {open ? (
             <ChevronDown className="size-3.5 shrink-0" aria-hidden />
@@ -58,7 +62,7 @@ function DocTreeItem({ node, depth, selectedPath, onSelect }: DocTreeItemProps) 
           <span className="truncate font-medium">{node.name}</span>
         </button>
         {open && (
-          <ul className="flex flex-col gap-0.5" role="group">
+          <ul className="flex min-w-0 flex-col gap-0.5 overflow-hidden" role="group">
             {node.children.map((child) => (
               <DocTreeItem
                 key={child.path}
@@ -76,14 +80,14 @@ function DocTreeItem({ node, depth, selectedPath, onSelect }: DocTreeItemProps) 
 
   const selected = node.path === selectedPath;
   return (
-    <li role="treeitem" aria-selected={selected}>
+    <li className="min-w-0" role="treeitem" aria-selected={selected}>
       <button
         type="button"
         onClick={() => onSelect(node.path)}
         style={indent}
         aria-current={selected ? 'true' : undefined}
         className={cn(
-          'flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm hover:bg-surface-elevated',
+          'flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-md py-1 pr-2 text-left text-sm hover:bg-surface-elevated',
           selected ? 'bg-surface-elevated font-medium text-brand-strong' : 'text-foreground',
         )}
       >

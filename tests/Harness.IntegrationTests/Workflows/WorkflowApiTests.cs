@@ -179,7 +179,13 @@ public sealed class WorkflowApiTests
                     }
                     using (var response = await client.PostAsJsonAsync("/api/v1/workflow-runs", new CreateWorkflowRunRequest(workflowId), timeout.Token))
                     { Assert.Equal(HttpStatusCode.Created, response.StatusCode); var run = await response.Content.ReadFromJsonAsync<WorkflowRunContract>(timeout.Token); Assert.NotNull(run); runId = run.Id; Assert.Equal("running", run.State); Assert.Null(run.FinishedAt); }
-                    var phases = await client.GetFromJsonAsync<PhasePage>($"/api/v1/phases?runId={runId}", timeout.Token); Assert.Equal(2, phases!.Items.Count); Assert.Single(phases.Items, x => x.State == "active");
+                    var phases = await client.GetFromJsonAsync<PhasePage>($"/api/v1/phases?runId={runId}", timeout.Token);
+                    Assert.Equal(2, phases!.Items.Count);
+                    var activePhase = Assert.Single(phases.Items, x => x.State == "active");
+                    Assert.Equal("workflow_run_objectives_and_gates", activePhase.Progress.Source);
+                    Assert.Equal(0, activePhase.Progress.Completed);
+                    Assert.Equal(1, activePhase.Progress.Total);
+                    Assert.Equal(0, activePhase.Progress.Percent);
                     var gates = await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={runId}", timeout.Token); var gate = Assert.Single(gates!.Items); Assert.Equal("Qualidade", gate.Name); Assert.True(gate.RequiresApproval); Assert.Null(gate.DecidedAt);
                     using (var pause = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/transitions", new TransitionWorkflowRunRequest("pause"), timeout.Token)) Assert.Equal(HttpStatusCode.OK, pause.StatusCode);
                     using (var resume = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/transitions", new TransitionWorkflowRunRequest("resume"), timeout.Token)) Assert.Equal(HttpStatusCode.OK, resume.StatusCode);

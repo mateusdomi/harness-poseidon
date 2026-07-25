@@ -8,7 +8,11 @@
       "stop": "Stop",
       "restart": "Restart",
       "startAll": "Start all",
+      "startRemaining_one": "Start {{count}} stopped target",
+      "startRemaining_other": "Start {{count}} stopped targets",
       "stopAll": "Stop all",
+      "stopRunning_one": "Stop {{count}} running target",
+      "stopRunning_other": "Stop {{count}} running targets",
       "cleanup": "Clean up environment"
     },
     "services": {
@@ -17,8 +21,11 @@
       "port": "Port",
       "url": "URL",
       "stack": "Stack",
+      "stackUnavailable": "Stack not declared by the project",
       "dependencies": "Dependencies",
-      "dependenciesUnavailable": "Not available in the current contract"
+      "hostName": "Poseidon application (Host + frontend)",
+      "hostDependencies": "Observed external process; it hosts this screen and the API.",
+      "managedDependencies": "Launcher-managed target; target-specific dependencies are not declared by the manifest."
     },
     "logs": {
       "title": "Environment logs",
@@ -39,20 +46,7 @@
     },
     "credentials": {
       "title": "Demo credentials",
-      "user": "User",
-      "password": "Password",
-      "reveal": "Reveal",
-      "hide": "Hide"
-    },
-    "demoCredentials": {
-      "poseidon": {
-        "user": "demo@poseidon.local",
-        "password": "demo123"
-      },
-      "generic": {
-        "user": "demo",
-        "password": "demo123"
-      }
+      "backendOnly": "The backend did not provide demo credentials for this project. The interface does not store or reveal local credentials on its own."
     },
     "guideTitle": "What to test first",
     "guide": {
@@ -69,8 +63,10 @@
       "body": "In local mode everything runs on this computer: you start the Launcher from the shortcut, it brings up the local Host/Runner, picks a port and opens the browser — no IDE required.",
       "environmentLabel": "Environment state",
       "environment": "{{running}} of {{total}} service(s) running",
-      "workingDirectoryLabel": "Data directory",
+      "workingDirectoryLabel": "Authorized working directory",
       "workingDirectoryEmpty": "not configured in preferences",
+      "dataDirectoryLabel": "Data directory",
+      "dataDirectory": "~/.harness-poseidon",
       "actionsNote": "To manage the environment, use the Restart and Stop actions available above, on each service.",
       "shortcut": "Instruction: to open this environment outside the app, use the \"Harness Poseidon Launcher\" shortcut in the system applications menu.",
       "diagnostics": "Diagnostics"

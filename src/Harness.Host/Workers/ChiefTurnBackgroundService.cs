@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Harness.Host.Leadership;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Domain;
@@ -25,6 +26,7 @@ public sealed partial class ChiefTurnBackgroundService(
     ChiefTurnWorkerOptions options,
     ChiefContextComposer contextComposer,
     ChiefContextStrategyOptions contextStrategyOptions,
+    LeadershipProfileStore leadershipProfile,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -168,6 +170,8 @@ public sealed partial class ChiefTurnBackgroundService(
                     JsonOptions);
             }
             await ReportAsync(ChiefTurnActivity.Thinking);
+            var communicationInstructions =
+                (await leadershipProfile.ReadAsync(cancellationToken)).CommunicationInstructions;
             var execution = await executor.ExecuteAsync(
                 new AgentExecutionRequest(
                     lease.Turn.TenantId,
@@ -179,7 +183,8 @@ public sealed partial class ChiefTurnBackgroundService(
                     AppContext.BaseDirectory,
                     lease.SessionId,
                     lease.Turn.Selection?.ModelName,
-                    lease.Turn.Selection?.ProviderEffortValue),
+                    lease.Turn.Selection?.ProviderEffortValue,
+                    communicationInstructions),
                 cancellationToken);
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
             await ReportAsync(ChiefTurnActivity.Planning);

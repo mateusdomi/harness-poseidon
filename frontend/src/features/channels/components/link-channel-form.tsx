@@ -78,7 +78,11 @@ export function LinkChannelForm({ projects, onLinked, onCancel }: LinkChannelFor
       : t('channels.link.fields.identityHintTelegram');
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit} aria-label={t('channels.link.title')}>
+    <form
+      className="flex min-w-0 flex-col gap-4"
+      onSubmit={handleSubmit}
+      aria-label={t('channels.link.title')}
+    >
       <Field htmlFor={kindId} label={t('channels.link.fields.kind')} required requiredLabel={t('channels.link.required')}>
         <Select
           id={kindId}

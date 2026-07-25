@@ -1602,7 +1602,7 @@ export class MockApiClient implements ApiClient {
       id: project.chiefAgentId,
       definitionId: definition.id,
       projectId: project.id,
-      name: `Chefe — ${project.name}`,
+      name: `Bruna Magalhães — ${project.name}`,
       state: 'idle',
       currentTaskId: null,
       modelId: null,
@@ -1937,7 +1937,7 @@ export class MockApiClient implements ApiClient {
         const demand = await this.create('demands', {
           projectId: project.id,
           title: `Plano: ${objective}`,
-          description: `Demanda criada pelo chefe a partir da conversa: "${objective}".`,
+          description: `Demanda criada por Bruna a partir da conversa: "${objective}".`,
           priority: 'high',
         });
         const taskA = await this.create('tasks', {

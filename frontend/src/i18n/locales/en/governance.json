@@ -114,7 +114,7 @@
       "receipts": {
         "search": "Search current batch", "state": "State",
         "limitNote": "The P1 API returns a batch of up to 100 receipts and does not publish a next-page cursor; the UI does not simulate pagination.",
-        "emptyTitle": "No proof available", "emptyBody": "Run a real Chief turn and try again. The acceptance profile does not inject fixtures.",
+        "emptyTitle": "No proof available", "emptyBody": "Run a real Bruna turn and try again. The acceptance profile does not inject test data.",
         "view": "View proof", "hide": "Hide proof", "bundle": "Reproducible proof (bundle)", "documents": "Selected documents", "metrics": "Turn metrics"
       },
       "documents": {

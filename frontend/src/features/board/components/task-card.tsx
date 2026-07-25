@@ -62,8 +62,18 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
           {task.archivedAt !== null && (
             <Badge variant="outline">{t('board.card.archived')}</Badge>
           )}
-          <Badge variant="outline">{t(`board.card.types.${task.cardType ?? 'agent_task'}`)}</Badge>
-          {task.phaseName && <Badge variant="outline">{task.phaseName}</Badge>}
+          <Badge
+            variant={
+              task.cardType === 'human_gate'
+                ? 'warning'
+                : task.cardType === 'decision'
+                  ? 'brand'
+                  : 'info'
+            }
+          >
+            {t(`board.card.types.${task.cardType ?? 'agent_task'}`)}
+          </Badge>
+          {task.phaseName && <Badge variant="brand">{task.phaseName}</Badge>}
         </span>
         {task.state === 'blocked' && (
           <span className="flex items-start gap-1.5 text-xs text-error">

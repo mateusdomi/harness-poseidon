@@ -15,7 +15,12 @@ describe('projeção operacional dos projetos', () => {
     });
 
     expect(summary.totalTasks).toBe(
-      fixtures.tasks.filter((task) => task.projectId === project.id).length,
+      fixtures.tasks.filter((task) => task.projectId === project.id).length * 100,
+    );
+    expect(summary.completedTasks).toBe(
+      fixtures.tasks
+        .filter((task) => task.projectId === project.id)
+        .reduce((sum, task) => sum + task.progress.executed, 0),
     );
     expect(summary.responsibleName).toBe('Bruna Magalhães');
     expect(summary.workflowName).toBeTruthy();

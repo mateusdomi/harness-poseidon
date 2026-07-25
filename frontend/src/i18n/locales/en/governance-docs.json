@@ -1,7 +1,7 @@
 {
   "governanceDocs": {
     "title": "Governance Documents",
-    "subtitle": "Read, edit and delete the on-disk documents that govern the system's behavior. Edits take effect for the Chief, which reads governance from disk.",
+    "subtitle": "Read, edit and delete the on-disk documents that govern the system's behavior. Edits take effect for Bruna, who reads governance from disk.",
     "tree": {
       "title": "Files",
       "empty": "No governance documents found.",

@@ -7,7 +7,7 @@
       "step1": "Describe the request in free text and attach supporting files if useful.",
       "step2": "Click \"Analyze request\" to organize the content into panels.",
       "step3": "Review each panel: edit, mark as resolved, or discard what does not apply.",
-      "step4": "Click \"Create structured demand\" — it goes to the board and to the project's chief.",
+      "step4": "Click \"Create structured demand\" — it goes to the board and to Bruna.",
       "note": "The analysis is a support tool: review and adjust the panels before creating the demand."
     },
     "noProject": {
@@ -48,7 +48,7 @@
     "demand": {
       "create": "Create structured demand",
       "creating": "Creating demand…",
-      "created": "Structured demand created and sent to the project's chief.",
+      "created": "Structured demand created and sent to Bruna.",
       "openBoard": "View on the board",
       "openChat": "Talk in the chat",
       "error": "Could not create the demand. Please try again.",

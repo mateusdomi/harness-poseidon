@@ -93,6 +93,20 @@ export function deriveChiefReadiness(input: ChiefReadinessInput): ChiefReadiness
   return 'ready';
 }
 
+/**
+ * Saúde apresentada combina a saúde do processo com a prontidão de negócio.
+ * Um heartbeat saudável não torna a liderança operacionalmente saudável quando
+ * faltam modelo, conta ou workflow.
+ */
+export function derivePresentedChiefHealth(
+  processHealth: ChiefHealth,
+  readiness: ChiefReadiness,
+): ChiefHealth {
+  if (processHealth === 'error' || readiness === 'degraded') return 'error';
+  if (readiness !== 'ready' && readiness !== 'running') return 'attention';
+  return processHealth;
+}
+
 /** CTA única e correta para cada estado de prontidão. */
 export function readinessAction(readiness: ChiefReadiness): ChiefReadinessAction {
   switch (readiness) {

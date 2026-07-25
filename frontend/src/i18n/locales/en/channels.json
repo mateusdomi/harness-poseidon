@@ -1,7 +1,7 @@
 {
   "channels": {
     "title": "External channels",
-    "subtitle": "External conversation gateways (Telegram, Teams) linked to projects. Messages route to the Chief's durable inbox with zero duplication.",
+    "subtitle": "External conversation gateways (Telegram, Teams) linked to projects. Messages route to Bruna's durable inbox with zero duplication.",
     "count": "{{count}} channel(s) linked",
     "kind": {
       "telegram": "Telegram",
@@ -19,7 +19,7 @@
     },
     "empty": {
       "title": "No channel linked to a project",
-      "body": "Having a configured Telegram bot on the gateway is not the same as having a linked channel. This screen lists only external-identity → project links. Link your chat below so its messages reach the Chief's durable inbox.",
+      "body": "Having a configured Telegram bot on the gateway is not the same as having a linked channel. This screen lists only external-identity → project links. Link your chat below so its messages reach Bruna's durable inbox.",
       "cta": "Link a channel"
     },
     "error": {
@@ -48,7 +48,7 @@
       },
       "submit": "Link channel",
       "submitting": "Linking…",
-      "success": "Channel linked to the project. New chat messages will now reach the Chief's inbox.",
+      "success": "Channel linked to the project. New chat messages will now reach Bruna's inbox.",
       "noProjects": "Create a project before linking a channel — a link always points to a project.",
       "errors": {
         "invalid_channel_kind": "Invalid channel kind.",
@@ -80,7 +80,7 @@
     },
     "manage": {
       "title": "Manage",
-      "unlinkNote": "Unlinking a channel is done via the gateway/CLI (there is no delete action on this screen). While the link exists, chat messages keep reaching the Chief's inbox."
+      "unlinkNote": "Unlinking a channel is done via the gateway/CLI (there is no delete action on this screen). While the link exists, chat messages keep reaching Bruna's inbox."
     }
   }
 }

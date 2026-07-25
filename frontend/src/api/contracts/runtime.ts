@@ -30,7 +30,22 @@ export const agentAccountRosterSchema = z.object({
    * Estado inicial da conta. Uma conta nunca nasce disponível: instalação e
    * autenticação são comprovadas por probe/login, jamais presumidas.
    */
-  state: z.enum(['authentication-required', 'disabled']),
+  state: z.enum([
+    'working',
+    'idle',
+    'out-of-quota',
+    'cooldown',
+    'authentication-required',
+    'offline',
+    'degraded',
+    'disabled',
+  ]),
+  /** Saúde segura para exibição; não contém detalhe de credencial. */
+  health: z.enum(['healthy', 'attention', 'unhealthy']).optional(),
+  /** Quando cota/cooldown retorna; nulo quando o provedor não informa. */
+  returnsAt: isoDateTimeSchema.nullable().optional(),
+  /** Código operacional redigido, nunca mensagem com segredo. */
+  reasonCode: z.string().nullable().optional(),
 });
 export type AgentAccountRoster = z.infer<typeof agentAccountRosterSchema>;
 

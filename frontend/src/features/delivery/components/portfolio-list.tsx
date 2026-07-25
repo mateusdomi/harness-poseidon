@@ -49,13 +49,28 @@ export function PortfolioList({
         ];
         return (
           <li key={d.deliveryId}>
-            <Card>
+            <Card
+              role="link"
+              tabIndex={0}
+              aria-label={t('delivery.portfolio.open', { name: d.name })}
+              onClick={() => onOpen(d.deliveryId)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpen(d.deliveryId);
+                }
+              }}
+              className="cursor-pointer transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
               <CardContent className="flex flex-col gap-3 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <button
                     type="button"
                     className="text-left text-base font-semibold text-foreground hover:underline focus-visible:underline focus-visible:outline-none"
-                    onClick={() => onOpen(d.deliveryId)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpen(d.deliveryId);
+                    }}
                     aria-label={t('delivery.portfolio.open', { name: d.name })}
                   >
                     {d.name}
@@ -118,12 +133,26 @@ export function PortfolioList({
                       <p className="text-xs text-foreground-muted">
                         {t('delivery.portfolio.configureHint')}
                       </p>
-                      <Button size="sm" variant="ghost" onClick={() => onConfigure(d)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onConfigure(d);
+                        }}
+                      >
                         {t('delivery.portfolio.configure')}
                       </Button>
                     </div>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => onOpen(d.deliveryId)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpen(d.deliveryId);
+                    }}
+                  >
                     {t('delivery.portfolio.openAction')}
                   </Button>
                 </div>

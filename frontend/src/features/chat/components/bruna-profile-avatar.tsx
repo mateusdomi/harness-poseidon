@@ -3,10 +3,8 @@ import { useTranslation } from 'react-i18next';
 
 import { AgentAvatar } from '@/features/shared/components/agent-avatar';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
+import { useLeadershipProfile } from '@/features/shared/hooks/use-leadership-profile';
 import { cn } from '@/lib/utils';
-
-const BRUNA_NAME = 'Bruna Magalhães';
-const BRUNA_PHOTO = '/people/bruna-magalhaes.jpg';
 
 export function BrunaProfileAvatar({
   size = 40,
@@ -16,8 +14,12 @@ export function BrunaProfileAvatar({
   className?: string;
 }) {
   const { t } = useTranslation();
+  const profile = useLeadershipProfile().data;
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
+  const name = profile?.displayName ?? 'Bruna Magalhães';
+  const photo = profile?.photoUrl ?? '/people/bruna-magalhaes.jpg';
+  const title = profile?.title ?? t('chat.leadership.title');
 
   return (
     <>
@@ -31,10 +33,10 @@ export function BrunaProfileAvatar({
         )}
       >
         {failed ? (
-          <AgentAvatar name={BRUNA_NAME} size={size} />
+          <AgentAvatar name={name} size={size} />
         ) : (
           <img
-            src={BRUNA_PHOTO}
+            src={photo}
             alt={t('chat.leadership.photoAlt')}
             width={size}
             height={size}
@@ -52,10 +54,10 @@ export function BrunaProfileAvatar({
         >
           <div className="flex flex-col items-center gap-4 pt-8 text-center">
             {failed ? (
-              <AgentAvatar name={BRUNA_NAME} size={128} />
+              <AgentAvatar name={name} size={128} />
             ) : (
               <img
-                src={BRUNA_PHOTO}
+                src={photo}
                 alt={t('chat.leadership.photoAlt')}
                 width={682}
                 height={1024}
@@ -64,10 +66,13 @@ export function BrunaProfileAvatar({
               />
             )}
             <div>
-              <h2 className="font-heading text-2xl font-semibold">{BRUNA_NAME}</h2>
+              <h2 className="font-heading text-2xl font-semibold">{name}</h2>
               <p className="mt-1 text-sm text-foreground-muted">
-                {t('chat.leadership.title')}
+                {title}
               </p>
+              {profile?.summary ? (
+                <p className="mt-3 max-w-md text-sm text-foreground-muted">{profile.summary}</p>
+              ) : null}
             </div>
           </div>
         </ModalDialog>

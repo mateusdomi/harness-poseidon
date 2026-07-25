@@ -2,13 +2,19 @@
   "agents": {
     "roster": {
       "title": "Execution fleet roster",
-      "subtitle": "The execution identities (agent-run accounts) the Chief uses to run work — chief/worker per provider. Distinct from the personas/definitions above: this is WHO executes. Read-only and redacted — never a credential or token.",
+      "subtitle": "Global execution identities Bruna may invoke in any project, differentiated by provider and role. Redacted data only — never a credential or token.",
       "count": "{{count}} identities",
       "provider": "Provider",
       "executor": "Executor",
       "roles": "Roles",
       "state": {
+        "working": "Working",
+        "idle": "Idle",
+        "out-of-quota": "Out of quota",
+        "cooldown": "Cooling down",
         "authentication-required": "Auth required",
+        "offline": "Offline",
+        "degraded": "Degraded",
         "disabled": "Disabled"
       },
       "empty": "No execution identity configured.",
@@ -22,7 +28,7 @@
       "bar": "{{agent}}: {{count}} tasks completed"
     },
     "groups": {
-      "chief": "Chief"
+      "chief": "Leadership"
     },
     "teams": {
       "general": "General"
@@ -50,7 +56,27 @@
     },
     "empty": {
       "title": "No agents allocated",
-      "body": "This project has no agents allocated yet. Talk to the chief in the chat to build the team."
+      "body": "No agent has been invoked in this project yet. The global fleet above remains available; this area shows only effective project activity."
+    },
+    "executionCount_one": "{{count}} global execution identity",
+    "executionCount_other": "{{count}} global execution identities",
+    "fleetTree": {
+      "title": "Global fleet organization chart",
+      "help": "Bruna coordinates all identities below. They may be invoked in any project; project activity and global availability are distinct concepts.",
+      "teams": {
+        "leadership": "Leadership",
+        "engineering": "Engineering",
+        "frontend": "Experience and frontend",
+        "quality": "Quality and review"
+      },
+      "metrics": {
+        "completed": "Completed",
+        "approved": "Approved",
+        "rework": "Rework"
+      },
+    "zeroSource": "Source: persisted tasks and attempts attributable to the identity. Without an attributable link, the value is zero.",
+    "photoAction": "Change photo",
+    "photoUploading": "Uploading photo…"
     },
     "card": {
       "capabilities": "Capabilities",

@@ -5,8 +5,13 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/des
 import { AgentIdentity } from '@/features/shared/components/agent-identity';
 import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
 
-const STATE_VARIANT: Record<string, 'warning' | 'default'> = {
+const STATE_VARIANT: Record<string, 'warning' | 'default' | 'success' | 'info' | 'error'> = {
+  working: 'info',
+  idle: 'success',
+  'out-of-quota': 'error',
+  cooldown: 'warning',
   'authentication-required': 'warning',
+  degraded: 'warning',
   disabled: 'default',
 };
 
@@ -48,13 +53,13 @@ export function AgentExecutionRoster() {
         ) : accounts.length === 0 ? (
           <p className="text-sm text-foreground-muted">{t('agents.roster.empty')}</p>
         ) : (
-          <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {accounts.map((account) => (
               <li
                 key={account.alias}
-                className="flex flex-col gap-2 rounded-md border border-border p-3"
+                className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-md border border-border p-3"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                   {/* Nome humano em destaque; o alias técnico (ex.: chief-claude-primary)
                       permanece visível como subtítulo por transparência. */}
                   <AgentIdentity alias={account.alias} technicalLabel={account.alias} size={36} />
@@ -62,13 +67,13 @@ export function AgentExecutionRoster() {
                     {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
                   </Badge>
                 </div>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm text-foreground-muted">
+                <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-foreground-muted">
                   <dt>{t('agents.roster.provider')}</dt>
-                  <dd className="text-foreground">{account.providerKind}</dd>
+                  <dd className="min-w-0 break-words text-foreground">{account.providerKind}</dd>
                   <dt>{t('agents.roster.executor')}</dt>
-                  <dd className="text-foreground">{account.executorId}</dd>
+                  <dd className="min-w-0 break-words text-foreground">{account.executorId}</dd>
                   <dt>{t('agents.roster.roles')}</dt>
-                  <dd className="flex flex-wrap gap-1">
+                  <dd className="flex min-w-0 flex-wrap gap-1">
                     {account.roles.map((role) => (
                       <Badge key={role} variant="outline">
                         {role}

@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Harness.Host.Profiles;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
+using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Identity;
@@ -569,6 +570,7 @@ public static class AgentRunEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         AgentRunSettings settings,
+        AccountAvailabilityLedger availability,
         CancellationToken token)
     {
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
@@ -587,7 +589,7 @@ public static class AgentRunEndpoints
             return Problem(409, "account_configuration_invalid", exception.Code);
         }
 
-        return Results.Ok(RedactRoster(definitions));
+        return Results.Ok(RedactRoster(definitions, availability.List()));
     }
 
     /// <summary>
@@ -597,20 +599,55 @@ public static class AgentRunEndpoints
     /// ser provado por teste sem levantar o pipeline HTTP.
     /// </summary>
     public static AgentAccountRosterResponse RedactRoster(
-        IReadOnlyList<AgentAccountDefinition> definitions)
+        IReadOnlyList<AgentAccountDefinition> definitions,
+        IReadOnlyList<AccountAvailabilityRecord>? availability = null)
     {
         ArgumentNullException.ThrowIfNull(definitions);
+        var observed = (availability ?? [])
+            .ToDictionary(record => record.Alias, StringComparer.Ordinal);
         return new AgentAccountRosterResponse(
-            [.. definitions.Select(definition => new AgentAccountRosterContract(
-                definition.Alias,
-                definition.ProviderKind,
-                definition.ExecutorId,
-                definition.AllowedRoles,
-                Math.Max(1, definition.ConcurrencyLimit),
-                definition.Priority,
-                definition.Enabled,
-                definition.Enabled ? "authentication-required" : "disabled"))]);
+            [.. definitions.Select(definition =>
+            {
+                observed.TryGetValue(definition.Alias, out var current);
+                var state = !definition.Enabled
+                    ? "disabled"
+                    : current is null
+                        ? "authentication-required"
+                        : PublicState(current.State);
+                return new AgentAccountRosterContract(
+                    definition.Alias,
+                    definition.ProviderKind,
+                    definition.ExecutorId,
+                    definition.AllowedRoles,
+                    Math.Max(1, definition.ConcurrencyLimit),
+                    definition.Priority,
+                    definition.Enabled,
+                    state,
+                    PublicHealth(current?.State, definition.Enabled),
+                    current?.CooldownUntil,
+                    current?.ReasonCode);
+            })]);
     }
+
+    private static string PublicState(AgentAccountState state) => state switch
+    {
+        AgentAccountState.Available => "idle",
+        AgentAccountState.Reserved or AgentAccountState.Running => "working",
+        AgentAccountState.CoolingDown => "cooldown",
+        AgentAccountState.QuotaLimited => "out-of-quota",
+        AgentAccountState.AuthenticationRequired => "authentication-required",
+        AgentAccountState.Degraded => "degraded",
+        AgentAccountState.Disabled => "disabled",
+        AgentAccountState.Unavailable => "offline",
+        _ => "offline",
+    };
+
+    private static string PublicHealth(AgentAccountState? state, bool enabled) =>
+        !enabled || state is AgentAccountState.Disabled or AgentAccountState.Unavailable
+            ? "unhealthy"
+            : state is AgentAccountState.Available or AgentAccountState.Reserved or AgentAccountState.Running
+                ? "healthy"
+                : "attention";
 
     private static AgentRunResponse ToResponse(AgentRunSnapshot snapshot) =>
         new(snapshot.RunId,
@@ -809,4 +846,7 @@ public sealed record AgentAccountRosterContract(
     int ConcurrencyLimit,
     int Priority,
     bool Enabled,
-    string State);
+    string State,
+    string Health,
+    DateTimeOffset? ReturnsAt,
+    string? ReasonCode);

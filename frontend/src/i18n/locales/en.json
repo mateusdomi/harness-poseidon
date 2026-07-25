@@ -79,13 +79,13 @@
     },
     "keywords": {
       "cockpit": "overview dashboard operation status",
-      "chat": "talk chief message conversation ask",
+      "chat": "talk bruna leadership message conversation ask",
       "board": "tasks kanban cards columns",
       "conversations": "history threads chats past",
       "projects": "projects list repository",
       "delivery": "deliveries portfolio forecast dora reports daily copilot 360 tech lead",
       "workflows": "pipelines automation flows phases",
-      "orchestrator": "coordination chief delegation agents",
+      "orchestrator": "coordination leadership delegation agents",
       "agents": "agents team specialists bots",
       "run-project": "execute run start trigger",
       "documents": "docs catalog files specification",
@@ -93,7 +93,7 @@
       "architecture": "architecture studio c4 archimate elements views diagrams model",
       "approvals": "pending gates decisions review approve",
       "governance": "audit trail policies limits timeline",
-      "governance-docs": "governance behavior chief rules docs edit disk core manifest",
+      "governance-docs": "governance behavior leadership rules docs edit disk core manifest",
       "organizations": "orgs company workspace brand",
       "providers": "models llm integrations api",
       "channels": "telegram teams external gateway messages links inbox",
@@ -680,8 +680,8 @@
       "logoAlt": "{{name}} project brand",
       "poseidonDescription": "Poseidon control plane.",
       "phase": "Phase",
-      "progress": "Progress",
-      "progressValue": "{{completed}}/{{total}} completed ({{percent}}%)",
+      "progress": "Executed progress",
+      "progressValue": "{{completed}}/{{total}} points — {{percent}}%",
       "responsible": "Owner",
       "health": "Health",
       "workflow": "Workflow",
@@ -797,7 +797,12 @@
       "title": "Current phase",
       "noRun": "No workflow run in progress in this project.",
       "gate": "Associated gate:",
-      "noGate": "No gate in this phase"
+      "noGate": "No gate in this phase",
+      "progressLabel": "Progress of phase {{phase}}",
+      "progressFraction": "{{completed}} of {{total}} items completed",
+      "progressTooltip": "Single source: persisted workflow-run objectives and gates.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "deliverables": "Expected deliverables",
+      "deliverablesUnavailable": "This run did not publish deliverables for the phase."
     },
     "progress": {
       "globalTitle": "Project-wide progress",
@@ -822,6 +827,46 @@
         "noUpdate": "No update yet"
       }
     },
+    "fleet": {
+      "title": "Operational fleet",
+      "subtitle": "Bruna and the global identities available to execute work in any project.",
+      "identities": "{{count}} identities",
+      "error": "The fleet state could not be loaded.",
+      "empty": "No execution identity is configured in this installation.",
+      "kpis": {
+        "online": "Online",
+        "tasksDone": "Completed tasks",
+        "tasksTodo": "Tasks to do",
+        "withoutCapacity": "No capacity"
+      },
+      "states": {
+        "authenticationRequired": "Authentication required",
+        "offline": "Offline"
+      },
+      "health": {
+        "healthy": "Health: healthy",
+        "attention": "Health: attention",
+        "unhealthy": "Health: critical"
+      },
+      "quotaUnavailable": "Quota: provider does not report quota.",
+      "quotaReturns": "Out of quota. Reported return at {{time}}.",
+      "quotaNoReturn": "Out of quota. The provider did not report when it returns.",
+      "cooldownReturns": "Cooldown until {{time}}.",
+      "productivity": {
+        "title": "Productivity by subscription",
+        "source": "Intended source: persisted tasks and attempts attributed to the execution account. This installation has not published attributable attempts.",
+        "columns": {
+          "provider": "Subscription / provider",
+          "completed": "Completed",
+          "success": "Success",
+          "rework": "Rework",
+          "failures": "Failures",
+          "duration": "Average duration"
+        },
+        "unavailable": "Unavailable",
+        "zeroExplanation": "Zeros are real for the available slice. Duration is unavailable because there is no persisted attempt attributable to a subscription."
+      }
+    },
     "tasksChart": {
       "title": "Task distribution",
       "subtitle": "How many tasks are in each stage of the factory right now.",
@@ -834,23 +879,23 @@
       "actions": {
         "resolveApprovals": {
           "label": "There are approvals awaiting your decision. Resolving them unblocks the workflow gates.",
-          "message": "Chief, list the project's pending approvals and help me decide each one."
+          "message": "Bruna, list the project's pending approvals and help me decide each one."
         },
         "unblockTasks": {
-          "label": "There are blocked tasks. Ask the chief for an unblocking plan.",
-          "message": "Chief, which tasks are blocked and what is needed to unblock each one?"
+          "label": "There are blocked tasks. Ask Bruna for an unblocking plan.",
+          "message": "Bruna, which tasks are blocked and what is needed to unblock each one?"
         },
         "recoverAgents": {
-          "label": "There are agents in error or out of quota. The chief can redistribute the work.",
-          "message": "Chief, we have agents in error or out of quota. How do we recover the team's capacity?"
+          "label": "There are agents in error or out of quota. Bruna can redistribute the work.",
+          "message": "Bruna, we have agents in error or out of quota. How do we recover the team's capacity?"
         },
         "reviewQuotas": {
           "label": "Some budgets are near the limit. Review consumption before running out of quota.",
-          "message": "Chief, how is the project's cost consumption and what can we optimize?"
+          "message": "Bruna, how is the project's cost consumption and what can we optimize?"
         },
         "reviewPhase": {
           "label": "Healthy operation. Ask for a summary of the current phase.",
-          "message": "Chief, give me a summary of the current phase progress and next steps."
+          "message": "Bruna, give me a summary of the current phase progress and next steps."
         }
       }
     },
@@ -885,7 +930,7 @@
     },
     "quotas": {
       "title": "Critical quotas",
-      "empty": "No budget near the limit.",
+      "empty": "Providers have not published a quota time series. Once real observations exist, this card will show consumption and quota reset on a timeline; until then, see each subscription's honest state in Fleet.",
       "severity": {
         "warning": "Warning: {{pct}}% of the budget consumed.",
         "critical": "Limit reached: {{pct}}% of the budget consumed."
@@ -926,7 +971,7 @@
       "actions": {
         "agent.error": "Agent reported an error",
         "approval.resolved": "Approval resolved",
-        "demand.created": "Demand created by the chief",
+        "demand.created": "Demand created by Bruna",
         "license.validated": "License validated",
         "solicitation.created": "Request registered",
         "task.created": "Task created",
@@ -993,13 +1038,22 @@
       "assignee": "Assignee",
       "updated": "Last activity",
       "progressTitle": "Progress",
+      "sourceUnavailable": "Unavailable in the current contract; no data was inferred.",
+      "scope": {
+        "title": "Objective, scope and criteria",
+        "objective": "Work objective",
+        "included": "Included in scope",
+        "excluded": "Out of scope",
+        "acceptanceCriteria": "Acceptance criteria",
+        "claims": "Claims and authorized scope"
+      },
       "instruction": {
         "title": "Instruction sent to the agent",
         "immutable": "Instructions are immutable: a correction creates a new version instead of editing the previous one.",
         "versionLabel": "Instruction version",
         "version": "Version {{version}}",
         "author": {
-          "chief": "Chief",
+          "chief": "Bruna Magalhães",
           "user": "You"
         }
       },
@@ -1150,8 +1204,8 @@
       "expectedArtifacts": "Expected artifacts",
       "progressEvidence": {
         "fraction": "{{completed}} of {{total}} items completed",
-        "phaseFallback": "No linked items; percentage is derived only from the phase state.",
-        "tooltip": "Source: tasks, documents, gates and approvals linked to the phase.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nApprovals: {{approvalsDone}}/{{approvalsTotal}}"
+        "phaseFallback": "The run did not publish objectives for this phase.",
+        "tooltip": "Single source: persisted workflow-run objectives and gates.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}"
       },
       "filters": {
         "label": "Filter documents of phase {{phase}}"
@@ -1267,14 +1321,14 @@
         "provider_account": { "missing": "Connect a provider account." },
         "model": { "none_chat_enabled": "Enable a chat model." },
         "workflow": { "unbound": "Bind a workflow to the project." },
-        "chief": { "model_unresolved": "Set the chief model." }
+        "chief": { "model_unresolved": "Set Bruna's model." }
       },
       "actions": {
         "unknown": "Resolve dependency",
         "provider": { "connectAccount": "Connect a provider account" },
         "model": { "enable": "Enable a model" },
         "workflow": { "bind": "Bind a workflow" },
-        "chief": { "configureModel": "Configure the chief model" }
+        "chief": { "configureModel": "Configure Bruna's model" }
       }
     },
     "readiness": {
@@ -1311,7 +1365,7 @@
     },
     "chat": {
       "title": "Chat",
-      "description": "Talk to the chief agent and the AI team."
+      "description": "Talk to Bruna and the AI team."
     },
     "conversations": {
       "title": "Conversations",
@@ -1339,7 +1393,7 @@
     },
     "orchestrator": {
       "title": "Orchestrator",
-      "description": "Chief agent coordination over the other agents."
+      "description": "Bruna's coordination over the other agents."
     },
     "agents": {
       "title": "Agents",
@@ -1386,7 +1440,7 @@
     "empty": {
       "title": "No workflow linked",
       "body": "This project has no workflow yet. Link a template to get started.",
-      "explanation": "A workflow defines the phases of the work (e.g. discovery, development, review) and the approval gates between them. It tells the chief how to run the project.",
+      "explanation": "A workflow defines the phases of the work (e.g. discovery, development, review) and the approval gates between them. It guides Bruna in running the project.",
       "recommendedBadge": "Recommended",
       "versionLabel": "version {{version}}",
       "phasesLabel": "Phases",
@@ -1435,8 +1489,12 @@
       "title": "Workflow phases",
       "label": "Workflow phases",
       "gatesLabel": "Gates of phase {{phase}}",
-      "documentsLabel": "Documents",
-      "noDocuments": "No linked documents.",
+      "progressLabel": "Progress of phase {{phase}}",
+      "progressDetails": "View progress calculation for phase {{phase}}",
+      "progressTooltip": "Single source: persisted workflow-run objectives and gates.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "deliverablesLabel": "Expected deliverables",
+      "deliverablesUnavailable": "This run version did not publish deliverables for the phase.",
+      "producedDocumentsLabel": "Produced documents",
       "documentVersion": "v{{version}}"
     },
     "templates": {
@@ -1575,7 +1633,7 @@
     },
     "empty": {
       "title": "No documents in this project yet",
-      "body": "Documents are versioned project artifacts (PRD, spec, design, runbook, notes and reports). The chief and the agents produce them along the flow — each correction becomes a new immutable version, with history and diff.",
+      "body": "Documents are versioned project artifacts (PRD, specification, design, runbook, notes and reports). Bruna and the agents produce them along the flow — each correction becomes a new immutable version, with history and comparison.",
       "appears": "As soon as an agent or a workflow phase generates an artifact, it shows up here with its state (draft, in review, approved). You can also create the first one right now.",
       "governanceNote": "Looking to edit repository files (governance, policies, manifests)? That lives in Governance Documents — a separate screen.",
       "governanceLink": "Go to Governance Documents",
@@ -1661,7 +1719,7 @@
       "versionsTitle": "Versions",
       "authorKind": {
         "user": "You",
-        "chief": "Chief",
+        "chief": "Bruna",
         "agent": "Agent"
       },
       "diffFrom": "Compare from",

@@ -142,12 +142,13 @@ async function ensureProject(page: Page, profileName: string) {
     ? newProjectCta
     : page.getByRole('button', { name: 'Criar projeto' })
   ).click();
+  await page.getByRole('tab', { name: 'Identidade' }).click();
   await page.getByLabel('Título').fill(PROJECT_NAME);
   await page.getByLabel('Slug (sigla)').fill('HOMOLOG');
   await page.getByRole('tab', { name: 'Objetivo' }).click();
   await page.getByLabel('Objetivo e contexto').fill('Validação técnica do frontend contra o Host real.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
-  await page.getByRole('checkbox', { name: profileName, exact: true }).check();
+  await page.getByRole('checkbox', { name: new RegExp(profileName) }).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
   await expect(page.getByRole('heading', { name: 'Editar projeto' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Trilha de navegação' })).toContainText(PROJECT_NAME);
@@ -183,6 +184,23 @@ async function ensureIncrementWorkflowRun(page: Page) {
   }
 }
 
+async function ensureBoardTask(page: Page) {
+  const projectId = await currentProjectId(page);
+  const list = await page.request.get(`/api/v1/tasks?projectId=${projectId}`);
+  expect(list.ok()).toBe(true);
+  const body = (await list.json()) as { items: Array<{ title: string }> };
+  const title = 'Validar detalhe auditável no viewport notebook';
+  if (body.items.some((item) => item.title === title)) return;
+  const created = await page.request.post('/api/v1/tasks', {
+    data: {
+      projectId,
+      title,
+      instruction: 'Validar cabeçalho, tags e rolagem interna do detalhe da tarefa.',
+    },
+  });
+  expect(created.status()).toBe(201);
+}
+
 async function assertA11y(page: Page, context: string) {
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -196,8 +214,44 @@ async function assertA11y(page: Page, context: string) {
   ).toEqual([]);
 }
 
+async function assertNoPageHorizontalOverflow(page: Page, context: string) {
+  const result = await page.evaluate(() => {
+    const viewport = window.innerWidth;
+    const overflow = document.documentElement.scrollWidth - viewport;
+    const offenders = [...document.querySelectorAll<HTMLElement>('body *')]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName.toLowerCase(),
+          id: element.id,
+          classes: element.className.toString().slice(0, 120),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+        };
+      })
+      .filter((item) => item.right > viewport + 1 || item.left < -1)
+      .slice(0, 8);
+    return { viewport, scrollWidth: document.documentElement.scrollWidth, overflow, offenders };
+  });
+  expect(
+    result.overflow,
+    `${context}: overflow horizontal de ${result.overflow}px; ${JSON.stringify(result.offenders)}`,
+  ).toBeLessThanOrEqual(1);
+}
+
 async function captureEvidence(page: Page, testInfo: TestInfo, route: string) {
-  if (!['/cockpit', '/projects', '/delivery', '/chat', '/board', '/governance', '/settings'].includes(route)) return;
+  if (![
+    '/cockpit',
+    '/chat',
+    '/board',
+    '/projects',
+    '/delivery',
+    '/workflows',
+    '/orchestrator',
+    '/agents',
+    '/run-project',
+  ].includes(route)) return;
   const name = `${testInfo.project.name}-${route.slice(1)}.png`;
   const evidenceDirectory = process.env.POSEIDON_EVIDENCE_DIR;
   const screenshotPath = evidenceDirectory
@@ -207,31 +261,46 @@ async function captureEvidence(page: Page, testInfo: TestInfo, route: string) {
 }
 
 async function exerciseIncrement02Evidence(page: Page, testInfo: TestInfo) {
-  if (testInfo.project.name !== 'desktop-13-dark') return;
+  if (testInfo.project.name !== 'desktop-wide-1920') return;
   const directory = process.env.POSEIDON_EVIDENCE_DIR;
   const evidencePath = (name: string) =>
     directory ? path.join(directory, name) : testInfo.outputPath(name);
+  const prefix = testInfo.project.name;
 
   await page.goto('/cockpit');
   await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });
   await page.goto('/chat');
-  await page.getByRole('button', { name: 'Abrir perfil de Bruna Magalhães' }).first().click();
-  await expect(page.getByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeVisible();
-  await page.screenshot({ path: evidencePath('desktop-13-dark-bruna-modal.png'), fullPage: true });
-  await page.keyboard.press('Escape');
+  const brunaProfile = page
+    .getByRole('button', { name: 'Abrir perfil de Bruna Magalhães' })
+    .first();
+  if ((await brunaProfile.count()) > 0) {
+    await brunaProfile.click();
+    await expect(page.getByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeVisible();
+    await page.screenshot({ path: evidencePath(`${prefix}-bruna-modal.png`), fullPage: true });
+    await page.keyboard.press('Escape');
+  } else {
+    // No Host real fail-closed, uma instalação sem provedor/modelo não fabrica
+    // resposta de Bruna só para a evidência. O ciclo completo do modal (foto,
+    // botão, Escape e backdrop) permanece coberto no teste de componente.
+    test.info().annotations.push({
+      type: 'pendência-externa',
+      description:
+        'Modal de Bruna sem gatilho nesta conversa real: não há resposta legítima sem provedor/modelo configurado.',
+    });
+  }
 
   const phaseHeader = page.locator('[data-accordion-header]').first();
   if ((await phaseHeader.count()) > 0) {
     if ((await phaseHeader.getAttribute('aria-expanded')) !== 'true') await phaseHeader.click();
   }
-  await page.screenshot({ path: evidencePath('desktop-13-dark-chat-workflow-expanded.png'), fullPage: true });
+  await page.screenshot({ path: evidencePath(`${prefix}-chat-workflow-expanded.png`), fullPage: true });
 
   await page.goto('/projects');
   const newProject = page.getByRole('button', { name: 'Novo projeto', exact: true });
   await expect(newProject).toBeVisible();
   await newProject.click();
   await expect(page.getByRole('heading', { name: 'Novo projeto' })).toBeVisible();
-  await page.screenshot({ path: evidencePath('desktop-13-dark-project-create.png'), fullPage: true });
+  await page.screenshot({ path: evidencePath(`${prefix}-project-create.png`), fullPage: true });
 
   await page.goto('/delivery');
   await expect(page.getByRole('heading', { name: 'Central de Entregas' })).toBeVisible();
@@ -239,11 +308,38 @@ async function exerciseIncrement02Evidence(page: Page, testInfo: TestInfo) {
   await expect(openDelivery).toBeVisible();
   await openDelivery.click();
   await expect(page.getByTestId('delivery-overview')).toBeVisible();
-  await page.screenshot({ path: evidencePath('desktop-13-dark-delivery-360.png'), fullPage: true });
+  await page.screenshot({ path: evidencePath(`${prefix}-delivery-360.png`), fullPage: true });
+
+  await page.goto('/orchestrator');
+  const editProfile = page.getByRole('button', {
+    name: 'Editar perfil, comunicação e roteamento',
+  });
+  await expect(editProfile).toBeVisible();
+  await editProfile.click();
+  await expect(page.getByRole('dialog', { name: 'Perfil e personalização de Bruna' })).toBeVisible();
+  await page.screenshot({ path: evidencePath(`${prefix}-leadership-profile.png`), fullPage: true });
+  await page.keyboard.press('Escape');
+}
+
+async function exerciseRound3NotebookEvidence(page: Page, testInfo: TestInfo) {
+  if (testInfo.project.name !== 'notebook-1440') return;
+  const directory = process.env.POSEIDON_EVIDENCE_DIR;
+  const evidencePath = (name: string) =>
+    directory ? path.join(directory, name) : testInfo.outputPath(name);
+
+  await page.goto('/board');
+  const firstTask = page.getByRole('button', { name: /^Abrir detalhes da tarefa/ }).first();
+  await expect(firstTask).toBeVisible();
+  await firstTask.click();
+  await expect(page.getByRole('dialog', { name: 'Detalhes da tarefa' })).toBeVisible();
+  await page.screenshot({
+    path: evidencePath(`${testInfo.project.name}-board-task-drawer.png`),
+    fullPage: true,
+  });
 }
 
 async function exerciseMermaidDocument(page: Page, testInfo: TestInfo) {
-  if (testInfo.project.name !== 'desktop-13-dark') return;
+  if (testInfo.project.name !== 'desktop-wide-1920') return;
 
   await page.goto('/governance-docs');
   await expect(page.getByRole('heading', { name: 'Documentos de Governança' })).toBeVisible();
@@ -253,13 +349,13 @@ async function exerciseMermaidDocument(page: Page, testInfo: TestInfo) {
   await expect(diagram.locator('svg')).toBeVisible();
   await assertA11y(page, 'documento Mermaid renderizado localmente');
   await page.screenshot({
-    path: testInfo.outputPath('desktop-13-dark-governance-doc-mermaid.png'),
+    path: testInfo.outputPath(`${testInfo.project.name}-governance-doc-mermaid.png`),
     fullPage: true,
   });
 }
 
 async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
-  if (testInfo.project.name !== 'desktop-13-dark') return;
+  if (testInfo.project.name !== 'desktop-wide-1920') return;
   const projectsResponse = await page.request.get('/api/v1/projects?limit=100');
   expect(projectsResponse.ok()).toBe(true);
   const projects = (await projectsResponse.json()) as { items: Array<{ id: string; name: string }> };
@@ -353,7 +449,10 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
   await expect(page.getByText('Histórico imutável')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Histórico imutável' }).getByText('deprecate', { exact: true })).toBeVisible();
   await assertA11y(page, 'governança P2 — lifecycle completo');
-  await page.screenshot({ path: testInfo.outputPath('desktop-13-dark-governance-p2.png'), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath(`${testInfo.project.name}-governance-p2.png`),
+    fullPage: true,
+  });
 }
 
 /** Id do projeto de homologação no Host real. */
@@ -367,7 +466,7 @@ async function currentProjectId(page: Page): Promise<string> {
 }
 
 async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
-  if (testInfo.project.name !== 'desktop-13-dark') return;
+  if (testInfo.project.name !== 'desktop-wide-1920') return;
 
   await page.goto('/chat');
   const createdConversationResponse = page.waitForResponse(
@@ -410,7 +509,7 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   if (!executable) {
     // A UI reflete o read model, mas envia: o backend persiste a mensagem e
     // devolve o bloqueio tipado no handle 202.
-    await expect(page.getByRole('heading', { name: 'Execução do chefe bloqueada' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Execução de Bruna bloqueada' })).toBeVisible();
     const composer = page.getByRole('textbox', { name: 'Mensagem para Bruna' });
     await expect(composer).toBeEnabled();
     await composer.fill('Registre este turno bloqueado.');
@@ -424,7 +523,7 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
     }
     await assertA11y(page, 'chat com execução bloqueada (Host real sem provedor)');
     await page.screenshot({
-      path: testInfo.outputPath('desktop-13-dark-chat-blocked.png'),
+      path: testInfo.outputPath(`${testInfo.project.name}-chat-blocked.png`),
       fullPage: true,
     });
     test.info().annotations.push({
@@ -553,6 +652,7 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
   await ensureWorkingDirectory(page);
   await ensureOrganization(page);
   await ensureProject(page, profileName);
+  await ensureBoardTask(page);
   await ensureIncrementWorkflowRun(page);
 
   const routes = INCREMENT_02_ONLY
@@ -563,11 +663,13 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
     await expect(page.getByRole('main')).toBeVisible();
     await expect(page.getByText('Não foi possível carregar os dados. Tente novamente.')).toHaveCount(0);
     await page.waitForTimeout(400);
+    await assertNoPageHorizontalOverflow(page, `${testInfo.project.name} ${route}`);
     await assertA11y(page, `${testInfo.project.name} ${route}`);
     await captureEvidence(page, testInfo, route);
   }
 
   await exerciseIncrement02Evidence(page, testInfo);
+  await exerciseRound3NotebookEvidence(page, testInfo);
   if (!INCREMENT_02_ONLY) {
     await exerciseRealtimeAndAudit(page, testInfo);
     await exerciseMermaidDocument(page, testInfo);

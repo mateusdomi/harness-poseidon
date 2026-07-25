@@ -17,7 +17,7 @@
         "archived": "Arquivada"
       },
       "role": {
-        "chief": "Chefe",
+        "chief": "Liderança",
         "specialist": "Especialista"
       },
       "effort": {
@@ -76,6 +76,7 @@
       },
       "details": {
         "title": "Definição — {{name}}",
+        "publicProjection": "Esta é a apresentação pública em PT-BR. O conteúdo técnico original permanece preservado no registro editável e é o que orienta a execução do modelo.",
         "version": "Versão {{version}}",
         "historyTitle": "Histórico de revisões",
         "historyEmpty": "Nenhuma revisão registrada.",
@@ -144,8 +145,8 @@
         "reviewHelp": "Confira os dados antes de criar. Você pode voltar a qualquer passo."
       },
       "roleHelp": {
-        "chief": "Coordena o projeto: recebe as solicitações, cria demandas e delega tarefas aos especialistas. Há um chefe por projeto.",
-        "specialist": "Executa um tipo de trabalho delegado pelo chefe (ex.: revisão, backend, dados). Pode haver vários."
+        "chief": "Coordena o projeto: recebe as solicitações, cria demandas e delega tarefas aos especialistas. Há uma liderança por projeto.",
+        "specialist": "Executa um tipo de trabalho delegado por Bruna (ex.: revisão, backend, dados). Pode haver vários."
       },
       "catalogEmpty": {
         "models": {
@@ -196,16 +197,16 @@
         "description": {
           "description": "Uma frase sobre o que este agente faz.",
           "example": "Revisa mudanças de backend antes do merge.",
-          "impact": "Ajuda o chefe a escolher a quem delegar."
+          "impact": "Ajuda Bruna a escolher a quem delegar."
         },
         "role": {
-          "description": "Chefe coordena o projeto; especialista executa o trabalho delegado.",
+          "description": "A liderança coordena o projeto; especialistas executam o trabalho delegado.",
           "impact": "Define se o agente delega ou é delegado."
         },
         "specialty": {
           "description": "Área de atuação do especialista.",
           "example": "Revisão de código",
-          "impact": "Usada pelo chefe para casar tarefa e agente."
+          "impact": "Usada por Bruna para casar tarefa e agente."
         },
         "team": {
           "description": "Time ao qual o agente pertence (opcional).",
@@ -285,7 +286,7 @@
       }
     },
     "chief": {
-      "title": "Chefe do projeto",
+      "title": "Liderança do projeto",
       "turnState": "Estado do turno",
       "health": "Saúde",
       "operationMode": "Modo de operação",
@@ -300,10 +301,16 @@
       "diagnostics": {
         "toggle": "Diagnóstico avançado",
         "fencingToken": "Trava de concorrência",
-        "fencingTokenHint": "Trava de concorrência (fencing token): impede que duas instâncias do chefe assumam o mesmo trabalho ao mesmo tempo. O número cresce a cada nova concessão, e o sistema recusa quem tentar agir com um número antigo.",
-        "leaseExpiresAt": "Concessão expira em",
-        "leaseHint": "Concessão (lease): por quanto tempo esta instância tem o direito de executar o turno. Se expirar sem renovação, outra instância pode assumir o trabalho com segurança.",
-        "noLease": "Sem concessão ativa"
+        "fencingTokenHint": "Trava de concorrência (fencing token): impede que duas instâncias de coordenação assumam o mesmo trabalho ao mesmo tempo. O número cresce a cada nova concessão, e o sistema recusa quem tentar agir com um número antigo.",
+      "leaseExpiresAt": "Concessão expira em",
+      "leaseHint": "Concessão (lease): por quanto tempo esta instância tem o direito de executar o turno. Se expirar sem renovação, outra instância pode assumir o trabalho com segurança.",
+      "noLease": "Sem concessão ativa",
+      "healthReason": "Causa da saúde",
+      "healthOk": "Heartbeat recente e estado operacional normal.",
+      "healthReadiness": "O processo responde, mas a prontidão operacional exige atenção: “{{state}}”.",
+      "healthState": "O estado operacional atual é “{{state}}”.",
+      "healthMissingHeartbeat": "O agente ainda não publicou um heartbeat.",
+      "healthStaleHeartbeat": "O último heartbeat foi {{time}} e ultrapassou a janela operacional de 2 minutos."
       },
       "bindingPending": "Binding pendente"
     },
@@ -313,8 +320,8 @@
       "error": "Em erro"
     },
     "agents": {
-      "title": "Agentes do projeto",
-      "empty": "Nenhum agente alocado neste projeto.",
+      "title": "Histórico de acionamentos",
+      "empty": "Nenhum agente foi acionado neste projeto.",
       "currentTask": "Tarefa atual",
       "noTask": "Sem tarefa atual",
       "runningFor": "Em execução há {{duration}}",
@@ -341,6 +348,39 @@
       "drain": "Drenar tarefas",
       "handoff": "Passar bastão"
     },
+    "profile": {
+      "title": "Perfil e personalização de Bruna",
+      "edit": "Editar perfil, comunicação e roteamento",
+      "boundary": "A humanização é exibida às pessoas. Somente a camada de comunicação entra no chat; hobbies, idade e curiosidades nunca alteram a execução técnica.",
+      "displayName": "Nome exibido",
+      "jobTitle": "Cargo",
+      "age": "Idade",
+      "photo": "Foto (JPG, PNG ou WebP; até 5 MB)",
+      "summary": "Resumo profissional",
+      "career": "Histórico resumido",
+      "specialties": "Especialidades",
+      "languages": "Idiomas",
+      "personality": "Personalidade",
+      "hobbies": "Hobbies e curiosidades",
+      "listHint": "Um item por linha ou separado por vírgulas.",
+      "communicationTitle": "Camada de comunicação",
+      "communicationHelp": "Afeta somente como Bruna conversa com o usuário. Não modifica instruções técnicas, governança, claims, gates ou execução.",
+      "communicationInstructions": "Instruções de comunicação",
+      "routingTitle": "Roteamento global",
+      "routingHelp": "Modelo e conta são persistidos na definição global e geram uma nova revisão auditável.",
+      "model": "Modelo padrão",
+      "account": "Conta preferencial",
+      "notConfigured": "Não configurado",
+      "history": "Histórico de alterações ({{count}})",
+      "historyEmpty": "Nenhuma alteração personalizada registrada.",
+      "revision": "v{{version}}"
+    },
+    "projectAgents": {
+      "availableTitle": "Fleet disponível para invocação",
+      "availableHelp": "A fleet é global e reutilizável. Estar disponível aqui não significa que a identidade já trabalhou neste projeto.",
+      "invokedTitle": "Agentes acionados neste projeto",
+      "invokedHelp": "Instâncias e tentativas efetivamente vinculadas ao projeto atual. Quando vazio, nenhum trabalho foi atribuído ainda."
+    },
     "drain": {
       "title": "Drenar tarefas",
       "description": "As tarefas em andamento voltam para a coluna Pronta, as tentativas em execução são canceladas e os agentes ficam ociosos.",
@@ -351,9 +391,9 @@
     },
     "handoff": {
       "title": "Passagem de bastão",
-      "stepChoice": "Etapa 1 de 2 — escolha do novo chefe",
+      "stepChoice": "Etapa 1 de 2 — escolha da nova liderança",
       "stepConfirm": "Etapa 2 de 2 — confirmação",
-      "modelLabel": "Modelo do novo chefe",
+      "modelLabel": "Modelo da nova liderança",
       "keepCurrentModel": "Manter modelo atual",
       "reasonLabel": "Motivo",
       "reasonRequired": "Informe o motivo da passagem de bastão.",
@@ -379,12 +419,12 @@
         "degraded": "Degradado"
       },
       "explanations": {
-        "notConfigured": "O chefe ainda não tem provedor, modelo nem workflow. Configure as dependências para habilitar a execução.",
-        "awaitingProvider": "Falta um modelo habilitado com conta ativa do provedor. Sem isso o chefe não pode executar.",
+        "notConfigured": "Bruna ainda não tem provedor, modelo nem workflow. Configure as dependências para habilitar a execução.",
+        "awaitingProvider": "Falta um modelo habilitado com conta ativa do provedor. Sem isso Bruna não pode executar.",
         "awaitingWorkflow": "Provedor e modelo prontos. Vincule um workflow ao projeto para definir fases e portões.",
-        "ready": "Dependências satisfeitas: o chefe pode executar neste projeto.",
-        "running": "O chefe está executando uma tentativa agora.",
-        "degraded": "O chefe está em erro ou sem cota. Revise os agentes antes de continuar."
+        "ready": "Dependências satisfeitas: Bruna pode executar neste projeto.",
+        "running": "Bruna está executando uma tentativa agora.",
+        "degraded": "Bruna está em erro ou sem cota. Revise os agentes antes de continuar."
       },
       "actions": {
         "configureProvider": "Configurar provedor",

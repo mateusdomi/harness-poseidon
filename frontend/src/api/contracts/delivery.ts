@@ -201,6 +201,27 @@ export const workflowRunSchema = z.object({
 });
 export type WorkflowRun = z.infer<typeof workflowRunSchema>;
 
+export const phaseProgressBreakdownSchema = z.object({
+  completed: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+});
+
+export const phaseProgressSchema = z.object({
+  completed: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  percent: z.number().min(0).max(100),
+  source: z.enum(['workflow_run_objectives_and_gates', 'workflow_run_unavailable']),
+  updatedAt: isoDateTimeSchema.nullable(),
+  tasks: phaseProgressBreakdownSchema,
+  documents: phaseProgressBreakdownSchema,
+  gates: phaseProgressBreakdownSchema,
+});
+
+export const phaseDeliverableSchema = z.object({
+  name: z.string(),
+  status: z.enum(['planned', 'notStarted', 'inProduction', 'inReview', 'approved', 'rejected']),
+});
+
 export const phaseSchema = z.object({
   id: ulidSchema,
   runId: ulidSchema,
@@ -209,6 +230,10 @@ export const phaseSchema = z.object({
   state: phaseStateSchema,
   startedAt: isoDateTimeSchema.nullable(),
   finishedAt: isoDateTimeSchema.nullable(),
+  /** Read model canônico do run; consumido por Dashboard, Chat e Workflows. */
+  progress: phaseProgressSchema,
+  /** Entregáveis previstos persistidos como objetivos documentais do run. */
+  deliverables: z.array(phaseDeliverableSchema),
 });
 export type Phase = z.infer<typeof phaseSchema>;
 

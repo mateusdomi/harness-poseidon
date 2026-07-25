@@ -227,13 +227,40 @@ export class MockDeliveryApi implements DeliveryApi {
     }
     overview.executiveSummary.owner = input.ownerAgentId;
     overview.executiveSummary.committedDate = input.committedDate;
+    overview.executiveSummary.forecastDate = input.forecastDate;
     overview.executiveSummary.lastActivityAt = now;
     overview.planAndMilestones.committedDate = input.committedDate;
+    if (input.forecastDate) {
+      const manualForecast: DeliveryForecast = {
+        id: this.#nextId('01JQFCX'),
+        forecastDate: input.forecastDate,
+        confidence: 'low',
+        confidencePercent: 25,
+        hasSufficientEvidence: true,
+        basis: [
+          {
+            signal: 'manual_forecast',
+            detail: 'Data prevista informada manualmente pelo perfil local.',
+          },
+        ],
+        createdAt: now,
+      };
+      const history = this.#store.forecasts.get(deliveryId) ?? [];
+      history.push(manualForecast);
+      this.#store.forecasts.set(deliveryId, history);
+      overview.planAndMilestones.forecast = structuredClone(manualForecast);
+      overview.planAndMilestones.forecastHistory = structuredClone(history).reverse();
+      if (summary) {
+        summary.forecastDate = input.forecastDate;
+        summary.forecastConfidence = 'low';
+      }
+    }
     return {
       deliveryId,
       ownerAgentId: input.ownerAgentId,
       ownerName,
       committedDate: input.committedDate,
+      forecastDate: input.forecastDate,
       updatedTaskCount: overview.executiveSummary.openTaskCount,
       updatedAt: now,
     };

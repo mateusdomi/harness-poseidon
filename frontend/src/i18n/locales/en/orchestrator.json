@@ -17,7 +17,7 @@
         "archived": "Archived"
       },
       "role": {
-        "chief": "Chief",
+        "chief": "Leadership",
         "specialist": "Specialist"
       },
       "effort": {
@@ -76,6 +76,7 @@
       },
       "details": {
         "title": "Definition — {{name}}",
+        "publicProjection": "This is the public presentation. The original technical content remains preserved in the editable record and is what guides model execution.",
         "version": "Version {{version}}",
         "historyTitle": "Revision history",
         "historyEmpty": "No revisions recorded.",
@@ -144,8 +145,8 @@
         "reviewHelp": "Check the data before creating. You can go back to any step."
       },
       "roleHelp": {
-        "chief": "Coordinates the project: receives requests, creates demands and delegates tasks to specialists. One chief per project.",
-        "specialist": "Performs a kind of work delegated by the chief (e.g. review, backend, data). There can be many."
+        "chief": "Coordinates the project: receives requests, creates demands and delegates tasks to specialists. One leadership role per project.",
+        "specialist": "Performs a kind of work delegated by Bruna (e.g. review, backend, data). There can be many."
       },
       "catalogEmpty": {
         "models": {
@@ -196,16 +197,16 @@
         "description": {
           "description": "One sentence about what this agent does.",
           "example": "Reviews backend changes before merge.",
-          "impact": "Helps the chief decide whom to delegate to."
+          "impact": "Helps Bruna decide whom to delegate to."
         },
         "role": {
-          "description": "Chief coordinates the project; specialist performs delegated work.",
+          "description": "Leadership coordinates the project; specialists perform delegated work.",
           "impact": "Defines whether the agent delegates or is delegated to."
         },
         "specialty": {
           "description": "The specialist's area of work.",
           "example": "Code review",
-          "impact": "Used by the chief to match task and agent."
+          "impact": "Used by Bruna to match task and agent."
         },
         "team": {
           "description": "Team the agent belongs to (optional).",
@@ -285,7 +286,7 @@
       }
     },
     "chief": {
-      "title": "Project chief",
+      "title": "Project leadership",
       "turnState": "Turn state",
       "health": "Health",
       "operationMode": "Operation mode",
@@ -300,10 +301,16 @@
       "diagnostics": {
         "toggle": "Advanced diagnostics",
         "fencingToken": "Concurrency lock",
-        "fencingTokenHint": "Concurrency lock (fencing token): prevents two chief instances from taking the same work at the same time. The number grows with each new lease, and the system rejects anyone acting with an old number.",
-        "leaseExpiresAt": "Lease expires at",
-        "leaseHint": "Lease: how long this instance holds the right to run the turn. If it expires without renewal, another instance can safely take over the work.",
-        "noLease": "No active lease"
+        "fencingTokenHint": "Concurrency lock (fencing token): prevents two coordination instances from taking the same work at the same time. The number grows with each new lease, and the system rejects anyone acting with an old number.",
+      "leaseExpiresAt": "Lease expires at",
+      "leaseHint": "Lease: how long this instance holds the right to run the turn. If it expires without renewal, another instance can safely take over the work.",
+      "noLease": "No active lease",
+      "healthReason": "Health reason",
+      "healthOk": "Recent heartbeat and normal operational state.",
+      "healthReadiness": "The process responds, but operational readiness needs attention: “{{state}}”.",
+      "healthState": "The current operational state is “{{state}}”.",
+      "healthMissingHeartbeat": "The agent has not published a heartbeat yet.",
+      "healthStaleHeartbeat": "The last heartbeat was {{time}} and exceeded the 2-minute operational window."
       },
       "bindingPending": "Binding pending"
     },
@@ -313,8 +320,8 @@
       "error": "Error"
     },
     "agents": {
-      "title": "Project agents",
-      "empty": "No agents allocated to this project.",
+      "title": "Invocation history",
+      "empty": "No agent has been invoked in this project.",
       "currentTask": "Current task",
       "noTask": "No current task",
       "runningFor": "Running for {{duration}}",
@@ -341,6 +348,39 @@
       "drain": "Drain tasks",
       "handoff": "Hand off"
     },
+    "profile": {
+      "title": "Bruna's profile and personalization",
+      "edit": "Edit profile, communication and routing",
+      "boundary": "Humanization is shown to people. Only the communication layer enters chat; hobbies, age and personal details never alter technical execution.",
+      "displayName": "Display name",
+      "jobTitle": "Job title",
+      "age": "Age",
+      "photo": "Photo (JPG, PNG or WebP; up to 5 MB)",
+      "summary": "Professional summary",
+      "career": "Career summary",
+      "specialties": "Specialties",
+      "languages": "Languages",
+      "personality": "Personality",
+      "hobbies": "Hobbies and personal details",
+      "listHint": "One item per line or comma-separated.",
+      "communicationTitle": "Communication layer",
+      "communicationHelp": "Only affects how Bruna talks to the user. It does not modify technical instructions, governance, claims, gates or execution.",
+      "communicationInstructions": "Communication instructions",
+      "routingTitle": "Global routing",
+      "routingHelp": "Model and account are persisted in the global definition and create a new auditable revision.",
+      "model": "Default model",
+      "account": "Preferred account",
+      "notConfigured": "Not configured",
+      "history": "Change history ({{count}})",
+      "historyEmpty": "No personalized change has been recorded.",
+      "revision": "v{{version}}"
+    },
+    "projectAgents": {
+      "availableTitle": "Fleet available for invocation",
+      "availableHelp": "The fleet is global and reusable. Availability here does not mean an identity has already worked on this project.",
+      "invokedTitle": "Agents invoked in this project",
+      "invokedHelp": "Instances and attempts effectively linked to the current project. When empty, no work has been assigned yet."
+    },
     "drain": {
       "title": "Drain tasks",
       "description": "In-progress tasks return to the Ready column, running attempts are cancelled and agents become idle.",
@@ -350,16 +390,16 @@
       "success_other": "{{count}} tasks drained."
     },
     "handoff": {
-      "title": "Chief handoff",
-      "stepChoice": "Step 1 of 2 — choose the new chief",
+      "title": "Leadership handoff",
+      "stepChoice": "Step 1 of 2 — choose the new leadership route",
       "stepConfirm": "Step 2 of 2 — confirmation",
-      "modelLabel": "New chief's model",
+      "modelLabel": "New leadership model",
       "keepCurrentModel": "Keep current model",
       "reasonLabel": "Reason",
       "reasonRequired": "Enter the reason for the handoff.",
       "summaryModel": "Model",
       "summaryReason": "Reason",
-      "confirm": "Confirm chief handoff"
+      "confirm": "Confirm leadership handoff"
     },
     "mutation": {
       "error": "The action could not be completed. Try again."
@@ -379,12 +419,12 @@
         "degraded": "Degraded"
       },
       "explanations": {
-        "notConfigured": "The chief has no provider, model or workflow yet. Configure the dependencies to enable execution.",
-        "awaitingProvider": "An enabled model with an active provider account is missing. Without it the chief cannot run.",
+        "notConfigured": "Bruna has no provider, model or workflow yet. Configure the dependencies to enable execution.",
+        "awaitingProvider": "An enabled model with an active provider account is missing. Without it Bruna cannot run.",
         "awaitingWorkflow": "Provider and model are ready. Link a workflow to the project to define phases and gates.",
-        "ready": "Dependencies satisfied: the chief can run on this project.",
-        "running": "The chief is running an attempt right now.",
-        "degraded": "The chief is in error or out of quota. Review the agents before continuing."
+        "ready": "Dependencies satisfied: Bruna can run on this project.",
+        "running": "Bruna is running an attempt right now.",
+        "degraded": "Bruna is in error or out of quota. Review the agents before continuing."
       },
       "actions": {
         "configureProvider": "Configure provider",

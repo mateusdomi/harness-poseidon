@@ -5,7 +5,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton } fr
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
 import { BlockedTasksCard, PendingApprovalsCard } from '@/features/cockpit/components/attention-cards';
-import { AgentsHealthCard, QuotaCard } from '@/features/cockpit/components/health-cards';
+import { QuotaCard } from '@/features/cockpit/components/health-cards';
+import { FleetOverview } from '@/features/cockpit/components/fleet-overview';
 import { NextActionCard } from '@/features/cockpit/components/next-action-card';
 import { GovernanceHealthCard } from '@/features/cockpit/components/governance-health-card';
 import { PhaseSummary } from '@/features/cockpit/components/phase-summary';
@@ -164,7 +165,7 @@ export default function CockpitPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {featureFlags.governanceContractUi && <GovernanceHealthCard projectId={activeProject.id} />}
-          <PhaseSummary phase={phase} gates={workflowData.gates} tasks={tasks} />
+          <PhaseSummary phase={phase} gates={workflowData.gates} />
           <NextActionCard actionKey={nextAction} />
           <Card className="lg:col-span-2">
             <CardHeader>
@@ -181,7 +182,7 @@ export default function CockpitPage() {
           <TasksByStateChart counts={counts} />
           <BlockedTasksCard tasks={tasks} />
           <PendingApprovalsCard approvals={approvals} />
-          <AgentsHealthCard agents={agents} taskCounts={counts} />
+          <FleetOverview agents={agents} taskCounts={counts} />
           <QuotaCard budgets={budgets} />
           <div className="lg:col-span-2">
             <ActivityFeed events={events} />

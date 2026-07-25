@@ -1,6 +1,7 @@
 export { ActivityFeed } from './activity-feed';
 export { BlockedTasksCard, PendingApprovalsCard } from './attention-cards';
 export { AgentsHealthCard, QuotaCard } from './health-cards';
+export { FleetOverview } from './fleet-overview';
 export { NextActionCard } from './next-action-card';
 export { PhaseSummary } from './phase-summary';
 export { ProgressTracks } from './progress-tracks';

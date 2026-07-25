@@ -17,7 +17,8 @@ public sealed record AgentExecutionRequest(
     string WorkingDirectory,
     string? SessionId = null,
     string? Model = null,
-    string? Effort = null);
+    string? Effort = null,
+    string? CommunicationInstructions = null);
 
 public sealed record AgentExecutionResult(
     string Executor,

@@ -82,10 +82,12 @@
     },
     "planning": {
       "title": "Plan {{name}}",
-      "explain": "This action updates the owner and target date on active tasks. The Center recalculates owner, forecast and signals from those persisted facts.",
+      "explain": "This action updates the owner and committed date on active tasks and stores the forecast in an auditable history. Cards, signals and Delivery 360 are recalculated from those persisted facts.",
       "owner": "Owner",
       "ownerHint": "Only agents assigned to this project.",
       "selectOwner": "Select an owner",
+      "forecastDate": "Forecast date",
+      "forecastDateHint": "Current forecast. Each change creates a new history record without deleting the previous one.",
       "date": "Committed date",
       "dateHint": "Shared target date for this delivery's active tasks.",
       "noAgents": "No agent is assigned to the project. Configure the project team before saving.",

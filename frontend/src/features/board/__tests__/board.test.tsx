@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -47,7 +47,7 @@ describe('board-derive', () => {
     expect(shortTaskId('01hzzzzzzzabcdef')).toBe('ABCDEF');
   });
 
-  it('assigneeAgents lista só responsáveis reais, ordenados e sem chefes', () => {
+  it('assigneeAgents lista só responsáveis reais, ordenados e sem a liderança', () => {
     const result = assigneeAgents(tasks, agents);
     const assignedIds = new Set(
       tasks.map((task) => task.assigneeAgentId).filter((id): id is string => id !== null),
@@ -55,8 +55,8 @@ describe('board-derive', () => {
     expect(result.length).toBeGreaterThan(0);
     // Todo item filtra de verdade: é responsável real de ao menos um card.
     expect(result.every((agent) => assignedIds.has(agent.id))).toBe(true);
-    // Sem opções mortas: chefes orquestram, não recebem cards.
-    expect(result.some((agent) => agent.name.startsWith('Chefe'))).toBe(false);
+    // Sem opções mortas: a liderança orquestra, não recebe cards.
+    expect(result.some((agent) => agent.name.startsWith('Bruna Magalhães'))).toBe(false);
     // Nomes legíveis, ordenados alfabeticamente.
     const names = result.map((agent) => agent.name);
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
@@ -235,12 +235,59 @@ describe('BoardPage', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Detalhes da tarefa' });
     expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveClass('top-16', 'bottom-0', 'overflow-y-auto');
+    expect(
+      await within(dialog).findByRole('heading', { name: projectTasks[0].title }),
+    ).toHaveClass('break-words');
+    expect(within(dialog).getAllByText(/Backlog|Pronta|Em desenvolvimento/).length).toBeGreaterThan(0);
     // O quadro continua visível atrás do drawer.
     expect(await screen.findByRole('region', { name: /Backlog/ })).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('arrasta o fundo do quadro para navegar horizontalmente sem capturar cards', async () => {
+    const originalPointerEvent = window.PointerEvent;
+    class TestPointerEvent extends MouseEvent {
+      readonly pointerId: number;
+
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 0;
+      }
+    }
+    Object.defineProperty(window, 'PointerEvent', {
+      value: TestPointerEvent,
+      configurable: true,
+    });
+    renderBoard();
+    const board = await screen.findByRole('region', { name: 'Quadro Kanban horizontal' });
+    Object.defineProperties(board, {
+      setPointerCapture: { value: vi.fn(), configurable: true },
+      hasPointerCapture: { value: vi.fn(() => true), configurable: true },
+      releasePointerCapture: { value: vi.fn(), configurable: true },
+    });
+    board.scrollLeft = 120;
+
+    fireEvent.pointerDown(board, { button: 0, pointerId: 7, clientX: 300 });
+    fireEvent.pointerMove(board, { pointerId: 7, clientX: 220 });
+    expect(board.scrollLeft).toBe(200);
+    fireEvent.pointerUp(board, { pointerId: 7, clientX: 220 });
+    expect(board).not.toHaveAttribute('data-panning');
+
+    const card = within(screen.getByRole('region', { name: /Backlog/ })).getByRole(
+      'button',
+      { name: /Mapear endpoints de billing/ },
+    );
+    fireEvent.pointerDown(card, { button: 0, pointerId: 8, clientX: 300 });
+    fireEvent.pointerMove(board, { pointerId: 8, clientX: 100 });
+    expect(board.scrollLeft).toBe(200);
+    Object.defineProperty(window, 'PointerEvent', {
+      value: originalPointerEvent,
+      configurable: true,
     });
   });
 

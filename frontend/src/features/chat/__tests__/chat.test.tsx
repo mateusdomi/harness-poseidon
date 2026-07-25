@@ -112,10 +112,11 @@ describe('MessageBubble', () => {
       createdAt: '2026-07-17T12:00:00Z',
     };
 
-    render(
+    renderWithApi(
       <MemoryRouter>
         <MessageBubble message={message} authorName="Iara" tasks={[]} documents={[]} />
       </MemoryRouter>,
+      createTestBundle(),
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Copiar mensagem' }));
@@ -157,7 +158,7 @@ describe('ChatPage', () => {
     await user.selectOptions(selector, screen.getByRole('option', { name: 'Planejamento da sprint 12' }));
 
     expect(
-      await screen.findByText('Chefe, preciso exportar o quadro em CSV até sexta.'),
+      await screen.findByText('Bruna, preciso exportar o quadro em CSV até sexta.'),
     ).toBeInTheDocument();
     // Chip de referência cruzada para a tarefa citada pelo agente.
     expect(
@@ -237,7 +238,7 @@ describe('ChatPage', () => {
     );
   });
 
-  it('abre o perfil acessível de Bruna pela foto e fecha com Escape', async () => {
+  it('abre o perfil acessível de Bruna pela foto e fecha por Escape, botão e área externa', async () => {
     const user = userEvent.setup();
     renderChat();
 
@@ -251,6 +252,16 @@ describe('ChatPage', () => {
     expect(within(dialog).getByAltText('Foto de Bruna Magalhães')).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeNull();
+
+    await user.click(triggers[0]);
+    expect(await screen.findByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeVisible();
+    await user.click(screen.getAllByRole('button', { name: 'Cancelar' })[1]);
+    expect(screen.queryByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeNull();
+
+    await user.click(triggers[0]);
+    expect(await screen.findByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeVisible();
+    await user.click(screen.getAllByRole('button', { name: 'Cancelar' })[0]);
     expect(screen.queryByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeNull();
   });
 

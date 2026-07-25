@@ -25,9 +25,9 @@ export function ProjectCard({ project, organizationName, operational, onSelect }
     <button
       type="button"
       onClick={() => onSelect(project)}
-      className="flex min-h-touch w-full flex-col gap-2 rounded-lg border border-border bg-surface p-4 text-start transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="flex min-h-touch w-full min-w-0 max-w-full flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface p-4 text-start transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
-      <span className="flex min-w-0 items-center gap-3">
+      <span className="flex w-full min-w-0 items-center gap-3">
         <span
           className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border"
           style={{ backgroundColor: project.brand.primaryColor ?? undefined }}
@@ -43,7 +43,9 @@ export function ProjectCard({ project, organizationName, operational, onSelect }
           )}
         </span>
         <span className="min-w-0 truncate font-medium">{project.name}</span>
-        <Badge variant="outline">{project.key}</Badge>
+        <Badge variant="outline" className="max-w-24 shrink-0 truncate">
+          {project.key}
+        </Badge>
       </span>
       <span className="flex flex-wrap items-center gap-2">
         <Badge variant={projectStateVariant(project.state)}>
@@ -74,7 +76,7 @@ export function ProjectCard({ project, organizationName, operational, onSelect }
           <strong>{t('projects.card.health')}:</strong>{' '}
           {t(`projects.card.healthStates.${operational?.health ?? 'unavailable'}`)}
         </span>
-        <span className="sm:col-span-2">
+        <span className="min-w-0 break-words sm:col-span-2">
           <strong>{t('projects.card.repository')}:</strong>{' '}
           {project.repositoryUrl ?? t('projects.card.notAvailable')} · {project.defaultBranch}
         </span>

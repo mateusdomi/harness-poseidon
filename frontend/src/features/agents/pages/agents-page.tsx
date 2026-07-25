@@ -8,8 +8,10 @@ import { Button, Card, CardContent, Select, Skeleton } from '@/design-system';
 import { AgentDetail } from '@/features/agents/components/agent-detail';
 import { AgentExecutionRoster } from '@/features/agents/components/agent-execution-roster';
 import { AgentOrgChart } from '@/features/agents/components/agent-org-chart';
+import { FleetOrgChart } from '@/features/agents/components/fleet-org-chart';
 import { AgentsUtilizationChart } from '@/features/agents/components/agents-utilization-chart';
 import { useAgentsData, useAgentsRealtime } from '@/features/agents/hooks/use-agents';
+import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
 import {
   definitionOf,
   distinctTeams,
@@ -32,6 +34,7 @@ export default function UagentsPage() {
   const { projects, activeProject, setActiveProject, isPending, isError, refetch } =
     useActiveProject();
   const data = useAgentsData();
+  const roster = useAgentRoster();
   useAgentsRealtime(activeProject?.id ?? null);
   const now = useNow();
 
@@ -69,7 +72,7 @@ export default function UagentsPage() {
         <h1 className="font-heading text-2xl font-semibold">{t('features.agents.title')}</h1>
         {!loading && !errored && activeProject && (
           <span className="text-sm text-foreground-muted">
-            {t('agents.count', { count: teamCount })}
+            {t('agents.executionCount', { count: roster.data?.length ?? 0 })}
           </span>
         )}
         {projects.length > 0 && (
@@ -94,6 +97,7 @@ export default function UagentsPage() {
       </div>
 
       <AgentExecutionRoster />
+      <FleetOrgChart />
 
       {loading ? (
         <div className="flex flex-col gap-4" role="status" aria-label={t('common.states.loading')}>

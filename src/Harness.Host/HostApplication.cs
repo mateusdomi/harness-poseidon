@@ -6,6 +6,7 @@ using Harness.Host.Documents;
 using Harness.Host.Demo;
 using Harness.Host.Execution;
 using Harness.Host.Ipc;
+using Harness.Host.Leadership;
 using Harness.Host.Licensing;
 using Harness.Host.Governance;
 using Harness.Host.GovernanceDocs;
@@ -92,6 +93,7 @@ public static class HostApplication
         }
 
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
+        builder.Services.AddSingleton<LeadershipProfileStore>();
         builder.Services.AddSingleton(runnerIpcToken ?? RunnerIpcToken.Create());
         var databasePath = builder.Configuration["Harness:DatabasePath"];
         if (string.IsNullOrWhiteSpace(databasePath))
@@ -368,6 +370,12 @@ public static class HostApplication
             builder.Services.AddHostedService<Architecture.ArchitectureSelfMapSeedHostedService>();
         }
 
+        // O roster público existe também quando a execução externa está desabilitada. O ledger
+        // é somente leitura nesse cenário e permite expor o último estado observado de forma
+        // honesta, sem transformar a dependência do endpoint em um body inferido.
+        builder.Services.AddSingleton(
+            new AccountAvailabilityLedger(AccountAvailabilityLedger.DefaultPath));
+
         if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
         {
             var profilesRoot = string.IsNullOrWhiteSpace(agentRunSettings.ProfilesRoot)
@@ -378,8 +386,6 @@ public static class HostApplication
                 [Path.GetFullPath(agentRunSettings.ControlledRoot)]));
             builder.Services.AddSingleton(
                 AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath));
-            builder.Services.AddSingleton(
-                new AccountAvailabilityLedger(AccountAvailabilityLedger.DefaultPath));
             builder.Services.AddHostedService<AccountRecoveryBackgroundService>();
             builder.Services.AddSingleton(new ChiefBacklogPolicy());
             builder.Services.AddHostedService<ChiefBacklogLoopService>();
@@ -632,6 +638,7 @@ public static class HostApplication
         app.MapHub<EventsHub>("/hubs/events");
         app.MapRunnerIpc();
         app.MapLocalProfiles();
+        app.MapLeadershipProfile();
         app.MapOrganizations();
         app.MapProjects();
         app.MapProjectActivity();

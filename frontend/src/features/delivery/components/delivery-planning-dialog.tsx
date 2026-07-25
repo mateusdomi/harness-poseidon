@@ -32,6 +32,9 @@ export function DeliveryPlanningDialog({
   const [committedDate, setCommittedDate] = useState(
     delivery.committedDate?.slice(0, 10) ?? '',
   );
+  const [forecastDate, setForecastDate] = useState(
+    delivery.forecastDate?.slice(0, 10) ?? '',
+  );
   const planning = useConfigurePlanning(delivery.deliveryId);
 
   function submit(event: FormEvent) {
@@ -41,6 +44,9 @@ export function DeliveryPlanningDialog({
       {
         ownerAgentId,
         committedDate: new Date(`${committedDate}T12:00:00.000Z`).toISOString(),
+        forecastDate: forecastDate
+          ? new Date(`${forecastDate}T12:00:00.000Z`).toISOString()
+          : null,
       },
       { onSuccess: onSaved },
     );
@@ -77,6 +83,18 @@ export function DeliveryPlanningDialog({
               </option>
             ))}
           </Select>
+        </Field>
+        <Field
+          htmlFor="delivery-forecast-date"
+          label={t('delivery.planning.forecastDate')}
+          hint={t('delivery.planning.forecastDateHint')}
+        >
+          <Input
+            id="delivery-forecast-date"
+            type="date"
+            value={forecastDate}
+            onChange={(event) => setForecastDate(event.target.value)}
+          />
         </Field>
         <Field
           htmlFor="delivery-date"

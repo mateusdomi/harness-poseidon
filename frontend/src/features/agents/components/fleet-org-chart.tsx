@@ -1,0 +1,136 @@
+import { useTranslation } from 'react-i18next';
+
+import type { AgentAccountRoster } from '@/api';
+import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
+import { AgentIdentity } from '@/features/shared/components/agent-identity';
+import { useUploadAgentPhoto } from '@/features/shared/hooks/use-leadership-profile';
+import { apiMode } from '@/config/features';
+
+const STATE_VARIANT: Record<string, 'warning' | 'default' | 'success' | 'info' | 'error'> = {
+  working: 'info',
+  idle: 'success',
+  'out-of-quota': 'error',
+  cooldown: 'warning',
+  'authentication-required': 'warning',
+  degraded: 'warning',
+  disabled: 'default',
+};
+
+function teamOf(roles: readonly string[]): string {
+  if (roles.some((role) => role.includes('frontend') || role.includes('ui'))) return 'frontend';
+  if (roles.some((role) => role.includes('critic') || role.includes('review'))) return 'quality';
+  if (roles.some((role) => role.includes('chief'))) return 'leadership';
+  return 'engineering';
+}
+
+/** Organograma da fleet global reutilizável, distinto das alocações de um projeto. */
+export function FleetOrgChart() {
+  const { t } = useTranslation();
+  const roster = useAgentRoster();
+  const accounts = roster.data ?? [];
+  const leadership =
+    accounts.find((account) => account.alias === 'chief-claude-primary') ?? accounts[0] ?? null;
+  const specialists = accounts.filter((account) => account !== leadership);
+  const groups = specialists.reduce<Map<string, AgentAccountRoster[]>>((result, account) => {
+    const team = teamOf(account.roles);
+    result.set(team, [...(result.get(team) ?? []), account]);
+    return result;
+  }, new Map());
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('agents.fleetTree.title')}</CardTitle>
+        <p className="text-sm text-foreground-muted">{t('agents.fleetTree.help')}</p>
+      </CardHeader>
+      <CardContent className="min-w-0">
+        {roster.isLoading ? (
+          <Skeleton className="h-72 w-full" />
+        ) : roster.isError ? (
+          <p role="alert" className="text-sm text-error">{t('agents.roster.error')}</p>
+        ) : leadership ? (
+          <div
+            role="group"
+            aria-label={t('agents.fleetTree.title')}
+            className="flex min-w-0 flex-col items-stretch gap-5"
+          >
+            <div className="mx-auto w-full max-w-sm">
+              <FleetNode account={leadership} />
+            </div>
+            <div aria-hidden="true" className="mx-auto h-5 w-px bg-border-strong" />
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-4">
+              {[...groups.entries()].map(([team, members]) => (
+                <section
+                  key={team}
+                  className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-border p-3"
+                >
+                  <h3 className="font-heading font-semibold">
+                    {t(`agents.fleetTree.teams.${team}`)}
+                  </h3>
+                  {members.map((account) => (
+                    <div key={account.alias} className="min-w-0">
+                      <FleetNode account={account} />
+                    </div>
+                  ))}
+                </section>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-foreground-muted">{t('agents.roster.empty')}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FleetNode({ account }: { account: AgentAccountRoster }) {
+  const { t } = useTranslation();
+  const upload = useUploadAgentPhoto(account.alias);
+  return (
+    <article className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-md border border-border bg-surface-elevated p-3">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <AgentIdentity alias={account.alias} size={42} />
+        <Badge variant={STATE_VARIANT[account.state] ?? 'default'}>
+          {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
+        </Badge>
+      </div>
+      <p className="min-w-0 break-words text-xs text-foreground-muted">
+        {account.providerKind} · {account.roles.join(', ')}
+      </p>
+      <dl className="grid min-w-0 grid-cols-3 gap-2 text-center">
+        {(['completed', 'approved', 'rework'] as const).map((metric) => (
+          <div key={metric} className="min-w-0 rounded bg-surface p-2">
+            <dt className="break-words text-[11px] text-foreground-muted">
+              {t(`agents.fleetTree.metrics.${metric}`)}
+            </dt>
+            <dd className="font-semibold">0</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-[11px] text-foreground-muted">{t('agents.fleetTree.zeroSource')}</p>
+      {apiMode === 'http' ? (
+        <label className="w-fit cursor-pointer text-xs font-medium text-brand-strong hover:underline">
+          {upload.isPending
+            ? t('agents.fleetTree.photoUploading')
+            : t('agents.fleetTree.photoAction')}
+          <input
+            className="sr-only"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={upload.isPending}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) upload.mutate(file);
+              event.currentTarget.value = '';
+            }}
+          />
+        </label>
+      ) : null}
+      {upload.isError ? (
+        <p role="alert" className="text-xs text-error">{upload.error.message}</p>
+      ) : null}
+    </article>
+  );
+}

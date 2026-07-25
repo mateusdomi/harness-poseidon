@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:ed2910e16c5a1a2002e0f8a2cb0164fa6c2876be0ffbe40bf965cbf2e2316edf -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=1.0.0 checksum=sha256:66f52f1febde4ad6320f9e29aa48f597bb125bfdddaa3e840867062181e93724 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -7,7 +7,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Adapter`: 2
 - `Canonical`: 24
-- `Evidence`: 155
+- `Evidence`: 156
 - `Generated`: 1
 - `Historical`: 8
 - `Operational`: 14
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `contract`: 1
 - `decision`: 22
 - `entrypoint`: 1
-- `evidence`: 155
+- `evidence`: 156
 - `execution`: 9
 - `frontend`: 5
 - `governance`: 1
@@ -38,7 +38,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 212
+- `*`: 213
 - `incident-response`: 1
 - `p0`: 1
 - `p1`: 1
@@ -48,7 +48,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 221
+- `Active`: 222
 - `Historical`: 7
 - `Superseded`: 1
 
@@ -62,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Platform Engineering`: 12
 - `Platform Governance`: 15
 - `Product Security`: 6
-- `Quality Engineering`: 154
+- `Quality Engineering`: 155
 - `Research`: 4
 - `Technical Writing`: 2
 
@@ -72,7 +72,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `Bundle`: 13
 - `Entry`: 4
 - `Never`: 4
-- `OnDemand`: 207
+- `OnDemand`: 208
 
 ## Documents by authority and domain
 
@@ -265,6 +265,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Evidência — Governance Gate P0](backend/execution/evidence/GOVERNANCE-GATE-P0.md) | p0 | Active | Platform Governance | OnDemand | 666 |
 | [Relatório final da campanha de correção da homologação](backend/execution/evidence/HOMOLOGATION-CODEX-FINAL-REPORT.md) | * | Active | Quality Engineering | OnDemand | 4290 |
 | [Homologação incremental 02 — Dashboard, Chat, Workflow, Quadro, Projetos e Entregas](backend/execution/evidence/HOMOLOGATION-INCREMENT-02.md) | * | Active | Quality Engineering | OnDemand | 1460 |
+| [Homologação incremental 03 — fechamento das nove telas](backend/execution/evidence/HOMOLOGATION-INCREMENT-03.md) | * | Active | Quality Engineering | OnDemand | 2654 |
 | [Evidência F0 PoC-1 — SQLite WAL e dispatcher único](backend/execution/evidence/F0-POC-1.md) | * | Active | Quality Engineering | OnDemand | 335 |
 | [Evidência F0 PoC-2 — kill -9 e retomada durável](backend/execution/evidence/F0-POC-2.md) | * | Active | Quality Engineering | OnDemand | 405 |
 | [Evidência F0 PoC-3 — lease e fencing token](backend/execution/evidence/F0-POC-3.md) | * | Active | Quality Engineering | OnDemand | 321 |

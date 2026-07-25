@@ -10,7 +10,7 @@ public sealed class WorkflowContractDriftTests
         ["WorkflowVersionContract"] = ["id", "templateId", "version", "phases", "gatesByPhase", "phaseConfigs", "defaultOperationMode", "transitions", "changelog", "state", "publishedAt", "archivedAt"],
         ["WorkflowContract"] = ["id", "projectId", "templateId", "activeVersionId", "operationMode", "semiautonomousPauseGates", "riskAcceptances", "createdAt"],
         ["WorkflowRunContract"] = ["id", "workflowId", "versionId", "state", "startedAt", "finishedAt"],
-        ["PhaseContract"] = ["id", "runId", "name", "order", "state", "startedAt", "finishedAt"],
+        ["PhaseContract"] = ["id", "runId", "name", "order", "state", "startedAt", "finishedAt", "progress", "deliverables"],
         ["GateContract"] = ["id", "phaseId", "runId", "name", "state", "requiresApproval", "decidedByProfileId", "decidedAt", "note"],
     };
 

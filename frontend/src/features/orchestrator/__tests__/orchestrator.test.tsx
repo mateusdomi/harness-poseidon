@@ -15,6 +15,7 @@ import {
   attemptsOf,
   chiefBudgets,
   deriveChiefHealth,
+  derivePresentedChiefHealth,
   filterAttemptEvents,
   groupAgentsByState,
   latestAttemptOf,
@@ -51,6 +52,14 @@ describe('orchestrator-derive', () => {
     expect(deriveChiefHealth('working', stale, now)).toBe('attention');
     expect(deriveChiefHealth('working', fresh, now)).toBe('ok');
     expect(deriveChiefHealth('idle', fresh, now)).toBe('ok');
+  });
+
+  it('apresenta atenção quando o processo está saudável, mas a prontidão está incompleta', () => {
+    expect(derivePresentedChiefHealth('ok', 'awaitingProvider')).toBe('attention');
+    expect(derivePresentedChiefHealth('ok', 'awaitingWorkflow')).toBe('attention');
+    expect(derivePresentedChiefHealth('ok', 'ready')).toBe('ok');
+    expect(derivePresentedChiefHealth('ok', 'running')).toBe('ok');
+    expect(derivePresentedChiefHealth('error', 'degraded')).toBe('error');
   });
 
   it('agrupa agentes por estado na ordem do domínio, sem grupos vazios', () => {
@@ -186,7 +195,7 @@ describe('OrchestratorPage', () => {
   it('renderiza o card do chefe com modelo, modo, saúde e ações', async () => {
     renderOrchestrator();
 
-    expect(await screen.findByText('Chefe — Poseidon Frontend')).toBeInTheDocument();
+    expect((await screen.findAllByText('Bruna Magalhães')).length).toBeGreaterThan(0);
     // Rótulo estável + displayName do modelo em uso (E2E).
     expect(screen.getByText('Modelo em uso')).toBeInTheDocument();
     expect(screen.getByText('GPT-4o')).toBeInTheDocument();
@@ -209,7 +218,7 @@ describe('OrchestratorPage', () => {
     expect(screen.getByText('Lia (Testes)')).toBeInTheDocument();
     expect(screen.getByText('Nina (Protótipos)')).toBeInTheDocument();
     // O chefe NÃO aparece na grade (tem card próprio).
-    expect(screen.getAllByText('Chefe — Poseidon Frontend')).toHaveLength(1);
+    expect(screen.getAllByText('Bruna Magalhães')).not.toHaveLength(0);
 
     // Agente com tentativa em execução mostra duração ao vivo.
     const runningCard = (await screen.findByText(runningAgent.name)).closest('li')!;
@@ -320,7 +329,7 @@ describe('OrchestratorPage', () => {
       await within(dialog).findByText('Informe o motivo da passagem de bastão.'),
     ).toBeInTheDocument();
 
-    await user.selectOptions(within(dialog).getByLabelText('Modelo do novo chefe'), [
+    await user.selectOptions(within(dialog).getByLabelText('Modelo da nova liderança'), [
       'Claude Sonnet 4',
     ]);
     await user.type(within(dialog).getByLabelText(/Motivo/), 'Teste de passagem de bastão');

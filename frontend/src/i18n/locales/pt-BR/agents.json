@@ -2,13 +2,19 @@
   "agents": {
     "roster": {
       "title": "Roster da fleet de execução",
-      "subtitle": "As identidades de execução (contas de agent-run) que o Chefe usa para rodar o trabalho — chief/worker por provedor. Distintas das personas/definições acima: aqui é QUEM executa. Somente leitura e redigido — nunca há credencial ou token.",
+      "subtitle": "Identidades globais de execução que Bruna pode acionar em qualquer projeto, diferenciadas por provedor e papel. Somente dados redigidos — nunca há credencial ou token.",
       "count": "{{count}} identidades",
       "provider": "Provedor",
       "executor": "Executor",
       "roles": "Papéis",
       "state": {
+        "working": "Trabalhando",
+        "idle": "Ociosa",
+        "out-of-quota": "Sem cota",
+        "cooldown": "Em cooldown",
         "authentication-required": "Autenticação necessária",
+        "offline": "Offline",
+        "degraded": "Degradada",
         "disabled": "Desabilitada"
       },
       "empty": "Nenhuma identidade de execução configurada.",
@@ -22,7 +28,7 @@
       "bar": "{{agent}}: {{count}} tarefas concluídas"
     },
     "groups": {
-      "chief": "Chefe"
+      "chief": "Liderança"
     },
     "teams": {
       "general": "Geral"
@@ -50,7 +56,27 @@
     },
     "empty": {
       "title": "Nenhum agente alocado",
-      "body": "Este projeto ainda não tem agentes alocados. Fale com o chefe no chat para montar a equipe."
+      "body": "Nenhum agente foi acionado neste projeto ainda. A fleet global acima continua disponível para invocação; esta área mostra apenas a atividade efetiva do projeto."
+    },
+    "executionCount_one": "{{count}} identidade de execução global",
+    "executionCount_other": "{{count}} identidades de execução globais",
+    "fleetTree": {
+      "title": "Organograma da fleet global",
+      "help": "Bruna coordena todas as identidades abaixo. Elas podem ser invocadas em qualquer projeto; atividade de projeto e disponibilidade global são conceitos distintos.",
+      "teams": {
+        "leadership": "Liderança",
+        "engineering": "Engenharia",
+        "frontend": "Experiência e frontend",
+        "quality": "Qualidade e revisão"
+      },
+      "metrics": {
+        "completed": "Concluídas",
+        "approved": "Aprovadas",
+        "rework": "Retrabalho"
+      },
+    "zeroSource": "Fonte: tarefas e tentativas persistidas atribuídas à identidade. Sem vínculo atribuível, o valor é zero.",
+    "photoAction": "Trocar foto",
+    "photoUploading": "Enviando foto…"
     },
     "card": {
       "capabilities": "Capacidades",

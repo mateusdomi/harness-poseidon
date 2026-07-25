@@ -204,6 +204,9 @@ function MobileDrawer() {
         <nav aria-label={t('shell.primaryNav')} className="flex-1 overflow-y-auto p-2">
           <NavMenu collapsed={false} onNavigate={() => setOpen(false)} />
         </nav>
+        <div className="border-t border-border p-2">
+          <ProfileMenu variant="expanded" placement="top" />
+        </div>
       </div>
     </div>
   );
@@ -258,11 +261,6 @@ function Header() {
         <LanguageSelector />
         <ThemeToggle />
         <NotificationsButton />
-        {/* Perfil ativo no header apenas no mobile (no desktop ele vive no rodapé
-            da sidebar). */}
-        <div className="lg:hidden">
-          <ProfileMenu variant="collapsed" placement="bottom" />
-        </div>
       </div>
     </header>
   );

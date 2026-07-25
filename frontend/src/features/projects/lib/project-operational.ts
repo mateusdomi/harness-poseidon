@@ -34,7 +34,10 @@ export function deriveProjectOperationalSummary(
   source: ProjectOperationalSource,
 ): ProjectOperationalSummary {
   const tasks = source.tasks.filter((task) => task.projectId === project.id);
-  const completedTasks = tasks.filter((task) => task.state === 'done').length;
+  // Mesma fonte do trilho "Executado" do Dashboard: soma dos pontos publicados
+  // pelas tarefas ÷ 100 pontos possíveis por tarefa.
+  const completedTasks = tasks.reduce((sum, task) => sum + task.progress.executed, 0);
+  const totalTasks = tasks.length * 100;
   const workflow = source.workflows.find((item) => item.projectId === project.id) ?? null;
   const run = workflow
     ? source.runs
@@ -57,9 +60,9 @@ export function deriveProjectOperationalSummary(
   return {
     phaseName: phase?.name ?? null,
     completedTasks,
-    totalTasks: tasks.length,
+    totalTasks,
     progressPercent:
-      tasks.length === 0 ? null : Math.round((completedTasks / tasks.length) * 100),
+      totalTasks === 0 ? null : Math.round((completedTasks / totalTasks) * 100),
     responsibleName:
       responsible === null
         ? null

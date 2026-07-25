@@ -37,9 +37,19 @@ public sealed record WorkflowRunContract(
     string Id, string WorkflowId, string VersionId, string State, DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt);
 
+public sealed record PhaseProgressBreakdownContract(int Completed, int Total);
+
+public sealed record PhaseProgressContract(
+    int Completed, int Total, decimal Percent, string Source, DateTimeOffset? UpdatedAt,
+    PhaseProgressBreakdownContract Tasks, PhaseProgressBreakdownContract Documents,
+    PhaseProgressBreakdownContract Gates);
+
+public sealed record PhaseDeliverableContract(string Name, string Status);
+
 public sealed record PhaseContract(
     string Id, string RunId, string Name, int Order, string State, DateTimeOffset? StartedAt,
-    DateTimeOffset? FinishedAt);
+    DateTimeOffset? FinishedAt, PhaseProgressContract Progress,
+    IReadOnlyList<PhaseDeliverableContract> Deliverables);
 
 public sealed record GateContract(
     string Id, string PhaseId, string RunId, string Name, string State, bool RequiresApproval,

@@ -22,6 +22,7 @@ import {
   useEnableDefinition,
   useUpdateDefinition,
 } from '@/features/orchestrator/hooks/use-definitions';
+import { publicDefinitionCopy } from '@/features/orchestrator/lib/public-definition';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
 
 /** Provider da definição: via modelo padrão; sem modelo, via conta preferencial. */
@@ -47,7 +48,7 @@ const NO_TEAM = 'none';
  * Deep-link `&definition=<id>` abre a visualização da definição.
  */
 export function DefinitionsTab() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const data = useDefinitionsData();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -321,6 +322,7 @@ export function DefinitionsTab() {
       ) : (
         <ul className="flex flex-col gap-3">
           {filtered.map((definition) => {
+            const publicCopy = publicDefinitionCopy(definition, i18n.resolvedLanguage ?? i18n.language);
             const state = definitionState(definition);
             const model = data.models.find((entry) => entry.id === definition.defaultModelId);
             const providerId = resolveDefinitionProviderId(definition, data.models, data.accounts);
@@ -332,7 +334,7 @@ export function DefinitionsTab() {
                 className="flex flex-col gap-3 rounded-lg border border-border bg-surface-elevated p-4"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{definition.name}</span>
+                  <span className="font-medium">{publicCopy.name}</span>
                   <Badge variant="outline">
                     {t(`orchestrator.definitions.role.${definition.role}`)}
                   </Badge>

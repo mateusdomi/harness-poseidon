@@ -21,6 +21,8 @@ import {
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useNow } from '@/features/shared/hooks/use-now';
 import { useProjectWorkflow } from '@/features/workflows/hooks/use-workflows';
+import { useLeadershipProfile } from '@/features/shared/hooks/use-leadership-profile';
+import { AgentExecutionRoster } from '@/features/agents/components/agent-execution-roster';
 
 /**
  * Tela do orquestrador (/orchestrator): card do chefe do projeto ativo
@@ -42,6 +44,7 @@ export default function UorchestratorPage() {
 
   const projectId = activeProject?.id ?? null;
   const data = useOrchestratorData(projectId);
+  const leadershipProfile = useLeadershipProfile();
   // Relógio de 1s: duração das tentativas em execução atualiza "ao vivo".
   const now = useNow(1_000);
 
@@ -69,8 +72,13 @@ export default function UorchestratorPage() {
   const definition = chief
     ? (data.definitions.find((entry) => entry.id === chief.definitionId) ?? null)
     : null;
-  const model = chief ? resolveChiefModel(chief, definition, data.models) : null;
-  const account = resolveChiefAccount(model, data.accounts);
+  const resolvedModel = chief ? resolveChiefModel(chief, definition, data.models) : null;
+  const model =
+    data.models.find((entry) => entry.id === leadershipProfile.data?.preferredModelId) ??
+    resolvedModel;
+  const account =
+    data.accounts.find((entry) => entry.id === leadershipProfile.data?.preferredAccountId) ??
+    resolveChiefAccount(model, data.accounts);
   // Prontidão real (§15): workflow vinculado + execução corrente + procedência
   // do vínculo do modelo. Nenhum destes é presumido.
   const workflowQuery = useProjectWorkflow(projectId);
@@ -158,8 +166,11 @@ export default function UorchestratorPage() {
           <ChiefCard
             project={activeProject}
             chief={chief}
+            definition={definition}
             model={model}
             account={account}
+            models={data.models}
+            accounts={data.accounts}
             budgets={budgets}
             turnState={turnState}
             now={now}
@@ -169,7 +180,28 @@ export default function UorchestratorPage() {
             operationMode={resolveOperationMode(activeProject, workflowQuery.data ?? null)}
             lastActivityAt={resolveLastActivityAt(activeProject, data.conversations)}
           />
+          <section className="flex flex-col gap-3" aria-labelledby="available-fleet-title">
+            <div>
+              <h2 id="available-fleet-title" className="font-heading text-lg font-semibold">
+                {t('orchestrator.projectAgents.availableTitle')}
+              </h2>
+              <p className="text-sm text-foreground-muted">
+                {t('orchestrator.projectAgents.availableHelp')}
+              </p>
+            </div>
+            <AgentExecutionRoster />
+          </section>
+          <section className="flex flex-col gap-3" aria-labelledby="invoked-agents-title">
+            <div>
+              <h2 id="invoked-agents-title" className="font-heading text-lg font-semibold">
+                {t('orchestrator.projectAgents.invokedTitle')}
+              </h2>
+              <p className="text-sm text-foreground-muted">
+                {t('orchestrator.projectAgents.invokedHelp')}
+              </p>
+            </div>
           <AgentGrid agents={gridAgents} tasks={data.tasks} attempts={projectAttempts} now={now} />
+          </section>
         </>
       )}
     </div>

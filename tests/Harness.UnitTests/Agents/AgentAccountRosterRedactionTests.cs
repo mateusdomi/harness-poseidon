@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Harness.Host.Agents;
 using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Contracts;
 
 namespace Harness.UnitTests.Agents;
 
@@ -86,5 +87,28 @@ public sealed class AgentAccountRosterRedactionTests
         var account = Assert.Single(AgentRunEndpoints.RedactRoster(definitions).Accounts);
         Assert.False(account.Enabled);
         Assert.Equal("disabled", account.State);
+    }
+
+    [Fact]
+    public void ObservedQuotaStateAndReturnTimeAreExposedWithoutSecrets()
+    {
+        var definition = AgentAccountConfigurationLoader.CanonicalDefinitions
+            .Single(account => account.Alias == "worker-kimi-ui");
+        var returnsAt = new DateTimeOffset(2026, 7, 26, 9, 0, 0, TimeSpan.Zero);
+        var observed = new AccountAvailabilityRecord(
+            definition.Alias,
+            AgentAccountState.QuotaLimited,
+            returnsAt,
+            "provider.quota_exhausted",
+            1,
+            returnsAt.AddMinutes(-10));
+
+        var account = Assert.Single(
+            AgentRunEndpoints.RedactRoster([definition], [observed]).Accounts);
+
+        Assert.Equal("out-of-quota", account.State);
+        Assert.Equal("attention", account.Health);
+        Assert.Equal(returnsAt, account.ReturnsAt);
+        Assert.Equal("provider.quota_exhausted", account.ReasonCode);
     }
 }

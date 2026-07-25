@@ -83,6 +83,7 @@ export const deliveryPlanningSchema = z.object({
   ownerAgentId: z.string(),
   ownerName: z.string(),
   committedDate: z.string(),
+  forecastDate: z.string().nullable(),
   updatedTaskCount: int,
   updatedAt: z.string(),
 });
@@ -90,6 +91,7 @@ export type DeliveryPlanning = z.infer<typeof deliveryPlanningSchema>;
 export interface DeliveryPlanningInput {
   ownerAgentId: string;
   committedDate: string;
+  forecastDate: string | null;
 }
 
 /* ------------------------------------------------------------------ */

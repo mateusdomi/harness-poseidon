@@ -1,7 +1,7 @@
 {
   "channels": {
     "title": "Canais externos",
-    "subtitle": "Gateways de conversa externos (Telegram, Teams) vinculados a projetos. As mensagens entram na caixa durável do Chefe sem duplicação.",
+    "subtitle": "Gateways de conversa externos (Telegram, Teams) vinculados a projetos. As mensagens entram na caixa durável de Bruna sem duplicação.",
     "count": "{{count}} canal(is) vinculado(s)",
     "kind": {
       "telegram": "Telegram",
@@ -19,7 +19,7 @@
     },
     "empty": {
       "title": "Nenhum canal vinculado a um projeto",
-      "body": "Ter um bot do Telegram configurado no gateway não é o mesmo que ter um canal vinculado. Aqui listamos apenas os vínculos identidade-externa → projeto. Vincule o seu chat abaixo para que as mensagens entrem na caixa durável do Chefe.",
+      "body": "Ter um bot do Telegram configurado no gateway não é o mesmo que ter um canal vinculado. Aqui listamos apenas os vínculos identidade-externa → projeto. Vincule o seu chat abaixo para que as mensagens entrem na caixa durável de Bruna.",
       "cta": "Vincular um canal"
     },
     "error": {
@@ -48,7 +48,7 @@
       },
       "submit": "Vincular canal",
       "submitting": "Vinculando…",
-      "success": "Canal vinculado ao projeto. As próximas mensagens do chat entrarão na caixa do Chefe.",
+      "success": "Canal vinculado ao projeto. As próximas mensagens do chat entrarão na caixa de Bruna.",
       "noProjects": "Crie um projeto antes de vincular um canal — o vínculo sempre aponta para um projeto.",
       "errors": {
         "invalid_channel_kind": "Tipo de canal inválido.",
@@ -80,7 +80,7 @@
     },
     "manage": {
       "title": "Gerenciar",
-      "unlinkNote": "Desvincular um canal é feito pelo gateway/CLI (não há ação de exclusão nesta tela). Enquanto o vínculo existir, as mensagens do chat continuam entrando na caixa do Chefe."
+      "unlinkNote": "Desvincular um canal é feito pelo gateway/CLI (não há ação de exclusão nesta tela). Enquanto o vínculo existir, as mensagens do chat continuam entrando na caixa de Bruna."
     }
   }
 }

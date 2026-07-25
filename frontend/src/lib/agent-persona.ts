@@ -69,7 +69,7 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
 
   /* ---- Personas de Arquitetura (architecture-*) ---- */
   'architecture-adr-writer': { humanName: 'André Fonseca', roleLabel: 'Redação de ADR' },
-  'architecture-chief': { humanName: 'Gustavo Moraes', roleLabel: 'Arquiteto-Chefe' },
+  'architecture-chief': { humanName: 'Gustavo Moraes', roleLabel: 'Arquiteto Principal' },
   'architecture-critic': { humanName: 'Larissa Pires', roleLabel: 'Crítica de Arquitetura' },
   'architecture-data': { humanName: 'Tiago Correia', roleLabel: 'Arquitetura de Dados' },
   'architecture-discovery': {
@@ -105,7 +105,9 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   reviewer: { humanName: 'Felipe Duarte', roleLabel: 'Revisor' },
   tester: { humanName: 'Natália Souza', roleLabel: 'Testadora' },
   designer: { humanName: 'Gabriela Pinto', roleLabel: 'Designer' },
+  'prototype-designer': { humanName: 'Gabriela Pinto', roleLabel: 'Designer de Protótipos' },
   security: { humanName: 'Vinícius Braga', roleLabel: 'Segurança' },
+  'security-analyst': { humanName: 'Vinícius Braga', roleLabel: 'Analista de Segurança' },
 
   /* ---- As 7 contas de execução da fleet (AgentAccountRoster.alias) ---- */
   'chief-claude-primary': {

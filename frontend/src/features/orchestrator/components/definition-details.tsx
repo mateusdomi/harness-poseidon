@@ -10,6 +10,7 @@ import {
 } from '@/features/orchestrator/lib/definitions-form';
 import { AgentIdentity } from '@/features/shared/components/agent-identity';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
+import { publicDefinitionCopy } from '@/features/orchestrator/lib/public-definition';
 import { formatDateTime } from '@/lib/format';
 import { actorCriticVariant, agentRoleVariant, effortLevelVariant, riskLevelVariant } from '@/lib/status';
 
@@ -24,26 +25,6 @@ export interface DefinitionDetailsDialogProps {
 }
 
 const EMPTY = '—';
-
-/**
- * Divide um campo textual em itens de lista para exibição em bullets.
- *
- * APRESENTAÇÃO apenas: o conteúdo é preservado — apenas quebramos o texto
- * corrido (por vírgula, ponto-e-vírgula ou nova linha) em itens legíveis. A
- * fonte de verdade continua sendo o campo textual do contrato; o array
- * alternativo (deliverables/operatingPrinciples/…) só é usado quando o campo
- * textual não vem preenchido, exatamente como na versão anterior.
- */
-function toBullets(text: string | null | undefined, fallback: readonly string[]): string[] {
-  const raw = text?.trim();
-  if (raw) {
-    return raw
-      .split(/\r?\n|;|,/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  return fallback.map((item) => item.trim()).filter(Boolean);
-}
 
 /** Bloco de seção com título destacado (card visual de leitura). */
 function SectionCard({ title, children }: { title: string; children: ReactNode }) {
@@ -140,7 +121,8 @@ export function DefinitionDetailsDialog({
   onClose,
 }: DefinitionDetailsDialogProps) {
   const { t, i18n } = useTranslation();
-  const title = t('orchestrator.definitions.details.title', { name: definition.name });
+  const publicCopy = publicDefinitionCopy(definition, i18n.resolvedLanguage ?? i18n.language);
+  const title = t('orchestrator.definitions.details.title', { name: publicCopy.name });
   const state = definitionState(definition);
 
   const model = models.find((entry) => entry.id === definition.defaultModelId) ?? null;
@@ -161,14 +143,14 @@ export function DefinitionDetailsDialog({
     .map((id) => models.find((entry) => entry.id === id)?.displayName)
     .filter((name): name is string => Boolean(name));
 
-  const responsibilities = toBullets(definition.responsibilities, definition.deliverables ?? []);
-  const instructions = toBullets(definition.instructions, definition.operatingPrinciples ?? []);
-  const restrictions = toBullets(definition.restrictions, definition.limitations ?? []);
-  const bestPractices = toBullets(definition.bestPractices, definition.qualityCriteria ?? []);
+  const responsibilities = publicCopy.responsibilities;
+  const instructions = publicCopy.instructions;
+  const restrictions = publicCopy.restrictions;
+  const bestPractices = publicCopy.bestPractices;
   const stacks = definition.stacks ?? [];
 
   const hasProfile = Boolean(
-    definition.description?.trim() || definition.persona?.trim() || definition.mission?.trim(),
+    publicCopy.description.trim() || publicCopy.persona.trim() || publicCopy.mission.trim(),
   );
   const hasBehavior =
     responsibilities.length > 0 ||
@@ -185,11 +167,16 @@ export function DefinitionDetailsDialog({
       <div className="flex flex-col gap-3">
         <AgentIdentity
           alias={definition.key}
-          fallbackName={definition.name}
-          technicalLabel={definition.name}
+          fallbackName={publicCopy.name}
+          technicalLabel={publicCopy.roleLabel}
           size={48}
           nameClassName="text-xl"
         />
+        {publicCopy.localized ? (
+          <p className="rounded-md border border-border bg-surface-elevated p-2 text-xs text-foreground-muted">
+            {t('orchestrator.definitions.details.publicProjection')}
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={STATE_BADGE_VARIANT[state]}>
             {t(`orchestrator.definitions.state.${state}`)}
@@ -213,16 +200,16 @@ export function DefinitionDetailsDialog({
           ) : null}
           {provider ? <Badge variant="info">{provider.name}</Badge> : null}
         </div>
-        {(definition.specialty?.trim() || definition.team?.trim()) && (
+        {(publicCopy.specialty.trim() || publicCopy.team?.trim()) && (
           <dl className="flex flex-wrap items-center gap-x-6 gap-y-1.5">
-            {definition.specialty?.trim() ? (
+            {publicCopy.specialty.trim() ? (
               <ValueRow label={t('orchestrator.definitions.fields.specialty')}>
-                {definition.specialty}
+                {publicCopy.specialty}
               </ValueRow>
             ) : null}
-            {definition.team?.trim() ? (
+            {publicCopy.team?.trim() ? (
               <ValueRow label={t('orchestrator.definitions.fields.team')}>
-                <Badge variant="outline">{definition.team}</Badge>
+                <Badge variant="outline">{publicCopy.team}</Badge>
               </ValueRow>
             ) : null}
           </dl>
@@ -233,15 +220,15 @@ export function DefinitionDetailsDialog({
         <SectionCard title={t('orchestrator.definitions.details.sections.profile')}>
           <ProseField
             label={t('orchestrator.definitions.fields.description')}
-            value={definition.description}
+            value={publicCopy.description}
           />
           <ProseField
             label={t('orchestrator.definitions.fields.persona')}
-            value={definition.persona}
+            value={publicCopy.persona}
           />
           <ProseField
             label={t('orchestrator.definitions.fields.mission')}
-            value={definition.mission}
+            value={publicCopy.mission}
           />
         </SectionCard>
       ) : null}

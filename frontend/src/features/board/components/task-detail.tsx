@@ -6,6 +6,7 @@ import type { Agent, Ulid } from '@/api';
 import { Badge, Button, Field, Select, Skeleton } from '@/design-system';
 import { formatCurrencyUSD, formatDateTime, formatDurationMs, formatNumber, formatRelativeTime } from '@/lib/format';
 import { attemptStateVariant, priorityVariant, taskStateVariant } from '@/lib/status';
+import { cn } from '@/lib/utils';
 import { TaskActions } from '@/features/board/components/task-actions';
 import { TaskApprovals } from '@/features/board/components/task-approvals';
 import { useTaskDetail, useTaskRealtime } from '@/features/board/hooks/use-board';
@@ -79,9 +80,17 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-2">
-          <h2 className="font-heading text-xl font-semibold">{task.title}</h2>
+      <header
+        className={cn(
+          'flex min-w-0 items-start justify-between gap-3',
+          onClose &&
+            'sticky -top-4 z-10 -mx-4 -mt-4 border-b border-border bg-background px-4 pb-3 pt-4',
+        )}
+      >
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <h2 className="break-words font-heading text-xl font-semibold leading-snug">
+            {task.title}
+          </h2>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant={taskStateVariant(task.state)}>
               {t(`status.taskState.${task.state}`)}
@@ -89,6 +98,10 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
             <Badge variant={priorityVariant(task.priority)}>
               {t(`status.priority.${task.priority}`)}
             </Badge>
+            <Badge variant={task.cardType === 'human_gate' ? 'warning' : 'info'}>
+              {t(`board.card.types.${task.cardType ?? 'agent_task'}`)}
+            </Badge>
+            {task.phaseName && <Badge variant="brand">{task.phaseName}</Badge>}
           </div>
           <dl className="flex flex-col gap-1 text-xs text-foreground-muted">
             <div className="flex items-center gap-1.5">
@@ -138,6 +151,48 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
           </Button>
         )}
       </header>
+
+      <section aria-labelledby="task-scope" className="flex flex-col gap-2">
+        <h3 id="task-scope" className="font-heading text-sm font-semibold">
+          {t('board.detail.scope.title')}
+        </h3>
+        <dl className="grid gap-3 rounded-lg border border-border bg-surface p-3 text-sm">
+          <div>
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('board.detail.scope.objective')}
+            </dt>
+            <dd>
+              {demand?.description || t('board.detail.sourceUnavailable')}
+            </dd>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium text-foreground-muted">
+                {t('board.detail.scope.included')}
+              </dt>
+              <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-foreground-muted">
+                {t('board.detail.scope.excluded')}
+              </dt>
+              <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+            </div>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('board.detail.scope.acceptanceCriteria')}
+            </dt>
+            <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-foreground-muted">
+              {t('board.detail.scope.claims')}
+            </dt>
+            <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+          </div>
+        </dl>
+      </section>
 
       <section aria-labelledby="task-progress" className="flex flex-col gap-2">
         <h3 id="task-progress" className="font-heading text-sm font-semibold">

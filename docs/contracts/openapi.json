@@ -888,6 +888,256 @@
                 }
             }
         },
+        "/api/v1/leadership-profile": {
+            "get": {
+                "tags": [
+                    "leadership-profile"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LeadershipProfileRecord"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "leadership-profile"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "null"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/LeadershipProfileWriteRequest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LeadershipProfileRecord"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leadership-profile/photo": {
+            "post": {
+                "tags": [
+                    "leadership-profile"
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "photo": {
+                                        "$ref": "#/components/schemas/IFormFile"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LeadershipProfileRecord"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "leadership-profile"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leadership-profile/agents/{alias}/photo": {
+            "post": {
+                "tags": [
+                    "leadership-profile"
+                ],
+                "parameters": [
+                    {
+                        "name": "alias",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "photo": {
+                                        "$ref": "#/components/schemas/IFormFile"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "leadership-profile"
+                ],
+                "parameters": [
+                    {
+                        "name": "alias",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/organizations": {
             "get": {
                 "tags": [
@@ -19179,7 +19429,10 @@
                     "concurrencyLimit",
                     "priority",
                     "enabled",
-                    "state"
+                    "state",
+                    "health",
+                    "returnsAt",
+                    "reasonCode"
                 ],
                 "type": "object",
                 "properties": {
@@ -19219,6 +19472,22 @@
                     },
                     "state": {
                         "type": "string"
+                    },
+                    "health": {
+                        "type": "string"
+                    },
+                    "returnsAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "reasonCode": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -24784,6 +25053,7 @@
                     "ownerAgentId",
                     "ownerName",
                     "committedDate",
+                    "forecastDate",
                     "updatedTaskCount",
                     "updatedAt"
                 ],
@@ -24800,6 +25070,13 @@
                     },
                     "committedDate": {
                         "type": "string",
+                        "format": "date-time"
+                    },
+                    "forecastDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
                         "format": "date-time"
                     },
                     "updatedTaskCount": {
@@ -24828,6 +25105,13 @@
                     },
                     "committedDate": {
                         "type": "string",
+                        "format": "date-time"
+                    },
+                    "forecastDate": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
                         "format": "date-time"
                     }
                 }
@@ -27042,6 +27326,10 @@
                     }
                 }
             },
+            "IFormFile": {
+                "type": "string",
+                "format": "binary"
+            },
             "InstructionPage": {
                 "required": [
                     "items",
@@ -27324,6 +27612,222 @@
                 }
             },
             "JsonElement": {},
+            "LeadershipProfileRecord": {
+                "required": [
+                    "displayName",
+                    "title",
+                    "photoUrl",
+                    "summary",
+                    "specialties",
+                    "careerSummary",
+                    "languages",
+                    "personality",
+                    "hobbies",
+                    "age",
+                    "communicationInstructions",
+                    "preferredModelId",
+                    "preferredAccountId",
+                    "version",
+                    "updatedAt",
+                    "history"
+                ],
+                "type": "object",
+                "properties": {
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "photoUrl": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "specialties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "careerSummary": {
+                        "type": "string"
+                    },
+                    "languages": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "personality": {
+                        "type": "string"
+                    },
+                    "hobbies": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "age": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "communicationInstructions": {
+                        "type": "string"
+                    },
+                    "preferredModelId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAccountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "history": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LeadershipProfileRevision"
+                        }
+                    }
+                }
+            },
+            "LeadershipProfileRevision": {
+                "required": [
+                    "version",
+                    "changedBy",
+                    "changedAt",
+                    "changes"
+                ],
+                "type": "object",
+                "properties": {
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "changedBy": {
+                        "type": "string"
+                    },
+                    "changedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "changes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "LeadershipProfileWriteRequest": {
+                "required": [
+                    "displayName",
+                    "title",
+                    "summary",
+                    "specialties",
+                    "careerSummary",
+                    "languages",
+                    "personality",
+                    "hobbies",
+                    "age",
+                    "communicationInstructions",
+                    "preferredModelId",
+                    "preferredAccountId",
+                    "expectedVersion"
+                ],
+                "type": "object",
+                "properties": {
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "specialties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "careerSummary": {
+                        "type": "string"
+                    },
+                    "languages": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "personality": {
+                        "type": "string"
+                    },
+                    "hobbies": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "age": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "communicationInstructions": {
+                        "type": "string"
+                    },
+                    "preferredModelId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAccountId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "expectedVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
             "LearningCandidateAction": {
                 "type": "integer"
             },
@@ -28966,7 +29470,9 @@
                     "order",
                     "state",
                     "startedAt",
-                    "finishedAt"
+                    "finishedAt",
+                    "progress",
+                    "deliverables"
                 ],
                 "type": "object",
                 "properties": {
@@ -29003,6 +29509,30 @@
                             "string"
                         ],
                         "format": "date-time"
+                    },
+                    "progress": {
+                        "$ref": "#/components/schemas/PhaseProgressContract"
+                    },
+                    "deliverables": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PhaseDeliverableContract"
+                        }
+                    }
+                }
+            },
+            "PhaseDeliverableContract": {
+                "required": [
+                    "name",
+                    "status"
+                ],
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
                     }
                 }
             },
@@ -29024,6 +29554,89 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "PhaseProgressBreakdownContract": {
+                "required": [
+                    "completed",
+                    "total"
+                ],
+                "type": "object",
+                "properties": {
+                    "completed": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "PhaseProgressContract": {
+                "required": [
+                    "completed",
+                    "total",
+                    "percent",
+                    "source",
+                    "updatedAt",
+                    "tasks",
+                    "documents",
+                    "gates"
+                ],
+                "type": "object",
+                "properties": {
+                    "completed": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "total": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "percent": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "tasks": {
+                        "$ref": "#/components/schemas/PhaseProgressBreakdownContract"
+                    },
+                    "documents": {
+                        "$ref": "#/components/schemas/PhaseProgressBreakdownContract"
+                    },
+                    "gates": {
+                        "$ref": "#/components/schemas/PhaseProgressBreakdownContract"
                     }
                 }
             },
@@ -33928,6 +34541,9 @@
         },
         {
             "name": "profiles"
+        },
+        {
+            "name": "leadership-profile"
         },
         {
             "name": "organizations"

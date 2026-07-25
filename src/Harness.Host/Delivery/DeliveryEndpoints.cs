@@ -239,13 +239,17 @@ public static class DeliveryEndpoints
     private static async Task<IResult> ConfigurePlanningAsync(
         string deliveryId, DeliveryPlanningRequest? body, HttpRequest request,
         ILocalProfileStore profiles, IProjectStore projects, IAgentCatalogStore agents,
-        IWorkBoardStore board, IClock clock, CancellationToken token)
+        IWorkBoardStore board, IDeliveryForecastStore forecasts, IClock clock,
+        CancellationToken token)
     {
         if (!Valid(deliveryId)) return InvalidId("delivery");
         if (body is null) return Invalid("body", "A request body is required.");
         if (!Valid(body.OwnerAgentId)) return Invalid("ownerAgentId", "Owner agent ID must be a ULID.");
         if (body.CommittedDate.Offset != TimeSpan.Zero)
             return Invalid("committedDate", "Committed date must be UTC.");
+        if (body.ForecastDate is { } requestedForecast &&
+            requestedForecast.Offset != TimeSpan.Zero)
+            return Invalid("forecastDate", "Forecast date must be UTC.");
 
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
         if (profile is null) return SessionRequired();
@@ -275,8 +279,25 @@ public static class DeliveryEndpoints
                 profile.TenantId, task.Id, agent.Id, body.CommittedDate, now), token);
         }
 
+        if (body.ForecastDate is { } forecastDate)
+        {
+            await forecasts.AppendAsync(new(
+                profile.TenantId,
+                UlidValue.New(now.AddTicks(1)).ToString(),
+                deliveryId,
+                forecastDate,
+                "low",
+                25,
+                true,
+                [new(
+                    "manual_forecast",
+                    "Forecast date configured manually by the local profile.")],
+                now), token);
+        }
+
         return Results.Ok(new DeliveryPlanningContract(
-            deliveryId, agent.Id, agent.Name, body.CommittedDate, active.Count, now));
+            deliveryId, agent.Id, agent.Name, body.CommittedDate, body.ForecastDate,
+            active.Count, now));
     }
 
     private static async Task<IResult> GenerateReportAsync(
@@ -388,8 +409,9 @@ public sealed record SendReportRequest(string Channel, string RecipientReference
 /// Configura a origem persistida do responsável e da data comprometida: todas as tarefas ativas
 /// passam a compartilhar o planejamento informado; a projeção da entrega é recalculada em realtime.
 /// </summary>
-public sealed record DeliveryPlanningRequest(string OwnerAgentId, DateTimeOffset CommittedDate);
+public sealed record DeliveryPlanningRequest(
+    string OwnerAgentId, DateTimeOffset CommittedDate, DateTimeOffset? ForecastDate = null);
 
 public sealed record DeliveryPlanningContract(
     string DeliveryId, string OwnerAgentId, string OwnerName, DateTimeOffset CommittedDate,
-    int UpdatedTaskCount, DateTimeOffset UpdatedAt);
+    DateTimeOffset? ForecastDate, int UpdatedTaskCount, DateTimeOffset UpdatedAt);

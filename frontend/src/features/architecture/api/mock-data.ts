@@ -64,7 +64,7 @@ export function buildArchitectureFixture(projectId: string): ArchitectureFixture
   const elements: ArchitectureElement[] = [
     // Motivação (ArchiMate)
     el('stakeholder-owner', projectId, 'stakeholder', 'Dono do Produto', 'Stakeholder responsável pela visão.'),
-    el('goal-autonomy', projectId, 'goal', 'Meta: Autonomia do Chefe', 'Loop autônomo provado end-to-end.'),
+    el('goal-autonomy', projectId, 'goal', 'Meta: Autonomia da liderança', 'Loop autônomo provado de ponta a ponta.'),
     el('req-proofs', projectId, 'requirement', 'Requisito: Provas', 'Toda mudança exige evidência versionada.'),
 
     // Contexto C4
@@ -82,7 +82,7 @@ export function buildArchitectureFixture(projectId: string): ArchitectureFixture
     // Aplicação / Containers
     el('app-frontend', projectId, 'container', 'Frontend Web', 'SPA React do Poseidon.', { tech: 'React' }),
     el('app-api', projectId, 'container', 'API Backend', 'API .NET do control plane.', { tech: '.NET' }),
-    el('app-chat', projectId, 'applicationComponent', 'Serviço de Chat', 'Componente de conversa com o Chefe.'),
+    el('app-chat', projectId, 'applicationComponent', 'Serviço de Chat', 'Componente de conversa com Bruna.'),
 
     // Componentes
     el('cmp-orchestrator', projectId, 'component', 'Orquestrador', 'Coordena tarefas dos agentes.'),

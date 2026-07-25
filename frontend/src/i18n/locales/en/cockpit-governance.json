@@ -9,7 +9,7 @@
     "truncated": "Context cuts",
     "tooltips": {
       "receipts": "Receipts = auditable records of governed execution. Every time an agent runs a task under the rules, it produces a receipt that proves what was done.",
-      "conflicts": "Conflicts = rules that contradicted each other during execution. The expected value is zero; above zero warrants a chief review.",
+      "conflicts": "Conflicts = rules that contradicted each other during execution. The expected value is zero; above zero warrants Bruna's review.",
       "truncated": "Context cuts = times the material handed to the agent was too large and had to be trimmed. Many cuts can lower work quality."
     },
     "open": "Open governance",

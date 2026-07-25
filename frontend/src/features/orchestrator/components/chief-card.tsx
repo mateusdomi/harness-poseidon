@@ -3,7 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Info } from 'lucide-react';
 
-import type { Account, Agent, Budget, ChiefTurnState, Model, OperationMode, Project } from '@/api';
+import type {
+  Account,
+  Agent,
+  AgentDefinition,
+  Budget,
+  ChiefTurnState,
+  Model,
+  OperationMode,
+  Project,
+} from '@/api';
 import {
   Badge,
   Button,
@@ -18,12 +27,12 @@ import {
 import { formatCurrencyUSD, formatDateTime, formatNumber, formatRelativeTime } from '@/lib/format';
 import { agentStateVariant, chiefTurnStateVariant, operationModeVariant } from '@/lib/status';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
-import { AgentAvatar } from '@/features/shared/components/agent-avatar';
 import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { DrainDialog } from '@/features/orchestrator/components/drain-dialog';
 import { HandoffWizard } from '@/features/orchestrator/components/handoff-wizard';
 import {
   deriveChiefHealth,
+  derivePresentedChiefHealth,
   deriveChiefReadiness,
   readinessAction,
   type BindingSource,
@@ -31,6 +40,8 @@ import {
   type ChiefReadiness,
 } from '@/features/orchestrator/lib/orchestrator-derive';
 import { usePauseChief, useResumeChief } from '@/features/orchestrator/hooks/use-orchestrator';
+import { LeadershipProfileDialog } from '@/features/orchestrator/components/leadership-profile-dialog';
+import { useLeadershipProfile } from '@/features/shared/hooks/use-leadership-profile';
 
 /** Saúde derivada (conceito local da feature) → variante semântica do Badge. */
 const HEALTH_VARIANTS: Record<ChiefHealth, BadgeProps['variant']> = {
@@ -60,8 +71,11 @@ const READINESS_ROUTES = {
 export interface ChiefCardProps {
   project: Project;
   chief: Agent;
+  definition: AgentDefinition | null;
   model: Model | null;
   account: Account | null;
+  models: Model[];
+  accounts: Account[];
   /** Budgets já filtrados (escopo projeto e/ou conta) via `chiefBudgets`. */
   budgets: Budget[];
   turnState: ChiefTurnState | null;
@@ -125,8 +139,11 @@ function DiagnosticLabel({ text, hint }: { text: string; hint: string }) {
 export function ChiefCard({
   project,
   chief,
+  definition,
   model,
   account,
+  models,
+  accounts,
   budgets,
   turnState,
   now,
@@ -139,31 +156,57 @@ export function ChiefCard({
   const { t } = useTranslation();
   const pauseMutation = usePauseChief(project.id);
   const resumeMutation = useResumeChief(project.id);
-  const [dialog, setDialog] = useState<'drain' | 'handoff' | null>(null);
+  const [dialog, setDialog] = useState<'drain' | 'handoff' | 'profile' | null>(null);
+  const leadershipProfile = useLeadershipProfile();
 
   const chiefIdentity = resolveAgentIdentity('chief-orchestrator', chief.name);
-  const health = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
+  const publicName = leadershipProfile.data?.displayName ?? chiefIdentity.humanName;
+  const publicTitle =
+    leadershipProfile.data?.title ?? 'Diretora de Engenharia e Operações de IA';
+  const publicPhoto = leadershipProfile.data?.photoUrl ?? '/people/bruna-magalhaes.jpg';
+  const processHealth = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
   const readiness = deriveChiefReadiness({
     model,
     account,
     hasWorkflow,
     agentState: chief.state,
     isRunning,
-    health,
+    health: processHealth,
   });
+  const health = derivePresentedChiefHealth(processHealth, readiness);
   const action = readinessAction(readiness);
   const controlMutation = project.state === 'paused' ? resumeMutation : pauseMutation;
+  const healthReason =
+    processHealth === 'ok' && health === 'attention'
+      ? t('orchestrator.chief.diagnostics.healthReadiness', {
+          state: t(`orchestrator.readiness.states.${readiness}`),
+        })
+      : health === 'ok'
+      ? t('orchestrator.chief.diagnostics.healthOk')
+      : chief.state === 'error' || chief.state === 'outOfQuota'
+        ? t('orchestrator.chief.diagnostics.healthState', {
+            state: t(`status.agentState.${chief.state}`),
+          })
+        : chief.lastHeartbeatAt === null
+          ? t('orchestrator.chief.diagnostics.healthMissingHeartbeat')
+          : t('orchestrator.chief.diagnostics.healthStaleHeartbeat', {
+              time: formatRelativeTime(chief.lastHeartbeatAt, undefined, now),
+            });
 
   return (
     <Card>
       <CardHeader className="gap-2">
         <div className="flex flex-wrap items-center gap-2 pr-8">
-          {/* Nome/foto humanos do Chefe em destaque; o alias técnico da
-              instância (ex.: "Chefe — Poseidon Frontend") segue como subtítulo. */}
-          <AgentAvatar name={chiefIdentity.humanName} size={36} />
+          <img
+            src={publicPhoto}
+            alt=""
+            width={44}
+            height={44}
+            className="size-11 rounded-full object-cover"
+          />
           <div className="flex min-w-0 flex-col">
-            <CardTitle>{chiefIdentity.humanName}</CardTitle>
-            <span className="truncate text-xs text-foreground-muted">{chief.name}</span>
+            <CardTitle>{publicName}</CardTitle>
+            <span className="text-xs text-foreground-muted">{publicTitle}</span>
           </div>
           <Badge variant={agentStateVariant(chief.state)}>
             {t(`status.agentState.${chief.state}`)}
@@ -179,6 +222,15 @@ export function ChiefCard({
             time: formatRelativeTime(lastActivityAt, undefined, now),
           })}
         </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="self-start"
+          onClick={() => setDialog('profile')}
+        >
+          {t('orchestrator.profile.edit')}
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Prontidão real: nunca apresentamos "pronto" sem dependências (§15). */}
@@ -204,6 +256,12 @@ export function ChiefCard({
         <dl className="flex flex-col gap-2">
           <InfoRow label={t('orchestrator.chief.health')}>
             <Badge variant={HEALTH_VARIANTS[health]}>{t(`orchestrator.health.${health}`)}</Badge>
+          </InfoRow>
+          <InfoRow label={t('orchestrator.profile.communicationTitle')}>
+            <span className="max-w-xl text-right text-xs font-normal text-foreground-muted">
+              {leadershipProfile.data?.communicationInstructions ??
+                t('orchestrator.profile.notConfigured')}
+            </span>
           </InfoRow>
           <InfoRow label={t('orchestrator.chief.operationMode')}>
             <Badge variant={operationModeVariant(operationMode)}>
@@ -252,6 +310,9 @@ export function ChiefCard({
             {t('orchestrator.chief.diagnostics.toggle')}
           </summary>
           <dl className="mt-2 flex flex-col gap-2">
+            <InfoRow label={t('orchestrator.chief.diagnostics.healthReason')}>
+              <span className="max-w-sm text-right font-normal">{healthReason}</span>
+            </InfoRow>
             {chief.lease ? (
               <>
                 <InfoRow
@@ -325,6 +386,14 @@ export function ChiefCard({
         <HandoffWizard
           projectId={project.id}
           currentModel={model}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
+      {dialog === 'profile' && definition ? (
+        <LeadershipProfileDialog
+          definition={definition}
+          models={models}
+          accounts={accounts}
           onClose={() => setDialog(null)}
         />
       ) : null}

@@ -183,17 +183,22 @@ describe('CockpitPage', () => {
     expect(screen.queryByLabelText(/carregando/i)).not.toBeInTheDocument();
   });
 
-  it('renderiza as três trilhas separadas na fase e no global', async () => {
+  it('mantém as três trilhas só no global e usa a fonte unificada na fase', async () => {
     renderCockpit();
 
-    // Fase atual (Validação) + progresso global: 2 barras por trilha.
-    expect(await screen.findAllByRole('progressbar', { name: 'Executado' })).toHaveLength(2);
-    expect(screen.getAllByRole('progressbar', { name: 'Validado' })).toHaveLength(2);
-    expect(screen.getAllByRole('progressbar', { name: 'Aprovado' })).toHaveLength(2);
+    // As três trilhas pertencem apenas ao progresso global.
+    expect(await screen.findAllByRole('progressbar', { name: 'Executado' })).toHaveLength(1);
+    expect(screen.getAllByRole('progressbar', { name: 'Validado' })).toHaveLength(1);
+    expect(screen.getAllByRole('progressbar', { name: 'Aprovado' })).toHaveLength(1);
 
     // Fase atual com gate associado.
     expect(screen.getByText('Validação')).toBeInTheDocument();
     expect(screen.getByText('Gate de Qualidade')).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'Progresso da fase Validação' }),
+    ).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByText('Relatório de testes')).toBeInTheDocument();
+    expect(screen.getByText('Evidências')).toBeInTheDocument();
   });
 
   it('renderiza contadores por estado e navega para o quadro filtrado ao clicar', async () => {
@@ -226,9 +231,11 @@ describe('CockpitPage', () => {
     expect(await screen.findByText('Deploy em staging (sem credencial)')).toBeInTheDocument();
     expect(screen.getByLabelText(/projeto ativo/i)).toBeInTheDocument();
     expect(screen.getByText('Aprovar Gate de Qualidade')).toBeInTheDocument();
-    expect(screen.getByText('Equipe operacional')).toBeInTheDocument();
+    expect(screen.getByText('Fleet operacional')).toBeInTheDocument();
     expect(screen.getByText('Online').tagName).toBe('DT');
     expect(screen.getByText('58').tagName).toBe('DD');
+    expect((await screen.findAllByText('Autenticação necessária')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Produtividade por assinatura')).toBeInTheDocument();
     expect(screen.getByText('Cotas críticas')).toBeInTheDocument();
     expect(screen.getByText('Atividade recente')).toBeInTheDocument();
   });

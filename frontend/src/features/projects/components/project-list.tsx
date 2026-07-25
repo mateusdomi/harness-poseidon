@@ -161,7 +161,7 @@ export function ProjectList({
         <>
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {pagination.paginate(filtered).map((project) => (
-              <li key={project.id}>
+              <li key={project.id} className="min-w-0">
                 <ProjectCard
                   project={project}
                   organizationName={organizationNames.get(project.organizationId)}

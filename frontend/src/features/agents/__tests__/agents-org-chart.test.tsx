@@ -235,7 +235,7 @@ describe('AgentsPage — organograma por time e filtros', () => {
     await user.selectOptions(screen.getByLabelText('Estado'), 'working');
 
     expect(within(tree).getByText('Iara (Backend)')).toBeInTheDocument();
-    expect(within(tree).getByText('Chefe — Poseidon Frontend')).toBeInTheDocument();
+    expect(within(tree).getByText('Bruna Magalhães — Poseidon Frontend')).toBeInTheDocument();
     expect(within(tree).queryByText('Otávio (Frontend)')).not.toBeInTheDocument();
     expect(within(tree).queryByText('Lia (Testes)')).not.toBeInTheDocument();
     expect(within(tree).queryByText('Rui (Revisor)')).not.toBeInTheDocument();
@@ -269,7 +269,7 @@ describe('AgentsPage — organograma por time e filtros', () => {
     await user.selectOptions(screen.getByLabelText('Estado'), 'working');
 
     expect(screen.getByText('Nenhum especialista encontrado')).toBeInTheDocument();
-    expect(within(tree).getByText('Chefe — Poseidon Frontend')).toBeInTheDocument();
+    expect(within(tree).getByText('Bruna Magalhães — Poseidon Frontend')).toBeInTheDocument();
     expect(within(tree).queryByText('Iara (Backend)')).not.toBeInTheDocument();
   });
 

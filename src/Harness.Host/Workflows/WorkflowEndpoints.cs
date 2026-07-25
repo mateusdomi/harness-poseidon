@@ -456,10 +456,40 @@ public static class WorkflowEndpoints
         return Results.Ok(ToContract(row));
     }
 
-    private static async Task<IResult> ListPhasesAsync(string? runId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
-    { var invalid = Page(cursor, limit, runId); if (invalid is not null) return invalid; var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var size = limit ?? 100; var rows = await store.ListPhasesAsync(profile.TenantId, runId, cursor, size + 1, token); return Paged(rows, size, ToContract, x => x.Id, (items, next) => new PhasePage(items, next)); }
-    private static async Task<IResult> GetPhaseAsync(string id, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
-    { if (!Valid(id)) return InvalidId(); var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var row = await store.GetPhaseAsync(profile.TenantId, id, token); return row is null ? NotFound("phase") : Results.Ok(ToContract(row)); }
+    private static async Task<IResult> ListPhasesAsync(string? runId, string? cursor, int? limit,
+        HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store,
+        IWorkflowStore authority, CancellationToken token)
+    {
+        var invalid = Page(cursor, limit, runId);
+        if (invalid is not null) return invalid;
+        var profile = await Session(request, profiles, token);
+        if (profile is null) return Unauthorized();
+        var size = limit ?? 100;
+        var rows = await store.ListPhasesAsync(
+            profile.TenantId, runId, cursor, size + 1, token);
+        var run = runId is null
+            ? null
+            : await authority.ReadRunAggregateAsync(profile.TenantId, runId, token);
+        return Paged(
+            rows,
+            size,
+            row => ToContract(row, run),
+            row => row.Id,
+            (items, next) => new PhasePage(items, next));
+    }
+
+    private static async Task<IResult> GetPhaseAsync(string id, HttpRequest request,
+        ILocalProfileStore profiles, IWorkflowCatalogStore store, IWorkflowStore authority,
+        CancellationToken token)
+    {
+        if (!Valid(id)) return InvalidId();
+        var profile = await Session(request, profiles, token);
+        if (profile is null) return Unauthorized();
+        var row = await store.GetPhaseAsync(profile.TenantId, id, token);
+        if (row is null) return NotFound("phase");
+        var run = await authority.ReadRunAggregateAsync(profile.TenantId, row.RunId, token);
+        return Results.Ok(ToContract(row, run));
+    }
     private static async Task<IResult> ListGatesAsync(string? runId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
     { var invalid = Page(cursor, limit, runId); if (invalid is not null) return invalid; var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var size = limit ?? 100; var rows = await store.ListGatesAsync(profile.TenantId, runId, cursor, size + 1, token); return Paged(rows, size, ToContract, x => x.Id, (items, next) => new GatePage(items, next)); }
     private static async Task<IResult> GetGateAsync(string id, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
@@ -476,7 +506,97 @@ public static class WorkflowEndpoints
         x.DefaultOperationMode, JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(x.TransitionsJson) ?? [], x.Changelog, x.State, x.PublishedAt, x.ArchivedAt);
     private static WorkflowContract ToContract(WorkflowBindingCatalogRecord x) => new(x.Id, x.ProjectId, x.TemplateId, x.ActiveVersionId, x.OperationMode, x.SemiautonomousPauseGates, x.RiskAcceptances.Select(a => new WorkflowRiskAcceptanceContract(a.Mode, a.AcceptedByProfileId, a.Note, a.AcceptedAt)).ToArray(), x.CreatedAt);
     private static WorkflowRunContract ToContract(WorkflowRunCatalogRecord x) => new(x.Id, x.WorkflowId, x.VersionId, x.State, x.StartedAt, x.FinishedAt);
-    private static PhaseContract ToContract(WorkflowPhaseCatalogRecord x) => new(x.Id, x.RunId, x.Name, x.Order, x.State, x.StartedAt, x.FinishedAt);
+    private static PhaseContract ToContract(
+        WorkflowPhaseCatalogRecord row,
+        WorkflowRunAggregateSnapshot? run = null)
+    {
+        var phase = run?.Phases.FirstOrDefault(item => item.PhaseRunId == row.Id);
+        if (phase is null)
+        {
+            return new(
+                row.Id,
+                row.RunId,
+                row.Name,
+                row.Order,
+                row.State,
+                row.StartedAt,
+                row.FinishedAt,
+                new(
+                    0,
+                    0,
+                    0m,
+                    "workflow_run_unavailable",
+                    row.FinishedAt ?? row.StartedAt,
+                    new(0, 0),
+                    new(0, 0),
+                    new(0, 0)),
+                []);
+        }
+
+        var documentObjectives = phase.Objectives
+            .Where(objective => objective.Kind == "document")
+            .ToArray();
+        var taskObjectives = phase.Objectives
+            .Where(objective => objective.Kind != "document" && objective.Kind != "gate")
+            .ToArray();
+        var taskProgress = Breakdown(taskObjectives);
+        var documentProgress = Breakdown(documentObjectives);
+        var gateProgress = new PhaseProgressBreakdownContract(
+            phase.Gates.Count(gate => gate.State == "passed"),
+            phase.Gates.Count);
+        var total = taskProgress.Total + documentProgress.Total + gateProgress.Total;
+        var completed =
+            taskProgress.Completed + documentProgress.Completed + gateProgress.Completed;
+        var percent = total == 0
+            ? row.State is "completed" or "skipped" ? 100m : 0m
+            : Math.Round(completed * 100m / total, 2, MidpointRounding.AwayFromZero);
+        var updatedAt = phase.Objectives
+            .Select(objective => (DateTimeOffset?)objective.UpdatedAt)
+            .Concat(phase.Gates.Select(gate => gate.EvaluatedAt))
+            .Append(row.FinishedAt)
+            .Append(row.StartedAt)
+            .Where(value => value.HasValue)
+            .Max();
+        var deliverables = documentObjectives
+            .Select(objective => new PhaseDeliverableContract(
+                objective.Name,
+                DeliverableStatus(objective.State, row.State)))
+            .ToArray();
+
+        return new(
+            row.Id,
+            row.RunId,
+            row.Name,
+            row.Order,
+            row.State,
+            row.StartedAt,
+            row.FinishedAt,
+            new(
+                completed,
+                total,
+                percent,
+                "workflow_run_objectives_and_gates",
+                updatedAt,
+                taskProgress,
+                documentProgress,
+                gateProgress),
+            deliverables);
+    }
+
+    private static PhaseProgressBreakdownContract Breakdown(
+        WorkflowObjectiveRunSnapshot[] objectives) => new(
+        objectives.Count(objective => objective.State == "approved"),
+        objectives.Length);
+
+    private static string DeliverableStatus(string objectiveState, string phaseState) =>
+        objectiveState switch
+        {
+            "approved" => "approved",
+            "validated" => "inReview",
+            "executed" => "inProduction",
+            _ when phaseState == "pending" => "planned",
+            _ => "notStarted",
+        };
     private static GateContract ToContract(WorkflowGateCatalogRecord x) => new(x.Id, x.PhaseId, x.RunId, x.Name, x.State, x.RequiresApproval, x.DecidedByProfileId, x.DecidedAt, x.Note);
     private static WorkflowPhaseCreateInput[] ToPersistence(IReadOnlyList<WorkflowApiPhaseCreation> phases) =>
         phases.Select(p => new WorkflowPhaseCreateInput(p.Id, p.Key, p.Name, p.Order,

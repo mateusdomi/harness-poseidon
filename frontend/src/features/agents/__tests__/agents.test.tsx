@@ -94,7 +94,7 @@ describe('AgentsPage', () => {
     const tree = await screen.findByRole('group', {
       name: 'Organograma da equipe do projeto',
     });
-    expect(within(tree).getByText('Chefe — Poseidon Frontend')).toBeInTheDocument();
+    expect(within(tree).getByText('Bruna Magalhães — Poseidon Frontend')).toBeInTheDocument();
     expect(within(tree).getByText('Iara (Backend)')).toBeInTheDocument();
     expect(within(tree).getByText('Nina (Protótipos)')).toBeInTheDocument();
 
@@ -173,7 +173,7 @@ describe('AgentsPage', () => {
     const tree = await screen.findByRole('group', {
       name: 'Organograma da equipe do projeto',
     });
-    expect(within(tree).getByText('Chefe — API de Pagamentos')).toBeInTheDocument();
+    expect(within(tree).getByText('Bruna Magalhães — API de Pagamentos')).toBeInTheDocument();
     expect(within(tree).queryByText('Iara (Backend)')).not.toBeInTheDocument();
   });
 });

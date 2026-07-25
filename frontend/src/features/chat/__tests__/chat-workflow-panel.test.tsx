@@ -46,6 +46,17 @@ function makePhase(partial: Partial<Phase>): Phase {
     state: 'pending',
     startedAt: null,
     finishedAt: null,
+    progress: {
+      completed: 0,
+      total: 0,
+      percent: 0,
+      source: 'workflow_run_objectives_and_gates',
+      updatedAt: null,
+      tasks: { completed: 0, total: 0 },
+      documents: { completed: 0, total: 0 },
+      gates: { completed: 0, total: 0 },
+    },
+    deliverables: [],
     ...partial,
   };
 }
@@ -95,8 +106,21 @@ describe('workflow-panel-derive', () => {
     expect(filterDocumentsByHealth(docs, null)).toHaveLength(4);
   });
 
-  it('deriva o progresso da fase de gates + documentos, sem inventar valores (D-069)', () => {
-    const phase = makePhase({ id: 'ph1', state: 'active' });
+  it('usa o read model canônico do run, sem recalcular no cliente (D-069)', () => {
+    const phase = makePhase({
+      id: 'ph1',
+      state: 'active',
+      progress: {
+        completed: 2,
+        total: 4,
+        percent: 50,
+        source: 'workflow_run_objectives_and_gates',
+        updatedAt: '2026-07-01T00:00:00Z',
+        tasks: { completed: 0, total: 1 },
+        documents: { completed: 1, total: 2 },
+        gates: { completed: 1, total: 1 },
+      },
+    });
     const gates = [
       makeGate({ id: 'g1', state: 'approved' }),
       makeGate({ id: 'g2', state: 'pending' }),
@@ -105,19 +129,27 @@ describe('workflow-panel-derive', () => {
       makeDoc({ id: 'a', phaseName: 'Fase', state: 'approved' }),
       makeDoc({ id: 'b', phaseName: 'Fase', state: 'planned' }),
     ];
-    // 2 concluídos (1 gate + 1 doc) de 4 itens = 50%.
+    // O servidor é a autoridade; listas locais divergentes não alteram o percentual.
     expect(phaseProgress(phase, gates, docs)).toBe(50);
-    // Gate dispensado conta como concluído.
-    expect(phaseProgress(phase, [makeGate({ state: 'waived' })], [])).toBe(100);
-    // Sem itens: fallback honesto pelo estado.
-    expect(phaseProgress(makePhase({ state: 'completed' }), [], [])).toBe(100);
-    expect(phaseProgress(makePhase({ state: 'skipped' }), [], [])).toBe(100);
-    expect(phaseProgress(makePhase({ state: 'active' }), [], [])).toBe(0);
-    expect(phaseProgress(makePhase({ state: 'pending' }), [], [])).toBe(0);
+    expect(phaseProgress(phase, [makeGate({ state: 'waived' })], [])).toBe(50);
   });
 
-  it('explica o progresso por tarefas, documentos, gates e aprovações', () => {
-    const phase = makePhase({ id: 'ph1', name: 'Fase', state: 'active' });
+  it('explica o progresso pelos objetivos e gates duráveis do run', () => {
+    const phase = makePhase({
+      id: 'ph1',
+      name: 'Fase',
+      state: 'active',
+      progress: {
+        completed: 3,
+        total: 3,
+        percent: 100,
+        source: 'workflow_run_objectives_and_gates',
+        updatedAt: '2026-07-01T00:00:00Z',
+        tasks: { completed: 1, total: 1 },
+        documents: { completed: 1, total: 1 },
+        gates: { completed: 1, total: 1 },
+      },
+    });
     const evidence = phaseProgressEvidence(
       phase,
       [makeGate({ state: 'approved' })],

@@ -74,7 +74,7 @@ export function TaskDrawer({ taskId, agents, onClose }: TaskDrawerProps) {
         aria-modal="true"
         aria-label={t('board.detail.dialogLabel')}
         tabIndex={-1}
-        className="absolute right-0 top-0 flex h-full w-full max-w-xl flex-col overflow-y-auto border-l border-border bg-background p-4 shadow-2xl"
+        className="absolute bottom-0 right-0 top-16 flex w-full max-w-xl flex-col overflow-y-auto border-l border-t border-border bg-background p-4 shadow-2xl"
       >
         <TaskDetail taskId={taskId} agents={agents} onClose={onClose} />
       </div>

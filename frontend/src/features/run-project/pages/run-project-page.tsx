@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Eye, EyeOff, Play, RotateCcw, Square, Trash2 } from 'lucide-react';
+import { Play, RotateCcw, Square, Trash2 } from 'lucide-react';
 
-import { streams, type Ulid } from '@/api';
+import { streams, type RunTarget, type Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton } from '@/design-system';
 import { runTargetStateVariant } from '@/lib/status';
-import { SECRET_MASK } from '@/lib/secrets';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import { RunLogPanel } from '@/features/run-project/components/run-log-panel';
 import {
@@ -42,7 +41,6 @@ export default function UrunProjectPage() {
 
   const [logEntries, setLogEntries] = useState<RunLogEntry[]>([]);
   const [confirmCleanup, setConfirmCleanup] = useState(false);
-  const [credentialsRevealed, setCredentialsRevealed] = useState(false);
 
   // Streaming dos logs do ambiente: run.logAppended no stream do projeto.
   useRealtimeStream(projectId === null ? null : streams.project(projectId), {
@@ -56,19 +54,38 @@ export default function UrunProjectPage() {
     },
   });
 
-  const targets = targetsQuery.data ?? [];
+  const managedTargets = targetsQuery.data ?? [];
+  // Esta página só pode estar aberta se o Host/frontend que a serve estiver
+  // respondendo. Ele não é filho do supervisor interno e, portanto, precisa
+  // aparecer como processo externo observado, sem ações destrutivas.
+  const hostTarget: RunTarget | null = activeProject
+    ? {
+        id: '01JQ0000000000000000000001',
+        projectId: activeProject.id,
+        name: t('runProject.services.hostName'),
+        kind: 'http',
+        url: window.location.origin,
+        port: Number(window.location.port) || (window.location.protocol === 'https:' ? 443 : 80),
+        state: 'running',
+        detectedAt: new Date().toISOString(),
+        lastCheckAt: new Date().toISOString(),
+      }
+    : null;
+  const targets = hostTarget ? [hostTarget, ...managedTargets] : managedTargets;
   const runningCount = targets.filter((target) => target.state === 'running').length;
+  const managedRunningCount = managedTargets.filter((target) => target.state === 'running').length;
+  const managedStoppedCount = managedTargets.length - managedRunningCount;
 
   async function runOnAll(action: 'start' | 'stop') {
-    for (const target of targets) {
+    for (const target of managedTargets) {
+      if (action === 'start' && target.state === 'running') continue;
+      if (action === 'stop' && target.state !== 'running') continue;
       await runAction.mutateAsync({ targetId: target.id, action });
     }
   }
 
-  // Conteúdo estático por projeto (guia + credenciais demo) com fallback
-  // genérico — pendência: vir do contrato (HANDOFF).
   const projectSlug = activeProject?.key.toLowerCase() ?? 'generic';
-  const contentKey = i18n.exists(`runProject.demoCredentials.${projectSlug}.user`)
+  const contentKey = i18n.exists(`runProject.guide.${projectSlug}`)
     ? projectSlug
     : 'generic';
   const guideSteps = t(`runProject.guide.${contentKey}`).split('\n');
@@ -140,27 +157,40 @@ export default function UrunProjectPage() {
               type="button"
               size="sm"
               onClick={() => void runOnAll('start')}
-              disabled={runAction.isPending || targets.length === 0}
+              disabled={
+                runAction.isPending ||
+                managedTargets.length === 0 ||
+                managedStoppedCount === 0
+              }
             >
               <Play aria-hidden="true" />
-              {t('runProject.actions.startAll')}
+              {managedRunningCount > 0 && managedStoppedCount > 0
+                ? t('runProject.actions.startRemaining', { count: managedStoppedCount })
+                : t('runProject.actions.startAll')}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => void runOnAll('stop')}
-              disabled={runAction.isPending || targets.length === 0}
+              disabled={
+                runAction.isPending ||
+                managedRunningCount === 0
+              }
             >
               <Square aria-hidden="true" />
-              {t('runProject.actions.stopAll')}
+              {managedRunningCount > 0 && managedStoppedCount > 0
+                ? t('runProject.actions.stopRunning', {
+                    count: managedRunningCount,
+                  })
+                : t('runProject.actions.stopAll')}
             </Button>
             <Button
               type="button"
               variant="destructive"
               size="sm"
               onClick={() => setConfirmCleanup(true)}
-              disabled={targets.length === 0}
+              disabled={managedTargets.length === 0}
             >
               <Trash2 aria-hidden="true" />
               {t('runProject.actions.cleanup')}
@@ -217,7 +247,12 @@ export default function UrunProjectPage() {
                               {t('runProject.services.stack')}
                             </dt>
                             <dd className="flex flex-wrap gap-1">
-                              {activeProject.technologies.map((tech) => (
+                              {(target === hostTarget
+                                ? ['Host ASP.NET Core', 'Frontend React/Vite']
+                                : activeProject.technologies.length > 0
+                                  ? activeProject.technologies
+                                  : [t('runProject.services.stackUnavailable')]
+                              ).map((tech) => (
                                 <Badge key={tech} variant="outline">
                                   {tech}
                                 </Badge>
@@ -228,7 +263,11 @@ export default function UrunProjectPage() {
                             <dt className="font-medium text-foreground">
                               {t('runProject.services.dependencies')}
                             </dt>
-                            <dd>{t('runProject.services.dependenciesUnavailable')}</dd>
+                            <dd>
+                              {target === hostTarget
+                                ? t('runProject.services.hostDependencies')
+                                : t('runProject.services.managedDependencies')}
+                            </dd>
                           </div>
                         </dl>
                         <div className="flex flex-wrap gap-2">
@@ -236,7 +275,11 @@ export default function UrunProjectPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={runAction.isPending || target.state === 'running'}
+                            disabled={
+                              target === hostTarget ||
+                              runAction.isPending ||
+                              target.state === 'running'
+                            }
                             onClick={() =>
                               runAction.mutate({ targetId: target.id, action: 'start' })
                             }
@@ -248,7 +291,11 @@ export default function UrunProjectPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={runAction.isPending || target.state !== 'running'}
+                            disabled={
+                              target === hostTarget ||
+                              runAction.isPending ||
+                              target.state !== 'running'
+                            }
                             onClick={() => runAction.mutate({ targetId: target.id, action: 'stop' })}
                           >
                             <Square aria-hidden="true" />
@@ -258,7 +305,11 @@ export default function UrunProjectPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={runAction.isPending || target.state === 'unknown'}
+                            disabled={
+                              target === hostTarget ||
+                              runAction.isPending ||
+                              target.state === 'unknown'
+                            }
                             onClick={() =>
                               runAction.mutate({ targetId: target.id, action: 'restart' })
                             }
@@ -288,41 +339,13 @@ export default function UrunProjectPage() {
 
           <div className="grid gap-3 lg:grid-cols-2">
             <Card>
-              <CardHeader className="flex-row items-center justify-between gap-2">
+              <CardHeader>
                 <CardTitle>{t('runProject.credentials.title')}</CardTitle>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCredentialsRevealed((current) => !current)}
-                >
-                  {credentialsRevealed ? (
-                    <>
-                      <EyeOff aria-hidden="true" />
-                      {t('runProject.credentials.hide')}
-                    </>
-                  ) : (
-                    <>
-                      <Eye aria-hidden="true" />
-                      {t('runProject.credentials.reveal')}
-                    </>
-                  )}
-                </Button>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
-                <p>
-                  <span className="font-medium">{t('runProject.credentials.user')}: </span>
-                  {credentialsRevealed
-                    ? t(`runProject.demoCredentials.${contentKey}.user`)
-                    : SECRET_MASK}
+                <p className="text-foreground-muted">
+                  {t('runProject.credentials.backendOnly')}
                 </p>
-                <p>
-                  <span className="font-medium">{t('runProject.credentials.password')}: </span>
-                  {credentialsRevealed
-                    ? t(`runProject.demoCredentials.${contentKey}.password`)
-                    : SECRET_MASK}
-                </p>
-                <p className="text-xs text-foreground-muted">{t('common.secrets.maskedNote')}</p>
               </CardContent>
             </Card>
 
@@ -364,6 +387,12 @@ export default function UrunProjectPage() {
                       </dd>
                     </div>
                   )}
+                  <div className="flex flex-wrap gap-2">
+                    <dt className="font-medium">{t('runProject.localMode.dataDirectoryLabel')}</dt>
+                    <dd className="text-foreground-muted">
+                      {t('runProject.localMode.dataDirectory')}
+                    </dd>
+                  </div>
                 </dl>
                 <p className="text-foreground-muted">{t('runProject.localMode.actionsNote')}</p>
                 <p className="text-foreground-muted">{t('runProject.localMode.shortcut')}</p>

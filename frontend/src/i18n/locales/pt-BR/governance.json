@@ -132,7 +132,7 @@
         "state": "Estado",
         "limitNote": "A API P1 retorna um lote de até 100 receipts e não publica cursor de próxima página; a UI não simula paginação.",
         "emptyTitle": "Nenhum comprovante disponível",
-        "emptyBody": "Execute um turno real do Chief e tente novamente. O perfil de homologação não injeta fixtures.",
+        "emptyBody": "Execute um turno real de Bruna e tente novamente. O perfil de homologação não injeta dados de teste.",
         "view": "Ver comprovante",
         "hide": "Ocultar comprovante",
         "bundle": "Comprovante reproduzível (bundle)",

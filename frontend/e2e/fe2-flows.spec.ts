@@ -112,7 +112,7 @@ test.describe('Gate FE-2 — passagem de bastão', () => {
     const dialog = page.getByRole('dialog', { name: 'Passagem de bastão' });
 
     // Etapa 1: outro modelo + motivo (obrigatório).
-    await dialog.getByLabel('Modelo do novo chefe').selectOption({ label: 'Claude Sonnet 4' });
+    await dialog.getByLabel('Modelo da nova liderança').selectOption({ label: 'Claude Sonnet 4' });
     await dialog.getByRole('button', { name: 'Avançar' }).click();
     await expect(dialog.getByText('Informe o motivo da passagem de bastão.')).toBeVisible();
     await dialog.getByLabel(/Motivo/).fill(HANDOFF_REASON);

@@ -405,7 +405,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
   const defChefe: AgentDefinition = {
     id: id(),
     key: 'chief',
-    name: 'Chefe',
+    name: 'Bruna Magalhães',
     role: 'chief',
     specialty: null,
     description: 'Coordena o projeto: conversa com você e delega aos especialistas.',
@@ -613,7 +613,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     id: id(),
     definitionId: defChefe.id,
     projectId: null,
-    name: 'Chefe — Poseidon Frontend',
+    name: 'Bruna Magalhães — Poseidon Frontend',
     state: 'waiting',
     currentTaskId: null,
     modelId: null,
@@ -625,7 +625,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     id: id(),
     definitionId: defChefe.id,
     projectId: null,
-    name: 'Chefe — API de Pagamentos',
+    name: 'Bruna Magalhães — API de Pagamentos',
     state: 'idle',
     currentTaskId: null,
     modelId: null,
@@ -971,7 +971,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
           id: id(),
           taskId: task.id,
           version: 1,
-          body: `Instrução inicial do chefe para "${titulo}": seguir o padrão do repositório, cobrir com testes e registrar evidências na tentativa.`,
+          body: `Instrução inicial de Bruna para "${titulo}": seguir o padrão do repositório, cobrir com testes e registrar evidências na tentativa.`,
           authorKind: 'chief',
           authorId: project.chiefAgentId,
           createdAt: tick(),
@@ -1012,7 +1012,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
       id: id(),
       taskId: task.id,
       version: 1,
-      body: `Instrução inicial do chefe para "${titulo}" no projeto ${projetoPagamentos.key}.`,
+      body: `Instrução inicial de Bruna para "${titulo}" no projeto ${projetoPagamentos.key}.`,
       authorKind: 'chief',
       authorId: chefePagamentos.id,
       createdAt: tick(),
@@ -1134,7 +1134,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     conversation.lastMessageAt = createdAt;
   };
 
-  addMessage(conversaSprint, 'user', 'Chefe, preciso exportar o quadro em CSV até sexta.');
+  addMessage(conversaSprint, 'user', 'Bruna, preciso exportar o quadro em CSV até sexta.');
   addMessage(
     conversaSprint,
     'chief',
@@ -1456,11 +1456,68 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     finishedAt: null,
   };
 
+  const phaseProgress = (
+    completed: number,
+    total: number,
+    updatedAt: string | null,
+  ): Phase['progress'] => ({
+    completed,
+    total,
+    percent: total === 0 ? 0 : Math.round((completed / total) * 100),
+    source: 'workflow_run_objectives_and_gates',
+    updatedAt,
+    tasks: { completed, total },
+    documents: { completed: 0, total: 0 },
+    gates: { completed: 0, total: 0 },
+  });
   const fases: Phase[] = [
-    { id: id(), runId: run1.id, name: 'Planejamento', order: 1, state: 'completed', startedAt: tick(), finishedAt: tick() },
-    { id: id(), runId: run1.id, name: 'Execução', order: 2, state: 'completed', startedAt: tick(), finishedAt: tick() },
-    { id: id(), runId: run1.id, name: 'Validação', order: 3, state: 'active', startedAt: tick(), finishedAt: null },
-    { id: id(), runId: run1.id, name: 'Publicação', order: 4, state: 'pending', startedAt: null, finishedAt: null },
+    {
+      id: id(),
+      runId: run1.id,
+      name: 'Planejamento',
+      order: 1,
+      state: 'completed',
+      startedAt: tick(),
+      finishedAt: tick(),
+      progress: phaseProgress(1, 1, tick()),
+      deliverables: [{ name: 'Plano de testes', status: 'approved' }],
+    },
+    {
+      id: id(),
+      runId: run1.id,
+      name: 'Execução',
+      order: 2,
+      state: 'completed',
+      startedAt: tick(),
+      finishedAt: tick(),
+      progress: phaseProgress(1, 1, tick()),
+      deliverables: [{ name: 'Código', status: 'approved' }],
+    },
+    {
+      id: id(),
+      runId: run1.id,
+      name: 'Validação',
+      order: 3,
+      state: 'active',
+      startedAt: tick(),
+      finishedAt: null,
+      progress: phaseProgress(0, 3, tick()),
+      deliverables: [
+        { name: 'Relatório de testes', status: 'notStarted' },
+        { name: 'Evidências', status: 'notStarted' },
+      ],
+    },
+    {
+      id: id(),
+      runId: run1.id,
+      name: 'Publicação',
+      order: 4,
+      state: 'pending',
+      startedAt: null,
+      finishedAt: null,
+      progress: phaseProgress(0, 2, null),
+      deliverables: [{ name: 'Plano de implantação', status: 'planned' }],
+    },
   ];
 
   const gateQualidade: Gate = {
@@ -1602,7 +1659,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     addNotification({ severity: 'warning', category: 'quota', title: 'Cota em 80%', body: 'Conta secundária (Anthropic) atingiu 80% da cota.', status: 'unread', groupKey: 'quota:conta-secundaria', dedupeCount: 3 }),
     addNotification({ severity: 'error', category: 'system', title: 'Agente em erro', body: 'Lia (Testes) entrou em estado de erro durante a suíte E2E.', status: 'unread', link: '/agents' }),
     addNotification({ severity: 'info', category: 'license', title: 'Licença ativa', body: 'Licença Pro válida até 01/07/2027.', status: 'read' }),
-    addNotification({ severity: 'info', category: 'chat', title: 'Turno concluído', body: 'Chefe respondeu em "Planejamento da sprint 12".', status: 'read', link: '/chat' }),
+    addNotification({ severity: 'info', category: 'chat', title: 'Turno concluído', body: 'Bruna respondeu em "Planejamento da sprint 12".', status: 'read', link: '/chat' }),
     addNotification({ severity: 'info', category: 'workflow', title: 'Versão publicada', body: 'Fluxo de Entrega Padrão v1 publicado.', status: 'muted' }),
     addNotification({ severity: 'critical', category: 'task', title: 'Login social quebrado', body: 'Intervenção registrada: priorizar correção do login.', status: 'read', link: '/board' }),
     addNotification({ severity: 'info', category: 'workflow', title: 'Gate aprovado', body: 'PRD do console aprovado.', status: 'read' }),

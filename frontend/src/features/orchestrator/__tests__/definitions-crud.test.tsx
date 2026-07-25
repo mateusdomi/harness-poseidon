@@ -32,20 +32,20 @@ describe('Aba Definições de agentes', () => {
   it('lista todas as definições com estado, versão, time, modelo e provider', async () => {
     renderDefinitions();
 
-    expect(await screen.findByText('Engenheiro Backend')).toBeInTheDocument();
-    expect(screen.getByText('Engenheiro Frontend')).toBeInTheDocument();
-    expect(screen.getByText('Revisor')).toBeInTheDocument();
-    expect(screen.getByText('Testador')).toBeInTheDocument();
-    expect(screen.getByText('Designer de Protótipos')).toBeInTheDocument();
-    expect(screen.getByText('Analista de Segurança')).toBeInTheDocument();
+    expect(await screen.findByText('Thiago Mendes')).toBeInTheDocument();
+    expect(screen.getByText('Aline Castro')).toBeInTheDocument();
+    expect(screen.getByText('Felipe Duarte')).toBeInTheDocument();
+    expect(screen.getByText('Natália Souza')).toBeInTheDocument();
+    expect(screen.getByText('Gabriela Pinto')).toBeInTheDocument();
+    expect(screen.getByText('Vinícius Braga')).toBeInTheDocument();
 
     // Estado desabilitado + time Design (fixture).
-    const designerRow = await rowOf('Designer de Protótipos');
+    const designerRow = await rowOf('Gabriela Pinto');
     expect(within(designerRow).getByText('Desabilitada')).toBeInTheDocument();
     expect(within(designerRow).getByText('Design')).toBeInTheDocument();
 
     // Chefe: sem time, versão 2, modelo padrão e provider resolvidos.
-    const chiefRow = await rowOf('Chefe');
+    const chiefRow = await rowOf('Bruna Magalhães');
     expect(within(chiefRow).getByText('Sem time')).toBeInTheDocument();
     expect(within(chiefRow).getByText('v2')).toBeInTheDocument();
     expect(within(chiefRow).getByText('GPT-4o')).toBeInTheDocument();
@@ -56,11 +56,11 @@ describe('Aba Definições de agentes', () => {
     const user = userEvent.setup();
     renderDefinitions();
 
-    await screen.findByText('Engenheiro Backend');
+    await screen.findByText('Thiago Mendes');
     await user.selectOptions(screen.getByLabelText('Status'), 'disabled');
 
-    expect(screen.getByText('Designer de Protótipos')).toBeInTheDocument();
-    expect(screen.queryByText('Engenheiro Backend')).not.toBeInTheDocument();
+    expect(screen.getByText('Gabriela Pinto')).toBeInTheDocument();
+    expect(screen.queryByText('Thiago Mendes')).not.toBeInTheDocument();
   });
 
   it('cria uma definição pelo formulário guiado, derivando a chave do nome', async () => {
@@ -95,7 +95,7 @@ describe('Aba Definições de agentes', () => {
     const user = userEvent.setup();
     renderDefinitions();
 
-    const row = await rowOf('Revisor');
+    const row = await rowOf('Felipe Duarte');
     expect(within(row).getByText('v1')).toBeInTheDocument();
 
     await user.click(within(row).getByRole('button', { name: 'Editar' }));
@@ -114,7 +114,7 @@ describe('Aba Definições de agentes', () => {
         screen.queryByRole('dialog', { name: 'Editar definição — Revisor' }),
       ).not.toBeInTheDocument(),
     );
-    const updatedRow = await rowOf('Revisor Sênior');
+    const updatedRow = await rowOf('Felipe Duarte');
     expect(within(updatedRow).getByText('v2')).toBeInTheDocument();
   });
 
@@ -122,7 +122,7 @@ describe('Aba Definições de agentes', () => {
     const user = userEvent.setup();
     renderDefinitions();
 
-    const row = await rowOf('Analista de Segurança');
+    const row = await rowOf('Vinícius Braga');
     await user.click(within(row).getByRole('button', { name: 'Duplicar' }));
 
     expect(await screen.findByText('Analista de Segurança (cópia)')).toBeInTheDocument();
@@ -132,21 +132,21 @@ describe('Aba Definições de agentes', () => {
     const user = userEvent.setup();
     renderDefinitions();
 
-    const row = await rowOf('Analista de Segurança');
+    const row = await rowOf('Vinícius Braga');
     await user.click(within(row).getByRole('button', { name: 'Excluir' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Excluir definição' });
     await user.click(within(dialog).getByRole('button', { name: 'Excluir' }));
 
     await waitFor(() =>
-      expect(screen.queryByText('Analista de Segurança')).not.toBeInTheDocument(),
+      expect(screen.queryByText('Vinícius Braga')).not.toBeInTheDocument(),
     );
   });
 
   it('definição em uso não permite excluir e explica o motivo', async () => {
     renderDefinitions();
 
-    const row = await rowOf('Engenheiro Backend');
+    const row = await rowOf('Thiago Mendes');
     const deleteButton = within(row).getByRole('button', { name: 'Excluir' });
     expect(deleteButton).toBeDisabled();
     expect(deleteButton).toHaveAttribute('title', 'Definição em uso — utilize arquivar.');
@@ -156,7 +156,7 @@ describe('Aba Definições de agentes', () => {
     const user = userEvent.setup();
     renderDefinitions();
 
-    const row = await rowOf('Designer de Protótipos');
+    const row = await rowOf('Gabriela Pinto');
     await user.click(within(row).getByRole('button', { name: 'Arquivar' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Arquivar definição' });
@@ -165,7 +165,7 @@ describe('Aba Definições de agentes', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Arquivar definição' })).not.toBeInTheDocument(),
     );
-    const archivedRow = await rowOf('Designer de Protótipos');
+    const archivedRow = await rowOf('Gabriela Pinto');
     expect(await within(archivedRow).findByText('Arquivada')).toBeInTheDocument();
   });
 
@@ -176,7 +176,7 @@ describe('Aba Definições de agentes', () => {
     )!;
     renderDefinitions(bundle, `/orchestrator?tab=definitions&definition=${chief.id}`);
 
-    const dialog = await screen.findByRole('dialog', { name: 'Definição — Chefe' });
+    const dialog = await screen.findByRole('dialog', { name: 'Definição — Bruna Magalhães' });
     // Versão atual + histórico de revisões (fixture do chefe tem 1 entrada na v2).
     expect(within(dialog).getAllByText('Versão 2').length).toBeGreaterThan(0);
     expect(within(dialog).getByText('Histórico de revisões')).toBeInTheDocument();
@@ -188,7 +188,9 @@ describe('Aba Definições de agentes', () => {
     // corrido separado por vírgula). Só apresentação — o conteúdo é o mesmo.
     expect(within(dialog).getByText('Bruna Magalhães')).toBeInTheDocument();
     expect(within(dialog).getByText('Perfil')).toBeInTheDocument();
-    const responsibility = within(dialog).getByText('decompor demandas');
+    const responsibility = within(dialog).getByText(
+      'Triar solicitações e decompor demandas em trabalho verificável.',
+    );
     expect(responsibility.tagName).toBe('LI');
   });
 });

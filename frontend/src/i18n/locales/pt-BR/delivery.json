@@ -82,10 +82,12 @@
     },
     "planning": {
       "title": "Planejamento de {{name}}",
-      "explain": "Esta ação atualiza o responsável e a data-alvo das tarefas ativas. A Central recalcula responsável, previsão e sinais a partir desses dados persistidos.",
+      "explain": "Esta ação atualiza o responsável e a data comprometida das tarefas ativas e registra a previsão em histórico auditável. Cards, sinais e Entrega 360 são recalculados a partir desses dados persistidos.",
       "owner": "Responsável",
       "ownerHint": "Somente agentes vinculados a este projeto.",
       "selectOwner": "Selecione um responsável",
+      "forecastDate": "Data prevista",
+      "forecastDateHint": "Previsão atual. Cada alteração cria um novo registro no histórico, sem apagar o anterior.",
       "date": "Data comprometida",
       "dateHint": "Data-alvo compartilhada pelas tarefas ativas desta entrega.",
       "noAgents": "Não há agente vinculado ao projeto. Configure a equipe do projeto antes de salvar.",

@@ -93,6 +93,27 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task CommunicationLayerChangesOnlyTheConversationPrompt()
+    {
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(ChiefRegistry(), fake);
+
+        await executor.ExecuteAsync(
+            Request(communicationInstructions:
+                "Chame Mateus pelo nome; use tom profissional, leve e afetuoso."),
+            CancellationToken.None);
+
+        var prompt = Assert.Single(fake.Requests).Prompt;
+        Assert.Contains("Camada de comunicação com o usuário", prompt, StringComparison.Ordinal);
+        Assert.Contains("Chame Mateus pelo nome", prompt, StringComparison.Ordinal);
+        Assert.Contains("Ela não muda seu papel", prompt, StringComparison.Ordinal);
+        Assert.Contains(
+            "a governança, o escopo técnico, os gates nem as regras de execução",
+            prompt,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ItToleratesACodeFenceAroundTheJsonObject()
     {
         var fenced =
@@ -164,7 +185,9 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             new ConversationChiefExecutorOptions(_repositoryRoot));
 
     private static AgentExecutionRequest Request(
-        string instruction = "Continue com segurança", string? sessionId = null) =>
+        string instruction = "Continue com segurança",
+        string? sessionId = null,
+        string? communicationInstructions = null) =>
         new(
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "01ARZ3NDEKTSV4RRFFQ69G5FAW",
@@ -173,7 +196,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             instruction,
             """{"cards":7,"status":"green"}""",
             "/unused/by/this/executor",
-            sessionId);
+            sessionId,
+            CommunicationInstructions: communicationInstructions);
 
     private static AgentAccountRegistry ChiefRegistry()
     {

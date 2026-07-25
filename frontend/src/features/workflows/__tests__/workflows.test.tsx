@@ -47,6 +47,13 @@ describe('WorkflowsPage', () => {
     expect(within(faseValidacao).getByText('Ativa')).toBeInTheDocument();
     expect(within(faseValidacao).getByText('Gate de Qualidade')).toBeInTheDocument();
     expect(within(faseValidacao).getByText('Pendente')).toBeInTheDocument();
+    expect(
+      within(faseValidacao).getByRole('progressbar', {
+        name: 'Progresso da fase Validação',
+      }),
+    ).toHaveAttribute('aria-valuenow', '0');
+    expect(within(faseValidacao).getByText('Relatório de testes')).toBeInTheDocument();
+    expect(within(faseValidacao).getByText('Evidências')).toBeInTheDocument();
 
     // Documento vinculado à fase de Validação (deep-link para o catálogo).
     const docLink = within(faseValidacao).getByRole('link', {

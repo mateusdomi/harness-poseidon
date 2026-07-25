@@ -7,7 +7,7 @@
       "step1": "Descreva o pedido em texto livre e, se ajudar, anexe arquivos de apoio.",
       "step2": "Clique em \"Analisar pedido\" para organizar o conteúdo em painéis.",
       "step3": "Revise cada painel: edite, marque como resolvido ou descarte o que não se aplica.",
-      "step4": "Clique em \"Criar demanda estruturada\" — ela vai para o quadro e para o chefe do projeto.",
+      "step4": "Clique em \"Criar demanda estruturada\" — ela vai para o quadro e para Bruna.",
       "note": "A análise é um apoio: revise e ajuste os painéis antes de criar a demanda."
     },
     "noProject": {
@@ -48,7 +48,7 @@
     "demand": {
       "create": "Criar demanda estruturada",
       "creating": "Criando demanda…",
-      "created": "Demanda estruturada criada e enviada ao chefe do projeto.",
+      "created": "Demanda estruturada criada e enviada para Bruna.",
       "openBoard": "Ver no quadro",
       "openChat": "Conversar no chat",
       "error": "Não foi possível criar a demanda. Tente novamente.",
