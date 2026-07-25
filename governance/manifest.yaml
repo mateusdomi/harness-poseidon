@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-24T21:40:11.9592850+00:00
+lastGeneratedAt: 2026-07-25T17:47:41.1941740+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -208,7 +208,7 @@ documents:
   - '**'
   loadPolicy: entry
   priority: 800
-  tokenEstimate: 7863
+  tokenEstimate: 7899
   owner: Technical Writing
   status: active
   version: 1.0.0
@@ -221,7 +221,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:0212067325a3dcaba40bd2083b9b45c6df7c75ddc9b934832dcaf409b4db8304
+  checksum: sha256:8ae490508bd364a958101fd980e21444f745f0ee0639fb1c1bfae6627d8d471c
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -11953,6 +11953,52 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/HOMOLOGATION-CODEX-FINAL-REPORT.md
+- id: evidence-homologation-increment-02
+  path: docs/backend/execution/evidence/HOMOLOGATION-INCREMENT-02.md
+  title: Homologação incremental 02 — Dashboard, Chat, Workflow, Quadro, Projetos e Entregas
+  category: evidence
+  topic: evidence-homologation-increment-02
+  authority: evidence
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - codex
+  - poseidon
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  loadPolicy: on-demand
+  priority: 200
+  tokenEstimate: 1460
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-07-25T00:00:00-03:00
+  reviewDueAt:
+  supersedes: []
+  dependencies: []
+  related:
+  - evidence-homologation-codex-final-report
+  enforcedBy:
+  - tools/backend/verify.sh
+  checksum: sha256:966cb403ed2e1276ea117e4afd05a3bb9d0f15ab780130c992cecf8eb5188dc0
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/execution/evidence/HOMOLOGATION-INCREMENT-02.md
 - id: adr-022-persona-vs-card
   path: docs/decisions/ADR-022-persona-vs-card.md
   title: ADR-022 — Persona do agente vs. card de demanda
