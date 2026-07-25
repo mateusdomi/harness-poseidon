@@ -6,6 +6,7 @@ const ROUTES = [
   '/cockpit',
   '/organizations',
   '/projects',
+  '/delivery',
   '/chat',
   '/conversations',
   '/board',
@@ -33,6 +34,7 @@ const PROFILE_NAME = 'Homologação Frontend';
 const ORGANIZATION_NAME = 'Poseidon Homologação';
 const PROJECT_NAME = 'Homologação backend real';
 const WORKING_DIRECTORY = process.env.POSEIDON_WORKING_DIRECTORY ?? path.resolve(process.cwd(), '..');
+const INCREMENT_02_ONLY = process.env.POSEIDON_INCREMENT_02_ONLY === '1';
 
 interface RuntimeWatch {
   assertClean(context: string): void;
@@ -130,7 +132,10 @@ async function ensureOrganization(page: Page) {
 async function ensureProject(page: Page, profileName: string) {
   await page.goto('/projects');
   await expect(page.getByRole('heading', { name: 'Projetos' })).toBeVisible();
-  if (await page.getByRole('button', { name: PROJECT_NAME, exact: false }).isVisible()) return;
+  const projectsResponse = await page.request.get('/api/v1/projects?limit=100');
+  expect(projectsResponse.ok()).toBe(true);
+  const projects = (await projectsResponse.json()) as { items: Array<{ name: string }> };
+  if (projects.items.some((project) => project.name === PROJECT_NAME)) return;
 
   const newProjectCta = page.getByRole('button', { name: 'Novo projeto', exact: true });
   await ((await newProjectCta.isVisible())
@@ -139,11 +144,43 @@ async function ensureProject(page: Page, profileName: string) {
   ).click();
   await page.getByLabel('Título').fill(PROJECT_NAME);
   await page.getByLabel('Slug (sigla)').fill('HOMOLOG');
-  await page.getByLabel('Descrição').fill('Validação técnica do frontend contra o Host real.');
+  await page.getByRole('tab', { name: 'Objetivo' }).click();
+  await page.getByLabel('Objetivo e contexto').fill('Validação técnica do frontend contra o Host real.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
   await page.getByRole('checkbox', { name: profileName, exact: true }).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
-  await expect(page.getByRole('button', { name: PROJECT_NAME, exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Editar projeto' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Trilha de navegação' })).toContainText(PROJECT_NAME);
+}
+
+async function ensureIncrementWorkflowRun(page: Page) {
+  if (!INCREMENT_02_ONLY) return;
+  const projectsResponse = await page.request.get('/api/v1/projects?limit=100');
+  expect(projectsResponse.ok()).toBe(true);
+  const projects = (await projectsResponse.json()) as {
+    items: Array<{ id: string; name: string }>;
+  };
+  const project = projects.items.find((item) => item.name === PROJECT_NAME);
+  expect(project).toBeDefined();
+
+  const workflowsResponse = await page.request.get(
+    `/api/v1/workflows?projectId=${project!.id}&limit=100`,
+  );
+  expect(workflowsResponse.ok()).toBe(true);
+  const workflows = (await workflowsResponse.json()) as { items: Array<{ id: string }> };
+  expect(workflows.items).toHaveLength(1);
+
+  const runsResponse = await page.request.get(
+    `/api/v1/workflow-runs?workflowId=${workflows.items[0].id}&limit=100`,
+  );
+  expect(runsResponse.ok()).toBe(true);
+  const runs = (await runsResponse.json()) as { items: Array<{ id: string }> };
+  if (runs.items.length === 0) {
+    const created = await page.request.post('/api/v1/workflow-runs', {
+      data: { workflowId: workflows.items[0].id },
+    });
+    expect(created.ok()).toBe(true);
+  }
 }
 
 async function assertA11y(page: Page, context: string) {
@@ -160,13 +197,49 @@ async function assertA11y(page: Page, context: string) {
 }
 
 async function captureEvidence(page: Page, testInfo: TestInfo, route: string) {
-  if (!['/cockpit', '/chat', '/board', '/governance', '/settings'].includes(route)) return;
+  if (!['/cockpit', '/projects', '/delivery', '/chat', '/board', '/governance', '/settings'].includes(route)) return;
   const name = `${testInfo.project.name}-${route.slice(1)}.png`;
   const evidenceDirectory = process.env.POSEIDON_EVIDENCE_DIR;
   const screenshotPath = evidenceDirectory
     ? path.join(evidenceDirectory, name)
     : testInfo.outputPath(name);
   await page.screenshot({ path: screenshotPath, fullPage: true });
+}
+
+async function exerciseIncrement02Evidence(page: Page, testInfo: TestInfo) {
+  if (testInfo.project.name !== 'desktop-13-dark') return;
+  const directory = process.env.POSEIDON_EVIDENCE_DIR;
+  const evidencePath = (name: string) =>
+    directory ? path.join(directory, name) : testInfo.outputPath(name);
+
+  await page.goto('/cockpit');
+  await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });
+  await page.goto('/chat');
+  await page.getByRole('button', { name: 'Abrir perfil de Bruna Magalhães' }).first().click();
+  await expect(page.getByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeVisible();
+  await page.screenshot({ path: evidencePath('desktop-13-dark-bruna-modal.png'), fullPage: true });
+  await page.keyboard.press('Escape');
+
+  const phaseHeader = page.locator('[data-accordion-header]').first();
+  if ((await phaseHeader.count()) > 0) {
+    if ((await phaseHeader.getAttribute('aria-expanded')) !== 'true') await phaseHeader.click();
+  }
+  await page.screenshot({ path: evidencePath('desktop-13-dark-chat-workflow-expanded.png'), fullPage: true });
+
+  await page.goto('/projects');
+  const newProject = page.getByRole('button', { name: 'Novo projeto', exact: true });
+  await expect(newProject).toBeVisible();
+  await newProject.click();
+  await expect(page.getByRole('heading', { name: 'Novo projeto' })).toBeVisible();
+  await page.screenshot({ path: evidencePath('desktop-13-dark-project-create.png'), fullPage: true });
+
+  await page.goto('/delivery');
+  await expect(page.getByRole('heading', { name: 'Central de Entregas' })).toBeVisible();
+  const openDelivery = page.getByRole('button', { name: /Abrir Entrega 360/ }).first();
+  await expect(openDelivery).toBeVisible();
+  await openDelivery.click();
+  await expect(page.getByTestId('delivery-overview')).toBeVisible();
+  await page.screenshot({ path: evidencePath('desktop-13-dark-delivery-360.png'), fullPage: true });
 }
 
 async function exerciseMermaidDocument(page: Page, testInfo: TestInfo) {
@@ -338,7 +411,7 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
     // A UI reflete o read model, mas envia: o backend persiste a mensagem e
     // devolve o bloqueio tipado no handle 202.
     await expect(page.getByRole('heading', { name: 'Execução do chefe bloqueada' })).toBeVisible();
-    const composer = page.getByRole('textbox', { name: 'Mensagem para o chefe' });
+    const composer = page.getByRole('textbox', { name: 'Mensagem para Bruna' });
     await expect(composer).toBeEnabled();
     await composer.fill('Registre este turno bloqueado.');
     await page.getByRole('button', { name: 'Enviar mensagem' }).click();
@@ -363,7 +436,7 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   }
 
   const message = `DEMANDA: Homologação realtime ${Date.now()} | Validar o frontend contra o Host real.`;
-  const composer = page.getByRole('textbox', { name: 'Mensagem para o chefe' });
+  const composer = page.getByRole('textbox', { name: 'Mensagem para Bruna' });
   await composer.fill(message);
   await expect(composer).toHaveValue(message);
   const send = page.getByRole('button', { name: 'Enviar mensagem' });
@@ -480,8 +553,12 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
   await ensureWorkingDirectory(page);
   await ensureOrganization(page);
   await ensureProject(page, profileName);
+  await ensureIncrementWorkflowRun(page);
 
-  for (const route of ROUTES) {
+  const routes = INCREMENT_02_ONLY
+    ? ROUTES.filter((route) => ['/cockpit', '/projects', '/delivery', '/chat', '/board'].includes(route))
+    : ROUTES;
+  for (const route of routes) {
     await page.goto(route);
     await expect(page.getByRole('main')).toBeVisible();
     await expect(page.getByText('Não foi possível carregar os dados. Tente novamente.')).toHaveCount(0);
@@ -490,24 +567,29 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
     await captureEvidence(page, testInfo, route);
   }
 
-  await exerciseRealtimeAndAudit(page, testInfo);
-  await exerciseMermaidDocument(page, testInfo);
-  await exerciseLearningP2(page, testInfo);
+  await exerciseIncrement02Evidence(page, testInfo);
+  if (!INCREMENT_02_ONLY) {
+    await exerciseRealtimeAndAudit(page, testInfo);
+    await exerciseMermaidDocument(page, testInfo);
+    await exerciseLearningP2(page, testInfo);
+  }
 
-  await page.goto('/cockpit');
-  await expect(page.getByRole('main')).toBeVisible();
-  const isMac = await page.evaluate(() => /mac|iphone|ipad|ipod/i.test(navigator.platform));
-  await page.keyboard.press(isMac ? 'Meta+K' : 'Control+K');
-  const palette = page.getByRole('combobox', { name: 'Busca global de telas' });
-  await expect(palette).toBeFocused();
-  await palette.fill('governança');
-  await palette.press('Enter');
-  await expect(page).toHaveURL(/\/governance$/);
+  if (!INCREMENT_02_ONLY) {
+    await page.goto('/cockpit');
+    await expect(page.getByRole('main')).toBeVisible();
+    const isMac = await page.evaluate(() => /mac|iphone|ipad|ipod/i.test(navigator.platform));
+    await page.keyboard.press(isMac ? 'Meta+K' : 'Control+K');
+    const palette = page.getByRole('combobox', { name: 'Busca global de telas' });
+    await expect(palette).toBeFocused();
+    await palette.fill('governança');
+    await palette.press('Enter');
+    await expect(page).toHaveURL(/\/governance$/);
 
-  await page.keyboard.press('Tab');
-  await expect
-    .poll(() => page.evaluate(() => document.activeElement !== document.body))
-    .toBe(true);
+    await page.keyboard.press('Tab');
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement !== document.body))
+      .toBe(true);
+  }
 
   runtime.assertClean(testInfo.project.name);
 });

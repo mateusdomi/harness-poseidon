@@ -12,14 +12,14 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Harness.IntegrationTests.Workflows;
 
 /// <summary>
-/// DEL-07: o workflow de ENTREGA TÉCNICA de 11 fases é semeado e publicado como template canônico
-/// (reusa o módulo de Workflows / GP-09), aparecendo no catálogo com suas 11 fases e seus portões por
+/// DEL-07: o workflow de ENTREGA TÉCNICA de 15 fases é semeado e publicado como template canônico
+/// (reusa o módulo de Workflows / GP-09), aparecendo no catálogo com suas 15 fases e seus portões por
 /// fase. Se o seeding das fases (incl. objetivos-documento) falhasse, o template nem apareceria.
 /// </summary>
 public sealed class TechnicalDeliveryWorkflowSeedTests
 {
     [Fact]
-    public async Task TechnicalDeliveryTemplateIsSeededWithElevenPhasesAndGates()
+    public async Task TechnicalDeliveryTemplateIsSeededWithFifteenPhasesAndGates()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         var root = Path.Combine(
@@ -48,14 +48,15 @@ public sealed class TechnicalDeliveryWorkflowSeedTests
 
                 Assert.Equal(
                     [
-                        "Recebimento", "Baseline", "Planejamento", "Execução acompanhada", "Prontidão homolog",
-                        "Homologação", "Prontidão prod", "Produção", "Estabilização", "Encerramento",
-                        "Revisão de benefícios",
+                        "Ideação e recebimento", "Descoberta", "Requisitos", "Arquitetura", "Planejamento",
+                        "Implementação", "Verificação e qualidade", "Prontidão para homologação",
+                        "Homologação", "Prontidão para produção", "Produção", "Estabilização", "Sustentação",
+                        "Encerramento", "Revisão de benefícios",
                     ],
                     version.Phases);
 
-                // Oito fases de decisão/prontidão têm portão de aprovação.
-                Assert.Equal(8, version.GatesByPhase.Count);
+                // Dez fases de decisão/prontidão têm portão de aprovação.
+                Assert.Equal(10, version.GatesByPhase.Count);
                 Assert.Contains("Homologação", version.GatesByPhase.Keys);
                 Assert.Contains("Produção", version.GatesByPhase.Keys);
                 Assert.Contains("Encerramento", version.GatesByPhase.Keys);

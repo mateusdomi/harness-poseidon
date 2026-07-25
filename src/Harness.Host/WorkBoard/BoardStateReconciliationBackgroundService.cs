@@ -75,7 +75,7 @@ public sealed class BoardStateReconciliationBackgroundService : BackgroundServic
 
         foreach (var tenantId in tenantIds)
         {
-            for (var offset = 0;; offset += _options.PageSize)
+            for (var offset = 0; ; offset += _options.PageSize)
             {
                 var page = await _board.PageTasksAsync(
                     tenantId,
