@@ -49,32 +49,27 @@ test.describe('Gate FE-1', () => {
     // 2. Criar projeto (abas: identificação + pessoas; demais com defaults válidos).
     await navTo(page, 'Projetos');
     await page.getByRole('button', { name: 'Novo projeto' }).click();
+    await page.getByRole('tab', { name: 'Identidade' }).click();
     await page.getByLabel(/Título/).fill(PROJECT_NAME);
     // A sigla é derivada do nome; sobrescrevemos com um valor determinístico.
     await page.getByLabel(/Slug \(sigla\)/).fill('E2EFE1');
-    await page.getByLabel(/Descrição/).fill('Projeto criado pelo gate E2E da FE-1.');
+    await page.getByRole('tab', { name: 'Objetivo' }).click();
+    await page.getByLabel(/Objetivo e contexto/).fill('Projeto criado pelo gate E2E da FE-1.');
     await page.getByRole('tab', { name: 'Pessoas' }).click();
     await page.getByRole('checkbox', { name: /Mateus/ }).check();
     await page.getByRole('button', { name: 'Criar projeto' }).click();
-    await expect(page.getByText(PROJECT_NAME).first()).toBeVisible();
 
     // 3. Tornar o projeto recém-criado o projeto ativo.
     await navTo(page, 'Dashboard');
     await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });
 
-    // 4. Golden path: projeto novo não tem workflow, então a execução do chefe
-    // fica honestamente bloqueada. Vinculamos o workflow recomendado (§14).
+    // 4. O workflow recomendado já vem vinculado pelo formulário de criação.
     await navTo(page, 'Chat');
-    await expect(page.getByText('Execução do chefe bloqueada')).toBeVisible();
-    await expect(page.getByLabel('Mensagem para o chefe')).toBeEnabled();
-
-    await navTo(page, 'Fluxos de trabalho');
-    await page.getByRole('button', { name: 'Usar workflow recomendado' }).click();
+    await expect(page.getByLabel('Mensagem para Bruna')).toBeEnabled();
 
     // 5. Chat: com as dependências prontas, o composer libera. A conversa é
     // criada automaticamente ao enviar — sem precisar de "Nova conversa".
-    await navTo(page, 'Chat');
-    const composer = page.getByLabel('Mensagem para o chefe');
+    const composer = page.getByLabel('Mensagem para Bruna');
     await expect(composer).toBeEnabled();
     await composer.fill(PLAN_MESSAGE);
     await page.getByRole('button', { name: 'Enviar mensagem' }).click();

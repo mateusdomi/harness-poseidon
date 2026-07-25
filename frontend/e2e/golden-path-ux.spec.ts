@@ -37,16 +37,17 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/cockpit$/);
 }
 
-/** Cria um projeto novo (sem workflow) e o torna ativo. */
-async function createProjectWithoutWorkflow(page: Page) {
+/** Cria um projeto novo com o workflow recomendado e o torna ativo. */
+async function createProjectWithRecommendedWorkflow(page: Page) {
   await navTo(page, 'Projetos');
   await page.getByRole('button', { name: 'Novo projeto' }).click();
+  await page.getByRole('tab', { name: 'Identidade' }).click();
   await page.getByLabel(/Título/).fill(PROJECT_NAME);
-  await page.getByLabel(/Descrição/).fill('Projeto do gate de UX do golden path.');
+  await page.getByRole('tab', { name: 'Objetivo' }).click();
+  await page.getByLabel(/Objetivo e contexto/).fill('Projeto do gate de UX do golden path.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
   await page.getByRole('checkbox', { name: /Mateus/ }).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
-  await expect(page.getByText(PROJECT_NAME).first()).toBeVisible();
 
   await navTo(page, 'Dashboard');
   await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });
@@ -57,6 +58,7 @@ test.describe('Golden path — UX transversal', () => {
     await signIn(page);
     await navTo(page, 'Projetos');
     await page.getByRole('button', { name: 'Novo projeto' }).click();
+    await page.getByRole('tab', { name: 'Identidade' }).click();
 
     await page.getByLabel(/Título/).fill('Plataforma de Faturamento');
     // Derivada: maiúsculas, sem acento/espaço, truncada em 12 (§7).
@@ -105,36 +107,22 @@ test.describe('Golden path — UX transversal', () => {
     await expect(page.getByLabel('Identificador da URL')).toHaveValue('organizacao-golden-path');
   });
 
-  test('projeto sem workflow: chat explica o bloqueio e o workflow recomendado destrava', async ({
+  test('projeto novo recebe workflow recomendado e o Chat expõe o ciclo sem bloqueio', async ({
     page,
   }) => {
     await signIn(page);
-    await createProjectWithoutWorkflow(page);
+    await createProjectWithRecommendedWorkflow(page);
 
-    // Checklist do golden path: passo atual e bloqueio vindos do read model
-    // canônico (códigos do backend traduzidos, não texto inventado na UI).
-    await expect(page.getByText('Comece por aqui')).toBeVisible();
-    // O mesmo bloqueador aparece na etapa Workflow e na etapa de execução —
-    // ambas o declaram, então basta que esteja visível.
-    await expect(page.getByText('Nenhum workflow vinculado ao projeto.').first()).toBeVisible();
-
-    // Chat: execução bloqueada COM motivo; o backend ainda aceita o turno.
+    // Chat: o vínculo recomendado nasce com o projeto e fica rastreável no painel.
     await navTo(page, 'Chat');
-    await expect(page.getByText('Execução do chefe bloqueada')).toBeVisible();
-    await expect(page.getByLabel('Mensagem para o chefe')).toBeEnabled();
-    // Sem conversa, a CTA de criar conversa não é duplicada no cabeçalho.
-    await expect(page.getByRole('button', { name: 'Nova conversa' })).toHaveCount(0);
-
-    // Workflow: explicação + template recomendado com fases resumidas.
-    await navTo(page, 'Fluxos de trabalho');
-    await expect(page.getByText('Recomendado', { exact: true })).toBeVisible();
-    await expect(page.getByText('Fases', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Usar workflow recomendado' }).click();
-
-    // Destravou: o composer libera e o bloqueio some.
-    await navTo(page, 'Chat');
-    await expect(page.getByLabel('Mensagem para o chefe')).toBeEnabled();
     await expect(page.getByText('Execução do chefe bloqueada')).toHaveCount(0);
+    await expect(page.getByLabel('Mensagem para Bruna')).toBeEnabled();
+    const openWorkflowPanel = page.getByRole('button', { name: 'Abrir painel do workflow' });
+    if (await openWorkflowPanel.isVisible()) await openWorkflowPanel.click();
+    await expect(page.getByText('Workflow do projeto')).toBeVisible();
+    await expect(
+      page.getByText(/Execução ainda não iniciada|Artefatos esperados/).first(),
+    ).toBeVisible();
   });
 
   // A humanização da atividade é coberta por teste de componente

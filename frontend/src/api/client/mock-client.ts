@@ -299,6 +299,27 @@ export class MockApiClient implements ApiClient {
     await this.#simulate();
     const entity = this.#build(resource, input);
     (this.#table(resource) as Map<string, unknown>).set(entity.id, entity);
+    if (resource === 'projects') {
+      const project = entity as Project;
+      const projectInput = input as CreateInputMap['projects'];
+      const templates = [...this.#table('workflow-templates').values()];
+      const template =
+        templates.find((item) => item.id === projectInput.workflowTemplateId) ??
+        templates.find((item) => item.currentVersionId !== null && item.state === 'published');
+      if (template?.currentVersionId) {
+        const workflow: Workflow = {
+          id: this.#options.nextId(),
+          projectId: project.id,
+          templateId: template.id,
+          activeVersionId: template.currentVersionId,
+          operationMode: 'manual',
+          semiautonomousPauseGates: [],
+          riskAcceptances: [],
+          createdAt: this.#options.now(),
+        };
+        this.#table('workflows').set(workflow.id, workflow);
+      }
+    }
     this.#emitCreated(resource, entity as ResourceMap[K]);
     return structuredClone(entity) as ResourceMap[K];
   }

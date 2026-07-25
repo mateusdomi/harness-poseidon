@@ -185,7 +185,7 @@ export default function ProjectsPage() {
             workflowTemplates={workflowCatalogQuery.data?.templates}
             workflowVersions={workflowCatalogQuery.data?.versions}
             defaultOrganizationId={preselectedOrgId ?? undefined}
-            submitting={createProject.isPending}
+            submitting={createProject.isPending || workflowCatalogQuery.isLoading}
             onSubmit={(values, logoFile) => void handleCreate(values, logoFile)}
             onCancel={() => setView({ kind: 'list' })}
           />

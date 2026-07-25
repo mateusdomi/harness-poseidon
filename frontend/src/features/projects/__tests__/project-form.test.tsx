@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 
 import { buildFixtures } from '@/api';
+import { ApiContext } from '@/app/api-context';
 import { ProjectForm } from '@/features/projects/components/project-form';
 import { renderWithApi } from '@/test/render-with-providers';
 
@@ -23,6 +25,24 @@ function renderForm(onSubmit = vi.fn()) {
 }
 
 describe('ProjectForm', () => {
+  it('exibe somente o painel da aba selecionada', async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const organization = document.getElementById('project-panel-organization');
+    const identity = document.getElementById('project-panel-identity');
+
+    expect(organization).not.toHaveAttribute('hidden');
+    expect(organization).toHaveClass('flex');
+    expect(identity).toHaveAttribute('hidden');
+    expect(identity).toHaveClass('hidden');
+
+    await user.click(screen.getByRole('tab', { name: /identidade/i }));
+    expect(organization).toHaveAttribute('hidden');
+    expect(organization).toHaveClass('hidden');
+    expect(identity).not.toHaveAttribute('hidden');
+    expect(identity).toHaveClass('flex');
+  });
+
   it('valida a aba Identidade ao salvar e mostra o resumo de erros', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm();
@@ -151,6 +171,39 @@ describe('ProjectForm', () => {
     await user.click(screen.getByRole('tab', { name: /^workflow$/i }));
     const select = screen.getByLabelText(/workflow do projeto/i);
     expect(select).not.toHaveValue('');
+    expect(screen.getByText('Recomendado')).toBeInTheDocument();
+  });
+
+  it('reconcilia o workflow recomendado quando o catálogo chega após o formulário', async () => {
+    const user = userEvent.setup();
+    const view = renderWithApi(
+      <ProjectForm
+        organizations={organizations}
+        submitting={false}
+        onSubmit={vi.fn()}
+        onCancel={() => {}}
+      />,
+    );
+
+    view.rerender(
+      <ApiContext.Provider value={{ api: view.bundle.api, realtime: view.bundle.realtime }}>
+        <QueryClientProvider client={view.queryClient}>
+          <ProjectForm
+            organizations={organizations}
+            workflowTemplates={fixtures.data['workflow-templates']}
+            workflowVersions={fixtures.data['workflow-versions']}
+            submitting={false}
+            onSubmit={vi.fn()}
+            onCancel={() => {}}
+          />
+        </QueryClientProvider>
+      </ApiContext.Provider>,
+    );
+
+    await user.click(screen.getByRole('tab', { name: /^workflow$/i }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/workflow do projeto/i)).not.toHaveValue(''),
+    );
     expect(screen.getByText('Recomendado')).toBeInTheDocument();
   });
 

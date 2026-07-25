@@ -108,6 +108,8 @@ export function ProjectForm({
   const { t, i18n } = useTranslation();
   const profilesQuery = useProfiles();
   const [activeTab, setActiveTab] = useState<ProjectFormTab>('organization');
+  const panelClass = (tab: ProjectFormTab) =>
+    activeTab === tab ? 'flex flex-col gap-4' : 'hidden';
   const [summaryError, setSummaryError] = useState(false);
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
   const [impact, setImpact] = useState<{
@@ -165,6 +167,19 @@ export function ProjectForm({
   const selectedWorkflowTemplateId = watch('workflowTemplateId');
   const workflowRecommendation = recommendWorkflowTemplate(workflowTemplates, workflowVersions);
   const pendingCount = Object.keys(dirtyFields).length;
+
+  // O catálogo chega por query assíncrona. Se o formulário de criação abriu antes dele,
+  // reconcilia a recomendação assim que disponível sem sobrescrever uma escolha do usuário.
+  useEffect(() => {
+    if (initial || getValues('workflowTemplateId')) return;
+    const recommended = recommendWorkflowTemplate(workflowTemplates, workflowVersions);
+    if (recommended) {
+      setValue('workflowTemplateId', recommended.template.id, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+    }
+  }, [getValues, initial, setValue, workflowTemplates, workflowVersions]);
 
   function validateTabs(values: ProjectFormValues): ProjectFormTab | null {
     for (const tab of PROJECT_FORM_TABS) {
@@ -282,7 +297,7 @@ export function ProjectForm({
             id="project-panel-organization"
             aria-labelledby="project-tab-organization"
             hidden={activeTab !== 'organization'}
-            className="flex flex-col gap-4"
+            className={panelClass('organization')}
           >
             <Field
               htmlFor="project-organization"
@@ -309,7 +324,7 @@ export function ProjectForm({
             id="project-panel-identity"
             aria-labelledby="project-tab-identity"
             hidden={activeTab !== 'identity'}
-            className="flex flex-col gap-4"
+            className={panelClass('identity')}
           >
             <Field
               htmlFor="project-name"
@@ -348,7 +363,7 @@ export function ProjectForm({
             id="project-panel-objective"
             aria-labelledby="project-tab-objective"
             hidden={activeTab !== 'objective'}
-            className="flex flex-col gap-4"
+            className={panelClass('objective')}
           >
             <Field
               htmlFor="project-description"
@@ -371,7 +386,7 @@ export function ProjectForm({
             id="project-panel-criticality"
             aria-labelledby="project-tab-criticality"
             hidden={activeTab !== 'criticality'}
-            className="flex flex-col gap-4"
+            className={panelClass('criticality')}
           >
             <Field
               htmlFor="project-criticality"
@@ -393,7 +408,7 @@ export function ProjectForm({
             id="project-panel-advanced"
             aria-labelledby="project-tab-advanced"
             hidden={activeTab !== 'advanced'}
-            className="flex flex-col gap-4"
+            className={panelClass('advanced')}
           >
             {initial ? (
               <Field htmlFor="project-state" label={t('projects.form.identification.state')}>
@@ -417,7 +432,7 @@ export function ProjectForm({
             id="project-panel-repository"
             aria-labelledby="project-tab-repository"
             hidden={activeTab !== 'repository'}
-            className="flex flex-col gap-4"
+            className={panelClass('repository')}
           >
             <Field htmlFor="project-repo-provider" label={t('projects.form.repository.provider')}>
               <Select id="project-repo-provider" {...register('repositoryProvider')}>
@@ -460,7 +475,7 @@ export function ProjectForm({
             id="project-panel-technologies"
             aria-labelledby="project-tab-technologies"
             hidden={activeTab !== 'technologies'}
-            className="flex flex-col gap-4"
+            className={panelClass('technologies')}
           >
             <Controller
               control={control}
@@ -480,7 +495,7 @@ export function ProjectForm({
             id="project-panel-workflow"
             aria-labelledby="project-tab-workflow"
             hidden={activeTab !== 'workflow'}
-            className="flex flex-col gap-4"
+            className={panelClass('workflow')}
           >
             {workflowTemplates.length > 0 ? (
               <>
@@ -526,7 +541,7 @@ export function ProjectForm({
             id="project-panel-brand"
             aria-labelledby="project-tab-brand"
             hidden={activeTab !== 'brand'}
-            className="flex flex-col gap-4"
+            className={panelClass('brand')}
           >
             <Controller
               control={control}
@@ -559,7 +574,7 @@ export function ProjectForm({
             id="project-panel-people"
             aria-labelledby="project-tab-people"
             hidden={activeTab !== 'people'}
-            className="flex flex-col gap-4"
+            className={panelClass('people')}
           >
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-medium">{t('projects.form.people.label')}</legend>

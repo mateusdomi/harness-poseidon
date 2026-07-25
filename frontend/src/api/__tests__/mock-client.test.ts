@@ -243,7 +243,7 @@ describe('MockApiClient: FR-4 — ciclo de vida de templates de workflow', () =>
     expect(archived.archivedAt).not.toBeNull();
   });
 
-  it('vincula template a projeto sem workflow; 409 quando já vinculado', async () => {
+  it('cria projeto com workflow recomendado e recusa segundo vínculo', async () => {
     const { api, fixtures } = createTestBundle();
     const template = fixtures.data['workflow-templates'].find((tpl) => tpl.state === 'published')!;
     const projectWithWorkflow = fixtures.data.projects[0];
@@ -256,13 +256,13 @@ describe('MockApiClient: FR-4 — ciclo de vida de templates de workflow', () =>
       organizationId: fixtures.data.organizations[0].id,
       name: 'Projeto Novo',
       key: 'NOVO',
-      description: 'Sem workflow ainda.',
+      description: 'Com workflow recomendado.',
     });
-    const workflow = await api.linkWorkflowTemplate({
-      projectId: newProject.id,
-      templateId: template.id,
-    });
-    expect(workflow.projectId).toBe(newProject.id);
-    expect(workflow.activeVersionId).toBe(template.currentVersionId);
+    const workflows = await api.list('workflows', { filter: { projectId: newProject.id } });
+    expect(workflows.items).toHaveLength(1);
+    expect(workflows.items[0]?.activeVersionId).toBe(template.currentVersionId);
+    await expect(
+      api.linkWorkflowTemplate({ projectId: newProject.id, templateId: template.id }),
+    ).rejects.toMatchObject({ problem: { status: 409 } });
   });
 });
