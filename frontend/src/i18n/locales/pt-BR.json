@@ -195,6 +195,8 @@
       "advanced": "Opções avançadas",
       "logo": {
         "label": "Logo",
+        "upload": "Enviar arquivo de logo",
+        "uploadHint": "PNG ou JPEG. O arquivo será salvo no diretório de dados gerenciado ao salvar o projeto.",
         "previewAlt": "Prévia da logo",
         "formats": "PNG, JPG ou SVG. Prefira fundo transparente.",
         "empty": "Nenhuma logo definida — o padrão do Poseidon será usado.",
@@ -674,18 +676,38 @@
     },
     "emptySearch": "Nenhum projeto encontrado com os filtros atuais.",
     "card": {
-      "lastActivity": "Última atividade {{time}}"
+      "lastActivity": "Última atividade {{time}}",
+      "logoAlt": "Marca do projeto {{name}}",
+      "poseidonDescription": "Plano de controle do Poseidon.",
+      "phase": "Fase",
+      "progress": "Progresso",
+      "progressValue": "{{completed}}/{{total}} concluídas ({{percent}}%)",
+      "responsible": "Responsável",
+      "health": "Saúde",
+      "workflow": "Workflow",
+      "repository": "Repositório",
+      "notAvailable": "Não informado",
+      "healthStates": {
+        "healthy": "Saudável",
+        "attention": "Requer atenção",
+        "unavailable": "Sinais indisponíveis"
+      }
     },
     "form": {
       "createTitle": "Novo projeto",
       "editTitle": "Editar projeto",
       "tabsLabel": "Seções do projeto",
       "tabs": {
-        "identification": "Identificação",
+        "organization": "Organização",
+        "identity": "Identidade",
+        "objective": "Objetivo",
         "repository": "Repositório",
+        "workflow": "Workflow",
         "technologies": "Tecnologias",
+        "criticality": "Criticidade",
         "brand": "Marca",
-        "people": "Pessoas"
+        "people": "Pessoas",
+        "advanced": "Configurações avançadas"
       },
       "errorsSummary": "Revise os campos destacados antes de salvar.",
       "identification": {
@@ -698,11 +720,25 @@
         "state": "Estado",
         "criticalityHint": "Define o nível de risco do projeto. A partir de risco médio, a revisão por um agente crítico passa a ser obrigatória, gates humanos são exigidos e a auto-aprovação é recusada — isso aumenta o custo e o tempo de cada entrega."
       },
+      "organization": {
+        "inheritanceHint": "Marca, workflows padrão e políticas podem ser herdados desta organização."
+      },
+      "objective": {
+        "description": "Objetivo e contexto",
+        "descriptionHint": "Explique o resultado esperado, o público e os limites principais do projeto."
+      },
       "repository": {
         "provider": "Provedor",
         "url": "URL ou caminho local",
         "urlHint": "Deixe em branco se o projeto ainda não tem repositório.",
         "branch": "Branch padrão"
+      },
+      "workflow": {
+        "template": "Workflow do projeto",
+        "templateHint": "O workflow recomendado já vem selecionado; altere apenas quando outro ciclo publicado for mais adequado.",
+        "linkedHint": "O projeto já está vinculado a este workflow. Mudanças de versão são feitas na gestão de workflows.",
+        "recommended": "Recomendado",
+        "unavailable": "Nenhum workflow publicado está disponível. O backend tentará vincular o template canônico recomendado na criação."
       },
       "technologies": {
         "placeholder": "Ex.: React",
@@ -714,13 +750,17 @@
         "empty": "Nenhum perfil local disponível.",
         "required": "Selecione pelo menos uma pessoa."
       },
+      "advanced": {
+        "defaults": "O projeto nasce ativo, em modo manual e com as políticas herdadas da organização."
+      },
       "create": "Criar projeto"
     },
     "config": {
       "current": "Configuração v{{version}}",
       "pending": "{{count}} alteração(ões) pendente(s)",
       "historyTitle": "Histórico de configuração",
-      "version": "v{{version}}"
+      "version": "v{{version}}",
+      "versionedHint": "Repositório, tecnologias e marca são versionados; alterações nesses campos incrementam a configuração e preservam o histórico."
     },
     "impact": {
       "title": "Impacto da alteração",

@@ -5,6 +5,7 @@ import type { Organization, Priority, Project, ProjectState } from '@/api';
 import { PRIORITIES, PROJECT_STATES } from '@/api';
 import { Button, Card, CardContent, Input, Select } from '@/design-system';
 import { ProjectCard } from '@/features/projects/components/project-card';
+import type { ProjectOperationalSummary } from '@/features/projects/lib/project-operational';
 import {
   EMPTY_FILTERS,
   filterProjects,
@@ -17,6 +18,7 @@ import { usePagination } from '@/features/shared/hooks/use-pagination';
 export interface ProjectListProps {
   projects: Project[];
   organizations: Organization[];
+  operationalByProject?: ReadonlyMap<string, ProjectOperationalSummary>;
   onSelect: (project: Project) => void;
   onCreateNew: () => void;
 }
@@ -25,7 +27,13 @@ export interface ProjectListProps {
  * Lista de projetos com busca e filtros (organização, criticidade, estado).
  * Cards empilhados no mobile, grid no desktop.
  */
-export function ProjectList({ projects, organizations, onSelect, onCreateNew }: ProjectListProps) {
+export function ProjectList({
+  projects,
+  organizations,
+  operationalByProject = new Map(),
+  onSelect,
+  onCreateNew,
+}: ProjectListProps) {
   const { t } = useTranslation();
   const [filters, setFilters] = useState<ProjectListFilters>(EMPTY_FILTERS);
 
@@ -157,6 +165,7 @@ export function ProjectList({ projects, organizations, onSelect, onCreateNew }: 
                 <ProjectCard
                   project={project}
                   organizationName={organizationNames.get(project.organizationId)}
+                  operational={operationalByProject.get(project.id)}
                   onSelect={onSelect}
                 />
               </li>

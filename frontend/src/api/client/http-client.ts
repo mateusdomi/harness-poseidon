@@ -199,6 +199,12 @@ export class HttpApiClient implements ApiClient {
     return this.#request('GET', '/profiles/current');
   }
 
+  uploadProjectLogo(projectId: Ulid, file: File): Promise<Project> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.#request('POST', `/projects/${projectId}/logo`, form);
+  }
+
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task> {
     return this.#request('POST', `/tasks/${taskId}/moves`, input);
   }
@@ -673,11 +679,15 @@ export class HttpApiClient implements ApiClient {
     const timeoutTimer = controller === null ? null : setTimeout(() => controller.abort(), this.#readTimeoutMs);
 
     try {
+      const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
       const response = await this.#fetch(url, {
         method,
         credentials: 'include',
-        headers: body !== undefined ? { 'Content-Type': 'application/json', ...headers } : headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        headers:
+          body !== undefined && !multipart
+            ? { 'Content-Type': 'application/json', ...headers }
+            : headers,
+        body: body !== undefined ? (multipart ? body : JSON.stringify(body)) : undefined,
         signal: controller?.signal,
       });
       status = response.status;

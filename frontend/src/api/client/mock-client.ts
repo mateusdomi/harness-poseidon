@@ -283,6 +283,15 @@ export class MockApiClient implements ApiClient {
     return structuredClone(item);
   }
 
+  async uploadProjectLogo(projectId: Ulid, file: File): Promise<Project> {
+    await this.#simulate();
+    const project = await this.get('projects', projectId);
+    const logoUrl = `https://assets.poseidon.local/${encodeURIComponent(projectId)}/${encodeURIComponent(file.name)}`;
+    return this.update('projects', projectId, {
+      brand: { ...project.brand, logoUrl },
+    });
+  }
+
   async create<K extends CreatableResource>(
     resource: K,
     input: CreateInputMap[K],

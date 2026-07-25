@@ -1,6 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { CreateInputMap, Project, Ulid, UpdateInputMap } from '@/api';
+import type {
+  Agent,
+  CreateInputMap,
+  Phase,
+  Project,
+  Task,
+  Ulid,
+  UpdateInputMap,
+  Workflow,
+  WorkflowRun,
+  WorkflowTemplate,
+  WorkflowVersion,
+} from '@/api';
 import { useApi } from '@/app/api-context';
 
 export const projectKeys = {
@@ -13,6 +25,48 @@ export function useProjects() {
   return useQuery({
     queryKey: projectKeys.all,
     queryFn: async () => (await api.list('projects')).items,
+  });
+}
+
+export function useProjectOperationalData() {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...projectKeys.all, 'operational'] as const,
+    queryFn: async () => {
+      const [tasks, agents, workflows, runs, phases, templates] = await Promise.all([
+        api.list('tasks', { limit: 200 }),
+        api.list('agents', { limit: 200 }),
+        api.list('workflows', { limit: 200 }),
+        api.list('workflow-runs', { limit: 200 }),
+        api.list('phases', { limit: 200 }),
+        api.list('workflow-templates', { limit: 200 }),
+      ]);
+      return {
+        tasks: tasks.items as Task[],
+        agents: agents.items as Agent[],
+        workflows: workflows.items as Workflow[],
+        runs: runs.items as WorkflowRun[],
+        phases: phases.items as Phase[],
+        templates: templates.items as WorkflowTemplate[],
+      };
+    },
+  });
+}
+
+export function useProjectWorkflowCatalog() {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...projectKeys.all, 'workflow-catalog'] as const,
+    queryFn: async (): Promise<{
+      templates: WorkflowTemplate[];
+      versions: WorkflowVersion[];
+    }> => {
+      const [templates, versions] = await Promise.all([
+        api.list('workflow-templates', { limit: 200 }),
+        api.list('workflow-versions', { limit: 200 }),
+      ]);
+      return { templates: templates.items, versions: versions.items };
+    },
   });
 }
 

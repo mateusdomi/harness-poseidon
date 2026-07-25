@@ -1,8 +1,11 @@
 using Harness.Host.Profiles;
 using Harness.Host.Workflows;
+using Harness.Host.WorkBoard;
+using Harness.Modules.Coordination.Domain;
 using Harness.Modules.Projects.Application;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Cockpit;
+using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Workflows;
@@ -26,6 +29,8 @@ public static class ProjectEndpoints
         group.MapGet("/", ListAsync).Produces<ProjectPage>().ProducesProblem(400).ProducesProblem(401);
         group.MapGet("/{projectId}", GetAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         group.MapPost("/", CreateAsync).Produces<ProjectResponse>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        group.MapPost("/{projectId}/logo", UploadLogoAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        group.MapGet("/{projectId}/logo-assets/{assetId}", GetLogoAsync).Produces(200).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         group.MapPatch("/{projectId}", PatchAsync).Produces<ProjectResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         group.MapDelete("/{projectId}", DeleteAsync).Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{projectId}/status-digest", GetStatusDigestAsync)
@@ -34,6 +39,101 @@ public static class ProjectEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404);
         return endpoints;
+    }
+
+    private static readonly HashSet<string> LogoExtensions =
+        new([".png", ".jpg", ".jpeg"], StringComparer.OrdinalIgnoreCase);
+
+    private static async Task<IResult> UploadLogoAsync(
+        string projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore store,
+        SolicitationAttachmentStorage storage,
+        IAuditEventStore audit,
+        IClock clock,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(projectId, out _)) return InvalidId();
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        var current = await store.GetAsync(profile.TenantId, projectId, token);
+        if (current is null) return NotFound();
+        if (!request.HasFormContentType)
+            return Problem(400, "multipart_required", "The logo upload requires multipart/form-data.");
+        var form = await request.ReadFormAsync(token);
+        var file = form.Files.Count == 1 ? form.Files[0] : null;
+        if (file is null)
+            return Problem(400, "single_file_required", "Exactly one logo file is required.");
+        if (file.Length > AttachmentIngestPolicy.MaximumSizeBytes)
+            return Problem(400, "size_exceeded", $"The logo exceeds {AttachmentIngestPolicy.MaximumSizeBytes} bytes.");
+
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, token);
+        var content = new ReadOnlyMemory<byte>(buffer.ToArray());
+        var decision = AttachmentIngestPolicy.Evaluate(
+            new AttachmentIngestRequest(file.FileName, file.ContentType, content));
+        if (decision.Accepted && !LogoExtensions.Contains(Path.GetExtension(file.FileName)))
+            decision = AttachmentIngestDecision.Deny("unsupported_type", "Project logos accept PNG or JPEG images.");
+        if (!decision.Accepted) return Problem(400, decision.Code, decision.Detail);
+
+        var occurredAt = clock.UtcNow;
+        var assetId = UlidValue.New(occurredAt).ToString();
+        await storage.SaveAsync(profile.TenantId, assetId, content, token);
+        var logoUrl = $"/api/v1/projects/{projectId}/logo-assets/{assetId}";
+        var patch = new UpdateProjectRequest
+        {
+            Brand = new ProjectBrandContract(
+                logoUrl,
+                current.Brand.PrimaryColor,
+                current.Brand.SecondaryColor,
+                current.Brand.Typography)
+        };
+        var updated = ProjectApplicationService.Patch(ToContract(current), patch, occurredAt);
+        var result = await store.UpdateAsync(new(ToRecord(profile.TenantId, updated), current.Version), token);
+        if (result.Status != ProjectMutationStatus.Applied)
+            return result.Status == ProjectMutationStatus.VersionConflict
+                ? Problem(409, "project_version_conflict", "The project changed concurrently.")
+                : NotFound();
+        await audit.AppendAsync(new(
+            profile.TenantId,
+            "user",
+            profile.Id,
+            "project.logoUpdated",
+            "project",
+            projectId,
+            $"Project logo stored as managed asset {assetId}.",
+            occurredAt), token);
+        return Results.Ok(ToResponse(result.Project!));
+    }
+
+    private static async Task<IResult> GetLogoAsync(
+        string projectId,
+        string assetId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore store,
+        SolicitationAttachmentStorage storage,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(projectId, out _) || !UlidValue.TryParse(assetId, out _))
+            return Problem(400, "invalid_logo_asset_id", "Project and asset IDs must be ULIDs.");
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        if (await store.GetAsync(profile.TenantId, projectId, token) is null) return NotFound();
+        var path = storage.Resolve(Path.Combine(profile.TenantId, assetId));
+        if (!File.Exists(path)) return Problem(404, "logo_asset_not_found", "The logo asset does not exist.");
+        var header = new byte[8];
+        await using (var stream = File.OpenRead(path))
+            _ = await stream.ReadAsync(header, token);
+        var contentType = header.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })
+            ? "image/png"
+            : header[0] == 0xFF && header[1] == 0xD8
+                ? "image/jpeg"
+                : null;
+        return contentType is null
+            ? Problem(404, "logo_asset_invalid", "The managed logo is not a supported image.")
+            : Results.File(path, contentType);
     }
 
     private static async Task<IResult> ListAsync(string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IProjectStore store, CancellationToken token)

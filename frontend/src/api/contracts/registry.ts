@@ -144,7 +144,7 @@ export interface CreateInputMap {
         | 'brand'
         | 'memberProfileIds'
       >
-    >;
+    > & { workflowTemplateId?: string };
   conversations: Pick<Conversation, 'projectId' | 'title'>;
   messages: Pick<Message, 'conversationId' | 'content'>;
   solicitations: Pick<Solicitation, 'projectId' | 'kind' | 'title' | 'body'> &

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Building2 } from 'lucide-react';
 
 import type { Project } from '@/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { useApi } from '@/app/api-context';
 import { useOrganizations } from '@/features/organizations/hooks/use-organizations';
 import { ProjectList } from '@/features/projects/components/project-list';
 import {
@@ -15,18 +16,24 @@ import { BackLink } from '@/features/shared/components/back-link';
 import { Breadcrumb } from '@/features/shared/components/breadcrumb';
 import {
   useCreateProject,
+  useProjectOperationalData,
   useProjectStarted,
+  useProjectWorkflowCatalog,
   useProjects,
   useUpdateProject,
 } from '@/features/projects/hooks/use-projects';
+import { deriveProjectOperationalSummary } from '@/features/projects/lib/project-operational';
 
 type View = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; project: Project };
 
 export default function ProjectsPage() {
   const { t } = useTranslation();
+  const api = useApi();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectsQuery = useProjects();
+  const operationalQuery = useProjectOperationalData();
+  const workflowCatalogQuery = useProjectWorkflowCatalog();
   const organizationsQuery = useOrganizations();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
@@ -63,28 +70,63 @@ export default function ProjectsPage() {
     };
   }
 
-  async function handleCreate(values: ProjectFormValues) {
-    await createProject.mutateAsync(toInput(values));
-    setView({ kind: 'list' });
+  async function handleCreate(values: ProjectFormValues, logoFile?: File | null) {
+    let project = await createProject.mutateAsync({
+      ...toInput(values),
+      workflowTemplateId: values.workflowTemplateId || undefined,
+    });
+    if (logoFile) {
+      project = await api.uploadProjectLogo(project.id, logoFile);
+      await projectsQuery.refetch();
+    }
+    setView({ kind: 'edit', project });
   }
 
-  async function handleUpdate(project: Project, values: ProjectFormValues) {
-    await updateProject.mutateAsync({
+  async function handleUpdate(
+    project: Project,
+    values: ProjectFormValues,
+    logoFile?: File | null,
+  ) {
+    let updated = await updateProject.mutateAsync({
       id: project.id,
       input: { ...toInput(values), state: values.state },
     });
-    setView({ kind: 'list' });
+    if (logoFile) {
+      updated = await api.uploadProjectLogo(updated.id, logoFile);
+      await projectsQuery.refetch();
+    }
+    setView({ kind: 'edit', project: updated });
   }
 
   const organizations = organizationsQuery.data ?? [];
-  const loading = projectsQuery.isLoading || organizationsQuery.isLoading;
-  const errored = projectsQuery.isError || organizationsQuery.isError;
+  const loading =
+    projectsQuery.isLoading ||
+    organizationsQuery.isLoading ||
+    operationalQuery.isLoading ||
+    workflowCatalogQuery.isLoading;
+  const errored =
+    projectsQuery.isError ||
+    organizationsQuery.isError ||
+    operationalQuery.isError ||
+    workflowCatalogQuery.isError;
   const hasOrganizations = organizations.length > 0;
   const breadcrumbBase = { label: t('features.projects.title'), to: '/projects' };
+  const operationalByProject = useMemo(() => {
+    const data = operationalQuery.data;
+    if (!data) return new Map<string, ReturnType<typeof deriveProjectOperationalSummary>>();
+    return new Map(
+      (projectsQuery.data ?? []).map((project) => [
+        project.id,
+        deriveProjectOperationalSummary(project, data),
+      ]),
+    );
+  }, [operationalQuery.data, projectsQuery.data]);
 
   function retry() {
     void projectsQuery.refetch();
     void organizationsQuery.refetch();
+    void operationalQuery.refetch();
+    void workflowCatalogQuery.refetch();
   }
 
   return (
@@ -140,9 +182,11 @@ export default function ProjectsPage() {
           />
           <ProjectForm
             organizations={organizations}
+            workflowTemplates={workflowCatalogQuery.data?.templates}
+            workflowVersions={workflowCatalogQuery.data?.versions}
             defaultOrganizationId={preselectedOrgId ?? undefined}
             submitting={createProject.isPending}
-            onSubmit={(values) => void handleCreate(values)}
+            onSubmit={(values, logoFile) => void handleCreate(values, logoFile)}
             onCancel={() => setView({ kind: 'list' })}
           />
         </div>
@@ -160,8 +204,17 @@ export default function ProjectsPage() {
             organizations={organizations}
             initial={view.project}
             started={startedQuery.data ?? false}
+            workflowTemplates={workflowCatalogQuery.data?.templates}
+            workflowVersions={workflowCatalogQuery.data?.versions}
+            currentWorkflowTemplateId={
+              operationalQuery.data?.workflows.find(
+                (workflow) => workflow.projectId === view.project.id,
+              )?.templateId
+            }
             submitting={updateProject.isPending}
-            onSubmit={(values) => void handleUpdate(view.project, values)}
+            onSubmit={(values, logoFile) =>
+              void handleUpdate(view.project, values, logoFile)
+            }
             onCancel={() => setView({ kind: 'list' })}
           />
         </div>
@@ -169,6 +222,7 @@ export default function ProjectsPage() {
         <ProjectList
           projects={projectsQuery.data ?? []}
           organizations={organizations}
+          operationalByProject={operationalByProject}
           onSelect={(project) => setView({ kind: 'edit', project })}
           onCreateNew={() => setView({ kind: 'create' })}
         />

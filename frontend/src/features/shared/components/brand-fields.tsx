@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, ImageOff, Trash2 } from 'lucide-react';
 
@@ -19,6 +19,8 @@ export interface BrandFieldsProps {
   idPrefix: string;
   /** Erros já traduzidos por campo. */
   errors?: Partial<Record<keyof Brand, string>>;
+  logoFile?: File | null;
+  onLogoFileChange?: (file: File | null) => void;
 }
 
 /**
@@ -39,11 +41,10 @@ const HEX_PATTERN = /^#(?:[0-9A-Fa-f]{6})$/;
  * Editor de marca (§9) com herança explícita: campo vazio = herda (da
  * organização ou do padrão do produto), preenchido = sobrescrito.
  *
- * LIMITE DE CONTRATO: `Brand.logoUrl` é uma URL. O backend não publica
- * endpoint de upload/crop de logo para organização/projeto (o único upload de
- * asset existente é de `visual-references`, do módulo de prototipação). Por
- * isso a logo é informada por URL, com prévia e remoção — sem inventar upload.
- * A lacuna está registrada em `docs/frontend/HANDOFF_API.md`.
+ * Projetos podem fornecer `onLogoFileChange`: o arquivo é pré-visualizado e
+ * enviado ao armazenamento gerenciado depois que o projeto é salvo. A URL
+ * externa continua disponível na seção avançada e a organização pode usar
+ * apenas essa modalidade quando não houver endpoint de asset.
  *
  * Para v1 são exatamente DUAS cores canônicas (primária e secundária), como
  * o contrato define — sem editor livre de paleta.
@@ -55,10 +56,23 @@ export function BrandFields({
   source,
   idPrefix,
   errors,
+  logoFile = null,
+  onLogoFileChange,
 }: BrandFieldsProps) {
   const { t } = useTranslation();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [logoBroken, setLogoBroken] = useState(false);
+  const [localLogoUrl, setLocalLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!logoFile || typeof URL.createObjectURL !== 'function') {
+      setLocalLogoUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setLocalLogoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
 
   function patch(partial: Partial<Brand>) {
     onChange({ ...value, ...partial });
@@ -70,7 +84,7 @@ export function BrandFields({
     return HEX_PATTERN.test(candidate) ? candidate : POSEIDON_DEFAULTS[field];
   }
 
-  const effectiveLogo = value.logoUrl ?? inheritedBrand?.logoUrl ?? null;
+  const effectiveLogo = localLogoUrl ?? value.logoUrl ?? inheritedBrand?.logoUrl ?? null;
   const effectiveTypography = value.typography ?? inheritedBrand?.typography ?? TYPOGRAPHY_PRESETS[0];
 
   return (
@@ -82,6 +96,23 @@ export function BrandFields({
       {/* ---- Logo: prévia + remoção. URL fica na seção avançada. ---- */}
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">{t('common.brand.logo.label')}</span>
+        {onLogoFileChange ? (
+          <Field
+            htmlFor={`${idPrefix}-logo-file`}
+            label={t('common.brand.logo.upload')}
+            hint={t('common.brand.logo.uploadHint')}
+          >
+            <Input
+              id={`${idPrefix}-logo-file`}
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={(event) => {
+                setLogoBroken(false);
+                onLogoFileChange(event.target.files?.[0] ?? null);
+              }}
+            />
+          </Field>
+        ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-elevated">
             {effectiveLogo && !logoBroken ? (
@@ -103,7 +134,7 @@ export function BrandFields({
                   : t('common.brand.logo.formats')
                 : t('common.brand.logo.empty')}
             </p>
-            {value.logoUrl ? (
+            {value.logoUrl || logoFile ? (
               <Button
                 type="button"
                 variant="outline"
@@ -111,6 +142,7 @@ export function BrandFields({
                 className="self-start"
                 onClick={() => {
                   patch({ logoUrl: null });
+                  onLogoFileChange?.(null);
                   setLogoBroken(false);
                 }}
               >

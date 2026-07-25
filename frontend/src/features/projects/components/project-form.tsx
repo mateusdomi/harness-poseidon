@@ -9,6 +9,8 @@ import {
   type Brand,
   type Organization,
   type Project,
+  type WorkflowTemplate,
+  type WorkflowVersion,
 } from '@/api';
 import {
   Badge,
@@ -28,9 +30,9 @@ import { formatDateTime } from '@/lib/format';
 import { keyify } from '@/lib/utils';
 import { BrandFields } from '@/features/shared/components/brand-fields';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
-import { VersionedBadge } from '@/features/shared/components/versioned-badge';
 import { useProfiles } from '@/features/shared/hooks/use-profiles';
 import { TechnologiesInput } from '@/features/projects/components/technologies-input';
+import { recommendWorkflowTemplate } from '@/features/workflows/lib/recommend-template';
 import {
   PROJECT_FORM_TAB_SCHEMAS,
   PROJECT_FORM_TABS,
@@ -74,8 +76,11 @@ export interface ProjectFormProps {
   defaultOrganizationId?: string;
   /** Projeto iniciado (workflow com execução) — ativa o painel de impacto. */
   started?: boolean;
+  workflowTemplates?: WorkflowTemplate[];
+  workflowVersions?: WorkflowVersion[];
+  currentWorkflowTemplateId?: string;
   submitting: boolean;
-  onSubmit: (values: ProjectFormValues) => void;
+  onSubmit: (values: ProjectFormValues, logoFile?: File | null) => void;
   onCancel: () => void;
 }
 
@@ -88,12 +93,28 @@ export interface ProjectFormProps {
  * histórico de versões; em projeto INICIADO, mudança em campo operacional
  * abre o painel de impacto com confirmação reforçada (checkbox).
  */
-export function ProjectForm({ organizations, initial, defaultOrganizationId, started = false, submitting, onSubmit, onCancel }: ProjectFormProps) {
+export function ProjectForm({
+  organizations,
+  initial,
+  defaultOrganizationId,
+  started = false,
+  workflowTemplates = [],
+  workflowVersions = [],
+  currentWorkflowTemplateId,
+  submitting,
+  onSubmit,
+  onCancel,
+}: ProjectFormProps) {
   const { t, i18n } = useTranslation();
   const profilesQuery = useProfiles();
-  const [activeTab, setActiveTab] = useState<ProjectFormTab>('identification');
+  const [activeTab, setActiveTab] = useState<ProjectFormTab>('organization');
   const [summaryError, setSummaryError] = useState(false);
-  const [impact, setImpact] = useState<{ values: ProjectFormValues; fields: OperationalField[] } | null>(null);
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [impact, setImpact] = useState<{
+    values: ProjectFormValues;
+    fields: OperationalField[];
+    logoFile: File | null;
+  } | null>(null);
   const [impactAccepted, setImpactAccepted] = useState(false);
   // Em edição a sigla já existe e é do usuário; em criação, geramos do nome
   // até que ele a edite manualmente (§7 — sem exigir decisão manual).
@@ -112,13 +133,20 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
     formState: { errors, dirtyFields, isDirty },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
-    defaultValues: initial
-      ? projectToFormValues(initial)
-      : defaultProjectValues(
+    defaultValues: (() => {
+      const values = initial
+        ? projectToFormValues(initial)
+        : defaultProjectValues(
           (defaultOrganizationId && organizations.some((o) => o.id === defaultOrganizationId)
             ? defaultOrganizationId
             : organizations[0]?.id) ?? '',
-        ),
+        );
+      values.workflowTemplateId =
+        currentWorkflowTemplateId ??
+        recommendWorkflowTemplate(workflowTemplates, workflowVersions)?.template.id ??
+        '';
+      return values;
+    })(),
     mode: 'onSubmit',
     reValidateMode: 'onChange',
   });
@@ -134,6 +162,8 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
   const keyReg = register('key');
   const selectedOrganizationId = watch('organizationId');
   const selectedOrganization = organizations.find((org) => org.id === selectedOrganizationId);
+  const selectedWorkflowTemplateId = watch('workflowTemplateId');
+  const workflowRecommendation = recommendWorkflowTemplate(workflowTemplates, workflowVersions);
   const pendingCount = Object.keys(dirtyFields).length;
 
   function validateTabs(values: ProjectFormValues): ProjectFormTab | null {
@@ -164,26 +194,27 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
     // Metadados seguros (título, descrição) seguem o fluxo normal.
     if (initial && started) {
       const fields = changedOperationalFields(initial, values);
+      if (pendingLogoFile && !fields.includes('brand')) fields.push('brand');
       if (fields.length > 0) {
-        setImpact({ values, fields });
+        setImpact({ values, fields, logoFile: pendingLogoFile });
         setImpactAccepted(false);
         return;
       }
     }
-    onSubmit(values);
+    onSubmit(values, pendingLogoFile);
   }
 
   function handleInvalidSubmit() {
     const failingTab = validateTabs(getValues());
-    setActiveTab(failingTab ?? 'identification');
+    setActiveTab(failingTab ?? 'organization');
     setSummaryError(true);
   }
 
   function confirmImpact() {
     if (!impact) return;
-    const { values } = impact;
+    const { values, logoFile } = impact;
     setImpact(null);
-    onSubmit(values);
+    onSubmit(values, logoFile);
   }
 
   return (
@@ -192,6 +223,9 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
         <CardTitle>
           {initial ? t('projects.form.editTitle') : t('projects.form.createTitle')}
         </CardTitle>
+        <p className="text-sm text-foreground-muted">
+          {t('projects.config.versionedHint')}
+        </p>
       </CardHeader>
       <CardContent>
         {initial && (
@@ -245,9 +279,9 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
         >
           <div
             role="tabpanel"
-            id="project-panel-identification"
-            aria-labelledby="project-tab-identification"
-            hidden={activeTab !== 'identification'}
+            id="project-panel-organization"
+            aria-labelledby="project-tab-organization"
+            hidden={activeTab !== 'organization'}
             className="flex flex-col gap-4"
           >
             <Field
@@ -265,6 +299,18 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
                 ))}
               </Select>
             </Field>
+            <p className="text-sm text-foreground-muted">
+              {t('projects.form.organization.inheritanceHint')}
+            </p>
+          </div>
+
+          <div
+            role="tabpanel"
+            id="project-panel-identity"
+            aria-labelledby="project-tab-identity"
+            hidden={activeTab !== 'identity'}
+            className="flex flex-col gap-4"
+          >
             <Field
               htmlFor="project-name"
               label={t('projects.form.identification.name')}
@@ -294,26 +340,20 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
                   }}
                 />
               </Field>
-              {/* Criticidade é o RISK TIER com efeito real (ADR-020): a partir
-                  de médio, exige par actor–critic, gates humanos e recusa
-                  auto-aprovação. O campo explica esse impacto. */}
-              <Field
-                htmlFor="project-criticality"
-                label={t('projects.form.identification.criticality')}
-                hint={t('projects.form.identification.criticalityHint')}
-              >
-                <Select id="project-criticality" {...register('criticality')}>
-                  {PRIORITIES.map((priority) => (
-                    <option key={priority} value={priority}>
-                      {t(`status.priority.${priority}`)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
             </div>
+          </div>
+
+          <div
+            role="tabpanel"
+            id="project-panel-objective"
+            aria-labelledby="project-tab-objective"
+            hidden={activeTab !== 'objective'}
+            className="flex flex-col gap-4"
+          >
             <Field
               htmlFor="project-description"
-              label={t('projects.form.identification.description')}
+              label={t('projects.form.objective.description')}
+              hint={t('projects.form.objective.descriptionHint')}
               required
               requiredLabel={t('common.requiredMark')}
               error={errors.description ? t(errors.description.message!) : undefined}
@@ -324,6 +364,37 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
                 {...register('description')}
               />
             </Field>
+          </div>
+
+          <div
+            role="tabpanel"
+            id="project-panel-criticality"
+            aria-labelledby="project-tab-criticality"
+            hidden={activeTab !== 'criticality'}
+            className="flex flex-col gap-4"
+          >
+            <Field
+              htmlFor="project-criticality"
+              label={t('projects.form.identification.criticality')}
+              hint={t('projects.form.identification.criticalityHint')}
+            >
+              <Select id="project-criticality" {...register('criticality')}>
+                {PRIORITIES.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {t(`status.priority.${priority}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <div
+            role="tabpanel"
+            id="project-panel-advanced"
+            aria-labelledby="project-tab-advanced"
+            hidden={activeTab !== 'advanced'}
+            className="flex flex-col gap-4"
+          >
             {initial ? (
               <Field htmlFor="project-state" label={t('projects.form.identification.state')}>
                 <Select id="project-state" {...register('state')}>
@@ -334,7 +405,11 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
                   ))}
                 </Select>
               </Field>
-            ) : null}
+            ) : (
+              <p className="text-sm text-foreground-muted">
+                {t('projects.form.advanced.defaults')}
+              </p>
+            )}
           </div>
 
           <div
@@ -344,9 +419,6 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
             hidden={activeTab !== 'repository'}
             className="flex flex-col gap-4"
           >
-            <div className="flex items-center gap-2">
-              <VersionedBadge />
-            </div>
             <Field htmlFor="project-repo-provider" label={t('projects.form.repository.provider')}>
               <Select id="project-repo-provider" {...register('repositoryProvider')}>
                 {REPOSITORY_PROVIDERS.map((provider) => (
@@ -390,9 +462,6 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
             hidden={activeTab !== 'technologies'}
             className="flex flex-col gap-4"
           >
-            <div className="flex items-center gap-2">
-              <VersionedBadge />
-            </div>
             <Controller
               control={control}
               name="technologies"
@@ -408,14 +477,57 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
 
           <div
             role="tabpanel"
+            id="project-panel-workflow"
+            aria-labelledby="project-tab-workflow"
+            hidden={activeTab !== 'workflow'}
+            className="flex flex-col gap-4"
+          >
+            {workflowTemplates.length > 0 ? (
+              <>
+                <Field
+                  htmlFor="project-workflow-template"
+                  label={t('projects.form.workflow.template')}
+                  hint={
+                    initial
+                      ? t('projects.form.workflow.linkedHint')
+                      : t('projects.form.workflow.templateHint')
+                  }
+                >
+                  <Select
+                    id="project-workflow-template"
+                    disabled={Boolean(initial)}
+                    {...register('workflowTemplateId')}
+                  >
+                    {workflowTemplates
+                      .filter(
+                        (template) =>
+                          template.currentVersionId !== null && template.state !== 'archived',
+                      )
+                      .map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+                {workflowRecommendation?.template.id === selectedWorkflowTemplateId ? (
+                  <Badge variant="brand">{t('projects.form.workflow.recommended')}</Badge>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-sm text-foreground-muted">
+                {t('projects.form.workflow.unavailable')}
+              </p>
+            )}
+          </div>
+
+          <div
+            role="tabpanel"
             id="project-panel-brand"
             aria-labelledby="project-tab-brand"
             hidden={activeTab !== 'brand'}
             className="flex flex-col gap-4"
           >
-            <div className="flex items-center gap-2">
-              <VersionedBadge />
-            </div>
             <Controller
               control={control}
               name="brand"
@@ -426,6 +538,8 @@ export function ProjectForm({ organizations, initial, defaultOrganizationId, sta
                   onChange={field.onChange}
                   inheritedBrand={selectedOrganization?.brand}
                   source="organization"
+                  logoFile={pendingLogoFile}
+                  onLogoFileChange={setPendingLogoFile}
                   errors={{
                     logoUrl: errors.brand?.logoUrl ? t(errors.brand.logoUrl.message!) : undefined,
                     primaryColor: errors.brand?.primaryColor

@@ -195,6 +195,8 @@
       "advanced": "Advanced options",
       "logo": {
         "label": "Logo",
+        "upload": "Upload logo file",
+        "uploadHint": "PNG or JPEG. The file is stored in the managed data directory when the project is saved.",
         "previewAlt": "Logo preview",
         "formats": "PNG, JPG or SVG. Prefer a transparent background.",
         "empty": "No logo set — the Poseidon default will be used.",
@@ -674,18 +676,38 @@
     },
     "emptySearch": "No projects found with the current filters.",
     "card": {
-      "lastActivity": "Last activity {{time}}"
+      "lastActivity": "Last activity {{time}}",
+      "logoAlt": "{{name}} project brand",
+      "poseidonDescription": "Poseidon control plane.",
+      "phase": "Phase",
+      "progress": "Progress",
+      "progressValue": "{{completed}}/{{total}} completed ({{percent}}%)",
+      "responsible": "Owner",
+      "health": "Health",
+      "workflow": "Workflow",
+      "repository": "Repository",
+      "notAvailable": "Not informed",
+      "healthStates": {
+        "healthy": "Healthy",
+        "attention": "Needs attention",
+        "unavailable": "Signals unavailable"
+      }
     },
     "form": {
       "createTitle": "New project",
       "editTitle": "Edit project",
       "tabsLabel": "Project sections",
       "tabs": {
-        "identification": "Identification",
+        "organization": "Organization",
+        "identity": "Identity",
+        "objective": "Objective",
         "repository": "Repository",
+        "workflow": "Workflow",
         "technologies": "Technologies",
+        "criticality": "Criticality",
         "brand": "Brand",
-        "people": "People"
+        "people": "People",
+        "advanced": "Advanced settings"
       },
       "errorsSummary": "Review the highlighted fields before saving.",
       "identification": {
@@ -698,11 +720,25 @@
         "state": "State",
         "criticalityHint": "Sets the project's risk tier. From medium risk on, review by a critic agent becomes mandatory, human gates are required and auto-approval is refused — which increases the cost and time of each delivery."
       },
+      "organization": {
+        "inheritanceHint": "Brand, default workflows and policies may be inherited from this organization."
+      },
+      "objective": {
+        "description": "Objective and context",
+        "descriptionHint": "Explain the expected outcome, audience and main boundaries of the project."
+      },
       "repository": {
         "provider": "Provider",
         "url": "URL or local path",
         "urlHint": "Leave blank if the project has no repository yet.",
         "branch": "Default branch"
+      },
+      "workflow": {
+        "template": "Project workflow",
+        "templateHint": "The recommended workflow is preselected; change it only when another published lifecycle is a better fit.",
+        "linkedHint": "The project is already linked to this workflow. Version changes are managed in workflow administration.",
+        "recommended": "Recommended",
+        "unavailable": "No published workflow is available. The backend will try to link the recommended canonical template when creating the project."
       },
       "technologies": {
         "placeholder": "E.g. React",
@@ -714,13 +750,17 @@
         "empty": "No local profiles available.",
         "required": "Select at least one person."
       },
+      "advanced": {
+        "defaults": "The project starts active, in manual mode and with policies inherited from the organization."
+      },
       "create": "Create project"
     },
     "config": {
       "current": "Config v{{version}}",
       "pending": "{{count}} pending change(s)",
       "historyTitle": "Configuration history",
-      "version": "v{{version}}"
+      "version": "v{{version}}",
+      "versionedHint": "Repository, technologies and brand are versioned; changes to these fields increment configuration and preserve history."
     },
     "impact": {
       "title": "Change impact",

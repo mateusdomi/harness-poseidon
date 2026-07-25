@@ -111,6 +111,9 @@ export interface ApiClient {
   /** Perfil da sessão local (modo pessoal; cookie de sessão). */
   getCurrentProfile(): Promise<Profile>;
 
+  /** Armazena uma logo PNG/JPEG no data dir gerenciado e atualiza a marca do projeto. */
+  uploadProjectLogo(projectId: Ulid, file: File): Promise<Project>;
+
   /** Move tarefa entre colunas do quadro → emite `task.stateChanged`. */
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task>;
   /** Altera a prioridade da tarefa (ação humana; conteúdo permanece imutável). */

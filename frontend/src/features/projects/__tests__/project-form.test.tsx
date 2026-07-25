@@ -23,7 +23,7 @@ function renderForm(onSubmit = vi.fn()) {
 }
 
 describe('ProjectForm', () => {
-  it('valida a aba Identificação ao salvar e mostra o resumo de erros', async () => {
+  it('valida a aba Identidade ao salvar e mostra o resumo de erros', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm();
 
@@ -31,8 +31,8 @@ describe('ProjectForm', () => {
 
     expect(await screen.findByText(/revise os campos destacados/i)).toBeInTheDocument();
     expect(await screen.findByText(/use pelo menos 2 caracteres/i)).toBeInTheDocument();
-    // A aba ativa continua sendo Identificação (primeira com erro)
-    expect(screen.getByRole('tab', { name: /identificação/i })).toHaveAttribute(
+    // Organização já tem default; Identidade é a primeira seção com erro.
+    expect(screen.getByRole('tab', { name: /identidade/i })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -43,10 +43,12 @@ describe('ProjectForm', () => {
     const user = userEvent.setup();
     renderForm();
 
+    await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
     await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
     await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'minuscula');
-    await user.type(screen.getByLabelText(/descrição/i), 'Descrição do projeto.');
+    await user.click(screen.getByRole('tab', { name: /objetivo/i }));
+    await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Descrição do projeto.');
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
 
     expect(
@@ -58,6 +60,7 @@ describe('ProjectForm', () => {
     const user = userEvent.setup();
     renderForm();
 
+    await user.click(screen.getByRole('tab', { name: /identidade/i }));
     const key = screen.getByLabelText(/slug \(sigla\)/i);
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
     // Sem decisão manual no fluxo comum: a sigla vem do nome (§7).
@@ -74,10 +77,12 @@ describe('ProjectForm', () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm();
 
+    await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
     await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
     await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'TESTE');
-    await user.type(screen.getByLabelText(/descrição/i), 'Descrição do projeto.');
+    await user.click(screen.getByRole('tab', { name: /objetivo/i }));
+    await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Descrição do projeto.');
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
 
     expect(await screen.findByText(/selecione pelo menos uma pessoa/i)).toBeInTheDocument();
@@ -92,10 +97,12 @@ describe('ProjectForm', () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm();
 
+    await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
     await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
     await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'TESTE');
-    await user.type(screen.getByLabelText(/descrição/i), 'Descrição do projeto.');
+    await user.click(screen.getByRole('tab', { name: /objetivo/i }));
+    await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Descrição do projeto.');
 
     await user.click(screen.getByRole('tab', { name: /pessoas/i }));
     const firstMember = await screen.findByLabelText(/Mateus/i);
@@ -128,11 +135,55 @@ describe('ProjectForm', () => {
     expect(screen.getAllByText(/personalizado/i).length).toBeGreaterThan(0);
   });
 
-  it('sinaliza campos versionados nas abas Repositório, Tecnologias e Marca', () => {
+  it('pré-seleciona o workflow recomendado e permite alterar na criação', async () => {
+    const user = userEvent.setup();
+    renderWithApi(
+      <ProjectForm
+        organizations={organizations}
+        workflowTemplates={fixtures.data['workflow-templates']}
+        workflowVersions={fixtures.data['workflow-versions']}
+        submitting={false}
+        onSubmit={vi.fn()}
+        onCancel={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: /^workflow$/i }));
+    const select = screen.getByLabelText(/workflow do projeto/i);
+    expect(select).not.toHaveValue('');
+    expect(screen.getByText('Recomendado')).toBeInTheDocument();
+  });
+
+  it('mantém o arquivo de logo para upload ao salvar', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm();
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'marca.png', {
+      type: 'image/png',
+    });
+
+    await user.click(screen.getByRole('tab', { name: /marca/i }));
+    await user.upload(screen.getByLabelText(/enviar arquivo de logo/i), file);
+    await user.click(screen.getByRole('tab', { name: /identidade/i }));
+    await user.type(screen.getByLabelText(/título/i), 'Projeto Logo');
+    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
+    await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'LOGO');
+    await user.click(screen.getByRole('tab', { name: /objetivo/i }));
+    await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Projeto com marca.');
+    await user.click(screen.getByRole('tab', { name: /pessoas/i }));
+    await user.click(await screen.findByLabelText(/Mateus/i));
+    await user.click(screen.getByRole('button', { name: /criar projeto/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][1]).toBe(file);
+  });
+
+  it('explica em um único lugar quais campos são versionados', () => {
     renderForm();
 
-    // Um badge "Versionado" por aba versionada (todas montadas no DOM).
-    expect(screen.getAllByText('Versionado')).toHaveLength(3);
+    expect(
+      screen.getByText(/Repositório, tecnologias e marca são versionados/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Versionado')).not.toBeInTheDocument();
   });
 });
 
@@ -193,6 +244,7 @@ describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
     const user = userEvent.setup();
     const { onSubmit } = renderEditForm();
 
+    await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), ' (rev)');
     await user.click(screen.getByRole('button', { name: 'Salvar' }));
 

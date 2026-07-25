@@ -9,12 +9,24 @@ import {
 
 /* ---- schemas por aba (mensagens = CHAVES i18n, traduzidas na render) ---- */
 
-export const identificationSchema = z.object({
+export const organizationSchema = z.object({
   organizationId: z.string().min(1, 'common.validation.required'),
+});
+
+export const identitySchema = z.object({
   name: z.string().trim().min(2, 'common.validation.min2'),
   key: z.string().trim().regex(/^[A-Z0-9]{2,12}$/, 'common.validation.key'),
+});
+
+export const objectiveSchema = z.object({
   description: z.string().trim().min(1, 'common.validation.required'),
+});
+
+export const criticalitySchema = z.object({
   criticality: prioritySchema,
+});
+
+export const advancedSchema = z.object({
   state: projectStateSchema,
 });
 
@@ -26,6 +38,10 @@ export const repositorySchema = z.object({
 
 export const technologiesSchema = z.object({
   technologies: z.array(z.string().trim().min(1)),
+});
+
+export const workflowSchema = z.object({
+  workflowTemplateId: z.string(),
 });
 
 const hexColorSchema = z.string().regex(/^#(?:[0-9A-Fa-f]{6})$/, 'common.validation.color');
@@ -43,30 +59,45 @@ export const peopleSchema = z.object({
   memberProfileIds: z.array(z.string()).min(1, 'projects.form.people.required'),
 });
 
-export const projectFormSchema = identificationSchema
+export const projectFormSchema = organizationSchema
+  .merge(identitySchema)
+  .merge(objectiveSchema)
   .merge(repositorySchema)
+  .merge(workflowSchema)
   .merge(technologiesSchema)
+  .merge(criticalitySchema)
   .merge(brandTabSchema)
-  .merge(peopleSchema);
+  .merge(peopleSchema)
+  .merge(advancedSchema);
 
 export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
 export const PROJECT_FORM_TABS = [
-  'identification',
+  'organization',
+  'identity',
+  'objective',
   'repository',
+  'workflow',
   'technologies',
+  'criticality',
   'brand',
   'people',
+  'advanced',
 ] as const;
 export type ProjectFormTab = (typeof PROJECT_FORM_TABS)[number];
 
 /** Schema zod de cada aba — usado para validar por aba ao salvar. */
 export const PROJECT_FORM_TAB_SCHEMAS: Record<ProjectFormTab, z.ZodTypeAny> = {
-  identification: identificationSchema,
+  organization: organizationSchema,
+  identity: identitySchema,
+  objective: objectiveSchema,
   repository: repositorySchema,
+  workflow: workflowSchema,
   technologies: technologiesSchema,
+  criticality: criticalitySchema,
   brand: brandTabSchema,
   people: peopleSchema,
+  advanced: advancedSchema,
 };
 
 export function defaultProjectValues(organizationId = ''): ProjectFormValues {
@@ -80,6 +111,7 @@ export function defaultProjectValues(organizationId = ''): ProjectFormValues {
     repositoryProvider: 'github',
     repositoryUrl: '',
     defaultBranch: 'main',
+    workflowTemplateId: '',
     technologies: [],
     brand: { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
     memberProfileIds: [],
@@ -97,6 +129,7 @@ export function projectToFormValues(project: Project): ProjectFormValues {
     repositoryProvider: project.repositoryProvider,
     repositoryUrl: project.repositoryUrl ?? '',
     defaultBranch: project.defaultBranch,
+    workflowTemplateId: '',
     technologies: project.technologies ?? [],
     brand: project.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
     memberProfileIds: project.memberProfileIds ?? [],
