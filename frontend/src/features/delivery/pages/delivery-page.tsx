@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { Button, Card, CardContent, Field, Select, Skeleton } from '@/design-system';
 
 import { DeliveryApiProvider } from '../api/delivery-provider';
-import { useDeliveryRealtime, usePortfolio } from '../hooks/use-delivery';
+import { useDeliveryAgentDirectory, useDeliveryRealtime, usePortfolio } from '../hooks/use-delivery';
 import { PortfolioList } from '../components/portfolio-list';
 import { DeliveryOverview } from '../components/delivery-overview';
 import { ReportsCenter } from '../components/reports-center';
 import { DailyCopilot } from '../components/daily-copilot';
+import { DeliveryPlanningDialog } from '../components/delivery-planning-dialog';
+import type { DeliverySummary } from '../api/types';
 
 type Tab = 'overview' | 'reports' | 'daily';
 const TABS: Tab[] = ['overview', 'reports', 'daily'];
@@ -25,8 +27,14 @@ export function DeliveryCenter() {
   const [view, setView] = useState('portfolio');
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
+  const [planningDelivery, setPlanningDelivery] = useState<DeliverySummary | null>(null);
 
   const portfolioQuery = usePortfolio(view);
+  const agentsQuery = useDeliveryAgentDirectory();
+  const agentNames = useMemo(
+    () => new Map((agentsQuery.data?.items ?? []).map((agent) => [agent.id, agent.name])),
+    [agentsQuery.data],
+  );
 
   // Tempo real: assina os projetos das entregas visíveis; qualquer evento que
   // mexa na agregação (tarefa/gate/aprovação/decisão) invalida a Central.
@@ -68,14 +76,24 @@ export function DeliveryCenter() {
             <Skeleton className="h-64 w-full" />
           ) : portfolioQuery.isError || !portfolioQuery.data ? (
             <Card>
-              <CardContent className="py-8 text-center text-sm text-error">{t('delivery.error')}</CardContent>
+              <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-error">
+                <span>{t('delivery.error')}</span>
+                <Button variant="outline" size="sm" onClick={() => void portfolioQuery.refetch()}>
+                  {t('delivery.retry')}
+                </Button>
+              </CardContent>
             </Card>
           ) : (
             <>
               <p className="text-sm text-foreground-muted" data-testid="portfolio-count">
                 {t('delivery.portfolio.count', { count: portfolioQuery.data.total })}
               </p>
-              <PortfolioList deliveries={portfolioQuery.data.deliveries} onOpen={openDelivery} />
+              <PortfolioList
+                deliveries={portfolioQuery.data.deliveries}
+                onOpen={openDelivery}
+                onConfigure={setPlanningDelivery}
+                agentNames={agentNames}
+              />
             </>
           )}
         </>
@@ -111,6 +129,17 @@ export function DeliveryCenter() {
           {tab === 'reports' && <ReportsCenter deliveryId={selected.id} />}
           {tab === 'daily' && <DailyCopilot deliveryId={selected.id} />}
         </div>
+      )}
+      {planningDelivery && (
+        <DeliveryPlanningDialog
+          delivery={planningDelivery}
+          agents={agentsQuery.data?.items ?? []}
+          onClose={() => setPlanningDelivery(null)}
+          onSaved={() => {
+            setPlanningDelivery(null);
+            void portfolioQuery.refetch();
+          }}
+        />
       )}
     </div>
   );

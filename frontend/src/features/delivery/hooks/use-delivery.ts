@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { streams, type EventType, type Ulid } from '@/api';
+import type { Agent, Attempt, Document, Phase, Project, Task, Workflow, WorkflowRun } from '@/api';
+import { useApi } from '@/app/api-context';
 import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
 
 import { useDeliveryApi } from '../api/delivery-context';
 import type {
   ApproveReportInput,
   DailyCaptureInput,
+  DeliveryPlanningInput,
   GenerateReportInput,
   SendReportInput,
 } from '../api/types';
@@ -42,6 +45,8 @@ export const deliveryKeys = {
   report: (id: string, rid: string) => ['delivery', 'report', id, rid] as const,
   briefing: (id: string) => ['delivery', 'briefing', id] as const,
   summary: (id: string) => ['delivery', 'summary', id] as const,
+  traceability: (id: string) => ['delivery', 'traceability', id] as const,
+  agents: ['delivery', 'agents'] as const,
 };
 
 export function usePortfolio(view: string) {
@@ -81,12 +86,84 @@ export function useRecalcForecast(deliveryId: string) {
   });
 }
 
+export function useConfigurePlanning(deliveryId: string) {
+  const api = useDeliveryApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DeliveryPlanningInput) => api.configurePlanning(deliveryId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: DELIVERY_PREFIX });
+    },
+  });
+}
+
 export function useMetrics(deliveryId: string | null) {
   const api = useDeliveryApi();
   return useQuery({
     queryKey: deliveryKeys.metrics(deliveryId ?? 'none'),
     enabled: deliveryId !== null,
     queryFn: () => api.getMetrics(deliveryId!),
+  });
+}
+
+export interface DeliveryTraceability {
+  project: Project;
+  tasks: Task[];
+  attempts: Attempt[];
+  documents: Document[];
+  agents: Agent[];
+  workflow: Workflow | null;
+  run: WorkflowRun | null;
+  phases: Phase[];
+}
+
+/** Recursos persistidos que complementam a Entrega 360 sem criar uma segunda fonte de verdade. */
+export function useDeliveryTraceability(projectId: string | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: deliveryKeys.traceability(projectId ?? 'none'),
+    enabled: projectId !== null,
+    queryFn: async (): Promise<DeliveryTraceability> => {
+      const [project, taskPage, documentPage, agentPage, workflowPage] = await Promise.all([
+        api.get('projects', projectId!),
+        api.list('tasks', { filter: { projectId: projectId! }, limit: 200 }),
+        api.list('documents', { filter: { projectId: projectId! }, limit: 200 }),
+        api.list('agents', { filter: { projectId: projectId! }, limit: 200 }),
+        api.list('workflows', { filter: { projectId: projectId! }, limit: 50 }),
+      ]);
+      const workflow = workflowPage.items[0] ?? null;
+      const runPage = workflow
+        ? await api.list('workflow-runs', { filter: { workflowId: workflow.id }, limit: 50 })
+        : { items: [], nextCursor: null };
+      const run = [...runPage.items].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
+      const phasePage = run
+        ? await api.list('phases', { filter: { runId: run.id }, limit: 200 })
+        : { items: [], nextCursor: null };
+      const attemptPages = await Promise.all(
+        taskPage.items.slice(0, 100).map((task) =>
+          api.list('attempts', { filter: { taskId: task.id }, limit: 50 }),
+        ),
+      );
+      return {
+        project,
+        tasks: taskPage.items,
+        attempts: attemptPages.flatMap((page) => page.items),
+        documents: documentPage.items,
+        agents: agentPage.items,
+        workflow,
+        run,
+        phases: phasePage.items,
+      };
+    },
+  });
+}
+
+/** Diretório público de agentes para nunca exibir ULID como responsável. */
+export function useDeliveryAgentDirectory() {
+  const api = useApi();
+  return useQuery({
+    queryKey: deliveryKeys.agents,
+    queryFn: () => api.list('agents', { limit: 200 }),
   });
 }
 

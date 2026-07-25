@@ -75,12 +75,12 @@ describe('DeliveryCenter (DEL-01..10)', () => {
     expect(await screen.findByText('Enviado')).toBeInTheDocument();
   });
 
-  it('captura uma marcação tipada no Daily Copilot e a reflete no resumo', async () => {
+  it('captura uma marcação tipada no copiloto da daily e a reflete no resumo', async () => {
     const user = userEvent.setup();
     renderCenter();
     await openFirstDelivery(user);
 
-    await user.click(await screen.findByRole('tab', { name: 'Daily Copilot' }));
+    await user.click(await screen.findByRole('tab', { name: 'Copiloto da daily' }));
     expect(await screen.findByTestId('daily-copilot')).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText('Tipo'), 'decision');

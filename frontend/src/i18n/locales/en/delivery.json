@@ -4,6 +4,8 @@
     "subtitle": "Portfolio by health and predictability, Delivery 360, honest forecast, reports and Daily Copilot.",
     "loading": "Loading…",
     "error": "Could not load delivery data.",
+    "retry": "Try again",
+    "capabilityUnavailable": "Detailed traceability is temporarily unavailable. The delivery summary remains accessible.",
     "back": "Back to portfolio",
     "tabs": {
       "overview": "Delivery 360",
@@ -72,8 +74,24 @@
         "attention": "Attention"
       },
       "open": "Open Delivery 360 for {{name}}",
+      "openAction": "Open Delivery 360",
+      "configure": "Configure",
+      "configureHint": "Owner and date are derived from persisted task planning on the Board.",
       "signalsCount_one": "{{count}} signal",
       "signalsCount_other": "{{count}} signals"
+    },
+    "planning": {
+      "title": "Plan {{name}}",
+      "explain": "This action updates the owner and target date on active tasks. The Center recalculates owner, forecast and signals from those persisted facts.",
+      "owner": "Owner",
+      "ownerHint": "Only agents assigned to this project.",
+      "selectOwner": "Select an owner",
+      "date": "Committed date",
+      "dateHint": "Shared target date for this delivery's active tasks.",
+      "noAgents": "No agent is assigned to the project. Configure the project team before saving.",
+      "save": "Save planning",
+      "saving": "Saving…",
+      "error": "Could not save. Check that the delivery has active tasks and try again."
     },
     "overview": {
       "exec": {
@@ -120,7 +138,8 @@
         "title": "Documentation",
         "coverage": "{{present}}/{{expected}} documents",
         "present": "Present",
-        "missing": "Missing"
+        "missing": "Missing",
+        "registered": "Registered documents"
       },
       "value": {
         "title": "Value & metrics",
@@ -144,7 +163,60 @@
           "value": "Value",
           "basis": "Basis"
         }
+      },
+      "trace": {
+        "contextTitle": "Traceable context",
+        "objective": "Objective",
+        "phase": "Current phase",
+        "workflow": "Workflow",
+        "noPhase": "No phase started",
+        "linked": "Linked",
+        "notLinked": "Not linked",
+        "tasks": "Related tasks",
+        "noTasks": "No related tasks recorded.",
+        "evidence": "Execution evidence",
+        "noEvidence": "No attempt evidence recorded.",
+        "attempt": "Attempt {{number}}",
+        "activities": "Recent activities",
+        "noActivities": "No operational activity recorded.",
+        "nextSteps": "Next steps",
+        "noNextSteps": "No pending item can be derived from current data.",
+        "createDocument": "Produce or classify the document: {{name}}"
       }
+    },
+    "sources": {
+      "open": "How this data was obtained",
+      "source": "Source",
+      "updated": "Last updated",
+      "calculation": "Calculation",
+      "confidence": "Confidence",
+      "missing": "Missing data",
+      "technical": "Technical details",
+      "unavailable": "Not reported",
+      "insufficient": "Insufficient evidence",
+      "portfolioSource": "Persisted projects, tasks, documents, attempts and forecast history.",
+      "portfolioCalculation": "Owner = most frequent agent on open tasks; milestones = completed/total milestone tasks; health and attention = deterministic read-model rules.",
+      "overviewSource": "Delivery read model combined with persisted project resources.",
+      "overviewCalculation": "Health, milestones, blockers and predictability derive from real tasks, documents, decisions, dependencies and attempts.",
+      "forecastSource": "Append-only forecast history and current task state.",
+      "forecastCalculation": "Forecast weighs committed date, throughput and historical variance; without sufficient evidence, no date is invented.",
+      "ownerMissing": "No open task has an assigned owner.",
+      "dateMissing": "No task has a target date.",
+      "forecastMissing": "There is no reliable forecast yet.",
+      "forecastEvidenceMissing": "Not enough history or workload data to calculate a date."
+    },
+    "signals": {
+      "pendingDbAccess": "Database access is pending.",
+      "pendingEnvironment": "The operational environment is pending.",
+      "architecturalDecision": "An architecture decision remains unresolved.",
+      "missingDoc": "An expected document is missing.",
+      "committedDateRisk": "The committed date is at risk.",
+      "scopeChange": "A scope change remains open.",
+      "dependency": "A dependency remains open.",
+      "noOwner": "No owner can be derived for this delivery.",
+      "noRecentUpdate": "The delivery has no recent update.",
+      "executionStuck": "Execution may be stuck.",
+      "other": "An operational signal requires attention."
     },
     "charts": {
       "milestones": {

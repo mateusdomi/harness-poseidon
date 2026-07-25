@@ -11,9 +11,17 @@ import {
 } from '@/design-system';
 
 import { formatDate, formatDateTime, formatUsd } from '../lib/format';
-import { useForecast, useMetrics, useOverview, useRecalcForecast } from '../hooks/use-delivery';
+import { attentionSignalLabel } from '../lib/attention-signal';
+import {
+  useDeliveryTraceability,
+  useForecast,
+  useMetrics,
+  useOverview,
+  useRecalcForecast,
+} from '../hooks/use-delivery';
 import type { DeliveryForecast, DeliveryMetric } from '../api/types';
 import { DeliveryCharts } from './delivery-charts';
+import { SourceDisclosure } from './source-disclosure';
 import {
   ConfidenceBadge,
   HealthBadge,
@@ -110,6 +118,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
   const forecastQuery = useForecast(deliveryId);
   const metricsQuery = useMetrics(deliveryId);
   const recalc = useRecalcForecast(deliveryId);
+  const traceQuery = useDeliveryTraceability(overviewQuery.data?.projectId ?? null);
 
   if (overviewQuery.isLoading) {
     return <Skeleton className="h-96 w-full" />;
@@ -117,13 +126,36 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
   if (overviewQuery.isError || !overviewQuery.data) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-error">{t('delivery.error')}</CardContent>
+        <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-error">
+          <span>{t('delivery.error')}</span>
+          <Button variant="outline" size="sm" onClick={() => void overviewQuery.refetch()}>
+            {t('delivery.retry')}
+          </Button>
+        </CardContent>
       </Card>
     );
   }
 
   const o = overviewQuery.data;
   const e = o.executiveSummary;
+  const trace = traceQuery.data;
+  const agentNames = new Map((trace?.agents ?? []).map((agent) => [agent.id, agent.name]));
+  const owner = e.owner ? (agentNames.get(e.owner) ?? e.owner) : null;
+  const activePhase =
+    trace?.phases.find((phase) => phase.state === 'active') ??
+    [...(trace?.phases ?? [])].sort((a, b) => b.order - a.order).find((phase) => phase.state === 'completed') ??
+    null;
+  const relatedTasks = [...(trace?.tasks ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const evidenceAttempts = [...(trace?.attempts ?? [])]
+    .filter((attempt) => attempt.summary || attempt.commitRefs.length > 0 || attempt.failureReason)
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const nextSteps = [
+    ...relatedTasks.filter((task) => task.state === 'blocked').map((task) => task.title),
+    ...o.decisions.decisions.filter((decision) => !decision.resolved).map((decision) => decision.detail),
+    ...o.documentation.checklist
+      .filter((document) => !document.present)
+      .map((document) => t('delivery.overview.trace.createDocument', { name: document.label })),
+  ].slice(0, 8);
 
   return (
     <div className="flex flex-col gap-6" data-testid="delivery-overview">
@@ -137,7 +169,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-            <Stat label={t('delivery.overview.exec.owner')} value={e.owner ?? t('delivery.portfolio.noOwner')} />
+            <Stat label={t('delivery.overview.exec.owner')} value={owner ?? t('delivery.portfolio.noOwner')} />
             <Stat label={t('delivery.criticality.label')} value={t(`delivery.criticality.${e.criticality}`)} />
             <Stat label={t('delivery.overview.exec.milestones')} value={`${e.milestonesDone}/${e.milestonesTotal}`} />
             <Stat label={t('delivery.overview.exec.openTasks')} value={String(e.openTaskCount)} />
@@ -146,6 +178,50 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
             <Stat label={t('delivery.overview.exec.forecast')} value={formatDate(e.forecastDate, i18n.language) ?? t('delivery.portfolio.noDate')} />
             <Stat label={t('delivery.overview.exec.lastActivity')} value={formatDateTime(e.lastActivityAt, i18n.language) ?? '—'} />
           </dl>
+          <div className="mt-4">
+            <SourceDisclosure
+              source={t('delivery.sources.overviewSource')}
+              updatedAt={e.lastActivityAt}
+              calculation={t('delivery.sources.overviewCalculation')}
+              confidence={
+                o.planAndMilestones.forecast.hasSufficientEvidence
+                  ? t(`delivery.confidence.${o.planAndMilestones.forecast.confidence}`)
+                  : t('delivery.sources.insufficient')
+              }
+              missing={[
+                ...(owner ? [] : [t('delivery.sources.ownerMissing')]),
+                ...(e.committedDate ? [] : [t('delivery.sources.dateMissing')]),
+                ...(e.forecastDate ? [] : [t('delivery.sources.forecastMissing')]),
+              ]}
+              technical={o.risksAndDependencies.risks
+                .map((risk) => `${risk.code}: ${risk.detail}`)
+                .join(' · ')}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('delivery.overview.trace.contextTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {traceQuery.isLoading ? (
+            <Skeleton className="h-20 w-full" />
+          ) : traceQuery.isError || !trace ? (
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-sm text-foreground-muted">{t('delivery.capabilityUnavailable')}</p>
+              <Button variant="outline" size="sm" onClick={() => void traceQuery.refetch()}>
+                {t('delivery.retry')}
+              </Button>
+            </div>
+          ) : (
+            <dl className="grid gap-3 sm:grid-cols-3">
+              <Stat label={t('delivery.overview.trace.objective')} value={trace.project.description || '—'} />
+              <Stat label={t('delivery.overview.trace.phase')} value={activePhase?.name ?? t('delivery.overview.trace.noPhase')} />
+              <Stat label={t('delivery.overview.trace.workflow')} value={trace.workflow ? t('delivery.overview.trace.linked') : t('delivery.overview.trace.notLinked')} />
+            </dl>
+          )}
         </CardContent>
       </Card>
 
@@ -171,6 +247,20 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <ForecastBlock forecast={o.planAndMilestones.forecast} />
+            <SourceDisclosure
+              source={t('delivery.sources.forecastSource')}
+              updatedAt={o.planAndMilestones.forecast.createdAt ?? e.lastActivityAt}
+              calculation={t('delivery.sources.forecastCalculation')}
+              confidence={t(`delivery.confidence.${o.planAndMilestones.forecast.confidence}`)}
+              missing={
+                o.planAndMilestones.forecast.hasSufficientEvidence
+                  ? []
+                  : [t('delivery.sources.forecastEvidenceMissing')]
+              }
+              technical={o.planAndMilestones.forecast.basis
+                .map((basis) => `${basis.signal}: ${basis.detail}`)
+                .join(' · ')}
+            />
             {(forecastQuery.data?.history.length ?? 0) > 0 && (
               <div>
                 <p className="text-xs font-medium text-foreground-muted">{t('delivery.overview.plan.history')}</p>
@@ -230,7 +320,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
                 {o.risksAndDependencies.risks.map((r) => (
                   <li key={r.code} className="flex items-start gap-2 text-sm">
                     <SeverityBadge value={r.severity} />
-                    <span className="text-foreground-muted">{r.detail}</span>
+                    <span className="text-foreground-muted">{attentionSignalLabel(r.code, t)}</span>
                   </li>
                 ))}
               </ul>
@@ -285,6 +375,23 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
                 </li>
               ))}
             </ul>
+            {trace && trace.documents.length > 0 && (
+              <div className="mt-4 border-t border-border pt-3">
+                <p className="mb-2 text-xs font-medium text-foreground-muted">
+                  {t('delivery.overview.docs.registered')}
+                </p>
+                <ul className="flex flex-col gap-2 text-sm">
+                  {trace.documents.slice(0, 12).map((document) => (
+                    <li key={document.id} className="flex items-start justify-between gap-3">
+                      <span className="text-foreground">{document.title}</span>
+                      <Badge variant="outline">
+                        {t(`enums.documentState.${document.state}`)}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -323,6 +430,98 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
                   </tbody>
                 </table>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('delivery.overview.trace.tasks')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {relatedTasks.length === 0 ? (
+              <p className="text-sm text-foreground-muted">{t('delivery.overview.trace.noTasks')}</p>
+            ) : (
+              <ul className="flex flex-col gap-2 text-sm">
+                {relatedTasks.slice(0, 12).map((task) => (
+                  <li key={task.id} className="flex items-start justify-between gap-3">
+                    <span className="text-foreground">{task.title}</span>
+                    <Badge variant={task.state === 'blocked' ? 'warning' : 'outline'}>
+                      {t(`enums.taskState.${task.state}`)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('delivery.overview.trace.evidence')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {evidenceAttempts.length === 0 ? (
+              <p className="text-sm text-foreground-muted">{t('delivery.overview.trace.noEvidence')}</p>
+            ) : (
+              <ul className="flex flex-col gap-3 text-sm">
+                {evidenceAttempts.slice(0, 10).map((attempt) => (
+                  <li key={attempt.id}>
+                    <p className="font-medium text-foreground">
+                      {t('delivery.overview.trace.attempt', { number: attempt.number })}
+                    </p>
+                    <p className="text-foreground-muted">
+                      {attempt.summary ?? attempt.failureReason ?? attempt.commitRefs.join(', ')}
+                    </p>
+                    {attempt.commitRefs.length > 0 && (
+                      <p className="break-all font-mono text-xs text-foreground-muted">
+                        {attempt.commitRefs.join(', ')}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('delivery.overview.trace.activities')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {relatedTasks.length === 0 ? (
+              <p className="text-sm text-foreground-muted">{t('delivery.overview.trace.noActivities')}</p>
+            ) : (
+              <ul className="flex flex-col gap-2 text-sm">
+                {relatedTasks.slice(0, 8).map((task) => (
+                  <li key={task.id} className="flex items-start justify-between gap-3">
+                    <span className="text-foreground">{task.title}</span>
+                    <time className="whitespace-nowrap text-xs text-foreground-muted" dateTime={task.updatedAt}>
+                      {formatDateTime(task.updatedAt, i18n.language) ?? '—'}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('delivery.overview.trace.nextSteps')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {nextSteps.length === 0 ? (
+              <p className="text-sm text-foreground-muted">{t('delivery.overview.trace.noNextSteps')}</p>
+            ) : (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
+                {nextSteps.map((step, index) => (
+                  <li key={`${step}-${index}`}>{step}</li>
+                ))}
+              </ul>
             )}
           </CardContent>
         </Card>

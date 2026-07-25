@@ -1,18 +1,20 @@
 using Harness.Host.Profiles;
 using Harness.Modules.Delivery.Application;
 using Harness.Modules.Delivery.Contracts;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Delivery;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Delivery;
 
 /// <summary>
-/// Central de Entregas (Tech Lead) — endpoints READ-ONLY/aditivos. DEL-01 portfólio (+ visão "precisa
-/// da minha atenção"), DEL-02 Projeto 360, DEL-09 previsão honesta (com histórico append-only). Uma
-/// "entrega" é um projeto; o id da entrega é o projectId. Nada aqui muda o comportamento existente.
+/// Central de Entregas — projeções rastreáveis e uma única mutação de planejamento explicitamente
+/// humana. DEL-01 portfólio (+ visão "precisa da minha atenção"), DEL-02 Projeto 360, DEL-09
+/// previsão honesta (com histórico append-only). Uma "entrega" é um projeto; o id é o projectId.
 /// </summary>
 public static class DeliveryEndpoints
 {
@@ -27,6 +29,9 @@ public static class DeliveryEndpoints
             .Produces<DeliveryForecastHistoryContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         group.MapPost("/{deliveryId}/forecast", AppendForecastAsync)
             .Produces<DeliveryForecastContract>(201).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        group.MapPost("/{deliveryId}/planning", ConfigurePlanningAsync)
+            .Produces<DeliveryPlanningContract>().ProducesProblem(400).ProducesProblem(401)
+            .ProducesProblem(404).ProducesProblem(409);
 
         // DEL-04/DEL-05/DEL-10 — Central de Relatórios (documentos versionados, aprovação humana, envio).
         group.MapPost("/{deliveryId}/reports", GenerateReportAsync)
@@ -231,6 +236,49 @@ public static class DeliveryEndpoints
         return Results.Created($"/api/v1/deliveries/{deliveryId}/forecast", ToContract(record));
     }
 
+    private static async Task<IResult> ConfigurePlanningAsync(
+        string deliveryId, DeliveryPlanningRequest? body, HttpRequest request,
+        ILocalProfileStore profiles, IProjectStore projects, IAgentCatalogStore agents,
+        IWorkBoardStore board, IClock clock, CancellationToken token)
+    {
+        if (!Valid(deliveryId)) return InvalidId("delivery");
+        if (body is null) return Invalid("body", "A request body is required.");
+        if (!Valid(body.OwnerAgentId)) return Invalid("ownerAgentId", "Owner agent ID must be a ULID.");
+        if (body.CommittedDate.Offset != TimeSpan.Zero)
+            return Invalid("committedDate", "Committed date must be UTC.");
+
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        if (await projects.GetAsync(profile.TenantId, deliveryId, token) is null)
+            return NotFound("delivery");
+        var agent = await agents.GetAgentAsync(profile.TenantId, body.OwnerAgentId, token);
+        if (agent is null || agent.ProjectId != deliveryId)
+            return Invalid("ownerAgentId", "The selected agent is not assigned to this project.");
+
+        var active = new List<BoardTaskRecord>();
+        string? afterId = null;
+        for (var page = 0; page < 25; page++)
+        {
+            var batch = await board.ListTasksAsync(profile.TenantId, deliveryId, null, afterId, 200, token);
+            active.AddRange(batch.Where(task => task.ArchivedAt is null && task.State != "done"));
+            if (batch.Count < 200) break;
+            afterId = batch[^1].Id;
+        }
+        if (active.Count == 0)
+            return Problem(409, "delivery_has_no_active_tasks",
+                "The delivery needs at least one active task before owner and date can be configured.");
+
+        var now = clock.UtcNow;
+        foreach (var task in active)
+        {
+            await board.SetTaskPlanningAsync(new(
+                profile.TenantId, task.Id, agent.Id, body.CommittedDate, now), token);
+        }
+
+        return Results.Ok(new DeliveryPlanningContract(
+            deliveryId, agent.Id, agent.Name, body.CommittedDate, active.Count, now));
+    }
+
     private static async Task<IResult> GenerateReportAsync(
         string deliveryId, GenerateReportRequest? body, HttpRequest request, ILocalProfileStore profiles,
         DeliveryReportService service, CancellationToken token)
@@ -335,3 +383,13 @@ public sealed record ApproveReportRequest(string? ApprovedBy);
 /// (`env://`, `secret://`, `keychain://`) — nunca um endereço literal.
 /// </summary>
 public sealed record SendReportRequest(string Channel, string RecipientReference);
+
+/// <summary>
+/// Configura a origem persistida do responsável e da data comprometida: todas as tarefas ativas
+/// passam a compartilhar o planejamento informado; a projeção da entrega é recalculada em realtime.
+/// </summary>
+public sealed record DeliveryPlanningRequest(string OwnerAgentId, DateTimeOffset CommittedDate);
+
+public sealed record DeliveryPlanningContract(
+    string DeliveryId, string OwnerAgentId, string OwnerName, DateTimeOffset CommittedDate,
+    int UpdatedTaskCount, DateTimeOffset UpdatedAt);

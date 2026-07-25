@@ -20,6 +20,10 @@ public sealed partial class SqliteWorkBoardStore
         BoardTaskPriorityCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => SetTaskPriorityCoreAsync(c, command, t), cancellationToken);
 
+    public Task<BoardTaskRecord> SetTaskPlanningAsync(
+        BoardTaskPlanningCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync((c, t) => SetTaskPlanningCoreAsync(c, command, t), cancellationToken);
+
     public Task<BoardTaskRecord> SetTaskArchivedAsync(
         BoardTaskArchiveCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => SetTaskArchivedCoreAsync(c, command, t), cancellationToken);
@@ -128,6 +132,48 @@ public sealed partial class SqliteWorkBoardStore
         return current with
         {
             Priority = command.Priority,
+            UpdatedAt = command.OccurredAt,
+            Version = current.Version + 1,
+        };
+    }
+
+    private static async Task<BoardTaskRecord> SetTaskPlanningCoreAsync(
+        SqliteConnection c, BoardTaskPlanningCommand command, CancellationToken token)
+    {
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        var current = await ReadTaskAsync(c, tx, command.TenantId, command.TaskId, token)
+            ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (current.ArchivedAt is not null || current.State == "done")
+            throw new WorkBoardInvalidStateException("A completed or archived task cannot be replanned.");
+
+        await using var mutation = c.CreateCommand(); mutation.Transaction = tx;
+        mutation.CommandText =
+            "UPDATE work_tasks SET assignee_agent_id=$agent,due_at=$due,version=version+1,updated_at=$at " +
+            "WHERE tenant_id=$tenant AND id=$id;";
+        Add(mutation, "$agent", command.AssigneeAgentId);
+        Add(mutation, "$due", Store(command.DueAt));
+        Add(mutation, "$at", Store(command.OccurredAt));
+        Add(mutation, "$tenant", command.TenantId);
+        Add(mutation, "$id", command.TaskId);
+        await mutation.ExecuteNonQueryAsync(token);
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = current.ProjectId,
+            taskId = current.Id,
+            from = current.State,
+            to = current.State,
+            changedByKind = "user",
+            note = "Planejamento da entrega atualizado.",
+        }, JsonOptions);
+        await AppendAuditAsync(c, tx, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return current with
+        {
+            AssigneeAgentId = command.AssigneeAgentId,
+            DueAt = command.DueAt,
             UpdatedAt = command.OccurredAt,
             Version = current.Version + 1,
         };

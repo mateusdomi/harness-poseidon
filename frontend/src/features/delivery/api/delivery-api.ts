@@ -8,6 +8,7 @@ import {
   deliveryForecastHistorySchema,
   deliveryForecastSchema,
   deliveryMetricsSchema,
+  deliveryPlanningSchema,
   deliveryPortfolioSchema,
   deliveryReportListSchema,
   deliveryReportSchema,
@@ -21,6 +22,8 @@ import {
   type DeliveryForecast,
   type DeliveryForecastHistory,
   type DeliveryMetrics,
+  type DeliveryPlanning,
+  type DeliveryPlanningInput,
   type DeliveryPortfolio,
   type DeliveryReport,
   type DeliveryReportList,
@@ -38,6 +41,7 @@ import { buildDeliveryStore, forecastHistoryOf, type DeliveryStore } from './moc
 export interface DeliveryApi {
   listPortfolio(view?: string): Promise<DeliveryPortfolio>;
   getOverview(deliveryId: string): Promise<Delivery360>;
+  configurePlanning(deliveryId: string, input: DeliveryPlanningInput): Promise<DeliveryPlanning>;
   getForecast(deliveryId: string): Promise<DeliveryForecastHistory>;
   recalcForecast(deliveryId: string): Promise<DeliveryForecast>;
   getMetrics(deliveryId: string): Promise<DeliveryMetrics>;
@@ -97,6 +101,15 @@ export class HttpDeliveryApi implements DeliveryApi {
 
   async getOverview(deliveryId: string): Promise<Delivery360> {
     return delivery360Schema.parse(await this.#request('GET', `/${deliveryId}/overview`));
+  }
+
+  async configurePlanning(
+    deliveryId: string,
+    input: DeliveryPlanningInput,
+  ): Promise<DeliveryPlanning> {
+    return deliveryPlanningSchema.parse(
+      await this.#request('POST', `/${deliveryId}/planning`, input),
+    );
   }
 
   async getForecast(deliveryId: string): Promise<DeliveryForecastHistory> {
@@ -197,6 +210,33 @@ export class MockDeliveryApi implements DeliveryApi {
 
   async getOverview(deliveryId: string): Promise<Delivery360> {
     return structuredClone(this.#overview(deliveryId));
+  }
+
+  async configurePlanning(
+    deliveryId: string,
+    input: DeliveryPlanningInput,
+  ): Promise<DeliveryPlanning> {
+    const overview = this.#overview(deliveryId);
+    const summary = this.#store.summaries.find((item) => item.deliveryId === deliveryId);
+    const now = new Date().toISOString();
+    const ownerName = input.ownerAgentId;
+    if (summary) {
+      summary.owner = input.ownerAgentId;
+      summary.committedDate = input.committedDate;
+      summary.lastActivityAt = now;
+    }
+    overview.executiveSummary.owner = input.ownerAgentId;
+    overview.executiveSummary.committedDate = input.committedDate;
+    overview.executiveSummary.lastActivityAt = now;
+    overview.planAndMilestones.committedDate = input.committedDate;
+    return {
+      deliveryId,
+      ownerAgentId: input.ownerAgentId,
+      ownerName,
+      committedDate: input.committedDate,
+      updatedTaskCount: overview.executiveSummary.openTaskCount,
+      updatedAt: now,
+    };
   }
 
   async getForecast(deliveryId: string): Promise<DeliveryForecastHistory> {

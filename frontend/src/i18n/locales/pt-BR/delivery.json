@@ -1,14 +1,16 @@
 {
   "delivery": {
     "title": "Central de Entregas",
-    "subtitle": "Portfólio por saúde e previsibilidade, Entrega 360, previsão honesta, relatórios e Daily Copilot.",
+    "subtitle": "Portfólio por saúde e previsibilidade, Entrega 360, previsão honesta, relatórios e copiloto da daily.",
     "loading": "Carregando…",
     "error": "Não foi possível carregar os dados da entrega.",
+    "retry": "Tentar novamente",
+    "capabilityUnavailable": "A rastreabilidade detalhada está temporariamente indisponível. O resumo da entrega continua acessível.",
     "back": "Voltar ao portfólio",
     "tabs": {
       "overview": "Entrega 360",
       "reports": "Relatórios",
-      "daily": "Daily Copilot"
+      "daily": "Copiloto da daily"
     },
     "health": {
       "label": "Saúde",
@@ -59,26 +61,42 @@
       "count_one": "{{count}} entrega",
       "count_other": "{{count}} entregas",
       "empty": "Nenhuma entrega neste filtro.",
-      "noOwner": "Sem dono",
+      "noOwner": "Sem responsável",
       "noDate": "Sem data",
       "columns": {
         "name": "Entrega",
         "health": "Saúde",
         "predictability": "Previsibilidade",
-        "owner": "Dono",
+        "owner": "Responsável",
         "committed": "Comprometida",
         "forecast": "Prevista",
         "milestones": "Marcos",
         "attention": "Atenção"
       },
       "open": "Abrir Entrega 360 de {{name}}",
+      "openAction": "Abrir Entrega 360",
+      "configure": "Configurar",
+      "configureHint": "Responsável e data são derivados do planejamento das tarefas persistidas no Quadro.",
       "signalsCount_one": "{{count}} sinal",
       "signalsCount_other": "{{count}} sinais"
+    },
+    "planning": {
+      "title": "Planejamento de {{name}}",
+      "explain": "Esta ação atualiza o responsável e a data-alvo das tarefas ativas. A Central recalcula responsável, previsão e sinais a partir desses dados persistidos.",
+      "owner": "Responsável",
+      "ownerHint": "Somente agentes vinculados a este projeto.",
+      "selectOwner": "Selecione um responsável",
+      "date": "Data comprometida",
+      "dateHint": "Data-alvo compartilhada pelas tarefas ativas desta entrega.",
+      "noAgents": "Não há agente vinculado ao projeto. Configure a equipe do projeto antes de salvar.",
+      "save": "Salvar planejamento",
+      "saving": "Salvando…",
+      "error": "Não foi possível salvar. Verifique se a entrega possui tarefas ativas e tente novamente."
     },
     "overview": {
       "exec": {
         "title": "Resumo executivo",
-        "owner": "Dono",
+        "owner": "Responsável",
         "milestones": "Marcos",
         "openTasks": "Tarefas abertas",
         "blockedTasks": "Tarefas bloqueadas",
@@ -120,7 +138,8 @@
         "title": "Documentação",
         "coverage": "{{present}}/{{expected}} documentos",
         "present": "Presente",
-        "missing": "Ausente"
+        "missing": "Ausente",
+        "registered": "Documentos registrados"
       },
       "value": {
         "title": "Valor & métricas",
@@ -144,7 +163,60 @@
           "value": "Valor",
           "basis": "Base"
         }
+      },
+      "trace": {
+        "contextTitle": "Contexto rastreável",
+        "objective": "Objetivo",
+        "phase": "Fase atual",
+        "workflow": "Workflow",
+        "noPhase": "Nenhuma fase iniciada",
+        "linked": "Vinculado",
+        "notLinked": "Não vinculado",
+        "tasks": "Tarefas relacionadas",
+        "noTasks": "Nenhuma tarefa relacionada registrada.",
+        "evidence": "Evidências de execução",
+        "noEvidence": "Nenhuma evidência de tentativa registrada.",
+        "attempt": "Tentativa {{number}}",
+        "activities": "Atividades recentes",
+        "noActivities": "Nenhuma atividade operacional registrada.",
+        "nextSteps": "Próximos passos",
+        "noNextSteps": "Nenhuma pendência derivável dos dados atuais.",
+        "createDocument": "Produzir ou classificar o documento: {{name}}"
       }
+    },
+    "sources": {
+      "open": "Como este dado foi obtido",
+      "source": "Fonte",
+      "updated": "Última atualização",
+      "calculation": "Cálculo",
+      "confidence": "Confiança",
+      "missing": "Dados faltantes",
+      "technical": "Detalhes técnicos",
+      "unavailable": "Não informada",
+      "insufficient": "Evidência insuficiente",
+      "portfolioSource": "Projetos, tarefas, documentos, tentativas e histórico de previsões persistidos.",
+      "portfolioCalculation": "Responsável = agente mais frequente nas tarefas abertas; marcos = tarefas de marco concluídas/total; saúde e atenção = regras determinísticas do read model.",
+      "overviewSource": "Read model da entrega combinado com os recursos persistidos do projeto.",
+      "overviewCalculation": "Saúde, marcos, bloqueios e previsibilidade são derivados de tarefas, documentos, decisões, dependências e tentativas reais.",
+      "forecastSource": "Histórico append-only de previsões e estado atual das tarefas.",
+      "forecastCalculation": "A previsão pondera data comprometida, vazão e variação histórica; sem evidência suficiente, nenhuma data é inventada.",
+      "ownerMissing": "Nenhuma tarefa aberta possui responsável atribuído.",
+      "dateMissing": "Nenhuma tarefa possui data-alvo.",
+      "forecastMissing": "Ainda não há previsão confiável.",
+      "forecastEvidenceMissing": "Histórico ou volume de trabalho insuficiente para calcular uma data."
+    },
+    "signals": {
+      "pendingDbAccess": "Acesso ao banco de dados pendente.",
+      "pendingEnvironment": "Ambiente operacional pendente.",
+      "architecturalDecision": "Decisão de arquitetura ainda não resolvida.",
+      "missingDoc": "Documento esperado ainda ausente.",
+      "committedDateRisk": "A data comprometida apresenta risco.",
+      "scopeChange": "Existe mudança de escopo em aberto.",
+      "dependency": "Existe dependência em aberto.",
+      "noOwner": "A entrega não possui responsável derivável.",
+      "noRecentUpdate": "A entrega está sem atualização recente.",
+      "executionStuck": "Há indício de execução travada.",
+      "other": "Existe um sinal operacional que requer atenção."
     },
     "charts": {
       "milestones": {
@@ -219,8 +291,8 @@
       }
     },
     "daily": {
-      "title": "Daily Copilot",
-      "subtitle": "Briefing pré-daily, captura durante e resumo pós-daily. Não cria nem atualiza cards de PO.",
+      "title": "Copiloto da daily",
+      "subtitle": "Apoio à reunião diária: prepara o briefing, registra marcações e gera o resumo. Não cria nem atualiza cards de produto.",
       "briefing": {
         "title": "Briefing pré-daily",
         "first": "Primeira daily desta entrega.",

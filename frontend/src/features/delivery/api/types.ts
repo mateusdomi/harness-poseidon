@@ -78,6 +78,20 @@ export const deliveryPortfolioSchema = z.object({
 });
 export type DeliveryPortfolio = z.infer<typeof deliveryPortfolioSchema>;
 
+export const deliveryPlanningSchema = z.object({
+  deliveryId: z.string(),
+  ownerAgentId: z.string(),
+  ownerName: z.string(),
+  committedDate: z.string(),
+  updatedTaskCount: int,
+  updatedAt: z.string(),
+});
+export type DeliveryPlanning = z.infer<typeof deliveryPlanningSchema>;
+export interface DeliveryPlanningInput {
+  ownerAgentId: string;
+  committedDate: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* Entrega 360 (DEL-02)                                                */
 /* ------------------------------------------------------------------ */

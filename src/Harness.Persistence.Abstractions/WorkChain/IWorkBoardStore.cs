@@ -34,6 +34,8 @@ public interface IWorkBoardStore
         BoardTaskMoveCommand command, CancellationToken cancellationToken = default);
     Task<BoardTaskRecord> SetTaskPriorityAsync(
         BoardTaskPriorityCommand command, CancellationToken cancellationToken = default);
+    Task<BoardTaskRecord> SetTaskPlanningAsync(
+        BoardTaskPlanningCommand command, CancellationToken cancellationToken = default);
     Task<BoardTaskRecord> SetTaskArchivedAsync(
         BoardTaskArchiveCommand command, CancellationToken cancellationToken = default);
 
@@ -140,6 +142,10 @@ public sealed record BoardTaskMoveCommand(
 
 public sealed record BoardTaskPriorityCommand(
     string TenantId, string TaskId, string Priority, DateTimeOffset OccurredAt);
+
+public sealed record BoardTaskPlanningCommand(
+    string TenantId, string TaskId, string AssigneeAgentId, DateTimeOffset DueAt,
+    DateTimeOffset OccurredAt);
 
 public sealed record BoardTaskArchiveCommand(
     string TenantId, string TaskId, bool Archived, string ChangedByKind,

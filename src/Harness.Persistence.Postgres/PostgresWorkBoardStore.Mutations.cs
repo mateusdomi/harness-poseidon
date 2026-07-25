@@ -28,6 +28,13 @@ public sealed partial class PostgresWorkBoardStore
         return SetTaskPriorityCoreAsync(command, cancellationToken);
     }
 
+    public Task<BoardTaskRecord> SetTaskPlanningAsync(
+        BoardTaskPlanningCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return SetTaskPlanningCoreAsync(command, cancellationToken);
+    }
+
     public Task<BoardTaskRecord> SetTaskArchivedAsync(
         BoardTaskArchiveCommand command, CancellationToken cancellationToken = default)
     {
@@ -160,6 +167,48 @@ public sealed partial class PostgresWorkBoardStore
         return current with
         {
             Priority = command.Priority,
+            UpdatedAt = command.OccurredAt,
+            Version = current.Version + 1,
+        };
+    }
+
+    private async Task<BoardTaskRecord> SetTaskPlanningCoreAsync(
+        BoardTaskPlanningCommand command, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var current = await ReadTaskAsync(
+                connection, transaction, command.TenantId, command.TaskId, cancellationToken)
+            ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (current.ArchivedAt is not null || current.State == "done")
+            throw new WorkBoardInvalidStateException("A completed or archived task cannot be replanned.");
+
+        await ExecuteAsync(
+            connection, transaction,
+            "UPDATE harness.work_tasks SET assignee_agent_id=$1,due_at=$2,version=version+1,updated_at=$3 WHERE tenant_id=$4 AND id=$5;",
+            cancellationToken,
+            Text(command.AssigneeAgentId), Timestamp(command.DueAt), Timestamp(command.OccurredAt),
+            Text(command.TenantId), Text(command.TaskId));
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = current.ProjectId,
+            taskId = current.Id,
+            from = current.State,
+            to = current.State,
+            changedByKind = "user",
+            note = "Planejamento da entrega atualizado.",
+        }, JsonOptions);
+        await AppendAuditAsync(
+            connection, transaction, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(
+            connection, transaction, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return current with
+        {
+            AssigneeAgentId = command.AssigneeAgentId,
+            DueAt = command.DueAt,
             UpdatedAt = command.OccurredAt,
             Version = current.Version + 1,
         };

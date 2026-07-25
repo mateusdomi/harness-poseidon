@@ -1,9 +1,11 @@
 import { useTranslation } from 'react-i18next';
 
-import { Badge, Card, CardContent } from '@/design-system';
+import { Badge, Button, Card, CardContent } from '@/design-system';
 
 import { formatDate } from '../lib/format';
+import { attentionSignalLabel } from '../lib/attention-signal';
 import type { DeliverySummary } from '../api/types';
+import { SourceDisclosure } from './source-disclosure';
 import { HealthBadge, PredictabilityBadge } from './status-badges';
 
 /**
@@ -14,9 +16,13 @@ import { HealthBadge, PredictabilityBadge } from './status-badges';
 export function PortfolioList({
   deliveries,
   onOpen,
+  onConfigure,
+  agentNames,
 }: {
   deliveries: DeliverySummary[];
   onOpen: (deliveryId: string) => void;
+  onConfigure: (delivery: DeliverySummary) => void;
+  agentNames: ReadonlyMap<string, string>;
 }) {
   const { t, i18n } = useTranslation();
 
@@ -35,6 +41,12 @@ export function PortfolioList({
       {deliveries.map((d) => {
         const committed = formatDate(d.committedDate, i18n.language);
         const forecast = formatDate(d.forecastDate, i18n.language);
+        const owner = d.owner ? (agentNames.get(d.owner) ?? d.owner) : null;
+        const missing = [
+          ...(owner ? [] : [t('delivery.sources.ownerMissing')]),
+          ...(d.committedDate ? [] : [t('delivery.sources.dateMissing')]),
+          ...(d.forecastDate ? [] : [t('delivery.sources.forecastMissing')]),
+        ];
         return (
           <li key={d.deliveryId}>
             <Card>
@@ -58,7 +70,7 @@ export function PortfolioList({
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
                   <div>
                     <dt className="text-xs text-foreground-muted">{t('delivery.portfolio.columns.owner')}</dt>
-                    <dd className="text-foreground">{d.owner ?? t('delivery.portfolio.noOwner')}</dd>
+                    <dd className="text-foreground">{owner ?? t('delivery.portfolio.noOwner')}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-foreground-muted">{t('delivery.portfolio.columns.milestones')}</dt>
@@ -81,9 +93,40 @@ export function PortfolioList({
                     <Badge variant="warning">
                       {t('delivery.portfolio.signalsCount', { count: d.attentionSignals.length })}
                     </Badge>
-                    <span className="text-xs text-foreground-muted">{d.attentionSignals[0]!.detail}</span>
+                    <span className="text-xs text-foreground-muted">
+                      {attentionSignalLabel(d.attentionSignals[0]!.code, t)}
+                    </span>
                   </div>
                 )}
+
+                <SourceDisclosure
+                  source={t('delivery.sources.portfolioSource')}
+                  updatedAt={d.lastActivityAt}
+                  calculation={t('delivery.sources.portfolioCalculation')}
+                  confidence={
+                    d.forecastConfidence
+                      ? t(`delivery.confidence.${d.forecastConfidence}`)
+                      : t('delivery.sources.unavailable')
+                  }
+                  missing={missing}
+                  technical={d.attentionSignals.map((signal) => `${signal.code}: ${signal.detail}`).join(' · ')}
+                />
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {(!owner || !d.committedDate) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-foreground-muted">
+                        {t('delivery.portfolio.configureHint')}
+                      </p>
+                      <Button size="sm" variant="ghost" onClick={() => onConfigure(d)}>
+                        {t('delivery.portfolio.configure')}
+                      </Button>
+                    </div>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => onOpen(d.deliveryId)}>
+                    {t('delivery.portfolio.openAction')}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </li>

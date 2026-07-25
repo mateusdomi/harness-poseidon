@@ -49,6 +49,20 @@ describe('MockDeliveryApi (DEL-01..10)', () => {
     expect(metrics.dora.some((m) => !m.measured)).toBe(true);
   });
 
+  it('persiste responsável e data comprometida na fonte do planejamento', async () => {
+    const api = new MockDeliveryApi();
+    const committedDate = '2026-08-15T12:00:00.000Z';
+    const result = await api.configurePlanning(D1, {
+      ownerAgentId: '01JQAGENT00000000000000001',
+      committedDate,
+    });
+
+    expect(result.updatedTaskCount).toBeGreaterThan(0);
+    const overview = await api.getOverview(D1);
+    expect(overview.executiveSummary.owner).toBe('01JQAGENT00000000000000001');
+    expect(overview.executiveSummary.committedDate).toBe(committedDate);
+  });
+
   it('ciclo do relatório: gerar → aprovar → enviar', async () => {
     const api = new MockDeliveryApi();
     const report = await api.generateReport(D1, { type: 'weekly_executive_status', format: 'markdown' });
