@@ -1,4 +1,4 @@
-import type { Document, Gate, Phase } from '@/api';
+import type { Approval, Document, Gate, Phase, Task } from '@/api';
 
 /**
  * Derivações puras do painel lateral de workflow do chat — sem React,
@@ -23,9 +23,11 @@ import type { Document, Gate, Phase } from '@/api';
  * elaboração marcado inconsistente aparece como rejeitado/inconsistente.
  */
 export type DocumentHealth =
-  | 'notProduced'
+  | 'planned'
+  | 'notStarted'
+  | 'inProduction'
   | 'produced'
-  | 'awaitingApproval'
+  | 'inReview'
   | 'approved'
   | 'rejected'
   | 'notApplicable';
@@ -34,12 +36,13 @@ export function documentHealth(doc: Document): DocumentHealth {
   if (doc.inconsistent || doc.state === 'outdated') return 'rejected';
   switch (doc.state) {
     case 'planned':
-      return 'notProduced';
+      return 'planned';
     case 'inElaboration':
+      return 'inProduction';
     case 'inReview':
       return 'produced';
     case 'awaitingApproval':
-      return 'awaitingApproval';
+      return 'inReview';
     case 'approved':
       return 'approved';
     case 'superseded':
@@ -52,7 +55,7 @@ export function documentHealth(doc: Document): DocumentHealth {
  * Chips de filtro rápido da fase (D-068): os 3 conceitos acionáveis,
  * na ordem do funil documental. `null` = sem filtro (todos).
  */
-export const DOCUMENT_HEALTH_FILTERS = ['notProduced', 'produced', 'awaitingApproval'] as const;
+export const DOCUMENT_HEALTH_FILTERS = ['planned', 'inProduction', 'inReview'] as const;
 export type DocumentHealthFilter = (typeof DOCUMENT_HEALTH_FILTERS)[number];
 
 /** Documentos vinculados à fase (match por `phaseName`, contrato Document). */
@@ -73,15 +76,162 @@ export function countDocumentsByHealth(
   documents: readonly Document[],
 ): Record<DocumentHealth, number> {
   const counts: Record<DocumentHealth, number> = {
-    notProduced: 0,
+    planned: 0,
+    notStarted: 0,
+    inProduction: 0,
     produced: 0,
-    awaitingApproval: 0,
+    inReview: 0,
     approved: 0,
     rejected: 0,
     notApplicable: 0,
   };
   for (const doc of documents) counts[documentHealth(doc)] += 1;
   return counts;
+}
+
+/** Artefatos canônicos esperados. São templates, não documentos existentes. */
+const EXPECTED_ARTIFACTS: Readonly<Record<string, readonly string[]>> = {
+  'Ideação e recebimento': ['Registro da solicitação', 'Visão inicial'],
+  Descoberta: ['Visão', 'Stakeholders', 'Hipóteses', 'Riscos'],
+  Requisitos: ['Requisitos', 'Critérios de aceite', 'Backlog', 'Rastreabilidade'],
+  Arquitetura: [
+    'Modelo C4',
+    'ADRs',
+    'Segurança',
+    'Integrações',
+    'Modelo de dados',
+    'Plano de observabilidade',
+  ],
+  Planejamento: [
+    'Roadmap',
+    'Plano de releases',
+    'Decomposição',
+    'Dependências',
+    'Plano de riscos',
+    'Plano de testes',
+  ],
+  Implementação: ['Código', 'Migrations', 'Contratos', 'Documentação técnica', 'Evidências'],
+  'Verificação e qualidade': [
+    'Relatório de testes',
+    'Revisão independente',
+    'Segurança',
+    'Performance',
+    'Acessibilidade',
+  ],
+  'Prontidão para homologação': ['Checklist de prontidão para homologação'],
+  Homologação: ['Roteiro de homologação', 'Evidências', 'Findings', 'Aceite'],
+  'Prontidão para produção': [
+    'Checklist de prontidão para produção',
+    'Plano de implantação',
+    'Plano de rollback',
+  ],
+  Produção: ['Runbook operacional', 'Registro de implantação'],
+  Estabilização: ['Relatório de estabilização'],
+  Sustentação: ['Plano de operação', 'Monitoramento', 'Registro de incidentes'],
+  Encerramento: ['Dossiê de encerramento'],
+  'Revisão de benefícios': ['Relatório de benefícios'],
+  // Versão canônica anterior: permanece legível em runs imutáveis existentes.
+  Recebimento: ['Registro da solicitação', 'Critérios de aceite'],
+  Baseline: ['Baseline técnica', 'Mapa de dependências'],
+  'Execução acompanhada': [
+    'Código',
+    'Migrations',
+    'Contratos',
+    'Documentação técnica',
+    'Evidências',
+    'Log de decisões',
+  ],
+  'Prontidão homolog': ['Checklist de prontidão para homologação'],
+  'Prontidão prod': [
+    'Checklist de prontidão para produção',
+    'Plano de implantação',
+    'Plano de rollback',
+  ],
+};
+
+export function expectedArtifactsForPhase(phase: Phase): readonly string[] {
+  return EXPECTED_ARTIFACTS[phase.name] ?? [];
+}
+
+export function absentArtifactHealth(phase: Phase): DocumentHealth {
+  if (phase.state === 'skipped') return 'notApplicable';
+  return phase.state === 'pending' ? 'planned' : 'notStarted';
+}
+
+export interface PhaseProgressEvidence {
+  percent: number;
+  completed: number;
+  total: number;
+  tasks: { completed: number; total: number };
+  documents: { completed: number; total: number };
+  gates: { completed: number; total: number };
+  approvals: { completed: number; total: number };
+  phaseStateFallback: boolean;
+}
+
+export function phaseProgressEvidence(
+  phase: Phase,
+  gates: readonly Gate[],
+  documents: readonly Document[],
+  tasks: readonly Task[],
+  approvals: readonly Approval[],
+): PhaseProgressEvidence {
+  const phaseGates = gates.filter((gate) => gate.phaseId === phase.id);
+  const phaseDocs = documentsOfPhase(documents, phase);
+  const phaseTasks = tasks.filter((task) => task.phaseName === phase.name);
+  const gateIds = new Set(phaseGates.map((gate) => gate.id));
+  const taskIds = new Set(phaseTasks.map((task) => task.id));
+  const phaseApprovals = approvals.filter(
+    (approval) =>
+      (approval.gateId !== null && gateIds.has(approval.gateId)) ||
+      (approval.taskId !== null && taskIds.has(approval.taskId)),
+  );
+
+  const evidence = {
+    tasks: {
+      completed: phaseTasks.filter((task) => task.state === 'done').length,
+      total: phaseTasks.length,
+    },
+    documents: {
+      completed: phaseDocs.filter(
+        (document) => document.state === 'approved' || document.state === 'notApplicable',
+      ).length,
+      total: phaseDocs.length,
+    },
+    gates: {
+      completed: phaseGates.filter(
+        (gate) => gate.state === 'approved' || gate.state === 'waived',
+      ).length,
+      total: phaseGates.length,
+    },
+    approvals: {
+      completed: phaseApprovals.filter((approval) => approval.state === 'approved').length,
+      total: phaseApprovals.length,
+    },
+  };
+  const total =
+    evidence.tasks.total +
+    evidence.documents.total +
+    evidence.gates.total +
+    evidence.approvals.total;
+  const completed =
+    evidence.tasks.completed +
+    evidence.documents.completed +
+    evidence.gates.completed +
+    evidence.approvals.completed;
+  const phaseStateFallback = total === 0;
+
+  return {
+    ...evidence,
+    total,
+    completed,
+    phaseStateFallback,
+    percent: phaseStateFallback
+      ? phase.state === 'completed' || phase.state === 'skipped'
+        ? 100
+        : 0
+      : Math.round((completed / total) * 100),
+  };
 }
 
 /**
@@ -99,14 +249,5 @@ export function phaseProgress(
   gates: readonly Gate[],
   documents: readonly Document[],
 ): number {
-  const phaseGates = gates.filter((gate) => gate.phaseId === phase.id);
-  const phaseDocs = documentsOfPhase(documents, phase);
-  const total = phaseGates.length + phaseDocs.length;
-  if (total === 0) {
-    return phase.state === 'completed' || phase.state === 'skipped' ? 100 : 0;
-  }
-  const done =
-    phaseGates.filter((gate) => gate.state === 'approved' || gate.state === 'waived').length +
-    phaseDocs.filter((doc) => doc.state === 'approved').length;
-  return Math.round((done / total) * 100);
+  return phaseProgressEvidence(phase, gates, documents, [], []).percent;
 }

@@ -1,4 +1,5 @@
 using Harness.Modules.Workflows.Application;
+using Harness.Modules.Workflows.Contracts;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
@@ -21,71 +22,58 @@ public sealed class WorkflowTemplateSeeder(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         var existing = await _catalog.ListTemplatesAsync(tenantId, null, 200, cancellationToken);
-        var existingNames = existing.Select(template => template.Name)
-            .ToHashSet(StringComparer.Ordinal);
+        var existingByName = existing.ToDictionary(template => template.Name, StringComparer.Ordinal);
         var seeded = 0;
         foreach (var canonical in CanonicalWorkflowTemplates.All)
         {
-            if (existingNames.Contains(canonical.Name))
+            var now = _clock.UtcNow;
+            if (existingByName.TryGetValue(canonical.Name, out var existingTemplate))
             {
+                var current = existingTemplate.CurrentVersionId is null
+                    ? null
+                    : await _catalog.GetVersionAsync(
+                        tenantId, existingTemplate.CurrentVersionId, cancellationToken);
+                if (current is not null && current.Phases.SequenceEqual(canonical.Phases))
+                {
+                    continue;
+                }
+
+                // Evolui o template canônico existente por nova versão. Runs e
+                // bindings ativos continuam apontando para a versão imutável
+                // anterior; novos vínculos recebem a versão corrente.
+                var versionId = UlidValue.New(now).ToString();
+                var value = WorkflowCatalogApplicationService.CreateVersion(
+                    existingTemplate.Id,
+                    versionId,
+                    new PublishWorkflowVersionRequest(
+                        canonical.Phases,
+                        canonical.GatesByPhase,
+                        Changelog: "Atualiza o ciclo canônico de entrega técnica para 15 fases."),
+                    now);
+                var upgradedPhases = AddDocumentObjectives(
+                    value.Hierarchy.Phases, canonical, now);
+                await _catalog.PublishVersionAsync(
+                    new WorkflowVersionPublishCommand(
+                        tenantId,
+                        existingTemplate.Id,
+                        versionId,
+                        upgradedPhases,
+                        "{}",
+                        null,
+                        "{}",
+                        value.Hierarchy.Changelog,
+                        now),
+                    cancellationToken);
+                seeded++;
                 continue;
             }
 
-            var now = _clock.UtcNow;
             var creation = WorkflowCatalogApplicationService.CreateTemplate(
                 UlidValue.New(now).ToString(),
                 UlidValue.New(now.AddTicks(1)).ToString(),
                 canonical.ToRequest(),
                 now);
-            // Ticks altos e crescentes para os ids dos objetivos-documento, fora da faixa que o
-            // CreateTemplate usa internamente — evita qualquer colisão de identidade.
-            var documentTick = 1_000L;
-            var phases = creation.Phases
-                .Select(phase =>
-                {
-                    var objectives = phase.Objectives
-                        .Select(objective => new WorkflowObjectiveCreateInput(
-                            objective.Id,
-                            objective.Key,
-                            objective.Name,
-                            objective.Kind,
-                            objective.Weight))
-                        .ToList();
-
-                    // DEL-07 — documentos obrigatórios da fase viram objetivos de tipo 'document',
-                    // reusando o motor de Workflows (não um mecanismo novo). Ordem estável.
-                    if (canonical.DocumentsByPhase.TryGetValue(phase.Name, out var documents))
-                    {
-                        var index = 0;
-                        foreach (var document in documents)
-                        {
-                            index++;
-                            objectives.Add(new WorkflowObjectiveCreateInput(
-                                UlidValue.New(now.AddTicks(documentTick++)).ToString(),
-                                $"document-{index}",
-                                document,
-                                "document",
-                                1m));
-                        }
-                    }
-
-                    return new WorkflowPhaseCreateInput(
-                        phase.Id,
-                        phase.Key,
-                        phase.Name,
-                        phase.Order,
-                        objectives,
-                        phase.Gates
-                            .Select(gate => new WorkflowGateCreateInput(
-                                gate.Id,
-                                gate.ObjectiveId,
-                                gate.Key,
-                                gate.Name,
-                                gate.MinimumRequiredState,
-                                gate.RequiredObjectiveIds))
-                            .ToArray());
-                })
-                .ToArray();
+            var phases = AddDocumentObjectives(creation.Phases, canonical, now);
             try
             {
                 await _authority.CreatePublishedDefinitionAsync(
@@ -109,5 +97,60 @@ public sealed class WorkflowTemplateSeeder(
         }
 
         return seeded;
+    }
+
+    private static IReadOnlyList<WorkflowPhaseCreateInput> AddDocumentObjectives(
+        IReadOnlyList<WorkflowApiPhaseCreation> source,
+        CanonicalWorkflowTemplate canonical,
+        DateTimeOffset now)
+    {
+        // Ticks altos e crescentes para os ids dos objetivos-documento,
+        // fora da faixa usada pelo application service.
+        var documentTick = 1_000L;
+        return
+        [
+            .. source.Select(phase =>
+            {
+                var objectives = phase.Objectives
+                    .Select(objective => new WorkflowObjectiveCreateInput(
+                        objective.Id,
+                        objective.Key,
+                        objective.Name,
+                        objective.Kind,
+                        objective.Weight))
+                    .ToList();
+
+                if (canonical.DocumentsByPhase.TryGetValue(phase.Name, out var documents))
+                {
+                    var index = 0;
+                    foreach (var document in documents)
+                    {
+                        index++;
+                        objectives.Add(new WorkflowObjectiveCreateInput(
+                            UlidValue.New(now.AddTicks(documentTick++)).ToString(),
+                            $"document-{index}",
+                            document,
+                            "document",
+                            1m));
+                    }
+                }
+
+                return new WorkflowPhaseCreateInput(
+                    phase.Id,
+                    phase.Key,
+                    phase.Name,
+                    phase.Order,
+                    objectives,
+                    phase.Gates
+                        .Select(gate => new WorkflowGateCreateInput(
+                            gate.Id,
+                            gate.ObjectiveId,
+                            gate.Key,
+                            gate.Name,
+                            gate.MinimumRequiredState,
+                            gate.RequiredObjectiveIds))
+                        .ToArray());
+            }),
+        ];
     }
 }

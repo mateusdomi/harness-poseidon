@@ -14,7 +14,7 @@
 
 /** Nome humano + rótulo de papel em pt-BR de uma identidade de agente. */
 export interface PersonaName {
-  /** Nome humano em destaque (ex.: "Rafael Prado"). */
+  /** Nome humano em destaque (ex.: "Bruna Magalhães"). */
   humanName: string;
   /** Papel/persona amigável em pt-BR (ex.: "Orquestrador"). */
   roleLabel: string;
@@ -33,12 +33,15 @@ export interface PersonaName {
  *  3. As 7 contas de execução da fleet (`AgentAccountRoster.alias`).
  *
  * Nomes humanos são reaproveitados entre dimensões de propósito (ex.: a conta
- * `chief-claude-primary` compartilha "Rafael Prado" com a persona chief) para
+ * `chief-claude-primary` compartilha "Bruna Magalhães" com a persona chief) para
  * que a equipe pareça coesa — a mesma "pessoa" veste a persona e roda a conta.
  */
 export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   /* ---- Personas canônicas (docs/agents/*.yaml) ---- */
-  'chief-orchestrator': { humanName: 'Rafael Prado', roleLabel: 'Orquestrador' },
+  'chief-orchestrator': {
+    humanName: 'Bruna Magalhães',
+    roleLabel: 'Diretora de Engenharia e Operações de IA',
+  },
   'critic-qa': { humanName: 'Beatriz Nunes', roleLabel: 'Crítica / QA' },
   'product-requirements-analyst': { humanName: 'Camila Rocha', roleLabel: 'Análise de Requisitos' },
   'software-architect': { humanName: 'Henrique Barros', roleLabel: 'Arquiteto de Software' },
@@ -93,7 +96,10 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   },
 
   /* ---- Chaves das definições do frontend (AgentDefinition.key nas fixtures) ---- */
-  chief: { humanName: 'Rafael Prado', roleLabel: 'Chefe / Orquestrador' },
+  chief: {
+    humanName: 'Bruna Magalhães',
+    roleLabel: 'Diretora de Engenharia e Operações de IA',
+  },
   'backend-engineer': { humanName: 'Thiago Mendes', roleLabel: 'Engenheiro Backend' },
   'frontend-engineer': { humanName: 'Aline Castro', roleLabel: 'Engenheira Frontend' },
   reviewer: { humanName: 'Felipe Duarte', roleLabel: 'Revisor' },
@@ -102,7 +108,10 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   security: { humanName: 'Vinícius Braga', roleLabel: 'Segurança' },
 
   /* ---- As 7 contas de execução da fleet (AgentAccountRoster.alias) ---- */
-  'chief-claude-primary': { humanName: 'Rafael Prado', roleLabel: 'Orquestrador-chefe' },
+  'chief-claude-primary': {
+    humanName: 'Bruna Magalhães',
+    roleLabel: 'Diretora de Engenharia e Operações de IA',
+  },
   'worker-claude-secondary': { humanName: 'Thiago Mendes', roleLabel: 'Especialista Backend' },
   'worker-codex-frontend': { humanName: 'Aline Castro', roleLabel: 'Especialista Frontend' },
   'worker-codex-critic': { humanName: 'Felipe Duarte', roleLabel: 'Revisor / Crítico' },

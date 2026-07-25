@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -160,7 +160,7 @@ describe('ChatPage', () => {
     const user = userEvent.setup();
     renderChat();
 
-    const input = await screen.findByLabelText(/mensagem para o chefe/i);
+    const input = await screen.findByLabelText(/mensagem para bruna/i);
     await user.type(input, 'Como está o gate de qualidade?');
     await user.click(screen.getByRole('button', { name: /enviar mensagem/i }));
 
@@ -175,7 +175,7 @@ describe('ChatPage', () => {
           screen.getByText(/Entendi o contexto\. Vou quebrar isso em tarefas/),
         ).toBeInTheDocument();
         // Turno encerrado: indicador some.
-        expect(screen.queryByText(/chefe está coordenando/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/bruna está coordenando/i)).not.toBeInTheDocument();
       },
       { timeout: 3000 },
     );
@@ -207,7 +207,7 @@ describe('ChatPage', () => {
       bundle,
     );
 
-    const input = await screen.findByLabelText(/mensagem para o chefe/i);
+    const input = await screen.findByLabelText(/mensagem para bruna/i);
     await user.type(input, 'Execute sem configuração.');
     await user.click(screen.getByRole('button', { name: /enviar mensagem/i }));
     expect(await screen.findByText('Turno registrado, execução bloqueada')).toBeInTheDocument();
@@ -226,6 +226,23 @@ describe('ChatPage', () => {
       'href',
       '/workflows',
     );
+  });
+
+  it('abre o perfil acessível de Bruna pela foto e fecha com Escape', async () => {
+    const user = userEvent.setup();
+    renderChat();
+
+    const triggers = await screen.findAllByRole('button', {
+      name: 'Abrir perfil de Bruna Magalhães',
+    });
+    await user.click(triggers[0]);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Perfil de Bruna Magalhães' });
+    expect(dialog).toHaveTextContent('Diretora de Engenharia e Operações de IA');
+    expect(within(dialog).getByAltText('Foto de Bruna Magalhães')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Perfil de Bruna Magalhães' })).toBeNull();
   });
 
   it('mostra ações rápidas que enviam mensagem estruturada', async () => {

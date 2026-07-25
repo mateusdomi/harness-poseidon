@@ -30,7 +30,7 @@ describe('ChatReadinessNotice', () => {
   it('explica o motivo e lista todas as dependências quando falta o provedor', () => {
     renderNotice({ hasProvider: false, hasModel: false, hasWorkflow: false });
 
-    expect(screen.getByRole('heading', { name: /execução do chefe bloqueada/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /execução de bruna bloqueada/i })).toBeInTheDocument();
     expect(screen.getByText(/você pode escrever/i)).toBeInTheDocument();
     // As três dependências são sempre listadas (transparência, não bloqueio cego).
     expect(screen.getByText(/provedor conectado/i)).toBeInTheDocument();

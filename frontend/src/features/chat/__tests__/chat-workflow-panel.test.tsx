@@ -10,6 +10,7 @@ import {
   documentsOfPhase,
   filterDocumentsByHealth,
   phaseProgress,
+  phaseProgressEvidence,
 } from '@/features/chat/lib/workflow-panel-derive';
 import ChatPage from '@/features/chat/pages/chat-page';
 import { renderWithApi } from '@/test/render-with-providers';
@@ -66,10 +67,10 @@ function makeGate(partial: Partial<Gate>): Gate {
 
 describe('workflow-panel-derive', () => {
   it('mapeia os 8 estados + flag inconsistent para os conceitos documentais (D-068)', () => {
-    expect(documentHealth(makeDoc({ state: 'planned' }))).toBe('notProduced');
-    expect(documentHealth(makeDoc({ state: 'inElaboration' }))).toBe('produced');
+    expect(documentHealth(makeDoc({ state: 'planned' }))).toBe('planned');
+    expect(documentHealth(makeDoc({ state: 'inElaboration' }))).toBe('inProduction');
     expect(documentHealth(makeDoc({ state: 'inReview' }))).toBe('produced');
-    expect(documentHealth(makeDoc({ state: 'awaitingApproval' }))).toBe('awaitingApproval');
+    expect(documentHealth(makeDoc({ state: 'awaitingApproval' }))).toBe('inReview');
     expect(documentHealth(makeDoc({ state: 'approved' }))).toBe('approved');
     expect(documentHealth(makeDoc({ state: 'outdated' }))).toBe('rejected');
     expect(documentHealth(makeDoc({ state: 'superseded' }))).toBe('notApplicable');
@@ -90,7 +91,7 @@ describe('workflow-panel-derive', () => {
     ];
     const phase = makePhase({ name: 'Fase' });
     expect(documentsOfPhase(docs, phase).map((d) => d.id)).toEqual(['a', 'b']);
-    expect(filterDocumentsByHealth(docs, 'notProduced').map((d) => d.id)).toEqual(['a', 'c', 'd']);
+    expect(filterDocumentsByHealth(docs, 'planned').map((d) => d.id)).toEqual(['a', 'c', 'd']);
     expect(filterDocumentsByHealth(docs, null)).toHaveLength(4);
   });
 
@@ -113,6 +114,30 @@ describe('workflow-panel-derive', () => {
     expect(phaseProgress(makePhase({ state: 'skipped' }), [], [])).toBe(100);
     expect(phaseProgress(makePhase({ state: 'active' }), [], [])).toBe(0);
     expect(phaseProgress(makePhase({ state: 'pending' }), [], [])).toBe(0);
+  });
+
+  it('explica o progresso por tarefas, documentos, gates e aprovações', () => {
+    const phase = makePhase({ id: 'ph1', name: 'Fase', state: 'active' });
+    const evidence = phaseProgressEvidence(
+      phase,
+      [makeGate({ state: 'approved' })],
+      [makeDoc({ phaseName: 'Fase', state: 'approved' })],
+      [
+        {
+          ...fixtures.data.tasks[0],
+          phaseName: 'Fase',
+          state: 'done',
+        },
+      ],
+      [],
+    );
+
+    expect(evidence).toMatchObject({
+      percent: 100,
+      completed: 3,
+      total: 3,
+      phaseStateFallback: false,
+    });
   });
 });
 
@@ -164,7 +189,7 @@ describe('WorkflowPanel', () => {
 
     // Documento da fase ativa com estado como TEXTO (não só cor).
     expect(screen.getByRole('link', { name: /Nota de arquitetura realtime/ })).toBeInTheDocument();
-    expect(screen.getByText('Aguardando aprovação')).toBeInTheDocument();
+    expect(screen.getByText('Em revisão')).toBeInTheDocument();
   });
 
   it('acordeão acessível: Enter abre/fecha e setas movem o foco entre fases', async () => {
@@ -199,12 +224,12 @@ describe('WorkflowPanel', () => {
     expect(within(section).getByRole('link', { name: /PRD do Poseidon Console/ })).toBeInTheDocument();
     expect(within(section).getByRole('link', { name: /Spec da API v1/ })).toBeInTheDocument();
 
-    await user.click(within(section).getByRole('button', { name: 'Aguardando aprovação (1)' }));
+    await user.click(within(section).getByRole('button', { name: 'Em revisão (1)' }));
     expect(within(section).queryByRole('link', { name: /PRD do Poseidon Console/ })).toBeNull();
     expect(within(section).getByRole('link', { name: /Spec da API v1/ })).toBeInTheDocument();
 
     // Clicar de novo limpa o filtro.
-    await user.click(within(section).getByRole('button', { name: 'Aguardando aprovação (1)' }));
+    await user.click(within(section).getByRole('button', { name: 'Em revisão (1)' }));
     expect(within(section).getByRole('link', { name: /PRD do Poseidon Console/ })).toBeInTheDocument();
   });
 
@@ -222,7 +247,7 @@ describe('WorkflowPanel', () => {
 
     const nota = fixtures.data.documents.find((d) => d.title === 'Nota de arquitetura realtime')!;
     expect(await screen.findByRole('link', { name: /Nota de arquitetura realtime/ })).toBeInTheDocument();
-    expect(screen.getByText('Aguardando aprovação')).toBeInTheDocument();
+    expect(screen.getByText('Em revisão')).toBeInTheDocument();
 
     // Aprovação via API: o mock emite document.stateChanged no stream do
     // projeto e o painel reage sem reload (invalida e refaz a query).
@@ -231,7 +256,7 @@ describe('WorkflowPanel', () => {
     });
 
     expect(await screen.findByText('Aprovado')).toBeInTheDocument();
-    expect(screen.queryByText('Aguardando aprovação')).not.toBeInTheDocument();
+    expect(screen.queryByText('Em revisão')).not.toBeInTheDocument();
   });
 });
 

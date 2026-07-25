@@ -296,7 +296,7 @@
     },
     "auditActorKind": {
       "user": "You",
-      "chief": "Chief",
+      "chief": "Bruna Magalhães",
       "agent": "Agent",
       "system": "System"
     },
@@ -389,7 +389,7 @@
       "quotaExceeded": "Quota exceeded"
     },
     "agentRole": {
-      "chief": "Chief",
+      "chief": "Leadership",
       "specialist": "Specialist"
     },
     "conversationState": {
@@ -448,11 +448,11 @@
   },
   "goldenPath": {
     "title": "Start here",
-    "subtitle": "Follow these steps to take a new project all the way to the Chief's first run.",
+    "subtitle": "Follow these steps to take a new project all the way to Bruna's first run.",
     "progress": "{{done}} of {{total}} done",
     "continue": "Continue",
     "complete": {
-      "title": "All set — the Chief can run on this project.",
+      "title": "All set — Bruna can run on this project.",
       "body": "The initial path is complete. You can start a conversation and follow the execution."
     },
     "status": {
@@ -475,7 +475,7 @@
       },
       "ProjectReady": {
         "title": "Project",
-        "explanation": "Create the project where the Chief will coordinate the work.",
+        "explanation": "Create the project where Bruna will coordinate the work.",
         "cta": "Create project"
       },
       "ProviderAccountReady": {
@@ -494,9 +494,9 @@
         "cta": "Link workflow"
       },
       "ChiefDefinitionReady": {
-        "title": "Chief configured",
-        "explanation": "The Chief needs a resolvable model to coordinate the project.",
-        "cta": "Configure the Chief"
+        "title": "Bruna configured",
+        "explanation": "Bruna needs a resolvable model to coordinate the project.",
+        "cta": "Configure Bruna"
       },
       "AgentPoolReady": {
         "title": "Agents available",
@@ -505,7 +505,7 @@
       },
       "ExecutionReady": {
         "title": "Ready to run",
-        "explanation": "With the dependencies ready, start the Chief’s first run.",
+        "explanation": "With the dependencies ready, start Bruna’s first run.",
         "cta": "Start first run"
       }
     },
@@ -516,7 +516,7 @@
       "provider.connectAccount": "Connect provider account",
       "model.enable": "Enable model",
       "workflow.bind": "Link workflow",
-      "chief.configureModel": "Configure the Chief",
+      "chief.configureModel": "Configure Bruna",
       "agent.recover": "Recover agent",
       "conversation.start": "Start conversation"
     },
@@ -528,8 +528,8 @@
       "provider_account.missing": "No active provider account.",
       "model.none_chat_enabled": "No chat model enabled.",
       "workflow.unbound": "No workflow linked to the project.",
-      "chief.missing": "The project has no Chief.",
-      "chief.model_unresolved": "The Chief’s model could not be resolved.",
+      "chief.missing": "The project has no configured leadership.",
+      "chief.model_unresolved": "Bruna’s model could not be resolved.",
       "agent.unavailable": "No agent available.",
       "agent.degraded": "Agent in a degraded state."
     }
@@ -1057,9 +1057,16 @@
   "chat": {
     "authors": {
       "user": "You",
-      "chief": "Chief",
+      "chief": "Bruna Magalhães",
       "agent": "Agent",
       "system": "System"
+    },
+    "leadership": {
+      "name": "Bruna Magalhães",
+      "title": "Director of AI Engineering and Operations",
+      "photoAlt": "Photo of Bruna Magalhães",
+      "openProfile": "Open Bruna Magalhães's profile",
+      "profileLabel": "Bruna Magalhães profile"
     },
     "conversation": {
       "label": "Conversation",
@@ -1073,17 +1080,25 @@
       "close": "Close workflow panel",
       "phaseProgress": "Progress of phase {{phase}}",
       "documentsLabel": "Documents of phase {{phase}}",
-      "noDocuments": "No documents linked to this phase.",
+      "noDocuments": "No document has been produced or linked to this phase.",
       "noDocumentsFiltered": "No documents in this state.",
+      "expectedArtifacts": "Expected artifacts",
+      "progressEvidence": {
+        "fraction": "{{completed}} of {{total}} items completed",
+        "phaseFallback": "No linked items; percentage is derived only from the phase state.",
+        "tooltip": "Source: tasks, documents, gates and approvals linked to the phase.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nApprovals: {{approvalsDone}}/{{approvalsTotal}}"
+      },
       "filters": {
         "label": "Filter documents of phase {{phase}}"
       },
       "health": {
-        "notProduced": "Not produced",
+        "planned": "Planned",
+        "notStarted": "Not started",
+        "inProduction": "In production",
         "produced": "Produced",
-        "awaitingApproval": "Awaiting approval",
+        "inReview": "In review",
         "approved": "Approved",
-        "rejected": "Rejected/inconsistent",
+        "rejected": "Rejected",
         "notApplicable": "Not applicable"
       },
       "notStarted": {
@@ -1098,17 +1113,17 @@
       }
     },
     "noProject": {
-      "body": "The chat talks to a project's chief. Create a project to get started.",
+      "body": "The chat talks to Bruna Magalhães, who coordinates the project. Create a project to get started.",
       "cta": "Create project"
     },
     "empty": {
-      "title": "Talk to the project's chief",
-      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. The chief coordinates the agents and replies here.",
-      "blockedBody": "The chief's execution is blocked until provider, model and workflow are configured. See what is missing below.",
+      "title": "Talk to Bruna Magalhães",
+      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. Bruna coordinates the agents and replies here.",
+      "blockedBody": "Bruna's execution is blocked until provider, model and workflow are configured. See what is missing below.",
       "cta": "Start conversation"
     },
     "turn": {
-      "coordinating": "Chief is coordinating…",
+      "coordinating": "Bruna is coordinating…",
       "states": {
         "pending": "📥 Received — queued",
         "received": "📥 Received",
@@ -1126,27 +1141,27 @@
       "agentFallback": "an agent",
       "elapsedLabel": "{{elapsed}} elapsed",
       "stuck": "no signal — possibly stuck",
-      "acknowledged": "Turn registered — the chief will run.",
-      "streamingLabel": "Chief response"
+      "acknowledged": "Turn registered — Bruna will run.",
+      "streamingLabel": "Bruna's response"
     },
     "quickActions": {
       "title": "Quick actions",
       "actions": {
         "summarizeProgress": {
           "label": "Summarize progress",
-          "message": "Chief, summarize the project's current progress across the three tracks (executed, validated, approved)."
+          "message": "Bruna, summarize the project's current progress across the three tracks (executed, validated, approved)."
         },
         "blockedStatus": {
           "label": "View blockers",
-          "message": "Chief, which tasks are blocked and what is the plan to unblock them?"
+          "message": "Bruna, which tasks are blocked and what is the plan to unblock them?"
         },
         "approvalStatus": {
           "label": "View pending approvals",
-          "message": "Chief, which approvals are pending and what do I need to decide?"
+          "message": "Bruna, which approvals are pending and what do I need to decide?"
         },
         "planNewDemand": {
           "label": "Plan new demand",
-          "message": "Chief, I want to plan a new demand. Shall we detail the scope?"
+          "message": "Bruna, I want to plan a new demand. Shall we detail the scope?"
         }
       }
     },
@@ -1158,8 +1173,8 @@
       "copied": "Message copied"
     },
     "composer": {
-      "messageLabel": "Message to the chief",
-      "placeholder": "Write to the project's chief…",
+      "messageLabel": "Message to Bruna",
+      "placeholder": "Write to Bruna Magalhães…",
       "send": "Send message",
       "attach": "Attach file",
       "attachments": "Attachments",
@@ -1167,7 +1182,7 @@
       "uploaded": "Attached",
       "removeAttachment": "Remove attachment {{name}}",
       "model": "Model",
-      "modelDefault": "Chief's default",
+      "modelDefault": "Bruna's default",
       "effort": "Effort",
       "effortOptions": {
         "low": "Low",
@@ -1198,8 +1213,8 @@
       }
     },
     "readiness": {
-      "title": "Chief execution blocked",
-      "body": "You can write, but the chief only runs once these dependencies are ready:",
+      "title": "Bruna's execution is blocked",
+      "body": "You can write, but Bruna only runs once these dependencies are ready:",
       "items": {
         "provider": "Provider connected with an active account",
         "model": "Enabled model",

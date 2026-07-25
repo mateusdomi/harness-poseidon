@@ -296,7 +296,7 @@
     },
     "auditActorKind": {
       "user": "Você",
-      "chief": "Chefe",
+      "chief": "Bruna Magalhães",
       "agent": "Agente",
       "system": "Sistema"
     },
@@ -389,7 +389,7 @@
       "quotaExceeded": "Cota excedida"
     },
     "agentRole": {
-      "chief": "Chefe",
+      "chief": "Liderança",
       "specialist": "Especialista"
     },
     "conversationState": {
@@ -448,11 +448,11 @@
   },
   "goldenPath": {
     "title": "Comece por aqui",
-    "subtitle": "Siga estes passos para levar um projeto novo até a primeira execução do Chief.",
+    "subtitle": "Siga estes passos para levar um projeto novo até a primeira execução de Bruna.",
     "progress": "{{done}} de {{total}} concluídos",
     "continue": "Continuar",
     "complete": {
-      "title": "Tudo pronto — o Chief pode executar neste projeto.",
+      "title": "Tudo pronto — Bruna pode executar neste projeto.",
       "body": "O caminho inicial está completo. Você pode iniciar uma conversa e acompanhar a execução."
     },
     "status": {
@@ -475,7 +475,7 @@
       },
       "ProjectReady": {
         "title": "Projeto",
-        "explanation": "Crie o projeto onde o Chief vai coordenar o trabalho.",
+        "explanation": "Crie o projeto onde Bruna vai coordenar o trabalho.",
         "cta": "Criar projeto"
       },
       "ProviderAccountReady": {
@@ -494,9 +494,9 @@
         "cta": "Vincular workflow"
       },
       "ChiefDefinitionReady": {
-        "title": "Chief configurado",
-        "explanation": "O Chief precisa de um modelo resolvível para coordenar o projeto.",
-        "cta": "Configurar o Chief"
+        "title": "Bruna configurada",
+        "explanation": "Bruna precisa de um modelo resolvível para coordenar o projeto.",
+        "cta": "Configurar Bruna"
       },
       "AgentPoolReady": {
         "title": "Agentes disponíveis",
@@ -505,7 +505,7 @@
       },
       "ExecutionReady": {
         "title": "Pronto para executar",
-        "explanation": "Com as dependências prontas, inicie a primeira execução do Chief.",
+        "explanation": "Com as dependências prontas, inicie a primeira execução de Bruna.",
         "cta": "Iniciar primeira execução"
       }
     },
@@ -516,7 +516,7 @@
       "provider.connectAccount": "Conectar conta de provedor",
       "model.enable": "Habilitar modelo",
       "workflow.bind": "Vincular workflow",
-      "chief.configureModel": "Configurar o Chief",
+      "chief.configureModel": "Configurar Bruna",
       "agent.recover": "Recuperar agente",
       "conversation.start": "Iniciar conversa"
     },
@@ -528,8 +528,8 @@
       "provider_account.missing": "Nenhuma conta de provedor ativa.",
       "model.none_chat_enabled": "Nenhum modelo de chat habilitado.",
       "workflow.unbound": "Nenhum workflow vinculado ao projeto.",
-      "chief.missing": "O projeto não tem um Chief.",
-      "chief.model_unresolved": "O modelo do Chief não pôde ser resolvido.",
+      "chief.missing": "O projeto não tem liderança configurada.",
+      "chief.model_unresolved": "O modelo de Bruna não pôde ser resolvido.",
       "agent.unavailable": "Nenhum agente disponível.",
       "agent.degraded": "Agente em estado degradado."
     }
@@ -794,23 +794,23 @@
       "actions": {
         "resolveApprovals": {
           "label": "Há aprovações aguardando sua decisão. Resolver libera os gates do workflow.",
-          "message": "Chefe, liste as aprovações pendentes do projeto e me ajude a decidir cada uma."
+          "message": "Bruna, liste as aprovações pendentes do projeto e me ajude a decidir cada uma."
         },
         "unblockTasks": {
-          "label": "Há tarefas bloqueadas. Peça ao chefe um plano de desbloqueio.",
-          "message": "Chefe, quais tarefas estão bloqueadas e o que falta para desbloquear cada uma?"
+          "label": "Há tarefas bloqueadas. Peça à Bruna um plano de desbloqueio.",
+          "message": "Bruna, quais tarefas estão bloqueadas e o que falta para desbloquear cada uma?"
         },
         "recoverAgents": {
-          "label": "Há agentes em erro ou sem cota. O chefe pode redistribuir o trabalho.",
-          "message": "Chefe, tem agente em erro ou sem cota. Como recuperamos a capacidade do time?"
+          "label": "Há agentes em erro ou sem cota. Bruna pode redistribuir o trabalho.",
+          "message": "Bruna, tem agente em erro ou sem cota. Como recuperamos a capacidade do time?"
         },
         "reviewQuotas": {
           "label": "Há budgets perto do limite. Revise o consumo antes de estourar a cota.",
-          "message": "Chefe, como está o consumo de custo do projeto e o que podemos otimizar?"
+          "message": "Bruna, como está o consumo de custo do projeto e o que podemos otimizar?"
         },
         "reviewPhase": {
           "label": "Operação saudável. Peça um resumo do andamento da fase atual.",
-          "message": "Chefe, me dê um resumo do progresso da fase atual e dos próximos passos."
+          "message": "Bruna, me dê um resumo do progresso da fase atual e dos próximos passos."
         }
       }
     },
@@ -950,7 +950,7 @@
         "versionLabel": "Versão da instrução",
         "version": "Versão {{version}}",
         "author": {
-          "chief": "Chefe",
+          "chief": "Bruna Magalhães",
           "user": "Você"
         }
       },
@@ -1057,9 +1057,16 @@
   "chat": {
     "authors": {
       "user": "Você",
-      "chief": "Chefe",
+      "chief": "Bruna Magalhães",
       "agent": "Agente",
       "system": "Sistema"
+    },
+    "leadership": {
+      "name": "Bruna Magalhães",
+      "title": "Diretora de Engenharia e Operações de IA",
+      "photoAlt": "Foto de Bruna Magalhães",
+      "openProfile": "Abrir perfil de Bruna Magalhães",
+      "profileLabel": "Perfil de Bruna Magalhães"
     },
     "conversation": {
       "label": "Conversa",
@@ -1073,17 +1080,25 @@
       "close": "Fechar painel do workflow",
       "phaseProgress": "Progresso da fase {{phase}}",
       "documentsLabel": "Documentos da fase {{phase}}",
-      "noDocuments": "Nenhum documento vinculado a esta fase.",
+      "noDocuments": "Nenhum documento produzido ou vinculado a esta fase.",
       "noDocumentsFiltered": "Nenhum documento neste estado.",
+      "expectedArtifacts": "Artefatos esperados",
+      "progressEvidence": {
+        "fraction": "{{completed}} de {{total}} itens concluídos",
+        "phaseFallback": "Sem itens vinculados; percentual derivado apenas do estado da fase.",
+        "tooltip": "Fonte: tarefas, documentos, gates e aprovações vinculados à fase.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nAprovações: {{approvalsDone}}/{{approvalsTotal}}"
+      },
       "filters": {
         "label": "Filtrar documentos da fase {{phase}}"
       },
       "health": {
-        "notProduced": "Não produzido",
+        "planned": "Previsto",
+        "notStarted": "Não iniciado",
+        "inProduction": "Em produção",
         "produced": "Produzido",
-        "awaitingApproval": "Aguardando aprovação",
+        "inReview": "Em revisão",
         "approved": "Aprovado",
-        "rejected": "Rejeitado/inconsistente",
+        "rejected": "Reprovado",
         "notApplicable": "Não aplicável"
       },
       "notStarted": {
@@ -1098,17 +1113,17 @@
       }
     },
     "noProject": {
-      "body": "O chat conversa com o chefe de um projeto. Crie um projeto para começar.",
+      "body": "O chat conversa com Bruna Magalhães, responsável pela coordenação do projeto. Crie um projeto para começar.",
       "cta": "Criar projeto"
     },
     "empty": {
-      "title": "Converse com o chefe do projeto",
-      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. O chefe coordena os agentes e responde por aqui.",
-      "blockedBody": "A execução do chefe está bloqueada até que provedor, modelo e workflow estejam configurados. Veja o que falta logo abaixo.",
+      "title": "Converse com Bruna Magalhães",
+      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. Bruna coordena os agentes e responde por aqui.",
+      "blockedBody": "A execução de Bruna está bloqueada até que provedor, modelo e workflow estejam configurados. Veja o que falta logo abaixo.",
       "cta": "Iniciar conversa"
     },
     "turn": {
-      "coordinating": "Chefe está coordenando…",
+      "coordinating": "Bruna está coordenando…",
       "states": {
         "pending": "📥 Recebido — na fila",
         "received": "📥 Recebido",
@@ -1126,27 +1141,27 @@
       "agentFallback": "um agente",
       "elapsedLabel": "há {{elapsed}}",
       "stuck": "sem sinal — possivelmente travado",
-      "acknowledged": "Turno registrado — o chefe vai executar.",
-      "streamingLabel": "Resposta do chefe"
+      "acknowledged": "Turno registrado — Bruna vai executar.",
+      "streamingLabel": "Resposta de Bruna"
     },
     "quickActions": {
       "title": "Ações rápidas",
       "actions": {
         "summarizeProgress": {
           "label": "Resumir progresso",
-          "message": "Chefe, resuma o progresso atual do projeto nas três trilhas (executado, validado, aprovado)."
+          "message": "Bruna, resuma o progresso atual do projeto nas três trilhas (executado, validado, aprovado)."
         },
         "blockedStatus": {
           "label": "Ver bloqueios",
-          "message": "Chefe, quais tarefas estão bloqueadas e qual o plano para desbloqueá-las?"
+          "message": "Bruna, quais tarefas estão bloqueadas e qual o plano para desbloqueá-las?"
         },
         "approvalStatus": {
           "label": "Ver aprovações pendentes",
-          "message": "Chefe, quais aprovações estão pendentes e o que preciso decidir?"
+          "message": "Bruna, quais aprovações estão pendentes e o que preciso decidir?"
         },
         "planNewDemand": {
           "label": "Planejar nova demanda",
-          "message": "Chefe, quero planejar uma nova demanda. Vamos detalhar o escopo?"
+          "message": "Bruna, quero planejar uma nova demanda. Vamos detalhar o escopo?"
         }
       }
     },
@@ -1158,8 +1173,8 @@
       "copied": "Mensagem copiada"
     },
     "composer": {
-      "messageLabel": "Mensagem para o chefe",
-      "placeholder": "Escreva para o chefe do projeto…",
+      "messageLabel": "Mensagem para Bruna",
+      "placeholder": "Escreva para Bruna Magalhães…",
       "send": "Enviar mensagem",
       "attach": "Anexar arquivo",
       "attachments": "Anexos",
@@ -1167,7 +1182,7 @@
       "uploaded": "Anexado",
       "removeAttachment": "Remover anexo {{name}}",
       "model": "Modelo",
-      "modelDefault": "Padrão do chefe",
+      "modelDefault": "Padrão de Bruna",
       "effort": "Esforço",
       "effortOptions": {
         "low": "Baixo",
@@ -1187,19 +1202,19 @@
         "provider_account": { "missing": "Conecte uma conta de provedor." },
         "model": { "none_chat_enabled": "Habilite um modelo de chat." },
         "workflow": { "unbound": "Vincule um workflow ao projeto." },
-        "chief": { "model_unresolved": "Defina o modelo do chefe." }
+        "chief": { "model_unresolved": "Defina o modelo de Bruna." }
       },
       "actions": {
         "unknown": "Resolver dependência",
         "provider": { "connectAccount": "Conectar conta de provedor" },
         "model": { "enable": "Habilitar modelo" },
         "workflow": { "bind": "Vincular workflow" },
-        "chief": { "configureModel": "Configurar modelo do chefe" }
+        "chief": { "configureModel": "Configurar modelo de Bruna" }
       }
     },
     "readiness": {
-      "title": "Execução do chefe bloqueada",
-      "body": "Você pode escrever, mas o chefe só executa quando estas dependências estiverem prontas:",
+      "title": "Execução de Bruna bloqueada",
+      "body": "Você pode escrever, mas Bruna só executa quando estas dependências estiverem prontas:",
       "items": {
         "provider": "Provedor conectado com conta ativa",
         "model": "Modelo habilitado",

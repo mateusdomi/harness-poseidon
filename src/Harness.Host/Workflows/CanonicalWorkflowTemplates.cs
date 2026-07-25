@@ -47,7 +47,7 @@ public static class CanonicalWorkflowTemplates
     public const string RecommendedKey = "delivery-standard";
 
     /// <summary>
-    /// DEL-07 — a chave canônica do workflow de ENTREGA TÉCNICA de 11 fases (Recebimento → Revisão de
+    /// DEL-07 — a chave canônica do workflow de ENTREGA TÉCNICA (Ideação → Revisão de
     /// benefícios), com portões (gates) e documentos obrigatórios por fase. Reusa o módulo de Workflows
     /// (GP-09): é um template canônico publicado, não um novo motor.
     /// </summary>
@@ -107,11 +107,11 @@ public static class CanonicalWorkflowTemplates
     public static CanonicalWorkflowTemplate Recommended { get; } =
         All.Single(template => template.Key == RecommendedKey);
 
-    /// <summary>DEL-07 — o workflow de entrega técnica de 11 fases.</summary>
+    /// <summary>DEL-07 — o workflow de entrega técnica de ciclo completo.</summary>
     public static CanonicalWorkflowTemplate TechnicalDeliveryTemplate { get; } =
         All.Single(template => template.Key == TechnicalDeliveryKey);
 
-    // DEL-07 — as 11 fases da entrega técnica, com portões e documentos obrigatórios por fase. Cada
+    // DEL-07 — as 15 fases da entrega técnica, com portões e documentos esperados por fase. Cada
     // documento vira um objetivo de fase de tipo 'document' (semeado pelo WorkflowTemplateSeeder); cada
     // portão vira um objetivo/gate 'gate'. Todas as fases carregam ao menos um documento obrigatório e
     // as fases de decisão/prontidão carregam um portão de aprovação.
@@ -119,30 +119,49 @@ public static class CanonicalWorkflowTemplates
     {
         var phases = new[]
         {
-            "Recebimento", "Baseline", "Planejamento", "Execução acompanhada", "Prontidão homolog",
-            "Homologação", "Prontidão prod", "Produção", "Estabilização", "Encerramento",
-            "Revisão de benefícios",
+            "Ideação e recebimento", "Descoberta", "Requisitos", "Arquitetura", "Planejamento",
+            "Implementação", "Verificação e qualidade", "Prontidão para homologação",
+            "Homologação", "Prontidão para produção", "Produção", "Estabilização", "Sustentação",
+            "Encerramento", "Revisão de benefícios",
         };
 
         var documents = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
         {
-            ["Recebimento"] = ["Registro da solicitação", "Critérios de aceite"],
-            ["Baseline"] = ["Baseline técnica", "Mapa de dependências"],
-            ["Planejamento"] = ["Plano de entrega", "Plano de marcos"],
-            ["Execução acompanhada"] = ["Registro de execução", "Log de decisões"],
-            ["Prontidão homolog"] = ["Checklist de prontidão de homologação"],
-            ["Homologação"] = ["Relatório de homologação"],
-            ["Prontidão prod"] = ["Checklist de prontidão de produção", "Plano de rollback"],
+            ["Ideação e recebimento"] = ["Registro da solicitação", "Visão inicial"],
+            ["Descoberta"] = ["Visão", "Stakeholders", "Hipóteses", "Riscos"],
+            ["Requisitos"] = ["Requisitos", "Critérios de aceite", "Backlog", "Rastreabilidade"],
+            ["Arquitetura"] = [
+                "Modelo C4", "ADRs", "Segurança", "Integrações", "Modelo de dados",
+                "Plano de observabilidade",
+            ],
+            ["Planejamento"] = [
+                "Roadmap", "Plano de releases", "Decomposição", "Dependências", "Plano de riscos",
+                "Plano de testes",
+            ],
+            ["Implementação"] = [
+                "Código", "Migrations", "Contratos", "Documentação técnica", "Evidências",
+            ],
+            ["Verificação e qualidade"] = [
+                "Relatório de testes", "Revisão independente", "Segurança", "Performance",
+                "Acessibilidade",
+            ],
+            ["Prontidão para homologação"] = ["Checklist de prontidão para homologação"],
+            ["Homologação"] = ["Roteiro de homologação", "Evidências", "Findings", "Aceite"],
+            ["Prontidão para produção"] = [
+                "Checklist de prontidão para produção", "Plano de implantação", "Plano de rollback",
+            ],
             ["Produção"] = ["Runbook operacional", "Registro de implantação"],
             ["Estabilização"] = ["Relatório de estabilização"],
+            ["Sustentação"] = ["Plano de operação", "Monitoramento", "Registro de incidentes"],
             ["Encerramento"] = ["Dossiê de encerramento"],
             ["Revisão de benefícios"] = ["Relatório de benefícios"],
         };
 
         var gatedPhases = new[]
         {
-            "Baseline", "Planejamento", "Prontidão homolog", "Homologação", "Prontidão prod",
-            "Produção", "Encerramento", "Revisão de benefícios",
+            "Requisitos", "Arquitetura", "Planejamento", "Verificação e qualidade",
+            "Prontidão para homologação", "Homologação", "Prontidão para produção", "Produção",
+            "Encerramento", "Revisão de benefícios",
         };
 
         var gates = gatedPhases.ToDictionary(
@@ -152,10 +171,12 @@ public static class CanonicalWorkflowTemplates
 
         return new CanonicalWorkflowTemplate(
             TechnicalDeliveryKey,
+            // Nome estável: identifica o mesmo template em instalações
+            // existentes; o ciclo evolui por nova versão, sem duplicação.
             "Entrega técnica (Recebimento → Revisão de benefícios)",
-            "Fluxo canônico de entrega técnica em 11 fases, com portões (gates) e documentos " +
-            "obrigatórios por fase: recebimento, baseline, planejamento, execução acompanhada, " +
-            "prontidão de homologação, homologação, prontidão de produção, produção, estabilização, " +
+            "Fluxo canônico de entrega técnica em 15 fases, com portões (gates) e artefatos " +
+            "esperados por fase: ideação, descoberta, requisitos, arquitetura, planejamento, " +
+            "implementação, verificação, homologação, produção, estabilização, sustentação, " +
             "encerramento e revisão de benefícios.",
             phases,
             gates,

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -7,20 +8,32 @@ import {
   CircleMinus,
   FilePenLine,
   Hourglass,
+  Info,
   TriangleAlert,
   X,
   type LucideIcon,
 } from 'lucide-react';
 
-import { streams, type Document, type Gate, type Phase, type Ulid } from '@/api';
-import { Badge, Button, Skeleton } from '@/design-system';
 import {
+  streams,
+  type Approval,
+  type Document,
+  type Gate,
+  type Phase,
+  type Task,
+  type Ulid,
+} from '@/api';
+import { useApi } from '@/app/api-context';
+import { Badge, Button, Skeleton, Tooltip } from '@/design-system';
+import {
+  absentArtifactHealth,
   countDocumentsByHealth,
   DOCUMENT_HEALTH_FILTERS,
   documentHealth,
   documentsOfPhase,
+  expectedArtifactsForPhase,
   filterDocumentsByHealth,
-  phaseProgress,
+  phaseProgressEvidence,
   type DocumentHealth,
   type DocumentHealthFilter,
 } from '@/features/chat/lib/workflow-panel-derive';
@@ -38,9 +51,11 @@ import { cn } from '@/lib/utils';
 
 /** Texto + ícone + cor por conceito documental (nunca só cor — D-068). */
 const HEALTH_META: Record<DocumentHealth, { Icon: LucideIcon; className: string }> = {
-  notProduced: { Icon: CircleDashed, className: 'text-foreground-muted' },
+  planned: { Icon: CircleDashed, className: 'text-foreground-muted' },
+  notStarted: { Icon: CircleDashed, className: 'text-foreground-muted' },
+  inProduction: { Icon: FilePenLine, className: 'text-info' },
   produced: { Icon: FilePenLine, className: 'text-info' },
-  awaitingApproval: { Icon: Hourglass, className: 'text-warning' },
+  inReview: { Icon: Hourglass, className: 'text-warning' },
   approved: { Icon: CircleCheck, className: 'text-success' },
   rejected: { Icon: TriangleAlert, className: 'text-error' },
   notApplicable: { Icon: CircleMinus, className: 'text-foreground-muted' },
@@ -55,12 +70,25 @@ const PANEL_EVENT_TYPES = ['document.stateChanged', 'gate.changed', 'progress.up
  * cache React Query, sem endpoints novos) e assina o stream do projeto.
  */
 function useWorkflowPanel(projectId: Ulid | null) {
+  const api = useApi();
   const workflowQuery = useProjectWorkflow(projectId);
   const workflow = workflowQuery.data ?? null;
   const runQuery = useActiveRun(workflow?.id ?? null);
   const run = runQuery.data ?? null;
   const runDetails = useRunDetails(run?.id ?? null);
   const documentsQuery = useWorkflowDocuments(projectId);
+  const tasksQuery = useQuery({
+    queryKey: ['chat', 'workflow-panel', 'tasks', projectId ?? 'none'] as const,
+    queryFn: async (): Promise<Task[]> =>
+      (await api.list('tasks', { filter: { projectId: projectId! } })).items,
+    enabled: projectId !== null,
+  });
+  const approvalsQuery = useQuery({
+    queryKey: ['chat', 'workflow-panel', 'approvals', projectId ?? 'none'] as const,
+    queryFn: async (): Promise<Approval[]> =>
+      (await api.list('approvals', { filter: { projectId: projectId! } })).items,
+    enabled: projectId !== null,
+  });
 
   useRealtimeStream(projectId === null ? null : streams.project(projectId), {
     types: PANEL_EVENT_TYPES,
@@ -75,18 +103,29 @@ function useWorkflowPanel(projectId: Ulid | null) {
     phases: runDetails.phases,
     gates: runDetails.gates,
     documents: documentsQuery.data ?? [],
+    tasks: tasksQuery.data ?? [],
+    approvals: approvalsQuery.data ?? [],
     isPending:
       workflowQuery.isLoading ||
       (workflow !== null && runQuery.isLoading) ||
       (run !== null && runDetails.isPending) ||
-      documentsQuery.isLoading,
+      documentsQuery.isLoading ||
+      tasksQuery.isLoading ||
+      approvalsQuery.isLoading,
     isError:
-      workflowQuery.isError || runQuery.isError || runDetails.isError || documentsQuery.isError,
+      workflowQuery.isError ||
+      runQuery.isError ||
+      runDetails.isError ||
+      documentsQuery.isError ||
+      tasksQuery.isError ||
+      approvalsQuery.isError,
     refetch: () => {
       void workflowQuery.refetch();
       void runQuery.refetch();
       runDetails.refetch();
       void documentsQuery.refetch();
+      void tasksQuery.refetch();
+      void approvalsQuery.refetch();
     },
   };
 }
@@ -112,20 +151,48 @@ interface PhaseAccordionProps {
   phase: Phase;
   gates: Gate[];
   documents: Document[];
+  tasks: Task[];
+  approvals: Approval[];
   defaultOpen: boolean;
 }
 
 /** Fase como acordeão: nome + estado, barra de progresso e documentos. */
-function PhaseAccordion({ phase, gates, documents, defaultOpen }: PhaseAccordionProps) {
+function PhaseAccordion({
+  phase,
+  gates,
+  documents,
+  tasks,
+  approvals,
+  defaultOpen,
+}: PhaseAccordionProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const [filter, setFilter] = useState<DocumentHealthFilter | null>(null);
 
   const contentId = `workflow-panel-phase-${phase.id}`;
-  const progress = phaseProgress(phase, gates, documents);
+  const progress = phaseProgressEvidence(phase, gates, documents, tasks, approvals);
   const phaseDocuments = documentsOfPhase(documents, phase);
   const counts = countDocumentsByHealth(phaseDocuments);
   const visibleDocuments = filterDocumentsByHealth(phaseDocuments, filter);
+  const expectedArtifacts = expectedArtifactsForPhase(phase);
+  const missingExpectedArtifacts = expectedArtifacts.filter((artifact) => {
+    const normalized = artifact.toLocaleLowerCase('pt-BR');
+    return !phaseDocuments.some((document) => {
+      const title = document.title.toLocaleLowerCase('pt-BR');
+      return title.includes(normalized) || normalized.includes(title);
+    });
+  });
+  const absentHealth = absentArtifactHealth(phase);
+  const progressTooltip = t('chat.workflowPanel.progressEvidence.tooltip', {
+    tasksDone: progress.tasks.completed,
+    tasksTotal: progress.tasks.total,
+    documentsDone: progress.documents.completed,
+    documentsTotal: progress.documents.total,
+    gatesDone: progress.gates.completed,
+    gatesTotal: progress.gates.total,
+    approvalsDone: progress.approvals.completed,
+    approvalsTotal: progress.approvals.total,
+  });
 
   return (
     <section className="rounded-lg border border-border">
@@ -153,20 +220,37 @@ function PhaseAccordion({ phase, gates, documents, defaultOpen }: PhaseAccordion
           <div
             role="progressbar"
             aria-label={t('chat.workflowPanel.phaseProgress', { phase: phase.name })}
-            aria-valuenow={progress}
+            aria-valuenow={progress.percent}
             aria-valuemin={0}
             aria-valuemax={100}
             className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-elevated"
           >
             <div
               className="h-full rounded-full bg-brand transition-[width]"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${progress.percent}%` }}
             />
           </div>
           <span className="text-xs tabular-nums text-foreground-muted">
-            {formatNumber(progress)}%
+            {formatNumber(progress.percent)}%
           </span>
+          <Tooltip label={progressTooltip}>
+            <button
+              type="button"
+              aria-label={progressTooltip}
+              className="rounded-full text-foreground-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <Info aria-hidden="true" className="size-3.5" />
+            </button>
+          </Tooltip>
         </div>
+        <p className="mt-1 text-xs text-foreground-muted">
+          {progress.phaseStateFallback
+            ? t('chat.workflowPanel.progressEvidence.phaseFallback')
+            : t('chat.workflowPanel.progressEvidence.fraction', {
+                completed: progress.completed,
+                total: progress.total,
+              })}
+        </p>
       </div>
       {open && (
         <div id={contentId} className="flex flex-col gap-2 border-t border-border px-3 py-2">
@@ -192,6 +276,27 @@ function PhaseAccordion({ phase, gates, documents, defaultOpen }: PhaseAccordion
                   {t(`chat.workflowPanel.health.${option}`)} ({formatNumber(counts[option])})
                 </button>
               ))}
+            </div>
+          )}
+          {missingExpectedArtifacts.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <h4 className="text-xs font-semibold">
+                {t('chat.workflowPanel.expectedArtifacts')}
+              </h4>
+              <ul className="flex flex-col gap-1">
+                {missingExpectedArtifacts.map((artifact) => {
+                  const { Icon, className } = HEALTH_META[absentHealth];
+                  return (
+                    <li key={artifact} className="flex min-h-9 items-center gap-2 text-xs">
+                      <Icon aria-hidden="true" className={cn('size-4 shrink-0', className)} />
+                      <span className="min-w-0 flex-1">{artifact}</span>
+                      <span className={cn('shrink-0', className)}>
+                        {t(`chat.workflowPanel.health.${absentHealth}`)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
           {phaseDocuments.length === 0 ? (
@@ -287,6 +392,8 @@ export function WorkflowPanel({ projectId }: { projectId: Ulid | null }) {
           phase={phase}
           gates={panel.gates}
           documents={panel.documents}
+          tasks={panel.tasks}
+          approvals={panel.approvals}
           defaultOpen={phase.state === 'active'}
         />
       ))}

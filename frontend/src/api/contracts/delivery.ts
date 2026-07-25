@@ -35,6 +35,8 @@ export const taskSchema = z.object({
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
   dueAt: isoDateTimeSchema.nullable(),
+  /** Fase canônica do workflow associada à tarefa, quando informada. */
+  phaseName: z.string().nullable().optional(),
   /**
    * Arquivamento é um METAESTADO (não entra na máquina de estados):
    * a tarefa arquivada some do quadro padrão, mas mantém estado/histórico

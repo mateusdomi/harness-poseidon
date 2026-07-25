@@ -7,6 +7,7 @@ import type { Document, Message, Task } from '@/api';
 import { extractReferences } from '@/features/chat/lib/chat-derive';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { AgentAvatar } from '@/features/shared/components/agent-avatar';
+import { BrunaProfileAvatar } from '@/features/chat/components/bruna-profile-avatar';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -37,8 +38,8 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = message.authorRole === 'user';
-  // O Chefe e os especialistas ganham nome/foto humanos; o papel (ex.: "Chefe")
-  // e o alias técnico permanecem visíveis por transparência.
+  // A liderança e os especialistas ganham identidade pública humana. Aliases
+  // técnicos ficam fora da conversa e permanecem nos diagnósticos avançados.
   const isAgentAuthor = message.authorRole === 'chief' || message.authorRole === 'agent';
   const identity = isAgentAuthor ? resolveAgentIdentity(authorAlias, authorName) : null;
   const references = extractReferences(message.content, tasks, documents);
@@ -75,15 +76,18 @@ export function MessageBubble({
       )}
     >
       <header className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-        {identity && <AgentAvatar name={identity.humanName} size={28} />}
-        <span
-          className="text-sm font-semibold text-foreground"
-          title={identity?.alias || undefined}
-        >
+        {message.authorRole === 'chief' ? (
+          <BrunaProfileAvatar size={28} />
+        ) : (
+          identity && <AgentAvatar name={identity.humanName} size={28} />
+        )}
+        <span className="text-sm font-semibold text-foreground">
           {identity?.humanName ?? authorName ?? roleLabel}
         </span>
         {(identity || authorName) && (
-          <span className="text-xs text-foreground-muted">{roleLabel}</span>
+          <span className="text-xs text-foreground-muted">
+            {identity?.roleLabel ?? roleLabel}
+          </span>
         )}
         <time dateTime={message.createdAt} className="text-xs tabular-nums text-foreground-muted">
           {formatDateTime(message.createdAt)}

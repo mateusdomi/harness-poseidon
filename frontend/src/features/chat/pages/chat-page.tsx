@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { MessagesSquare, PanelRight, Plus } from 'lucide-react';
+import { PanelRight, Plus } from 'lucide-react';
 
 import type { ChatTurnHandle, ReadinessStep, Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton } from '@/design-system';
@@ -32,7 +32,7 @@ import {
   type QuickActionKey,
 } from '@/features/chat/lib/chat-derive';
 import { useGoldenPath } from '@/features/onboarding/hooks/use-golden-path';
-import { AgentAvatar } from '@/features/shared/components/agent-avatar';
+import { BrunaProfileAvatar } from '@/features/chat/components/bruna-profile-avatar';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { useActiveProjectStore } from '@/stores/active-project-store';
@@ -324,9 +324,10 @@ export default function ChatPage() {
                 aria-hidden="true"
                 className="pointer-events-none absolute left-1/2 top-1/2 size-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[image:var(--gradient-brand)] opacity-[0.07] blur-3xl"
               />
-              <div className="relative flex size-12 items-center justify-center rounded-full bg-primary/10 text-brand-strong">
-                <MessagesSquare aria-hidden="true" className="size-6" />
-              </div>
+              <BrunaProfileAvatar size={64} className="relative" />
+              <p className="relative text-sm text-foreground-muted">
+                {t('chat.leadership.name')} · {t('chat.leadership.title')}
+              </p>
               <p className="relative font-heading text-lg font-semibold">{t('chat.empty.title')}</p>
               <p className="relative max-w-prose text-sm text-foreground-muted">
                 {canExecute ? t('chat.empty.body') : t('chat.empty.blockedBody')}
@@ -391,10 +392,7 @@ export default function ChatPage() {
                   {turn.text !== '' && (
                     <article className="flex max-w-[85%] flex-col gap-2 self-start rounded-xl border border-border bg-surface-elevated p-3 shadow-card lg:max-w-[70%]">
                       <header className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
-                        <AgentAvatar
-                          name={resolveAgentIdentity('chief-orchestrator').humanName}
-                          size={28}
-                        />
+                        <BrunaProfileAvatar size={28} />
                         <span className="text-sm font-semibold text-foreground">
                           {resolveAgentIdentity('chief-orchestrator').humanName}
                         </span>
