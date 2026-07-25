@@ -1,11 +1,6 @@
-import { useEffect, useState } from 'react';
-
-import { AgentAvatar } from '@/features/shared/components/agent-avatar';
-import {
-  useAgentPhotoRevision,
-  useLeadershipProfile,
-} from '@/features/shared/hooks/use-leadership-profile';
-import { apiMode } from '@/config/features';
+import { ManagedAgentAvatar } from '@/features/shared/components/managed-agent-avatar';
+import { useLeadershipProfile } from '@/features/shared/hooks/use-leadership-profile';
+import { isLeadershipAlias } from '@/features/shared/lib/agent-photo';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { cn } from '@/lib/utils';
 
@@ -48,41 +43,20 @@ export function AgentIdentity({
   nameClassName,
 }: AgentIdentityProps) {
   const leadershipProfile = useLeadershipProfile().data;
-  const photoRevision = useAgentPhotoRevision(alias);
-  const [managedPhotoFailed, setManagedPhotoFailed] = useState(false);
   const identity = resolveAgentIdentity(alias, fallbackName);
-  const isLeadership =
-    alias === 'chief-orchestrator' || alias === 'chief' || alias === 'chief-claude-primary';
+  const isLeadership = isLeadershipAlias(alias);
   const humanName =
     isLeadership && leadershipProfile ? leadershipProfile.displayName : identity.humanName;
   const subtitle = technicalLabel ?? identity.roleLabel ?? identity.alias;
 
-  useEffect(() => setManagedPhotoFailed(false), [alias, photoRevision]);
-
   return (
     <span className={cn('flex min-w-0 items-center gap-2.5', className)}>
-      {isLeadership && leadershipProfile ? (
-        <img
-          src={leadershipProfile.photoUrl}
-          alt=""
-          width={size}
-          height={size}
-          className="shrink-0 rounded-full object-cover"
-          style={{ width: size, height: size }}
-        />
-      ) : apiMode !== 'http' || managedPhotoFailed ? (
-        <AgentAvatar name={humanName} size={size} />
-      ) : (
-        <img
-          src={`/api/v1/leadership-profile/agents/${encodeURIComponent(alias)}/photo?v=${photoRevision}`}
-          alt=""
-          width={size}
-          height={size}
-          onError={() => setManagedPhotoFailed(true)}
-          className="shrink-0 rounded-full object-cover"
-          style={{ width: size, height: size }}
-        />
-      )}
+      <ManagedAgentAvatar
+        alias={alias}
+        fallbackName={fallbackName}
+        roleLabel={identity.roleLabel}
+        size={size}
+      />
       <span className="flex min-w-0 flex-col">
         <span
           className={cn('truncate font-heading font-semibold text-foreground', nameClassName)}

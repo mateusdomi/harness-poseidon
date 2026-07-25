@@ -2,7 +2,16 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Field, Select, Skeleton } from '@/design-system';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Select,
+  Skeleton,
+} from '@/design-system';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 
 import { ArchitectureApiProvider } from '../api/architecture-provider';
@@ -36,8 +45,12 @@ import { AddElementForm } from '../components/add-element-form';
  */
 export function ArchitectureStudio() {
   const { t } = useTranslation();
-  const { projects, activeProject, setActiveProject, isPending: projectsPending } =
-    useActiveProject();
+  const {
+    projects,
+    activeProject,
+    setActiveProject,
+    isPending: projectsPending,
+  } = useActiveProject();
   const projectId = activeProject?.id ?? null;
 
   const [presetId, setPresetId] = useState('model');
@@ -54,10 +67,7 @@ export function ArchitectureStudio() {
   const createViewMutation = useCreateView(projectId ?? '');
 
   const elements = useMemo(() => elementsQuery.data ?? [], [elementsQuery.data]);
-  const relationships = useMemo(
-    () => relationshipsQuery.data ?? [],
-    [relationshipsQuery.data],
-  );
+  const relationships = useMemo(() => relationshipsQuery.data ?? [], [relationshipsQuery.data]);
 
   const projected = useMemo<{
     elements: ArchitectureElement[];
@@ -93,13 +103,17 @@ export function ArchitectureStudio() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{t('architecture.title')}</h1>
           <p className="text-sm text-foreground-muted">{t('architecture.subtitle')}</p>
         </div>
-        <Field htmlFor="architecture-project" label={t('architecture.projectLabel')} className="md:w-72">
+        <Field
+          htmlFor="architecture-project"
+          label={t('architecture.projectLabel')}
+          className="md:w-72"
+        >
           <Select
             id="architecture-project"
             value={activeProject?.id ?? ''}
@@ -119,8 +133,8 @@ export function ArchitectureStudio() {
         </Field>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
-        <div className="flex flex-col gap-6">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader>
               <CardTitle>{t('architecture.selector.title')}</CardTitle>
@@ -173,7 +187,7 @@ export function ArchitectureStudio() {
           </Card>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <p className="text-sm text-foreground-muted" data-testid="architecture-view-summary">
             {t('architecture.canvas.summary', {
               elements: projected.elements.length,
@@ -192,7 +206,7 @@ export function ArchitectureStudio() {
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           {selectedElement ? (
             <ElementInspector
               element={selectedElement}
@@ -263,13 +277,17 @@ export function ArchitectureHub() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">{t('architecture.hub.title')}</h1>
         <p className="text-sm text-foreground-muted">{t('architecture.hub.subtitle')}</p>
       </div>
 
-      <div role="tablist" aria-label={t('architecture.hub.tabsLabel')} className="flex flex-wrap gap-1">
+      <div
+        role="tablist"
+        aria-label={t('architecture.hub.tabsLabel')}
+        className="flex flex-wrap gap-1"
+      >
         {HUB_TABS.map((tab) => (
           <button
             key={tab}
@@ -289,7 +307,7 @@ export function ArchitectureHub() {
         ))}
       </div>
 
-      <div role="tabpanel" aria-labelledby={`architecture-tab-${activeTab}`}>
+      <div role="tabpanel" aria-labelledby={`architecture-tab-${activeTab}`} className="min-w-0">
         {activeTab === 'studio' ? <ArchitectureStudio /> : null}
         {activeTab === 'systems' ? (
           selectedSystem ? (

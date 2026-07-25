@@ -393,7 +393,7 @@ export default function ChatPage() {
                     <article className="flex max-w-[92%] flex-col gap-3 self-start rounded-xl border border-border bg-surface-elevated p-4 shadow-card md:p-5 lg:max-w-[78%]">
                       <header className="flex flex-wrap items-start gap-3 text-xs text-foreground-muted">
                         <BrunaProfileAvatar
-                          size={72}
+                          size={80}
                           className="ring-2 ring-brand/40 shadow-glow ring-offset-2 ring-offset-surface-elevated"
                         />
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -406,7 +406,7 @@ export default function ChatPage() {
                           <span>{t('chat.turn.streamingLabel')}</span>
                         </div>
                       </header>
-                      <div className="md:pl-[5.5rem]">
+                      <div className="md:pl-24">
                         <MarkdownContent content={turn.text} />
                       </div>
                     </article>
@@ -423,6 +423,7 @@ export default function ChatPage() {
             hasProvider={hasProvider}
             hasModel={hasModel}
             hasWorkflow={hasWorkflow}
+            executionBlocked
           />
         )}
 

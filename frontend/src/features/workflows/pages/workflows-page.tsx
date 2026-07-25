@@ -37,8 +37,13 @@ export default function UworkflowsPage() {
   const workflow = workflowQuery.data ?? null;
   const runQuery = useActiveRun(workflow?.id ?? null);
   const run = runQuery.data ?? null;
-  const { phases, gates, isPending: runPending, isError: runError, refetch: refetchRun } =
-    useRunDetails(run?.id ?? null);
+  const {
+    phases,
+    gates,
+    isPending: runPending,
+    isError: runError,
+    refetch: refetchRun,
+  } = useRunDetails(run?.id ?? null);
   const documentsQuery = useWorkflowDocuments(projectId);
   const {
     templates,
@@ -128,9 +133,7 @@ export default function UworkflowsPage() {
           versions={versions}
           linking={linkTemplate.isPending}
           error={linkTemplate.isError}
-          onLink={(templateId) =>
-            linkTemplate.mutate({ projectId: activeProject.id, templateId })
-          }
+          onLink={(templateId) => linkTemplate.mutate({ projectId: activeProject.id, templateId })}
         />
       ) : (
         <>
@@ -152,15 +155,11 @@ export default function UworkflowsPage() {
           <OperationModeCard workflow={workflow} gateNames={gateNames} />
 
           {run && phases.length > 0 && (
-            <section aria-labelledby="phases-title" className="flex flex-col gap-3">
+            <section aria-labelledby="phases-title" className="flex min-w-0 flex-col gap-3">
               <h2 id="phases-title" className="font-heading text-lg font-semibold">
                 {t('workflows.phases.title')}
               </h2>
-              <PhaseStepper
-                phases={phases}
-                gates={gates}
-                documents={documentsQuery.data ?? []}
-              />
+              <PhaseStepper phases={phases} gates={gates} documents={documentsQuery.data ?? []} />
             </section>
           )}
 

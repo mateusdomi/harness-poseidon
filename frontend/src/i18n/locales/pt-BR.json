@@ -1334,6 +1334,7 @@
     "readiness": {
       "title": "Execução de Bruna bloqueada",
       "body": "Você pode escrever, mas Bruna só executa quando estas dependências estiverem prontas:",
+      "additionalBlocker": "As dependências básicas estão prontas, mas o read model reporta outro bloqueio operacional. Consulte o diagnóstico para ver a causa.",
       "items": {
         "provider": "Provedor conectado com conta ativa",
         "model": "Modelo habilitado",
@@ -1342,7 +1343,8 @@
       "actions": {
         "provider": "Configurar provedor",
         "model": "Escolher modelo",
-        "workflow": "Vincular workflow"
+        "workflow": "Vincular workflow",
+        "diagnostics": "Ver diagnóstico"
       }
     }
   },

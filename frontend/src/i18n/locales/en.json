@@ -1334,6 +1334,7 @@
     "readiness": {
       "title": "Bruna's execution is blocked",
       "body": "You can write, but Bruna only runs once these dependencies are ready:",
+      "additionalBlocker": "The basic dependencies are ready, but the read model reports another operational blocker. Open diagnostics to see the cause.",
       "items": {
         "provider": "Provider connected with an active account",
         "model": "Enabled model",
@@ -1342,7 +1343,8 @@
       "actions": {
         "provider": "Configure provider",
         "model": "Choose model",
-        "workflow": "Link workflow"
+        "workflow": "Link workflow",
+        "diagnostics": "View diagnostics"
       }
     }
   },

@@ -1,5 +1,5 @@
 manifestVersion: 1.0.0
-lastGeneratedAt: 2026-07-25T20:06:08.5264800+00:00
+lastGeneratedAt: 2026-07-25T22:09:09.3143010+00:00
 tokenBudget: 24000
 knownOwners:
 - Agent Platform
@@ -221,7 +221,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:137fd9fcbdbc93b8a0bde539c803ad64dca444c9b39fda2e115f2c75faee5e95
+  checksum: sha256:eb8488092291f40c6ee7bb8fbc2b01d8e784c594cf804a8460bebb58b386bc58
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -12029,7 +12029,7 @@ documents:
   - '**'
   loadPolicy: on-demand
   priority: 200
-  tokenEstimate: 2654
+  tokenEstimate: 3210
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -12041,7 +12041,7 @@ documents:
   - evidence-homologation-increment-02
   enforcedBy:
   - tools/backend/verify.sh
-  checksum: sha256:1e70f78ae98175996ac8d32df99acaba60d631ea248a9d5969478bbb983f2770
+  checksum: sha256:a119cdbce442de8f853c503978003f3a29d24b797962c4d2259e8cac373ccfc3
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/execution/evidence/HOMOLOGATION-INCREMENT-03.md

@@ -33,7 +33,8 @@ const THEME_STORAGE_KEY = 'poseidon-theme';
 const PROFILE_NAME = 'Homologação Frontend';
 const ORGANIZATION_NAME = 'Poseidon Homologação';
 const PROJECT_NAME = 'Homologação backend real';
-const WORKING_DIRECTORY = process.env.POSEIDON_WORKING_DIRECTORY ?? path.resolve(process.cwd(), '..');
+const WORKING_DIRECTORY =
+  process.env.POSEIDON_WORKING_DIRECTORY ?? path.resolve(process.cwd(), '..');
 const INCREMENT_02_ONLY = process.env.POSEIDON_INCREMENT_02_ONLY === '1';
 
 interface RuntimeWatch {
@@ -90,8 +91,9 @@ async function ensureSession(page: Page) {
     await page.getByLabel('Entendo os riscos').check();
     await page.getByRole('button', { name: 'Concluir' }).click();
   } else {
-    selectedName = profiles.items.find((item) => item.displayName === PROFILE_NAME)?.displayName
-      ?? profiles.items[0].displayName;
+    selectedName =
+      profiles.items.find((item) => item.displayName === PROFILE_NAME)?.displayName ??
+      profiles.items[0].displayName;
     const profile = page.getByText(selectedName, { exact: true });
     await expect(profile).toBeVisible();
     await profile.locator('xpath=ancestor::li').getByRole('button', { name: 'Entrar' }).click();
@@ -119,9 +121,10 @@ async function ensureOrganization(page: Page) {
 
   // Com coleção vazia a CTA única vem do empty state; com itens, do topo (§4).
   const newOrgCta = page.getByRole('button', { name: 'Nova organização', exact: true });
-  await ((await newOrgCta.isVisible())
-    ? newOrgCta
-    : page.getByRole('button', { name: 'Criar organização' })
+  await (
+    (await newOrgCta.isVisible())
+      ? newOrgCta
+      : page.getByRole('button', { name: 'Criar organização' })
   ).click();
   await page.getByLabel('Nome').fill(ORGANIZATION_NAME);
   // Slug gerado do nome automaticamente (§7).
@@ -138,20 +141,25 @@ async function ensureProject(page: Page, profileName: string) {
   if (projects.items.some((project) => project.name === PROJECT_NAME)) return;
 
   const newProjectCta = page.getByRole('button', { name: 'Novo projeto', exact: true });
-  await ((await newProjectCta.isVisible())
-    ? newProjectCta
-    : page.getByRole('button', { name: 'Criar projeto' })
+  await (
+    (await newProjectCta.isVisible())
+      ? newProjectCta
+      : page.getByRole('button', { name: 'Criar projeto' })
   ).click();
   await page.getByRole('tab', { name: 'Identidade' }).click();
   await page.getByLabel('Título').fill(PROJECT_NAME);
   await page.getByLabel('Slug (sigla)').fill('HOMOLOG');
   await page.getByRole('tab', { name: 'Objetivo' }).click();
-  await page.getByLabel('Objetivo e contexto').fill('Validação técnica do frontend contra o Host real.');
+  await page
+    .getByLabel('Objetivo e contexto')
+    .fill('Validação técnica do frontend contra o Host real.');
   await page.getByRole('tab', { name: 'Pessoas' }).click();
   await page.getByRole('checkbox', { name: new RegExp(profileName) }).check();
   await page.getByRole('button', { name: 'Criar projeto' }).click();
   await expect(page.getByRole('heading', { name: 'Editar projeto' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Trilha de navegação' })).toContainText(PROJECT_NAME);
+  await expect(page.getByRole('navigation', { name: 'Trilha de navegação' })).toContainText(
+    PROJECT_NAME,
+  );
 }
 
 async function ensureIncrementWorkflowRun(page: Page) {
@@ -241,17 +249,20 @@ async function assertNoPageHorizontalOverflow(page: Page, context: string) {
 }
 
 async function captureEvidence(page: Page, testInfo: TestInfo, route: string) {
-  if (![
-    '/cockpit',
-    '/chat',
-    '/board',
-    '/projects',
-    '/delivery',
-    '/workflows',
-    '/orchestrator',
-    '/agents',
-    '/run-project',
-  ].includes(route)) return;
+  if (
+    ![
+      '/cockpit',
+      '/chat',
+      '/board',
+      '/projects',
+      '/delivery',
+      '/workflows',
+      '/orchestrator',
+      '/agents',
+      '/run-project',
+    ].includes(route)
+  )
+    return;
   const name = `${testInfo.project.name}-${route.slice(1)}.png`;
   const evidenceDirectory = process.env.POSEIDON_EVIDENCE_DIR;
   const screenshotPath = evidenceDirectory
@@ -293,7 +304,10 @@ async function exerciseIncrement02Evidence(page: Page, testInfo: TestInfo) {
   if ((await phaseHeader.count()) > 0) {
     if ((await phaseHeader.getAttribute('aria-expanded')) !== 'true') await phaseHeader.click();
   }
-  await page.screenshot({ path: evidencePath(`${prefix}-chat-workflow-expanded.png`), fullPage: true });
+  await page.screenshot({
+    path: evidencePath(`${prefix}-chat-workflow-expanded.png`),
+    fullPage: true,
+  });
 
   await page.goto('/projects');
   const newProject = page.getByRole('button', { name: 'Novo projeto', exact: true });
@@ -316,7 +330,9 @@ async function exerciseIncrement02Evidence(page: Page, testInfo: TestInfo) {
   });
   await expect(editProfile).toBeVisible();
   await editProfile.click();
-  await expect(page.getByRole('dialog', { name: 'Perfil e personalização de Bruna' })).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Perfil e personalização de Bruna' }),
+  ).toBeVisible();
   await page.screenshot({ path: evidencePath(`${prefix}-leadership-profile.png`), fullPage: true });
   await page.keyboard.press('Escape');
 }
@@ -358,10 +374,14 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== 'desktop-wide-1920') return;
   const projectsResponse = await page.request.get('/api/v1/projects?limit=100');
   expect(projectsResponse.ok()).toBe(true);
-  const projects = (await projectsResponse.json()) as { items: Array<{ id: string; name: string }> };
+  const projects = (await projectsResponse.json()) as {
+    items: Array<{ id: string; name: string }>;
+  };
   const project = projects.items.find((item) => item.name === PROJECT_NAME);
   expect(project).toBeDefined();
-  const agentsResponse = await page.request.get(`/api/v1/agents?projectId=${project!.id}&limit=100`);
+  const agentsResponse = await page.request.get(
+    `/api/v1/agents?projectId=${project!.id}&limit=100`,
+  );
   expect(agentsResponse.ok()).toBe(true);
   const agents = (await agentsResponse.json()) as { items: Array<{ id: string }> };
   expect(agents.items.length).toBeGreaterThan(0);
@@ -374,7 +394,14 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
       projectId: project!.id,
       type: 'rule',
       observation: `Falha transitória observada ${marker}.`,
-      evidence: [{ kind: 'test', reference: `evidence://e2e/${marker}`, checksum: `sha256:${String(marker).padEnd(64, '0').slice(0, 64)}`, summary: 'Evidência descartável do E2E real.' }],
+      evidence: [
+        {
+          kind: 'test',
+          reference: `evidence://e2e/${marker}`,
+          checksum: `sha256:${String(marker).padEnd(64, '0').slice(0, 64)}`,
+          summary: 'Evidência descartável do E2E real.',
+        },
+      ],
       payload: { title, statement: 'Retry somente falhas transitórias com limite.' },
       actorAgentId: actorId,
       actorProvider: 'e2e-actor',
@@ -406,10 +433,18 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
   };
 
   await transition('Solicitar revisão', 'in_review', 'Revisão humana solicitada.');
-  await transition('Solicitar avaliação', 'awaiting_evaluation', 'Avaliação independente solicitada.');
+  await transition(
+    'Solicitar avaliação',
+    'awaiting_evaluation',
+    'Avaliação independente solicitada.',
+  );
 
   const handoff = await page.request.post(`/api/v1/projects/${project!.id}/chief/handoff`, {
-    data: { targetDefinitionId: null, targetModelId: null, note: 'Evaluator independente para homologação P2.' },
+    data: {
+      targetDefinitionId: null,
+      targetModelId: null,
+      note: 'Evaluator independente para homologação P2.',
+    },
   });
   expect(handoff.ok()).toBe(true);
   const evaluator = (await handoff.json()) as { id: string };
@@ -430,7 +465,9 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
   await page.getByLabel('Impacto em tokens').fill('-120');
   await page.getByLabel('Delta de custo').fill('-0.05');
   await page.getByLabel('Regressões').fill('0');
-  await page.getByLabel('Referência da evidência').fill(`evidence://shadow/${created.candidate.candidateId}`);
+  await page
+    .getByLabel('Referência da evidência')
+    .fill(`evidence://shadow/${created.candidate.candidateId}`);
   await page.getByLabel('Justificativa').fill('Shadow sem regressões.');
   await page.getByRole('button', { name: 'Confirmar transição' }).click();
   await expectState('shadow');
@@ -447,7 +484,9 @@ async function exerciseLearningP2(page: Page, testInfo: TestInfo) {
   await transition('Executar rollback', 'rolled_back', 'Regressão simulada no E2E.');
   await transition('Depreciar', 'deprecated', 'Versão substituída com segurança.');
   await expect(page.getByText('Histórico imutável')).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Histórico imutável' }).getByText('deprecate', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Histórico imutável' }).getByText('deprecate', { exact: true }),
+  ).toBeVisible();
   await assertA11y(page, 'governança P2 — lifecycle completo');
   await page.screenshot({
     path: testInfo.outputPath(`${testInfo.project.name}-governance-p2.png`),
@@ -479,9 +518,8 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   const newConversationCta = page.getByRole('button', { name: 'Nova conversa', exact: true });
   const startConversationCta = page.getByRole('button', { name: 'Iniciar conversa', exact: true });
   await expect(newConversationCta.or(startConversationCta)).toBeVisible();
-  await ((await newConversationCta.isVisible())
-    ? newConversationCta
-    : startConversationCta
+  await (
+    (await newConversationCta.isVisible()) ? newConversationCta : startConversationCta
   ).click();
   const createdConversation = (await (await createdConversationResponse).json()) as { id: string };
   const conversation = page.locator('select#chat-conversation');
@@ -517,7 +555,13 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
     await expect(page.getByText('Turno registrado, execução bloqueada')).toBeVisible();
     for (const blocker of execution?.blockers ?? []) {
       expect(
-        ['provider_account.missing', 'model.none_chat_enabled', 'workflow.unbound', 'chief.model_unresolved'],
+        [
+          'provider_account.missing',
+          'model.none_chat_enabled',
+          'workflow.unbound',
+          'chief.model_unresolved',
+          'agent.degraded',
+        ],
         'bloqueador do read model deve ser conhecido pela UI',
       ).toContain(blocker.code);
     }
@@ -573,7 +617,10 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
         root.dataset.realtimeInterruptionSeen = 'true';
       }
     };
-    new MutationObserver(recordInterruption).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(recordInterruption).observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
   });
   const disconnect = await page.request.post('/__e2e__/disconnect-realtime');
   expect(disconnect.ok()).toBe(true);
@@ -581,15 +628,20 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.realtimeInterruptionSeen))
     .toBe('true');
-  await expect(page.getByText(/Reconectando ao tempo real|Sem conexão em tempo real/)).toHaveCount(0, {
-    timeout: 30_000,
-  });
+  await expect(page.getByText(/Reconectando ao tempo real|Sem conexão em tempo real/)).toHaveCount(
+    0,
+    {
+      timeout: 30_000,
+    },
+  );
 
   const postReconnectMessage = `Confirme a reconexão ${Date.now()}.`;
   await composer.fill(postReconnectMessage);
   await page.getByRole('button', { name: 'Enviar mensagem' }).click();
   await expect(page.getByText(postReconnectMessage, { exact: true })).toBeVisible();
-  await expect(page.getByText(/O turno foi registrado de forma durável para: Confirme a reconexão/)).toBeVisible({
+  await expect(
+    page.getByText(/O turno foi registrado de forma durável para: Confirme a reconexão/),
+  ).toBeVisible({
     timeout: 30_000,
   });
 
@@ -616,7 +668,9 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   const syncProvider = page.getByRole('button', { name: 'Sincronizar' }).first();
   await expect(syncProvider).toBeVisible();
   await syncProvider.click();
-  await expect(page.getByRole('status').filter({ hasText: /Catálogo sincronizado:/ })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: /Catálogo sincronizado:/ }),
+  ).toBeVisible();
 
   await page.goto('/run-project');
   await expect(page.getByRole('heading', { name: 'Serviços detectados' })).toBeVisible();
@@ -644,7 +698,9 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   await download.saveAs(testInfo.outputPath(download.suggestedFilename()));
 }
 
-test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11y', async ({ page }, testInfo) => {
+test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11y', async ({
+  page,
+}, testInfo) => {
   test.setTimeout(300_000);
   const runtime = watchRuntime(page);
   await setTheme(page, testInfo.project.name.includes('light'));
@@ -656,12 +712,16 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
   await ensureIncrementWorkflowRun(page);
 
   const routes = INCREMENT_02_ONLY
-    ? ROUTES.filter((route) => ['/cockpit', '/projects', '/delivery', '/chat', '/board'].includes(route))
+    ? ROUTES.filter((route) =>
+        ['/cockpit', '/projects', '/delivery', '/chat', '/board'].includes(route),
+      )
     : ROUTES;
   for (const route of routes) {
     await page.goto(route);
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByText('Não foi possível carregar os dados. Tente novamente.')).toHaveCount(0);
+    await expect(
+      page.getByText('Não foi possível carregar os dados. Tente novamente.'),
+    ).toHaveCount(0);
     await page.waitForTimeout(400);
     await assertNoPageHorizontalOverflow(page, `${testInfo.project.name} ${route}`);
     await assertA11y(page, `${testInfo.project.name} ${route}`);

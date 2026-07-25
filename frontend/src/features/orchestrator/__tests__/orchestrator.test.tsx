@@ -146,8 +146,20 @@ describe('orchestrator-derive', () => {
 
   it('ordena eventos por occurredAt e filtra por tipo + texto (sem inventar nível)', () => {
     const events = sortAttemptEvents([
-      { id: 'b', attemptId: 'a', kind: 'log', content: 'Depois', occurredAt: '2026-07-17T12:01:00Z' },
-      { id: 'a', attemptId: 'a', kind: 'diff', content: 'git diff Token', occurredAt: '2026-07-17T12:00:00Z' },
+      {
+        id: 'b',
+        attemptId: 'a',
+        kind: 'log',
+        content: 'Depois',
+        occurredAt: '2026-07-17T12:01:00Z',
+      },
+      {
+        id: 'a',
+        attemptId: 'a',
+        kind: 'diff',
+        content: 'git diff Token',
+        occurredAt: '2026-07-17T12:00:00Z',
+      },
     ]);
     expect(events.map((event) => event.id)).toEqual(['a', 'b']);
 
@@ -238,9 +250,7 @@ describe('OrchestratorPage', () => {
     expect(within(dialog).getByText('Linha do tempo')).toBeInTheDocument();
     expect(within(dialog).getByText('Log estruturado')).toBeInTheDocument();
     // Segredo NUNCA exibido: valor mascarado (linha do tempo + log) + nota.
-    expect(
-      (await within(dialog).findAllByText(/api_key=\*\*\*\*/)).length,
-    ).toBeGreaterThan(0);
+    expect((await within(dialog).findAllByText(/api_key=\*\*\*\*/)).length).toBeGreaterThan(0);
     expect(within(dialog).queryByText(/sk-live-123456/)).not.toBeInTheDocument();
     expect(
       within(dialog).getByText('Revelado no backend somente com permissão.'),
@@ -249,9 +259,7 @@ describe('OrchestratorPage', () => {
     // Filtro por tipo + busca textual.
     await user.selectOptions(within(dialog).getByLabelText('Tipo de evento'), 'log');
     await user.type(within(dialog).getByLabelText('Buscar no log'), 'provedor');
-    expect(
-      (await within(dialog).findAllByText(/api_key=\*\*\*\*/)).length,
-    ).toBeGreaterThan(0);
+    expect((await within(dialog).findAllByText(/api_key=\*\*\*\*/)).length).toBeGreaterThan(0);
     await user.clear(within(dialog).getByLabelText('Buscar no log'));
     await user.type(within(dialog).getByLabelText('Buscar no log'), 'texto-inexistente');
     expect(
@@ -316,6 +324,31 @@ describe('OrchestratorPage', () => {
     expect(await screen.findByRole('button', { name: 'Pausar' })).toBeInTheDocument();
   });
 
+  it('abre o editor de enquadramento ao selecionar uma nova foto da Bruna', async () => {
+    const user = userEvent.setup();
+    renderOrchestrator();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Editar perfil, comunicação e roteamento',
+      }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Perfil e personalização de Bruna',
+    });
+    const input = within(dialog).getByLabelText('Trocar e ajustar foto');
+    await user.upload(input, new File(['imagem'], 'bruna.png', { type: 'image/png' }));
+
+    expect(
+      within(dialog).getByRole('heading', { name: 'Ajustar foto de Bruna Magalhães' }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Zoom')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Posição vertical')).toBeInTheDocument();
+
+    await user.click(within(dialog).getAllByRole('button', { name: 'Cancelar' }).at(-1)!);
+    expect(within(dialog).getByLabelText('Nome exibido')).toBeInTheDocument();
+  });
+
   it('passa o bastão em 2 etapas e o card reflete o novo modelo', async () => {
     const user = userEvent.setup();
     renderOrchestrator();
@@ -338,9 +371,7 @@ describe('OrchestratorPage', () => {
     // Etapa 2: resumo das escolhas + confirmação final.
     expect(within(dialog).getByText('Etapa 2 de 2 — confirmação')).toBeInTheDocument();
     expect(within(dialog).getByText('Teste de passagem de bastão')).toBeInTheDocument();
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Confirmar passagem de bastão' }),
-    );
+    await user.click(within(dialog).getByRole('button', { name: 'Confirmar passagem de bastão' }));
 
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Passagem de bastão' })).not.toBeInTheDocument(),
@@ -371,9 +402,9 @@ describe('OrchestratorPage', () => {
     );
     let drained = -1;
     await act(async () => {
-      drained = (await bundle.api.list('tasks', { filter: { projectId: project.id } })).items.filter(
-        (task) => activeStates.has(task.state),
-      ).length;
+      drained = (
+        await bundle.api.list('tasks', { filter: { projectId: project.id } })
+      ).items.filter((task) => activeStates.has(task.state)).length;
     });
     expect(drained).toBe(0);
     expect(expected).toBeGreaterThan(0);

@@ -1,0 +1,23 @@
+{
+  "photoEditor": {
+    "open": "Ampliar foto de {{name}}",
+    "profileLabel": "Foto ampliada de {{name}}",
+    "photoAlt": "Foto de {{name}}",
+    "cropTitle": "Ajustar foto de {{name}}",
+    "cropHelp": "Arraste a imagem e use os controles para escolher o enquadramento. A prévia circular mostra como a foto aparecerá no produto.",
+    "preview": "Prévia do recorte de {{name}}",
+    "dragHelp": "Arraste diretamente sobre a foto para reposicioná-la.",
+    "zoom": "Zoom",
+    "horizontal": "Posição horizontal",
+    "vertical": "Posição vertical",
+    "reset": "Restaurar enquadramento",
+    "file": "Arquivo: {{name}}",
+    "usePhoto": "Usar esta foto",
+    "saving": "Salvando foto…",
+    "saved": "Foto atualizada e aplicada em todas as telas.",
+    "processingError": "Não foi possível processar ou salvar a foto. Tente novamente.",
+    "choose": "Escolher e ajustar foto",
+    "change": "Trocar e ajustar foto",
+    "invalid": "Escolha uma imagem JPG, PNG ou WebP de até 5 MB."
+  }
+}

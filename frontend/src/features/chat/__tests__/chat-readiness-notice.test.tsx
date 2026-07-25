@@ -13,6 +13,7 @@ function renderNotice(props: {
   hasProvider: boolean;
   hasModel: boolean;
   hasWorkflow: boolean;
+  executionBlocked?: boolean;
 }) {
   return renderWithApi(
     <MemoryRouter>
@@ -30,7 +31,9 @@ describe('ChatReadinessNotice', () => {
   it('explica o motivo e lista todas as dependências quando falta o provedor', () => {
     renderNotice({ hasProvider: false, hasModel: false, hasWorkflow: false });
 
-    expect(screen.getByRole('heading', { name: /execução de bruna bloqueada/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /execução de bruna bloqueada/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/você pode escrever/i)).toBeInTheDocument();
     // As três dependências são sempre listadas (transparência, não bloqueio cego).
     expect(screen.getByText(/provedor conectado/i)).toBeInTheDocument();
@@ -53,5 +56,23 @@ describe('ChatReadinessNotice', () => {
 
     const cta = screen.getByRole('link', { name: /escolher modelo/i });
     expect(cta).toHaveAttribute('href', '/providers?tab=models');
+  });
+
+  it('mantém o diagnóstico visível quando as dependências básicas estão prontas, mas a execução segue bloqueada', () => {
+    renderNotice({
+      hasProvider: true,
+      hasModel: true,
+      hasWorkflow: true,
+      executionBlocked: true,
+    });
+
+    expect(
+      screen.getByRole('heading', { name: /execução de bruna bloqueada/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/outro bloqueio operacional/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ver diagnóstico/i })).toHaveAttribute(
+      'href',
+      '/orchestrator',
+    );
   });
 });

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Info } from 'lucide-react';
+import { Info, UserRoundPen } from 'lucide-react';
 
 import type {
   Account,
@@ -42,6 +42,7 @@ import {
 import { usePauseChief, useResumeChief } from '@/features/orchestrator/hooks/use-orchestrator';
 import { LeadershipProfileDialog } from '@/features/orchestrator/components/leadership-profile-dialog';
 import { useLeadershipProfile } from '@/features/shared/hooks/use-leadership-profile';
+import { ManagedAgentAvatar } from '@/features/shared/components/managed-agent-avatar';
 
 /** Saúde derivada (conceito local da feature) → variante semântica do Badge. */
 const HEALTH_VARIANTS: Record<ChiefHealth, BadgeProps['variant']> = {
@@ -161,9 +162,7 @@ export function ChiefCard({
 
   const chiefIdentity = resolveAgentIdentity('chief-orchestrator', chief.name);
   const publicName = leadershipProfile.data?.displayName ?? chiefIdentity.humanName;
-  const publicTitle =
-    leadershipProfile.data?.title ?? 'Diretora de Engenharia e Operações de IA';
-  const publicPhoto = leadershipProfile.data?.photoUrl ?? '/people/bruna-magalhaes.jpg';
+  const publicTitle = leadershipProfile.data?.title ?? 'Diretora de Engenharia e Operações de IA';
   const processHealth = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
   const readiness = deriveChiefReadiness({
     model,
@@ -182,27 +181,27 @@ export function ChiefCard({
           state: t(`orchestrator.readiness.states.${readiness}`),
         })
       : health === 'ok'
-      ? t('orchestrator.chief.diagnostics.healthOk')
-      : chief.state === 'error' || chief.state === 'outOfQuota'
-        ? t('orchestrator.chief.diagnostics.healthState', {
-            state: t(`status.agentState.${chief.state}`),
-          })
-        : chief.lastHeartbeatAt === null
-          ? t('orchestrator.chief.diagnostics.healthMissingHeartbeat')
-          : t('orchestrator.chief.diagnostics.healthStaleHeartbeat', {
-              time: formatRelativeTime(chief.lastHeartbeatAt, undefined, now),
-            });
+        ? t('orchestrator.chief.diagnostics.healthOk')
+        : chief.state === 'error' || chief.state === 'outOfQuota'
+          ? t('orchestrator.chief.diagnostics.healthState', {
+              state: t(`status.agentState.${chief.state}`),
+            })
+          : chief.lastHeartbeatAt === null
+            ? t('orchestrator.chief.diagnostics.healthMissingHeartbeat')
+            : t('orchestrator.chief.diagnostics.healthStaleHeartbeat', {
+                time: formatRelativeTime(chief.lastHeartbeatAt, undefined, now),
+              });
 
   return (
     <Card>
       <CardHeader className="gap-2">
         <div className="flex flex-wrap items-center gap-2 pr-8">
-          <img
-            src={publicPhoto}
-            alt=""
-            width={44}
-            height={44}
-            className="size-11 rounded-full object-cover"
+          <ManagedAgentAvatar
+            alias="chief-orchestrator"
+            fallbackName={publicName}
+            roleLabel={publicTitle}
+            size={64}
+            className="ring-2 ring-brand/35 ring-offset-2 ring-offset-background"
           />
           <div className="flex min-w-0 flex-col">
             <CardTitle>{publicName}</CardTitle>
@@ -225,10 +224,11 @@ export function ChiefCard({
         <Button
           type="button"
           size="sm"
-          variant="ghost"
-          className="self-start"
+          variant="outline"
+          className="min-h-11 self-start border-brand/50 bg-brand/10 font-semibold text-foreground shadow-sm hover:bg-brand/20"
           onClick={() => setDialog('profile')}
         >
+          <UserRoundPen aria-hidden="true" className="size-4" />
           {t('orchestrator.profile.edit')}
         </Button>
       </CardHeader>

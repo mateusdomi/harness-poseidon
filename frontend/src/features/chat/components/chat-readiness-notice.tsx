@@ -8,6 +8,8 @@ export interface ChatReadinessNoticeProps {
   hasProvider: boolean;
   hasModel: boolean;
   hasWorkflow: boolean;
+  /** O read model canônico pode bloquear por outros motivos, como agente degradado. */
+  executionBlocked?: boolean;
 }
 
 const ROUTES = {
@@ -21,7 +23,12 @@ const ROUTES = {
  * Bloqueamos apenas a EXECUÇÃO — nunca escondemos o motivo, e cada
  * pré-requisito tem uma CTA única para a tela correta.
  */
-export function ChatReadinessNotice({ hasProvider, hasModel, hasWorkflow }: ChatReadinessNoticeProps) {
+export function ChatReadinessNotice({
+  hasProvider,
+  hasModel,
+  hasWorkflow,
+  executionBlocked = false,
+}: ChatReadinessNoticeProps) {
   const { t } = useTranslation();
   const items = [
     { id: 'provider' as const, done: hasProvider },
@@ -29,7 +36,7 @@ export function ChatReadinessNotice({ hasProvider, hasModel, hasWorkflow }: Chat
     { id: 'workflow' as const, done: hasWorkflow },
   ];
   const firstMissing = items.find((item) => !item.done);
-  if (!firstMissing) return null;
+  if (!firstMissing && !executionBlocked) return null;
 
   return (
     <section
@@ -42,7 +49,9 @@ export function ChatReadinessNotice({ hasProvider, hasModel, hasWorkflow }: Chat
           {t('chat.readiness.title')}
         </h2>
       </div>
-      <p className="text-sm text-foreground-muted">{t('chat.readiness.body')}</p>
+      <p className="text-sm text-foreground-muted">
+        {firstMissing ? t('chat.readiness.body') : t('chat.readiness.additionalBlocker')}
+      </p>
       <ul className="flex flex-col gap-1.5">
         {items.map((item) => (
           <li key={item.id} className="flex items-center gap-2 text-sm">
@@ -61,8 +70,10 @@ export function ChatReadinessNotice({ hasProvider, hasModel, hasWorkflow }: Chat
         ))}
       </ul>
       <Button asChild size="sm" className="self-start">
-        <Link to={ROUTES[firstMissing.id]}>
-          {t(`chat.readiness.actions.${firstMissing.id}`)}
+        <Link to={firstMissing ? ROUTES[firstMissing.id] : '/orchestrator'}>
+          {firstMissing
+            ? t(`chat.readiness.actions.${firstMissing.id}`)
+            : t('chat.readiness.actions.diagnostics')}
           <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
       </Button>

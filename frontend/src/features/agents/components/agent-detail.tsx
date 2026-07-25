@@ -9,7 +9,7 @@ import {
   agentTools,
   compatibleModels,
 } from '@/features/agents/lib/agents-derive';
-import { AgentAvatar } from '@/features/shared/components/agent-avatar';
+import { ManagedAgentAvatar } from '@/features/shared/components/managed-agent-avatar';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 import {
@@ -76,7 +76,12 @@ export function AgentDetail({
   return (
     <ModalDialog label={agent.name} onClose={onClose} className="max-w-2xl">
       <div className="flex items-start gap-3 pr-10">
-        <AgentAvatar name={identity.humanName} size={48} />
+        <ManagedAgentAvatar
+          alias={definition?.key ?? agent.name}
+          fallbackName={agent.name}
+          roleLabel={identity.roleLabel}
+          size={64}
+        />
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="font-heading text-xl font-semibold">{identity.humanName}</h2>
           {/* Alias técnico da instância (transparência). */}

@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Camera } from 'lucide-react';
 
 import type { AgentAccountRoster } from '@/api';
-import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
 import { AgentIdentity } from '@/features/shared/components/agent-identity';
+import { ImageCropEditor } from '@/features/shared/components/image-crop-editor';
+import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import { useUploadAgentPhoto } from '@/features/shared/hooks/use-leadership-profile';
+import { canonicalPhotoAlias } from '@/features/shared/lib/agent-photo';
 import { apiMode } from '@/config/features';
+import { resolveAgentIdentity } from '@/lib/agent-persona';
 
 const STATE_VARIANT: Record<string, 'warning' | 'default' | 'success' | 'info' | 'error'> = {
   working: 'info',
@@ -48,7 +54,9 @@ export function FleetOrgChart() {
         {roster.isLoading ? (
           <Skeleton className="h-72 w-full" />
         ) : roster.isError ? (
-          <p role="alert" className="text-sm text-error">{t('agents.roster.error')}</p>
+          <p role="alert" className="text-sm text-error">
+            {t('agents.roster.error')}
+          </p>
         ) : leadership ? (
           <div
             role="group"
@@ -87,50 +95,105 @@ export function FleetOrgChart() {
 
 function FleetNode({ account }: { account: AgentAccountRoster }) {
   const { t } = useTranslation();
-  const upload = useUploadAgentPhoto(account.alias);
+  const upload = useUploadAgentPhoto(canonicalPhotoAlias(account.alias));
+  const identity = resolveAgentIdentity(account.alias);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   return (
-    <article className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-md border border-border bg-surface-elevated p-3">
-      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
-        <AgentIdentity alias={account.alias} size={42} />
-        <Badge variant={STATE_VARIANT[account.state] ?? 'default'}>
-          {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
-        </Badge>
-      </div>
-      <p className="min-w-0 break-words text-xs text-foreground-muted">
-        {account.providerKind} · {account.roles.join(', ')}
-      </p>
-      <dl className="grid min-w-0 grid-cols-3 gap-2 text-center">
-        {(['completed', 'approved', 'rework'] as const).map((metric) => (
-          <div key={metric} className="min-w-0 rounded bg-surface p-2">
-            <dt className="break-words text-[11px] text-foreground-muted">
-              {t(`agents.fleetTree.metrics.${metric}`)}
-            </dt>
-            <dd className="font-semibold">0</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="text-[11px] text-foreground-muted">{t('agents.fleetTree.zeroSource')}</p>
-      {apiMode === 'http' ? (
-        <label className="w-fit cursor-pointer text-xs font-medium text-brand-strong hover:underline">
-          {upload.isPending
-            ? t('agents.fleetTree.photoUploading')
-            : t('agents.fleetTree.photoAction')}
-          <input
-            className="sr-only"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            disabled={upload.isPending}
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-              if (file) upload.mutate(file);
-              event.currentTarget.value = '';
+    <>
+      <article className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-md border border-border bg-surface-elevated p-3">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+          <AgentIdentity alias={account.alias} size={42} />
+          <Badge variant={STATE_VARIANT[account.state] ?? 'default'}>
+            {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
+          </Badge>
+        </div>
+        <p className="min-w-0 break-words text-xs text-foreground-muted">
+          {account.providerKind} · {account.roles.join(', ')}
+        </p>
+        <dl className="grid min-w-0 grid-cols-3 gap-2 text-center">
+          {(['completed', 'approved', 'rework'] as const).map((metric) => (
+            <div key={metric} className="min-w-0 rounded bg-surface p-2">
+              <dt className="break-words text-[11px] text-foreground-muted">
+                {t(`agents.fleetTree.metrics.${metric}`)}
+              </dt>
+              <dd className="font-semibold">0</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-[11px] text-foreground-muted">{t('agents.fleetTree.zeroSource')}</p>
+        {apiMode === 'http' ? (
+          <>
+            <Button asChild variant="outline" size="sm" className="w-fit">
+              <label className="cursor-pointer">
+                <Camera aria-hidden="true" className="size-4" />
+                {t('photoEditor.change')}
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={upload.isPending}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = '';
+                    if (!file) return;
+                    if (
+                      !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
+                      file.size > 5 * 1024 * 1024
+                    ) {
+                      setSelectionError(t('photoEditor.invalid'));
+                      return;
+                    }
+                    upload.reset();
+                    setSelectionError(null);
+                    setSaved(false);
+                    setSelectedPhoto(file);
+                  }}
+                />
+              </label>
+            </Button>
+            {saved ? (
+              <p role="status" className="text-xs font-medium text-success">
+                {t('photoEditor.saved')}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+        {upload.isError || selectionError ? (
+          <p role="alert" className="text-xs text-error">
+            {upload.error?.message ?? selectionError}
+          </p>
+        ) : null}
+      </article>
+      {selectedPhoto ? (
+        <ModalDialog
+          label={t('photoEditor.cropTitle', {
+            name: identity.humanName,
+          })}
+          onClose={() => {
+            upload.reset();
+            setSelectedPhoto(null);
+          }}
+          className="max-w-2xl"
+        >
+          <ImageCropEditor
+            file={selectedPhoto}
+            subjectName={identity.humanName}
+            pending={upload.isPending}
+            error={upload.error?.message ?? selectionError}
+            onCancel={() => {
+              upload.reset();
+              setSelectedPhoto(null);
+            }}
+            onConfirm={async (photo) => {
+              await upload.mutateAsync(photo);
+              setSelectedPhoto(null);
+              setSaved(true);
             }}
           />
-        </label>
+        </ModalDialog>
       ) : null}
-      {upload.isError ? (
-        <p role="alert" className="text-xs text-error">{upload.error.message}</p>
-      ) : null}
-    </article>
+    </>
   );
 }

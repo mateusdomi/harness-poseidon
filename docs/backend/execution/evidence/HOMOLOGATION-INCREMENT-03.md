@@ -129,7 +129,7 @@ O Host real está fail-closed sem provedor/modelo. Quando a conversa recém-cria
 
 | Gate | Resultado |
 | --- | --- |
-| `npm run check` | verde — 81 arquivos, 646 testes |
+| `npm run check` | verde — 83 arquivos, 652 testes |
 | `npm run build` | verde |
 | `npm run build-storybook` | verde |
 | `npm run test:e2e` | verde — 78/78 |
@@ -151,3 +151,26 @@ Detalhe da suíte .NET: 587 unitários, 173 integração, 41 contrato, 7 arquite
 ## Reexecução e rollback
 
 As projeções e o armazenamento do perfil são idempotentes. O perfil usa gravação atômica, controle de versão e histórico; uploads substituem o asset da identidade sem criar seed duplicado. O retrofit de workflow é somente leitura. O rollback operacional consiste em reverter o commit desta rodada; dados versionados permanecem recuperáveis no diretório local de dados do Poseidon.
+
+## Ajuste visual pós-homologação — fotos dos agentes
+
+Solicitação adicional validada em 2026-07-25:
+
+- “Editar perfil, comunicação e roteamento” passou de ação visualmente textual para botão contornado, com ícone, área mínima de toque e estados de foco/hover explícitos.
+- A seleção de foto não envia mais o arquivo silenciosamente. Ela abre um editor com prévia circular, arraste, zoom e reposicionamento horizontal/vertical; cancelar não altera o asset.
+- O recorte é exportado localmente como WebP quadrado 768×768 e só então enviado ao endpoint gerenciado. Prévia e processamento usam `data:`, compatível com a CSP do Host; não existe dependência de `Downloads` em runtime.
+- Sucesso e falha ficam visíveis no diálogo. A atualização invalida a revisão da foto, evitando que o navegador mantenha o asset anterior em cache.
+- As imagens finais `BrunaMagalhaes.png`, `LarissaPires.png`, `AlineCastro.png` e `GabrielaPinto.png` foram aplicadas à instalação local. O perfil da Bruna avançou para a versão 8; os três assets de especialistas responderam `200` após persistência.
+- Todo avatar de agente passou a usar o mesmo componente gerenciado e pode ser acionado por mouse ou teclado para abrir a foto ampliada. O modal fecha por botão, `Esc` ou clique externo e devolve o foco ao avatar.
+- No Chat, a foto da Bruna passou de 72 para 80 px. O recuo do conteúdo foi ajustado sem aumentar a largura ou a altura-base do card.
+- O gate real revelou e levou à correção de dois overflows preexistentes: fases do workflow agora rolam dentro do próprio stepper, e o canvas de Arquitetura não força largura intrínseca no mobile.
+- Quando `ExecutionReady` está bloqueado por motivo adicional — por exemplo, agente degradado — o Chat agora mantém o aviso “Execução de Bruna bloqueada” e aponta para o diagnóstico, mesmo com provedor, modelo e workflow básicos prontos.
+
+Evidências em viewport notebook:
+
+- [Bruna com 80 px no Chat](homologation-increment-03/followup-notebook-chat-bruna-80.png)
+- [foto ampliada](homologation-increment-03/followup-notebook-bruna-ampliada.png)
+- [editor de recorte e reposicionamento](homologation-increment-03/followup-notebook-editor-recorte.png)
+- [fotos finais na Fleet e no organograma](homologation-increment-03/followup-notebook-agentes-fotos.png)
+
+Validação adicional: `npm run check` (652/652), builds de produção e Storybook, `npm run test:e2e` (78/78), `npm run test:a11y` (46/46), `npm run test:e2e:real` (3/3) e `tools/backend/verify.sh` (governança 0/0, build .NET 0/0 e 817/817 testes). O advisory incompatível do React Router permanece a única pendência externa já registrada acima.

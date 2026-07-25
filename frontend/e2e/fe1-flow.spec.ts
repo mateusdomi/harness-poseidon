@@ -78,8 +78,8 @@ test.describe('Gate FE-1', () => {
       .getByRole('button', { name: 'Abrir perfil de Bruna Magalhães' })
       .last();
     await expect(brunaAvatar).toBeVisible();
-    await expect(brunaAvatar.locator('img')).toHaveCSS('width', '72px');
-    await expect(brunaAvatar.locator('img')).toHaveCSS('height', '72px');
+    await expect(brunaAvatar.locator('img')).toHaveCSS('width', '80px');
+    await expect(brunaAvatar.locator('img')).toHaveCSS('height', '80px');
 
     // 6. Quadro: o chefe criou demanda + tarefas (eventos no stream do projeto).
     await navTo(page, 'Quadro');
@@ -88,9 +88,9 @@ test.describe('Gate FE-1', () => {
 
     // O card nasce no backlog e se move sozinho (task.stateChanged) até desenvolvimento.
     const developmentColumn = page.getByRole('region', { name: /Em desenvolvimento/ });
-    await expect(
-      developmentColumn.getByRole('button', { name: new RegExp(TASK_A) }),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(developmentColumn.getByRole('button', { name: new RegExp(TASK_A) })).toBeVisible({
+      timeout: 20_000,
+    });
 
     // 7. Aprovar o gate pelo detalhe da tarefa (drawer no desktop, página no mobile).
     await developmentColumn.getByRole('button', { name: new RegExp(TASK_A) }).click();

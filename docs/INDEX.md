@@ -265,7 +265,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Evidência — Governance Gate P0](backend/execution/evidence/GOVERNANCE-GATE-P0.md) | p0 | Active | Platform Governance | OnDemand | 666 |
 | [Relatório final da campanha de correção da homologação](backend/execution/evidence/HOMOLOGATION-CODEX-FINAL-REPORT.md) | * | Active | Quality Engineering | OnDemand | 4290 |
 | [Homologação incremental 02 — Dashboard, Chat, Workflow, Quadro, Projetos e Entregas](backend/execution/evidence/HOMOLOGATION-INCREMENT-02.md) | * | Active | Quality Engineering | OnDemand | 1460 |
-| [Homologação incremental 03 — fechamento das nove telas](backend/execution/evidence/HOMOLOGATION-INCREMENT-03.md) | * | Active | Quality Engineering | OnDemand | 2654 |
+| [Homologação incremental 03 — fechamento das nove telas](backend/execution/evidence/HOMOLOGATION-INCREMENT-03.md) | * | Active | Quality Engineering | OnDemand | 3210 |
 | [Evidência F0 PoC-1 — SQLite WAL e dispatcher único](backend/execution/evidence/F0-POC-1.md) | * | Active | Quality Engineering | OnDemand | 335 |
 | [Evidência F0 PoC-2 — kill -9 e retomada durável](backend/execution/evidence/F0-POC-2.md) | * | Active | Quality Engineering | OnDemand | 405 |
 | [Evidência F0 PoC-3 — lease e fencing token](backend/execution/evidence/F0-POC-3.md) | * | Active | Quality Engineering | OnDemand | 321 |

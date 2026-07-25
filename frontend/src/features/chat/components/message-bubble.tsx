@@ -7,8 +7,8 @@ import type { Document, Message, Task } from '@/api';
 import { extractReferences } from '@/features/chat/lib/chat-derive';
 import { publicLeadershipContent } from '@/features/chat/lib/public-leadership';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
-import { AgentAvatar } from '@/features/shared/components/agent-avatar';
 import { BrunaProfileAvatar } from '@/features/chat/components/bruna-profile-avatar';
+import { ManagedAgentAvatar } from '@/features/shared/components/managed-agent-avatar';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -86,11 +86,16 @@ export function MessageBubble({
       >
         {message.authorRole === 'chief' ? (
           <BrunaProfileAvatar
-            size={72}
+            size={80}
             className="ring-2 ring-brand/40 shadow-glow ring-offset-2 ring-offset-surface-elevated"
           />
         ) : identity ? (
-          <AgentAvatar name={identity.humanName} size={36} />
+          <ManagedAgentAvatar
+            alias={authorAlias ?? ''}
+            fallbackName={authorName}
+            roleLabel={identity.roleLabel}
+            size={40}
+          />
         ) : null}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -103,10 +108,7 @@ export function MessageBubble({
               </span>
             )}
           </div>
-          <time
-            dateTime={message.createdAt}
-            className="text-xs tabular-nums text-foreground-muted"
-          >
+          <time dateTime={message.createdAt} className="text-xs tabular-nums text-foreground-muted">
             {formatDateTime(message.createdAt)}
           </time>
         </div>
@@ -129,7 +131,7 @@ export function MessageBubble({
           )}
         </button>
       </header>
-      <div className={cn(message.authorRole === 'chief' && 'md:pl-[5.5rem]')}>
+      <div className={cn(message.authorRole === 'chief' && 'md:pl-24')}>
         <MarkdownContent content={visibleContent} />
       </div>
       {/* Feedback da cópia para leitores de tela (o visual é o ícone ✓). */}

@@ -6,11 +6,7 @@ import type { Document, Gate, Phase } from '@/api';
 import { Badge, Tooltip, type BadgeProps } from '@/design-system';
 import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import {
-  documentStateVariant,
-  gateStateVariant,
-  phaseStateVariant,
-} from '@/lib/status';
+import { documentStateVariant, gateStateVariant, phaseStateVariant } from '@/lib/status';
 
 export interface PhaseStepperProps {
   phases: Phase[];
@@ -40,7 +36,7 @@ export function PhaseStepper({ phases, gates, documents }: PhaseStepperProps) {
   return (
     <ol
       aria-label={t('workflows.phases.label')}
-      className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-3"
+      className="flex w-full max-w-full flex-col gap-4 overflow-x-auto pb-1 md:flex-row md:items-stretch md:gap-3"
     >
       {phases.map((phase, index) => {
         const phaseGates = gates.filter((gate) => gate.phaseId === phase.id);
@@ -53,7 +49,7 @@ export function PhaseStepper({ phases, gates, documents }: PhaseStepperProps) {
             key={phase.id}
             aria-current={phase.state === 'active' ? 'step' : undefined}
             className={cn(
-              'relative flex-1 rounded-xl border bg-surface p-4',
+              'relative flex-1 rounded-xl border bg-surface p-4 md:min-w-36',
               phase.state === 'active' ? 'border-brand' : 'border-border',
             )}
           >

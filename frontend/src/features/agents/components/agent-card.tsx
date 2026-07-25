@@ -4,7 +4,7 @@ import { Info, Settings } from 'lucide-react';
 
 import type { Agent, AgentDefinition, Skill } from '@/api';
 import { Badge, Button, Card, CardContent } from '@/design-system';
-import { AgentAvatar } from '@/features/shared/components/agent-avatar';
+import { ManagedAgentAvatar } from '@/features/shared/components/managed-agent-avatar';
 import type { DerivedAgentMetrics } from '@/features/agents/lib/agents-derive';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { agentStateVariant } from '@/lib/status';
@@ -55,7 +55,12 @@ export function AgentCard({ agent, definition, skills, metrics, onSelect }: Agen
       <CardContent className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-start gap-2.5">
-            <AgentAvatar name={identity.humanName} size={40} />
+            <ManagedAgentAvatar
+              alias={definition?.key ?? agent.name}
+              fallbackName={agent.name}
+              roleLabel={identity.roleLabel}
+              size={44}
+            />
             <div className="flex min-w-0 flex-col">
               <span className="truncate font-heading text-base font-semibold">
                 {identity.humanName}

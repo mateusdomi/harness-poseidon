@@ -22,7 +22,13 @@ const tasks = fixtures.data.tasks.filter((t) => t.projectId === project.id);
 const documents = fixtures.data.documents.filter((d) => d.projectId === project.id);
 
 function envelope(type: string, payload: unknown, sequence = 1) {
-  return { stream: 'conversation:x', sequence, type, occurredAt: '2026-07-17T12:00:00Z', payload } as never;
+  return {
+    stream: 'conversation:x',
+    sequence,
+    type,
+    occurredAt: '2026-07-17T12:00:00Z',
+    payload,
+  } as never;
 }
 
 describe('chat-derive', () => {
@@ -52,7 +58,11 @@ describe('chat-derive', () => {
 
     turn = reduceChatTurn(
       turn,
-      envelope('chat.turnCompleted', { conversationId: 'c', turnId: 't1', messageId: 'm', finishReason: 'stop' }, 5),
+      envelope(
+        'chat.turnCompleted',
+        { conversationId: 'c', turnId: 't1', messageId: 'm', finishReason: 'stop' },
+        5,
+      ),
     );
     expect(turn).toEqual(IDLE_TURN);
   });
@@ -155,15 +165,19 @@ describe('ChatPage', () => {
 
     // A conversa padrão é a mais recente; troca para a da sprint.
     const selector = await screen.findByLabelText('Conversa');
-    await user.selectOptions(selector, screen.getByRole('option', { name: 'Planejamento da sprint 12' }));
+    await user.selectOptions(
+      selector,
+      screen.getByRole('option', { name: 'Planejamento da sprint 12' }),
+    );
 
     expect(
       await screen.findByText('Bruna, preciso exportar o quadro em CSV até sexta.'),
     ).toBeInTheDocument();
     // Chip de referência cruzada para a tarefa citada pelo agente.
-    expect(
-      screen.getByRole('link', { name: /exportação csv do quadro/i }),
-    ).toHaveAttribute('href', expect.stringContaining('/board?task='));
+    expect(screen.getByRole('link', { name: /exportação csv do quadro/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/board?task='),
+    );
   });
 
   it('envia mensagem e renderiza os chunks do turno do chefe', async () => {
@@ -196,7 +210,9 @@ describe('ChatPage', () => {
     const bundle = createTestBundle();
     const conversation = bundle.fixtures.data.conversations
       .filter((item) => item.projectId === project.id)
-      .sort((a, b) => (b.lastMessageAt ?? b.createdAt).localeCompare(a.lastMessageAt ?? a.createdAt))[0];
+      .sort((a, b) =>
+        (b.lastMessageAt ?? b.createdAt).localeCompare(a.lastMessageAt ?? a.createdAt),
+      )[0];
     vi.spyOn(bundle.api, 'startChatTurn').mockResolvedValue({
       turnId: 'blocked-turn',
       conversationId: conversation.id,
@@ -247,7 +263,7 @@ describe('ChatPage', () => {
     });
     expect(within(triggers[0]).getByAltText('Foto de Bruna Magalhães')).toHaveAttribute(
       'width',
-      '72',
+      '80',
     );
     await user.click(triggers[0]);
 
@@ -277,7 +293,9 @@ describe('ChatPage', () => {
     await user.click(action);
 
     expect(
-      await screen.findByText(/quais tarefas estão bloqueadas/i, { selector: 'article p, article div' }),
+      await screen.findByText(/quais tarefas estão bloqueadas/i, {
+        selector: 'article p, article div',
+      }),
     ).toBeInTheDocument();
   });
 });

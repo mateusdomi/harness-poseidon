@@ -1,0 +1,23 @@
+{
+  "photoEditor": {
+    "open": "Enlarge {{name}}'s photo",
+    "profileLabel": "Enlarged photo of {{name}}",
+    "photoAlt": "Photo of {{name}}",
+    "cropTitle": "Adjust {{name}}'s photo",
+    "cropHelp": "Drag the image and use the controls to choose the framing. The circular preview shows how the photo will appear in the product.",
+    "preview": "Crop preview for {{name}}",
+    "dragHelp": "Drag directly on the photo to reposition it.",
+    "zoom": "Zoom",
+    "horizontal": "Horizontal position",
+    "vertical": "Vertical position",
+    "reset": "Reset framing",
+    "file": "File: {{name}}",
+    "usePhoto": "Use this photo",
+    "saving": "Saving photo…",
+    "saved": "Photo updated and applied across all screens.",
+    "processingError": "The photo could not be processed or saved. Please try again.",
+    "choose": "Choose and adjust photo",
+    "change": "Change and adjust photo",
+    "invalid": "Choose a JPG, PNG, or WebP image up to 5 MB."
+  }
+}
