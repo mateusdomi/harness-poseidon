@@ -60,9 +60,11 @@ function ActivityItem({ event }: { event: AuditEvent }) {
   const humanized = humanizeActivity(event);
   const OutcomeIcon = OUTCOME_ICONS[humanized.outcome];
 
-  // Mensagem: rótulo humano quando a ação é conhecida; senão o `detail` do
-  // servidor; e só em último caso o código cru (nunca texto inventado).
-  const message = humanized.labelKey ? t(humanized.labelKey) : (event.detail ?? event.action);
+  // Códigos técnicos nunca vazam para a linha principal. O detalhe do
+  // servidor é preservado quando existe; o código cru fica no disclosure.
+  const message = humanized.labelKey
+    ? t(humanized.labelKey)
+    : (event.detail ?? t('cockpit.activity.unknown'));
   // O `detail` identifica o objeto ("Projeto Poseidon"). Quando já usamos o
   // rótulo humano, ele continua visível como o objeto do evento — humanizar
   // não pode esconder qual objeto foi afetado.

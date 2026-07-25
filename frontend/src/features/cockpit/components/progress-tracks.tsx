@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 
 import type { Progress, ProgressTrack } from '@/api';
 import { Tooltip } from '@/design-system';
-import { formatNumber } from '@/lib/format';
+import { formatDateTime, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import type { ProgressEvidence } from '@/features/cockpit/lib/cockpit-derive';
 
 /**
  * Barra por trilha — cores semânticas por trilha (NUNCA a mesma cor e
@@ -18,19 +19,43 @@ const TRACK_FILL: Record<ProgressTrack, string> = {
 
 const TRACKS: readonly ProgressTrack[] = ['executed', 'validated', 'approved'];
 
-export function ProgressTracks({ progress }: { progress: Progress }) {
+export function ProgressTracks({
+  progress,
+  evidence,
+}: {
+  progress: Progress;
+  evidence: ProgressEvidence;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-3">
-      {TRACKS.map((track) => (
-        <div key={track} className="flex flex-col gap-1">
+      {TRACKS.map((track) => {
+        const item = evidence.tracks[track];
+        const tooltip = [
+          t(`cockpit.progress.tooltips.${track}`),
+          '',
+          t('cockpit.progress.metadata.source'),
+          t('cockpit.progress.metadata.calculation', {
+            numerator: formatNumber(item.numerator),
+            denominator: formatNumber(item.denominator),
+          }),
+          t('cockpit.progress.metadata.pending', { count: item.pendingItems }),
+          evidence.updatedAt
+            ? t('cockpit.progress.metadata.updatedAt', {
+                value: formatDateTime(evidence.updatedAt),
+              })
+            : t('cockpit.progress.metadata.noUpdate'),
+        ].join('\n');
+
+        return (
+        <div key={track} className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="flex items-center gap-1.5 text-foreground-muted">
               {t(`cockpit.progress.tracks.${track}`)}
-              <Tooltip label={t(`cockpit.progress.tooltips.${track}`)}>
+              <Tooltip label={tooltip}>
                 <button
                   type="button"
-                  aria-label={t(`cockpit.progress.tooltips.${track}`)}
+                  aria-label={tooltip}
                   className="rounded-full text-foreground-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <Info aria-hidden="true" className="size-3.5" />
@@ -52,8 +77,27 @@ export function ProgressTracks({ progress }: { progress: Progress }) {
               style={{ width: `${progress[track]}%` }}
             />
           </div>
+          <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-foreground-muted">
+            <span>
+              {t('cockpit.progress.metadata.fraction', {
+                numerator: formatNumber(item.numerator),
+                denominator: formatNumber(item.denominator),
+              })}
+            </span>
+            <span>{t('cockpit.progress.metadata.pending', { count: item.pendingItems })}</span>
+          </div>
         </div>
-      ))}
+        );
+      })}
+      <p className="text-xs text-foreground-muted">
+        {t('cockpit.progress.metadata.source')}
+        {' · '}
+        {evidence.updatedAt
+          ? t('cockpit.progress.metadata.updatedAt', {
+              value: formatDateTime(evidence.updatedAt),
+            })
+          : t('cockpit.progress.metadata.noUpdate')}
+      </p>
     </div>
   );
 }

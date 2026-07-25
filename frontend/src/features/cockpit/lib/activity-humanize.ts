@@ -6,9 +6,8 @@ import type { AuditEvent } from '@/api';
  * LIMITE DE CONTRATO: `AuditEventContract.action` e `targetType` são strings
  * abertas — o OpenAPI não publica enum nem rótulo legível. Por isso o
  * mapeamento aqui é best-effort sobre o vocabulário `objeto.verbo` realmente
- * observado, com degradação graciosa: código desconhecido continua sendo
- * exibido, nunca substituído por texto inventado. O código cru permanece
- * sempre disponível no detalhe técnico ("Ver detalhes"). A ausência de um
+ * observado. O código cru permanece disponível apenas no detalhe técnico
+ * ("Ver detalhes"). A ausência de um
  * catálogo canônico de ações está registrada em `docs/frontend/HANDOFF_API.md`.
  */
 
@@ -52,6 +51,9 @@ export const KNOWN_ACTIONS = [
   'profile.settingsUpdated',
   'conversation.created',
   'workflow.linked',
+  'attempt.started',
+  'attempt.completed',
+  'attempt.failed',
 ] as const;
 
 const KNOWN_ACTION_SET = new Set<string>(KNOWN_ACTIONS);

@@ -98,9 +98,9 @@ describe('AppShell', () => {
 
     await user.click(screen.getByRole('button', { name: /recolher barra lateral/i }));
     // Sidebar colapsada: links só com ícone (aria-label); o texto visível some.
-    await user.hover(screen.getAllByRole('link', { name: 'Cockpit' })[0]);
+    await user.hover(screen.getAllByRole('link', { name: 'Dashboard' })[0]);
 
-    expect(await screen.findByText('Cockpit')).toBeInTheDocument();
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument();
   });
 
   it('recolhe e expande um grupo de navegação, persistindo o estado', async () => {

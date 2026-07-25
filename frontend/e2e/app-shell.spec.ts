@@ -29,7 +29,7 @@ test.describe('AppShell smoke', () => {
     await expect(page).toHaveURL(/\/onboarding$/);
     await page.getByRole('button', { name: /Mateus/ }).click();
     await expect(page).toHaveURL(/\/cockpit$/);
-    await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
     // Rota 1: Projetos
     await navTo(page, 'Projetos');

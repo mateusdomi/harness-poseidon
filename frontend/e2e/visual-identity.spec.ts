@@ -18,13 +18,14 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
 
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page).toHaveURL(/\/onboarding$/);
   await page.getByRole('button', { name: /Mateus/ }).click();
   await expect(page).toHaveURL(/\/cockpit$/);
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 });
 
-  const heading = page.getByRole('heading', { name: 'Cockpit' });
+  const heading = page.getByRole('heading', { name: 'Dashboard' });
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontFamily))
     .toContain('Space Grotesk');
@@ -37,6 +38,8 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   });
 
   await page.getByRole('button', { name: 'Mudar para tema claro' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.screenshot({
     path: testInfo.outputPath('cockpit-light.png'),

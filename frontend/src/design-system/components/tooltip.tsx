@@ -18,12 +18,25 @@ export interface TooltipProps {
  */
 export function Tooltip({ label, children, className }: TooltipProps) {
   const triggerRef = React.useRef<HTMLSpanElement>(null);
-  const [position, setPosition] = React.useState<{ top: number; left: number } | null>(null);
+  const [position, setPosition] = React.useState<{
+    top: number;
+    left: number;
+    placement: 'above' | 'below';
+  } | null>(null);
 
   const show = () => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
-      setPosition({ top: rect.top + rect.height / 2, left: rect.right + 8 });
+      const viewportWidth = window.innerWidth;
+      const tooltipWidth = Math.min(320, viewportWidth - 16);
+      const centeredLeft = rect.left + rect.width / 2 - tooltipWidth / 2;
+      const left = Math.max(8, Math.min(centeredLeft, viewportWidth - tooltipWidth - 8));
+      const placement = rect.top > 176 ? 'above' : 'below';
+      setPosition({
+        top: placement === 'above' ? rect.top - 8 : rect.bottom + 8,
+        left,
+        placement,
+      });
     }
   };
   const hide = () => setPosition(null);
@@ -36,16 +49,22 @@ export function Tooltip({ label, children, className }: TooltipProps) {
       onMouseLeave={hide}
       onFocus={show}
       onBlur={hide}
+      onClick={() => (position ? hide() : show())}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') hide();
+      }}
     >
       {children}
       {position && (
         <span
-          aria-hidden="true"
+          role="tooltip"
           style={{ top: position.top, left: position.left }}
           className={cn(
-            'pointer-events-none fixed z-50 -translate-y-1/2 whitespace-nowrap',
-            'rounded-md border border-border bg-surface-elevated px-2 py-1',
-            'text-xs font-medium text-foreground shadow-card motion-safe:animate-fade-in',
+            'fixed z-50 w-[min(20rem,calc(100vw-1rem))]',
+            position.placement === 'above' && '-translate-y-full',
+            'max-h-[min(20rem,calc(100vh-1rem))] overflow-y-auto whitespace-pre-line break-words',
+            'rounded-md border border-border bg-surface-elevated px-3 py-2',
+            'text-left text-xs font-medium leading-relaxed text-foreground shadow-card motion-safe:animate-fade-in',
           )}
         >
           {label}

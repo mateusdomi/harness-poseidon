@@ -30,8 +30,10 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      preference: 'system',
-      resolved: resolveSystemTheme(),
+      // Primeira abertura: o produto começa em dark. Preferências já
+      // persistidas (inclusive "system") continuam sendo respeitadas.
+      preference: 'dark',
+      resolved: 'dark',
       setPreference: (preference) => {
         const resolved = preference === 'system' ? resolveSystemTheme() : preference;
         applyTheme(resolved);
@@ -47,7 +49,7 @@ export const useThemeStore = create<ThemeState>()(
       name: 'poseidon-theme',
       partialize: (state) => ({ preference: state.preference }),
       onRehydrateStorage: () => (state) => {
-        const preference = state?.preference ?? 'system';
+        const preference = state?.preference ?? 'dark';
         const resolved = preference === 'system' ? resolveSystemTheme() : preference;
         applyTheme(resolved);
         state?.setPreference(preference);

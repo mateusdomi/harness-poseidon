@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { TASK_STATES, type TaskState } from '@/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/design-system';
@@ -29,6 +30,7 @@ const BAR_FILL: Record<TaskState, string> = {
  */
 export function TasksByStateChart({ counts }: { counts: Record<TaskState, number> }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const total = TASK_STATES.reduce((sum, state) => sum + counts[state], 0);
   const max = Math.max(1, ...TASK_STATES.map((state) => counts[state]));
 
@@ -47,28 +49,35 @@ export function TasksByStateChart({ counts }: { counts: Record<TaskState, number
               const value = counts[state];
               const label = t(`status.taskState.${state}`);
               return (
-                <li
-                  key={state}
-                  className="grid grid-cols-[8rem_1fr_2rem] items-center gap-3"
-                  aria-label={t('cockpit.tasksChart.bar', { state: label, count: value })}
-                >
-                  <span className="truncate text-xs text-foreground-muted">{label}</span>
-                  <span
-                    aria-hidden="true"
-                    className="flex h-4 items-center overflow-hidden rounded-full bg-surface-elevated"
+                <li key={state}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/board?state=${state}`)}
+                    aria-label={t('cockpit.tasksByState.open', { state: label, count: value })}
+                    className="grid min-h-11 w-full grid-cols-[8rem_1fr_2rem] items-center gap-3 rounded-md px-1 text-left hover:bg-surface-elevated/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     <span
-                      className={cn(
-                        'h-full rounded-full transition-[width]',
-                        value > 0 && 'min-w-1',
-                        BAR_FILL[state],
-                      )}
-                      style={{ width: `${Math.round((value / max) * 100)}%` }}
-                    />
-                  </span>
-                  <span className="text-right text-sm font-semibold tabular-nums">
-                    {formatNumber(value)}
-                  </span>
+                      className="truncate text-xs text-foreground-muted"
+                    >
+                      {label}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="flex h-4 items-center overflow-hidden rounded-full bg-surface-elevated"
+                    >
+                      <span
+                        className={cn(
+                          'h-full rounded-full transition-[width]',
+                          value > 0 && 'min-w-1',
+                          BAR_FILL[state],
+                        )}
+                        style={{ width: `${Math.round((value / max) * 100)}%` }}
+                      />
+                    </span>
+                    <span className="text-right text-sm font-semibold tabular-nums">
+                      {formatNumber(value)}
+                    </span>
+                  </button>
                 </li>
               );
             })}

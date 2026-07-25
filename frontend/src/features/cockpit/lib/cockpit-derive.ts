@@ -35,6 +35,42 @@ export function aggregateProgress(tasks: readonly Task[]): Progress {
   };
 }
 
+export interface ProgressEvidenceItem {
+  numerator: number;
+  denominator: number;
+  pendingItems: number;
+}
+
+export interface ProgressEvidence {
+  tracks: Record<keyof Progress, ProgressEvidenceItem>;
+  updatedAt: string | null;
+}
+
+/**
+ * Evidência do percentual agregado. O numerador é a soma dos pontos de
+ * progresso observados; o denominador é 100 pontos por tarefa. Isso torna
+ * explícito por que trilhas diferentes podem ter o mesmo percentual.
+ */
+export function progressEvidence(tasks: readonly Task[]): ProgressEvidence {
+  const denominator = tasks.length * 100;
+  const item = (track: keyof Progress): ProgressEvidenceItem => ({
+    numerator: tasks.reduce((sum, task) => sum + task.progress[track], 0),
+    denominator,
+    pendingItems: tasks.filter((task) => task.progress[track] < 100).length,
+  });
+  const timestamps = tasks.map((task) => Date.parse(task.updatedAt)).filter(Number.isFinite);
+
+  return {
+    tracks: {
+      executed: item('executed'),
+      validated: item('validated'),
+      approved: item('approved'),
+    },
+    updatedAt:
+      timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : null,
+  };
+}
+
 /**
  * Colunas do quadro agregadas por fase do workflow (fase → domínio de
  * colunas). As chaves são os NOMES das fases vindos do template

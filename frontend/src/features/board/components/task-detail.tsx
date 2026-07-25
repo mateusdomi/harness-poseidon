@@ -10,6 +10,7 @@ import { TaskActions } from '@/features/board/components/task-actions';
 import { TaskApprovals } from '@/features/board/components/task-approvals';
 import { useTaskDetail, useTaskRealtime } from '@/features/board/hooks/use-board';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
+import { progressEvidence } from '@/features/cockpit/lib/cockpit-derive';
 
 export interface TaskDetailProps {
   taskId: Ulid;
@@ -142,7 +143,7 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
         <h3 id="task-progress" className="font-heading text-sm font-semibold">
           {t('board.detail.progressTitle')}
         </h3>
-        <ProgressTracks progress={task.progress} />
+        <ProgressTracks progress={task.progress} evidence={progressEvidence([task])} />
       </section>
 
       <section aria-labelledby="task-instruction" className="flex flex-col gap-2">

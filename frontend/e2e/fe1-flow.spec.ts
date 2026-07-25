@@ -59,7 +59,7 @@ test.describe('Gate FE-1', () => {
     await expect(page.getByText(PROJECT_NAME).first()).toBeVisible();
 
     // 3. Tornar o projeto recém-criado o projeto ativo.
-    await navTo(page, 'Cockpit');
+    await navTo(page, 'Dashboard');
     await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });
 
     // 4. Golden path: projeto novo não tem workflow, então a execução do chefe

@@ -12,7 +12,6 @@ import { PhaseSummary } from '@/features/cockpit/components/phase-summary';
 import { GoldenPathChecklist } from '@/features/onboarding/components/golden-path-checklist';
 import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
-import { TaskStateCounters } from '@/features/cockpit/components/task-state-counters';
 import { TasksByStateChart } from '@/features/cockpit/components/tasks-by-state-chart';
 import {
   useCockpitActivity,
@@ -28,6 +27,7 @@ import {
   budgetSeverity,
   countTasksByState,
   currentPhase,
+  progressEvidence,
   recommendNextAction,
 } from '@/features/cockpit/lib/cockpit-derive';
 import { featureFlags } from '@/config/features';
@@ -172,13 +172,13 @@ export default function CockpitPage() {
               <p className="text-xs text-foreground-muted">{t('cockpit.progress.subtitle')}</p>
             </CardHeader>
             <CardContent>
-              <ProgressTracks progress={aggregateProgress(tasks)} />
+              <ProgressTracks
+                progress={aggregateProgress(tasks)}
+                evidence={progressEvidence(tasks)}
+              />
             </CardContent>
           </Card>
           <TasksByStateChart counts={counts} />
-          <div className="lg:col-span-2">
-            <TaskStateCounters counts={counts} />
-          </div>
           <BlockedTasksCard tasks={tasks} />
           <PendingApprovalsCard approvals={approvals} />
           <AgentsHealthCard agents={agents} taskCounts={counts} />

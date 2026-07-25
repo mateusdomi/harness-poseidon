@@ -50,7 +50,7 @@
     "organizations": "Organizations",
     "projects": "Projects",
     "delivery": "Delivery Center",
-    "cockpit": "Cockpit",
+    "cockpit": "Dashboard",
     "chat": "Chat",
     "conversations": "Conversations",
     "workflows": "Workflows",
@@ -750,7 +750,7 @@
     },
     "empty": {
       "title": "No active project",
-      "body": "The cockpit shows a project's operation: phase, progress, blockers and agents. Create your first project to get started.",
+      "body": "The Dashboard shows a project's operation: phase, progress, blockers and agents. Create your first project to get started.",
       "cta": "Create project"
     },
     "phase": {
@@ -770,7 +770,16 @@
       "tooltips": {
         "executed": "Executed = how much work the agents have already produced (code, documents). It does not yet mean it is correct.",
         "validated": "Validated = how much work has already passed automated review and the quality tests/gates.",
-        "approved": "Approved = how much work you (or the chief) have formally approved as ready to deliver."
+        "approved": "Approved = how much work you or Bruna have formally approved as ready to deliver."
+      },
+      "metadata": {
+        "source": "Source: realtime task progress from the board",
+        "fraction": "{{numerator}} / {{denominator}} points",
+        "calculation": "Calculation: {{numerator}} observed points ÷ {{denominator}} possible points.",
+        "pending": "{{count}} pending items",
+        "pending_one": "{{count}} pending item",
+        "updatedAt": "Updated {{value}}",
+        "noUpdate": "No update yet"
       }
     },
     "tasksChart": {
@@ -819,7 +828,7 @@
       "viewAll": "View all approvals"
     },
     "agents": {
-      "title": "Agent factory",
+      "title": "Operations team",
       "empty": "No agents linked to this project.",
       "online": "Online",
       "onlineTooltip": "Agents ready to produce (working, idle or waiting). Does not count those in error or out of quota.",
@@ -862,6 +871,7 @@
       "openTarget": "Open",
       "showDetails": "View details",
       "hideDetails": "Hide details",
+      "unknown": "Operational activity recorded",
       "outcome": {
         "success": "Completed",
         "error": "Failed",
@@ -893,7 +903,10 @@
         "document.approved": "Document approved",
         "document.stateChanged": "Document changed state",
         "approval.requested": "Approval requested",
-        "demand.completed": "Demand completed"
+        "demand.completed": "Demand completed",
+        "attempt.started": "Task execution started",
+        "attempt.completed": "Task execution completed",
+        "attempt.failed": "Task execution failed"
       }
     }
   },
@@ -1213,7 +1226,7 @@
       "description": "List and details of projects built by the agents."
     },
     "cockpit": {
-      "title": "Cockpit",
+      "title": "Dashboard",
       "description": "Operation overview: agent status and active projects."
     },
     "chat": {

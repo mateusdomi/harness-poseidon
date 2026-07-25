@@ -82,3 +82,103 @@ public static class BacklogHealthEvaluator
             .ThenBy(card => card.TaskId, StringComparer.Ordinal)];
     }
 }
+
+/// <summary>
+/// Fatos persistidos usados para reconciliar a projeção visual do quadro com a
+/// máquina de execução. <see cref="AttemptStates"/> contém somente estados
+/// gravados; ausência de tentativa nunca é interpretada como sucesso.
+/// </summary>
+public sealed record BoardReconciliationFacts(
+    string TaskId,
+    string BoardState,
+    string InternalState,
+    bool Archived,
+    IReadOnlyList<string> AttemptStates);
+
+public sealed record BoardReconciliationDecision(
+    string TaskId,
+    string Kind,
+    string ReasonCode,
+    string? TargetState);
+
+/// <summary>
+/// Reconciliador puro do quadro. Só propõe movimento quando a projeção correta
+/// é consequência inequívoca do estado interno persistido; inconsistências que
+/// exigem interpretação humana são retornadas como alerta.
+/// </summary>
+public static class BoardStateReconciliationEvaluator
+{
+    public const string Correction = "correction";
+    public const string Attention = "attention";
+    public const string CompletedProjectionMismatch = "board.completed_projection_mismatch";
+    public const string ReviewProjectionMismatch = "board.review_projection_mismatch";
+    public const string RunningProjectionMismatch = "board.running_projection_mismatch";
+    public const string DevelopmentWithoutActiveAttempt =
+        "board.development_without_active_attempt";
+    public const string RunningWithoutActiveAttempt = "board.running_without_active_attempt";
+    public const string TerminalAttemptWithoutTaskUpdate =
+        "board.terminal_attempt_without_task_update";
+
+    public static BoardReconciliationDecision? Evaluate(BoardReconciliationFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        ArgumentNullException.ThrowIfNull(facts.AttemptStates);
+        if (facts.Archived)
+        {
+            return null;
+        }
+
+        var hasRunningAttempt = facts.AttemptStates.Any(
+            state => string.Equals(state, "running", StringComparison.Ordinal));
+        var hasTerminalAttempt = facts.AttemptStates.Any(
+            state => string.Equals(state, "approved", StringComparison.Ordinal) ||
+                     string.Equals(state, "rejected", StringComparison.Ordinal));
+
+        if (string.Equals(facts.InternalState, "completed", StringComparison.Ordinal) &&
+            !string.Equals(facts.BoardState, "done", StringComparison.Ordinal))
+        {
+            return new(facts.TaskId, Correction, CompletedProjectionMismatch, "done");
+        }
+
+        // Bloqueio é transversal: nunca apagamos o estado de origem por
+        // inferência. A única exceção acima é conclusão já persistida.
+        if (string.Equals(facts.BoardState, "blocked", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (string.Equals(facts.InternalState, "awaiting_review", StringComparison.Ordinal) &&
+            !string.Equals(facts.BoardState, "review", StringComparison.Ordinal))
+        {
+            return new(facts.TaskId, Correction, ReviewProjectionMismatch, "review");
+        }
+
+        if (string.Equals(facts.InternalState, "running", StringComparison.Ordinal))
+        {
+            if (!hasRunningAttempt)
+            {
+                return new(facts.TaskId, Attention, RunningWithoutActiveAttempt, null);
+            }
+
+            if (!string.Equals(facts.BoardState, "development", StringComparison.Ordinal))
+            {
+                return new(facts.TaskId, Correction, RunningProjectionMismatch, "development");
+            }
+        }
+
+        if (string.Equals(facts.BoardState, "development", StringComparison.Ordinal) &&
+            !hasRunningAttempt)
+        {
+            return new(facts.TaskId, Attention, DevelopmentWithoutActiveAttempt, null);
+        }
+
+        if (hasTerminalAttempt &&
+            !string.Equals(facts.InternalState, "completed", StringComparison.Ordinal) &&
+            !string.Equals(facts.InternalState, "ready", StringComparison.Ordinal))
+        {
+            return new(facts.TaskId, Attention, TerminalAttemptWithoutTaskUpdate, null);
+        }
+
+        return null;
+    }
+}

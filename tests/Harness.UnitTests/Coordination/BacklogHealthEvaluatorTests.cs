@@ -89,3 +89,66 @@ public sealed class BacklogHealthEvaluatorTests
         bool archived = false) =>
         new(id, $"Card {id}", boardState, internalState, archived, updatedAt);
 }
+
+public sealed class BoardStateReconciliationEvaluatorTests
+{
+    [Fact]
+    public void CompletedTaskIsDeterministicallyMovedToDone()
+    {
+        var decision = BoardStateReconciliationEvaluator.Evaluate(
+            Facts("review", "completed", ["approved"]));
+
+        Assert.NotNull(decision);
+        Assert.Equal(BoardStateReconciliationEvaluator.Correction, decision.Kind);
+        Assert.Equal("done", decision.TargetState);
+    }
+
+    [Fact]
+    public void AwaitingReviewTaskIsDeterministicallyMovedToReview()
+    {
+        var decision = BoardStateReconciliationEvaluator.Evaluate(
+            Facts("development", "awaiting_review", ["awaiting_review"]));
+
+        Assert.NotNull(decision);
+        Assert.Equal("review", decision.TargetState);
+    }
+
+    [Fact]
+    public void DevelopmentWithoutRunningAttemptCreatesAttention()
+    {
+        var decision = BoardStateReconciliationEvaluator.Evaluate(
+            Facts("development", "ready", []));
+
+        Assert.NotNull(decision);
+        Assert.Equal(BoardStateReconciliationEvaluator.Attention, decision.Kind);
+        Assert.Equal(
+            BoardStateReconciliationEvaluator.DevelopmentWithoutActiveAttempt,
+            decision.ReasonCode);
+        Assert.Null(decision.TargetState);
+    }
+
+    [Fact]
+    public void BlockedTaskPreservesItsTransversalState()
+    {
+        var decision = BoardStateReconciliationEvaluator.Evaluate(
+            Facts("blocked", "running", ["running"]));
+
+        Assert.Null(decision);
+    }
+
+    [Fact]
+    public void ArchivedTaskIsIgnored()
+    {
+        var decision = BoardStateReconciliationEvaluator.Evaluate(
+            Facts("development", "completed", ["approved"], archived: true));
+
+        Assert.Null(decision);
+    }
+
+    private static BoardReconciliationFacts Facts(
+        string boardState,
+        string internalState,
+        IReadOnlyList<string> attempts,
+        bool archived = false) =>
+        new("task-1", boardState, internalState, archived, attempts);
+}

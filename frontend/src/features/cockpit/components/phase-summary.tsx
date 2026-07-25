@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next';
 import type { Gate, Phase, Task } from '@/api';
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/design-system';
 import { gateStateVariant, phaseStateVariant } from '@/lib/status';
-import { aggregateProgress, gateOfPhase, tasksOfPhase } from '@/features/cockpit/lib/cockpit-derive';
+import {
+  aggregateProgress,
+  gateOfPhase,
+  progressEvidence,
+  tasksOfPhase,
+} from '@/features/cockpit/lib/cockpit-derive';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
 
 interface PhaseSummaryProps {
@@ -56,7 +61,10 @@ export function PhaseSummary({ phase, gates, tasks }: PhaseSummaryProps) {
             <span className="text-foreground-muted">{t('cockpit.phase.noGate')}</span>
           )}
         </div>
-        <ProgressTracks progress={aggregateProgress(phaseTasks)} />
+        <ProgressTracks
+          progress={aggregateProgress(phaseTasks)}
+          evidence={progressEvidence(phaseTasks)}
+        />
       </CardContent>
     </Card>
   );

@@ -50,7 +50,7 @@
     "organizations": "Organizações",
     "projects": "Projetos",
     "delivery": "Central de Entregas",
-    "cockpit": "Cockpit",
+    "cockpit": "Dashboard",
     "chat": "Chat",
     "conversations": "Conversas",
     "workflows": "Fluxos de trabalho",
@@ -750,7 +750,7 @@
     },
     "empty": {
       "title": "Nenhum projeto ativo",
-      "body": "O cockpit mostra a operação de um projeto: fase, progresso, bloqueios e agentes. Crie o primeiro projeto para começar.",
+      "body": "O Dashboard mostra a operação de um projeto: fase, progresso, bloqueios e agentes. Crie o primeiro projeto para começar.",
       "cta": "Criar projeto"
     },
     "phase": {
@@ -770,7 +770,16 @@
       "tooltips": {
         "executed": "Executado = quanto do trabalho os agentes já produziram (código, documentos). Ainda não significa que está correto.",
         "validated": "Validado = quanto do trabalho já passou pela revisão automática e pelos testes/gates de qualidade.",
-        "approved": "Aprovado = quanto do trabalho você (ou o chefe) já aprovou formalmente como pronto para entregar."
+        "approved": "Aprovado = quanto do trabalho você ou a Bruna já aprovou formalmente como pronto para entregar."
+      },
+      "metadata": {
+        "source": "Fonte: progresso das tarefas do quadro em tempo real",
+        "fraction": "{{numerator}} / {{denominator}} pontos",
+        "calculation": "Cálculo: {{numerator}} pontos observados ÷ {{denominator}} pontos possíveis.",
+        "pending": "{{count}} itens pendentes",
+        "pending_one": "{{count}} item pendente",
+        "updatedAt": "Atualizado em {{value}}",
+        "noUpdate": "Ainda sem atualização"
       }
     },
     "tasksChart": {
@@ -819,7 +828,7 @@
       "viewAll": "Ver todas as aprovações"
     },
     "agents": {
-      "title": "Fábrica de agentes",
+      "title": "Equipe operacional",
       "empty": "Nenhum agente vinculado a este projeto.",
       "online": "Online",
       "onlineTooltip": "Agentes prontos para produzir (trabalhando, ociosos ou aguardando). Não conta os em erro ou sem cota.",
@@ -862,6 +871,7 @@
       "openTarget": "Abrir",
       "showDetails": "Ver detalhes",
       "hideDetails": "Ocultar detalhes",
+      "unknown": "Atividade operacional registrada",
       "outcome": {
         "success": "Concluído",
         "error": "Falha",
@@ -893,7 +903,10 @@
         "document.approved": "Documento aprovado",
         "document.stateChanged": "Documento mudou de estado",
         "approval.requested": "Aprovação solicitada",
-        "demand.completed": "Demanda concluída"
+        "demand.completed": "Demanda concluída",
+        "attempt.started": "Execução de tarefa iniciada",
+        "attempt.completed": "Execução de tarefa concluída",
+        "attempt.failed": "Execução de tarefa falhou"
       }
     }
   },
@@ -1213,7 +1226,7 @@
       "description": "Lista e detalhes dos projetos desenvolvidos pelos agentes."
     },
     "cockpit": {
-      "title": "Cockpit",
+      "title": "Dashboard",
       "description": "Visão geral da operação: status dos agentes e projetos ativos."
     },
     "chat": {

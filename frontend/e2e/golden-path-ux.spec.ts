@@ -48,7 +48,7 @@ async function createProjectWithoutWorkflow(page: Page) {
   await page.getByRole('button', { name: 'Criar projeto' }).click();
   await expect(page.getByText(PROJECT_NAME).first()).toBeVisible();
 
-  await navTo(page, 'Cockpit');
+  await navTo(page, 'Dashboard');
   await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });
 }
 

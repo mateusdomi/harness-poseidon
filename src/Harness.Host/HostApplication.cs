@@ -479,6 +479,11 @@ public static class HostApplication
                 TimeSpan.FromSeconds(1),
                 TimeSpan.FromMinutes(2)));
         builder.Services.AddHostedService<DurableExecutionWatchdogBackgroundService>();
+        builder.Services.AddSingleton(
+            new WorkBoard.BoardStateReconciliationOptions(
+                TimeSpan.FromMinutes(2),
+                250));
+        builder.Services.AddHostedService<WorkBoard.BoardStateReconciliationBackgroundService>();
         var governanceFeatures = builder.Configuration
             .GetSection("Harness:Governance:Features")
             .Get<GovernanceFeatureSettings>() ?? new GovernanceFeatureSettings();

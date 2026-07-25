@@ -14,6 +14,7 @@ import {
   currentPhase,
   factoryAgentMetrics,
   filterActivityByPeriod,
+  progressEvidence,
   recommendNextAction,
   tasksOfPhase,
 } from '@/features/cockpit/lib/cockpit-derive';
@@ -37,6 +38,19 @@ describe('cockpit-derive', () => {
       expect(value).toBeLessThanOrEqual(100);
     }
     expect(aggregateProgress([])).toEqual({ executed: 0, validated: 0, approved: 0 });
+  });
+
+  it('expõe numerador, denominador, pendências e atualização do progresso', () => {
+    const sample = tasks.slice(0, 3);
+    const evidence = progressEvidence(sample);
+    expect(evidence.tracks.executed.denominator).toBe(300);
+    expect(evidence.tracks.executed.numerator).toBe(
+      sample.reduce((sum, task) => sum + task.progress.executed, 0),
+    );
+    expect(evidence.tracks.approved.pendingItems).toBe(
+      sample.filter((task) => task.progress.approved < 100).length,
+    );
+    expect(evidence.updatedAt).toBeTruthy();
   });
 
   it('conta tarefas por estado com todas as 8 colunas presentes', () => {
@@ -212,7 +226,7 @@ describe('CockpitPage', () => {
     expect(await screen.findByText('Deploy em staging (sem credencial)')).toBeInTheDocument();
     expect(screen.getByLabelText(/projeto ativo/i)).toBeInTheDocument();
     expect(screen.getByText('Aprovar Gate de Qualidade')).toBeInTheDocument();
-    expect(screen.getByText('Fábrica de agentes')).toBeInTheDocument();
+    expect(screen.getByText('Equipe operacional')).toBeInTheDocument();
     expect(screen.getByText('Online').tagName).toBe('DT');
     expect(screen.getByText('58').tagName).toBe('DD');
     expect(screen.getByText('Cotas críticas')).toBeInTheDocument();
