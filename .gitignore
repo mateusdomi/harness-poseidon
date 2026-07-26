@@ -31,3 +31,6 @@ src/Harness.Host/wwwroot/
 
 # Worktrees efêmeros de agentes da fleet (nunca versionar)
 .claude/worktrees/
+
+# SDK .NET e caches hermeticos baixados por tools/backend/install-dotnet.sh (~1 GB)
+tools/backend/.tooling/
