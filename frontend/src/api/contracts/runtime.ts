@@ -50,7 +50,7 @@ export const agentAccountRosterSchema = z.object({
 export type AgentAccountRoster = z.infer<typeof agentAccountRosterSchema>;
 
 /** Tipos de canal externo suportados pelo gateway (conjunto fechado). */
-export const channelKindSchema = z.enum(['terminal', 'telegram', 'teams']);
+export const channelKindSchema = z.enum(['terminal', 'telegram', 'teams', 'whatsapp', 'email']);
 export type ChannelKind = z.infer<typeof channelKindSchema>;
 
 /**

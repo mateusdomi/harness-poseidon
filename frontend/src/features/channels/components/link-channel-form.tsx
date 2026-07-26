@@ -6,7 +6,14 @@ import { Button, Field, Input, Select } from '@/design-system';
 import { useCreateChannelLink } from '@/features/channels/hooks/use-channels';
 
 /** Tipos de canal externo oferecidos na UI (o `terminal` é interno). */
-const EXTERNAL_KINDS: ChannelKind[] = ['telegram', 'teams'];
+const EXTERNAL_KINDS: ChannelKind[] = ['telegram', 'teams', 'whatsapp', 'email'];
+
+/** Dica de identidade externa por tipo de canal (fallback: Telegram). */
+const IDENTITY_HINT_KEY: Partial<Record<ChannelKind, string>> = {
+  teams: 'channels.link.fields.identityHintTeams',
+  whatsapp: 'channels.link.fields.identityHintWhatsApp',
+  email: 'channels.link.fields.identityHintEmail',
+};
 
 /** Mapeia o `title` do problem+json do backend para a chave i18n do erro. */
 const KNOWN_ERROR_TITLES = new Set([
@@ -72,10 +79,7 @@ export function LinkChannelForm({ projects, onLinked, onCancel }: LinkChannelFor
     );
   };
 
-  const identityHint =
-    kind === 'teams'
-      ? t('channels.link.fields.identityHintTeams')
-      : t('channels.link.fields.identityHintTelegram');
+  const identityHint = t(IDENTITY_HINT_KEY[kind] ?? 'channels.link.fields.identityHintTelegram');
 
   return (
     <form

@@ -13,6 +13,8 @@ const KIND_VARIANT: Record<ChannelKind, 'info' | 'success' | 'default'> = {
   telegram: 'info',
   teams: 'success',
   terminal: 'default',
+  whatsapp: 'success',
+  email: 'info',
 };
 
 /** Explica a diferença entre "bot configurado" e "canal vinculado a projeto". */

@@ -1,12 +1,14 @@
 {
   "channels": {
     "title": "Canais externos",
-    "subtitle": "Gateways de conversa externos (Telegram, Teams) vinculados a projetos. As mensagens entram na caixa durável de Bruna sem duplicação.",
+    "subtitle": "Gateways de conversa externos (Telegram, Teams, WhatsApp, e-mail) vinculados a projetos. As mensagens entram na caixa durável de Bruna sem duplicação.",
     "count": "{{count}} canal(is) vinculado(s)",
     "kind": {
       "telegram": "Telegram",
       "teams": "Microsoft Teams",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "whatsapp": "WhatsApp",
+      "email": "E-mail"
     },
     "status": {
       "linked": "Vinculado",
@@ -33,7 +35,7 @@
     },
     "link": {
       "title": "Vincular um canal a um projeto",
-      "subtitle": "Vincule a identidade de um chat (Telegram/Teams) a um projeto. O vínculo é idempotente: revincular a mesma identidade devolve o vínculo existente.",
+      "subtitle": "Vincule a identidade de um chat (Telegram/Teams/WhatsApp/e-mail) a um projeto. O vínculo é idempotente: revincular a mesma identidade devolve o vínculo existente.",
       "open": "Vincular novo canal",
       "cancel": "Cancelar",
       "required": "*",
@@ -42,6 +44,8 @@
         "identity": "Identidade externa",
         "identityHintTelegram": "Chat id numérico do Telegram (ex.: 5774120296). O bot informa o chat id na primeira mensagem de um chat ainda não vinculado. Nunca cole aqui o token do bot.",
         "identityHintTeams": "Identidade da conversa do Teams (id do canal/conversa).",
+        "identityHintWhatsApp": "Número de telefone do WhatsApp com código do país e SEM o sinal de '+' (ex.: 5511999999999) — exatamente o formato que a Cloud API da Meta envia no campo 'from'. Nunca cole aqui o token de acesso.",
+        "identityHintEmail": "Endereço de e-mail do remetente autorizado a conversar com Bruna por este canal.",
         "identityPlaceholder": "5774120296",
         "project": "Projeto",
         "projectPlaceholder": "Selecione o projeto"

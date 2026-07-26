@@ -1,12 +1,14 @@
 {
   "channels": {
     "title": "External channels",
-    "subtitle": "External conversation gateways (Telegram, Teams) linked to projects. Messages route to Bruna's durable inbox with zero duplication.",
+    "subtitle": "External conversation gateways (Telegram, Teams, WhatsApp, email) linked to projects. Messages route to Bruna's durable inbox with zero duplication.",
     "count": "{{count}} channel(s) linked",
     "kind": {
       "telegram": "Telegram",
       "teams": "Microsoft Teams",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "whatsapp": "WhatsApp",
+      "email": "Email"
     },
     "status": {
       "linked": "Linked",
@@ -33,7 +35,7 @@
     },
     "link": {
       "title": "Link a channel to a project",
-      "subtitle": "Link a chat identity (Telegram/Teams) to a project. Linking is idempotent: re-linking the same identity returns the existing link.",
+      "subtitle": "Link a chat identity (Telegram/Teams/WhatsApp/email) to a project. Linking is idempotent: re-linking the same identity returns the existing link.",
       "open": "Link new channel",
       "cancel": "Cancel",
       "required": "*",
@@ -42,6 +44,8 @@
         "identity": "External identity",
         "identityHintTelegram": "Numeric Telegram chat id (e.g. 5774120296). The bot reports the chat id on the first message from a not-yet-linked chat. Never paste the bot token here.",
         "identityHintTeams": "Teams conversation identity (channel/conversation id).",
+        "identityHintWhatsApp": "WhatsApp phone number with country code and WITHOUT the leading '+' (e.g. 5511999999999) — exactly the format the Meta Cloud API sends in the 'from' field. Never paste the access token here.",
+        "identityHintEmail": "Email address of the sender authorized to talk to Bruna over this channel.",
         "identityPlaceholder": "5774120296",
         "project": "Project",
         "projectPlaceholder": "Select the project"

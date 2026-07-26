@@ -365,6 +365,65 @@
                 }
             }
         },
+        "/api/v1/channels/whatsapp/webhook": {
+            "get": {
+                "tags": [
+                    "channels"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "channels"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WhatsAppWebhookReceipt"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{id}/workflow": {
             "post": {
                 "tags": [
@@ -33966,6 +34025,49 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "WhatsAppMessageReceipt": {
+                "required": [
+                    "turnId",
+                    "conversationId",
+                    "linked",
+                    "deduplicated"
+                ],
+                "type": "object",
+                "properties": {
+                    "turnId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "conversationId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "linked": {
+                        "type": "boolean"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "WhatsAppWebhookReceipt": {
+                "required": [
+                    "messages"
+                ],
+                "type": "object",
+                "properties": {
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WhatsAppMessageReceipt"
+                        }
                     }
                 }
             },

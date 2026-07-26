@@ -17,7 +17,7 @@ namespace Harness.Host.Conversations;
 public static class ChannelEndpoints
 {
     private static readonly HashSet<string> Kinds =
-        new(["terminal", "telegram", "teams"], StringComparer.Ordinal);
+        new(["terminal", "telegram", "teams", "whatsapp", "email"], StringComparer.Ordinal);
 
     public static IEndpointRouteBuilder MapChannels(this IEndpointRouteBuilder endpoints)
     {
@@ -46,7 +46,54 @@ public static class ChannelEndpoints
             .ProducesProblem(400)
             .ProducesProblem(401)
             .ProducesProblem(503);
+        endpoints.MapGet("/api/v1/channels/whatsapp/webhook", VerifyWhatsAppWebhook)
+            .WithTags("channels");
+        endpoints.MapPost("/api/v1/channels/whatsapp/webhook", ReceiveWhatsAppWebhookAsync)
+            .WithTags("channels")
+            .Produces<WhatsAppWebhookReceipt>(200)
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(503);
         return endpoints;
+    }
+
+    private static IResult VerifyWhatsAppWebhook(
+        HttpRequest request,
+        WhatsAppChannelBackgroundService whatsapp)
+    {
+        var mode = request.Query["hub.mode"].ToString();
+        var verifyToken = request.Query["hub.verify_token"].ToString();
+        var challenge = request.Query["hub.challenge"].ToString();
+        return whatsapp.TryVerifyHandshake(mode, verifyToken)
+            ? Results.Text(challenge)
+            : Results.StatusCode(403);
+    }
+
+    private static async Task<IResult> ReceiveWhatsAppWebhookAsync(
+        HttpRequest request,
+        WhatsAppChannelBackgroundService whatsapp,
+        CancellationToken token)
+    {
+        using var buffer = new MemoryStream();
+        await request.Body.CopyToAsync(buffer, token);
+        var signature = request.Headers["X-Hub-Signature-256"].ToString();
+        try
+        {
+            var receipt = await whatsapp.ReceiveAsync(signature, buffer.ToArray(), token);
+            return Results.Ok(receipt);
+        }
+        catch (WhatsAppWebhookAuthenticationException exception)
+        {
+            return Problem(401, "whatsapp_webhook_unauthorized", exception.Message);
+        }
+        catch (WhatsAppWebhookValidationException exception)
+        {
+            return Problem(400, "invalid_whatsapp_webhook", exception.Message);
+        }
+        catch (WhatsAppChannelUnavailableException exception)
+        {
+            return Problem(503, "whatsapp_channel_unavailable", exception.Message);
+        }
     }
 
     private static async Task<IResult> ReceiveTeamsActivityAsync(

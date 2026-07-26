@@ -273,6 +273,12 @@ public static class HostApplication
         builder.Services.AddSingleton<TeamsChannelBackgroundService>();
         builder.Services.AddSingleton<IHostedService>(services =>
             services.GetRequiredService<TeamsChannelBackgroundService>());
+        builder.Services.AddSingleton(builder.Configuration
+            .GetSection("Harness:Channels:WhatsApp")
+            .Get<WhatsAppChannelOptions>() ?? new WhatsAppChannelOptions());
+        builder.Services.AddSingleton<WhatsAppChannelBackgroundService>();
+        builder.Services.AddSingleton<IHostedService>(services =>
+            services.GetRequiredService<WhatsAppChannelBackgroundService>());
         RegisterSmtpNotificationChannel(builder);
         builder.Services.AddSingleton<RunTargetAgentFallback>();
         builder.Services.AddSingleton<RunTargetDetector>();
