@@ -48,6 +48,10 @@ public interface IWorkChainStore
     Task<WorkChainMutationReceipt> CompleteMergedTaskAsync(
         WorkTaskDeliveryCompleteCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> CancelRunningTaskAsync(
+        WorkTaskCancellationCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkChainCreateCommand(
@@ -196,6 +200,19 @@ public sealed record WorkTaskDeliveryCompleteCommand(
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
 
+public sealed record WorkTaskCancellationCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string AttemptId,
+    string ActorKind,
+    string ActorId,
+    string Reason,
+    string EvidenceReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
 public sealed record WorkChainAggregateSnapshot(
     string TenantId,
     string ProjectId,
@@ -336,6 +353,9 @@ public static class WorkChainCreateHash
 
 public static class WorkChainMutationValidator
 {
+    private static readonly HashSet<string> ActorKinds =
+        new(StringComparer.Ordinal) { "user", "chief", "agent", "system" };
+
     public static void Validate(WorkInstructionVersionCreateCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -453,6 +473,26 @@ public static class WorkChainMutationValidator
             command.ExpectedTaskVersion,
             command.IdempotencyKey);
         ValidateText(command.ActorId, nameof(command), 200);
+        ValidateText(command.EvidenceReference, nameof(command), 2_000);
+    }
+
+    public static void Validate(WorkTaskCancellationCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateUlid(command.AttemptId, nameof(command));
+        if (!ActorKinds.Contains(command.ActorKind))
+        {
+            throw new ArgumentException("Cancellation actor kind is invalid.", nameof(command));
+        }
+
+        ValidateText(command.ActorId, nameof(command), 200);
+        ValidateText(command.Reason, nameof(command), 10_000);
         ValidateText(command.EvidenceReference, nameof(command), 2_000);
     }
 

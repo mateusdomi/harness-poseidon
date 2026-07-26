@@ -75,10 +75,107 @@ internal static class WorkChainStoreBehavior
 
         await AssertMutationsAsync(store, command, cancellationToken);
         await AssertLeaseExpiryAsync(store, command, cancellationToken);
+        await AssertCancellationAsync(store, command, cancellationToken);
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FF4",
             cancellationToken));
+    }
+
+    private static async Task AssertCancellationAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FC0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FC1",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5FC2",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FC3",
+            IdempotencyKey = "work-chain:create:cancellation",
+            OccurredAt = template.OccurredAt.AddDays(2),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+
+        var start = new WorkAttemptStartCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            chain.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FC4",
+            "cancelled-owner",
+            1,
+            "work-chain:attempt:start:cancellation",
+            chain.OccurredAt.AddMinutes(1));
+        var started = await store.StartAttemptAsync(start, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+
+        var cancellation = new WorkTaskCancellationCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            start.AttemptId,
+            "chief",
+            "bruna",
+            "The user cancelled the active card.",
+            "conversation:cancel-command",
+            2,
+            "work-chain:task:cancel:first",
+            chain.OccurredAt.AddMinutes(2));
+        var cancelled = await store.CancelRunningTaskAsync(
+            cancellation,
+            cancellationToken);
+        var replay = await store.CancelRunningTaskAsync(
+            cancellation,
+            cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, cancelled.Status);
+        Assert.Equal(3, cancelled.TaskVersion);
+        Assert.Equal("cancelled", cancelled.TaskState);
+        Assert.Equal("cancelled", cancelled.AttemptState);
+        Assert.NotNull(cancelled.LedgerSequence);
+        Assert.NotNull(cancelled.LedgerHash);
+        Assert.NotNull(cancelled.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, replay.Status);
+        Assert.Equal(cancelled.LedgerHash, replay.LedgerHash);
+
+        var lateCompletion = await store.CompleteAttemptAsync(
+            new WorkAttemptCompleteCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                start.AttemptId,
+                3,
+                [new WorkEvidenceInput(
+                    "01ARZ3NDEKTSV4RRFFQ69G5FC5",
+                    "late:evidence")],
+                "work-chain:attempt:complete:cancelled",
+                chain.OccurredAt.AddMinutes(3)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, lateCompletion.Status);
+
+        var retry = await store.StartAttemptAsync(
+            start with
+            {
+                AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FC6",
+                ExpectedTaskVersion = 3,
+                IdempotencyKey = "work-chain:attempt:start:after-cancellation",
+                OccurredAt = chain.OccurredAt.AddMinutes(4),
+            },
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, retry.Status);
+
+        var aggregate = await store.ReadAggregateAsync(
+            chain.TenantId,
+            chain.SolicitationId,
+            cancellationToken);
+        Assert.NotNull(aggregate);
+        var task = Assert.Single(Assert.Single(aggregate.Demands).Tasks);
+        Assert.Equal("cancelled", task.State);
+        var attempt = Assert.Single(task.Attempts);
+        Assert.Equal("cancelled", attempt.State);
+        Assert.NotNull(attempt.CompletedAt);
     }
 
     private static async Task AssertLeaseExpiryAsync(

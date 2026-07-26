@@ -52,6 +52,7 @@ public enum WorkAttemptState
     Approved,
     Rejected,
     Abandoned,
+    Cancelled,
 }
 
 public enum ReviewDecision

@@ -101,6 +101,26 @@ public sealed class WorkChainAggregateTests
         Assert.Equal(WorkChainErrors.AttemptNotFound, unknown.Error);
     }
 
+    [Fact]
+    public void CancellationTerminatesRunningTaskAndAttempt()
+    {
+        var chain = CreateChain();
+        var task = CreateTask(chain, WorkRiskTier.Medium);
+        var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
+        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+
+        var cancelled = chain.CancelRunningTask(task.Id, attempt.Id);
+        var lateCompletion = chain.CompleteAttempt(attempt.Id, ["late:evidence"]);
+        var duplicateCancellation = chain.CancelRunningTask(task.Id, attempt.Id);
+
+        Assert.True(cancelled.IsSuccess);
+        Assert.Equal(WorkTaskState.Cancelled, task.State);
+        Assert.Equal(WorkAttemptState.Cancelled, attempt.State);
+        Assert.NotNull(attempt.CompletedAt);
+        Assert.Equal(WorkChainErrors.InvalidAttemptState, lateCompletion.Error);
+        Assert.Equal(WorkChainErrors.InvalidAttemptState, duplicateCancellation.Error);
+    }
+
     [Theory]
     [InlineData(WorkRiskTier.Medium)]
     [InlineData(WorkRiskTier.High)]

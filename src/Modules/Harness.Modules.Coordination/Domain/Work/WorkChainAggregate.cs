@@ -280,6 +280,35 @@ public sealed class WorkChainAggregate
         return Result.Success();
     }
 
+    public Result CancelRunningTask(
+        EntityId<WorkTaskTag> taskId,
+        EntityId<WorkAttemptTag> attemptId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        var attempt = _attempts.SingleOrDefault(candidate =>
+            candidate.Id == attemptId && candidate.TaskId == taskId);
+        if (attempt is null)
+        {
+            return Result.Failure(WorkChainErrors.AttemptNotFound);
+        }
+
+        if (task.State != WorkTaskState.Running ||
+            attempt.State != WorkAttemptState.Running)
+        {
+            return Result.Failure(WorkChainErrors.InvalidAttemptState);
+        }
+
+        attempt.State = WorkAttemptState.Cancelled;
+        attempt.CompletedAt = _clock.UtcNow;
+        task.State = WorkTaskState.Cancelled;
+        return Result.Success();
+    }
+
     public Result<WorkReview> ReviewAttempt(
         EntityId<WorkAttemptTag> attemptId,
         string reviewerAgentId,
