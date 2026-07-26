@@ -28,6 +28,9 @@ public static class WorkChainErrors
     public static ErrorDescriptor ReplanningRequired { get; } =
         new("coordination.task.replanningRequired", "Coordination.WorkChain.ReplanningRequired");
 
+    public static ErrorDescriptor TaskIsNotEscalated { get; } =
+        new("coordination.task.notEscalated", "Coordination.WorkChain.TaskIsNotEscalated");
+
     public static ErrorDescriptor InvalidAttemptState { get; } =
         new("coordination.attempt.invalidState", "Coordination.WorkChain.InvalidAttemptState");
 

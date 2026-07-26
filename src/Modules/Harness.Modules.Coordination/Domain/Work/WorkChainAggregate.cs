@@ -146,10 +146,34 @@ public sealed class WorkChainAggregate
             return Result<InstructionVersion>.Failure(WorkChainErrors.ActiveAttemptExists);
         }
 
-        var previous = _instructions.LastOrDefault(instruction => instruction.TaskId == taskId);
+        return Result<InstructionVersion>.Success(CreateInstructionVersion(task, content));
+    }
+
+    public Result<InstructionVersion> ReplanEscalatedTask(
+        EntityId<WorkTaskTag> taskId,
+        string content)
+    {
+        ValidateText(content, nameof(content), 100_000);
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result<InstructionVersion>.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (task.State != WorkTaskState.Escalated)
+        {
+            return Result<InstructionVersion>.Failure(WorkChainErrors.TaskIsNotEscalated);
+        }
+
+        return Result<InstructionVersion>.Success(CreateInstructionVersion(task, content));
+    }
+
+    private InstructionVersion CreateInstructionVersion(WorkTask task, string content)
+    {
+        var previous = _instructions.LastOrDefault(instruction => instruction.TaskId == task.Id);
         var instruction = new InstructionVersion(
             WorkChainIdFactory.New<InstructionVersionTag>(_clock),
-            taskId,
+            task.Id,
             (previous?.Version ?? 0) + 1,
             content,
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))),
@@ -157,7 +181,7 @@ public sealed class WorkChainAggregate
             _clock.UtcNow);
         _instructions.Add(instruction);
         task.State = WorkTaskState.Ready;
-        return Result<InstructionVersion>.Success(instruction);
+        return instruction;
     }
 
     public Result<WorkAttempt> StartAttempt(

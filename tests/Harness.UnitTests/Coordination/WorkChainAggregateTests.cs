@@ -135,6 +135,30 @@ public sealed class WorkChainAggregateTests
         Assert.Equal(WorkTaskState.Escalated, task.State);
         Assert.Equal(WorkChainErrors.ReplanningRequired, bypass.Error);
         Assert.Equal(2, chain.Reviews.Count);
+
+        var replanned = chain.ReplanEscalatedTask(
+            task.Id,
+            "Replan after review escalation.");
+        var thirdAttempt = chain.StartAttempt(task.Id, replanned.Value.Id, "engineer");
+
+        Assert.True(replanned.IsSuccess);
+        Assert.Equal(3, replanned.Value.Version);
+        Assert.Equal(corrected.Id, replanned.Value.SupersedesId);
+        Assert.True(thirdAttempt.IsSuccess);
+        Assert.Equal(3, thirdAttempt.Value.Number);
+    }
+
+    [Fact]
+    public void ReplanningIsRejectedUnlessTaskIsEscalated()
+    {
+        var chain = CreateChain();
+        var task = CreateTask(chain, WorkRiskTier.Low);
+
+        var result = chain.ReplanEscalatedTask(task.Id, "Invalid premature replan.");
+
+        Assert.Equal(WorkChainErrors.TaskIsNotEscalated, result.Error);
+        Assert.Empty(chain.Instructions);
+        Assert.Equal(WorkTaskState.Ready, task.State);
     }
 
     [Fact]
