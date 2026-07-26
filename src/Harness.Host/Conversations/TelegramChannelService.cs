@@ -37,7 +37,7 @@ public sealed partial class TelegramChannelBackgroundService(
     IProjectStore projects,
     IChiefTurnStore chiefTurns,
     IConversationStore conversations,
-    ActiveChannelRouter router,
+    ChannelOutputGateway outputGateway,
     IClock clock,
     ILogger<TelegramChannelBackgroundService> logger) : BackgroundService
 {
@@ -226,12 +226,14 @@ public sealed partial class TelegramChannelBackgroundService(
                 var after = known && cursor!.Length > 0 ? cursor : null;
                 var messages = await conversations.ListMessagesAsync(
                     tenantId, link.ConversationId, after, 200, cancellationToken);
-                // Só o último canal ativo da conversa publica a resposta da Bruna; os demais
-                // apenas avançam o cursor para não reentregarem ao voltarem a ser ativos.
-                var active = await router.IsActiveAsync(tenantId, link, cancellationToken);
                 foreach (var message in messages)
                 {
-                    if (message.AuthorRole == "chief" && active)
+                    // Toda saída passa pelo Output Gateway: só a Bruna publica, só no canal
+                    // ativo e só com correlação coerente. O cursor avança de todo modo, para
+                    // que um canal silenciado não reentregue histórico ao voltar a ser ativo.
+                    var authorization = await outputGateway.AuthorizeAsync(
+                        tenantId, link, message, clock.UtcNow, cancellationToken);
+                    if (authorization.Allowed)
                     {
                         using var telemetry = new ChannelTelemetryScope("telegram", "outbound");
                         telemetry.SetCorrelation(

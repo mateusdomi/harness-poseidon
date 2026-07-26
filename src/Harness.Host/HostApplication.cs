@@ -266,6 +266,8 @@ public static class HostApplication
         }
         // Notification Router do contrato de canais: elege o último canal ativo por conversa.
         builder.Services.AddSingleton<ActiveChannelRouter>();
+        // Output Gateway: única porta de saída externa, em nome da Bruna e auditável.
+        builder.Services.AddSingleton<ChannelOutputGateway>();
         builder.Services.AddSingleton(builder.Configuration
             .GetSection("Harness:Channels:Telegram")
             .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());

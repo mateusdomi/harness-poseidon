@@ -36,6 +36,17 @@ sensível.
 Credenciais vêm apenas do ambiente ou de referência opaca de cofre. Canal sem
 credencial completa nasce desligado e é no-op — nunca entrega presumida.
 
+## Output Gateway
+
+Nenhum adapter publica por conta própria: toda saída é autorizada pelo Output
+Gateway, que exige autor `chief` e correlação coerente de tenant, projeto e conversa
+com o vínculo, e delega a escolha do canal à regra de último canal ativo. Tentativa
+de publicar em nome de agente, ferramenta ou usuário — e qualquer divergência de
+correlação — é bloqueada e registrada em `audit_ledger` como
+`channel.publication.denied`, com identificadores e motivo, nunca com o conteúdo da
+mensagem. Publicação legítima não gera linha de ledger: ela já é um span
+`poseidon.channel.outbound` correlacionado.
+
 ## Último canal ativo
 
 Quando vários vínculos compartilham a mesma conversa, apenas um publica a saída: o

@@ -93,7 +93,7 @@ public sealed class EmailChannelAdapterTests
                     app.Services.GetRequiredService<IProjectStore>(),
                     app.Services.GetRequiredService<IChiefTurnStore>(),
                     app.Services.GetRequiredService<IConversationStore>(),
-                    app.Services.GetRequiredService<ActiveChannelRouter>(),
+                    app.Services.GetRequiredService<ChannelOutputGateway>(),
                     SystemClock.Instance,
                     NullLogger<EmailChannelBackgroundService>.Instance);
 

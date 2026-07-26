@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-07-26T16:36:58.9063460+00:00
+lastGeneratedAt: 2026-07-26T16:51:36.0115930+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -783,7 +783,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:da72bbc69a04e4767544f45a08e048533c327c317b9adb59cbe758d67fe2b389
+  checksum: sha256:9933572cd92270356beb8bfe5ac9faf441d70d531d909e4c0343f611bea2fe45
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1099,7 +1099,7 @@ documents:
   - src/Modules/Harness.Modules.Notifications/**
   load: bundle
   priority: 825
-  tokenCost: 480
+  tokenCost: 618
   owner: Platform Engineering
   status: active
   version: 2.0.0
@@ -1111,7 +1111,7 @@ documents:
   related:
   - rule-authority
   enforcedBy: []
-  checksum: sha256:e4d47440705a3c4518ec33a70164c1555f5c35790b3c5e398364a62119ad74c3
+  checksum: sha256:fed4265ebe810bf809b70795fbd048fe7569e3d3ba66d7e971c4fd22b52f18c1
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/contracts/channels.md
