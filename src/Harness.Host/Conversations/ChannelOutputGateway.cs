@@ -1,5 +1,6 @@
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Governance;
+using Harness.Persistence.Abstractions.Projects;
 
 namespace Harness.Host.Conversations;
 
@@ -14,6 +15,9 @@ public enum ChannelOutputDecision
 
     /// <summary>Autor não é a Bruna — agente, ferramenta ou usuário nunca publica.</summary>
     DeniedNotChief,
+
+    /// <summary>O id do autor não corresponde ao Chief persistido do projeto.</summary>
+    DeniedChiefIdentityMismatch,
 
     /// <summary>Mensagem de outra conversa, projeto ou tenant que não o do vínculo.</summary>
     DeniedCorrelationMismatch,
@@ -34,6 +38,7 @@ public sealed record ChannelOutputAuthorization(ChannelOutputDecision Decision)
     {
         ChannelOutputDecision.Allowed => "allowed",
         ChannelOutputDecision.DeniedNotChief => "denied_not_chief",
+        ChannelOutputDecision.DeniedChiefIdentityMismatch => "denied_chief_identity_mismatch",
         ChannelOutputDecision.DeniedCorrelationMismatch => "denied_correlation_mismatch",
         ChannelOutputDecision.SkippedInactiveChannel => "skipped_inactive_channel",
         _ => "denied",
@@ -58,6 +63,7 @@ public sealed record ChannelOutputAuthorization(ChannelOutputDecision Decision)
 /// </summary>
 public sealed partial class ChannelOutputGateway(
     ActiveChannelRouter router,
+    IProjectStore projects,
     IAuditEventStore audit,
     ILogger<ChannelOutputGateway> logger)
 {
@@ -65,6 +71,8 @@ public sealed partial class ChannelOutputGateway(
         router ?? throw new ArgumentNullException(nameof(router));
     private readonly IAuditEventStore _audit =
         audit ?? throw new ArgumentNullException(nameof(audit));
+    private readonly IProjectStore _projects =
+        projects ?? throw new ArgumentNullException(nameof(projects));
 
     /// <summary>
     /// Autoriza (ou nega) a publicação de <paramref name="message"/> no canal
@@ -109,6 +117,26 @@ public sealed partial class ChannelOutputGateway(
                 occurredAt,
                 cancellationToken);
             return new ChannelOutputAuthorization(ChannelOutputDecision.DeniedCorrelationMismatch);
+        }
+
+        var project = await _projects.GetAsync(tenantId, link.ProjectId, cancellationToken);
+        if (project is null ||
+            string.IsNullOrWhiteSpace(message.AuthorAgentId) ||
+            !string.Equals(
+                message.AuthorAgentId,
+                project.ChiefAgentId,
+                StringComparison.Ordinal))
+        {
+            await DenyAsync(
+                tenantId,
+                link,
+                message,
+                ChannelOutputDecision.DeniedChiefIdentityMismatch,
+                $"Publicação bloqueada no canal {link.Kind}: identidade do Chief divergente.",
+                occurredAt,
+                cancellationToken);
+            return new ChannelOutputAuthorization(
+                ChannelOutputDecision.DeniedChiefIdentityMismatch);
         }
 
         return await _router.IsActiveAsync(tenantId, link, cancellationToken)

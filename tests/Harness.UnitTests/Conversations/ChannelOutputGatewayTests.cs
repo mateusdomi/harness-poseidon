@@ -1,6 +1,7 @@
 using Harness.Host.Conversations;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Governance;
+using Harness.Persistence.Abstractions.Projects;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Harness.UnitTests.Conversations;
@@ -15,6 +16,7 @@ public sealed class ChannelOutputGatewayTests
     private const string Tenant = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
     private const string Project = "01ARZ3NDEKTSV4RRFFQ69G5FP2";
     private const string Conversation = "01ARZ3NDEKTSV4RRFFQ69G5FB1";
+    private const string ChiefAgent = "01ARZ3NDEKTSV4RRFFQ69G5FA1";
     private static readonly DateTimeOffset Now = new(2026, 7, 26, 18, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -92,6 +94,29 @@ public sealed class ChannelOutputGatewayTests
     }
 
     [Fact]
+    public async Task DeniesChiefRoleWhenPersistedChiefIdentityDoesNotMatch()
+    {
+        var link = Link("01ARZ3NDEKTSV4RRFFQ69G5FC1", "telegram");
+        var (gateway, audit) = Gateway(link);
+
+        var authorization = await gateway.AuthorizeAsync(
+            Tenant,
+            link,
+            Message("chief") with { AuthorAgentId = "agent-impersonating-chief" },
+            Now,
+            CancellationToken.None);
+
+        Assert.False(authorization.Allowed);
+        Assert.Equal(
+            ChannelOutputDecision.DeniedChiefIdentityMismatch,
+            authorization.Decision);
+        Assert.Equal(
+            "denied_chief_identity_mismatch",
+            authorization.ResultCode);
+        Assert.Equal("channel.publication.denied", Assert.Single(audit.Appended).Action);
+    }
+
+    [Fact]
     public async Task SkipsInactiveChannelWithoutTreatingItAsViolation()
     {
         var telegram = Link("01ARZ3NDEKTSV4RRFFQ69G5FC1", "telegram", Now.AddMinutes(1));
@@ -120,6 +145,7 @@ public sealed class ChannelOutputGatewayTests
         return (
             new ChannelOutputGateway(
                 new ActiveChannelRouter(store),
+                new FakeProjectStore(),
                 audit,
                 NullLogger<ChannelOutputGateway>.Instance),
             audit);
@@ -132,7 +158,7 @@ public sealed class ChannelOutputGatewayTests
         Conversation,
         authorRole,
         null,
-        null,
+        ChiefAgent,
         "segredo-do-usuario",
         null,
         Now);
@@ -169,6 +195,63 @@ public sealed class ChannelOutputGatewayTests
             DateTimeOffset occurredAt,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private sealed class FakeProjectStore : IProjectStore
+    {
+        public Task<ProjectRecord?> GetAsync(
+            string tenantId,
+            string projectId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<ProjectRecord?>(
+                tenantId == Tenant && projectId == Project
+                    ? new ProjectRecord(
+                        Tenant,
+                        Project,
+                        "organization-1",
+                        "Project",
+                        "PRJ",
+                        "Description",
+                        "active",
+                        "medium",
+                        null,
+                        "github",
+                        "develop",
+                        [],
+                        new ProjectBrandRecord(null, null, null, null),
+                        [],
+                        1,
+                        ChiefAgent,
+                        "autonomous",
+                        Now,
+                        Now,
+                        1)
+                    : null);
+
+        public Task<IReadOnlyList<ProjectRecord>> ListAsync(
+            string tenantId,
+            string? afterId,
+            int limit,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<ProjectMutationResult> CreateAsync(
+            ProjectCreateCommand command,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<ProjectMutationResult> UpdateAsync(
+            ProjectUpdateCommand command,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<ProjectMutationResult> DeleteAsync(
+            string tenantId,
+            string projectId,
+            long expectedVersion,
+            DateTimeOffset occurredAt,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class RecordingAuditStore : IAuditEventStore
