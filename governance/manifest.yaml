@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-07-26T00:00:00-03:00
+lastGeneratedAt: 2026-07-26T05:05:50.1551070+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -16,14 +16,27 @@ documents:
   topic: governance-core
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: always
   priority: 1000
   tokenCost: 977
@@ -34,8 +47,13 @@ documents:
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
   dependencies: []
-  related: [rule-authority, rule-security, rule-documentation]
-  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  related:
+  - rule-authority
+  - rule-security
+  - rule-documentation
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
   checksum: sha256:a58c8b605ede46a9483aaa15903610750f112ba673ea3507ff2b304b987b5631
   containsSecrets: false
   generated: false
@@ -47,27 +65,46 @@ documents:
   topic: coordination
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: bundle
   priority: 900
-  tokenCost: 0
+  tokenCost: 336
   owner: Platform Governance
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-authority, rule-chief-constraints, rule-code-review]
-  enforcedBy: [tools/backend/verify-agent-scope.sh, 'ci:governance']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-authority
+  - rule-chief-constraints
+  - rule-code-review
+  enforcedBy:
+  - tools/backend/verify-agent-scope.sh
+  - ci:governance
+  checksum: sha256:a39818bdb9e73e752b54e92d97bf4a85934c3d04eed7fcd460a676c0f7cf638b
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/coordination.md
@@ -78,27 +115,48 @@ documents:
   topic: documentation
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: [documento]
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['governance/**', 'docs/**', README.md, AGENTS.md, CLAUDE.md]
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - documento
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - governance/**
+  - docs/**
+  - README.md
+  - AGENTS.md
+  - CLAUDE.md
   load: bundle
   priority: 900
-  tokenCost: 0
+  tokenCost: 315
   owner: Platform Governance
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-authority]
-  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-authority
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
+  checksum: sha256:28ef9f88c3612cc3ebb4e523d3b0ab8baef21aa05f04960ffc888b5cd4757744
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/documentation.md
@@ -109,27 +167,50 @@ documents:
   topic: git
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: [historia, tarefa, bug, spike, adr, documento]
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - historia
+  - tarefa
+  - bug
+  - spike
+  - adr
+  - documento
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: bundle
   priority: 900
-  tokenCost: 0
+  tokenCost: 293
   owner: Platform Engineering
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-coordination, rule-code-review]
-  enforcedBy: [tools/backend/verify-agent-scope.sh, 'ci:governance']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-coordination
+  - rule-code-review
+  enforcedBy:
+  - tools/backend/verify-agent-scope.sh
+  - ci:governance
+  checksum: sha256:0ca45fd6f9e33cd80cb65fee5067a6c309f2f0d3d1a7806ff85580bfa553e20d
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/git.md
@@ -140,27 +221,44 @@ documents:
   topic: secrets
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: bundle
   priority: 950
-  tokenCost: 0
+  tokenCost: 257
   owner: Product Security
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-security]
-  enforcedBy: [tools/backend/scan-secrets.sh, 'ci:governance']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-security
+  enforcedBy:
+  - tools/backend/scan-secrets.sh
+  - ci:governance
+  checksum: sha256:8c1d5e053c7be94d1568722147db0ce0e96a4e891e51ab1e3f496ebbddd3ff30
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/secrets.md
@@ -171,27 +269,44 @@ documents:
   topic: security
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: bundle
   priority: 950
-  tokenCost: 0
+  tokenCost: 305
   owner: Product Security
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-secrets, rule-authority]
-  enforcedBy: [tools/backend/verify-agent-scope.sh, tools/backend/scan-secrets.sh]
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-secrets
+  - rule-authority
+  enforcedBy:
+  - tools/backend/verify-agent-scope.sh
+  - tools/backend/scan-secrets.sh
+  checksum: sha256:97b8ddc3ffde3da45668c584bf5b9a6c35db5b8dad2139007b8adcbfc4e88968
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/security.md
@@ -202,27 +317,50 @@ documents:
   topic: testing
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: [historia, tarefa, bug, revisao, gate]
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['src/**', 'tests/**', 'frontend/**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - historia
+  - tarefa
+  - bug
+  - revisao
+  - gate
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - frontend/**
   load: bundle
   priority: 900
-  tokenCost: 0
+  tokenCost: 287
   owner: Quality Engineering
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-code-review]
-  enforcedBy: [tools/backend/verify.sh, 'ci:governance']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-code-review
+  enforcedBy:
+  - tools/backend/verify.sh
+  - ci:governance
+  checksum: sha256:ccd9b7885cef4bec8c3e08a87381b486cc96b877d2f1165650f2cf95e4a08555
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/testing.md
@@ -233,27 +371,45 @@ documents:
   topic: authority
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: bundle
   priority: 975
-  tokenCost: 0
+  tokenCost: 264
   owner: Platform Governance
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-chief-constraints, rule-coordination]
-  enforcedBy: ['runtime:output-gateway', 'runtime:audit-ledger']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-chief-constraints
+  - rule-coordination
+  enforcedBy:
+  - runtime:output-gateway
+  - runtime:audit-ledger
+  checksum: sha256:789a72a9e82dc3609de57822cce79cf4492191e388e2792f79affece420c441e
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/authority.md
@@ -264,27 +420,45 @@ documents:
   topic: chief-constraints
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: [bruna]
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - bruna
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: bundle
   priority: 975
-  tokenCost: 0
+  tokenCost: 251
   owner: Platform Governance
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core, rule-authority]
-  related: [rule-coordination]
-  enforcedBy: ['runtime:security-pep', 'runtime:output-gateway']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  - rule-authority
+  related:
+  - rule-coordination
+  enforcedBy:
+  - runtime:security-pep
+  - runtime:output-gateway
+  checksum: sha256:02c8f2b4e7640964d901ce949f147d80d84811b4dc302be16f959aef9976d15c
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/chief-constraints.md
@@ -295,27 +469,45 @@ documents:
   topic: capacity
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['src/Modules/Harness.Modules.Agents/**', 'src/Harness.Host/**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  - src/Harness.Host/**
   load: bundle
   priority: 875
-  tokenCost: 0
+  tokenCost: 227
   owner: Operations
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-cost]
-  enforcedBy: ['runtime:capacity-manager', 'runtime:model-router']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-cost
+  enforcedBy:
+  - runtime:capacity-manager
+  - runtime:model-router
+  checksum: sha256:82d87d2c27de64daa84856cdbc68999fa710ffcf0ea6be9064aca42402fb0c1c
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/capacity.md
@@ -326,27 +518,45 @@ documents:
   topic: cost
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['src/Modules/Harness.Modules.Agents/**', 'src/Modules/Harness.Modules.Delivery/**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  - src/Modules/Harness.Modules.Delivery/**
   load: bundle
   priority: 850
-  tokenCost: 0
+  tokenCost: 234
   owner: Operations
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-capacity]
-  enforcedBy: ['runtime:model-invocation-ledger', 'runtime:capacity-manager']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-capacity
+  enforcedBy:
+  - runtime:model-invocation-ledger
+  - runtime:capacity-manager
+  checksum: sha256:f14f379c05b0dbcd32fb47c16c979cd7514cdb9e9088690f1815a931880871a4
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/cost.md
@@ -357,27 +567,53 @@ documents:
   topic: code-review
   authority: canonical
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: [historia, tarefa, bug, revisao]
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['src/**', 'tests/**', 'frontend/**', 'tools/**', 'infra/**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - historia
+  - tarefa
+  - bug
+  - revisao
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - frontend/**
+  - tools/**
+  - infra/**
   load: bundle
   priority: 950
-  tokenCost: 0
+  tokenCost: 275
   owner: Quality Engineering
   status: active
   version: 2.0.0
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [rule-coordination, rule-git, rule-testing]
-  enforcedBy: ['runtime:code-review-gate', 'runtime:merge-coordinator']
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  dependencies:
+  - governance-core
+  related:
+  - rule-coordination
+  - rule-git
+  - rule-testing
+  enforcedBy:
+  - runtime:code-review-gate
+  - runtime:merge-coordinator
+  checksum: sha256:136a9733705aaf24d24e659ad99aa45c67416f56fae4b00b545a10a9d286a834
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/code-review.md
@@ -388,14 +624,28 @@ documents:
   topic: agent-entrypoint
   authority: adapter
   scope: codex
-  audience: [human, agent, runtime]
-  providers: [codex, kimi-code]
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - codex
+  - kimi-code
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: always
   priority: 990
   tokenCost: 0
@@ -405,9 +655,25 @@ documents:
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core, rule-coordination, rule-documentation, rule-git, rule-secrets, rule-security, rule-testing, rule-authority, rule-chief-constraints, rule-capacity, rule-cost, rule-code-review]
-  related: [adapter-claude, documentation-index]
-  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  dependencies:
+  - governance-core
+  - rule-coordination
+  - rule-documentation
+  - rule-git
+  - rule-secrets
+  - rule-security
+  - rule-testing
+  - rule-authority
+  - rule-chief-constraints
+  - rule-capacity
+  - rule-cost
+  - rule-code-review
+  related:
+  - adapter-claude
+  - documentation-index
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
   checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
   containsSecrets: false
   generated: true
@@ -419,14 +685,27 @@ documents:
   topic: agent-entrypoint
   authority: adapter
   scope: claude-code
-  audience: [human, agent, runtime]
-  providers: [claude-code]
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - claude-code
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: always
   priority: 990
   tokenCost: 0
@@ -436,9 +715,25 @@ documents:
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core, rule-coordination, rule-documentation, rule-git, rule-secrets, rule-security, rule-testing, rule-authority, rule-chief-constraints, rule-capacity, rule-cost, rule-code-review]
-  related: [adapter-agents, documentation-index]
-  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  dependencies:
+  - governance-core
+  - rule-coordination
+  - rule-documentation
+  - rule-git
+  - rule-secrets
+  - rule-security
+  - rule-testing
+  - rule-authority
+  - rule-chief-constraints
+  - rule-capacity
+  - rule-cost
+  - rule-code-review
+  related:
+  - adapter-agents
+  - documentation-index
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
   checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
   containsSecrets: false
   generated: true
@@ -450,14 +745,27 @@ documents:
   topic: documentation-index
   authority: generated
   scope: repo
-  audience: [human, agent, runtime]
-  providers: ['*']
-  agents: ['*']
-  workflows: ['*']
-  phases: ['*']
-  taskTypes: ['*']
-  riskTiers: [low, medium, high, critical]
-  pathGlobs: ['**']
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
   load: always
   priority: 800
   tokenCost: 0
@@ -467,9 +775,14 @@ documents:
   lastVerifiedAt: 2026-07-26T00:00:00-03:00
   reviewDueAt: 2027-01-26T00:00:00-03:00
   supersedes: []
-  dependencies: [governance-core]
-  related: [adapter-agents, adapter-claude]
-  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  dependencies:
+  - governance-core
+  related:
+  - adapter-agents
+  - adapter-claude
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
   checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
   containsSecrets: false
   generated: true

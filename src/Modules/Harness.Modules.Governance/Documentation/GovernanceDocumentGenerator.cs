@@ -8,10 +8,15 @@ public sealed class GovernanceDocumentGenerator
 {
     private static readonly string[] RulePaths =
     [
+        "governance/rules/authority.md",
+        "governance/rules/capacity.md",
+        "governance/rules/chief-constraints.md",
+        "governance/rules/code-review.md",
         "governance/rules/git.md",
         "governance/rules/secrets.md",
         "governance/rules/testing.md",
         "governance/rules/coordination.md",
+        "governance/rules/cost.md",
         "governance/rules/documentation.md",
         "governance/rules/security.md"
     ];
