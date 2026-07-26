@@ -56,7 +56,40 @@ public static class GovernanceRuntimeEndpoints
                 snapshot.Active, snapshot.TotalWait.TotalMilliseconds,
                 snapshot.MaximumWait.TotalMilliseconds, snapshot.ContentionRatio));
         }).Produces<MergeContentionContract>();
+        // Fase 12: reconciliação do ledger SOB DEMANDA — reverifica a cadeia crua do tenant,
+        // registra o resultado no próprio ledger e devolve o veredito tipado.
+        group.MapGet("/ledger-reconciliation", ReconcileLedgerAsync)
+            .Produces<LedgerReconciliationContract>().ProducesProblem(401);
         return endpoints;
+    }
+
+    // Fase 12 — o mesmo ciclo do job periódico, executável sob demanda para auditoria pontual.
+    private static async Task<IResult> ReconcileLedgerAsync(
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IAuditEventStore ledger,
+        Workers.LedgerReconciliationBackgroundService reconciliation,
+        IClock clock,
+        CancellationToken token)
+    {
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        var result = await reconciliation.ReconcileTenantAsync(ledger, session.TenantId, token);
+        _ = await ledger.AppendAsync(
+            new AuditEventAppendCommand(
+                session.TenantId,
+                "user",
+                session.Id,
+                "ledger.reconciliationCompleted",
+                "system",
+                null,
+                $"valid={result.IsChainValid}; entries={result.TotalEntries}; " +
+                $"tampered={result.TamperedCount}; lastValidHash={result.LastValidHash}",
+                clock.UtcNow),
+            token);
+        return Results.Ok(new LedgerReconciliationContract(
+            result.TenantId, result.TotalEntries, result.IsChainValid, result.TamperedCount,
+            result.DiscrepancySequenceNumbers, result.LastValidHash, result.ReconciledAt));
     }
 
     // PLAT-04: métricas por feature derivadas ESTRITAMENTE das tentativas gravadas. O id da feature
@@ -685,6 +718,12 @@ public sealed record MemorySliceContract(
 public sealed record MemorySearchResponse(
     string SnapshotId, string SnapshotHash, int TotalTokens,
     IReadOnlyList<MemorySliceContract> Slices);
+
+// Fase 12: contrato da reconciliação do ledger.
+public sealed record LedgerReconciliationContract(
+    string TenantId, long TotalEntries, bool IsChainValid, long TamperedCount,
+    IReadOnlyList<long> DiscrepancySequenceNumbers, string LastValidHash,
+    DateTimeOffset ReconciledAt);
 
 // Fase 10: contrato da medição de contenção do merge serializado.
 public sealed record MergeContentionContract(

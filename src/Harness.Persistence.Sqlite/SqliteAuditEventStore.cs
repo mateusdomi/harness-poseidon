@@ -119,6 +119,33 @@ public sealed class SqliteAuditEventStore(SqliteWriteDispatcher dispatcher) : IA
         return new(true, rows.Count, rows.Count == 0 ? 0 : rows[^1].Sequence, previous, null);
     }
 
+    public Task<IReadOnlyList<AuditChainRowRecord>> ListChainAsync(
+        string tenantId, long afterSequence, int limit, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentOutOfRangeException.ThrowIfNegative(afterSequence);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        return _dispatcher.ExecuteAsync<IReadOnlyList<AuditChainRowRecord>>(async (connection, token) =>
+        {
+            var rows = new List<AuditChainRowRecord>(); await using var query = connection.CreateCommand();
+            query.CommandText =
+                "SELECT sequence,event_type,payload_json,previous_hash,event_hash,occurred_at " +
+                "FROM audit_ledger WHERE tenant_id=$tenant AND sequence>$after ORDER BY sequence LIMIT $limit;";
+            query.Parameters.AddWithValue("$tenant", tenantId);
+            query.Parameters.AddWithValue("$after", afterSequence);
+            query.Parameters.AddWithValue("$limit", limit);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token))
+            {
+                rows.Add(new(
+                    reader.GetInt64(0), reader.GetString(1), reader.GetString(2),
+                    reader.GetString(3), reader.GetString(4), Parse(reader.GetString(5))));
+            }
+
+            return rows;
+        }, cancellationToken);
+    }
+
     private static async Task<IReadOnlyList<LedgerRow>> ReadRowsAsync(SqliteConnection connection, string tenantId, CancellationToken token, bool orderBySequence = false)
     {
         var rows = new List<LedgerRow>(); await using var query = connection.CreateCommand();

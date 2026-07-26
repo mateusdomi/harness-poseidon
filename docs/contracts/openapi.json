@@ -7896,6 +7896,35 @@
                 }
             }
         },
+        "/api/v1/governance-runtime/ledger-reconciliation": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LedgerReconciliationContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/governance-docs": {
             "get": {
                 "tags": [
@@ -29073,6 +29102,60 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "LedgerReconciliationContract": {
+                "required": [
+                    "tenantId",
+                    "totalEntries",
+                    "isChainValid",
+                    "tamperedCount",
+                    "discrepancySequenceNumbers",
+                    "lastValidHash",
+                    "reconciledAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "tenantId": {
+                        "type": "string"
+                    },
+                    "totalEntries": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "isChainValid": {
+                        "type": "boolean"
+                    },
+                    "tamperedCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "discrepancySequenceNumbers": {
+                        "type": "array",
+                        "items": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int64"
+                        }
+                    },
+                    "lastValidHash": {
+                        "type": "string"
+                    },
+                    "reconciledAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
             },
             "LicenseContract": {
                 "required": [

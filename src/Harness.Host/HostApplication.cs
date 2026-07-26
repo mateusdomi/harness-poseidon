@@ -317,6 +317,14 @@ public static class HostApplication
         builder.Services.AddSingleton<DockerRunTargetLifecycle>();
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();
         builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<RunTargetProcessSupervisor>());
+        // Fase 12: reconciliação periódica do ledger — resultado auditável no próprio ledger.
+        builder.Services.AddSingleton(builder.Configuration
+            .GetSection("Harness:LedgerReconciliation")
+            .Get<LedgerReconciliationOptions>() ?? new LedgerReconciliationOptions());
+        builder.Services.AddSingleton<LedgerReconciliationBackgroundService>();
+        builder.Services.AddSingleton<IHostedService>(services =>
+            services.GetRequiredService<LedgerReconciliationBackgroundService>());
+
         // Fase 10: fila ÚNICA de merge com contenção medida — registrada antes dos stores
         // porque o decorator de WorkChain dos dois modos depende dela.
         builder.Services.AddSingleton<

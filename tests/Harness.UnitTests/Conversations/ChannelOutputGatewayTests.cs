@@ -289,5 +289,12 @@ public sealed class ChannelOutputGatewayTests
             string tenantId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new AuditIntegrityRecord(true, Appended.Count, Appended.Count, "", null));
+
+        public Task<IReadOnlyList<AuditChainRowRecord>> ListChainAsync(
+            string tenantId,
+            long afterSequence,
+            int limit,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<AuditChainRowRecord>>([]);
     }
 }

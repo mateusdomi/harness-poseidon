@@ -167,6 +167,34 @@ public sealed class PostgresAuditEventStore(NpgsqlDataSource dataSource) : IAudi
             rows.Count == 0 ? AuditLedgerHash.Genesis : rows[^1].EventHash,
             failedSequence);
 
+    public async Task<IReadOnlyList<AuditChainRowRecord>> ListChainAsync(
+        string tenantId, long afterSequence, int limit, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentOutOfRangeException.ThrowIfNegative(afterSequence);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        var rows = new List<AuditChainRowRecord>();
+        await using var query = _dataSource.CreateCommand(
+            "SELECT sequence, event_type, payload_json::text, previous_hash, event_hash, occurred_at " +
+            "FROM harness.audit_ledger WHERE tenant_id = $1 AND sequence > $2 ORDER BY sequence LIMIT $3;");
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(new NpgsqlParameter<long> { TypedValue = afterSequence });
+        query.Parameters.Add(new NpgsqlParameter<int> { TypedValue = limit });
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(new AuditChainRowRecord(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3).TrimEnd(),
+                reader.GetString(4).TrimEnd(),
+                reader.GetFieldValue<DateTimeOffset>(5)));
+        }
+
+        return rows;
+    }
+
     private async Task<IReadOnlyList<LedgerRow>> ReadRowsAsync(
         string tenantId,
         CancellationToken cancellationToken,
