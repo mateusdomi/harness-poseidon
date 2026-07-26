@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-07-26T05:09:11.1760630+00:00
+lastGeneratedAt: 2026-07-26T05:25:45.3106420+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -768,7 +768,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 674
+  tokenCost: 1476
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -783,7 +783,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4ca158ba59816fa378d4ade27dc617bb34930c2aba52156252effcb94470b28b
+  checksum: sha256:ce030396c2c7f94f6cb6cc6174424ebd15492b6b3eaed7b52730092c7f37d3e8
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -834,3 +834,1084 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: README.md
+- id: contract-card
+  path: docs/contracts/card.md
+  title: Contrato de card
+  category: contract
+  topic: card
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Coordination/**
+  - src/Modules/Harness.Modules.Workflows/**
+  load: bundle
+  priority: 850
+  tokenCost: 332
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related: []
+  enforcedBy: []
+  checksum: sha256:047718ca29d5e84b24524ae9d4864052ee245e1131a585b55ce309c8a32d0616
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/contracts/card.md
+- id: contract-handoff
+  path: docs/contracts/handoff.md
+  title: Contrato de handoff
+  category: contract
+  topic: handoff
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  - src/Modules/Harness.Modules.Governance/**
+  load: bundle
+  priority: 850
+  tokenCost: 245
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-card
+  enforcedBy: []
+  checksum: sha256:a0ca5946c07f339a98a42a0bf7b9517df5cc3cb8cb5929d8642e2c85d44a5bf1
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/contracts/handoff.md
+- id: contract-review
+  path: docs/contracts/review.md
+  title: Contrato de revisão
+  category: contract
+  topic: review
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - revisao
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - tests/**
+  - frontend/**
+  load: bundle
+  priority: 850
+  tokenCost: 228
+  owner: Quality Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-card
+  enforcedBy: []
+  checksum: sha256:2e418a6d5247f64dc1de31a235870b19ff792fd9900e0e7bf681107154c1f27d
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/contracts/review.md
+- id: contract-events
+  path: docs/contracts/events.md
+  title: Contrato de eventos
+  category: contract
+  topic: events
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - frontend/src/api/**
+  load: bundle
+  priority: 825
+  tokenCost: 195
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related: []
+  enforcedBy: []
+  checksum: sha256:3505666d3d166c94d6b8a05cc9c21359a1a079b4b2ecb93bbe90b96555622b73
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/contracts/events.md
+- id: contract-quota
+  path: docs/contracts/quota.md
+  title: Contrato de quota
+  category: contract
+  topic: quota
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Agents/**
+  load: bundle
+  priority: 825
+  tokenCost: 182
+  owner: Operations
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - rule-capacity
+  - rule-cost
+  enforcedBy: []
+  checksum: sha256:d9447893c2450309c9a68326970fdd695ab945ac225e214c55b2e7018ca011f1
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/contracts/quota.md
+- id: contract-channels
+  path: docs/contracts/channels.md
+  title: Contrato de canais
+  category: contract
+  topic: channels
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Harness.Host/Conversations/**
+  - src/Modules/Harness.Modules.Notifications/**
+  load: bundle
+  priority: 825
+  tokenCost: 200
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - rule-authority
+  enforcedBy: []
+  checksum: sha256:60b5616d3f4b86a45eb8ae48da318433c68b910aac71b9a0fc1fa5bad40e07ab
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/contracts/channels.md
+- id: contract-api-frontend
+  path: docs/contracts/api-frontend.md
+  title: Contrato backend e frontend
+  category: contract
+  topic: api-frontend
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - historia
+  - tarefa
+  - bug
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Harness.Host/**
+  - frontend/**
+  - docs/contracts/**
+  load: bundle
+  priority: 825
+  tokenCost: 191
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-events
+  enforcedBy: []
+  checksum: sha256:84b004fa9cf7027606544acf187e68971f27ab2886fc900cb40c47e6a44fe2b7
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/contracts/api-frontend.md
+- id: architecture-overview
+  path: docs/architecture/overview.md
+  title: Visão geral da arquitetura
+  category: architecture
+  topic: architecture-overview
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - adr
+  - historia
+  - tarefa
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - infra/**
+  load: bundle
+  priority: 800
+  tokenCost: 359
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related: []
+  enforcedBy: []
+  checksum: sha256:68704764534bb5f22f216b229d329a82fa3e12e1229fca7a4642b9c638b30466
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/architecture/overview.md
+- id: workflow-standard
+  path: docs/architecture/workflows/standard-workflow.md
+  title: Workflow padrão de nove fases
+  category: workflow
+  topic: standard-workflow
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - standard-nine-phase
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Workflows/**
+  - src/Modules/Harness.Modules.Coordination/**
+  load: bundle
+  priority: 850
+  tokenCost: 590
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-card
+  enforcedBy: []
+  checksum: sha256:6c4c277ddcc82ee178d7a2b9d9601d78c0f42bbeeb49a9c48159e2092dac8e7c
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/architecture/workflows/standard-workflow.md
+- id: workflow-card-state-machine
+  path: docs/architecture/workflows/card-state-machine.md
+  title: Máquina de estados do card
+  category: workflow
+  topic: card-state-machine
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Coordination/**
+  - src/Modules/Harness.Modules.Execution/**
+  load: bundle
+  priority: 850
+  tokenCost: 278
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-card
+  - contract-events
+  enforcedBy: []
+  checksum: sha256:e21407be5932ff6ad87cd1f8388fec2afc6fbe34e623f54c3216575904bbd7a5
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/architecture/workflows/card-state-machine.md
+- id: workflow-parallelism
+  path: docs/architecture/workflows/parallelism.md
+  title: Paralelismo
+  category: workflow
+  topic: parallelism
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - planning
+  - development
+  taskTypes:
+  - historia
+  - tarefa
+  - bug
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Execution/**
+  - src/Modules/Harness.Modules.Coordination/**
+  load: bundle
+  priority: 800
+  tokenCost: 242
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-card
+  enforcedBy: []
+  checksum: sha256:b61c794f931c33f022783a46417aa502c827c7907acee2bb973086fbb549b95b
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/architecture/workflows/parallelism.md
+- id: workflow-intake
+  path: docs/architecture/workflows/intake.md
+  title: Intake de demandas
+  category: workflow
+  topic: intake
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - standard-nine-phase
+  phases:
+  - triage
+  taskTypes:
+  - documento
+  - gate
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Harness.Host/Conversations/**
+  - src/Modules/Harness.Modules.Documents/**
+  load: bundle
+  priority: 800
+  tokenCost: 242
+  owner: Product Security
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-channels
+  enforcedBy: []
+  checksum: sha256:13324f0fb49e879a19fd6439c57e413dc3bd1a7894998d44281ad762ee794982
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/architecture/workflows/intake.md
+- id: security-threat-model
+  path: docs/security/threat-model.md
+  title: Threat model
+  category: security
+  topic: threat-model
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: bundle
+  priority: 900
+  tokenCost: 321
+  owner: Product Security
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - rule-security
+  enforcedBy: []
+  checksum: sha256:c91bebd1ddff8c84b755be55c9d64fe730580e035ca727ffa677d2ae8365047a
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/security/threat-model.md
+- id: security-isolation
+  path: docs/security/isolation.md
+  title: Isolamento
+  category: security
+  topic: isolation
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Execution/**
+  - infra/sandbox/**
+  load: bundle
+  priority: 875
+  tokenCost: 234
+  owner: Product Security
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - security-threat-model
+  enforcedBy: []
+  checksum: sha256:c3b2eaf79b129c02b4742433360361bc7a3dd72288e8f014cacad2fced905e20
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/security/isolation.md
+- id: security-secrets
+  path: docs/security/secrets.md
+  title: Segurança de segredos
+  category: security
+  topic: secrets-handling
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: bundle
+  priority: 900
+  tokenCost: 210
+  owner: Product Security
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - rule-secrets
+  enforcedBy:
+  - tools/backend/scan-secrets.sh
+  checksum: sha256:b78c1f5506b500d5bbdb08ef16f21aa0fe7f7819330cbad49d882ab7060a26cc
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/security/secrets.md
+- id: backend-memory
+  path: docs/backend/memory.md
+  title: Memória
+  category: backend
+  topic: memory
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Governance/**
+  - src/Harness.Persistence.*/**
+  load: bundle
+  priority: 750
+  tokenCost: 246
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related: []
+  enforcedBy: []
+  checksum: sha256:7d5a21be59358f515ca8bb49fa09bd15790f1ddce513c07b033984d382330caa
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/memory.md
+- id: backend-context
+  path: docs/backend/context.md
+  title: Context Builder
+  category: backend
+  topic: context
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Governance/**
+  - src/Harness.Host/Workers/**
+  load: bundle
+  priority: 800
+  tokenCost: 240
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - backend-memory
+  - contract-handoff
+  enforcedBy: []
+  checksum: sha256:859bd3730c11c2f2385c35c2d894e9b7f95cc85fbc00542da267105528aa254b
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/context.md
+- id: backend-observability
+  path: docs/backend/observability.md
+  title: Observabilidade
+  category: backend
+  topic: observability
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/**
+  - infra/compose/**
+  - infra/otel-collector/**
+  - infra/grafana/**
+  load: bundle
+  priority: 800
+  tokenCost: 219
+  owner: Operations
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related: []
+  enforcedBy: []
+  checksum: sha256:8f40c4a1057dbda1e73256c3d56bd7dc96bfa7cb8906a283ae4e966ae2eb07ff
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/observability.md
+- id: backend-evals
+  path: docs/backend/evals.md
+  title: Avaliações
+  category: backend
+  topic: evals
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - revisao
+  - gate
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Governance/Evaluation/**
+  load: bundle
+  priority: 750
+  tokenCost: 213
+  owner: Quality Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - contract-review
+  enforcedBy: []
+  checksum: sha256:ae9c51ef3fbe4fae956150b82aff6ff199ae4664ec53605814a29be5def00275
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/evals.md
+- id: runbook-recovery
+  path: docs/backend/runbooks/recovery.md
+  title: Runbook de recuperação
+  category: runbook
+  topic: recovery
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - sustentation
+  taskTypes:
+  - incidente
+  - tarefa
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - src/Modules/Harness.Modules.Execution/**
+  - src/Harness.Persistence.*/**
+  load: on-demand
+  priority: 750
+  tokenCost: 248
+  owner: Operations
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related: []
+  enforcedBy: []
+  checksum: sha256:bd36a83d29c5f20e5be2439f8050ecb2356aa0b2c5d6d6b5ffaaf13245128bc0
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/runbooks/recovery.md
+- id: runbook-incident
+  path: docs/backend/runbooks/incident.md
+  title: Runbook de incidente
+  category: runbook
+  topic: incident
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - standard-nine-phase
+  phases:
+  - sustentation
+  taskTypes:
+  - incidente
+  - chamado
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 750
+  tokenCost: 228
+  owner: Operations
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - runbook-recovery
+  enforcedBy: []
+  checksum: sha256:0ac76e98b07b40e571dac8937c46bb7adaf8f962d92608f523e9cca10be78f25
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/runbooks/incident.md
+- id: adr-0001-architecture
+  path: docs/decisions/ADR-0001-arquitetura-definitiva-v3.md
+  title: ADR-0001 — Arquitetura definitiva do Poseidon
+  category: decision
+  topic: definitive-architecture
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 356
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - architecture-overview
+  enforcedBy: []
+  checksum: sha256:95a5c75f7ef0cc92ce935c3e476841972781221919a198012eecbb4ea5326beb
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0001-arquitetura-definitiva-v3.md
+- id: agent-bruna
+  path: docs/agents/bruna.md
+  title: Bruna
+  category: agent
+  topic: bruna
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - bruna
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - src/Harness.Host/Workers/**
+  - src/Harness.Host/Agents/**
+  load: bundle
+  priority: 900
+  tokenCost: 327
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - rule-chief-constraints
+  - rule-authority
+  enforcedBy: []
+  checksum: sha256:abff104294785edfbfff04de0566d2446bfbb48f71cd34a881d968635c787057
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/agents/bruna.md
