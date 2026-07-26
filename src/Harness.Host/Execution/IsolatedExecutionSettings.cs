@@ -1,5 +1,6 @@
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.Fake;
+using Harness.Host.Observability;
 using Harness.Modules.Execution.Application.Sandbox;
 
 namespace Harness.Host.Execution;
@@ -124,5 +125,5 @@ public sealed class FakeSandboxProvider : ISandboxProvider
 public sealed class FakeSandboxAgentExecutorFactory : ISandboxAgentExecutorFactory
 {
     public IAgentExecutor Create(SandboxProcessPlan plan, StartIsolatedExecutionCommand command) =>
-        new FakeAgentExecutor();
+        new InstrumentedAgentExecutor(new FakeAgentExecutor());
 }

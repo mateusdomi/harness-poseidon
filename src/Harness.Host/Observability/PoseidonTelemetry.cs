@@ -55,6 +55,17 @@ internal static class PoseidonTelemetry
             unit: "ms",
             description: "Duration of chief turns.");
 
+    private static Counter<long> AgentExecutionCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.agent.execution.count",
+            description: "Number of agent execution attempts.");
+
+    private static Histogram<double> AgentExecutionDuration { get; } =
+        Meter.CreateHistogram<double>(
+            "poseidon.agent.execution.duration",
+            unit: "ms",
+            description: "Duration of agent execution attempts.");
+
     internal static IServiceCollection AddPoseidonTelemetry(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -173,6 +184,20 @@ internal static class PoseidonTelemetry
         };
         ChiefTurnCounter.Add(1, tags);
         ChiefTurnDuration.Record(durationMilliseconds, tags);
+    }
+
+    internal static void RecordAgentExecution(
+        string executor,
+        string result,
+        double durationMilliseconds)
+    {
+        var tags = new TagList
+        {
+            { "executor", executor },
+            { "result", result },
+        };
+        AgentExecutionCounter.Add(1, tags);
+        AgentExecutionDuration.Record(durationMilliseconds, tags);
     }
 
     internal static bool HasOtlpEndpoint(

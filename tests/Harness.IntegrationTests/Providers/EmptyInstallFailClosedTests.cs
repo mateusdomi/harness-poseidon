@@ -16,6 +16,7 @@ using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.Fake;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Host.Conversations;
+using Harness.Host.Observability;
 
 namespace Harness.IntegrationTests.Providers;
 
@@ -38,14 +39,16 @@ public sealed class EmptyInstallFailClosedTests
         {
             using var normal = HostApplication.Build(
                 ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", Path.Combine(root, "a.db")]);
-            Assert.IsType<UnavailableAgentExecutor>(
+            var normalExecutor = Assert.IsType<InstrumentedAgentExecutor>(
                 normal.Services.GetRequiredService<IAgentExecutor>());
+            Assert.IsType<UnavailableAgentExecutor>(normalExecutor.Inner);
 
             using var simulated = HostApplication.Build(
                 ["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", Path.Combine(root, "b.db"),
                  "--Harness:AgentExecutors:Mode", "simulated"]);
-            Assert.IsType<FakeAgentExecutor>(
+            var simulatedExecutor = Assert.IsType<InstrumentedAgentExecutor>(
                 simulated.Services.GetRequiredService<IAgentExecutor>());
+            Assert.IsType<FakeAgentExecutor>(simulatedExecutor.Inner);
         }
         finally
         {

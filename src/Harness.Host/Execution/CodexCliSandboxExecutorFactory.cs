@@ -1,3 +1,4 @@
+using Harness.Host.Observability;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.CodexCli;
 using Harness.Modules.Execution.Application.Sandbox;
@@ -24,15 +25,16 @@ public sealed class CodexCliSandboxExecutorFactory(IsolatedExecutionOptions opti
             ".harness-codex-state",
             command.AttemptId);
         Directory.CreateDirectory(stateDirectory);
-        return new CodexCliAgentExecutor(
-            proof,
-            _ => new CodexCliAppServerOptions(
-                plan.HostExecutablePath,
-                command.ControlledRoot,
-                command.WorktreePath,
-                stateDirectory,
-                _options.HeartbeatInterval,
-                plan.ExecutablePrefixArguments,
-                plan.AgentWorkingDirectory));
+        return new InstrumentedAgentExecutor(
+            new CodexCliAgentExecutor(
+                proof,
+                _ => new CodexCliAppServerOptions(
+                    plan.HostExecutablePath,
+                    command.ControlledRoot,
+                    command.WorktreePath,
+                    stateDirectory,
+                    _options.HeartbeatInterval,
+                    plan.ExecutablePrefixArguments,
+                    plan.AgentWorkingDirectory)));
     }
 }

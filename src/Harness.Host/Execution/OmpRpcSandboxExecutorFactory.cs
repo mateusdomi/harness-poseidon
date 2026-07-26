@@ -1,3 +1,4 @@
+using Harness.Host.Observability;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Infrastructure.OmpRpc;
 using Harness.Modules.Execution.Application.Sandbox;
@@ -20,13 +21,14 @@ public sealed class OmpRpcSandboxExecutorFactory(
             throw new InvalidOperationException("OMP RPC requires the full Docker sandbox proof.");
         }
 
-        return new OmpRpcAgentExecutor(_options with
-        {
-            Enabled = true,
-            Executable = plan.HostExecutablePath,
-            PrefixArguments = plan.ExecutablePrefixArguments,
-            ProcessWorkingDirectory = command.ControlledRoot,
-            AgentWorkingDirectory = plan.AgentWorkingDirectory,
-        });
+        return new InstrumentedAgentExecutor(
+            new OmpRpcAgentExecutor(_options with
+            {
+                Enabled = true,
+                Executable = plan.HostExecutablePath,
+                PrefixArguments = plan.ExecutablePrefixArguments,
+                ProcessWorkingDirectory = command.ControlledRoot,
+                AgentWorkingDirectory = plan.AgentWorkingDirectory,
+            }));
     }
 }

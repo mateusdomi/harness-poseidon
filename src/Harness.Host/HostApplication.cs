@@ -200,11 +200,13 @@ public static class HostApplication
                 StringComparison.OrdinalIgnoreCase);
         if (simulatedExecutor)
         {
-            builder.Services.AddSingleton<IAgentExecutor, FakeAgentExecutor>();
+            builder.Services.AddSingleton<IAgentExecutor>(
+                _ => new InstrumentedAgentExecutor(new FakeAgentExecutor()));
         }
         else
         {
-            builder.Services.AddSingleton<IAgentExecutor, UnavailableAgentExecutor>();
+            builder.Services.AddSingleton<IAgentExecutor>(
+                _ => new InstrumentedAgentExecutor(new UnavailableAgentExecutor()));
         }
         if (serverMode)
         {
@@ -410,13 +412,17 @@ public static class HostApplication
             // registração de IAgentExecutor, então vence o UnavailableAgentExecutor default. O
             // próprio executor cai para falha honesta (AgentExecutorUnavailableException,
             // idêntica ao Unavailable) quando a conta do Chefe está ausente ou desabilitada.
-            builder.Services.AddSingleton<IAgentExecutor>(services => new ConversationChiefAgentExecutor(
-                services.GetRequiredService<AgentAccountRegistry>(),
-                services.GetRequiredService<AccountProfileProvisioner>(),
-                executorId => services.GetRequiredService<ExternalAgentExecutorFactory>().Create(executorId),
-                services.GetRequiredService<IClock>(),
-                new ConversationChiefExecutorOptions(
-                    Path.GetFullPath(agentRunSettings.ControlledRoot!))));
+            builder.Services.AddSingleton<IAgentExecutor>(services =>
+                new InstrumentedAgentExecutor(
+                    new ConversationChiefAgentExecutor(
+                        services.GetRequiredService<AgentAccountRegistry>(),
+                        services.GetRequiredService<AccountProfileProvisioner>(),
+                        executorId => services
+                            .GetRequiredService<ExternalAgentExecutorFactory>()
+                            .Create(executorId),
+                        services.GetRequiredService<IClock>(),
+                        new ConversationChiefExecutorOptions(
+                            Path.GetFullPath(agentRunSettings.ControlledRoot!)))));
 
             builder.Services.AddSingleton(services => new AgentRunOrchestrator(
                 services.GetRequiredService<IAttemptWorkspaceStore>(),
