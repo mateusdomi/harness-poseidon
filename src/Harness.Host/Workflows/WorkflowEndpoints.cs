@@ -38,6 +38,20 @@ public static class WorkflowEndpoints
         endpoints.MapPost("/api/v1/projects/{id}/workflow", LinkProjectWorkflowAsync)
             .WithTags("projects").Produces<WorkflowContract>(201).ProducesProblem(400)
             .ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        // Fase 9: catálogo GLOBAL dos templates de documento/card do playbook (§7) — estrutura
+        // semeada por migração, somente leitura em runtime.
+        endpoints.MapGroup("/api/v1/workflow-document-templates").WithTags("workflows")
+            .MapGet("/", async (
+                Harness.Persistence.Abstractions.Workflows.IWorkflowDocumentTemplateStore store,
+                CancellationToken token) =>
+            {
+                var items = await store.ListAsync(token);
+                return Results.Ok(new WorkflowDocumentTemplatePage(
+                    items.Select(item => new WorkflowDocumentTemplateContract(
+                        item.Code, item.Name, item.Phase, item.TargetCardType,
+                        item.RequiredFieldsJson)).ToArray()));
+            }).Produces<WorkflowDocumentTemplatePage>();
+
         var runs = endpoints.MapGroup("/api/v1/workflow-runs").WithTags("workflow-runs");
         runs.MapGet("/", ListRunsAsync).Produces<WorkflowRunPage>().ProducesProblem(400).ProducesProblem(401);
         runs.MapGet("/{id}", GetRunAsync).Produces<WorkflowRunContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
@@ -611,3 +625,9 @@ public sealed record WorkflowPage(IReadOnlyList<WorkflowContract> Items, string?
 public sealed record WorkflowRunPage(IReadOnlyList<WorkflowRunContract> Items, string? NextCursor);
 public sealed record PhasePage(IReadOnlyList<PhaseContract> Items, string? NextCursor);
 public sealed record GatePage(IReadOnlyList<GateContract> Items, string? NextCursor);
+
+public sealed record WorkflowDocumentTemplateContract(
+    string Code, string Name, string Phase, string TargetCardType, string RequiredFieldsJson);
+
+public sealed record WorkflowDocumentTemplatePage(
+    IReadOnlyList<WorkflowDocumentTemplateContract> Items);

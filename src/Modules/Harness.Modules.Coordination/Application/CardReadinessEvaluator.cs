@@ -17,14 +17,20 @@ public sealed record CardReadinessSnapshot(bool IsDispatchable, IReadOnlyList<st
 /// <summary>
 /// Avaliador PURO e determinístico da Definition of Ready (DoR) de um card. Espelha a forma do
 /// <c>ReadinessEvaluator</c> (função pura, códigos de bloqueador tipados, sem IO, sem autoridade de
-/// domínio). Regra fail-safe do loop autônomo do Chefe: um card só é auto-despachável quando é um
-/// 'agent_task', tem ao menos uma instrução e não está bloqueado. 'human_gate' e 'decision' exigem
-/// um humano; 'feature' e 'spike' são portadores de escopo/investigação — nenhum deles deve virar
-/// execução de agente sozinho, então o card_type errado é sempre um bloqueador.
+/// domínio). Regra fail-safe do loop autônomo do Chefe: só os tipos de IMPLEMENTAÇÃO são
+/// auto-despacháveis — 'agent_task' (legado) e, do playbook (§5, Fase 5), 'historia', 'tarefa' e
+/// 'bug' — sempre com ao menos uma instrução e sem bloqueio. 'human_gate'/'gate' e
+/// 'decision'/'adr' exigem humano ou revisor; 'feature', 'spike', 'documento', 'revisao',
+/// 'incidente' e 'chamado' têm condutores próprios — nenhum deles vira execução de agente
+/// sozinho, então o card_type fora da lista é sempre um bloqueador.
 /// </summary>
 public static class CardReadinessEvaluator
 {
     public const string DispatchableCardType = "agent_task";
+
+    /// <summary>Tipos auto-despacháveis: implementação (legado + playbook Fase 5).</summary>
+    public static readonly IReadOnlySet<string> DispatchableCardTypes =
+        new HashSet<string>(["agent_task", "historia", "tarefa", "bug"], StringComparer.Ordinal);
 
     public const string CardTypeNotDispatchable = "dor.card_type.not_dispatchable";
     public const string InstructionMissing = "dor.instruction.missing";
@@ -35,7 +41,7 @@ public static class CardReadinessEvaluator
         ArgumentNullException.ThrowIfNull(facts);
 
         var blockers = new List<string>();
-        if (!string.Equals(facts.CardType, DispatchableCardType, StringComparison.Ordinal))
+        if (!DispatchableCardTypes.Contains(facts.CardType))
         {
             blockers.Add(CardTypeNotDispatchable);
         }

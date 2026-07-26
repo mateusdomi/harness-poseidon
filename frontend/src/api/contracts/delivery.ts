@@ -39,7 +39,13 @@ export const taskSchema = z.object({
   phaseName: z.string().nullable().optional(),
   /** Tipo operacional persistido do card (tarefa, gate, feature, spike ou decisão). */
   cardType: z
-    .enum(['feature', 'agent_task', 'human_gate', 'spike', 'decision'])
+    .enum([
+      // tipos pré-playbook (compatibilidade)
+      'feature', 'agent_task', 'human_gate', 'spike', 'decision',
+      // tipos canônicos do playbook (§3)
+      'historia', 'tarefa', 'bug', 'adr', 'documento',
+      'revisao', 'gate', 'incidente', 'chamado',
+    ])
     .optional(),
   /**
    * Arquivamento é um METAESTADO (não entra na máquina de estados):

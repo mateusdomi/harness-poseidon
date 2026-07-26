@@ -17677,6 +17677,25 @@
                 }
             }
         },
+        "/api/v1/workflow-document-templates": {
+            "get": {
+                "tags": [
+                    "workflows"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowDocumentTemplatePage"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-runs": {
             "get": {
                 "tags": [
@@ -34943,6 +34962,47 @@
                     "createdAt": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "WorkflowDocumentTemplateContract": {
+                "required": [
+                    "code",
+                    "name",
+                    "phase",
+                    "targetCardType",
+                    "requiredFieldsJson"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "phase": {
+                        "type": "string"
+                    },
+                    "targetCardType": {
+                        "type": "string"
+                    },
+                    "requiredFieldsJson": {
+                        "type": "string"
+                    }
+                }
+            },
+            "WorkflowDocumentTemplatePage": {
+                "required": [
+                    "items"
+                ],
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WorkflowDocumentTemplateContract"
+                        }
                     }
                 }
             },

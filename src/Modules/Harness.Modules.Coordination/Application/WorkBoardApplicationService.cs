@@ -17,8 +17,14 @@ public static class WorkBoardApplicationService
         new(["open", "inAnalysis", "converted", "answered", "closed"], StringComparer.Ordinal);
     // Conjunto fechado de tipos de card. Só 'agent_task' é auto-despachável pelo loop do Chefe;
     // os demais exigem um humano (gate/decisão) ou são portadores de escopo (feature/spike).
+    // Vocabulário completo: os cinco tipos pré-playbook (compatibilidade) + os tipos canônicos
+    // do playbook (§3) — historia/tarefa/bug/adr/documento/revisao/gate/incidente/chamado.
     private static readonly HashSet<string> CardTypes =
-        new(["feature", "agent_task", "human_gate", "spike", "decision"], StringComparer.Ordinal);
+        new([
+            "feature", "agent_task", "human_gate", "spike", "decision",
+            "historia", "tarefa", "bug", "adr", "documento",
+            "revisao", "gate", "incidente", "chamado",
+        ], StringComparer.Ordinal);
 
     public static SolicitationContract CreateSolicitation(
         string id, string profileId, CreateSolicitationRequest request, DateTimeOffset now)

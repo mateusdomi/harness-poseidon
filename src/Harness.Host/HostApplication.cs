@@ -253,6 +253,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IChannelLinkStore, PostgresChannelLinkStore>();
             builder.Services.AddSingleton<Harness.SharedKernel.Memory.IVectorIndex, PostgresVectorIndex>();
             builder.Services.AddSingleton<IModelInvocationStore, PostgresModelInvocationStore>();
+            builder.Services.AddSingleton<IWorkflowDocumentTemplateStore, PostgresWorkflowDocumentTemplateStore>();
         }
         else
         {
@@ -369,6 +370,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
             builder.Services.AddSingleton<Harness.SharedKernel.Memory.IVectorIndex, SqliteVectorIndex>();
             builder.Services.AddSingleton<IModelInvocationStore, SqliteModelInvocationStore>();
+            builder.Services.AddSingleton<IWorkflowDocumentTemplateStore, SqliteWorkflowDocumentTemplateStore>();
         }
         var isolatedSettings = builder.Configuration
             .GetSection("Harness:IsolatedExecution")
@@ -414,6 +416,10 @@ public static class HostApplication
             .GetSection("Harness:AgentRuns")
             .Get<AgentRunSettings>() ?? new AgentRunSettings();
         builder.Services.AddSingleton(agentRunSettings);
+
+        // Fase 9: especialidades do playbook (§4) como dados no catálogo, por tenant.
+        builder.Services.AddSingleton<PlaybookSpecialtySeeder>();
+        builder.Services.AddHostedService<PlaybookSpecialtySeedHostedService>();
 
         // RN-02: garante a invariante "todo projeto na esteira canônica" — vincula o recomendado
         // a projetos sem workflow e religa bindings de templates canônicos LEGADOS para a
