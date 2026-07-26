@@ -104,9 +104,37 @@ public sealed class WorkChainAggregateTests
         var corrected = chain.AddInstructionVersion(task.Id, "Fix the failed gate.").Value;
         var secondAttempt = chain.StartAttempt(task.Id, corrected.Id, "engineer");
 
+        Assert.Equal(WorkTaskState.Running, task.State);
         Assert.Equal(WorkChainErrors.CorrectionRequired, withoutCorrection.Error);
         Assert.True(secondAttempt.IsSuccess);
         Assert.Equal(2, secondAttempt.Value.Number);
+    }
+
+    [Fact]
+    public void RejectionBeyondReviewLimitEscalatesAndRequiresReplanning()
+    {
+        var chain = CreateChain(maximumReviewCycles: 1);
+        var task = CreateTask(chain, WorkRiskTier.Medium);
+        var original = chain.AddInstructionVersion(task.Id, "Implement.").Value;
+        var firstAttempt = chain.StartAttempt(task.Id, original.Id, "engineer").Value;
+        chain.CompleteAttempt(firstAttempt.Id, ["test:first"]);
+        chain.ReviewAttempt(firstAttempt.Id, "critic", ReviewDecision.Rejected, "First rejection.");
+        var corrected = chain.AddInstructionVersion(task.Id, "Correct the first rejection.").Value;
+        var secondAttempt = chain.StartAttempt(task.Id, corrected.Id, "engineer").Value;
+        chain.CompleteAttempt(secondAttempt.Id, ["test:second"]);
+
+        var review = chain.ReviewAttempt(
+            secondAttempt.Id,
+            "critic",
+            ReviewDecision.Rejected,
+            "Review limit exceeded.");
+        var bypass = chain.AddInstructionVersion(task.Id, "Try to bypass escalation.");
+
+        Assert.True(review.IsSuccess);
+        Assert.Equal(WorkAttemptState.Rejected, secondAttempt.State);
+        Assert.Equal(WorkTaskState.Escalated, task.State);
+        Assert.Equal(WorkChainErrors.ReplanningRequired, bypass.Error);
+        Assert.Equal(2, chain.Reviews.Count);
     }
 
     [Fact]
@@ -128,12 +156,14 @@ public sealed class WorkChainAggregateTests
         Assert.Equal(WorkTaskState.Completed, task.State);
     }
 
-    private static WorkChainAggregate CreateChain() => WorkChainAggregate.Create(
+    private static WorkChainAggregate CreateChain(int maximumReviewCycles = 3) =>
+        WorkChainAggregate.Create(
         TenantId,
         ProjectId,
         UserId,
         "Initial immutable request.",
-        new IncrementingClock(new DateTimeOffset(2026, 7, 18, 16, 0, 0, TimeSpan.Zero)));
+        new IncrementingClock(new DateTimeOffset(2026, 7, 18, 16, 0, 0, TimeSpan.Zero)),
+        maximumReviewCycles);
 
     private static WorkTask CreateTask(WorkChainAggregate chain, WorkRiskTier riskTier)
     {

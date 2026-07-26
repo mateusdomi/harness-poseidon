@@ -16,11 +16,16 @@ public sealed class WorkChainAggregate
     private readonly List<InstructionVersion> _instructions = [];
     private readonly List<WorkAttempt> _attempts = [];
     private readonly List<WorkReview> _reviews = [];
+    private readonly WorkReviewCyclePolicy _reviewCyclePolicy;
 
-    private WorkChainAggregate(Solicitation solicitation, IClock clock)
+    private WorkChainAggregate(
+        Solicitation solicitation,
+        IClock clock,
+        WorkReviewCyclePolicy reviewCyclePolicy)
     {
         Solicitation = solicitation;
         _clock = clock;
+        _reviewCyclePolicy = reviewCyclePolicy;
         Demands = new ReadOnlyCollection<Demand>(_demands);
         Tasks = new ReadOnlyCollection<WorkTask>(_tasks);
         Instructions = new ReadOnlyCollection<InstructionVersion>(_instructions);
@@ -45,7 +50,8 @@ public sealed class WorkChainAggregate
         string projectId,
         string userId,
         string content,
-        IClock clock)
+        IClock clock,
+        int maximumReviewCycles)
     {
         ValidateUlid(tenantId, nameof(tenantId));
         ValidateUlid(projectId, nameof(projectId));
@@ -60,7 +66,8 @@ public sealed class WorkChainAggregate
                 userId,
                 content,
                 clock.UtcNow),
-            clock);
+            clock,
+            new WorkReviewCyclePolicy(maximumReviewCycles));
     }
 
     public Demand CreateDemand(
@@ -126,6 +133,11 @@ public sealed class WorkChainAggregate
         if (task is null)
         {
             return Result<InstructionVersion>.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (task.State == WorkTaskState.Escalated)
+        {
+            return Result<InstructionVersion>.Failure(WorkChainErrors.ReplanningRequired);
         }
 
         if (_attempts.Any(attempt =>
@@ -275,7 +287,14 @@ public sealed class WorkChainAggregate
         else
         {
             attempt.State = WorkAttemptState.Rejected;
-            task.State = WorkTaskState.Ready;
+            var completedReviewCycles = _reviews.Count(candidate =>
+                candidate.Decision == ReviewDecision.Rejected &&
+                _attempts.Any(reviewedAttempt =>
+                    reviewedAttempt.Id == candidate.AttemptId &&
+                    reviewedAttempt.TaskId == task.Id));
+            task.State = _reviewCyclePolicy
+                .EvaluateRejectedReview(completedReviewCycles)
+                .TargetState;
         }
 
         return Result<WorkReview>.Success(review);
