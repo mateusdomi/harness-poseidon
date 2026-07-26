@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using Harness.Host.Observability;
 using Harness.Host.Workers;
 using Harness.IntegrationTests.Persistence;
 using Harness.Persistence.Abstractions.Messaging;
@@ -8,6 +11,43 @@ namespace Harness.IntegrationTests.Workers;
 
 public sealed class OutboxDispatcherBackgroundServiceTests
 {
+    [Fact]
+    public async Task DispatchEmitsCorrelatedSpansWithoutPayloadOrFailureText()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var fixture = await SqliteOutboxFixture.CreateAsync(2, timeout.Token);
+        var activities = new ConcurrentQueue<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == PoseidonTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activities.Enqueue,
+        };
+        ActivitySource.AddActivityListener(listener);
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 7, 18, 18, 20, 0, TimeSpan.Zero));
+        var worker = CreateWorker(fixture.Store, new FailFirstSink(), clock, "telemetry-worker");
+
+        Assert.Equal(2, await worker.DispatchAvailableAsync(timeout.Token));
+
+        var spans = activities
+            .Where(activity => activity.OperationName == "poseidon.outbox.dispatch")
+            .ToArray();
+        Assert.Equal(2, spans.Length);
+        Assert.All(spans, span =>
+        {
+            Assert.NotNull(span.GetTagItem("tenant_id"));
+            Assert.NotNull(span.GetTagItem("message_id"));
+            Assert.DoesNotContain(
+                span.TagObjects,
+                tag => tag.Key.Contains("payload", StringComparison.OrdinalIgnoreCase) ||
+                       tag.Key.Contains("exception.message", StringComparison.OrdinalIgnoreCase));
+        });
+        Assert.Contains(spans, span => Equals(span.GetTagItem("outbox.result"), "retry_scheduled"));
+        Assert.Contains(spans, span => Equals(span.GetTagItem("outbox.result"), "applied"));
+    }
+
     [Fact]
     public async Task FailureRetriesAfterRestartWithoutDuplicatingSuccessfulMessage()
     {

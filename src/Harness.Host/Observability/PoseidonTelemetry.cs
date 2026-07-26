@@ -28,6 +28,22 @@ internal static class PoseidonTelemetry
             unit: "ms",
             description: "Duration of durable-engine operations.");
 
+    private static Counter<long> OutboxDispatchCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.outbox.dispatch.count",
+            description: "Number of outbox delivery attempts.");
+
+    private static Histogram<double> OutboxDispatchDuration { get; } =
+        Meter.CreateHistogram<double>(
+            "poseidon.outbox.dispatch.duration",
+            unit: "ms",
+            description: "Duration of outbox delivery attempts.");
+
+    private static Counter<long> OutboxRecoveredClaimCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.outbox.recovered_claim.count",
+            description: "Number of expired outbox claims released for recovery.");
+
     internal static IServiceCollection AddPoseidonTelemetry(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -86,6 +102,24 @@ internal static class PoseidonTelemetry
 
         DurableOperationCounter.Add(1, tags);
         DurableOperationDuration.Record(durationMilliseconds, tags);
+    }
+
+    internal static void RecordOutboxDispatch(string result, double durationMilliseconds)
+    {
+        var tags = new TagList
+        {
+            { "result", result },
+        };
+        OutboxDispatchCounter.Add(1, tags);
+        OutboxDispatchDuration.Record(durationMilliseconds, tags);
+    }
+
+    internal static void RecordOutboxRecoveredClaims(int count)
+    {
+        if (count > 0)
+        {
+            OutboxRecoveredClaimCounter.Add(count);
+        }
     }
 
     internal static bool HasOtlpEndpoint(

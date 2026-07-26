@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Harness.Host.Observability;
 using Harness.Persistence.Abstractions.Messaging;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
@@ -27,7 +29,10 @@ public sealed class OutboxDispatcherBackgroundService : BackgroundService
     public async Task<int> DispatchAvailableAsync(
         CancellationToken cancellationToken = default)
     {
-        await _store.ReleaseExpiredClaimsAsync(_clock.UtcNow, cancellationToken);
+        var releasedClaims = await _store.ReleaseExpiredClaimsAsync(
+            _clock.UtcNow,
+            cancellationToken);
+        PoseidonTelemetry.RecordOutboxRecoveredClaims(releasedClaims);
         var handled = 0;
         while (handled < _options.MaximumBatchSize)
         {
@@ -41,24 +46,42 @@ public sealed class OutboxDispatcherBackgroundService : BackgroundService
                 break;
             }
 
+            using var activity = PoseidonTelemetry.ActivitySource.StartActivity(
+                "poseidon.outbox.dispatch",
+                ActivityKind.Producer);
+            activity?.SetTag("tenant_id", lease.TenantId);
+            activity?.SetTag("message_id", lease.MessageId);
+            activity?.SetTag("outbox.attempt", lease.Attempts + 1);
+            var startedAt = Stopwatch.GetTimestamp();
             try
             {
                 await _sink.DispatchAsync(lease, cancellationToken);
-                await _store.MarkDispatchedAsync(
+                var mutation = await _store.MarkDispatchedAsync(
                     new OutboxDispatchCommand(
                         lease.MessageId,
                         lease.Owner,
                         lease.FencingToken,
                         _clock.UtcNow),
                     cancellationToken);
+                var result = mutation.Status.ToString().ToLowerInvariant();
+                activity?.SetTag("outbox.result", result);
+                PoseidonTelemetry.RecordOutboxDispatch(
+                    result,
+                    Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                activity?.SetTag("outbox.result", "cancelled");
+                PoseidonTelemetry.RecordOutboxDispatch(
+                    "cancelled",
+                    Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
                 throw;
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)
             {
-                await _store.RecordFailureAsync(
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.SetTag("error.type", exception.GetType().FullName);
+                var mutation = await _store.RecordFailureAsync(
                     new OutboxFailureCommand(
                         lease.MessageId,
                         UlidValue.New(_clock.UtcNow).ToString(),
@@ -68,6 +91,16 @@ public sealed class OutboxDispatcherBackgroundService : BackgroundService
                         _options.RetryPolicy,
                         _clock.UtcNow),
                     cancellationToken);
+                var result = mutation.Status == OutboxMutationStatus.DeadLettered
+                    ? "dead_lettered"
+                    : "retry_scheduled";
+                activity?.SetTag("outbox.result", result);
+                activity?.SetTag(
+                    "outbox.mutation_status",
+                    mutation.Status.ToString().ToLowerInvariant());
+                PoseidonTelemetry.RecordOutboxDispatch(
+                    result,
+                    Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
             }
 
             handled++;
