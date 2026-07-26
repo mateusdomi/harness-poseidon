@@ -36,7 +36,7 @@ public sealed class GovernanceRuntimeContractDriftTests
     public void LearningResponseExamplesStayAlignedWithPublishedContract()
     {
         using var example = JsonDocument.Parse(File.ReadAllText(Path.Combine(
-            FindRepositoryRoot(), "docs", "contracts", "examples", "governance-learning.json")));
+            FindRepositoryRoot(), "tests", "Harness.ContractTests", "Fixtures", "governance-learning.json")));
         var candidate = example.RootElement.GetProperty("candidate");
         Assert.Equal("rule", candidate.GetProperty("type").GetString());
         Assert.Equal("shadow", candidate.GetProperty("state").GetString());

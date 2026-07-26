@@ -5,6 +5,17 @@ readonly TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPOSITORY_ROOT="$(cd "${TOOLS_DIR}/../.." && pwd)"
 readonly CAMPAIGN_PATH="${1:-${REPOSITORY_ROOT}/docs/backend/execution/homologation-campaign.json}"
 
+if [[ ! -f "${CAMPAIGN_PATH}" ]]; then
+  if [[ $# -gt 0 ]]; then
+    echo "verify-homologation-campaign: manifesto informado não encontrado." >&2
+    exit 2
+  fi
+
+  bash -n "${TOOLS_DIR}/import-homologation-campaign.sh"
+  echo "verify-homologation-campaign: campanha legada não configurada; OK"
+  exit 0
+fi
+
 jq -e '
   .campaign.id == "HML-CAMPAIGN-2026-07-24" and
   .campaign.origin == "human_directed_maintenance" and
