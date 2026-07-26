@@ -10,6 +10,7 @@ using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Coordination;
 using Harness.Modules.Providers.Application;
+using Harness.Modules.Tools.Application;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Providers;
@@ -42,7 +43,8 @@ public sealed class AgentRunOrchestrator(
     AgentRunSettings settings,
     AccountAvailabilityLedger availability,
     CapacityManager capacity,
-    IModelInvocationStore invocations)
+    IModelInvocationStore invocations,
+    SecurityPolicyEnforcementPoint pep)
 {
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
 
@@ -558,6 +560,13 @@ public sealed class AgentRunOrchestrator(
                 sessionId: $"agent-run:{runId}", cancellationToken: cancellationToken);
             await PublishStateAsync(runId, command, AgentRunStatus.Running, cancellationToken);
 
+            // 6b. PEP pré-tool (Fase 4): a capability da tentativa é emitida pelo plano de
+            // controle e VERIFICADA aqui, antes de o executor tocar em qualquer coisa. A Bruna
+            // nunca passa deste ponto — o perfil de chefe não executa ferramenta — e capability
+            // de outra tentativa, com fencing vencido ou fora dos claims, também não. A decisão
+            // (autorizada ou negada) vira entrada no `audit_ledger`.
+            await AuthorizeExecutionAsync(command, account, accountLock, cancellationToken);
+
             // 7. Executor externo real, no perfil isolado da conta e na worktree da tentativa.
             var executor = executors.Create(account.ExecutorId);
             session = await executor.StartAsync(
@@ -677,6 +686,68 @@ public sealed class AgentRunOrchestrator(
             profiles.Cleanup(command.AccountAlias, AccountProfileCleanupScope.Ephemeral);
             TryReleaseAccount(command.AccountAlias, accountLock.FencingToken);
             await TryReleaseWorkspaceAsync(command, current);
+        }
+    }
+
+    /// <summary>
+    /// Autoriza a execução do agente no PEP (Fase 4). A capability é emitida para ESTA tentativa
+    /// — ator, tenant, projeto, card, tentativa, executor como ferramenta/recurso, claims de path
+    /// e fencing da concessão da conta — e verificada imediatamente antes do efeito. Negação é
+    /// exceção: o run falha sem tocar o executor e o motivo fica no ledger.
+    ///
+    /// O papel do card decide o tipo de ator: chefe é <see cref="CapabilityActorKind.Chief"/> e o
+    /// PEP nega execução de ferramenta para ele (perfil negativo do canon); qualquer outro papel
+    /// é especialista.
+    /// </summary>
+    private async Task AuthorizeExecutionAsync(
+        StartAgentRunCommand command,
+        AgentAccountContract account,
+        AccountProfileLock accountLock,
+        CancellationToken cancellationToken)
+    {
+        var actorKind = string.Equals(command.Role, AgentRoles.ChiefOrchestrator, StringComparison.OrdinalIgnoreCase)
+            ? CapabilityActorKind.Chief
+            : CapabilityActorKind.Specialist;
+
+        // O prazo cobre a janela real do turno; expirada, a capability não serve mais.
+        var capability = pep.Issue(new CapabilityGrantRequest(
+            actorKind,
+            command.AccountAlias,
+            command.TenantId,
+            command.ProjectId,
+            command.TaskId,
+            command.AttemptId,
+            CapabilityOperation.ToolExecution,
+            [account.ExecutorId],
+            [account.ExecutorId],
+            command.ScopeClaims,
+            clock.UtcNow.Add(settings.RunTimeout + TimeSpan.FromMinutes(5)),
+            accountLock.FencingToken));
+
+        var decision = await pep.AuthorizeAsync(
+            capability,
+            new CapabilityAuthorizationRequest(
+                actorKind,
+                command.AccountAlias,
+                command.TenantId,
+                command.ProjectId,
+                command.TaskId,
+                command.AttemptId,
+                CapabilityOperation.ToolExecution,
+                account.ExecutorId,
+                account.ExecutorId,
+                // A autorização é da INVOCAÇÃO do executor, não de um arquivo: o escopo de path
+                // segue nos claims da capability e é imposto pelo claim durável da tentativa.
+                null,
+                accountLock.FencingToken),
+            cancellationToken);
+
+        // A capability é de uso único nesta tentativa: revogar depois da verificação impede
+        // reapresentação por outro caminho no mesmo processo.
+        pep.Revoke(capability);
+        if (!decision.Allowed)
+        {
+            throw new CapabilityDeniedException(decision);
         }
     }
 

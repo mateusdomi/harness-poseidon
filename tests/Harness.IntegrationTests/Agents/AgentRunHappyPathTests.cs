@@ -9,6 +9,7 @@ using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
+using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -145,6 +146,20 @@ public sealed class AgentRunHappyPathTests : IDisposable
         Assert.Contains("usage_unknown", invocation.Outcome, StringComparison.Ordinal);
         Assert.Equal(0, invocation.InputTokens);
         Assert.Equal(0m, await invocations.GetTotalCostAsync(tenantId, projectId, timeout.Token));
+
+        // Fase 4 — a execução real passou pelo PEP ANTES de tocar o executor, e a decisão de
+        // capability virou entrada no `audit_ledger` append-only: ator, card, tentativa, operação
+        // e recurso. Sem esta linha, "só a capability autoriza" seria confiança, não prova.
+        var ledger = app.Services.GetRequiredService<IAuditEventStore>();
+        var decisions = await ledger.ListAsync(new AuditEventQuery(tenantId, null, 200), timeout.Token);
+        var capabilityEntry = Assert.Single(
+            decisions, entry => entry.Action == "capability.allowed");
+        Assert.Equal("agent", capabilityEntry.ActorKind);
+        Assert.Equal(taskId, capabilityEntry.TargetId);
+        Assert.Contains("actor=worker-codex-frontend", capabilityEntry.Detail!, StringComparison.Ordinal);
+        Assert.Contains("operation=ToolExecution", capabilityEntry.Detail!, StringComparison.Ordinal);
+        Assert.Contains("tool=codex", capabilityEntry.Detail!, StringComparison.Ordinal);
+        Assert.True((await ledger.VerifyIntegrityAsync(tenantId, timeout.Token)).Valid);
 
         // Cleanup completo: estado terminal, claim liberado, worktree removida e concessão
         // da conta devolvida. Nada fica preso.

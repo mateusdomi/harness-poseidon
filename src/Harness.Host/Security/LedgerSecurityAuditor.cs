@@ -37,6 +37,10 @@ public sealed class LedgerSecurityAuditor(IAuditEventStore ledger) : ICapability
                 SecretTextProtector.Redact(string.Join(
                     "; ",
                     $"code={record.Code}",
+                    // O ator vai TAMBÉM no detalhe: a coluna de ator do ledger só preserva
+                    // identificador canônico (ULID), e o ator de uma capability costuma ser um
+                    // alias de conta. Sem isto, a identidade se perderia na leitura.
+                    $"actor={record.ActorId}",
                     $"operation={record.Operation}",
                     $"resource={record.ResourceId}",
                     $"tool={record.ToolId ?? "-"}",
