@@ -134,16 +134,13 @@ public sealed class GovernanceRuntimeTests
     [Fact]
     public void StaleDetectorReportsMissingSourceAsTypedFindingInsteadOfThrowing()
     {
-        // Reproduz o defeito P1 da RC2: numa instalação self-contained, documentos do manifest
-        // cuja fonte não é empacotada (ex.: frontend/README.md) faziam File.ReadAllBytes lançar
-        // DirectoryNotFoundException não tratada => HTTP 500. O detector deve, em vez disso,
-        // emitir um finding tipado SourceMissing e nunca lançar.
+        // Em uma instalação self-contained, um documento do manifest cuja fonte não foi
+        // empacotada deve produzir um finding tipado em vez de uma exceção.
         var repositoryRoot = FindRepositoryRoot();
         var root = Path.Combine(Path.GetTempPath(), $"stale-missing-{Guid.NewGuid():N}");
         try
         {
-            // Só o diretório governance/ (manifest + schema); docs/**, README.md e frontend/README.md
-            // permanecem ausentes, como num pacote onde a fonte não é embarcada.
+            // Só governance/ é copiado; adapters e docs gerados permanecem ausentes.
             CopyDirectory(Path.Combine(repositoryRoot, "governance"), Path.Combine(root, "governance"));
             var detector = new StaleDocumentDetector(root);
             IReadOnlySet<string> active = new HashSet<string>(StringComparer.Ordinal);
@@ -154,10 +151,10 @@ public sealed class GovernanceRuntimeTests
             var findings = detector.Detect(DateTimeOffset.UtcNow, [], active);
             Assert.Contains(findings, finding =>
                 finding.Kind == StaleDocumentFindingKind.SourceMissing &&
-                finding.DocumentId == "doc-frontend-readme");
+                finding.DocumentId == "adapter-agents");
             // O documento ausente não deve gerar checagens de conteúdo (checksum/source-changed).
             Assert.DoesNotContain(findings, finding =>
-                finding.DocumentId == "doc-frontend-readme" &&
+                finding.DocumentId == "adapter-agents" &&
                 (finding.Kind == StaleDocumentFindingKind.ChecksumDrift ||
                  finding.Kind == StaleDocumentFindingKind.SourceChanged));
         }

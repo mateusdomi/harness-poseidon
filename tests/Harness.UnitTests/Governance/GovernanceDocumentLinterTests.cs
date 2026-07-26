@@ -18,7 +18,7 @@ public sealed class GovernanceDocumentLinterTests
 
         var manifest = new GovernanceManifestService(repositoryRoot).LoadAndValidate();
 
-        Assert.Equal("1.0.0", manifest.ManifestVersion);
+        Assert.Equal("2.0.0", manifest.ManifestVersion);
         Assert.NotEmpty(manifest.Documents);
         Assert.Contains(manifest.Documents, document => document.Id == "governance-core");
     }
@@ -181,7 +181,20 @@ public sealed class GovernanceDocumentLinterTests
             File.WriteAllText(
                 System.IO.Path.Combine(templateDirectory, "agent-entrypoint.md.tmpl"),
                 "<!-- GENERATED source={{source}} version={{version}} checksum={{checksum}} -->\n# {{provider}}\n{{identity}}\n{{minimumRules}}\n{{discovery}}\n");
-            foreach (var name in new[] { "git", "secrets", "testing", "coordination", "documentation", "security" })
+            foreach (var name in new[]
+                     {
+                         "authority",
+                         "capacity",
+                         "chief-constraints",
+                         "code-review",
+                         "git",
+                         "secrets",
+                         "testing",
+                         "coordination",
+                         "cost",
+                         "documentation",
+                         "security"
+                     })
             {
                 File.WriteAllText(System.IO.Path.Combine(Path, "governance", "rules", $"{name}.md"), $"# {name}\n");
             }

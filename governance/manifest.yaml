@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-07-26T05:05:50.1551070+00:00
+lastGeneratedAt: 2026-07-26T05:07:09.7446730+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -648,7 +648,7 @@ documents:
   - '**'
   load: always
   priority: 990
-  tokenCost: 0
+  tokenCost: 314
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -674,7 +674,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  checksum: sha256:ae58992a3b9d0b714f8aef23d32f8c19a4964572e3f682ca28b98e9a688c4326
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -708,7 +708,7 @@ documents:
   - '**'
   load: always
   priority: 990
-  tokenCost: 0
+  tokenCost: 311
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -734,7 +734,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  checksum: sha256:18461cd5af39750b3a3c90c57997c0fd7cc19c265b840ad0676265e7de872123
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -768,7 +768,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 0
+  tokenCost: 618
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -783,7 +783,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  checksum: sha256:3ec0ac89800261c7477260cac31b527fdfdb0544d3a709d3c264b0da3a208b11
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
