@@ -554,6 +554,9 @@ public static class HostApplication
             .Get<FreshContextEvaluatorOptions>() ?? new FreshContextEvaluatorOptions();
         builder.Services.AddSingleton(evaluatorOptions);
         builder.Services.AddSingleton<IFreshContextEvaluator, FreshContextEvaluator>();
+        builder.Services.AddSingleton<Harness.Modules.Governance.Evaluation.IEvaluationService, Harness.Modules.Governance.Evaluation.EvaluationService>();
+        builder.Services.AddSingleton<Harness.Modules.Providers.Application.CapacityManager>();
+        builder.Services.AddSingleton<Harness.Modules.Providers.Application.ModelRouter>();
         // PLAT-04: camada de medição. O detector de travamento é PURO (sempre disponível, read-only).
         // O juiz default é determinístico e sem credenciais; o juiz real ligado a um LLM só entra
         // quando explicitamente habilitado E com transport configurado (default: DESLIGADO).

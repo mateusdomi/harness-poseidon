@@ -403,7 +403,7 @@ public sealed partial class PostgresWorkChainStore
         {
             receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, attemptId: null);
         }
-        else if (row.TaskState != "ready" || row.LatestAttemptState != "rejected")
+        else if (row.TaskState != "running" || row.LatestAttemptState != "rejected")
         {
             receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, attemptId: null);
         }
@@ -426,7 +426,7 @@ public sealed partial class PostgresWorkChainStore
             await ExecuteAsync(
                 connection, transaction,
                 """
-                UPDATE harness.work_tasks SET version = $1, updated_at = $2,
+                UPDATE harness.work_tasks SET state = 'ready', version = $1, updated_at = $2,
                     board_state = 'ready', blocked_reason = NULL
                 WHERE id = $3 AND tenant_id = $4 AND version = $5;
                 """,
@@ -442,7 +442,17 @@ public sealed partial class PostgresWorkChainStore
 
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
-            "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+            "task.stateChanged", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "running",
+                "ready",
+                "correctionPrepared",
+                "corrections",
+                "system",
+                "work-chain",
+                "A new immutable correction instruction was prepared.",
+                $"instruction:{command.InstructionVersionId}"),
+            cancellationToken);
     }
 
     private async Task<WorkChainMutationReceipt> ReplanEscalatedTaskCoreAsync(
@@ -819,7 +829,7 @@ public sealed partial class PostgresWorkChainStore
                 ? "approved"
                 : rejectedReviewCount > _maximumReviewCycles
                     ? "escalated"
-                    : "ready";
+                    : "running";
             var nextVersion = row.Version + 1;
             await ExecuteAsync(
                 connection, transaction,

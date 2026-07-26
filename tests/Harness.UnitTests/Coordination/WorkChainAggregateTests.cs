@@ -215,9 +215,11 @@ public sealed class WorkChainAggregateTests
         var firstAttempt = StartAttempt(chain, task, original, "engineer").Value;
         chain.CompleteAttempt(firstAttempt.Id, ["test:failed"]);
         chain.ReviewAttempt(firstAttempt.Id, "critic", ReviewDecision.Rejected, "Gate failed.");
+        Assert.Equal(WorkTaskState.Running, task.State);
 
         var withoutCorrection = StartAttempt(chain, task, original, "engineer");
         var corrected = chain.AddInstructionVersion(task.Id, "Fix the failed gate.").Value;
+        Assert.Equal(WorkTaskState.Ready, task.State);
         var secondAttempt = StartAttempt(chain, task, corrected, "engineer");
 
         Assert.Equal(WorkTaskState.Running, task.State);

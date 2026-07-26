@@ -438,7 +438,7 @@ public sealed partial class SqliteWorkChainStore
         {
             receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, attemptId: null);
         }
-        else if (row.TaskState != "ready" || row.LatestAttemptState != "rejected")
+        else if (row.TaskState != "running" || row.LatestAttemptState != "rejected")
         {
             receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, attemptId: null);
         }
@@ -456,8 +456,8 @@ public sealed partial class SqliteWorkChainStore
                 VALUES
                     ($instructionId, $tenantId, $projectId, $taskId, $instructionVersion,
                      $content, $contentHash, $supersedesId, $occurredAt);
-                UPDATE work_tasks SET version = $nextTaskVersion, updated_at = $occurredAt,
-                    board_state='ready',blocked_reason=NULL
+                UPDATE work_tasks SET state='ready',version=$nextTaskVersion,
+                    updated_at=$occurredAt,board_state='ready',blocked_reason=NULL
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedTaskVersion;
                 """;
             Add(mutation, "$instructionId", command.InstructionVersionId);
@@ -481,7 +481,17 @@ public sealed partial class SqliteWorkChainStore
 
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
-            "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+            "task.stateChanged", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "running",
+                "ready",
+                "correctionPrepared",
+                "corrections",
+                "system",
+                "work-chain",
+                "A new immutable correction instruction was prepared.",
+                $"instruction:{command.InstructionVersionId}"),
+            cancellationToken);
     }
 
     private static async Task<WorkChainMutationReceipt> ReplanEscalatedTaskCoreAsync(
@@ -818,7 +828,7 @@ public sealed partial class SqliteWorkChainStore
                 ? "approved"
                 : rejectedReviewCount > maximumReviewCycles
                     ? "escalated"
-                    : "ready";
+                    : "running";
             var nextVersion = row.Version + 1;
             await using var mutation = connection.CreateCommand();
             mutation.Transaction = transaction;

@@ -295,7 +295,7 @@ internal static class WorkChainStoreBehavior
             Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
             taskVersion++;
             Assert.Equal(taskVersion, reviewed.TaskVersion);
-            Assert.Equal(cycle == 4 ? "escalated" : "ready", reviewed.TaskState);
+            Assert.Equal(cycle == 4 ? "escalated" : "running", reviewed.TaskState);
             Assert.NotNull(reviewed.LedgerHash);
             Assert.NotNull(reviewed.OutboxMessageId);
 
@@ -323,6 +323,7 @@ internal static class WorkChainStoreBehavior
             taskVersion++;
             instructionVersion++;
             Assert.Equal(taskVersion, corrected.TaskVersion);
+            Assert.Equal("ready", corrected.TaskState);
             Assert.Equal(instructionVersion, corrected.InstructionVersion);
         }
 
@@ -728,7 +729,7 @@ internal static class WorkChainStoreBehavior
         var reviewed = await store.ReviewAttemptAsync(review, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
         Assert.Equal(7, reviewed.TaskVersion);
-        Assert.Equal("ready", reviewed.TaskState);
+        Assert.Equal("running", reviewed.TaskState);
         Assert.Equal("rejected", reviewed.AttemptState);
         Assert.NotNull(reviewed.OutboxMessageId);
         var reviewedReplay = await store.ReviewAttemptAsync(review, cancellationToken);
@@ -750,6 +751,7 @@ internal static class WorkChainStoreBehavior
         var withoutCorrection = await store.StartAttemptAsync(correctionRequired, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.InvalidState, withoutCorrection.Status);
         Assert.Equal(7, withoutCorrection.TaskVersion);
+        Assert.Equal("running", withoutCorrection.TaskState);
 
         const string correctedContent = "Correct the failed gate without mutating the original instruction.";
         var correction = new WorkInstructionVersionCreateCommand(
@@ -765,6 +767,7 @@ internal static class WorkChainStoreBehavior
         var corrected = await store.AddInstructionVersionAsync(correction, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, corrected.Status);
         Assert.Equal(8, corrected.TaskVersion);
+        Assert.Equal("ready", corrected.TaskState);
         Assert.Equal(correction.InstructionVersionId, corrected.InstructionVersionId);
         Assert.Equal(2, corrected.InstructionVersion);
         var correctedReplay = await store.AddInstructionVersionAsync(correction, cancellationToken);
