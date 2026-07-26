@@ -47,6 +47,7 @@ public sealed class ChiefCliProviderCatalogSeeder(
     IProjectStore projects,
     IWorkflowCatalogStore workflows,
     WorkflowTemplateSeeder workflowSeeder,
+    Harness.Persistence.Abstractions.Workflows.IWorkflowStore workflowRuns,
     IClock clock)
 {
     /// <summary>Provider <c>anthropic</c>, auto-semeado pelo catálogo na inicialização do tenant.</summary>
@@ -78,6 +79,8 @@ public sealed class ChiefCliProviderCatalogSeeder(
         workflows ?? throw new ArgumentNullException(nameof(workflows));
     private readonly WorkflowTemplateSeeder _workflowSeeder =
         workflowSeeder ?? throw new ArgumentNullException(nameof(workflowSeeder));
+    private readonly Harness.Persistence.Abstractions.Workflows.IWorkflowStore _workflowRuns =
+        workflowRuns ?? throw new ArgumentNullException(nameof(workflowRuns));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     /// <summary>
@@ -257,6 +260,6 @@ public sealed class ChiefCliProviderCatalogSeeder(
         string actorProfileId,
         IReadOnlyList<ProjectRecord> projectPage,
         CancellationToken cancellationToken) =>
-        new ProjectWorkflowConvergenceSeeder(_projects, _workflows, _workflowSeeder, _clock)
+        new ProjectWorkflowConvergenceSeeder(_projects, _workflows, _workflowSeeder, _workflowRuns, _clock)
             .EnsureBoundAsync(tenantId, actorProfileId, projectPage, cancellationToken);
 }

@@ -1,5 +1,6 @@
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Workflows;
+using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Workflows;
@@ -21,6 +22,7 @@ public sealed class ProjectWorkflowConvergenceSeeder(
     IProjectStore projects,
     IWorkflowCatalogStore workflows,
     WorkflowTemplateSeeder workflowSeeder,
+    IWorkflowStore runAuthority,
     IClock clock)
 {
     private readonly IProjectStore _projects = projects ?? throw new ArgumentNullException(nameof(projects));
@@ -28,6 +30,8 @@ public sealed class ProjectWorkflowConvergenceSeeder(
         workflows ?? throw new ArgumentNullException(nameof(workflows));
     private readonly WorkflowTemplateSeeder _workflowSeeder =
         workflowSeeder ?? throw new ArgumentNullException(nameof(workflowSeeder));
+    private readonly IWorkflowStore _runAuthority =
+        runAuthority ?? throw new ArgumentNullException(nameof(runAuthority));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     /// <summary>
@@ -107,6 +111,13 @@ public sealed class ProjectWorkflowConvergenceSeeder(
                         tenantId, binding.Id, project.Id, template.Id,
                         template.CurrentVersionId, actorProfileId, _clock.UtcNow),
                     cancellationToken);
+
+                // O run ATIVO da versão legada migra junto: sem isto o chat continuaria
+                // mostrando a fase do template antigo. O run velho é CANCELADO (história
+                // preservada, nada de progresso fabricado) e um run novo nasce na fase 1 da
+                // esteira do playbook — ambos auditados pelas mutações do motor de workflow.
+                await MigrateActiveRunAsync(
+                    tenantId, project.Id, binding.Id, template.CurrentVersionId, cancellationToken);
                 bound++;
                 continue;
             }
@@ -121,5 +132,50 @@ public sealed class ProjectWorkflowConvergenceSeeder(
         }
 
         return bound;
+    }
+
+    private async Task MigrateActiveRunAsync(
+        string tenantId,
+        string projectId,
+        string workflowId,
+        string newVersionId,
+        CancellationToken cancellationToken)
+    {
+        var runs = await _workflows.ListRunsAsync(tenantId, workflowId, null, 20, cancellationToken);
+        var migrated = false;
+        foreach (var run in runs.Where(run => run.State is "running" or "paused"))
+        {
+            if (run.VersionId == newVersionId)
+            {
+                migrated = true;
+                continue;
+            }
+
+            _ = await _runAuthority.TransitionRunAsync(
+                new WorkflowRunTransitionCommand(
+                    tenantId, run.Id, WorkflowRunTransition.Cancel, run.Version,
+                    $"playbook-convergence:cancel:{run.Id}", _clock.UtcNow),
+                cancellationToken);
+            migrated = true;
+        }
+
+        if (!migrated)
+        {
+            // Sem run ativo não há o que migrar: o próximo run já nasce da versão nova.
+            return;
+        }
+
+        var now = _clock.UtcNow;
+        var runId = UlidValue.New(now).ToString();
+        _ = await _runAuthority.CreateRunAsync(
+            new WorkflowRunCreateCommand(
+                tenantId, projectId, newVersionId, runId,
+                $"playbook-convergence:create:{runId}", now, workflowId),
+            cancellationToken);
+        _ = await _runAuthority.TransitionRunAsync(
+            new WorkflowRunTransitionCommand(
+                tenantId, runId, WorkflowRunTransition.Start, 1,
+                $"playbook-convergence:start:{runId}", now.AddTicks(1)),
+            cancellationToken);
     }
 }

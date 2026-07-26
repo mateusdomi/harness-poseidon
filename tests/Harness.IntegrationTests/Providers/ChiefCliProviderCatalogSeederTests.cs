@@ -71,7 +71,7 @@ public sealed class ChiefCliProviderCatalogSeederTests
                 var clock = new FixedClock(Now.AddMinutes(1));
                 var workflowSeeder = new WorkflowTemplateSeeder(workflowAuthority, workflowCatalog, clock);
                 var seeder = new ChiefCliProviderCatalogSeeder(
-                    providers, agents, projects, workflowCatalog, workflowSeeder, clock);
+                    providers, agents, projects, workflowCatalog, workflowSeeder, workflowAuthority, clock);
                 var readiness = new ProjectReadinessService(
                     organizations, providers, agents, workflowCatalog);
 

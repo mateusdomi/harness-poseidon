@@ -72,10 +72,18 @@ public sealed class PlaybookConvergenceTests
                         legacy.CurrentVersionId!, profile.Id, clock.UtcNow),
                     timeout.Token);
 
+                // Um run ATIVO da versão legada existe — o cenário real do host do dono.
+                using (var legacyRun = await client.PostAsJsonAsync(
+                    "/api/v1/workflow-runs", new { workflowId = binding.Id }, timeout.Token))
+                {
+                    legacyRun.EnsureSuccessStatusCode();
+                }
+
                 // A convergência detecta o binding legado e o religa à esteira do playbook.
                 var convergence = new ProjectWorkflowConvergenceSeeder(
                     app.Services.GetRequiredService<Harness.Persistence.Abstractions.Projects.IProjectStore>(),
-                    workflows, seeder, clock);
+                    workflows, seeder,
+                    app.Services.GetRequiredService<IWorkflowStore>(), clock);
                 var converged = await convergence.EnsureBoundAsync(
                     profile.TenantId, profile.Id, timeout.Token);
                 Assert.Equal(1, converged);
@@ -89,6 +97,13 @@ public sealed class PlaybookConvergenceTests
                 // Segunda passada: nada a fazer — idempotente.
                 Assert.Equal(0, await convergence.EnsureBoundAsync(
                     profile.TenantId, profile.Id, timeout.Token));
+
+                // O run legado foi cancelado e um run novo nasceu RODANDO na versão do playbook.
+                var runs = await workflows.ListRunsAsync(
+                    profile.TenantId, binding.Id, null, 20, timeout.Token);
+                var active = Assert.Single(runs, run => run.State is "running" or "paused");
+                Assert.Equal(recommended.CurrentVersionId, active.VersionId);
+                Assert.Contains(runs, run => run.State == "cancelled");
 
                 // O rebind é fato auditável no ledger.
                 var ledger = app.Services.GetRequiredService<IAuditEventStore>();

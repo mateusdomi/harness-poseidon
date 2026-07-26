@@ -74,7 +74,7 @@ public sealed class ProjectStateConvergenceSeederTests
 
                 // Pré-condição RN-02: vincula o workflow recomendado (cria binding + definição real).
                 var workflowConvergence = new ProjectWorkflowConvergenceSeeder(
-                    projects, workflowCatalog, workflowSeeder, clock);
+                    projects, workflowCatalog, workflowSeeder, workflowAuthority, clock);
                 Assert.Equal(1, await workflowConvergence.EnsureBoundAsync(tenantId, profileId, timeout.Token));
                 var binding = Assert.Single(
                     await workflowCatalog.ListBindingsAsync(

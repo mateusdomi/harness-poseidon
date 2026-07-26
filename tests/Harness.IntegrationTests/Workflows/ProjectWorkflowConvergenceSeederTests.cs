@@ -65,7 +65,7 @@ public sealed class ProjectWorkflowConvergenceSeederTests
                 var clock = new FixedClock(Now.AddMinutes(1));
                 var workflowSeeder = new WorkflowTemplateSeeder(workflowAuthority, workflowCatalog, clock);
                 var seeder = new ProjectWorkflowConvergenceSeeder(
-                    projects, workflowCatalog, workflowSeeder, clock);
+                    projects, workflowCatalog, workflowSeeder, workflowAuthority, clock);
 
                 // Antes: o projeto NÃO tem workflow — o chat mostraria "Nenhum workflow ativo".
                 var before = await workflowCatalog.ListBindingsAsync(tenantId, projectId, null, 10, timeout.Token);
