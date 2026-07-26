@@ -1,11 +1,12 @@
-using System.Security.Cryptography;
 using Harness.Host.Profiles;
+using Harness.Modules.Coordination.Application;
 using Harness.Modules.Coordination.Domain;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Security;
 using Harness.SharedKernel.Time;
 using Microsoft.Data.Sqlite;
 
@@ -111,6 +112,7 @@ public static class SolicitationAttachmentEndpoints
         IWorkBoardStore board,
         ISolicitationAttachmentStore store,
         SolicitationAttachmentStorage storage,
+        IMultimodalIntakeService intake,
         IAuditEventStore audit,
         IClock clock,
         CancellationToken token)
@@ -169,9 +171,37 @@ public static class SolicitationAttachmentEndpoints
                 audit, profile.TenantId, solicitationId, file.FileName, decision, clock, token);
         }
 
+        // Fase 8 — intake multimodal: o anexo aceito pela política de segurança passa pelo
+        // serviço de intake, que produz o checksum canônico, o scanner de mime declarado e o
+        // preview estruturado que torna o insumo rastreável até a demanda. Um mime declarado
+        // fora da allowlist é rejeição auditada — defesa em profundidade sobre o gate de
+        // extensão (um `.md` declarado como executável não passa).
+        var processed = await intake.ProcessAttachmentAsync(
+            profile.TenantId,
+            solicitationId,
+            file.FileName,
+            file.ContentType,
+            content.ToArray(),
+            AttachmentIngestPolicy.MaximumSizeBytes,
+            token);
+        if (!processed.IsAllowedType)
+        {
+            return await RejectAsync(
+                audit,
+                profile.TenantId,
+                solicitationId,
+                file.FileName,
+                new AttachmentIngestDecision(
+                    false,
+                    "mime_not_allowed",
+                    $"O content type declarado '{file.ContentType}' não pertence à allowlist de intake."),
+                clock,
+                token);
+        }
+
         var occurredAt = clock.UtcNow;
         var attachmentId = UlidValue.New(occurredAt).ToString();
-        var sha256 = Convert.ToHexString(SHA256.HashData(content.Span));
+        var sha256 = processed.Sha256Hash.ToUpperInvariant();
         var storagePath = await storage.SaveAsync(profile.TenantId, attachmentId, content, token);
         SolicitationAttachmentRecord record;
         try
@@ -198,6 +228,8 @@ public static class SolicitationAttachmentEndpoints
                 "An identical attachment already exists for this solicitation.");
         }
 
+        // O preview do intake entra no ledger REDIGIDO: um anexo de texto pode carregar
+        // segredo, e o ledger é append-only — o que entra, fica.
         await audit.AppendAsync(
             new AuditEventAppendCommand(
                 profile.TenantId,
@@ -206,7 +238,9 @@ public static class SolicitationAttachmentEndpoints
                 "solicitation.attachmentAccepted",
                 "solicitation",
                 solicitationId,
-                $"{file.FileName} ({content.Length} bytes, sha256 {sha256})",
+                SecretTextProtector.Redact(
+                    $"{file.FileName} ({content.Length} bytes, sha256 {sha256}); " +
+                    $"scan={processed.SecurityScanStatus}; preview={processed.PreviewSnippet}"),
                 occurredAt),
             token);
         return Results.Created(

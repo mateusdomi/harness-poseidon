@@ -34,7 +34,14 @@ public sealed class MultimodalIntakeService : IMultimodalIntakeService
     {
         "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
         "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4",
-        "application/pdf", "text/plain", "text/markdown", "application/json"
+        "application/pdf", "text/plain", "text/markdown", "application/json",
+        // Tipos que a esteira de anexos do PO Assistant aceita por extensão (.csv, .xlsx,
+        // .docx, .zip). O binário genérico entra porque a assinatura executável já é bloqueada
+        // pela política de ingestão; o que este scanner nega é mime DECLARADO como perigoso.
+        "text/csv", "application/zip", "application/x-zip-compressed",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/octet-stream",
     };
 
     public Task<MultimodalIntakeResult> ProcessAttachmentAsync(

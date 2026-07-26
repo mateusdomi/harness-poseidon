@@ -130,12 +130,16 @@ public sealed class SolicitationAttachmentApiTests
                 var rejectedAudit = (await client.GetFromJsonAsync<AuditEventPage>(
                     "/api/v1/audit-events?action=solicitation.attachmentRejected&limit=50",
                     timeout.Token))!;
-                Assert.Equal(3, rejectedAudit.Items.Count);
+                Assert.Equal(4, rejectedAudit.Items.Count);
                 Assert.All(rejectedAudit.Items, item => Assert.Equal(solicitation.Id, item.TargetId));
                 var acceptedAudit = (await client.GetFromJsonAsync<AuditEventPage>(
                     "/api/v1/audit-events?action=solicitation.attachmentAccepted&limit=50",
                     timeout.Token))!;
-                Assert.Single(acceptedAudit.Items);
+                var acceptedEntry = Assert.Single(acceptedAudit.Items);
+                // Fase 8: o intake tornou o insumo rastreável — scan e preview no ledger.
+                Assert.Contains("scan=passed", acceptedEntry.Detail!, StringComparison.Ordinal);
+                Assert.Contains("preview=", acceptedEntry.Detail!, StringComparison.Ordinal);
+                Assert.Contains("Requisito 1: exportar CSV.", acceptedEntry.Detail!, StringComparison.Ordinal);
 
                 // Demanda criada a partir da solicitação com documento real anexado.
                 using var demandResponse = await client.PostAsJsonAsync(
@@ -168,6 +172,9 @@ public sealed class SolicitationAttachmentApiTests
     private static IEnumerable<(string FileName, string ContentType, byte[] Payload, string Code)> Malicious()
     {
         yield return ("../evil.md", "text/markdown", Encoding.UTF8.GetBytes("x"), "path_traversal");
+        // Fase 8: extensão legítima com mime DECLARADO executável — o gate de extensão passa,
+        // o scanner de intake nega.
+        yield return ("nota.md", "application/x-msdownload", Encoding.UTF8.GetBytes("texto"), "mime_not_allowed");
         yield return ("relatorio.pdf", "application/pdf", [0x4D, 0x5A, 0x90, 0x00], "executable_content");
         using var stream = new MemoryStream();
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
