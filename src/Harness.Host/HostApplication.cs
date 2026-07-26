@@ -211,7 +211,10 @@ public static class HostApplication
             builder.Services.AddSingleton<IRunnerMessageStore, PostgresRunnerMessageStore>();
             builder.Services.AddSingleton<IOutboxStore, PostgresOutboxStore>();
             builder.Services.AddSingleton<IRealtimeEventStore, PostgresRealtimeEventStore>();
-            builder.Services.AddSingleton<IDurableExecutionEngine, PostgresDurableExecutionEngine>();
+            builder.Services.AddSingleton<PostgresDurableExecutionEngine>();
+            builder.Services.AddSingleton<IDurableExecutionEngine>(services =>
+                new InstrumentedDurableExecutionEngine(
+                    services.GetRequiredService<PostgresDurableExecutionEngine>()));
             builder.Services.AddSingleton<ILocalProfileStore, PostgresLocalProfileStore>();
             builder.Services.AddSingleton<IOrganizationStore, PostgresOrganizationStore>();
             builder.Services.AddSingleton<IProjectStore, PostgresProjectStore>();
@@ -236,7 +239,10 @@ public static class HostApplication
                 new SqliteRunnerMessageStore(services.GetRequiredService<SqliteWriteDispatcher>()));
             builder.Services.AddSingleton<IOutboxStore, SqliteOutboxStore>();
             builder.Services.AddSingleton<IRealtimeEventStore, SqliteRealtimeEventStore>();
-            builder.Services.AddSingleton<IDurableExecutionEngine, SqliteDurableExecutionEngine>();
+            builder.Services.AddSingleton<SqliteDurableExecutionEngine>();
+            builder.Services.AddSingleton<IDurableExecutionEngine>(services =>
+                new InstrumentedDurableExecutionEngine(
+                    services.GetRequiredService<SqliteDurableExecutionEngine>()));
             builder.Services.AddSingleton<ILocalProfileStore, SqliteLocalProfileStore>();
             builder.Services.AddSingleton<IOrganizationStore, SqliteOrganizationStore>();
             builder.Services.AddSingleton<IProjectStore, SqliteProjectStore>();

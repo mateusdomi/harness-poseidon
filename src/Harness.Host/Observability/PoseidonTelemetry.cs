@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -11,6 +12,21 @@ internal static class PoseidonTelemetry
     internal const string ServiceName = "poseidon-host";
     internal const string ActivitySourceName = "Poseidon";
     internal const string MeterName = "Poseidon";
+
+    internal static ActivitySource ActivitySource { get; } = new(ActivitySourceName);
+
+    private static Meter Meter { get; } = new(MeterName);
+
+    private static Counter<long> DurableOperationCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.durable.operation.count",
+            description: "Number of durable-engine operations.");
+
+    private static Histogram<double> DurableOperationDuration { get; } =
+        Meter.CreateHistogram<double>(
+            "poseidon.durable.operation.duration",
+            unit: "ms",
+            description: "Duration of durable-engine operations.");
 
     internal static IServiceCollection AddPoseidonTelemetry(
         this IServiceCollection services,
@@ -50,6 +66,26 @@ internal static class PoseidonTelemetry
             });
 
         return services;
+    }
+
+    internal static void RecordDurableOperation(
+        string operation,
+        string result,
+        string? state,
+        double durationMilliseconds)
+    {
+        var tags = new TagList
+        {
+            { "operation", operation },
+            { "result", result },
+        };
+        if (state is not null)
+        {
+            tags.Add("state", state);
+        }
+
+        DurableOperationCounter.Add(1, tags);
+        DurableOperationDuration.Record(durationMilliseconds, tags);
     }
 
     internal static bool HasOtlpEndpoint(
