@@ -50,7 +50,7 @@ public sealed class ChannelOutputGatewayTests
         Assert.Equal("channel.publication.denied", entry.Action);
         Assert.Equal("channel_link", entry.TargetType);
         Assert.Equal(link.Id, entry.TargetId);
-        
+
         Assert.Contains(authorRole, entry.Detail!, StringComparison.Ordinal);
         // O conteúdo da mensagem jamais entra no ledger.
         Assert.DoesNotContain("segredo-do-usuario", entry.Detail!, StringComparison.Ordinal);
