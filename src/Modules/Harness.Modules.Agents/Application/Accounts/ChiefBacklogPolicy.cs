@@ -41,12 +41,19 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
 {
     private readonly AgentAccountScheduler _scheduler = scheduler ?? new AgentAccountScheduler();
 
+    /// <param name="capacitySignals">
+    /// Sinais de capacidade externos ao ledger (circuit breaker e backpressure do Capacity
+    /// Manager, Fase 3), por alias. São tratados como cota indisponível: um circuito aberto
+    /// nunca recebe card e a janela de volta alimenta o `RetryAfter` do adiamento. O módulo de
+    /// provedores não é dependência daqui — quem compõe o sinal é o Host.
+    /// </param>
     public ChiefBacklogPlan Plan(
         IReadOnlyList<ChiefCard> backlog,
         AgentAccountRegistry accounts,
         AccountAvailabilityLedger availability,
         int maxConcurrentDispatch,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        IReadOnlyDictionary<string, AccountQuotaSnapshot>? capacitySignals = null)
     {
         ArgumentNullException.ThrowIfNull(backlog);
         ArgumentNullException.ThrowIfNull(accounts);
@@ -63,6 +70,16 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
                 quotas[record.Alias] = new AccountQuotaSnapshot(
                     "availability-ledger", record.UpdatedAt, QuotaStatus.Exhausted,
                     QuotaConfidence.High, 0, until, TimeSpan.FromMinutes(1));
+            }
+        }
+
+        // O sinal de capacidade só APERTA a decisão: entra quando indica indisponibilidade
+        // ativa e nunca reabre uma conta que o ledger já bloqueou.
+        foreach (var (alias, signal) in capacitySignals ?? new Dictionary<string, AccountQuotaSnapshot>())
+        {
+            if (signal.IsExhaustedAt(now) && !quotas.ContainsKey(alias))
+            {
+                quotas[alias] = signal;
             }
         }
 

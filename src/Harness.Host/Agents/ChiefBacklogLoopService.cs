@@ -1,6 +1,8 @@
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
+using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Application;
+using Harness.Modules.Providers.Application;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
@@ -33,8 +35,43 @@ public sealed partial class ChiefBacklogLoopService(
     ChiefBacklogPolicy policy,
     AgentRunSettings settings,
     IClock clock,
+    CapacityManager capacity,
     ILogger<ChiefBacklogLoopService> logger) : BackgroundService
 {
+    /// <summary>
+    /// Traduz o estado do Capacity Manager (Fase 3) em sinal de cota para o plano de despacho:
+    /// conta com circuito aberto por falhas consecutivas, ou marcada como esgotada com janela de
+    /// volta, não recebe card nesta rodada. A confiança é ALTA porque o fato é local e medido —
+    /// nenhuma fração é inventada.
+    /// </summary>
+    private Dictionary<string, AccountQuotaSnapshot> CapacitySignals(DateTimeOffset now)
+    {
+        var signals = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase);
+        foreach (var account in accounts.List())
+        {
+            var snapshot = capacity.GetQuotaSnapshot(account.Alias, now);
+            var tripped = capacity.IsCircuitTripped(account.Alias, now);
+            var exhausted = string.Equals(snapshot.Status, "Exhausted", StringComparison.OrdinalIgnoreCase) &&
+                snapshot.ResetAt is { } reset && reset > now;
+            if (!tripped && !exhausted)
+            {
+                continue;
+            }
+
+            signals[account.Alias] = new AccountQuotaSnapshot(
+                "capacity-manager",
+                snapshot.ObservedAt,
+                QuotaStatus.Exhausted,
+                QuotaConfidence.High,
+                null,
+                snapshot.ResetAt,
+                snapshot.StaleAfter,
+                snapshot.OverrideReason);
+        }
+
+        return signals;
+    }
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief backlog loop DESLIGADO (AutoDispatch:Enabled=false).")]
     private static partial void LogDisabled(ILogger logger);
 
@@ -164,7 +201,8 @@ public sealed partial class ChiefBacklogLoopService(
 
             var plan = policy.Plan(
                 [.. cards.Select(entry => entry.Card)], accounts, availability,
-                settings.AutoDispatchMaxConcurrent, clock.UtcNow);
+                settings.AutoDispatchMaxConcurrent, clock.UtcNow,
+                CapacitySignals(clock.UtcNow));
             deferred += plan.Deferred.Count;
 
             foreach (var decision in plan.Dispatch)

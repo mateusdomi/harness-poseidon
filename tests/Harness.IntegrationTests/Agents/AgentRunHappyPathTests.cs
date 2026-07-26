@@ -10,6 +10,7 @@ using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
@@ -131,10 +132,24 @@ public sealed class AgentRunHappyPathTests : IDisposable
         // resultado honesto nesta máquina, e o run não finge sucesso.
         Assert.Equal(AgentRunStatus.Failed, final.Status);
 
+        // Fase 3 — a invocação real vira FATO DURÁVEL: conta, provedor, card, tentativa,
+        // duração e desfecho em `model_invocations`. Como este executor não expôs uso, o
+        // desfecho carrega `usage_unknown`: zero desconhecido nunca é lido como zero medido.
+        var tenantId = await ProfileTenantIdAsync(app);
+        var invocations = app.Services.GetRequiredService<IModelInvocationStore>();
+        var invocation = Assert.Single(
+            await invocations.GetTaskInvocationsAsync(tenantId, taskId, timeout.Token));
+        Assert.Equal("worker-codex-frontend", invocation.AccountAlias);
+        Assert.Equal(attemptId, invocation.AttemptId);
+        Assert.Equal(projectId, invocation.ProjectId);
+        Assert.Contains("usage_unknown", invocation.Outcome, StringComparison.Ordinal);
+        Assert.Equal(0, invocation.InputTokens);
+        Assert.Equal(0m, await invocations.GetTotalCostAsync(tenantId, projectId, timeout.Token));
+
         // Cleanup completo: estado terminal, claim liberado, worktree removida e concessão
         // da conta devolvida. Nada fica preso.
         var workspace = app.Services.GetRequiredService<IAttemptWorkspaceStore>();
-        var snapshot = await workspace.GetAsync(await ProfileTenantIdAsync(app), attemptId, timeout.Token);
+        var snapshot = await workspace.GetAsync(tenantId, attemptId, timeout.Token);
         Assert.NotNull(snapshot);
         Assert.Equal(AttemptWorkspaceState.Failed, snapshot.State);
         Assert.NotNull(snapshot.ReleasedAt);

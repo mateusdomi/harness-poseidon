@@ -9,9 +9,12 @@ using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Coordination;
+using Harness.Modules.Providers.Application;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Governance;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Providers;
 using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Agents;
@@ -37,7 +40,9 @@ public sealed class AgentRunOrchestrator(
     EventPublisher events,
     IClock clock,
     AgentRunSettings settings,
-    AccountAvailabilityLedger availability)
+    AccountAvailabilityLedger availability,
+    CapacityManager capacity,
+    IModelInvocationStore invocations)
 {
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
 
@@ -580,10 +585,10 @@ public sealed class AgentRunOrchestrator(
 
             // Desfecho DURÁVEL por conta: cota adia com data/hora de volta, login escala, falha
             // transitória (GLM instável) agenda retry com backoff, sucesso zera o histórico.
-            RecordAvailability(
-                command.AccountAlias,
-                AgentRunOutcomeClassifier.Classify(execution.Status, execution.FailureCode),
-                clock.UtcNow);
+            var runOutcome = AgentRunOutcomeClassifier.Classify(execution.Status, execution.FailureCode);
+            RecordAvailability(command.AccountAlias, runOutcome, clock.UtcNow);
+            await RecordInvocationAsync(
+                command, account, execution, runOutcome, clock.UtcNow, cancellationToken);
 
             current = await TransitionAsync(
                 command, current, AttemptWorkspaceState.Running,
@@ -618,10 +623,22 @@ public sealed class AgentRunOrchestrator(
                 ExternalAgentRedaction.Redact($"{exception.GetType().Name}"));
             // Uma exceção do orquestrador é tratada como transitória (candidata a retry com
             // backoff), classificada pelo tipo sanitizado.
-            RecordAvailability(
-                command.AccountAlias,
-                AgentRunOutcomeClassifier.Classify(ExternalAgentRunStatus.Failed, sanitized),
-                clock.UtcNow);
+            var failureOutcome = AgentRunOutcomeClassifier.Classify(
+                ExternalAgentRunStatus.Failed, sanitized);
+            RecordAvailability(command.AccountAlias, failureOutcome, clock.UtcNow);
+            // A falha também consome capacidade e custa tempo: registrar é parte do fato. Um
+            // erro AQUI não pode mascarar a falha original, então não propaga.
+            try
+            {
+                await RecordInvocationAsync(
+                    command, account, null, failureOutcome, clock.UtcNow, CancellationToken.None);
+            }
+            catch (Exception recordFailure) when (recordFailure is not OperationCanceledException)
+            {
+                // Sem log próprio nesta classe: o desfecho da tentativa já é publicado e o
+                // receipt de governança abaixo registra a falha do turno.
+            }
+
             current = await TryFailAsync(command, current, sanitized);
             if (receipt is not null &&
                 receipt.State is not GovernanceReceiptState.Completed and not GovernanceReceiptState.Failed)
@@ -661,6 +678,51 @@ public sealed class AgentRunOrchestrator(
             TryReleaseAccount(command.AccountAlias, accountLock.FencingToken);
             await TryReleaseWorkspaceAsync(command, current);
         }
+    }
+
+    /// <summary>
+    /// Fecha o ciclo de CAPACIDADE e CUSTO de uma invocação real (Fase 3): alimenta o Capacity
+    /// Manager — que conta falhas consecutivas, abre o circuito da conta e devolve a janela de
+    /// volta — e grava a linha durável em `model_invocations` com tenant, projeto, card,
+    /// tentativa, provedor, modelo, conta, duração e desfecho.
+    ///
+    /// Tokens e custo entram SOMENTE quando o executor os expôs. Quando não expõe, o desfecho
+    /// carrega o sufixo <c>|usage_unknown</c>: zero medido e zero desconhecido não podem ser
+    /// lidos como a mesma coisa (mesma disciplina do `AccountQuotaSnapshot`).
+    /// </summary>
+    private async Task RecordInvocationAsync(
+        StartAgentRunCommand command,
+        AgentAccountContract account,
+        ExternalAgentRunResult? execution,
+        AgentRunOutcome outcome,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var kind = outcome.Kind.ToString().ToLowerInvariant();
+        capacity.RecordInvocationOutcome(
+            command.AccountAlias,
+            account.ProviderKind,
+            outcome.Kind == AgentRunOutcomeKind.Completed ? "success" : kind,
+            now);
+
+        var usage = execution?.Usage;
+        await invocations.RecordInvocationAsync(
+            new ModelInvocationRecord(
+                UlidValue.New(now).ToString(),
+                command.TenantId,
+                command.ProjectId,
+                command.TaskId,
+                command.AttemptId,
+                account.ProviderKind,
+                command.Model ?? string.Empty,
+                command.AccountAlias,
+                (int)(usage?.InputTokens ?? 0),
+                (int)(usage?.OutputTokens ?? 0),
+                usage?.CostUsd ?? 0m,
+                execution?.DurationMs ?? 0,
+                usage is null ? $"{kind}|usage_unknown" : kind,
+                now),
+            cancellationToken);
     }
 
     /// <summary>

@@ -138,6 +138,52 @@ public sealed class ChiefBacklogPolicyTests : IDisposable
         Assert.Null(Assert.Single(plan.Deferred).RetryAfter);
     }
 
+    [Fact]
+    public void AnOpenCircuitFromTheCapacityManagerBlocksTheAccountAndCarriesTheReturnWindow()
+    {
+        // Fase 3: o circuito aberto por falhas consecutivas é sinal EXTERNO ao ledger. O card não
+        // vai para a conta punida e o adiamento carrega a hora de volta — sem inventar fração.
+        var registry = RegistryWith(
+            ("worker-glm-general", ExecutorCatalog.Glm, AgentRoles.BackendSpecialist, 3));
+        var resetAt = Now.AddMinutes(5);
+        var signals = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["worker-glm-general"] = new(
+                "capacity-manager", Now, QuotaStatus.Exhausted, QuotaConfidence.High,
+                null, resetAt, TimeSpan.FromMinutes(1), "circuit_breaker_tripped_after_3_failures"),
+        };
+
+        var plan = new ChiefBacklogPolicy().Plan(
+            [Card("t", AgentRoles.BackendSpecialist, 50)], registry, Ledger(),
+            maxConcurrentDispatch: 5, Now, signals);
+
+        Assert.Empty(plan.Dispatch);
+        var deferral = Assert.Single(plan.Deferred);
+        Assert.Equal("chief.awaiting_account_return", deferral.ReasonCode);
+        Assert.Equal(resetAt, deferral.RetryAfter);
+    }
+
+    [Fact]
+    public void ACapacitySignalThatIsNoLongerActiveNeverBlocksDispatch()
+    {
+        var registry = RegistryWith(
+            ("worker-glm-general", ExecutorCatalog.Glm, AgentRoles.BackendSpecialist, 3));
+        var signals = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Janela já vencida: o circuito fechou e a conta volta a concorrer.
+            ["worker-glm-general"] = new(
+                "capacity-manager", Now.AddMinutes(-10), QuotaStatus.Exhausted, QuotaConfidence.High,
+                null, Now.AddMinutes(-1), TimeSpan.FromMinutes(1)),
+        };
+
+        var plan = new ChiefBacklogPolicy().Plan(
+            [Card("t", AgentRoles.BackendSpecialist, 50)], registry, Ledger(),
+            maxConcurrentDispatch: 5, Now, signals);
+
+        Assert.Equal("worker-glm-general", Assert.Single(plan.Dispatch).AccountAlias);
+        Assert.Empty(plan.Deferred);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_dir))

@@ -252,6 +252,7 @@ public static class HostApplication
             builder.Services.AddSingleton<ISignedLicenseStore, PostgresSignedLicenseStore>();
             builder.Services.AddSingleton<IChannelLinkStore, PostgresChannelLinkStore>();
             builder.Services.AddSingleton<Harness.SharedKernel.Memory.IVectorIndex, PostgresVectorIndex>();
+            builder.Services.AddSingleton<IModelInvocationStore, PostgresModelInvocationStore>();
         }
         else
         {
@@ -348,6 +349,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IArchitectureStore, SqliteArchitectureStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
             builder.Services.AddSingleton<Harness.SharedKernel.Memory.IVectorIndex, SqliteVectorIndex>();
+            builder.Services.AddSingleton<IModelInvocationStore, SqliteModelInvocationStore>();
         }
         var isolatedSettings = builder.Configuration
             .GetSection("Harness:IsolatedExecution")
@@ -472,7 +474,9 @@ public static class HostApplication
                 services.GetRequiredService<EventPublisher>(),
                 services.GetRequiredService<IClock>(),
                 services.GetRequiredService<AgentRunSettings>(),
-                services.GetRequiredService<AccountAvailabilityLedger>()));
+                services.GetRequiredService<AccountAvailabilityLedger>(),
+                services.GetRequiredService<Harness.Modules.Providers.Application.CapacityManager>(),
+                services.GetRequiredService<IModelInvocationStore>()));
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para
