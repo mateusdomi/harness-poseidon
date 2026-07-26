@@ -85,7 +85,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Contrato de handoff](contracts/handoff.md) | * | Active | Platform Governance | Bundle | 245 |
 | [Contrato de revisão](contracts/review.md) | * | Active | Quality Engineering | Bundle | 228 |
 | [Contrato backend e frontend](contracts/api-frontend.md) | * | Active | Platform Engineering | Bundle | 191 |
-| [Contrato de canais](contracts/channels.md) | * | Active | Platform Engineering | Bundle | 200 |
+| [Contrato de canais](contracts/channels.md) | * | Active | Platform Engineering | Bundle | 480 |
 | [Contrato de eventos](contracts/events.md) | * | Active | Platform Engineering | Bundle | 195 |
 | [Contrato de quota](contracts/quota.md) | * | Active | Operations | Bundle | 182 |
 

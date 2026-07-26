@@ -76,6 +76,7 @@ public sealed class TelegramChannelAdapterTests
                     app.Services.GetRequiredService<IProjectStore>(),
                     app.Services.GetRequiredService<IChiefTurnStore>(),
                     app.Services.GetRequiredService<IConversationStore>(),
+                    app.Services.GetRequiredService<ActiveChannelRouter>(),
                     SystemClock.Instance,
                     NullLogger<TelegramChannelBackgroundService>.Instance);
 

@@ -55,6 +55,7 @@ public sealed partial class EmailChannelBackgroundService(
     IProjectStore projects,
     IChiefTurnStore chiefTurns,
     IConversationStore conversations,
+    ActiveChannelRouter router,
     IClock clock,
     ILogger<EmailChannelBackgroundService> logger) : BackgroundService
 {
@@ -233,9 +234,12 @@ public sealed partial class EmailChannelBackgroundService(
                 var after = known && cursor!.Length > 0 ? cursor : null;
                 var messages = await conversations.ListMessagesAsync(
                     tenantId, link.ConversationId, after, 200, cancellationToken);
+                // Só o último canal ativo da conversa publica a resposta da Bruna; os demais
+                // apenas avançam o cursor para não reentregarem ao voltarem a ser ativos.
+                var active = await router.IsActiveAsync(tenantId, link, cancellationToken);
                 foreach (var message in messages)
                 {
-                    if (message.AuthorRole == "chief")
+                    if (message.AuthorRole == "chief" && active)
                     {
                         using var telemetry = new ChannelTelemetryScope("email", "outbound");
                         telemetry.SetCorrelation(

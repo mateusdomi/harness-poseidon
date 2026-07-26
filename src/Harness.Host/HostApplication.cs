@@ -264,6 +264,8 @@ public static class HostApplication
             builder.Services.AddSingleton<ISignedLicenseStore, SqliteSignedLicenseStore>();
             builder.Services.AddSingleton<IChannelLinkStore, SqliteChannelLinkStore>();
         }
+        // Notification Router do contrato de canais: elege o último canal ativo por conversa.
+        builder.Services.AddSingleton<ActiveChannelRouter>();
         builder.Services.AddSingleton(builder.Configuration
             .GetSection("Harness:Channels:Telegram")
             .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());
