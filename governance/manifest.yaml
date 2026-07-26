@@ -1,0 +1,476 @@
+manifestVersion: 2.0.0
+lastGeneratedAt: 2026-07-26T00:00:00-03:00
+tokenBudget: 24000
+knownOwners:
+- Platform Governance
+- Platform Engineering
+- Product Security
+- Quality Engineering
+- Operations
+markdownAllowlist: []
+documents:
+- id: governance-core
+  path: governance/core.md
+  title: Núcleo de governança do Poseidon
+  category: governance
+  topic: governance-core
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: always
+  priority: 1000
+  tokenCost: 977
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: []
+  related: [rule-authority, rule-security, rule-documentation]
+  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  checksum: sha256:a58c8b605ede46a9483aaa15903610750f112ba673ea3507ff2b304b987b5631
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/core.md
+- id: rule-coordination
+  path: governance/rules/coordination.md
+  title: Coordenação
+  category: rule
+  topic: coordination
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: bundle
+  priority: 900
+  tokenCost: 0
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-authority, rule-chief-constraints, rule-code-review]
+  enforcedBy: [tools/backend/verify-agent-scope.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/coordination.md
+- id: rule-documentation
+  path: governance/rules/documentation.md
+  title: Documentação
+  category: rule
+  topic: documentation
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: [documento]
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['governance/**', 'docs/**', README.md, AGENTS.md, CLAUDE.md]
+  load: bundle
+  priority: 900
+  tokenCost: 0
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-authority]
+  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/documentation.md
+- id: rule-git
+  path: governance/rules/git.md
+  title: Git e integração
+  category: rule
+  topic: git
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: [historia, tarefa, bug, spike, adr, documento]
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: bundle
+  priority: 900
+  tokenCost: 0
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-coordination, rule-code-review]
+  enforcedBy: [tools/backend/verify-agent-scope.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/git.md
+- id: rule-secrets
+  path: governance/rules/secrets.md
+  title: Segredos
+  category: rule
+  topic: secrets
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: bundle
+  priority: 950
+  tokenCost: 0
+  owner: Product Security
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-security]
+  enforcedBy: [tools/backend/scan-secrets.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/secrets.md
+- id: rule-security
+  path: governance/rules/security.md
+  title: Segurança
+  category: rule
+  topic: security
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [medium, high, critical]
+  pathGlobs: ['**']
+  load: bundle
+  priority: 950
+  tokenCost: 0
+  owner: Product Security
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-secrets, rule-authority]
+  enforcedBy: [tools/backend/verify-agent-scope.sh, tools/backend/scan-secrets.sh]
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/security.md
+- id: rule-testing
+  path: governance/rules/testing.md
+  title: Testes e gates
+  category: rule
+  topic: testing
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: [historia, tarefa, bug, revisao, gate]
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['src/**', 'tests/**', 'frontend/**']
+  load: bundle
+  priority: 900
+  tokenCost: 0
+  owner: Quality Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-code-review]
+  enforcedBy: [tools/backend/verify.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/testing.md
+- id: rule-authority
+  path: governance/rules/authority.md
+  title: Autoridade e publicação
+  category: rule
+  topic: authority
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: bundle
+  priority: 975
+  tokenCost: 0
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-chief-constraints, rule-coordination]
+  enforcedBy: ['runtime:output-gateway', 'runtime:audit-ledger']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/authority.md
+- id: rule-chief-constraints
+  path: governance/rules/chief-constraints.md
+  title: Restrições da Bruna
+  category: rule
+  topic: chief-constraints
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: [bruna]
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: bundle
+  priority: 975
+  tokenCost: 0
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core, rule-authority]
+  related: [rule-coordination]
+  enforcedBy: ['runtime:security-pep', 'runtime:output-gateway']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/chief-constraints.md
+- id: rule-capacity
+  path: governance/rules/capacity.md
+  title: Capacidade e cotas
+  category: rule
+  topic: capacity
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['src/Modules/Harness.Modules.Agents/**', 'src/Harness.Host/**']
+  load: bundle
+  priority: 875
+  tokenCost: 0
+  owner: Operations
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-cost]
+  enforcedBy: ['runtime:capacity-manager', 'runtime:model-router']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/capacity.md
+- id: rule-cost
+  path: governance/rules/cost.md
+  title: Custos
+  category: rule
+  topic: cost
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['src/Modules/Harness.Modules.Agents/**', 'src/Modules/Harness.Modules.Delivery/**']
+  load: bundle
+  priority: 850
+  tokenCost: 0
+  owner: Operations
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-capacity]
+  enforcedBy: ['runtime:model-invocation-ledger', 'runtime:capacity-manager']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/cost.md
+- id: rule-code-review
+  path: governance/rules/code-review.md
+  title: Revisão de código
+  category: rule
+  topic: code-review
+  authority: canonical
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: [historia, tarefa, bug, revisao]
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['src/**', 'tests/**', 'frontend/**', 'tools/**', 'infra/**']
+  load: bundle
+  priority: 950
+  tokenCost: 0
+  owner: Quality Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [rule-coordination, rule-git, rule-testing]
+  enforcedBy: ['runtime:code-review-gate', 'runtime:merge-coordinator']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: governance/rules/code-review.md
+- id: adapter-agents
+  path: AGENTS.md
+  title: Instruções do repositório para Codex e agentes compatíveis
+  category: adapter
+  topic: agent-entrypoint
+  authority: adapter
+  scope: codex
+  audience: [human, agent, runtime]
+  providers: [codex, kimi-code]
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: always
+  priority: 990
+  tokenCost: 0
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core, rule-coordination, rule-documentation, rule-git, rule-secrets, rule-security, rule-testing, rule-authority, rule-chief-constraints, rule-capacity, rule-cost, rule-code-review]
+  related: [adapter-claude, documentation-index]
+  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: true
+  sourceOfTruth: governance/core.md
+- id: adapter-claude
+  path: CLAUDE.md
+  title: Instruções do repositório para Claude Code
+  category: adapter
+  topic: agent-entrypoint
+  authority: adapter
+  scope: claude-code
+  audience: [human, agent, runtime]
+  providers: [claude-code]
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: always
+  priority: 990
+  tokenCost: 0
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core, rule-coordination, rule-documentation, rule-git, rule-secrets, rule-security, rule-testing, rule-authority, rule-chief-constraints, rule-capacity, rule-cost, rule-code-review]
+  related: [adapter-agents, documentation-index]
+  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: true
+  sourceOfTruth: governance/core.md
+- id: documentation-index
+  path: docs/INDEX.md
+  title: Índice da documentação do Poseidon
+  category: index
+  topic: documentation-index
+  authority: generated
+  scope: repo
+  audience: [human, agent, runtime]
+  providers: ['*']
+  agents: ['*']
+  workflows: ['*']
+  phases: ['*']
+  taskTypes: ['*']
+  riskTiers: [low, medium, high, critical]
+  pathGlobs: ['**']
+  load: always
+  priority: 800
+  tokenCost: 0
+  owner: Platform Governance
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies: [governance-core]
+  related: [adapter-agents, adapter-claude]
+  enforcedBy: [tools/backend/verify-governance.sh, 'ci:governance']
+  checksum: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  containsSecrets: false
+  generated: true
+  sourceOfTruth: governance/manifest.yaml
