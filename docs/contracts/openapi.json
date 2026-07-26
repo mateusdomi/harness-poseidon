@@ -17,6 +17,30 @@
                 }
             }
         },
+        "/ready": {
+            "get": {
+                "tags": [
+                    "system"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/metrics": {
+            "get": {
+                "tags": [
+                    "system"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectId}/activity": {
             "get": {
                 "tags": [
