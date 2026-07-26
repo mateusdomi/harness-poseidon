@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -8,6 +9,7 @@ using System.Text.Json;
 using Harness.Host;
 using Harness.Host.Conversations;
 using Harness.Host.Organizations;
+using Harness.Host.Observability;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Modules.Identity.Contracts;
@@ -32,6 +34,8 @@ public sealed class TeamsChannelAdapterTests
             $"teams-{Guid.NewGuid():N}");
         var database = Path.Combine(root, "teams.db");
         var cookies = new CookieContainer();
+        var activities = new ConcurrentQueue<Activity>();
+        using var listener = Listen(activities);
         Directory.CreateDirectory(root);
         await using var teamsProvider = new FakeTeamsServer();
         try
@@ -116,6 +120,33 @@ public sealed class TeamsChannelAdapterTests
                 Assert.Contains(
                     teamsProvider.SentActivities,
                     item => item.Text.Contains("aad-unknown", StringComparison.Ordinal));
+
+                var channelSpans = activities
+                    .Where(item => item.OperationName.StartsWith(
+                        "poseidon.channel.",
+                        StringComparison.Ordinal))
+                    .ToArray();
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "accepted"));
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "deduplicated"));
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "unlinked"));
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "delivered"));
+                Assert.All(channelSpans, span =>
+                    Assert.DoesNotContain(
+                        span.TagObjects,
+                        tag => tag.Value?.ToString()?.Contains(
+                            "aad-user-1",
+                            StringComparison.Ordinal) == true ||
+                               tag.Value?.ToString()?.Contains(
+                                   "test-inbound",
+                                   StringComparison.Ordinal) == true));
             }
             finally
             {
@@ -137,6 +168,19 @@ public sealed class TeamsChannelAdapterTests
             new TeamsConversationAccount("conversation-42"),
             "Planeje a resposta no Teams.",
             [new TeamsAttachment("text/plain", "brief.txt")]);
+
+    private static ActivityListener Listen(ConcurrentQueue<Activity> activities)
+    {
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == PoseidonTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activities.Enqueue,
+        };
+        ActivitySource.AddActivityListener(listener);
+        return listener;
+    }
 
     private static async Task WaitForChiefReplyAsync(HttpClient client, string linkId, CancellationToken token)
     {

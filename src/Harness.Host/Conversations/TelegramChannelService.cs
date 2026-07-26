@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Harness.Host.Observability;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Persistence.Abstractions.Agents;
@@ -112,68 +113,92 @@ public sealed partial class TelegramChannelBackgroundService(
 
     private async Task HandleMessageAsync(TelegramUpdate update, CancellationToken cancellationToken)
     {
-        var chatId = update.Message!.Chat!.Id.ToString(CultureInfo.InvariantCulture);
-        var allProfiles = await profiles.ListAsync(cancellationToken);
-        foreach (var tenantId in allProfiles.Select(profile => profile.TenantId)
-                     .Distinct(StringComparer.Ordinal))
+        using var telemetry = new ChannelTelemetryScope("telegram", "inbound");
+        try
         {
-            var link = (await links.ListAsync(tenantId, cancellationToken)).FirstOrDefault(candidate =>
-                candidate.Kind == "telegram" &&
-                string.Equals(candidate.ExternalIdentity, chatId, StringComparison.Ordinal));
-            if (link is null)
+            var chatId = update.Message!.Chat!.Id.ToString(CultureInfo.InvariantCulture);
+            var allProfiles = await profiles.ListAsync(cancellationToken);
+            foreach (var tenantId in allProfiles.Select(profile => profile.TenantId)
+                         .Distinct(StringComparer.Ordinal))
             {
-                continue;
-            }
+                var link = (await links.ListAsync(tenantId, cancellationToken)).FirstOrDefault(candidate =>
+                    candidate.Kind == "telegram" &&
+                    string.Equals(candidate.ExternalIdentity, chatId, StringComparison.Ordinal));
+                if (link is null)
+                {
+                    continue;
+                }
 
-            var project = await projects.GetAsync(tenantId, link.ProjectId, cancellationToken);
-            if (project is null)
-            {
-                return;
-            }
-
-            var turnId = ChannelEndpoints.DeterministicUlid(
-                $"channel:{link.Id}:telegram-update:{update.UpdateId}");
-            if (await chiefTurns.GetAsync(tenantId, turnId, cancellationToken) is not null)
-            {
-                return;
-            }
-
-            var now = clock.UtcNow;
-            var userAt = now.AddMilliseconds(1);
-            var user = ConversationApplicationService.CreateUserMessage(
-                UlidValue.New(userAt).ToString(),
-                link.ProfileId,
-                new CreateMessageRequest(link.ConversationId, update.Message.Text!),
-                userAt);
-            await chiefTurns.EnqueueAsync(
-                new ChiefTurnEnqueueCommand(
+                var turnId = ChannelEndpoints.DeterministicUlid(
+                    $"channel:{link.Id}:telegram-update:{update.UpdateId}");
+                telemetry.SetCorrelation(
                     tenantId,
                     link.ProjectId,
                     link.ConversationId,
                     turnId,
-                    project.ChiefAgentId,
-                    new MessageRecord(
+                    link.Id);
+                var project = await projects.GetAsync(tenantId, link.ProjectId, cancellationToken);
+                if (project is null)
+                {
+                    telemetry.Complete("project_not_found");
+                    return;
+                }
+
+                if (await chiefTurns.GetAsync(tenantId, turnId, cancellationToken) is not null)
+                {
+                    telemetry.Complete("deduplicated");
+                    return;
+                }
+
+                var now = clock.UtcNow;
+                var userAt = now.AddMilliseconds(1);
+                var user = ConversationApplicationService.CreateUserMessage(
+                    UlidValue.New(userAt).ToString(),
+                    link.ProfileId,
+                    new CreateMessageRequest(link.ConversationId, update.Message.Text!),
+                    userAt);
+                await chiefTurns.EnqueueAsync(
+                    new ChiefTurnEnqueueCommand(
                         tenantId,
                         link.ProjectId,
-                        user.Id,
-                        user.ConversationId,
-                        user.AuthorRole,
-                        user.AuthorProfileId,
-                        user.AuthorAgentId,
-                        user.Content,
-                        user.TokenCount,
-                        user.CreatedAt),
-                    $"chief-turn:{turnId}",
-                    now),
-                cancellationToken);
-            return;
-        }
+                        link.ConversationId,
+                        turnId,
+                        project.ChiefAgentId,
+                        new MessageRecord(
+                            tenantId,
+                            link.ProjectId,
+                            user.Id,
+                            user.ConversationId,
+                            user.AuthorRole,
+                            user.AuthorProfileId,
+                            user.AuthorAgentId,
+                            user.Content,
+                            user.TokenCount,
+                            user.CreatedAt),
+                        $"chief-turn:{turnId}",
+                        now),
+                    cancellationToken);
+                telemetry.Complete("accepted");
+                return;
+            }
 
-        await SendMessageAsync(
-            chatId,
-            "Esta conversa ainda não está vinculada ao Harness. Vincule a identidade " +
-            $"'{chatId}' na tela de canais do aplicativo.",
-            cancellationToken);
+            await SendMessageAsync(
+                chatId,
+                "Esta conversa ainda não está vinculada ao Harness. Vincule a identidade " +
+                $"'{chatId}' na tela de canais do aplicativo.",
+                cancellationToken);
+            telemetry.Complete("unlinked");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            telemetry.Complete("cancelled");
+            throw;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            telemetry.Fail(exception);
+            throw;
+        }
     }
 
     public async Task DeliverRepliesAsync(CancellationToken cancellationToken)
@@ -203,7 +228,32 @@ public sealed partial class TelegramChannelBackgroundService(
                 {
                     if (message.AuthorRole == "chief")
                     {
-                        await SendMessageAsync(link.ExternalIdentity, message.Content, cancellationToken);
+                        using var telemetry = new ChannelTelemetryScope("telegram", "outbound");
+                        telemetry.SetCorrelation(
+                            tenantId,
+                            link.ProjectId,
+                            link.ConversationId,
+                            null,
+                            link.Id,
+                            message.Id);
+                        try
+                        {
+                            await SendMessageAsync(
+                                link.ExternalIdentity,
+                                message.Content,
+                                cancellationToken);
+                            telemetry.Complete("delivered");
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            telemetry.Complete("cancelled");
+                            throw;
+                        }
+                        catch (Exception exception) when (exception is not OutOfMemoryException)
+                        {
+                            telemetry.Fail(exception);
+                            throw;
+                        }
                     }
 
                     _lastDeliveredByLink[link.Id] = message.Id;

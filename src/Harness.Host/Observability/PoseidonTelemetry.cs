@@ -66,6 +66,17 @@ internal static class PoseidonTelemetry
             unit: "ms",
             description: "Duration of agent execution attempts.");
 
+    private static Counter<long> ChannelOperationCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.channel.operation.count",
+            description: "Number of channel operations.");
+
+    private static Histogram<double> ChannelOperationDuration { get; } =
+        Meter.CreateHistogram<double>(
+            "poseidon.channel.operation.duration",
+            unit: "ms",
+            description: "Duration of channel operations.");
+
     internal static IServiceCollection AddPoseidonTelemetry(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -198,6 +209,22 @@ internal static class PoseidonTelemetry
         };
         AgentExecutionCounter.Add(1, tags);
         AgentExecutionDuration.Record(durationMilliseconds, tags);
+    }
+
+    internal static void RecordChannelOperation(
+        string channel,
+        string direction,
+        string result,
+        double durationMilliseconds)
+    {
+        var tags = new TagList
+        {
+            { "channel", channel },
+            { "direction", direction },
+            { "result", result },
+        };
+        ChannelOperationCounter.Add(1, tags);
+        ChannelOperationDuration.Record(durationMilliseconds, tags);
     }
 
     internal static bool HasOtlpEndpoint(

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Sockets;
@@ -7,6 +8,7 @@ using System.Text.Json;
 using Harness.Host;
 using Harness.Host.Conversations;
 using Harness.Host.Organizations;
+using Harness.Host.Observability;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Modules.Identity.Contracts;
@@ -37,6 +39,8 @@ public sealed class TelegramChannelAdapterTests
             $"telegram-{Guid.NewGuid():N}");
         var database = Path.Combine(root, "telegram.db");
         var cookies = new CookieContainer();
+        var activities = new ConcurrentQueue<Activity>();
+        using var listener = Listen(activities);
         Directory.CreateDirectory(root);
         await using var telegram = new FakeTelegramServer();
 
@@ -106,6 +110,33 @@ public sealed class TelegramChannelAdapterTests
                 await service.PollOnceAsync(timeout.Token);
                 var guidance = Assert.Single(telegram.SentMessages, m => m.ChatId == "999999");
                 Assert.Contains("999999", guidance.Text);
+
+                var channelSpans = activities
+                    .Where(item => item.OperationName.StartsWith(
+                        "poseidon.channel.",
+                        StringComparison.Ordinal))
+                    .ToArray();
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "accepted"));
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "deduplicated"));
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "unlinked"));
+                Assert.Contains(
+                    channelSpans,
+                    span => Equals(span.GetTagItem("channel.result"), "delivered"));
+                Assert.All(channelSpans, span =>
+                    Assert.DoesNotContain(
+                        span.TagObjects,
+                        tag => tag.Value?.ToString()?.Contains(
+                            "777001",
+                            StringComparison.Ordinal) == true ||
+                               tag.Value?.ToString()?.Contains(
+                                   "test-token",
+                                   StringComparison.Ordinal) == true));
             }
             finally
             {
@@ -139,6 +170,19 @@ public sealed class TelegramChannelAdapterTests
         }
 
         throw new TimeoutException("A resposta do Chief não chegou à conversa do canal.");
+    }
+
+    private static ActivityListener Listen(ConcurrentQueue<Activity> activities)
+    {
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == PoseidonTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activities.Enqueue,
+        };
+        ActivitySource.AddActivityListener(listener);
+        return listener;
     }
 
     private sealed class FakeTelegramServer : IAsyncDisposable

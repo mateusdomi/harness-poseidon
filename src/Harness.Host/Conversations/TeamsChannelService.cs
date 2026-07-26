@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Harness.Host.Observability;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Persistence.Abstractions.Agents;
@@ -94,77 +95,102 @@ public sealed partial class TeamsChannelBackgroundService(
         TeamsActivity activity,
         CancellationToken cancellationToken)
     {
-        if (!options.Enabled)
-            throw new TeamsChannelUnavailableException("The Teams channel is not configured.");
-        ValidateAuthorization(authorization);
-        ArgumentNullException.ThrowIfNull(activity);
-        if (activity.Type != "message" || string.IsNullOrWhiteSpace(activity.Id) ||
-            activity.Id.Length > 200 || activity.Conversation is null ||
-            string.IsNullOrWhiteSpace(activity.Conversation.Id) || activity.From is null)
+        using var telemetry = new ChannelTelemetryScope("teams", "inbound");
+        try
         {
-            throw new TeamsActivityValidationException("The Teams activity envelope is invalid.");
-        }
-        var externalIdentity = string.IsNullOrWhiteSpace(activity.From.AadObjectId)
-            ? activity.From.Id
-            : activity.From.AadObjectId;
-        if (string.IsNullOrWhiteSpace(externalIdentity) || externalIdentity.Length > 200)
-            throw new TeamsActivityValidationException("The Teams sender identity is invalid.");
-        var serviceUrl = ValidateServiceUrl(activity.ServiceUrl);
-        var content = FormatContent(activity);
-        var route = new TeamsReplyRoute(serviceUrl, activity.Conversation.Id, activity.Id);
+            if (!options.Enabled)
+                throw new TeamsChannelUnavailableException("The Teams channel is not configured.");
+            ValidateAuthorization(authorization);
+            ArgumentNullException.ThrowIfNull(activity);
+            if (activity.Type != "message" || string.IsNullOrWhiteSpace(activity.Id) ||
+                activity.Id.Length > 200 || activity.Conversation is null ||
+                string.IsNullOrWhiteSpace(activity.Conversation.Id) || activity.From is null)
+            {
+                throw new TeamsActivityValidationException("The Teams activity envelope is invalid.");
+            }
+            var externalIdentity = string.IsNullOrWhiteSpace(activity.From.AadObjectId)
+                ? activity.From.Id
+                : activity.From.AadObjectId;
+            if (string.IsNullOrWhiteSpace(externalIdentity) || externalIdentity.Length > 200)
+                throw new TeamsActivityValidationException("The Teams sender identity is invalid.");
+            var serviceUrl = ValidateServiceUrl(activity.ServiceUrl);
+            var content = FormatContent(activity);
+            var route = new TeamsReplyRoute(serviceUrl, activity.Conversation.Id, activity.Id);
 
-        var allProfiles = await profiles.ListAsync(cancellationToken);
-        foreach (var tenantId in allProfiles.Select(profile => profile.TenantId).Distinct(StringComparer.Ordinal))
-        {
-            var link = (await links.ListAsync(tenantId, cancellationToken)).FirstOrDefault(candidate =>
-                candidate.Kind == "teams" &&
-                string.Equals(candidate.ExternalIdentity, externalIdentity, StringComparison.Ordinal));
-            if (link is null) continue;
-            _routes[link.Id] = route;
-            var project = await projects.GetAsync(tenantId, link.ProjectId, cancellationToken);
-            if (project is null)
-                throw new TeamsActivityValidationException("The linked Teams project no longer exists.");
-            var turnId = ChannelEndpoints.DeterministicUlid(
-                $"channel:{link.Id}:teams-activity:{activity.Id}");
-            if (await chiefTurns.GetAsync(tenantId, turnId, cancellationToken) is not null)
-                return new(turnId, link.ConversationId, Linked: true, Deduplicated: true);
-
-            var now = clock.UtcNow;
-            var user = ConversationApplicationService.CreateUserMessage(
-                UlidValue.New(now.AddMilliseconds(1)).ToString(),
-                link.ProfileId,
-                new CreateMessageRequest(link.ConversationId, content),
-                now.AddMilliseconds(1));
-            await chiefTurns.EnqueueAsync(
-                new ChiefTurnEnqueueCommand(
+            var allProfiles = await profiles.ListAsync(cancellationToken);
+            foreach (var tenantId in allProfiles.Select(profile => profile.TenantId).Distinct(StringComparer.Ordinal))
+            {
+                var link = (await links.ListAsync(tenantId, cancellationToken)).FirstOrDefault(candidate =>
+                    candidate.Kind == "teams" &&
+                    string.Equals(candidate.ExternalIdentity, externalIdentity, StringComparison.Ordinal));
+                if (link is null) continue;
+                _routes[link.Id] = route;
+                var turnId = ChannelEndpoints.DeterministicUlid(
+                    $"channel:{link.Id}:teams-activity:{activity.Id}");
+                telemetry.SetCorrelation(
                     tenantId,
                     link.ProjectId,
                     link.ConversationId,
                     turnId,
-                    project.ChiefAgentId,
-                    new MessageRecord(
+                    link.Id);
+                var project = await projects.GetAsync(tenantId, link.ProjectId, cancellationToken);
+                if (project is null)
+                    throw new TeamsActivityValidationException("The linked Teams project no longer exists.");
+                if (await chiefTurns.GetAsync(tenantId, turnId, cancellationToken) is not null)
+                {
+                    telemetry.Complete("deduplicated");
+                    return new(turnId, link.ConversationId, Linked: true, Deduplicated: true);
+                }
+
+                var now = clock.UtcNow;
+                var user = ConversationApplicationService.CreateUserMessage(
+                    UlidValue.New(now.AddMilliseconds(1)).ToString(),
+                    link.ProfileId,
+                    new CreateMessageRequest(link.ConversationId, content),
+                    now.AddMilliseconds(1));
+                await chiefTurns.EnqueueAsync(
+                    new ChiefTurnEnqueueCommand(
                         tenantId,
                         link.ProjectId,
-                        user.Id,
-                        user.ConversationId,
-                        user.AuthorRole,
-                        user.AuthorProfileId,
-                        user.AuthorAgentId,
-                        user.Content,
-                        user.TokenCount,
-                        user.CreatedAt),
-                    $"chief-turn:{turnId}",
-                    now),
-                cancellationToken);
-            return new(turnId, link.ConversationId, Linked: true, Deduplicated: false);
-        }
+                        link.ConversationId,
+                        turnId,
+                        project.ChiefAgentId,
+                        new MessageRecord(
+                            tenantId,
+                            link.ProjectId,
+                            user.Id,
+                            user.ConversationId,
+                            user.AuthorRole,
+                            user.AuthorProfileId,
+                            user.AuthorAgentId,
+                            user.Content,
+                            user.TokenCount,
+                            user.CreatedAt),
+                        $"chief-turn:{turnId}",
+                        now),
+                    cancellationToken);
+                telemetry.Complete("accepted");
+                return new(turnId, link.ConversationId, Linked: true, Deduplicated: false);
+            }
 
-        await SendTextAsync(
-            route,
-            "Esta identidade do Teams ainda não está vinculada ao Harness. " +
-            $"Vincule '{externalIdentity}' na tela de canais do aplicativo.",
-            cancellationToken);
-        return new(null, null, Linked: false, Deduplicated: false);
+            await SendTextAsync(
+                route,
+                "Esta identidade do Teams ainda não está vinculada ao Harness. " +
+                $"Vincule '{externalIdentity}' na tela de canais do aplicativo.",
+                cancellationToken);
+            telemetry.Complete("unlinked");
+            return new(null, null, Linked: false, Deduplicated: false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            telemetry.Complete("cancelled");
+            throw;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            telemetry.Fail(exception);
+            throw;
+        }
     }
 
     public async Task DeliverRepliesAsync(CancellationToken cancellationToken)
@@ -192,7 +218,31 @@ public sealed partial class TeamsChannelBackgroundService(
                     if (message.AuthorRole == "chief")
                     {
                         foreach (var chunk in Chunk(message.Content, MaximumTextLength))
-                            await SendTextAsync(route, chunk, cancellationToken);
+                        {
+                            using var telemetry = new ChannelTelemetryScope("teams", "outbound");
+                            telemetry.SetCorrelation(
+                                tenantId,
+                                link.ProjectId,
+                                link.ConversationId,
+                                null,
+                                link.Id,
+                                message.Id);
+                            try
+                            {
+                                await SendTextAsync(route, chunk, cancellationToken);
+                                telemetry.Complete("delivered");
+                            }
+                            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                            {
+                                telemetry.Complete("cancelled");
+                                throw;
+                            }
+                            catch (Exception exception) when (exception is not OutOfMemoryException)
+                            {
+                                telemetry.Fail(exception);
+                                throw;
+                            }
+                        }
                     }
                     _lastDeliveredByLink[link.Id] = message.Id;
                 }
