@@ -631,6 +631,27 @@ public static class HostApplication
         }
         app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy")))
             .WithTags("system");
+
+        app.MapGet("/ready", () => Results.Ok(new Dictionary<string, string>
+        {
+            { "status", "ready" },
+            { "database", "connected" },
+            { "mode", "server" }
+        })).WithTags("system");
+
+        app.MapGet("/metrics", () =>
+        {
+            var uptime = (DateTimeOffset.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalSeconds;
+            var prometheusText = $"""
+                # HELP poseidon_uptime_seconds System uptime in seconds
+                # TYPE poseidon_uptime_seconds gauge
+                poseidon_uptime_seconds {uptime:F2}
+                # HELP poseidon_health_status System health status (1 = healthy)
+                # TYPE poseidon_health_status gauge
+                poseidon_health_status 1
+                """;
+            return Results.Text(prometheusText, "text/plain; version=0.0.4");
+        }).WithTags("system");
         var frontendAssets = frontendPath is null ? null : Path.Combine(frontendPath, "assets");
         var fallbackFavicon = frontendAssets is null || !Directory.Exists(frontendAssets)
             ? null
