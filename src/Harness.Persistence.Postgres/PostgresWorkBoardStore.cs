@@ -268,7 +268,8 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         await using var query = _dataSource.CreateCommand(
             """
             SELECT a.task_id,t.title,a.attempt_number,a.state,a.operational_state,a.cost_usd,
-                   a.tokens_input,a.tokens_output,a.duration_ms,a.failure_reason,i.content_hash
+                   a.tokens_input,a.tokens_output,a.duration_ms,a.failure_reason,i.content_hash,
+                   a.id,a.producer_agent_id
             FROM harness.work_attempts a
             JOIN harness.work_tasks t ON t.tenant_id=a.tenant_id AND t.id=a.task_id
             JOIN harness.instruction_versions i
@@ -286,7 +287,8 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
                 reader.GetString(3), reader.GetString(4), reader.GetDecimal(5), reader.GetInt64(6),
                 reader.GetInt64(7), reader.IsDBNull(8) ? null : reader.GetInt64(8),
                 reader.IsDBNull(9) ? null : reader.GetString(9),
-                reader.IsDBNull(10) ? null : reader.GetString(10)));
+                reader.IsDBNull(10) ? null : reader.GetString(10),
+                reader.GetString(11).TrimEnd(), reader.GetString(12).TrimEnd()));
         }
 
         return values;

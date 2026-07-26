@@ -7738,6 +7738,66 @@
                 }
             }
         },
+        "/api/v1/governance-runtime/evaluation-recommendations": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "minSampleSize",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EvaluationRecommendationsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/governance-docs": {
             "get": {
                 "tags": [
@@ -26714,6 +26774,105 @@
                     }
                 }
             },
+            "EvaluationRecommendationContract": {
+                "required": [
+                    "targetId",
+                    "model",
+                    "provider",
+                    "action",
+                    "score",
+                    "confidenceIntervalLower",
+                    "confidenceIntervalUpper",
+                    "sampleSize",
+                    "recommendationReason",
+                    "generatedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "targetId": {
+                        "type": "string"
+                    },
+                    "model": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "provider": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "action": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "confidenceIntervalLower": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "confidenceIntervalUpper": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "sampleSize": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "recommendationReason": {
+                        "type": "string"
+                    },
+                    "generatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "EvaluationRecommendationsResponse": {
+                "required": [
+                    "projectId",
+                    "aggregates",
+                    "recommendations"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "aggregates": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PerformanceAggregateContract"
+                        }
+                    },
+                    "recommendations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EvaluationRecommendationContract"
+                        }
+                    }
+                }
+            },
             "EvaluationResultContract": {
                 "required": [
                     "schemaVersion",
@@ -29666,6 +29825,98 @@
                             "string"
                         ],
                         "format": "int32"
+                    }
+                }
+            },
+            "PerformanceAggregateContract": {
+                "required": [
+                    "targetId",
+                    "model",
+                    "provider",
+                    "sampleSize",
+                    "successCount",
+                    "failureCount",
+                    "passRate",
+                    "compositeScore",
+                    "confidenceIntervalLower",
+                    "confidenceIntervalUpper",
+                    "sampleSizeQualified"
+                ],
+                "type": "object",
+                "properties": {
+                    "targetId": {
+                        "type": "string"
+                    },
+                    "model": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "provider": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "sampleSize": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "successCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "failureCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "passRate": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "compositeScore": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "confidenceIntervalLower": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "confidenceIntervalUpper": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "sampleSizeQualified": {
+                        "type": "boolean"
                     }
                 }
             },

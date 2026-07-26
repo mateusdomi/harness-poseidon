@@ -68,10 +68,13 @@ public interface IWorkBoardStore
 
 // PLAT-04: strictly-recorded attempt facts used by the measurement layer. Never fabricated —
 // every field maps to a persisted work_attempts column (or the joined task title / instruction hash).
+// Fase 5: AttemptId e ProducerAgentId expõem colunas que já existiam (id, producer_agent_id) para
+// que o Evaluation Service agregue desempenho por agente e cruze com `model_invocations`.
 public sealed record FeatureAttemptRow(
     string TaskId, string TaskTitle, int AttemptNumber, string State, string OperationalState,
     decimal CostUsd, long TokensInput, long TokensOutput, long? DurationMs,
-    string? FailureReason, string? InstructionContentHash);
+    string? FailureReason, string? InstructionContentHash,
+    string AttemptId = "", string ProducerAgentId = "");
 
 public sealed record BoardSolicitationRecord(
     string TenantId, string Id, string ProjectId, string AuthorProfileId, string Kind,

@@ -38,6 +38,9 @@ public static class GovernanceRuntimeEndpoints
         group.MapGet("/feature-metrics", ListFeatureMetricsAsync).Produces<FeatureMetricsResponse>().ProducesProblem(400).ProducesProblem(401);
         group.MapGet("/stuck-tasks", ListStuckTasksAsync).Produces<StuckTasksResponse>().ProducesProblem(400).ProducesProblem(401);
         group.MapPost("/eval-judge", JudgeAttemptAsync).Produces<EvalJudgeVerdictContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(503);
+        // Fase 5: recomendações estatísticas derivadas ESTRITAMENTE das tentativas gravadas.
+        group.MapGet("/evaluation-recommendations", ListEvaluationRecommendationsAsync)
+            .Produces<EvaluationRecommendationsResponse>().ProducesProblem(400).ProducesProblem(401);
         return endpoints;
     }
 
@@ -66,6 +69,105 @@ public static class GovernanceRuntimeEndpoints
                 feature.FeatureId, feature.TaskCount, feature.AttemptCount, feature.SuccessCount,
                 feature.FailureCount, feature.InProgressCount, feature.TotalCostUsd,
                 feature.TotalTokensInput, feature.TotalTokensOutput, feature.TotalDurationMs)).ToArray()));
+    }
+
+    // Fase 5 — Evaluation Service no caminho REAL: agrega as tentativas duráveis do board por
+    // (agente produtor, provedor, modelo) — provedor/modelo vêm do espelho `model_invocations`
+    // quando a tentativa tem invocação registrada — e devolve score composto, intervalo de
+    // confiança de Wilson e a recomendação tipada. Sem findings estruturados por tentativa, o
+    // composto deriva apenas do desfecho aprovado/rejeitado — nada é inventado; tentativas em
+    // andamento ficam FORA da amostra.
+    private static async Task<IResult> ListEvaluationRecommendationsAsync(
+        string? projectId,
+        int? minSampleSize,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IWorkBoardStore board,
+        Harness.Persistence.Abstractions.Providers.IModelInvocationStore invocations,
+        IEvaluationService evaluations,
+        IClock clock,
+        CancellationToken token)
+    {
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(projectId) || !UlidValue.TryParse(projectId, out _))
+            return Invalid("invalid_project", "projectId must be a ULID.");
+        var minimumSample = minSampleSize is > 0 ? minSampleSize.Value : 5;
+
+        var rows = await board.ListFeatureAttemptRowsAsync(session.TenantId, projectId, token);
+        var terminal = rows
+            .Where(row => FeatureMetricsAggregator.Classify(row.State, row.OperationalState)
+                != AttemptOutcome.InProgress)
+            .ToArray();
+
+        // Provedor/modelo por tentativa a partir do fato durável de invocação (Fase 3).
+        var providerByAttempt = new Dictionary<string, (string Provider, string Model)>(StringComparer.Ordinal);
+        foreach (var taskId in terminal.Select(row => row.TaskId).Distinct(StringComparer.Ordinal))
+        {
+            foreach (var invocation in await invocations.GetTaskInvocationsAsync(session.TenantId, taskId, token))
+            {
+                providerByAttempt[invocation.AttemptId] = (invocation.Provider, invocation.Model);
+            }
+        }
+
+        var aggregates = terminal
+            .GroupBy(row =>
+            {
+                var invocation = providerByAttempt.TryGetValue(row.AttemptId, out var value)
+                    ? value
+                    : ((string?)null, (string?)null);
+                return (Agent: row.ProducerAgentId, invocation.Item1, invocation.Item2);
+            })
+            .Select(group =>
+            {
+                var total = group.Count();
+                var successes = group.Count(row =>
+                    FeatureMetricsAggregator.Classify(row.State, row.OperationalState)
+                        == AttemptOutcome.Succeeded);
+                var passRate = Math.Round((double)successes / total, 4);
+                var compositeScore = Math.Round(
+                    group.Average(row => evaluations.CalculateCompositeScore(
+                        passRate,
+                        0,
+                        0,
+                        0,
+                        0,
+                        FeatureMetricsAggregator.Classify(row.State, row.OperationalState)
+                            == AttemptOutcome.Succeeded)),
+                    4);
+                var (lower, upper) = evaluations.CalculateConfidenceInterval(total, successes);
+                return new PerformanceAggregate(
+                    group.Key.Agent,
+                    group.Key.Item3,
+                    group.Key.Item2,
+                    null,
+                    total,
+                    successes,
+                    total - successes,
+                    passRate,
+                    compositeScore,
+                    lower,
+                    upper,
+                    total >= minimumSample);
+            })
+            .OrderBy(aggregate => aggregate.TargetId, StringComparer.Ordinal)
+            .ThenBy(aggregate => aggregate.Provider, StringComparer.Ordinal)
+            .ToArray();
+
+        var recommendations = evaluations.GenerateRecommendations(aggregates, clock.UtcNow);
+        return Results.Ok(new EvaluationRecommendationsResponse(
+            projectId,
+            aggregates.Select(aggregate => new PerformanceAggregateContract(
+                aggregate.TargetId, aggregate.Model, aggregate.Provider, aggregate.SampleSize,
+                aggregate.SuccessCount, aggregate.FailureCount, aggregate.PassRate,
+                aggregate.CompositeScore, aggregate.ConfidenceIntervalLower,
+                aggregate.ConfidenceIntervalUpper, aggregate.SampleSizeQualified)).ToArray(),
+            recommendations.Select(recommendation => new EvaluationRecommendationContract(
+                recommendation.TargetId, recommendation.Model, recommendation.Provider,
+                recommendation.Action, recommendation.Score,
+                recommendation.ConfidenceIntervalLower, recommendation.ConfidenceIntervalUpper,
+                recommendation.SampleSize, recommendation.RecommendationReason,
+                recommendation.GeneratedAt)).ToArray()));
     }
 
     // PLAT-04: detecção pura de travamento semântico. Read-only: surface as tarefas travadas com a
@@ -483,6 +585,21 @@ public sealed record StuckTaskContract(
     string TaskId, string FeatureId, string Title, string Reason, int NoProgressStreak,
     string Detail, int AttemptCount);
 public sealed record StuckTasksResponse(string ProjectId, IReadOnlyList<StuckTaskContract> Tasks);
+
+// Fase 5: contratos das recomendações estatísticas (endpoint novo — não altera contratos
+// existentes). Cada número deriva das tentativas gravadas e do espelho `model_invocations`.
+public sealed record PerformanceAggregateContract(
+    string TargetId, string? Model, string? Provider, int SampleSize, int SuccessCount,
+    int FailureCount, double PassRate, double CompositeScore, double ConfidenceIntervalLower,
+    double ConfidenceIntervalUpper, bool SampleSizeQualified);
+public sealed record EvaluationRecommendationContract(
+    string TargetId, string? Model, string? Provider, string Action, double Score,
+    double ConfidenceIntervalLower, double ConfidenceIntervalUpper, int SampleSize,
+    string RecommendationReason, DateTimeOffset GeneratedAt);
+public sealed record EvaluationRecommendationsResponse(
+    string ProjectId,
+    IReadOnlyList<PerformanceAggregateContract> Aggregates,
+    IReadOnlyList<EvaluationRecommendationContract> Recommendations);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record EvalJudgeApiRequest(

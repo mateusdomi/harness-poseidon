@@ -214,7 +214,8 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             q.CommandText =
                 """
                 SELECT a.task_id,t.title,a.attempt_number,a.state,a.operational_state,a.cost_usd,
-                       a.tokens_input,a.tokens_output,a.duration_ms,a.failure_reason,i.content_hash
+                       a.tokens_input,a.tokens_output,a.duration_ms,a.failure_reason,i.content_hash,
+                       a.id,a.producer_agent_id
                 FROM work_attempts a
                 JOIN work_tasks t ON t.tenant_id=a.tenant_id AND t.id=a.task_id
                 JOIN instruction_versions i
@@ -231,7 +232,8 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
                     r.GetDecimal(5), r.GetInt64(6), r.GetInt64(7),
                     r.IsDBNull(8) ? null : r.GetInt64(8),
                     r.IsDBNull(9) ? null : r.GetString(9),
-                    r.IsDBNull(10) ? null : r.GetString(10)));
+                    r.IsDBNull(10) ? null : r.GetString(10),
+                    r.GetString(11), r.GetString(12)));
             }
 
             return values;
