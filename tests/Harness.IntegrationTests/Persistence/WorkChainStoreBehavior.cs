@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Abstractions.WorkChain;
+using Harness.SharedKernel.Identifiers;
 
 namespace Harness.IntegrationTests.Persistence;
 
@@ -78,6 +79,7 @@ internal static class WorkChainStoreBehavior
         await AssertLeaseExpiryAsync(store, command, cancellationToken);
         await AssertCancellationAsync(store, command, cancellationToken);
         await AssertBlockingAsync(store, command, cancellationToken);
+        await AssertReviewEscalationAsync(store, command, cancellationToken);
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FF4",
@@ -218,6 +220,187 @@ internal static class WorkChainStoreBehavior
             [chain.InstructionVersionId, chain.InstructionVersionId],
             task.Attempts.Select(item => item.InstructionVersionId));
         Assert.NotNull(task.Attempts[0].CompletedAt);
+    }
+
+    private static async Task AssertReviewEscalationAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5ZZ0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5ZZ1",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5ZZ2",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5ZZ3",
+            IdempotencyKey = "work-chain:create:review-escalation",
+            OccurredAt = template.OccurredAt.AddDays(4),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        var taskVersion = 3L;
+        var instructionVersion = 1;
+        var instructionId = chain.InstructionVersionId;
+        for (var cycle = 1; cycle <= 4; cycle++)
+        {
+            var cycleAt = chain.OccurredAt.AddMinutes(cycle * 10);
+            var attemptId = UlidValue.New(cycleAt).ToString();
+            var start = new WorkAttemptStartCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                instructionId,
+                attemptId,
+                "reviewed-owner",
+                taskVersion,
+                $"work-chain:attempt:start:review-cycle:{cycle}",
+                cycleAt);
+            var started = await store.StartAttemptAsync(start, cancellationToken);
+            Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+            taskVersion += 2;
+            Assert.Equal(taskVersion, started.TaskVersion);
+
+            var completed = await store.CompleteAttemptAsync(
+                new WorkAttemptCompleteCommand(
+                    chain.TenantId,
+                    chain.SolicitationId,
+                    chain.TaskId,
+                    attemptId,
+                    taskVersion,
+                    [new WorkEvidenceInput(
+                        UlidValue.New(cycleAt.AddMinutes(1)).ToString(),
+                        $"tests:review-cycle:{cycle}")],
+                    $"work-chain:attempt:complete:review-cycle:{cycle}",
+                    cycleAt.AddMinutes(1)),
+                cancellationToken);
+            Assert.Equal(WorkChainMutationStatus.Applied, completed.Status);
+            taskVersion++;
+            Assert.Equal(taskVersion, completed.TaskVersion);
+
+            var reviewed = await store.ReviewAttemptAsync(
+                new WorkAttemptReviewCommand(
+                    chain.TenantId,
+                    chain.SolicitationId,
+                    chain.TaskId,
+                    attemptId,
+                    UlidValue.New(cycleAt.AddMinutes(2)).ToString(),
+                    "independent-reviewer",
+                    "rejected",
+                    $"Objective gate failed in review cycle {cycle}.",
+                    taskVersion,
+                    $"work-chain:attempt:review:cycle:{cycle}",
+                    cycleAt.AddMinutes(2)),
+                cancellationToken);
+            Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
+            taskVersion++;
+            Assert.Equal(taskVersion, reviewed.TaskVersion);
+            Assert.Equal(cycle == 4 ? "escalated" : "ready", reviewed.TaskState);
+            Assert.NotNull(reviewed.LedgerHash);
+            Assert.NotNull(reviewed.OutboxMessageId);
+
+            if (cycle == 4)
+            {
+                continue;
+            }
+
+            var correctionContent = $"Correct the objective failure from review cycle {cycle}.";
+            instructionId = UlidValue.New(cycleAt.AddMinutes(3)).ToString();
+            var corrected = await store.AddInstructionVersionAsync(
+                new WorkInstructionVersionCreateCommand(
+                    chain.TenantId,
+                    chain.SolicitationId,
+                    chain.TaskId,
+                    instructionId,
+                    correctionContent,
+                    Convert.ToHexString(SHA256.HashData(
+                        Encoding.UTF8.GetBytes(correctionContent))),
+                    taskVersion,
+                    $"work-chain:instruction:review-cycle:{cycle}",
+                    cycleAt.AddMinutes(3)),
+                cancellationToken);
+            Assert.Equal(WorkChainMutationStatus.Applied, corrected.Status);
+            taskVersion++;
+            instructionVersion++;
+            Assert.Equal(taskVersion, corrected.TaskVersion);
+            Assert.Equal(instructionVersion, corrected.InstructionVersion);
+        }
+
+        const string replanContent =
+            "Replan the card after review escalation with a corrected execution strategy.";
+        var bypass = await store.AddInstructionVersionAsync(
+            new WorkInstructionVersionCreateCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                UlidValue.New(chain.OccurredAt.AddMinutes(51)).ToString(),
+                replanContent,
+                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(replanContent))),
+                taskVersion,
+                "work-chain:instruction:escalation-bypass",
+                chain.OccurredAt.AddMinutes(51)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, bypass.Status);
+        Assert.Null(bypass.LedgerSequence);
+
+        var replan = new WorkTaskReplanCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            UlidValue.New(chain.OccurredAt.AddMinutes(52)).ToString(),
+            replanContent,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(replanContent))),
+            "bruna",
+            "Review cycle limit requires explicit replanning.",
+            "review-escalation:decision",
+            taskVersion,
+            "work-chain:task:replan:first",
+            chain.OccurredAt.AddMinutes(52));
+        var replanned = await store.ReplanEscalatedTaskAsync(replan, cancellationToken);
+        var replanReplay = await store.ReplanEscalatedTaskAsync(replan, cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, replanned.Status);
+        taskVersion++;
+        instructionVersion++;
+        Assert.Equal(taskVersion, replanned.TaskVersion);
+        Assert.Equal("ready", replanned.TaskState);
+        Assert.Equal("rejected", replanned.AttemptState);
+        Assert.Equal(replan.InstructionVersionId, replanned.InstructionVersionId);
+        Assert.Equal(instructionVersion, replanned.InstructionVersion);
+        Assert.NotNull(replanned.LedgerSequence);
+        Assert.NotNull(replanned.LedgerHash);
+        Assert.NotNull(replanned.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, replanReplay.Status);
+        Assert.Equal(replanned.LedgerHash, replanReplay.LedgerHash);
+
+        var restarted = await store.StartAttemptAsync(
+            new WorkAttemptStartCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                replan.InstructionVersionId,
+                UlidValue.New(chain.OccurredAt.AddMinutes(53)).ToString(),
+                "replanned-owner",
+                taskVersion,
+                "work-chain:attempt:start:after-replan",
+                chain.OccurredAt.AddMinutes(53)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, restarted.Status);
+        taskVersion += 2;
+        Assert.Equal(taskVersion, restarted.TaskVersion);
+
+        var aggregate = await store.ReadAggregateAsync(
+            chain.TenantId,
+            chain.SolicitationId,
+            cancellationToken);
+        Assert.NotNull(aggregate);
+        var task = Assert.Single(Assert.Single(aggregate.Demands).Tasks);
+        Assert.Equal("running", task.State);
+        Assert.Equal(instructionVersion, task.Instructions.Count);
+        Assert.Equal(
+            ["rejected", "rejected", "rejected", "rejected", "running"],
+            task.Attempts.Select(item => item.State));
+        Assert.Equal(replan.InstructionVersionId, task.Instructions[^1].InstructionVersionId);
     }
 
     private static async Task AssertCancellationAsync(

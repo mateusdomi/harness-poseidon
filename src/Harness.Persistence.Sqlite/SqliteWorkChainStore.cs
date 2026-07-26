@@ -7,10 +7,17 @@ using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
 
-public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatcher) : IWorkChainStore
+public sealed partial class SqliteWorkChainStore(
+    SqliteWriteDispatcher dispatcher,
+    int maximumReviewCycles = 3) : IWorkChainStore
 {
     private readonly SqliteWriteDispatcher _dispatcher =
         dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+    private readonly int _maximumReviewCycles = maximumReviewCycles > 0
+        ? maximumReviewCycles
+        : throw new ArgumentOutOfRangeException(
+            nameof(maximumReviewCycles),
+            "Maximum review cycles must be positive.");
 
     public Task<WorkChainCreateReceipt> CreateAsync(
         WorkChainCreateCommand command,

@@ -357,13 +357,27 @@ public sealed partial class SqliteWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> ReplanEscalatedTaskAsync(
+        WorkTaskReplanCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => ReplanEscalatedTaskCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default)
     {
         WorkChainMutationValidator.Validate(command);
         return _dispatcher.ExecuteAsync(
-            (connection, token) => ReviewAttemptCoreAsync(connection, command, token),
+            (connection, token) => ReviewAttemptCoreAsync(
+                connection,
+                command,
+                _maximumReviewCycles,
+                token),
             cancellationToken);
     }
 
@@ -468,6 +482,120 @@ public sealed partial class SqliteWorkChainStore
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
             "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    private static async Task<WorkChainMutationReceipt> ReplanEscalatedTaskCoreAsync(
+        SqliteConnection connection,
+        WorkTaskReplanCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            attemptId: null,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                null);
+        }
+        else if (row.TaskState != "escalated" || row.LatestAttemptState != "rejected")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                null);
+        }
+        else
+        {
+            var instructionVersion = row.LatestInstructionVersion + 1;
+            var nextTaskVersion = row.Version + 1;
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                INSERT INTO instruction_versions
+                    (id,tenant_id,project_id,task_id,version,content,content_hash,
+                     supersedes_id,created_at,author_kind,author_id)
+                VALUES
+                    ($instructionId,$tenantId,$projectId,$taskId,$instructionVersion,
+                     $content,$contentHash,$supersedesId,$occurredAt,'chief',$chiefAgentId);
+                UPDATE work_tasks
+                SET state='ready',version=$nextTaskVersion,updated_at=$occurredAt,
+                    board_state='ready',blocked_reason=NULL,assignee_agent_id=NULL
+                WHERE id=$taskId AND tenant_id=$tenantId AND version=$expectedTaskVersion;
+                """;
+            Add(mutation, "$instructionId", command.InstructionVersionId);
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$projectId", row.ProjectId);
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$instructionVersion", instructionVersion);
+            Add(mutation, "$content", command.Content);
+            Add(mutation, "$contentHash", command.ContentHash);
+            Add(mutation, "$supersedesId", row.LatestInstructionId);
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$chiefAgentId", command.ChiefAgentId);
+            Add(mutation, "$nextTaskVersion", nextTaskVersion);
+            Add(mutation, "$expectedTaskVersion", command.ExpectedTaskVersion);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                null,
+                nextTaskVersion,
+                "ready",
+                row.LatestAttemptState,
+                InstructionVersionId: command.InstructionVersionId,
+                InstructionVersion: instructionVersion);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "escalated",
+                "ready",
+                "replanned",
+                "blocked",
+                "chief",
+                command.ChiefAgentId,
+                command.Reason,
+                command.EvidenceReference),
+            cancellationToken);
     }
 
     private static async Task<WorkChainMutationReceipt> StartAttemptCoreAsync(
@@ -644,6 +772,7 @@ public sealed partial class SqliteWorkChainStore
     private static async Task<WorkChainMutationReceipt> ReviewAttemptCoreAsync(
         SqliteConnection connection,
         WorkAttemptReviewCommand command,
+        int maximumReviewCycles,
         CancellationToken cancellationToken)
     {
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
@@ -683,7 +812,13 @@ public sealed partial class SqliteWorkChainStore
         }
         else
         {
-            var taskState = command.Decision == "approved" ? "approved" : "ready";
+            var rejectedReviewCount = row.RejectedReviewCount +
+                (command.Decision == "rejected" ? 1 : 0);
+            var taskState = command.Decision == "approved"
+                ? "approved"
+                : rejectedReviewCount > maximumReviewCycles
+                    ? "escalated"
+                    : "ready";
             var nextVersion = row.Version + 1;
             await using var mutation = connection.CreateCommand();
             mutation.Transaction = transaction;
@@ -701,8 +836,15 @@ public sealed partial class SqliteWorkChainStore
                         CASE WHEN $decision='rejected' THEN 'error' ELSE 'info' END);
                 UPDATE work_tasks SET state = $taskState, version = $nextVersion,
                     updated_at = $occurredAt,
-                    board_state=CASE WHEN $taskState='approved' THEN 'review' ELSE 'corrections' END,
-                    blocked_reason=NULL
+                    board_state=CASE
+                        WHEN $taskState='approved' THEN 'review'
+                        WHEN $taskState='escalated' THEN 'blocked'
+                        ELSE 'corrections'
+                    END,
+                    blocked_reason=CASE
+                        WHEN $taskState='escalated' THEN $rationale
+                        ELSE NULL
+                    END
                 WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
                 """;
             Add(mutation, "$reviewId", command.ReviewId);
@@ -729,8 +871,12 @@ public sealed partial class SqliteWorkChainStore
             "task.stateChanged", command.OccurredAt, receipt,
             new TransitionAudit(
                 "awaiting_review",
-                command.Decision == "approved" ? "approved" : "ready",
-                command.Decision == "approved" ? "reviewApproved" : "reviewRejected",
+                receipt.TaskState ?? "awaiting_review",
+                command.Decision == "approved"
+                    ? "reviewApproved"
+                    : receipt.TaskState == "escalated"
+                        ? "reviewLimitExceeded"
+                        : "reviewRejected",
                 "review",
                 "agent",
                 command.ReviewerAgentId,
@@ -1387,6 +1533,10 @@ public sealed partial class SqliteWorkChainStore
                    (SELECT id FROM instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT version FROM instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT COUNT(*) FROM work_attempts a WHERE a.task_id = t.id),
+                   (SELECT COUNT(*)
+                    FROM work_reviews r
+                    JOIN work_attempts reviewed ON reviewed.id = r.attempt_id
+                    WHERE reviewed.task_id = t.id AND r.decision = 'rejected'),
                    (SELECT CASE
                                 WHEN operational_state='cancelled' AND state='rejected'
                                      AND failure_reason IS NULL THEN 'abandoned'
@@ -1421,11 +1571,12 @@ public sealed partial class SqliteWorkChainStore
             ? new TaskRow(
                 reader.GetString(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3),
                 reader.GetString(4), reader.GetInt32(5), reader.GetInt32(6),
-                reader.IsDBNull(7) ? null : reader.GetString(7),
+                reader.GetInt32(7),
                 reader.IsDBNull(8) ? null : reader.GetString(8),
                 reader.IsDBNull(9) ? null : reader.GetString(9),
                 reader.IsDBNull(10) ? null : reader.GetString(10),
-                reader.IsDBNull(11) ? null : reader.GetString(11))
+                reader.IsDBNull(11) ? null : reader.GetString(11),
+                reader.IsDBNull(12) ? null : reader.GetString(12))
             : null;
     }
 
@@ -1712,6 +1863,7 @@ public sealed partial class SqliteWorkChainStore
         string LatestInstructionId,
         int LatestInstructionVersion,
         int AttemptCount,
+        int RejectedReviewCount,
         string? LatestAttemptState,
         string? LatestAttemptInstructionId,
         string? AttemptState,

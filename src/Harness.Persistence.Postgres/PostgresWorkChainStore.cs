@@ -7,10 +7,17 @@ using NpgsqlTypes;
 
 namespace Harness.Persistence.Postgres;
 
-public sealed partial class PostgresWorkChainStore(NpgsqlDataSource dataSource) : IWorkChainStore
+public sealed partial class PostgresWorkChainStore(
+    NpgsqlDataSource dataSource,
+    int maximumReviewCycles = 3) : IWorkChainStore
 {
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
+    private readonly int _maximumReviewCycles = maximumReviewCycles > 0
+        ? maximumReviewCycles
+        : throw new ArgumentOutOfRangeException(
+            nameof(maximumReviewCycles),
+            "Maximum review cycles must be positive.");
 
     public Task<WorkChainCreateReceipt> CreateAsync(
         WorkChainCreateCommand command,

@@ -57,6 +57,10 @@ public interface IWorkChainStore
         WorkTaskUnblockCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> ReplanEscalatedTaskAsync(
+        WorkTaskReplanCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default);
@@ -232,6 +236,20 @@ public sealed record WorkTaskUnblockCommand(
     string ActorKind,
     string ActorId,
     string Resolution,
+    string EvidenceReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskReplanCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string InstructionVersionId,
+    string Content,
+    string ContentHash,
+    string ChiefAgentId,
+    string Reason,
     string EvidenceReference,
     long ExpectedTaskVersion,
     string IdempotencyKey,
@@ -567,6 +585,30 @@ public static class WorkChainMutationValidator
             command.ActorId,
             command.Resolution,
             command.EvidenceReference);
+    }
+
+    public static void Validate(WorkTaskReplanCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateUlid(command.InstructionVersionId, nameof(command));
+        ValidateText(command.Content, nameof(command), 100_000);
+        ValidateText(command.ChiefAgentId, nameof(command), 200);
+        ValidateText(command.Reason, nameof(command), 10_000);
+        ValidateText(command.EvidenceReference, nameof(command), 2_000);
+        var expectedHash = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(command.Content)));
+        if (!string.Equals(expectedHash, command.ContentHash, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Replanned instruction hash does not match its immutable content.",
+                nameof(command));
+        }
     }
 
     public static void Validate(WorkAttemptReviewCommand command)

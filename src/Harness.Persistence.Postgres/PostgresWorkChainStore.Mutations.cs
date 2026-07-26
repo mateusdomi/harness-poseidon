@@ -335,6 +335,14 @@ public sealed partial class PostgresWorkChainStore
         return UnblockTaskCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> ReplanEscalatedTaskAsync(
+        WorkTaskReplanCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return ReplanEscalatedTaskCoreAsync(command, cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default)
@@ -435,6 +443,127 @@ public sealed partial class PostgresWorkChainStore
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
             "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> ReplanEscalatedTaskCoreAsync(
+        WorkTaskReplanCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            attemptId: null,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                null);
+        }
+        else if (row.TaskState != "escalated" || row.LatestAttemptState != "rejected")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                null);
+        }
+        else
+        {
+            var instructionVersion = row.LatestInstructionVersion + 1;
+            var nextTaskVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                INSERT INTO harness.instruction_versions
+                    (id,tenant_id,project_id,task_id,version,content,content_hash,
+                     supersedes_id,created_at,author_kind,author_id)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'chief',$10);
+                """,
+                cancellationToken,
+                Text(command.InstructionVersionId),
+                Text(command.TenantId),
+                Text(row.ProjectId),
+                Text(command.TaskId),
+                Integer(instructionVersion),
+                Text(command.Content),
+                Text(command.ContentHash),
+                Text(row.LatestInstructionId),
+                Timestamp(command.OccurredAt),
+                Text(command.ChiefAgentId));
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='ready',version=$1,updated_at=$2,
+                    board_state='ready',blocked_reason=NULL,assignee_agent_id=NULL
+                WHERE id=$3 AND tenant_id=$4 AND version=$5;
+                """,
+                cancellationToken,
+                Bigint(nextTaskVersion),
+                Timestamp(command.OccurredAt),
+                Text(command.TaskId),
+                Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                null,
+                nextTaskVersion,
+                "ready",
+                row.LatestAttemptState,
+                InstructionVersionId: command.InstructionVersionId,
+                InstructionVersion: instructionVersion);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "escalated",
+                "ready",
+                "replanned",
+                "blocked",
+                "chief",
+                command.ChiefAgentId,
+                command.Reason,
+                command.EvidenceReference),
+            cancellationToken);
     }
 
     private async Task<WorkChainMutationReceipt> StartAttemptCoreAsync(
@@ -684,19 +813,30 @@ public sealed partial class PostgresWorkChainStore
                 Text(row.ProjectId), Text(command.AttemptId), Text(command.Rationale),
                 Timestamp(command.OccurredAt),
                 Text(command.Decision == "rejected" ? "error" : "info"));
-            var taskState = command.Decision == "approved" ? "approved" : "ready";
+            var rejectedReviewCount = row.RejectedReviewCount +
+                (command.Decision == "rejected" ? 1 : 0);
+            var taskState = command.Decision == "approved"
+                ? "approved"
+                : rejectedReviewCount > _maximumReviewCycles
+                    ? "escalated"
+                    : "ready";
             var nextVersion = row.Version + 1;
             await ExecuteAsync(
                 connection, transaction,
                 """
                 UPDATE harness.work_tasks SET state = $1, version = $2, updated_at = $3,
-                    board_state = CASE WHEN $1 = 'approved' THEN 'review' ELSE 'corrections' END,
-                    blocked_reason = NULL
-                WHERE id = $4 AND tenant_id = $5 AND version = $6;
+                    board_state = CASE
+                        WHEN $1 = 'approved' THEN 'review'
+                        WHEN $1 = 'escalated' THEN 'blocked'
+                        ELSE 'corrections'
+                    END,
+                    blocked_reason = CASE WHEN $1 = 'escalated' THEN $4 ELSE NULL END
+                WHERE id = $5 AND tenant_id = $6 AND version = $7;
                 """,
                 cancellationToken,
-                Text(taskState), Bigint(nextVersion), Timestamp(command.OccurredAt), Text(command.TaskId),
-                Text(command.TenantId), Bigint(command.ExpectedTaskVersion));
+                Text(taskState), Bigint(nextVersion), Timestamp(command.OccurredAt),
+                Text(command.Rationale), Text(command.TaskId), Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
                 nextVersion, taskState, command.Decision);
@@ -707,8 +847,12 @@ public sealed partial class PostgresWorkChainStore
             "task.stateChanged", command.OccurredAt, receipt,
             new TransitionAudit(
                 "awaiting_review",
-                command.Decision == "approved" ? "approved" : "ready",
-                command.Decision == "approved" ? "reviewApproved" : "reviewRejected",
+                receipt.TaskState ?? "awaiting_review",
+                command.Decision == "approved"
+                    ? "reviewApproved"
+                    : receipt.TaskState == "escalated"
+                        ? "reviewLimitExceeded"
+                        : "reviewRejected",
                 "review",
                 "agent",
                 command.ReviewerAgentId,
@@ -1413,6 +1557,10 @@ public sealed partial class PostgresWorkChainStore
                    (SELECT id FROM harness.instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT version FROM harness.instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT COUNT(*) FROM harness.work_attempts x WHERE x.task_id = t.id),
+                   (SELECT COUNT(*)
+                    FROM harness.work_reviews r
+                    JOIN harness.work_attempts reviewed ON reviewed.id = r.attempt_id
+                    WHERE reviewed.task_id = t.id AND r.decision = 'rejected'),
                    (SELECT CASE
                                 WHEN operational_state='cancelled' AND state='rejected'
                                      AND failure_reason IS NULL THEN 'abandoned'
@@ -1448,11 +1596,12 @@ public sealed partial class PostgresWorkChainStore
             ? new TaskRow(
                 reader.GetString(0).TrimEnd(), reader.GetInt64(1), reader.GetString(2), reader.GetString(3),
                 reader.GetString(4).TrimEnd(), reader.GetInt32(5), checked((int)reader.GetInt64(6)),
-                reader.IsDBNull(7) ? null : reader.GetString(7),
-                reader.IsDBNull(8) ? null : reader.GetString(8).TrimEnd(),
-                reader.IsDBNull(9) ? null : reader.GetString(9),
+                checked((int)reader.GetInt64(7)),
+                reader.IsDBNull(8) ? null : reader.GetString(8),
+                reader.IsDBNull(9) ? null : reader.GetString(9).TrimEnd(),
                 reader.IsDBNull(10) ? null : reader.GetString(10),
-                reader.IsDBNull(11) ? null : reader.GetString(11))
+                reader.IsDBNull(11) ? null : reader.GetString(11),
+                reader.IsDBNull(12) ? null : reader.GetString(12))
             : null;
     }
 
@@ -1678,6 +1827,7 @@ public sealed partial class PostgresWorkChainStore
         string LatestInstructionId,
         int LatestInstructionVersion,
         int AttemptCount,
+        int RejectedReviewCount,
         string? LatestAttemptState,
         string? LatestAttemptInstructionId,
         string? AttemptState,
