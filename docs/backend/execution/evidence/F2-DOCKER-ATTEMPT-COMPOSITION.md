@@ -1,9 +1,0 @@
-# Evidência F2-DOGFOOD-1e.1 — composição real Docker + protocolo Codex
-
-Data: 2026-07-19.
-
-A composição completa da tentativa externa foi comprovada com sandbox Docker real e protocolo Codex app-server real (executável `fake-codex` da imagem poc6 — zero cota e zero rede externa): `IsolatedAttemptOrchestrator` adquiriu o claim persistente, criou branch `task/docker-composition` e worktree reais no repositório fixture dentro da raiz controlada, abriu a sessão streaming gerenciada (`docker run -i` com rootfs read-only, proxy-only egress, limites e labels `com.harness.managed=true`), montou `CodexCliAgentExecutor` via `CodexCliSandboxExecutorFactory` a partir do plano da sessão, executou o turno estruturado (`thr_docker`/`turn_docker` persistidos como metadados) e concluiu com commit SHA real de 40 caracteres.
-
-Política de cleanup corrigida e comprovada: o agente deixou trabalho não commitado na worktree (`docker-codex-ran.txt`) e o cleanup **preservou a worktree suja** — o resultado permaneceu `Completed` com cleanup pendente e claim retido, em vez de destruir trabalho ou reportar falha falsa. Após o commit do arquivo (simulando o checkpoint do agente), a reexecução idempotente do mesmo comando executou apenas a compensação terminal: removeu a worktree limpa, preservou a branch com o trabalho, liberou os claims e concluiu o cleanup — sem reexecutar executor nem sandbox. Inventário Docker com label do Harness vazio antes e depois; zero órfãos.
-
-Gate: `dotnet format` sem mudanças; build Release com zero warnings/erros; backend 180/180 (`Unit 96`, `Integration 42`, `Contract 28`, `Recovery 5`, `Architecture 6`, `Concurrency 3`). `frontend/**` e `docs/frontend/**` sem edição. Restante do F2-DOGFOOD-1e: fiação DI/configuração do projeto externo com política, smoke com Codex real (`HARNESS_RUN_REAL_AGENT_TESTS=true`) e o pipeline dogfood completo solicitação→auditoria.
