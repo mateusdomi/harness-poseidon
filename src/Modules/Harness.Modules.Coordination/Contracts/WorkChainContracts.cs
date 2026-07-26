@@ -10,10 +10,39 @@ public enum WorkRiskTier
 
 public enum WorkTaskState
 {
+    Draft,
+    Triaged,
     Ready,
+    Assigned,
     Running,
-    AwaitingReview,
-    Completed,
+    Review,
+    Blocked,
+    Approved,
+    Escalated,
+    Merged,
+    Done,
+    Cancelled,
+    AwaitingReview = Review,
+    Completed = Done,
+}
+
+public enum WorkTaskTransitionEvent
+{
+    Triaged,
+    RequirementsCompleted,
+    LeaseAcquired,
+    HeartbeatConfirmed,
+    AttemptSubmitted,
+    Blocked,
+    LeaseExpired,
+    Unblocked,
+    ReviewApproved,
+    ReviewRejected,
+    ReviewLimitExceeded,
+    Replanned,
+    MergeCompleted,
+    DeliveryCompleted,
+    Cancelled,
 }
 
 public enum WorkAttemptState
