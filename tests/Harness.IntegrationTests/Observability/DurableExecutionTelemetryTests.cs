@@ -3,19 +3,20 @@ using System.Diagnostics;
 using Harness.Host;
 using Harness.Host.Observability;
 using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Harness.IntegrationTests.Observability;
 
 public sealed class DurableExecutionTelemetryTests
 {
-    private const string TenantId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-    private const string ExecutionId = "01ARZ3NDEKTSV4RRFFQ69G5FB9";
-
     [Fact]
     public async Task HostDecoratesDurableEngineAndEmitsSafeCorrelationSpan()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var now = DateTimeOffset.UtcNow;
+        var tenantId = UlidValue.New(now).ToString();
+        var executionId = UlidValue.New(now.AddTicks(1)).ToString();
         var root = Path.Combine(
             AppContext.BaseDirectory,
             "integration-artifacts",
@@ -44,14 +45,17 @@ public sealed class DurableExecutionTelemetryTests
                 var engine = app.Services.GetRequiredService<IDurableExecutionEngine>();
                 Assert.IsType<InstrumentedDurableExecutionEngine>(engine);
 
-                var snapshot = await engine.GetAsync(TenantId, ExecutionId, timeout.Token);
+                var snapshot = await engine.GetAsync(tenantId, executionId, timeout.Token);
 
                 Assert.Null(snapshot);
                 var span = Assert.Single(
                     activities,
-                    activity => activity.OperationName == "poseidon.durable.get");
-                Assert.Equal(TenantId, span.GetTagItem("tenant_id"));
-                Assert.Equal(ExecutionId, span.GetTagItem("execution_id"));
+                    activity =>
+                        activity.OperationName == "poseidon.durable.get" &&
+                        Equals(activity.GetTagItem("tenant_id"), tenantId) &&
+                        Equals(activity.GetTagItem("execution_id"), executionId));
+                Assert.Equal(tenantId, span.GetTagItem("tenant_id"));
+                Assert.Equal(executionId, span.GetTagItem("execution_id"));
                 Assert.Equal("not_found", span.GetTagItem("durable.result"));
                 Assert.DoesNotContain(
                     span.TagObjects,
