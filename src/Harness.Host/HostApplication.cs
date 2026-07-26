@@ -281,6 +281,14 @@ public static class HostApplication
         builder.Services.AddSingleton<IHostedService>(services =>
             services.GetRequiredService<WhatsAppChannelBackgroundService>());
         RegisterSmtpNotificationChannel(builder);
+        // O canal conversacional de e-mail reaproveita o relay SMTP registrado acima:
+        // duas fontes de verdade para o mesmo relay seriam defeito de canon.
+        builder.Services.AddSingleton(builder.Configuration
+            .GetSection("Harness:Channels:Email")
+            .Get<EmailChannelOptions>() ?? new EmailChannelOptions());
+        builder.Services.AddSingleton<EmailChannelBackgroundService>();
+        builder.Services.AddSingleton<IHostedService>(services =>
+            services.GetRequiredService<EmailChannelBackgroundService>());
         builder.Services.AddSingleton<RunTargetAgentFallback>();
         builder.Services.AddSingleton<RunTargetDetector>();
         builder.Services.AddSingleton<DockerRunTargetLifecycle>();

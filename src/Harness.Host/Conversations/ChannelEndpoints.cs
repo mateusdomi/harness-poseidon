@@ -54,7 +54,38 @@ public static class ChannelEndpoints
             .ProducesProblem(400)
             .ProducesProblem(401)
             .ProducesProblem(503);
+        endpoints.MapPost("/api/v1/channels/email/messages", ReceiveEmailMessageAsync)
+            .WithTags("channels")
+            .Produces<EmailMessageReceipt>(202)
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(503);
         return endpoints;
+    }
+
+    private static async Task<IResult> ReceiveEmailMessageAsync(
+        EmailInboundMessage message,
+        HttpRequest request,
+        EmailChannelBackgroundService email,
+        CancellationToken token)
+    {
+        try
+        {
+            var receipt = await email.ReceiveAsync(request.Headers.Authorization, message, token);
+            return Results.Accepted(value: receipt);
+        }
+        catch (EmailMessageAuthenticationException exception)
+        {
+            return Problem(401, "email_message_unauthorized", exception.Message);
+        }
+        catch (EmailMessageValidationException exception)
+        {
+            return Problem(400, "invalid_email_message", exception.Message);
+        }
+        catch (EmailChannelUnavailableException exception)
+        {
+            return Problem(503, "email_channel_unavailable", exception.Message);
+        }
     }
 
     private static IResult VerifyWhatsAppWebhook(

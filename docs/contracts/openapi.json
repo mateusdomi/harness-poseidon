@@ -424,6 +424,65 @@
                 }
             }
         },
+        "/api/v1/channels/email/messages": {
+            "post": {
+                "tags": [
+                    "channels"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmailInboundMessage"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailMessageReceipt"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{id}/workflow": {
             "post": {
                 "tags": [
@@ -26345,6 +26404,71 @@
                     },
                     "providerValue": {
                         "type": "string"
+                    }
+                }
+            },
+            "EmailInboundMessage": {
+                "required": [
+                    "from",
+                    "messageId",
+                    "subject",
+                    "body"
+                ],
+                "type": "object",
+                "properties": {
+                    "from": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "messageId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "subject": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "body": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "EmailMessageReceipt": {
+                "required": [
+                    "turnId",
+                    "conversationId",
+                    "linked",
+                    "deduplicated"
+                ],
+                "type": "object",
+                "properties": {
+                    "turnId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "conversationId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "linked": {
+                        "type": "boolean"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
                     }
                 }
             },
