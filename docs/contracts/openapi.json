@@ -35304,6 +35304,10 @@
                     "createdAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "recommended": {
+                        "type": "boolean",
+                        "default": false
                     }
                 }
             },

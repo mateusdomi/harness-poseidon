@@ -4,7 +4,11 @@ namespace Harness.Modules.Workflows.Contracts;
 
 public sealed record WorkflowTemplateContract(
     string Id, string Name, string Description, string? CurrentVersionId, string State,
-    DateTimeOffset? ArchivedAt, DateTimeOffset CreatedAt);
+    DateTimeOffset? ArchivedAt, DateTimeOffset CreatedAt,
+    // O RECOMENDADO canônico (a esteira do playbook) é decisão do PRODUTO, não heurística do
+    // cliente: publicado no contrato para a UI pré-selecionar sem adivinhar por contagem de
+    // fases. Campo aditivo.
+    bool Recommended = false);
 
 public sealed record WorkflowPhaseConfigContract(
     IReadOnlyList<string> DocumentKinds, decimal ProgressWeight,

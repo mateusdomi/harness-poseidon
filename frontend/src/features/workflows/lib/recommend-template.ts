@@ -9,15 +9,13 @@ export interface TemplateRecommendation {
 /**
  * Template recomendado para um projeto novo (§14).
  *
- * LIMITE DE CONTRATO: o backend não publica um campo "recomendado"/default.
- * A recomendação é, portanto, uma heurística explícita e conservadora sobre
- * dados reais — nunca um template inventado:
+ * O backend publica o RECOMENDADO canônico (`recommended: true` — a esteira do
+ * playbook): quando presente e publicável, ele vence sem heurística. O fallback
+ * (instalações sem flag) permanece a heurística conservadora sobre dados reais:
  * 1. considera apenas templates ativos (não arquivados) com versão publicada
  *    vigente (`currentVersionId` resolvível e versão em estado `published`);
- * 2. entre eles, prefere o mais completo (mais fases) — um caminho guiado
- *    cobre mais do ciclo; empate resolve pelo mais antigo (estável).
- * A ausência de um "template padrão" canônico está registrada em
- * `docs/frontend/HANDOFF_API.md`.
+ * 2. entre eles, prefere o mais completo (mais fases); empate resolve pelo
+ *    mais antigo (estável).
  */
 export function recommendWorkflowTemplate(
   templates: readonly WorkflowTemplate[],
@@ -36,6 +34,9 @@ export function recommendWorkflowTemplate(
   }
 
   if (candidates.length === 0) return null;
+
+  const canonical = candidates.find((candidate) => candidate.template.recommended);
+  if (canonical) return canonical;
 
   return candidates.sort((a, b) => {
     const byPhases = b.version.phases.length - a.version.phases.length;

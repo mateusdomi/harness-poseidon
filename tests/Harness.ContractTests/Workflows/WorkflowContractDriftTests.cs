@@ -6,7 +6,7 @@ public sealed class WorkflowContractDriftTests
 {
     private static readonly Dictionary<string, string[]> Schemas = new(StringComparer.Ordinal)
     {
-        ["WorkflowTemplateContract"] = ["id", "name", "description", "currentVersionId", "state", "archivedAt", "createdAt"],
+        ["WorkflowTemplateContract"] = ["id", "name", "description", "currentVersionId", "state", "archivedAt", "createdAt", "recommended"],
         ["WorkflowVersionContract"] = ["id", "templateId", "version", "phases", "gatesByPhase", "phaseConfigs", "defaultOperationMode", "transitions", "changelog", "state", "publishedAt", "archivedAt"],
         ["WorkflowContract"] = ["id", "projectId", "templateId", "activeVersionId", "operationMode", "semiautonomousPauseGates", "riskAcceptances", "createdAt"],
         ["WorkflowRunContract"] = ["id", "workflowId", "versionId", "state", "startedAt", "finishedAt"],

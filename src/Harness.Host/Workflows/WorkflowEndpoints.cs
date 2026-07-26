@@ -514,7 +514,10 @@ public static class WorkflowEndpoints
     private static IResult? Page(string? cursor, int? limit, params string?[] filters) => ((cursor is not null && !Valid(cursor)) || limit is < 1 or > 200 || filters.Any(x => x is not null && !Valid(x))) ? Problem(400, "invalid_cursor", "Filter, cursor, or limit is invalid.") : null;
     private static Task<LocalProfileRecord?> Session(HttpRequest request, ILocalProfileStore profiles, CancellationToken token) => LocalProfileSession.ResolveAsync(request, profiles, token);
     private static bool Valid(string id) => UlidValue.TryParse(id, out _); private static IResult InvalidId() => Problem(400, "invalid_id", "ID must be a ULID."); private static IResult Unauthorized() => Problem(401, "local_session_required", "A local profile session is required."); private static IResult NotFound(string resource) => Problem(404, $"{resource}_not_found", "The resource does not exist."); private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
-    private static WorkflowTemplateContract ToContract(WorkflowTemplateCatalogRecord x) => new(x.Id, x.Name, x.Description, x.CurrentVersionId, x.State, x.ArchivedAt, x.CreatedAt);
+    private static WorkflowTemplateContract ToContract(WorkflowTemplateCatalogRecord x) => new(
+        x.Id, x.Name, x.Description, x.CurrentVersionId, x.State, x.ArchivedAt, x.CreatedAt,
+        Recommended: string.Equals(
+            x.Name, CanonicalWorkflowTemplates.Recommended.Name, StringComparison.Ordinal));
     private static WorkflowVersionContract ToContract(WorkflowVersionCatalogRecord x) => new(x.Id, x.TemplateId, x.Version, x.Phases, x.GatesByPhase,
         JsonSerializer.Deserialize<Dictionary<string, WorkflowPhaseConfigContract>>(x.PhaseConfigsJson) ?? [],
         x.DefaultOperationMode, JsonSerializer.Deserialize<Dictionary<string, IReadOnlyList<string>>>(x.TransitionsJson) ?? [], x.Changelog, x.State, x.PublishedAt, x.ArchivedAt);

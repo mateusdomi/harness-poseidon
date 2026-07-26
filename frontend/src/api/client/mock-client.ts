@@ -643,6 +643,7 @@ export class MockApiClient implements ApiClient {
       description: parsed.description ?? '',
       currentVersionId: null,
       state: 'draft',
+      recommended: false,
       archivedAt: null,
       createdAt: this.#options.now(),
     };

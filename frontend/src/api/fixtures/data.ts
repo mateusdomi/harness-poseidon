@@ -1354,6 +1354,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     description: 'Planejamento → Execução → Validação → Publicação, com gates de qualidade e release.',
     currentVersionId: null,
     state: 'published',
+    recommended: false,
     archivedAt: null,
     createdAt: tick(),
   };
@@ -1381,6 +1382,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     description: 'Rascunho de fluxo enxuto para experimentos — ainda não publicado.',
     currentVersionId: null,
     state: 'draft',
+    recommended: false,
     archivedAt: null,
     createdAt: tick(),
   };

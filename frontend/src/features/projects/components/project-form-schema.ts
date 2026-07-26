@@ -32,8 +32,28 @@ export const advancedSchema = z.object({
 
 export const repositorySchema = z.object({
   repositoryProvider: repositoryProviderSchema,
-  repositoryUrl: z.union([z.literal(''), z.string().trim().url('common.validation.url')]),
+  repositoryUrl: z.string().trim(),
   defaultBranch: z.string().trim().min(1, 'common.validation.required'),
+});
+
+/**
+ * Validação cruzada da aba Repositório: o rótulo promete "URL ou caminho local" e o provedor
+ * 'local' existe exatamente para repositórios em disco — nesse caso um caminho ABSOLUTO é
+ * válido. Para provedores remotos, exige-se URL. Vazio é sempre permitido (projeto ainda sem
+ * repositório). Mantida FORA do objeto base porque `.merge()` não aceita ZodEffects.
+ */
+export const repositoryTabSchema = repositorySchema.superRefine((value, context) => {
+  if (value.repositoryUrl.length === 0) return;
+  const isAbsolutePath = value.repositoryUrl.startsWith('/');
+  const isUrl = z.string().url().safeParse(value.repositoryUrl).success;
+  const valid = value.repositoryProvider === 'local' ? isAbsolutePath || isUrl : isUrl;
+  if (!valid) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'common.validation.url',
+      path: ['repositoryUrl'],
+    });
+  }
 });
 
 export const technologiesSchema = z.object({
@@ -91,7 +111,7 @@ export const PROJECT_FORM_TAB_SCHEMAS: Record<ProjectFormTab, z.ZodTypeAny> = {
   organization: organizationSchema,
   identity: identitySchema,
   objective: objectiveSchema,
-  repository: repositorySchema,
+  repository: repositoryTabSchema,
   workflow: workflowSchema,
   technologies: technologiesSchema,
   criticality: criticalitySchema,

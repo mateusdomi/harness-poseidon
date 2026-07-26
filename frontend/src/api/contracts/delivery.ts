@@ -114,6 +114,11 @@ export const workflowTemplateSchema = z.object({
    */
   state: workflowContentStateSchema,
   archivedAt: isoDateTimeSchema.nullable(),
+  /**
+   * O recomendado canônico do PRODUTO (a esteira do playbook), publicado pelo backend —
+   * a UI pré-seleciona este template sem heurística.
+   */
+  recommended: z.boolean(),
   createdAt: isoDateTimeSchema,
 });
 export type WorkflowTemplate = z.infer<typeof workflowTemplateSchema>;
