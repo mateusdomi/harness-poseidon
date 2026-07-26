@@ -285,6 +285,7 @@ public static class HostApplication
         builder.Services.AddSingleton<IHostedService>(services =>
             services.GetRequiredService<WhatsAppChannelBackgroundService>());
         RegisterSmtpNotificationChannel(builder);
+        RegisterCapabilityEnforcement(builder);
         // O canal conversacional de e-mail reaproveita o relay SMTP registrado acima:
         // duas fontes de verdade para o mesmo relay seriam defeito de canon.
         builder.Services.AddSingleton(builder.Configuration
@@ -819,6 +820,20 @@ public static class HostApplication
         }
 
         builder.Services.AddSingleton<ExternalNotificationGateway>();
+    }
+
+    /// <summary>
+    /// Liga o PEP de capability ao ledger append-only. O ponto de decisão já existia como
+    /// componente do módulo Tools, mas sem sink de auditoria de produção: as decisões viviam só em
+    /// memória. Com o <see cref="LedgerSecurityAuditor"/> registrado, toda autorização e toda
+    /// negativa de capability passam a ser fato auditável (`governance/rules/security.md`).
+    /// </summary>
+    private static void RegisterCapabilityEnforcement(WebApplicationBuilder builder)
+    {
+        builder.Services.AddSingleton<LedgerSecurityAuditor>();
+        builder.Services.AddSingleton<Harness.Modules.Tools.Application.ICapabilityDecisionAuditSink>(
+            services => services.GetRequiredService<LedgerSecurityAuditor>());
+        builder.Services.AddSingleton<Harness.Modules.Tools.Application.SecurityPolicyEnforcementPoint>();
     }
 
     private static string? ResolveFrontendPath(string contentRoot, string? configured)
