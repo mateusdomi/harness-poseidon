@@ -33,6 +33,10 @@ public interface IWorkChainStore
         WorkAttemptCompleteCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
+        WorkAttemptLeaseExpiredCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default);
@@ -139,6 +143,15 @@ public sealed record WorkAttemptCompleteCommand(
     string AttemptId,
     long ExpectedTaskVersion,
     IReadOnlyList<WorkEvidenceInput> Evidence,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkAttemptLeaseExpiredCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string AttemptId,
+    long ExpectedTaskVersion,
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
 
@@ -356,6 +369,18 @@ public static class WorkChainMutationValidator
                 throw new ArgumentException("Evidence identifiers must be unique.", nameof(command));
             }
         }
+    }
+
+    public static void Validate(WorkAttemptLeaseExpiredCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
     }
 
     public static void Validate(WorkAttemptReviewCommand command)

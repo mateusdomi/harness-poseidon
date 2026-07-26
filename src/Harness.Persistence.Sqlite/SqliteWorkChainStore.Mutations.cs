@@ -39,6 +39,16 @@ public sealed partial class SqliteWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
+        WorkAttemptLeaseExpiredCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => ExpireAttemptLeaseCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default)
@@ -369,6 +379,107 @@ public sealed partial class SqliteWorkChainStore
             "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
     }
 
+    private static async Task<WorkChainMutationReceipt> ExpireAttemptLeaseCoreAsync(
+        SqliteConnection connection,
+        WorkAttemptLeaseExpiredCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                command.AttemptId);
+        }
+        else if (row.TaskState != "running" || row.AttemptState != "running")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                command.AttemptId);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                UPDATE work_attempts
+                SET state='rejected',operational_state='cancelled',completed_at=$occurredAt
+                WHERE id=$attemptId AND tenant_id=$tenantId
+                  AND state='running' AND operational_state='running';
+                INSERT INTO attempt_events
+                    (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
+                VALUES
+                    ($eventId,$tenantId,$projectId,$attemptId,'log',
+                     'Lease expired; attempt abandoned.',$occurredAt,'warning');
+                UPDATE work_tasks
+                SET state='ready',version=$nextVersion,updated_at=$occurredAt,
+                    board_state='ready',blocked_reason=NULL
+                WHERE id=$taskId AND tenant_id=$tenantId AND version=$expectedVersion;
+                """;
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$attemptId", command.AttemptId);
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$eventId", UlidValue.New(command.OccurredAt).ToString());
+            Add(mutation, "$projectId", row.ProjectId);
+            Add(mutation, "$nextVersion", nextVersion);
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$expectedVersion", command.ExpectedTaskVersion);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                command.AttemptId,
+                nextVersion,
+                "ready",
+                "abandoned");
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            cancellationToken);
+    }
+
     private static async Task<TaskRow?> ReadTaskAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
@@ -386,9 +497,14 @@ public sealed partial class SqliteWorkChainStore
                    (SELECT id FROM instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT version FROM instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT COUNT(*) FROM work_attempts a WHERE a.task_id = t.id),
-                   (SELECT state FROM work_attempts a WHERE a.task_id = t.id ORDER BY attempt_number DESC LIMIT 1),
+                   (SELECT CASE WHEN operational_state='cancelled' AND state='rejected'
+                                THEN 'abandoned' ELSE state END
+                    FROM work_attempts a WHERE a.task_id = t.id
+                    ORDER BY attempt_number DESC LIMIT 1),
                    (SELECT instruction_version_id FROM work_attempts a WHERE a.task_id = t.id ORDER BY attempt_number DESC LIMIT 1),
-                   a.state, a.producer_agent_id
+                   CASE WHEN a.operational_state='cancelled' AND a.state='rejected'
+                        THEN 'abandoned' ELSE a.state END,
+                   a.producer_agent_id
             FROM work_tasks t
             JOIN demands d ON d.id = t.demand_id
             JOIN solicitations s ON s.id = d.solicitation_id
@@ -536,7 +652,11 @@ public sealed partial class SqliteWorkChainStore
         await taskReader.DisposeAsync();
         if (eventType == "task.stateChanged")
         {
-            var from = receipt.InstructionVersionId is not null ? "corrections" : "review";
+            var from = receipt.AttemptState == "abandoned"
+                ? "development"
+                : receipt.InstructionVersionId is not null
+                    ? "corrections"
+                    : "review";
             return JsonSerializer.Serialize(new
             {
                 projectId,

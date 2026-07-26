@@ -190,7 +190,9 @@ public sealed partial class SqliteWorkChainStore
             transaction,
             """
             SELECT id, instruction_version_id, attempt_number, producer_agent_id,
-                   state, started_at, completed_at
+                   CASE WHEN operational_state='cancelled' AND state='rejected'
+                        THEN 'abandoned' ELSE state END,
+                   started_at, completed_at
             FROM work_attempts WHERE task_id = $taskId ORDER BY attempt_number;
             """,
             ("$taskId", taskId)))

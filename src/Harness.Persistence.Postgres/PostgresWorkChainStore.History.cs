@@ -176,7 +176,9 @@ public sealed partial class PostgresWorkChainStore
             transaction,
             """
             SELECT id, instruction_version_id, attempt_number, producer_agent_id,
-                   state, started_at, completed_at
+                   CASE WHEN operational_state='cancelled' AND state='rejected'
+                        THEN 'abandoned' ELSE state END,
+                   started_at, completed_at
             FROM harness.work_attempts WHERE task_id = $1 ORDER BY attempt_number;
             """,
             Text(taskId)))

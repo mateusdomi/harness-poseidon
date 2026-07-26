@@ -32,6 +32,14 @@ public sealed partial class PostgresWorkChainStore
         return CompleteAttemptCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
+        WorkAttemptLeaseExpiredCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return ExpireAttemptLeaseCoreAsync(command, cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default)
@@ -368,6 +376,123 @@ public sealed partial class PostgresWorkChainStore
             "gate.changed", command.OccurredAt, receipt, cancellationToken);
     }
 
+    private async Task<WorkChainMutationReceipt> ExpireAttemptLeaseCoreAsync(
+        WorkAttemptLeaseExpiredCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                command.AttemptId);
+        }
+        else if (row.TaskState != "running" || row.AttemptState != "running")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                command.AttemptId);
+        }
+        else
+        {
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_attempts
+                SET state='rejected',operational_state='cancelled',completed_at=$1
+                WHERE id=$2 AND tenant_id=$3
+                  AND state='running' AND operational_state='running';
+                """,
+                cancellationToken,
+                Timestamp(command.OccurredAt),
+                Text(command.AttemptId),
+                Text(command.TenantId));
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                INSERT INTO harness.attempt_events
+                    (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
+                VALUES
+                    ($1,$2,$3,$4,'log','Lease expired; attempt abandoned.',$5,'warning');
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()),
+                Text(command.TenantId),
+                Text(row.ProjectId),
+                Text(command.AttemptId),
+                Timestamp(command.OccurredAt));
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='ready',version=$1,updated_at=$2,
+                    board_state='ready',blocked_reason=NULL
+                WHERE id=$3 AND tenant_id=$4 AND version=$5;
+                """,
+                cancellationToken,
+                Bigint(nextVersion),
+                Timestamp(command.OccurredAt),
+                Text(command.TaskId),
+                Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                command.AttemptId,
+                nextVersion,
+                "ready",
+                "abandoned");
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            cancellationToken);
+    }
+
     private static async Task<TaskRow?> ReadTaskAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -385,9 +510,14 @@ public sealed partial class PostgresWorkChainStore
                    (SELECT id FROM harness.instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT version FROM harness.instruction_versions i WHERE i.task_id = t.id ORDER BY version DESC LIMIT 1),
                    (SELECT COUNT(*) FROM harness.work_attempts x WHERE x.task_id = t.id),
-                   (SELECT state FROM harness.work_attempts x WHERE x.task_id = t.id ORDER BY attempt_number DESC LIMIT 1),
+                   (SELECT CASE WHEN operational_state='cancelled' AND state='rejected'
+                                THEN 'abandoned' ELSE state END
+                    FROM harness.work_attempts x WHERE x.task_id = t.id
+                    ORDER BY attempt_number DESC LIMIT 1),
                    (SELECT instruction_version_id FROM harness.work_attempts x WHERE x.task_id = t.id ORDER BY attempt_number DESC LIMIT 1),
-                   a.state, a.producer_agent_id
+                   CASE WHEN a.operational_state='cancelled' AND a.state='rejected'
+                        THEN 'abandoned' ELSE a.state END,
+                   a.producer_agent_id
             FROM harness.work_tasks t
             JOIN harness.demands d ON d.id = t.demand_id
             JOIN harness.solicitations s ON s.id = d.solicitation_id

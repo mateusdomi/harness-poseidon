@@ -74,10 +74,102 @@ internal static class WorkChainStoreBehavior
         Assert.Equal(snapshot, afterConflict);
 
         await AssertMutationsAsync(store, command, cancellationToken);
+        await AssertLeaseExpiryAsync(store, command, cancellationToken);
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FF4",
             cancellationToken));
+    }
+
+    private static async Task AssertLeaseExpiryAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FB0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FB1",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5FB2",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FB3",
+            IdempotencyKey = "work-chain:create:lease-expiry",
+            OccurredAt = template.OccurredAt.AddDays(1),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+
+        var start = new WorkAttemptStartCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            chain.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FB4",
+            "lease-owner",
+            1,
+            "work-chain:attempt:start:lease-expiry",
+            chain.OccurredAt.AddMinutes(1));
+        var started = await store.StartAttemptAsync(start, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+
+        var expiry = new WorkAttemptLeaseExpiredCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            start.AttemptId,
+            2,
+            "work-chain:attempt:lease-expired",
+            chain.OccurredAt.AddMinutes(2));
+        var expired = await store.ExpireAttemptLeaseAsync(expiry, cancellationToken);
+        var replay = await store.ExpireAttemptLeaseAsync(expiry, cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, expired.Status);
+        Assert.Equal(3, expired.TaskVersion);
+        Assert.Equal("ready", expired.TaskState);
+        Assert.Equal("abandoned", expired.AttemptState);
+        Assert.NotNull(expired.LedgerSequence);
+        Assert.NotNull(expired.LedgerHash);
+        Assert.NotNull(expired.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, replay.Status);
+        Assert.Equal(expired.LedgerHash, replay.LedgerHash);
+
+        var lateCompletion = await store.CompleteAttemptAsync(
+            new WorkAttemptCompleteCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                start.AttemptId,
+                3,
+                [new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FB6", "late:evidence")],
+                "work-chain:attempt:complete:expired",
+                chain.OccurredAt.AddMinutes(3)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, lateCompletion.Status);
+        Assert.Null(lateCompletion.LedgerSequence);
+
+        var retry = await store.StartAttemptAsync(
+            start with
+            {
+                AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FB5",
+                ExpectedTaskVersion = 3,
+                IdempotencyKey = "work-chain:attempt:start:after-expiry",
+                OccurredAt = chain.OccurredAt.AddMinutes(4),
+            },
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, retry.Status);
+        Assert.Equal(4, retry.TaskVersion);
+
+        var aggregate = await store.ReadAggregateAsync(
+            chain.TenantId,
+            chain.SolicitationId,
+            cancellationToken);
+        Assert.NotNull(aggregate);
+        var task = Assert.Single(Assert.Single(aggregate.Demands).Tasks);
+        Assert.Equal("running", task.State);
+        Assert.Equal(["abandoned", "running"], task.Attempts.Select(item => item.State));
+        Assert.Equal(
+            [chain.InstructionVersionId, chain.InstructionVersionId],
+            task.Attempts.Select(item => item.InstructionVersionId));
+        Assert.NotNull(task.Attempts[0].CompletedAt);
+        Assert.Null(task.Attempts[0].Review);
     }
 
     private static async Task AssertMutationsAsync(
