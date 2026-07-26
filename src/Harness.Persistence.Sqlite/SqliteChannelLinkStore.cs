@@ -91,9 +91,27 @@ public sealed class SqliteChannelLinkStore(SqliteWriteDispatcher dispatcher) : I
             return values;
         }, cancellationToken);
 
+    public Task MarkInboundAsync(
+        string tenantId,
+        string linkId,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            await using var update = connection.CreateCommand();
+            update.CommandText =
+                "UPDATE channel_links SET last_inbound_at=$at WHERE tenant_id=$tenant AND id=$id;";
+            update.Parameters.AddWithValue(
+                "$at", occurredAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+            update.Parameters.AddWithValue("$tenant", tenantId);
+            update.Parameters.AddWithValue("$id", linkId);
+            await update.ExecuteNonQueryAsync(token);
+            return true;
+        }, cancellationToken);
+
     private const string Select =
-        "SELECT tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at " +
-        "FROM channel_links";
+        "SELECT tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at," +
+        "last_inbound_at FROM channel_links";
 
     private static async Task<ChannelLinkRecord?> ReadByIdentityAsync(
         SqliteConnection connection,
@@ -123,5 +141,9 @@ public sealed class SqliteChannelLinkStore(SqliteWriteDispatcher dispatcher) : I
         reader.GetString(5),
         reader.GetString(6),
         DateTimeOffset.Parse(
-            reader.GetString(7), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
+            reader.GetString(7), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+        reader.IsDBNull(8)
+            ? null
+            : DateTimeOffset.Parse(
+                reader.GetString(8), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
 }

@@ -6,8 +6,8 @@ namespace Harness.Persistence.Postgres;
 public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : IChannelLinkStore
 {
     private const string Select =
-        "SELECT tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at " +
-        "FROM harness.channel_links";
+        "SELECT tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at," +
+        "last_inbound_at FROM harness.channel_links";
 
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
@@ -103,6 +103,20 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
             command.OccurredAt);
     }
 
+    public async Task MarkInboundAsync(
+        string tenantId,
+        string linkId,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken = default)
+    {
+        await using var update = _dataSource.CreateCommand(
+            "UPDATE harness.channel_links SET last_inbound_at=$1 WHERE tenant_id=$2 AND id=$3;");
+        update.Parameters.Add(Timestamp(occurredAt));
+        update.Parameters.Add(Text(tenantId));
+        update.Parameters.Add(Text(linkId));
+        await update.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static async Task<ChannelLinkRecord?> ReadByIdentityAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -129,7 +143,8 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
         reader.GetString(4).TrimEnd(),
         reader.GetString(5).TrimEnd(),
         reader.GetString(6).TrimEnd(),
-        reader.GetFieldValue<DateTimeOffset>(7));
+        reader.GetFieldValue<DateTimeOffset>(7),
+        reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8));
 
     private static NpgsqlParameter<string> Text(string value) => new() { TypedValue = value };
 
