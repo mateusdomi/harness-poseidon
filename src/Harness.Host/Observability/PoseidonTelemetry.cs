@@ -270,7 +270,11 @@ internal sealed class SensitiveTelemetryProcessor : BaseProcessor<Activity>
     ];
 
     public override void OnEnd(Activity activity)
+        => Sanitize(activity);
+
+    internal static void Sanitize(Activity activity)
     {
+        ArgumentNullException.ThrowIfNull(activity);
         foreach (var tag in activity.TagObjects.ToArray())
         {
             if (IsSensitive(tag.Key))

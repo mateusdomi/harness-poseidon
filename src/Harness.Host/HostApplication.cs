@@ -608,6 +608,7 @@ public static class HostApplication
 
         var app = builder.Build();
         app.UseMiddleware<SecurityHeadersMiddleware>();
+        app.UseMiddleware<EndpointTelemetryMiddleware>();
         if (frontendPath is not null)
         {
             var frontendFiles = new PhysicalFileProvider(frontendPath);
