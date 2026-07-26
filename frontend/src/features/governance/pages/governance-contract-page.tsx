@@ -49,14 +49,16 @@ import {
 import AuditTimelinePanel from '@/features/governance/pages/audit-timeline-page';
 import { maskSecrets } from '@/lib/secrets';
 import { LearningCandidatesPanel } from '@/features/governance/components/learning-candidates-panel';
+import { OperationsPanel } from '@/features/governance/components/operations-panel';
 
-type TabId = 'overview' | 'receipts' | 'documents' | 'evaluation' | 'audit' | 'learning';
+type TabId = 'overview' | 'receipts' | 'documents' | 'evaluation' | 'operations' | 'audit' | 'learning';
 
 const TABS: { id: TabId; icon: typeof Activity }[] = [
   { id: 'overview', icon: Gauge },
   { id: 'receipts', icon: Braces },
   { id: 'documents', icon: FileSearch },
   { id: 'evaluation', icon: FlaskConical },
+  { id: 'operations', icon: Wrench },
   { id: 'audit', icon: History },
   { id: 'learning', icon: ShieldCheck },
 ];
@@ -617,6 +619,7 @@ export default function GovernanceContractPage() {
         {tab === 'receipts' && <ReceiptsPanel receipts={data.receipts.data ?? []} pending={data.receipts.isLoading} error={data.receipts.error} retry={() => void data.receipts.refetch()} />}
         {tab === 'documents' && <DocumentsPanel receipts={data.receipts.data ?? []} findings={data.staleFindings.data ?? []} />}
         {tab === 'evaluation' && <EvaluationPanel />}
+        {tab === 'operations' && <OperationsPanel />}
         {tab === 'audit' && <AuditTimelinePanel />}
         {tab === 'learning' && <LearningCandidatesPanel />}
       </section>

@@ -57,7 +57,11 @@ import {
   type Document,
   type Solicitation,
   agentExecutorSchema,
+  evaluationRecommendationsResponseSchema,
   evaluationResultSchema,
+  ledgerReconciliationSchema,
+  memorySearchResponseSchema,
+  mergeContentionSchema,
   freshContextEvaluationInputSchema,
   governanceMetricSchema,
   governanceReceiptSchema,
@@ -76,7 +80,11 @@ import {
   learningShadowInputSchema,
   learningTransitionInputSchema,
   type AgentExecutor,
+  type EvaluationRecommendationsResponse,
   type EvaluationResult,
+  type LedgerReconciliation,
+  type MemorySearchResponse,
+  type MergeContention,
   type FreshContextEvaluationInput,
   type GovernanceMetric,
   type GovernanceReceipt,
@@ -537,6 +545,47 @@ export class HttpApiClient implements ApiClient {
   async listAgentExecutors(): Promise<AgentExecutor[]> {
     const response = await this.#request<unknown>('GET', '/governance-runtime/executors');
     return agentExecutorSchema.array().parse(response);
+  }
+
+  async listEvaluationRecommendations(
+    projectId: string,
+    minSampleSize?: number,
+  ): Promise<EvaluationRecommendationsResponse> {
+    const params = new URLSearchParams({ projectId });
+    if (minSampleSize !== undefined) params.set('minSampleSize', String(minSampleSize));
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/evaluation-recommendations?${params.toString()}`,
+    );
+    return evaluationRecommendationsResponseSchema.parse(response);
+  }
+
+  async getMergeContention(): Promise<MergeContention> {
+    const response = await this.#request<unknown>('GET', '/governance-runtime/merge-contention');
+    return mergeContentionSchema.parse(response);
+  }
+
+  async reconcileLedger(): Promise<LedgerReconciliation> {
+    const response = await this.#request<unknown>(
+      'GET',
+      '/governance-runtime/ledger-reconciliation',
+    );
+    return ledgerReconciliationSchema.parse(response);
+  }
+
+  async searchMemory(
+    query: string,
+    projectId?: string,
+    topK?: number,
+  ): Promise<MemorySearchResponse> {
+    const params = new URLSearchParams({ query });
+    if (projectId) params.set('projectId', projectId);
+    if (topK !== undefined) params.set('topK', String(topK));
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/memory-search?${params.toString()}`,
+    );
+    return memorySearchResponseSchema.parse(response);
   }
 
   async listLearningCandidates(query?: LearningCandidateQuery): Promise<LearningCandidatePage> {

@@ -87,7 +87,8 @@
         "documents": "Documentos e saúde",
         "evaluation": "Avaliação",
         "audit": "Auditoria",
-        "learning": "Aprendizado P2"
+        "learning": "Aprendizado P2",
+        "operations": "Operação"
       },
       "summary": {
         "receipts": "Comprovantes carregados",
@@ -161,7 +162,11 @@
         "noFindings": "Nenhum finding retornado.",
         "historyUnavailable": "Histórico e replay indisponíveis",
         "historyUnavailableBody": "P1 publica somente POST /evaluations. O resultado atual fica na sessão da tela; não há endpoint de listagem ou replay para consultar.",
-        "risks": { "low": "baixo", "medium": "médio", "high": "alto" },
+        "risks": {
+          "low": "baixo",
+          "medium": "médio",
+          "high": "alto"
+        },
         "fields": {
           "projectId": "Projeto (projectId)",
           "taskId": "Tarefa (taskId)",
@@ -186,6 +191,66 @@
       "learning": {
         "title": "Aprendizado governado P2",
         "body": "Lifecycle manual e auditável conforme OpenAPI e eventos canônicos 1.1."
+      },
+      "operations": {
+        "recommendations": {
+          "title": "Desempenho por agente",
+          "description": "Score composto e intervalo de confiança de Wilson derivados das tentativas gravadas e do espelho de invocações — nada é estimado à mão.",
+          "project": "Projeto",
+          "projectPlaceholder": "Selecione um projeto",
+          "minSample": "Amostra mínima",
+          "empty": "Nenhuma tentativa terminal registrada para este projeto.",
+          "tableLabel": "Tabela de desempenho por agente, modelo e provedor",
+          "columns": {
+            "target": "Agente",
+            "model": "Modelo",
+            "provider": "Provedor",
+            "sample": "Amostra",
+            "passRate": "Aprovação",
+            "score": "Score",
+            "interval": "IC 95%",
+            "action": "Recomendação"
+          },
+          "actions": {
+            "recommend_high_performance": "Alto desempenho",
+            "maintain_current_routing": "Manter roteamento",
+            "flag_degraded_performance": "Desempenho degradado",
+            "insufficient_sample_size": "Amostra insuficiente"
+          }
+        },
+        "merge": {
+          "title": "Contenção do merge serializado",
+          "description": "Todo merge passa pela fila única; estes números medem a espera real — o gatilho para reavaliar infraestrutura de fila.",
+          "enqueued": "Enfileirados",
+          "serialized": "Serializados",
+          "contended": "Com disputa",
+          "ratio": "Razão de contenção",
+          "maxWait": "Espera máxima (ms)"
+        },
+        "ledger": {
+          "title": "Reconciliação do ledger",
+          "description": "Reverifica hash a hash a cadeia de auditoria persistida. Nada é corrigido em silêncio: divergência aparece aqui e no próprio ledger.",
+          "run": "Reconciliar agora",
+          "running": "Reconciliando…",
+          "valid": "Cadeia íntegra",
+          "invalid": "Cadeia com divergência",
+          "entries": "{{count}} evento(s) verificados",
+          "tampered": "{{count}} sequência(s) divergente(s)",
+          "lastHash": "Último hash válido"
+        },
+        "memory": {
+          "title": "Memória semântica",
+          "description": "Busca com citações sobre o índice derivado dos anexos aceitos. Cada resultado cita o registro durável de origem.",
+          "queryLabel": "Buscar na memória",
+          "queryPlaceholder": "ex.: requisitos do relatório de auditoria",
+          "search": "Buscar",
+          "searching": "Buscando…",
+          "empty": "Nenhum slice indexado corresponde à consulta.",
+          "snapshot": "Snapshot {{id}} · hash {{hash}} · {{tokens}} tokens",
+          "score": "Similaridade",
+          "citation": "Citação",
+          "listLabel": "Resultados da memória semântica"
+        }
       }
     },
     "learning": {
@@ -208,11 +273,27 @@
       "independentEvaluator": "O avaliador deve ser diferente do ator e, para aprovação, devolver veredito aprovado; o servidor aplica a política autoritativa.",
       "manualPromotion": "Confirmo a promoção manual desta versão após revisão humana das evidências, avaliação independente e shadow.",
       "permissionDenied": "Seu perfil não possui permissão para esta transição.",
-      "verdicts": { "pass": "aprovado", "fail": "reprovado" },
-      "labels": { "actor": "Ator", "fingerprint": "Impressão digital", "reviewer": "Revisor", "verdict": "Veredito", "active": "Versão ativa", "previous": "Versão anterior" },
+      "verdicts": {
+        "pass": "aprovado",
+        "fail": "reprovado"
+      },
+      "labels": {
+        "actor": "Ator",
+        "fingerprint": "Impressão digital",
+        "reviewer": "Revisor",
+        "verdict": "Veredito",
+        "active": "Versão ativa",
+        "previous": "Versão anterior"
+      },
       "saving": "Aplicando…",
       "confirm": "Confirmar transição",
-      "filters": { "project": "Projeto", "type": "Tipo", "state": "Estado", "from": "Criado desde", "to": "Criado até" },
+      "filters": {
+        "project": "Projeto",
+        "type": "Tipo",
+        "state": "Estado",
+        "from": "Criado desde",
+        "to": "Criado até"
+      },
       "fields": {
         "note": "Justificativa",
         "evaluatorAgentId": "Agente avaliador",
@@ -241,10 +322,17 @@
       "metrics": {
         "title": "Métricas e monitoramento",
         "body": "Agregados reais do tenant/projeto selecionado.",
-        "created": "Criados", "deduplicated": "Deduplicados", "approved": "Aprovados",
-        "promoted": "Promovidos", "rejected": "Rejeitados", "rolledBack": "Rollbacks",
-        "successDelta": "Delta de primeira tentativa", "errorDelta": "Delta erro repetido",
-        "tokenImpact": "Impacto tokens", "costDelta": "Delta custo", "regressions": "Regressões pós-promoção"
+        "created": "Criados",
+        "deduplicated": "Deduplicados",
+        "approved": "Aprovados",
+        "promoted": "Promovidos",
+        "rejected": "Rejeitados",
+        "rolledBack": "Rollbacks",
+        "successDelta": "Delta de primeira tentativa",
+        "errorDelta": "Delta erro repetido",
+        "tokenImpact": "Impacto tokens",
+        "costDelta": "Delta custo",
+        "regressions": "Regressões pós-promoção"
       }
     }
   }

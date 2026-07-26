@@ -340,3 +340,88 @@ export type LearningTransition =
   | 'promotion'
   | 'rollback'
   | 'deprecation';
+
+// ── Fase 5/6/10/12 — operação estatística e auditável do runtime ─────────────────────────────
+// Espelham os contratos do Host (`GovernanceRuntimeEndpoints`): recomendações derivadas das
+// tentativas gravadas, contenção medida do merge serializado, reconciliação do ledger e busca
+// na memória semântica com citações. Nada aqui é inventado no cliente — só validação de forma.
+
+export const performanceAggregateSchema = z.object({
+  targetId: z.string(),
+  model: z.string().nullable(),
+  provider: z.string().nullable(),
+  sampleSize: z.number().int(),
+  successCount: z.number().int(),
+  failureCount: z.number().int(),
+  passRate: z.number(),
+  compositeScore: z.number(),
+  confidenceIntervalLower: z.number(),
+  confidenceIntervalUpper: z.number(),
+  sampleSizeQualified: z.boolean(),
+});
+export type PerformanceAggregate = z.infer<typeof performanceAggregateSchema>;
+
+export const evaluationRecommendationSchema = z.object({
+  targetId: z.string(),
+  model: z.string().nullable(),
+  provider: z.string().nullable(),
+  action: z.string(),
+  score: z.number(),
+  confidenceIntervalLower: z.number(),
+  confidenceIntervalUpper: z.number(),
+  sampleSize: z.number().int(),
+  recommendationReason: z.string(),
+  generatedAt: z.string(),
+});
+export type EvaluationRecommendation = z.infer<typeof evaluationRecommendationSchema>;
+
+export const evaluationRecommendationsResponseSchema = z.object({
+  projectId: z.string(),
+  aggregates: performanceAggregateSchema.array(),
+  recommendations: evaluationRecommendationSchema.array(),
+});
+export type EvaluationRecommendationsResponse = z.infer<
+  typeof evaluationRecommendationsResponseSchema
+>;
+
+export const mergeContentionSchema = z.object({
+  enqueued: z.number().int(),
+  serialized: z.number().int(),
+  contended: z.number().int(),
+  waiting: z.number().int(),
+  active: z.number().int(),
+  totalWaitMs: z.number(),
+  maximumWaitMs: z.number(),
+  contentionRatio: z.number(),
+});
+export type MergeContention = z.infer<typeof mergeContentionSchema>;
+
+export const ledgerReconciliationSchema = z.object({
+  tenantId: z.string(),
+  totalEntries: z.number().int(),
+  isChainValid: z.boolean(),
+  tamperedCount: z.number().int(),
+  discrepancySequenceNumbers: z.number().int().array(),
+  lastValidHash: z.string(),
+  reconciledAt: z.string(),
+});
+export type LedgerReconciliation = z.infer<typeof ledgerReconciliationSchema>;
+
+export const memorySliceSchema = z.object({
+  documentId: z.string(),
+  documentType: z.string(),
+  projectId: z.string(),
+  content: z.string(),
+  score: z.number(),
+  citationReference: z.string(),
+  provenance: z.record(z.string(), z.string()),
+});
+export type MemorySlice = z.infer<typeof memorySliceSchema>;
+
+export const memorySearchResponseSchema = z.object({
+  snapshotId: z.string(),
+  snapshotHash: z.string(),
+  totalTokens: z.number().int(),
+  slices: memorySliceSchema.array(),
+});
+export type MemorySearchResponse = z.infer<typeof memorySearchResponseSchema>;

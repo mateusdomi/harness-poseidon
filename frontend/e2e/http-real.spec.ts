@@ -359,7 +359,10 @@ async function exerciseMermaidDocument(page: Page, testInfo: TestInfo) {
 
   await page.goto('/governance-docs');
   await expect(page.getByRole('heading', { name: 'Documentos de Governança' })).toBeVisible();
-  await page.getByRole('button', { name: 'MERMAID-RENDERING-EVIDENCE.md' }).click();
+  // O doc de evidência antigo morreu no expurgo documental (Fase 0). A prova de renderização
+  // Mermaid usa um CANÔNICO vivo do catálogo 28.7: docs/architecture/overview.md, que carrega
+  // o diagrama da visão geral — se ele sumir do manifest, este teste DEVE quebrar.
+  await page.getByRole('button', { name: 'overview.md' }).click();
   const diagram = page.getByRole('img', { name: 'Visualização do diagrama Mermaid' });
   await expect(diagram).toBeVisible({ timeout: 20_000 });
   await expect(diagram.locator('svg')).toBeVisible();
@@ -688,6 +691,14 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   await page.getByRole('tab', { name: 'Documentos e saúde' }).click();
   await expect(page.getByText('Catálogo canônico não publicado')).toBeVisible();
   await assertA11y(page, 'governança P1 — documentos');
+  // Fases 5/6/10/12 — a aba Operação apresenta fatos do backend real: recomendações,
+  // contenção do merge serializado, reconciliação do ledger e memória semântica.
+  await page.getByRole('tab', { name: 'Operação' }).click();
+  await expect(page.getByText('Contenção do merge serializado')).toBeVisible();
+  await expect(page.getByText('Desempenho por agente')).toBeVisible();
+  await page.getByRole('button', { name: 'Reconciliar agora' }).click();
+  await expect(page.getByText('Cadeia íntegra')).toBeVisible({ timeout: 15_000 });
+  await assertA11y(page, 'governança — aba Operação');
   await page.getByRole('tab', { name: 'Aprendizado P2' }).click();
   await expect(page.getByText('Learning candidates')).toBeVisible();
   await page.getByRole('tab', { name: 'Auditoria' }).click();

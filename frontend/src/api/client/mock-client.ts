@@ -86,7 +86,11 @@ import {
   type WorkflowTemplate,
   type WorkflowVersion,
   type AgentExecutor,
+  type EvaluationRecommendationsResponse,
   type EvaluationResult,
+  type LedgerReconciliation,
+  type MemorySearchResponse,
+  type MergeContention,
   type GovernanceMetric,
   type GovernanceReceipt,
   type HashlinePatchResult,
@@ -1729,6 +1733,24 @@ export class MockApiClient implements ApiClient {
   }
 
   listAgentExecutors(): Promise<AgentExecutor[]> {
+    return this.#governanceRequiresHttp();
+  }
+
+  // Operação do runtime (fases 5/6/10/12): fatos medidos existem só no backend real —
+  // o modo simulado falha explícito em vez de fingir números.
+  listEvaluationRecommendations(): Promise<EvaluationRecommendationsResponse> {
+    return this.#governanceRequiresHttp();
+  }
+
+  getMergeContention(): Promise<MergeContention> {
+    return this.#governanceRequiresHttp();
+  }
+
+  reconcileLedger(): Promise<LedgerReconciliation> {
+    return this.#governanceRequiresHttp();
+  }
+
+  searchMemory(): Promise<MemorySearchResponse> {
     return this.#governanceRequiresHttp();
   }
 

@@ -1,4 +1,8 @@
 import type {
+  EvaluationRecommendationsResponse,
+  LedgerReconciliation,
+  MemorySearchResponse,
+  MergeContention,
   Account,
   Agent,
   AgentDefinition,
@@ -336,6 +340,16 @@ export interface ApiClient {
   applyHashlinePatch(projectId: string, input: HashlinePatchInput): Promise<HashlinePatchResult>;
   listHashlineBenchmark(): Promise<PatchBenchmark[]>;
   listAgentExecutors(): Promise<AgentExecutor[]>;
+
+  /* ---- operação do runtime (fases 5/6/10/12) ---- */
+
+  listEvaluationRecommendations(
+    projectId: string,
+    minSampleSize?: number,
+  ): Promise<EvaluationRecommendationsResponse>;
+  getMergeContention(): Promise<MergeContention>;
+  reconcileLedger(): Promise<LedgerReconciliation>;
+  searchMemory(query: string, projectId?: string, topK?: number): Promise<MemorySearchResponse>;
 
   /* ---- governança de aprendizado P2 ---- */
 

@@ -67,9 +67,18 @@
       "available": "available",
       "unavailable": "unavailable",
       "labels": {
-        "api": "API", "manifest": "Manifest", "checksum": "Checksum", "provider": "Provider", "tokens": "Tokens", "cacheHits": "Cache hits", "gate": "Gate",
-        "tokenCount": "{{count}} tokens", "truncatedCount": "{{count}} trunc.", "documentCount": "{{count}} docs",
-        "projectTask": "Project {{project}} · Task {{task}}", "observedUsage": "{{receipts}} receipt(s) · {{tokens}} tokens · {{date}}"
+        "api": "API",
+        "manifest": "Manifest",
+        "checksum": "Checksum",
+        "provider": "Provider",
+        "tokens": "Tokens",
+        "cacheHits": "Cache hits",
+        "gate": "Gate",
+        "tokenCount": "{{count}} tokens",
+        "truncatedCount": "{{count}} trunc.",
+        "documentCount": "{{count}} docs",
+        "projectTask": "Project {{project}} · Task {{task}}",
+        "observedUsage": "{{receipts}} receipt(s) · {{tokens}} tokens · {{date}}"
       },
       "tabs": {
         "label": "Governance areas",
@@ -78,7 +87,8 @@
         "documents": "Documents and health",
         "evaluation": "Evaluation",
         "audit": "Audit",
-        "learning": "P2 learning"
+        "learning": "P2 learning",
+        "operations": "Operations"
       },
       "summary": {
         "receipts": "Loaded proofs",
@@ -104,42 +114,143 @@
         "goBody": "The API responds and the current proof batch reports no selection conflicts.",
         "noGoBody": "The API is unhealthy or a bundle conflict exists; investigate before acceptance."
       },
-      "executors": { "title": "Executor catalog", "body": "Availability and enablement reported by the runtime." },
+      "executors": {
+        "title": "Executor catalog",
+        "body": "Availability and enablement reported by the runtime."
+      },
       "benchmark": {
         "title": "Hashline benchmark",
         "body": "Backend-published comparison for the protected editing strategy.",
         "tableLabel": "Hashline benchmark results",
-        "strategy": "Strategy", "success": "Successes", "stale": "Stale rejections", "retries": "Retries", "regressions": "Regressions"
+        "strategy": "Strategy",
+        "success": "Successes",
+        "stale": "Stale rejections",
+        "retries": "Retries",
+        "regressions": "Regressions"
       },
       "receipts": {
-        "search": "Search current batch", "state": "State",
+        "search": "Search current batch",
+        "state": "State",
         "limitNote": "The P1 API returns a batch of up to 100 receipts and does not publish a next-page cursor; the UI does not simulate pagination.",
-        "emptyTitle": "No proof available", "emptyBody": "Run a real Bruna turn and try again. The acceptance profile does not inject test data.",
-        "view": "View proof", "hide": "Hide proof", "bundle": "Reproducible proof (bundle)", "documents": "Selected documents", "metrics": "Turn metrics"
+        "emptyTitle": "No proof available",
+        "emptyBody": "Run a real Bruna turn and try again. The acceptance profile does not inject test data.",
+        "view": "View proof",
+        "hide": "Hide proof",
+        "bundle": "Reproducible proof (bundle)",
+        "documents": "Selected documents",
+        "metrics": "Turn metrics"
       },
       "documents": {
         "catalogUnavailable": "Canonical catalog not published",
         "catalogUnavailableBody": "The P1 OpenAPI does not expose the manifest or linter health. The list below only contains documents observed in real receipts, without fabricated owners, authority, or status.",
-        "observedTitle": "Observed documents", "observedBody": "Selection, checksum, and budget captured by receipts in the current batch.",
-        "findingsTitle": "Stale document detections", "findingsBody": "Runtime detections grouped by document; no action is performed automatically.", "noFindings": "No finding published by the runtime."
+        "observedTitle": "Observed documents",
+        "observedBody": "Selection, checksum, and budget captured by receipts in the current batch.",
+        "findingsTitle": "Stale document detections",
+        "findingsBody": "Runtime detections grouped by document; no action is performed automatically.",
+        "noFindings": "No finding published by the runtime."
       },
       "evaluation": {
-        "title": "Clean-context evaluation", "body": "Submits criteria, diff, and evidence to the independent read-only P1 evaluator. Do not include secrets or classified content.",
-        "onePerLine": "One item per line.", "requiredError": "Fill in the required identifiers, criteria, diff, and evidence.",
-        "run": "Run evaluation", "running": "Evaluating…", "result": "Result from this session", "resultMetadata": "{{provider}}/{{model}} · {{date}} · schema {{schema}}", "independence": "readOnly={{readOnly}} · cleanContext={{cleanContext}}", "noFindings": "No finding returned.",
-        "historyUnavailable": "History and replay unavailable", "historyUnavailableBody": "P1 only publishes POST /evaluations. The current result remains in the screen session; no list or replay endpoint exists.", "risks": { "low": "low", "medium": "medium", "high": "high" },
+        "title": "Clean-context evaluation",
+        "body": "Submits criteria, diff, and evidence to the independent read-only P1 evaluator. Do not include secrets or classified content.",
+        "onePerLine": "One item per line.",
+        "requiredError": "Fill in the required identifiers, criteria, diff, and evidence.",
+        "run": "Run evaluation",
+        "running": "Evaluating…",
+        "result": "Result from this session",
+        "resultMetadata": "{{provider}}/{{model}} · {{date}} · schema {{schema}}",
+        "independence": "readOnly={{readOnly}} · cleanContext={{cleanContext}}",
+        "noFindings": "No finding returned.",
+        "historyUnavailable": "History and replay unavailable",
+        "historyUnavailableBody": "P1 only publishes POST /evaluations. The current result remains in the screen session; no list or replay endpoint exists.",
+        "risks": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
         "fields": {
-          "projectId": "Project (projectId)", "taskId": "Task (taskId)", "attemptId": "Attempt (attemptId)", "turnId": "Turn (turnId)",
-          "actorAgentId": "Actor agent", "evaluatorAgentId": "Evaluator agent", "riskTier": "Risk", "criteria": "Acceptance criteria", "diff": "Diff", "evidence": "Evidence", "tests": "Test results"
+          "projectId": "Project (projectId)",
+          "taskId": "Task (taskId)",
+          "attemptId": "Attempt (attemptId)",
+          "turnId": "Turn (turnId)",
+          "actorAgentId": "Actor agent",
+          "evaluatorAgentId": "Evaluator agent",
+          "riskTier": "Risk",
+          "criteria": "Acceptance criteria",
+          "diff": "Diff",
+          "evidence": "Evidence",
+          "tests": "Test results"
         }
       },
       "hashline": {
-        "title": "Hashline-protected patch", "body": "The real write is rejected before changing the file when the checksum diverges. Use only after re-reading the target.",
-        "confirm": "I confirm that I re-read the file, validated the relative path, and understand this action can write to the project.", "checksums": "actual: {{actual}} · applied: {{applied}}", "apply": "Apply protected patch"
+        "title": "Hashline-protected patch",
+        "body": "The real write is rejected before changing the file when the checksum diverges. Use only after re-reading the target.",
+        "confirm": "I confirm that I re-read the file, validated the relative path, and understand this action can write to the project.",
+        "checksums": "actual: {{actual}} · applied: {{applied}}",
+        "apply": "Apply protected patch"
       },
       "learning": {
         "title": "Governed P2 learning",
         "body": "Manual, auditable lifecycle from canonical OpenAPI and event catalog 1.1."
+      },
+      "operations": {
+        "recommendations": {
+          "title": "Performance by agent",
+          "description": "Composite score and Wilson confidence interval derived from recorded attempts and the invocation mirror — nothing is hand-estimated.",
+          "project": "Project",
+          "projectPlaceholder": "Select a project",
+          "minSample": "Minimum sample",
+          "empty": "No terminal attempts recorded for this project.",
+          "tableLabel": "Performance table by agent, model and provider",
+          "columns": {
+            "target": "Agent",
+            "model": "Model",
+            "provider": "Provider",
+            "sample": "Sample",
+            "passRate": "Pass rate",
+            "score": "Score",
+            "interval": "95% CI",
+            "action": "Recommendation"
+          },
+          "actions": {
+            "recommend_high_performance": "High performance",
+            "maintain_current_routing": "Keep routing",
+            "flag_degraded_performance": "Degraded performance",
+            "insufficient_sample_size": "Insufficient sample"
+          }
+        },
+        "merge": {
+          "title": "Serialized merge contention",
+          "description": "Every merge goes through the single queue; these numbers measure real waiting — the trigger to reassess queue infrastructure.",
+          "enqueued": "Enqueued",
+          "serialized": "Serialized",
+          "contended": "Contended",
+          "ratio": "Contention ratio",
+          "maxWait": "Max wait (ms)"
+        },
+        "ledger": {
+          "title": "Ledger reconciliation",
+          "description": "Re-verifies the persisted audit chain hash by hash. Nothing is silently fixed: divergence shows up here and in the ledger itself.",
+          "run": "Reconcile now",
+          "running": "Reconciling…",
+          "valid": "Chain intact",
+          "invalid": "Chain divergent",
+          "entries": "{{count}} event(s) verified",
+          "tampered": "{{count}} divergent sequence(s)",
+          "lastHash": "Last valid hash"
+        },
+        "memory": {
+          "title": "Semantic memory",
+          "description": "Citation-backed search over the index derived from accepted attachments. Every result cites its durable source record.",
+          "queryLabel": "Search memory",
+          "queryPlaceholder": "e.g. audit report requirements",
+          "search": "Search",
+          "searching": "Searching…",
+          "empty": "No indexed slice matches the query.",
+          "snapshot": "Snapshot {{id}} · hash {{hash}} · {{tokens}} tokens",
+          "score": "Similarity",
+          "citation": "Citation",
+          "listLabel": "Semantic memory results"
+        }
       }
     },
     "learning": {
@@ -162,11 +273,27 @@
       "independentEvaluator": "The evaluator must differ from the actor and return pass for approval; the server enforces the authoritative policy.",
       "manualPromotion": "I confirm this manual promotion after human review of evidence, independent evaluation, and shadow results.",
       "permissionDenied": "Your profile is not authorized for this transition.",
-      "verdicts": { "pass": "pass", "fail": "fail" },
-      "labels": { "actor": "Actor", "fingerprint": "Fingerprint", "reviewer": "Reviewer", "verdict": "Verdict", "active": "Active version", "previous": "Previous version" },
+      "verdicts": {
+        "pass": "pass",
+        "fail": "fail"
+      },
+      "labels": {
+        "actor": "Actor",
+        "fingerprint": "Fingerprint",
+        "reviewer": "Reviewer",
+        "verdict": "Verdict",
+        "active": "Active version",
+        "previous": "Previous version"
+      },
       "saving": "Applying…",
       "confirm": "Confirm transition",
-      "filters": { "project": "Project", "type": "Type", "state": "State", "from": "Created from", "to": "Created through" },
+      "filters": {
+        "project": "Project",
+        "type": "Type",
+        "state": "State",
+        "from": "Created from",
+        "to": "Created through"
+      },
       "fields": {
         "note": "Rationale",
         "evaluatorAgentId": "Evaluator agent",
@@ -195,10 +322,17 @@
       "metrics": {
         "title": "Metrics and monitoring",
         "body": "Real aggregates for the current tenant/project.",
-        "created": "Created", "deduplicated": "Deduplicated", "approved": "Approved",
-        "promoted": "Promoted", "rejected": "Rejected", "rolledBack": "Rollbacks",
-        "successDelta": "First-pass delta", "errorDelta": "Repeated error delta",
-        "tokenImpact": "Token impact", "costDelta": "Cost delta", "regressions": "Post-promotion regressions"
+        "created": "Created",
+        "deduplicated": "Deduplicated",
+        "approved": "Approved",
+        "promoted": "Promoted",
+        "rejected": "Rejected",
+        "rolledBack": "Rollbacks",
+        "successDelta": "First-pass delta",
+        "errorDelta": "Repeated error delta",
+        "tokenImpact": "Token impact",
+        "costDelta": "Cost delta",
+        "regressions": "Post-promotion regressions"
       }
     }
   }
