@@ -12,6 +12,7 @@ using Harness.Host.Governance;
 using Harness.Host.GovernanceDocs;
 using Harness.Host.Organizations;
 using Harness.Host.Notifications;
+using Harness.Host.Observability;
 using Harness.Host.Operations;
 using Harness.Host.Persistence;
 using Harness.Host.Profiles;
@@ -83,6 +84,7 @@ public static class HostApplication
     {
         ArgumentNullException.ThrowIfNull(args);
         var builder = WebApplication.CreateBuilder(args);
+        builder.Services.AddPoseidonTelemetry(builder.Configuration);
 
         var frontendPath = ResolveFrontendPath(builder.Environment.ContentRootPath,
             builder.Configuration["Harness:FrontendPath"]);
