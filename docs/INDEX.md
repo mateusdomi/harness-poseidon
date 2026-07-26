@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:30077a7e1240effdc0c06468afc1fe2fe0cfb322b9434cd18dabd5e98755c160 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:6fa1da067576e487d915a2b8d5efe54e50885a85ff9588840c1a1fae84d4dae2 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,28 +6,29 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 12
+- `Canonical`: 13
 - `Generated`: 1
 
 ## By domain
 
 - `adapter`: 2
+- `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
 - `rule`: 11
 
 ## By phase
 
-- `*`: 15
+- `*`: 16
 
 ## By status
 
-- `Active`: 15
+- `Active`: 16
 
 ## By owner
 
 - `Operations`: 2
-- `Platform Engineering`: 1
+- `Platform Engineering`: 2
 - `Platform Governance`: 8
 - `Product Security`: 2
 - `Quality Engineering`: 2
@@ -36,10 +37,17 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 11
+- `OnDemand`: 1
 
 ## Documents by authority and domain
 
 ### Canonical
+
+#### entrypoint
+
+| Document | Phase | Status | Owner | Load policy | Tokens |
+|---|---|---|---|---|---:|
+| [Poseidon](../README.md) | * | Active | Platform Engineering | OnDemand | 237 |
 
 #### governance
 

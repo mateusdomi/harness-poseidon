@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-07-26T05:07:09.7446730+00:00
+lastGeneratedAt: 2026-07-26T05:09:11.1760630+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -768,7 +768,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 618
+  tokenCost: 674
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -783,7 +783,54 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:3ec0ac89800261c7477260cac31b527fdfdb0544d3a709d3c264b0da3a208b11
+  checksum: sha256:4ca158ba59816fa378d4ade27dc617bb34930c2aba52156252effcb94470b28b
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
+- id: repository-readme
+  path: README.md
+  title: Poseidon
+  category: entrypoint
+  topic: repository-overview
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 600
+  tokenCost: 237
+  owner: Platform Engineering
+  status: active
+  version: 2.0.0
+  lastVerifiedAt: 2026-07-26T00:00:00-03:00
+  reviewDueAt: 2027-01-26T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - documentation-index
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  checksum: sha256:390a01222e55534c71f005b178f7122e118ae9ded3b0b03ed5378bd9906df97d
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: README.md
