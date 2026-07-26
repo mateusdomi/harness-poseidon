@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Harness.Host.Leadership;
+using Harness.Host.Observability;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Domain;
@@ -60,6 +62,13 @@ public sealed partial class ChiefTurnBackgroundService(
         var lease = await turns.AcquireNextAsync(
             _ownerId, clock.UtcNow, options.LeaseDuration, cancellationToken);
         if (lease is null) return false;
+        using var turnActivity = PoseidonTelemetry.StartChiefTurn(
+            lease.Turn.TenantId,
+            lease.Turn.ProjectId,
+            lease.Turn.ConversationId,
+            lease.Turn.TurnId,
+            lease.ChiefAgentId);
+        var turnStartedAt = Stopwatch.GetTimestamp();
         GovernanceTurnReceiptRecord? receipt = null;
 
         // C3+: reporta as fases granulares reais pelas quais o turno passa como
@@ -82,25 +91,33 @@ public sealed partial class ChiefTurnBackgroundService(
             var digest = await digests.ReadAsync(
                 lease.Turn.TenantId, lease.Turn.ProjectId, 20, cancellationToken);
             var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
-            var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
-                lease.Turn.TenantId,
-                lease.Turn.ProjectId,
-                lease.Turn.TurnId,
-                lease.Turn.TurnId,
-                lease.ChiefAgentId,
-                "poseidon",
-                lease.Turn.Selection?.ModelName,
-                "chief-turn",
-                "execution",
-                "orchestration",
-                "medium",
-                [],
-                digestJson,
-                ["Return a schema-valid Chief response.", "Persist durable completion evidence."],
-                ["Domain writes only through typed Host stores."],
-                [],
-                ["Stop on canonical conflict, secret risk, invalid output or failed gate."],
-                options.ContextBundlesEnabled ? options.ContextTokenBudget : 256));
+            ContextBundle bundle;
+            using (var contextActivity = PoseidonTelemetry.StartChiefContext())
+            {
+                bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
+                    lease.Turn.TenantId,
+                    lease.Turn.ProjectId,
+                    lease.Turn.TurnId,
+                    lease.Turn.TurnId,
+                    lease.ChiefAgentId,
+                    "poseidon",
+                    lease.Turn.Selection?.ModelName,
+                    "chief-turn",
+                    "execution",
+                    "orchestration",
+                    "medium",
+                    [],
+                    digestJson,
+                    ["Return a schema-valid Chief response.", "Persist durable completion evidence."],
+                    ["Domain writes only through typed Host stores."],
+                    [],
+                    ["Stop on canonical conflict, secret risk, invalid output or failed gate."],
+                    options.ContextBundlesEnabled ? options.ContextTokenBudget : 256));
+                contextActivity?.SetTag("context.document_count", bundle.Documents.Count);
+                contextActivity?.SetTag("context.estimated_tokens", bundle.EstimatedTokens);
+                contextActivity?.SetTag("context.truncated_count", bundle.Truncated.Count);
+                contextActivity?.SetTag("context.cache_hits", bundle.CacheHits);
+            }
             receipt = await governance.CreateReceiptAsync(
                 new GovernanceTurnReceiptCreateCommand(
                     lease.Turn.TenantId,
@@ -172,20 +189,29 @@ public sealed partial class ChiefTurnBackgroundService(
             await ReportAsync(ChiefTurnActivity.Thinking);
             var communicationInstructions =
                 (await leadershipProfile.ReadAsync(cancellationToken)).CommunicationInstructions;
-            var execution = await executor.ExecuteAsync(
-                new AgentExecutionRequest(
-                    lease.Turn.TenantId,
-                    lease.Turn.ProjectId,
-                    lease.Turn.ConversationId,
-                    lease.ChiefAgentId,
-                    lease.Instruction,
-                    governedDigestJson,
-                    AppContext.BaseDirectory,
-                    lease.SessionId,
-                    lease.Turn.Selection?.ModelName,
-                    lease.Turn.Selection?.ProviderEffortValue,
-                    communicationInstructions),
-                cancellationToken);
+            AgentExecutionResult execution;
+            using (var invocationActivity = PoseidonTelemetry.StartChiefInvocation(
+                       lease.Turn.Selection?.Source,
+                       lease.Turn.Selection?.ModelName))
+            {
+                execution = await executor.ExecuteAsync(
+                    new AgentExecutionRequest(
+                        lease.Turn.TenantId,
+                        lease.Turn.ProjectId,
+                        lease.Turn.ConversationId,
+                        lease.ChiefAgentId,
+                        lease.Instruction,
+                        governedDigestJson,
+                        AppContext.BaseDirectory,
+                        lease.SessionId,
+                        lease.Turn.Selection?.ModelName,
+                        lease.Turn.Selection?.ProviderEffortValue,
+                        communicationInstructions),
+                    cancellationToken);
+                invocationActivity?.SetTag("gen_ai.response.model", lease.Turn.Selection?.ModelName);
+                invocationActivity?.SetTag("gen_ai.client.operation.duration_ms", execution.DurationMs);
+                invocationActivity?.SetTag("agent.executor", execution.Executor);
+            }
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
             await ReportAsync(ChiefTurnActivity.Planning);
             var evaluation = evaluator.Evaluate(
@@ -262,13 +288,23 @@ public sealed partial class ChiefTurnBackgroundService(
             await governance.AppendMetricAsync(
                 Metric(lease, GovernanceMetricKind.GateResult, null, null, "pass", clock.UtcNow),
                 cancellationToken);
+            turnActivity?.SetTag("chief.result", "completed");
+            PoseidonTelemetry.RecordChiefTurn(
+                "completed",
+                Stopwatch.GetElapsedTime(turnStartedAt).TotalMilliseconds);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            turnActivity?.SetTag("chief.result", "cancelled");
+            PoseidonTelemetry.RecordChiefTurn(
+                "cancelled",
+                Stopwatch.GetElapsedTime(turnStartedAt).TotalMilliseconds);
             throw;
         }
         catch (Exception exception)
         {
+            turnActivity?.SetStatus(ActivityStatusCode.Error);
+            turnActivity?.SetTag("error.type", exception.GetType().FullName);
             if (receipt is not null && receipt.State is not GovernanceReceiptState.Completed and not GovernanceReceiptState.Failed)
             {
                 receipt = await governance.CompleteReceiptAsync(
@@ -295,6 +331,11 @@ public sealed partial class ChiefTurnBackgroundService(
                 lease.Turn.TurnId,
                 exception.GetType().Name,
                 retryable);
+            var result = retryable ? "retryable_failure" : "terminal_failure";
+            turnActivity?.SetTag("chief.result", result);
+            PoseidonTelemetry.RecordChiefTurn(
+                result,
+                Stopwatch.GetElapsedTime(turnStartedAt).TotalMilliseconds);
         }
 
         return true;

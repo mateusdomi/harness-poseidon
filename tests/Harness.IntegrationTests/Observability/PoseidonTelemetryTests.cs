@@ -24,6 +24,37 @@ public sealed class PoseidonTelemetryTests
         Assert.Equal("execution-42", activity.GetTagItem("poseidon.execution_id"));
     }
 
+    [Fact]
+    public void ChiefTurnSpanContainsOnlySafeCorrelationAttributes()
+    {
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == PoseidonTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        using var activity = PoseidonTelemetry.StartChiefTurn(
+            "tenant-1",
+            "project-1",
+            "conversation-1",
+            "turn-1",
+            "agent-1");
+
+        Assert.NotNull(activity);
+        Assert.Equal("tenant-1", activity.GetTagItem("tenant_id"));
+        Assert.Equal("project-1", activity.GetTagItem("project_id"));
+        Assert.Equal("conversation-1", activity.GetTagItem("conversation_id"));
+        Assert.Equal("turn-1", activity.GetTagItem("chief_turn_id"));
+        Assert.Equal("agent-1", activity.GetTagItem("agent_id"));
+        Assert.DoesNotContain(
+            activity.TagObjects,
+            tag => tag.Key.Contains("message", StringComparison.OrdinalIgnoreCase) ||
+                   tag.Key.Contains("prompt", StringComparison.OrdinalIgnoreCase) ||
+                   tag.Key.Contains("response", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Theory]
     [InlineData("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317", true)]
     [InlineData("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://collector/v1/traces", true)]

@@ -44,6 +44,17 @@ internal static class PoseidonTelemetry
             "poseidon.outbox.recovered_claim.count",
             description: "Number of expired outbox claims released for recovery.");
 
+    private static Counter<long> ChiefTurnCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.chief.turn.count",
+            description: "Number of chief turns processed.");
+
+    private static Histogram<double> ChiefTurnDuration { get; } =
+        Meter.CreateHistogram<double>(
+            "poseidon.chief.turn.duration",
+            unit: "ms",
+            description: "Duration of chief turns.");
+
     internal static IServiceCollection AddPoseidonTelemetry(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -120,6 +131,48 @@ internal static class PoseidonTelemetry
         {
             OutboxRecoveredClaimCounter.Add(count);
         }
+    }
+
+    internal static Activity? StartChiefTurn(
+        string tenantId,
+        string projectId,
+        string conversationId,
+        string turnId,
+        string agentId)
+    {
+        var activity = ActivitySource.StartActivity(
+            "poseidon.chief.turn",
+            ActivityKind.Consumer);
+        activity?.SetTag("tenant_id", tenantId);
+        activity?.SetTag("project_id", projectId);
+        activity?.SetTag("conversation_id", conversationId);
+        activity?.SetTag("chief_turn_id", turnId);
+        activity?.SetTag("agent_id", agentId);
+        return activity;
+    }
+
+    internal static Activity? StartChiefContext()
+        => ActivitySource.StartActivity("poseidon.chief.context", ActivityKind.Internal);
+
+    internal static Activity? StartChiefInvocation(string? provider, string? model)
+    {
+        var activity = ActivitySource.StartActivity(
+            "poseidon.chief.invoke",
+            ActivityKind.Client);
+        activity?.SetTag("gen_ai.operation.name", "chat");
+        activity?.SetTag("gen_ai.provider.name", provider);
+        activity?.SetTag("gen_ai.request.model", model);
+        return activity;
+    }
+
+    internal static void RecordChiefTurn(string result, double durationMilliseconds)
+    {
+        var tags = new TagList
+        {
+            { "result", result },
+        };
+        ChiefTurnCounter.Add(1, tags);
+        ChiefTurnDuration.Record(durationMilliseconds, tags);
     }
 
     internal static bool HasOtlpEndpoint(
