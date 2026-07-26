@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Harness.Host.Observability;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Harness.IntegrationTests.Observability;
 
@@ -78,5 +80,22 @@ public sealed class PoseidonTelemetryTests
             PoseidonTelemetry.HasOtlpEndpoint(
                 configuration,
                 "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"));
+    }
+
+    [Fact]
+    public void HostRegistersStructuredOpenTelemetryLoggingWithoutImplicitExport()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+
+        services.AddPoseidonTelemetry(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var loggerProviders = provider.GetServices<ILoggerProvider>();
+
+        Assert.Contains(
+            loggerProviders,
+            loggerProvider =>
+                loggerProvider.GetType().Name == "OpenTelemetryLoggerProvider");
     }
 }

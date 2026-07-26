@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using OpenTelemetry;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -113,6 +114,21 @@ internal static class PoseidonTelemetry
                     metrics.AddOtlpExporter();
                 }
             });
+
+        services.AddLogging(logging =>
+            logging.AddOpenTelemetry(options =>
+            {
+                options.SetResourceBuilder(
+                    ResourceBuilder.CreateDefault().AddService(ServiceName));
+                options.IncludeScopes = true;
+                options.IncludeFormattedMessage = false;
+                options.ParseStateValues = true;
+
+                if (HasOtlpEndpoint(configuration, "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"))
+                {
+                    options.AddOtlpExporter();
+                }
+            }));
 
         return services;
     }
