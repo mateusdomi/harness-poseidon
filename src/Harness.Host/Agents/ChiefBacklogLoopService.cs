@@ -2,6 +2,7 @@ using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Application;
+using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Providers.Application;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Agents;
@@ -148,6 +149,7 @@ public sealed partial class ChiefBacklogLoopService(
 
         var controlledRoot = System.IO.Path.GetFullPath(settings.ControlledRoot!);
         var personas = await catalog.ListDefinitionsForTenantAsync(profile.TenantId, null, 100, false, token);
+        var plans = scope.ServiceProvider.GetRequiredService<IDemandPlanStore>();
 
         var dispatched = 0;
         var deferred = 0;
@@ -158,6 +160,24 @@ public sealed partial class ChiefBacklogLoopService(
             if (!IsInsideControlledRoot(project, controlledRoot))
             {
                 continue;
+            }
+
+            // ACOMPANHAMENTO do chefe (antes de despachar novos cards): 1) colher runs
+            // concluídos — a tentativa vira `awaiting_review` e o card vai a `review`; 2) o code
+            // review acontece por OUTRO agente (ator≠crítico) e o veredito é aplicado na cadeia;
+            // 3) triagem por ondas — cards de plano com DoR ok e dependências ENTREGUES sobem de
+            // `backlog` para `ready`, de onde o despacho abaixo os assume. É este trio que fecha
+            // o ciclo "um agente termina → o chefe confere → o próximo card entra". Uma falha
+            // aqui é logada e NUNCA impede o despacho do restante do ciclo.
+            try
+            {
+                await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                LogFollowUpFailure(logger, project.Id, exception.GetType().Name);
             }
 
             // Cards prontos para delegar: board_state `ready` (minúsculo — o enum é case-sensitive
@@ -253,6 +273,432 @@ public sealed partial class ChiefBacklogLoopService(
 
         return (dispatched, deferred);
     }
+
+    /// <summary>
+    /// Vereditos de review que representam uma REVISÃO real executada (e portanto podem ser
+    /// aplicados na cadeia). Qualquer outro código é falha de infraestrutura/conta e vira
+    /// retry com backoff — nunca rejeita o trabalho do ator por culpa do crítico.
+    /// </summary>
+    private static readonly HashSet<string> AppliableReviewReasons = new(
+        ["critic.pass", "critic.fail", "critic.pass_contradicted_by_findings"],
+        StringComparer.Ordinal);
+
+    private static readonly TimeSpan ReviewRetryBackoff = TimeSpan.FromMinutes(5);
+
+    /// <summary>Backoff em memória por tentativa para reviews com falha de infraestrutura.</summary>
+    private readonly Dictionary<string, DateTimeOffset> _reviewBackoff = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Elo de COLHEITA: um run externo que terminou não fecha sozinho a cadeia durável. Aqui o
+    /// chefe confere cada card em `development`: run Completed → commit de colheita dos restos da
+    /// worktree (se houver) e <c>CompleteAttemptAsync</c> (tentativa `awaiting_review`, card em
+    /// `review`); run Failed/Cancelled → <c>ExpireAttemptLeaseAsync</c> devolve o card a `ready`
+    /// para re-despacho. Idempotente por tentativa.
+    /// </summary>
+    internal async Task<int> HarvestCompletedRunsAsync(
+        string tenantId,
+        ProjectRecord project,
+        string controlledRoot,
+        IWorkBoardStore board,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        var harvested = 0;
+        var page = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, "development", null, null, "active", null, 0, 50),
+            token);
+        foreach (var task in page.Items)
+        {
+            if (!string.Equals(task.InternalState, "running", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+            var running = attempts.FirstOrDefault(attempt =>
+                string.Equals(attempt.State, "running", StringComparison.Ordinal));
+            if (running is null)
+            {
+                continue;
+            }
+
+            var snapshot = await orchestrator.GetAsync(tenantId, running.Id, token);
+            if (snapshot is null)
+            {
+                continue;
+            }
+
+            var now = clock.UtcNow;
+            if (snapshot.Status == AgentRunStatus.Completed)
+            {
+                var branch = $"task/agent-run-{running.Id.ToLowerInvariant()}";
+                await TryHarvestWorktreeAsync(project, controlledRoot, running.Id, branch, token);
+                var completed = await chain.CompleteAttemptAsync(
+                    new WorkAttemptCompleteCommand(
+                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                        [
+                            new WorkEvidenceInput(
+                                UlidValue.New(now).ToString(), $"agent-run:{running.Id}"),
+                            new WorkEvidenceInput(
+                                UlidValue.New(now.AddTicks(1)).ToString(), $"git-branch:{branch}"),
+                        ],
+                        $"chief-loop-complete:{running.Id}", now),
+                    token);
+                if (completed.Status is WorkChainMutationStatus.Applied
+                    or WorkChainMutationStatus.IdempotentReplay)
+                {
+                    harvested++;
+                    LogRunHarvested(logger, task.Id, running.Id);
+                }
+            }
+            else if (snapshot.Status is AgentRunStatus.Failed or AgentRunStatus.Cancelled)
+            {
+                // Tentativa morta: abandona e devolve o card à fila (`ready`) para re-despacho.
+                _ = await chain.ExpireAttemptLeaseAsync(
+                    new WorkAttemptLeaseExpiredCommand(
+                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                        $"chief-loop-expire:{running.Id}", now),
+                    token);
+                LogRunRequeued(logger, task.Id, running.Id, snapshot.Status.ToString());
+            }
+
+            // Accepted/Running → ainda em voo; nada a fazer neste ciclo.
+        }
+
+        return harvested;
+    }
+
+    /// <summary>
+    /// Elo de CODE REVIEW: para cada card `awaiting_review`, o chefe convoca um crítico de conta
+    /// DIFERENTE da do ator (papel `critic`), entrega o diff REAL da branch da tentativa e aplica
+    /// o veredito na cadeia durável — aprovado segue para o gate humano de merge; reprovado vai a
+    /// `corrections` (e estourando o limite de ciclos, escala). Falha de infraestrutura do review
+    /// NUNCA reprova o trabalho: entra em backoff e o chefe tenta de novo.
+    /// </summary>
+    internal async Task<int> ReviewAwaitingAttemptsAsync(
+        string tenantId,
+        ProjectRecord project,
+        string controlledRoot,
+        IWorkBoardStore board,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        var reviewed = 0;
+        var page = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, "review", null, null, "active", null, 0, 50),
+            token);
+        foreach (var task in page.Items)
+        {
+            if (!string.Equals(task.InternalState, "awaiting_review", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // O estado exposto do attempt é o OPERACIONAL ('completed' cobre submetido-a-review);
+            // o discriminador da fase é o estado interno do card (awaiting_review), já checado.
+            var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+            var awaiting = attempts.LastOrDefault(attempt =>
+                string.Equals(attempt.State, "completed", StringComparison.Ordinal));
+            if (awaiting is null)
+            {
+                continue;
+            }
+
+            var now = clock.UtcNow;
+            if (_reviewBackoff.TryGetValue(awaiting.Id, out var notBefore) && notBefore > now)
+            {
+                continue;
+            }
+
+            var instructions = await board.ListInstructionsAsync(tenantId, task.Id, null, 50, token);
+            if (instructions.Count == 0)
+            {
+                continue;
+            }
+
+            var resolution = ChiefCardResolver.Resolve(task.Title, instructions[^1].Body, [], "medium");
+            var producerAlias = awaiting.AgentId;
+            var criticAlias = SelectCriticAlias(producerAlias, now);
+            if (criticAlias is null)
+            {
+                LogNoCriticAvailable(logger, task.Id, producerAlias);
+                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                continue;
+            }
+
+            var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl!);
+            var branch = $"task/agent-run-{awaiting.Id.ToLowerInvariant()}";
+            string diff;
+            try
+            {
+                using var manager = await GitWorktreeManager.OpenAsync(
+                    repositoryRoot, controlledRoot, token);
+                diff = await manager.DiffBranchAsync("HEAD", branch, token);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                LogReviewInfrastructureFailure(
+                    logger, task.Id, awaiting.Id, $"diff:{exception.GetType().Name}");
+                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(diff))
+            {
+                diff = "(diff vazio: a tentativa não introduziu mudanças sobre a base publicada)";
+            }
+            else if (diff.Length > 160_000)
+            {
+                diff = string.Concat(
+                    diff.AsSpan(0, 160_000), "\n... (diff truncado para o review)");
+            }
+
+            var result = await orchestrator.ReviewAsync(
+                new AgentCriticReviewCommand
+                {
+                    AttemptId = awaiting.Id,
+                    CriticAlias = criticAlias,
+                    ActorAlias = producerAlias,
+                    ReviewDirectory = repositoryRoot,
+                    Diff = diff,
+                    TestEvidence =
+                        "(evidência de teste não coletada automaticamente; avalie pelo diff e pelo repositório)",
+                    AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
+                    ScopeClaims = resolution.ScopeClaims,
+                },
+                token);
+
+            if (await ApplyReviewVerdictAsync(tenantId, task, awaiting.Id, result, chain, token))
+            {
+                reviewed++;
+                _reviewBackoff.Remove(awaiting.Id);
+            }
+            else
+            {
+                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+            }
+        }
+
+        return reviewed;
+    }
+
+    /// <summary>
+    /// Aplica um veredito de review REAL na cadeia durável (aprovado → gate humano de merge;
+    /// reprovado → `corrections`/escalação). Vereditos de infraestrutura (conta indisponível,
+    /// executor falhou, saída inválida) NÃO são aplicados — devolvem <c>false</c> para o chamador
+    /// re-tentar com backoff, sem punir o trabalho do ator pela falha do crítico.
+    /// </summary>
+    internal async Task<bool> ApplyReviewVerdictAsync(
+        string tenantId,
+        BoardTaskRecord task,
+        string attemptId,
+        CriticReviewResult result,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        if (!AppliableReviewReasons.Contains(result.ReasonCode))
+        {
+            LogReviewInfrastructureFailure(logger, task.Id, attemptId, result.ReasonCode);
+            return false;
+        }
+
+        var decision = result.Approved ? "approved" : "rejected";
+        var findingsSummary = result.Findings.Count == 0
+            ? string.Empty
+            : $" Achados: {string.Join("; ", result.Findings.Select(finding => $"[{finding.Severity}] {finding.Summary}"))}";
+        var rationale = $"{result.Summary ?? result.ReasonCode}{findingsSummary}";
+        if (rationale.Length > 4_000)
+        {
+            rationale = rationale[..4_000];
+        }
+
+        var applied = await chain.ReviewAttemptAsync(
+            new WorkAttemptReviewCommand(
+                tenantId, task.BackingSolicitationId, task.Id, attemptId, result.ReviewId,
+                result.CriticAlias, decision, rationale, task.Version,
+                $"chief-loop-review:{result.ReviewId}", clock.UtcNow),
+            token);
+        if (applied.Status is WorkChainMutationStatus.Applied
+            or WorkChainMutationStatus.IdempotentReplay)
+        {
+            LogReviewApplied(logger, task.Id, attemptId, result.CriticAlias, decision);
+            return true;
+        }
+
+        LogReviewInfrastructureFailure(logger, task.Id, attemptId, $"chain:{applied.Status}");
+        return false;
+    }
+
+    /// <summary>
+    /// Elo de TRIAGEM por ondas: cards de um plano materializado sobem de `backlog` para `ready`
+    /// quando a DoR passa (tipo despachável + instrução + não bloqueado) e TODAS as dependências
+    /// declaradas do plano (códigos Tnn) estão entregues (`done`). Onda 1 (sem dependências) sobe
+    /// imediatamente; as demais sobem à medida que o gate humano de merge conclui os provedores.
+    /// Cards que exigem humano (spike/human_gate/decision) nunca sobem sozinhos.
+    /// </summary>
+    internal async Task<int> PromotePlannedCardsAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        IDemandPlanStore plans,
+        CancellationToken token)
+    {
+        var promoted = 0;
+        var backlog = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, "backlog", null, null, "active", null, 0, 100),
+            token);
+        foreach (var group in backlog.Items
+            .Where(task => task.DemandId is not null)
+            .GroupBy(task => task.DemandId!, StringComparer.Ordinal))
+        {
+            var plan = await plans.GetByDemandAsync(tenantId, group.Key, token);
+            if (plan is null || plan.MaterializedAt is null)
+            {
+                // Sem plano materializado, a triagem é humana — o chefe não promove.
+                continue;
+            }
+
+            var dependenciesByCode = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var card in plan.Cards)
+            {
+                dependenciesByCode[DemandDecompositionPlanner.CodeOf(card.ProposedTitle)] = card.Dependencies;
+            }
+
+            // Estado ATUAL de todos os cards da demanda (em qualquer coluna) por código estável.
+            var demandTasks = await board.PageTasksAsync(
+                tenantId,
+                new BoardTaskPageQuery(project.Id, group.Key, null, null, null, null, "active", null, 0, 100),
+                token);
+            var stateByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var sibling in demandTasks.Items)
+            {
+                stateByCode[DemandDecompositionPlanner.CodeOf(sibling.Title)] = sibling.State;
+            }
+
+            foreach (var task in group)
+            {
+                var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
+                    task.CardType,
+                    task.InstructionVersion >= 1,
+                    string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
+                        !string.IsNullOrWhiteSpace(task.BlockedReason)));
+                if (!readiness.IsDispatchable)
+                {
+                    continue;
+                }
+
+                var code = DemandDecompositionPlanner.CodeOf(task.Title);
+                if (!dependenciesByCode.TryGetValue(code, out var dependencies))
+                {
+                    continue;
+                }
+
+                var satisfied = dependencies.All(dependency =>
+                    stateByCode.TryGetValue(dependency, out var state) &&
+                    string.Equals(state, "done", StringComparison.Ordinal));
+                if (!satisfied)
+                {
+                    continue;
+                }
+
+                await board.MoveTaskAsync(
+                    new BoardTaskMoveCommand(
+                        tenantId, task.Id, "ready",
+                        "triagem automática do chefe: DoR ok e dependências do plano entregues",
+                        "agent", clock.UtcNow),
+                    token);
+                promoted++;
+                LogCardPromoted(logger, task.Id, code);
+            }
+        }
+
+        return promoted;
+    }
+
+    /// <summary>
+    /// Escolhe a conta do crítico: papel `critic`, HABILITADA, adapter real, alias DIFERENTE do
+    /// ator, fora de cooldown/circuito — por prioridade e desempate determinístico por alias.
+    /// </summary>
+    private string? SelectCriticAlias(string producerAlias, DateTimeOffset now)
+    {
+        var signals = CapacitySignals(now);
+        return accounts.List()
+            .Where(account =>
+                account.State != AgentAccountState.Disabled &&
+                account.AllowedRoles.Contains("critic", StringComparer.OrdinalIgnoreCase) &&
+                !string.Equals(account.Alias, producerAlias, StringComparison.OrdinalIgnoreCase) &&
+                ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
+            .Where(account =>
+            {
+                var record = availability.Get(account.Alias);
+                var coolingDown = record?.CooldownUntil is { } until && until > now &&
+                    record.State is AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown;
+                return !coolingDown && !signals.ContainsKey(account.Alias);
+            })
+            .OrderByDescending(account => account.Priority)
+            .ThenBy(account => account.Alias, StringComparer.Ordinal)
+            .Select(account => account.Alias)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Colheita git da tentativa: se a worktree sobreviveu (worker terminou sem commitar), commita
+    /// os restos na branch da tentativa e remove a worktree. Nunca destrói trabalho; falha aqui é
+    /// logada e não impede a colheita da cadeia (o diff apenas refletirá o que está na branch).
+    /// </summary>
+    private async Task TryHarvestWorktreeAsync(
+        ProjectRecord project,
+        string controlledRoot,
+        string attemptId,
+        string branchName,
+        CancellationToken token)
+    {
+        var worktreePath = System.IO.Path.Combine(controlledRoot, "worktrees", attemptId);
+        if (!System.IO.Directory.Exists(worktreePath))
+        {
+            return;
+        }
+
+        try
+        {
+            var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl!);
+            using var manager = await GitWorktreeManager.OpenAsync(repositoryRoot, controlledRoot, token);
+            _ = await manager.CommitWorktreeLeftoversAsync(
+                worktreePath, $"chore(harness): colheita da tentativa {attemptId}", token);
+            _ = await manager.RemoveTaskWorktreeAsync(branchName, worktreePath, deleteBranch: false, token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogWorktreeHarvestFailure(logger, attemptId, exception.GetType().Name);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: run da tentativa {AttemptId} colhido — card {TaskId} aguarda review.")]
+    private static partial void LogRunHarvested(ILogger logger, string taskId, string attemptId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: run {Status} da tentativa {AttemptId} — card {TaskId} devolvido a `ready`.")]
+    private static partial void LogRunRequeued(ILogger logger, string taskId, string attemptId, string status);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: review da tentativa {AttemptId} (card {TaskId}) por {CriticAlias}: {Decision}.")]
+    private static partial void LogReviewApplied(ILogger logger, string taskId, string attemptId, string criticAlias, string decision);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: review da tentativa {AttemptId} (card {TaskId}) adiado por falha de infraestrutura: {ReasonCode}.")]
+    private static partial void LogReviewInfrastructureFailure(ILogger logger, string taskId, string attemptId, string reasonCode);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: nenhum crítico disponível ≠ ator {ProducerAlias} para o card {TaskId}; review adiado.")]
+    private static partial void LogNoCriticAvailable(ILogger logger, string taskId, string producerAlias);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: card {TaskId} ({Code}) promovido a `ready` pela triagem por ondas.")]
+    private static partial void LogCardPromoted(ILogger logger, string taskId, string code);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: colheita da worktree da tentativa {AttemptId} falhou: {ErrorType}.")]
+    private static partial void LogWorktreeHarvestFailure(ILogger logger, string attemptId, string errorType);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: acompanhamento do projeto {ProjectId} falhou neste ciclo: {ErrorType}.")]
+    private static partial void LogFollowUpFailure(ILogger logger, string projectId, string errorType);
 
     private async Task<bool> LaunchAsync(
         string tenantId,

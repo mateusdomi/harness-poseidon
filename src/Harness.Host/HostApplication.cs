@@ -573,6 +573,8 @@ public static class HostApplication
                 TimeSpan.FromMinutes(2),
                 250));
         builder.Services.AddHostedService<WorkBoard.BoardStateReconciliationBackgroundService>();
+        // Núcleo compartilhado demanda→plano→cards: usado pelo endpoint HTTP e pelo turno do Chefe.
+        builder.Services.AddSingleton<WorkBoard.DemandPlanMaterializer>();
         var governanceFeatures = builder.Configuration
             .GetSection("Harness:Governance:Features")
             .Get<GovernanceFeatureSettings>() ?? new GovernanceFeatureSettings();
@@ -776,6 +778,7 @@ public static class HostApplication
         app.MapWorkBoard();
         app.MapBacklogHealth();
         app.MapDemandPlans();
+        app.MapTaskMerge();
         app.MapDeliveries();
         app.MapArchitecture();
         app.MapArchitectureHub();

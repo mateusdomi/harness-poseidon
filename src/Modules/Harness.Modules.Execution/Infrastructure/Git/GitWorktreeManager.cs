@@ -259,6 +259,111 @@ public sealed class GitWorktreeManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Colheita governada: commita na branch da tentativa QUALQUER resto não commitado da
+    /// worktree (o worker pode terminar sem commitar). Devolve <c>true</c> se um commit de
+    /// colheita foi criado; <c>false</c> se a worktree já estava limpa. Nunca destrói trabalho.
+    /// </summary>
+    public async Task<bool> CommitWorktreeLeftoversAsync(
+        string worktreePath, string message, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        var destination = EnsureContained(_controlledRoot, worktreePath, nameof(worktreePath));
+
+        var status = await RunGitAsync(destination, ["status", "--porcelain"], cancellationToken);
+        if (status.ExitCode != 0)
+        {
+            throw CreateGitException("inspect the worktree status", status);
+        }
+
+        if (status.StandardOutput.Trim().Length == 0)
+        {
+            return false;
+        }
+
+        var add = await RunGitAsync(destination, ["add", "-A"], cancellationToken);
+        if (add.ExitCode != 0)
+        {
+            throw CreateGitException("stage the worktree leftovers", add);
+        }
+
+        var commit = await RunGitAsync(
+            destination,
+            [
+                "-c", "user.name=Poseidon Harness", "-c", "user.email=harness@poseidon.local",
+                "commit", "--no-verify", "-m", message,
+            ],
+            cancellationToken);
+        if (commit.ExitCode != 0)
+        {
+            throw CreateGitException("commit the worktree leftovers", commit);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Diff REAL da branch de tentativa contra a base (três pontos: só o que a branch introduziu
+    /// desde o merge-base). É o insumo do code review do critic — dado, nunca autoridade.
+    /// </summary>
+    public async Task<string> DiffBranchAsync(
+        string baseReference, string branchName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseReference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        if (!branchName.StartsWith("task/", StringComparison.Ordinal) || baseReference[0] == '-')
+        {
+            throw new ArgumentException("Task branches must use the task/ prefix and safe Git references.", nameof(branchName));
+        }
+
+        var diff = await RunGitAsync(
+            _repositoryRoot, ["diff", $"{baseReference}...{branchName}"], cancellationToken);
+        if (diff.ExitCode != 0)
+        {
+            throw CreateGitException("diff the task branch", diff);
+        }
+
+        return diff.StandardOutput;
+    }
+
+    /// <summary>
+    /// Integração do gate humano: merge REAL (sempre com commit de merge, --no-ff) da branch de
+    /// tentativa aprovada na referência atualmente publicada do repositório. Em conflito, o merge
+    /// é abortado e a exceção sobe — nunca deixa o repositório no meio de um merge.
+    /// </summary>
+    public async Task MergeTaskBranchAsync(
+        string branchName, string message, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (!branchName.StartsWith("task/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Task branches must use the task/ prefix.", nameof(branchName));
+        }
+
+        await _metadataGate.WaitAsync(cancellationToken);
+        try
+        {
+            var merge = await RunGitAsync(
+                _repositoryRoot,
+                [
+                    "-c", "user.name=Poseidon Harness", "-c", "user.email=harness@poseidon.local",
+                    "merge", "--no-ff", "-m", message, branchName,
+                ],
+                cancellationToken);
+            if (merge.ExitCode != 0)
+            {
+                _ = await RunGitAsync(_repositoryRoot, ["merge", "--abort"], CancellationToken.None);
+                throw CreateGitException("merge the approved task branch", merge);
+            }
+        }
+        finally
+        {
+            _metadataGate.Release();
+        }
+    }
+
     public void Dispose() => _metadataGate.Dispose();
 
     private async Task<IReadOnlyList<GitWorktreeDescriptor>> ListWorktreesCoreAsync(

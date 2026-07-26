@@ -6,12 +6,15 @@ using Harness.Host.Observability;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Domain;
+using Harness.Host.WorkBoard;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Governance;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -29,6 +32,9 @@ public sealed partial class ChiefTurnBackgroundService(
     ChiefContextComposer contextComposer,
     ChiefContextStrategyOptions contextStrategyOptions,
     LeadershipProfileStore leadershipProfile,
+    ILocalProfileStore localProfiles,
+    IWorkBoardStore board,
+    DemandPlanMaterializer demandPlans,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -288,6 +294,16 @@ public sealed partial class ChiefTurnBackgroundService(
             await governance.AppendMetricAsync(
                 Metric(lease, GovernanceMetricKind.GateResult, null, null, "pass", clock.UtcNow),
                 cancellationToken);
+
+            // A promessa de delegação da Bruna vira TRABALHO REAL: cada demanda materializada no
+            // turno é decomposta em plano e materializada em cards do board (backlog), de onde a
+            // triagem por ondas + o loop autônomo assumem. Falha aqui NUNCA falha o turno (a
+            // resposta já foi entregue de forma durável); cada demanda é isolada e logada.
+            if (demandSeeds.Length > 0)
+            {
+                await MaterializeDemandPlansAsync(lease, demandSeeds, cancellationToken);
+            }
+
             turnActivity?.SetTag("chief.result", "completed");
             PoseidonTelemetry.RecordChiefTurn(
                 "completed",
@@ -339,6 +355,64 @@ public sealed partial class ChiefTurnBackgroundService(
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Elo demanda→cards do turno: para cada demanda semeada pelo turno da Bruna, gera o plano
+    /// determinístico e o materializa em cards reais (idempotente por demanda/plano). O autor dos
+    /// cards é o perfil local do tenant — a mesma autoria usada pelo loop autônomo. Uma demanda
+    /// que falhar não impede as demais nem o turno (já completado); o erro fica no log.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "One failed demand must not poison the other demands nor the completed turn.")]
+    private async Task MaterializeDemandPlansAsync(
+        ChiefTurnLease lease,
+        IReadOnlyList<ChiefDemandSeed> seeds,
+        CancellationToken cancellationToken)
+    {
+        var profile = (await localProfiles.ListAsync(cancellationToken))
+            .FirstOrDefault(candidate => string.Equals(
+                candidate.TenantId, lease.Turn.TenantId, StringComparison.Ordinal));
+        if (profile is null)
+        {
+            return;
+        }
+
+        foreach (var seed in seeds)
+        {
+            try
+            {
+                var demand = await board.GetDemandAsync(
+                    lease.Turn.TenantId, seed.DemandId, cancellationToken);
+                if (demand is null)
+                {
+                    continue;
+                }
+
+                var saved = await demandPlans.EnsurePlanAsync(
+                    lease.Turn.TenantId, demand, seed.AcceptanceCriteria, null,
+                    clock.UtcNow, cancellationToken);
+                var outcome = await demandPlans.MaterializeAsync(
+                    lease.Turn.TenantId, profile.Id, saved.Plan, demand,
+                    clock.UtcNow, cancellationToken);
+                if (!outcome.AlreadyMaterialized)
+                {
+                    LogDemandMaterialized(
+                        logger, seed.DemandId, lease.Turn.TurnId, outcome.Cards.Count);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                LogDemandMaterializationFailure(
+                    logger, seed.DemandId, lease.Turn.TurnId, exception.GetType().Name);
+            }
+        }
     }
 
     private static async Task AppendBundleMetricsAsync(
@@ -407,4 +481,24 @@ public sealed partial class ChiefTurnBackgroundService(
         string turnId,
         string errorType,
         bool retryable);
+
+    [LoggerMessage(
+        EventId = 2102,
+        Level = LogLevel.Information,
+        Message = "Chief: demanda {DemandId} do turno {TurnId} materializada em {CardCount} card(s).")]
+    private static partial void LogDemandMaterialized(
+        ILogger logger,
+        string demandId,
+        string turnId,
+        int cardCount);
+
+    [LoggerMessage(
+        EventId = 2103,
+        Level = LogLevel.Warning,
+        Message = "Chief: materialização da demanda {DemandId} do turno {TurnId} falhou: {ErrorType}.")]
+    private static partial void LogDemandMaterializationFailure(
+        ILogger logger,
+        string demandId,
+        string turnId,
+        string errorType);
 }

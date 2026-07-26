@@ -507,6 +507,75 @@
                 }
             }
         },
+        "/api/v1/tasks/{id}/merge": {
+            "post": {
+                "tags": [
+                    "tasks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TaskMergeResult"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{id}/workflow": {
             "post": {
                 "tags": [
@@ -33944,6 +34013,33 @@
                     }
                 }
             },
+            "TaskMergeResult": {
+                "required": [
+                    "taskId",
+                    "attemptId",
+                    "branch",
+                    "boardState",
+                    "internalState"
+                ],
+                "type": "object",
+                "properties": {
+                    "taskId": {
+                        "type": "string"
+                    },
+                    "attemptId": {
+                        "type": "string"
+                    },
+                    "branch": {
+                        "type": "string"
+                    },
+                    "boardState": {
+                        "type": "string"
+                    },
+                    "internalState": {
+                        "type": "string"
+                    }
+                }
+            },
             "TaskPage": {
                 "required": [
                     "items",
@@ -35501,6 +35597,9 @@
             "name": "channels"
         },
         {
+            "name": "tasks"
+        },
+        {
             "name": "workflow-runs"
         },
         {
@@ -35574,9 +35673,6 @@
         },
         {
             "name": "demands"
-        },
-        {
-            "name": "tasks"
         },
         {
             "name": "task-instructions"
