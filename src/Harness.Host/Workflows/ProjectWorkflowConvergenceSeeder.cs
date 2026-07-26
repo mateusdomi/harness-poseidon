@@ -58,15 +58,20 @@ public sealed class ProjectWorkflowConvergenceSeeder(
         ArgumentException.ThrowIfNullOrWhiteSpace(actorProfileId);
         ArgumentNullException.ThrowIfNull(projectPage);
 
+        // Nomes dos templates canônicos LEGADOS (todo canônico que não é a esteira do
+        // playbook). Um binding para um deles é pré-playbook e converge para o recomendado;
+        // um template CUSTOMIZADO pelo usuário nunca é tocado.
+        var legacyNames = new HashSet<string>(
+            CanonicalWorkflowTemplates.All
+                .Where(template => template.Key != CanonicalWorkflowTemplates.RecommendedKey)
+                .Select(template => template.Name),
+            StringComparer.Ordinal);
+
         var bound = 0;
         foreach (var project in projectPage)
         {
             var existing = await _workflows.ListBindingsAsync(
                 tenantId, project.Id, null, 1, cancellationToken);
-            if (existing.Count > 0)
-            {
-                continue;
-            }
 
             var template = await ProjectWorkflowLinker.ResolveRecommendedAsync(
                 _workflows, _workflowSeeder, tenantId, cancellationToken);
@@ -75,6 +80,34 @@ public sealed class ProjectWorkflowConvergenceSeeder(
                 // Sem template publicável (nem após semear os canônicos): não quebra — o projeto
                 // converge quando um template existir. RN-02 permanece a intenção; a exceção honesta
                 // é a ausência de qualquer workflow para vincular.
+                continue;
+            }
+
+            if (existing.Count > 0)
+            {
+                // O playbook é a 2ª fonte da verdade: um binding preso a um template canônico
+                // LEGADO converge para a esteira de 9 fases, preservando modo de operação e
+                // aceitações de risco, com o rebind auditado no ledger. Idempotente: quem já
+                // aponta para o recomendado (ou para template customizado) é ignorado.
+                var binding = existing[0];
+                if (binding.TemplateId == template.Id || template.CurrentVersionId is null)
+                {
+                    continue;
+                }
+
+                var current = await _workflows.GetTemplateAsync(
+                    tenantId, binding.TemplateId, cancellationToken);
+                if (current is null || !legacyNames.Contains(current.Name))
+                {
+                    continue;
+                }
+
+                _ = await _workflows.RebindTemplateAsync(
+                    new WorkflowTemplateRebindCommand(
+                        tenantId, binding.Id, project.Id, template.Id,
+                        template.CurrentVersionId, actorProfileId, _clock.UtcNow),
+                    cancellationToken);
+                bound++;
                 continue;
             }
 

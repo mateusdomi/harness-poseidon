@@ -415,14 +415,15 @@ public static class HostApplication
             .Get<AgentRunSettings>() ?? new AgentRunSettings();
         builder.Services.AddSingleton(agentRunSettings);
 
-        // RN-02: com a execução de agentes ligada, garante a invariante "todo projeto tem workflow"
-        // — vinculando o recomendado a projetos sem workflow no startup. Gate PURO em AgentRuns.Enabled
-        // (não exige conta do Chefe nem raiz controlada), para que projetos antigos (ex.: "Poseidon")
-        // ganhem fase/workflow e o chat do Chefe nunca fique em "Nenhum workflow ativo".
+        // RN-02: garante a invariante "todo projeto na esteira canônica" — vincula o recomendado
+        // a projetos sem workflow e religa bindings de templates canônicos LEGADOS para a
+        // esteira do playbook. SEM gate de AgentRuns: o launcher desktop não o habilita e o chat
+        // precisa da fase certa mesmo sem execução de agentes.
+        builder.Services.AddSingleton<Workflows.ProjectWorkflowConvergenceSeeder>();
+        builder.Services.AddHostedService<Workflows.ProjectWorkflowConvergenceHostedService>();
+
         if (agentRunSettings.Enabled)
         {
-            builder.Services.AddSingleton<Workflows.ProjectWorkflowConvergenceSeeder>();
-            builder.Services.AddHostedService<Workflows.ProjectWorkflowConvergenceHostedService>();
 
             // RN-03: logo após garantir o workflow, converge o ESTADO REAL do projeto Poseidon —
             // inicia a run do binding (fase/em andamento), registra o front como protótipo e preenche

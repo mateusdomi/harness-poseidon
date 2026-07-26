@@ -33,6 +33,16 @@ public interface IWorkflowCatalogStore
         WorkflowVersionPublishCommand command, CancellationToken cancellationToken = default);
     Task<WorkflowBindingCatalogRecord> CreateBindingAsync(
         WorkflowBindingCreateCommand command, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Reaponta um binding EXISTENTE para outro template/versão publicados, preservando o modo
+    /// de operação e as aceitações de risco. Existe para a convergência canônica (projetos
+    /// vinculados a um template legado migram para a esteira do playbook) — auditado no ledger
+    /// como `workflow.templateRebound`. Nunca cria binding: sem binding, use o Link.
+    /// </summary>
+    Task<WorkflowBindingCatalogRecord> RebindTemplateAsync(
+        WorkflowTemplateRebindCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkflowBindingCatalogRecord> LinkTemplateAsync(
         WorkflowTemplateLinkCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WorkflowBindingCatalogRecord>> ListBindingsAsync(
@@ -113,6 +123,10 @@ public sealed record WorkflowBindingCreateCommand(
 public sealed record WorkflowTemplateLinkCommand(
     string TenantId, string Id, string ProjectId, string TemplateId, string ActiveVersionId,
     string OperationMode, string ActorProfileId, DateTimeOffset OccurredAt);
+
+public sealed record WorkflowTemplateRebindCommand(
+    string TenantId, string BindingId, string ProjectId, string TemplateId,
+    string ActiveVersionId, string ActorProfileId, DateTimeOffset OccurredAt);
 
 public sealed record WorkflowVersionPublishCommand(
     string TenantId, string TemplateId, string VersionId,

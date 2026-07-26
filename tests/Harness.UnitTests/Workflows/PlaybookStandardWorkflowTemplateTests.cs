@@ -77,14 +77,17 @@ public sealed class PlaybookStandardWorkflowTemplateTests
     }
 
     [Fact]
-    public void TemplateIsSeededAlongsideTheOtherCanonicalTemplatesWithoutDisplacingTheRecommended()
+    public void ThePlaybookLaneIsTheRecommendedTemplate()
     {
         Assert.Contains(
             CanonicalWorkflowTemplates.PlaybookStandardTemplate,
             CanonicalWorkflowTemplates.All);
-        // A pré-seleção de projeto novo continua no template recomendado: acrescentar a esteira
-        // do playbook ao catálogo não muda o caminho dourado existente.
-        Assert.Equal("delivery-standard", CanonicalWorkflowTemplates.Recommended.Key);
+        // O playbook é a 2ª fonte da verdade: a esteira de 9 fases É o workflow padrão da
+        // fábrica (playbook §1) — projetos novos nascem nela e o golden path a pré-seleciona.
+        // Os templates legados permanecem publicados como variantes.
+        Assert.Equal(
+            CanonicalWorkflowTemplates.PlaybookStandardKey,
+            CanonicalWorkflowTemplates.Recommended.Key);
         Assert.Single(
             CanonicalWorkflowTemplates.All,
             template => template.Key == CanonicalWorkflowTemplates.PlaybookStandardKey);

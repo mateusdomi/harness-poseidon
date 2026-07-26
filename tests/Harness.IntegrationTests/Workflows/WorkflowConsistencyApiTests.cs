@@ -51,7 +51,14 @@ public sealed class WorkflowConsistencyApiTests
                     template.Name.StartsWith("Entrega padrão", StringComparison.Ordinal));
                 var defaultBinding = Assert.Single((await client.GetFromJsonAsync<WorkflowPage>(
                     $"/api/v1/workflows?projectId={project.Id}", timeout.Token))!.Items);
-                Assert.Equal(standard.Id, defaultBinding.TemplateId);
+                // O binding default é a esteira do playbook (o recomendado canônico); este
+                // cenário exercita o template LEGADO, então religa o binding explicitamente.
+                var playbookDefault = templates.Items.Single(template => template.Name.StartsWith(
+                    "Esteira padrão do playbook", StringComparison.Ordinal));
+                Assert.Equal(playbookDefault.Id, defaultBinding.TemplateId);
+                await RebindBindingAsync(
+                    app, project.Id, defaultBinding.Id, standard.Id, standard.CurrentVersionId!,
+                    timeout.Token);
                 using var bindingResponse = await client.PostAsJsonAsync(
                     $"/api/v1/workflows/{defaultBinding.Id}/operation-mode",
                     new SetWorkflowOperationModeRequest(
@@ -184,4 +191,26 @@ public sealed class WorkflowConsistencyApiTests
         return new Uri(addresses.Single(value =>
             value.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)));
     }
+    /// <summary>
+    /// Religa o binding default (a esteira do playbook, o recomendado canônico) para o template
+    /// exercitado por este teste — o cenário continua cobrindo o template legado como variante.
+    /// </summary>
+    private static async Task RebindBindingAsync(
+        Microsoft.AspNetCore.Builder.WebApplication app,
+        string projectId,
+        string bindingId,
+        string templateId,
+        string versionId,
+        CancellationToken token)
+    {
+        var profiles = app.Services.GetRequiredService<Harness.Persistence.Abstractions.Identity.ILocalProfileStore>();
+        var profile = (await profiles.ListAsync(token))[0];
+        var store = app.Services.GetRequiredService<Harness.Persistence.Abstractions.Workflows.IWorkflowCatalogStore>();
+        _ = await store.RebindTemplateAsync(
+            new Harness.Persistence.Abstractions.Workflows.WorkflowTemplateRebindCommand(
+                profile.TenantId, bindingId, projectId, templateId, versionId,
+                profile.Id, DateTimeOffset.UtcNow),
+            token);
+    }
+
 }

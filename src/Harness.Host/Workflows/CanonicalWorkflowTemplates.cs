@@ -40,11 +40,12 @@ public static class CanonicalWorkflowTemplates
         NoDocuments);
 
     /// <summary>
-    /// A chave canônica do template recomendado (o "Software Delivery Standard"): o fluxo de
-    /// entrega padrão completo, pré-selecionado na criação de um projeto para não bloquear o
-    /// caminho dourado do Chief em um workflow ausente.
+    /// A chave canônica do template RECOMENDADO, pré-selecionado na criação de um projeto para
+    /// não bloquear o caminho dourado do Chief em um workflow ausente. O playbook é a 2ª fonte
+    /// da verdade: a esteira de 9 fases é O workflow padrão da fábrica (playbook §1). Os
+    /// templates legados permanecem publicados como variantes de consulta.
     /// </summary>
-    public const string RecommendedKey = "delivery-standard";
+    public const string RecommendedKey = PlaybookStandardKey;
 
     /// <summary>
     /// DEL-07 — a chave canônica do workflow de ENTREGA TÉCNICA (Ideação → Revisão de

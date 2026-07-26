@@ -470,6 +470,66 @@ public sealed partial class PostgresWorkflowCatalogStore
             cancellationToken))!;
     }
 
+    public Task<WorkflowBindingCatalogRecord> RebindTemplateAsync(
+        WorkflowTemplateRebindCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return RebindTemplateCoreAsync(command, cancellationToken);
+    }
+
+    private async Task<WorkflowBindingCatalogRecord> RebindTemplateCoreAsync(
+        WorkflowTemplateRebindCommand value, CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using (var check = connection.CreateCommand())
+        {
+            check.Transaction = transaction;
+            check.CommandText =
+                "SELECT EXISTS(SELECT 1 FROM harness.workflow_bindings WHERE tenant_id=$1 AND id=$2 AND project_id=$3)," +
+                "EXISTS(SELECT 1 FROM harness.workflow_definition_versions v JOIN harness.workflow_definitions d ON d.tenant_id=v.tenant_id AND d.id=v.definition_id WHERE v.tenant_id=$1 AND v.id=$4 AND v.definition_id=$5 AND v.status='published' AND v.archived_at IS NULL AND d.archived_at IS NULL)," +
+                "EXISTS(SELECT 1 FROM harness.local_users WHERE tenant_id=$1 AND id=$6);";
+            check.Parameters.Add(Text(value.TenantId)); check.Parameters.Add(Text(value.BindingId));
+            check.Parameters.Add(Text(value.ProjectId)); check.Parameters.Add(Text(value.ActiveVersionId));
+            check.Parameters.Add(Text(value.TemplateId)); check.Parameters.Add(Text(value.ActorProfileId));
+            await using var reader = await check.ExecuteReaderAsync(cancellationToken);
+            await reader.ReadAsync(cancellationToken);
+            if (!reader.GetBoolean(0)) throw new WorkflowCatalogReferenceNotFoundException("binding");
+            if (!reader.GetBoolean(1))
+                throw new WorkflowCatalogLifecycleException("The workflow version must be active, published, and belong to the template.");
+            if (!reader.GetBoolean(2)) throw new WorkflowCatalogReferenceNotFoundException("profile");
+        }
+
+        await ExecuteAsync(connection, transaction,
+            "UPDATE harness.workflow_bindings SET definition_id=$1, active_version_id=$2 WHERE tenant_id=$3 AND id=$4 AND project_id=$5;",
+            cancellationToken, Text(value.TemplateId), Text(value.ActiveVersionId),
+            Text(value.TenantId), Text(value.BindingId), Text(value.ProjectId));
+
+        var auditId = UlidValue.New(value.OccurredAt).ToString();
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = value.ProjectId,
+            auditEvent = new
+            {
+                id = auditId,
+                actorKind = "user",
+                actorId = value.ActorProfileId,
+                action = "workflow.templateRebound",
+                targetType = "project",
+                targetId = value.ProjectId,
+                detail = $"Workflow binding {value.BindingId} rebound to template {value.TemplateId} at version {value.ActiveVersionId}.",
+                occurredAt = value.OccurredAt,
+            },
+        }, JsonOptions);
+        await AppendAuditAsync(connection, transaction, value.TenantId, "audit.eventAppended",
+            payload, value.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(connection, transaction, value.TenantId, "audit.eventAppended",
+            payload, value.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (await ReadBindingAsync(connection, value.TenantId, value.BindingId,
+            cancellationToken))!;
+    }
+
     public Task<WorkflowBindingCatalogRecord> SetOperationModeAsync(
         WorkflowOperationModeCommand command, CancellationToken cancellationToken = default)
     {

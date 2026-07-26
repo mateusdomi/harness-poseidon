@@ -415,6 +415,73 @@ public sealed partial class SqliteWorkflowCatalogStore
         return (await ReadBindingAsync(c, value.TenantId, value.Id, token))!;
     }
 
+    public Task<WorkflowBindingCatalogRecord> RebindTemplateAsync(
+        WorkflowTemplateRebindCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync((c, token) => RebindTemplateCoreAsync(c, command, token), cancellationToken);
+
+    private static async Task<WorkflowBindingCatalogRecord> RebindTemplateCoreAsync(
+        SqliteConnection c, WorkflowTemplateRebindCommand value, CancellationToken token)
+    {
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        await using (var check = c.CreateCommand())
+        {
+            check.Transaction = tx;
+            check.CommandText =
+                "SELECT EXISTS(SELECT 1 FROM workflow_bindings WHERE tenant_id=$tenant AND id=$binding AND project_id=$project)," +
+                "EXISTS(SELECT 1 FROM workflow_definition_versions v JOIN workflow_definitions d ON d.tenant_id=v.tenant_id AND d.id=v.definition_id WHERE v.tenant_id=$tenant AND v.id=$version AND v.definition_id=$template AND v.status='published' AND v.archived_at IS NULL AND d.archived_at IS NULL)," +
+                "EXISTS(SELECT 1 FROM local_users WHERE tenant_id=$tenant AND id=$profile);";
+            Add(check, "$tenant", value.TenantId); Add(check, "$binding", value.BindingId);
+            Add(check, "$project", value.ProjectId); Add(check, "$version", value.ActiveVersionId);
+            Add(check, "$template", value.TemplateId); Add(check, "$profile", value.ActorProfileId);
+            await using var reader = await check.ExecuteReaderAsync(token); await reader.ReadAsync(token);
+            if (reader.GetInt64(0) == 0) throw new WorkflowCatalogReferenceNotFoundException("binding");
+            if (reader.GetInt64(1) == 0) throw new WorkflowCatalogLifecycleException("The workflow version must be active, published, and belong to the template.");
+            if (reader.GetInt64(2) == 0) throw new WorkflowCatalogReferenceNotFoundException("profile");
+        }
+
+        await using (var update = c.CreateCommand())
+        {
+            update.Transaction = tx;
+            update.CommandText =
+                "UPDATE workflow_bindings SET definition_id=$template, active_version_id=$version " +
+                "WHERE tenant_id=$tenant AND id=$binding AND project_id=$project;";
+            Add(update, "$template", value.TemplateId); Add(update, "$version", value.ActiveVersionId);
+            Add(update, "$tenant", value.TenantId); Add(update, "$binding", value.BindingId);
+            Add(update, "$project", value.ProjectId);
+            await update.ExecuteNonQueryAsync(token);
+        }
+
+        var auditId = UlidValue.New(value.OccurredAt).ToString();
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = value.ProjectId,
+            auditEvent = new
+            {
+                id = auditId,
+                actorKind = "user",
+                actorId = value.ActorProfileId,
+                action = "workflow.templateRebound",
+                targetType = "project",
+                targetId = value.ProjectId,
+                detail = $"Workflow binding {value.BindingId} rebound to template {value.TemplateId} at version {value.ActiveVersionId}.",
+                occurredAt = value.OccurredAt,
+            },
+        }, JsonOptions);
+        await AppendAuditAsync(c, tx, value.TenantId, "audit.eventAppended", payload,
+            value.OccurredAt, token);
+        await using (var outbox = c.CreateCommand())
+        {
+            outbox.Transaction = tx;
+            outbox.CommandText = "INSERT INTO outbox_messages (id,tenant_id,event_type,payload_json,occurred_at) VALUES ($id,$tenant,'audit.eventAppended',$payload,$at);";
+            Add(outbox, "$id", UlidValue.New(value.OccurredAt).ToString());
+            Add(outbox, "$tenant", value.TenantId); Add(outbox, "$payload", payload);
+            Add(outbox, "$at", Store(value.OccurredAt)); await outbox.ExecuteNonQueryAsync(token);
+        }
+
+        await tx.CommitAsync(token);
+        return (await ReadBindingAsync(c, value.TenantId, value.BindingId, token))!;
+    }
+
     public Task<WorkflowBindingCatalogRecord> SetOperationModeAsync(
         WorkflowOperationModeCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, token) => SetOperationModeCoreAsync(c, command, token), cancellationToken);
