@@ -261,6 +261,25 @@ public sealed class WorkChainAggregate
         return Result.Success();
     }
 
+    public Result ExpireAttemptLease(EntityId<WorkAttemptTag> attemptId)
+    {
+        var attempt = _attempts.SingleOrDefault(candidate => candidate.Id == attemptId);
+        if (attempt is null)
+        {
+            return Result.Failure(WorkChainErrors.AttemptNotFound);
+        }
+
+        if (attempt.State != WorkAttemptState.Running)
+        {
+            return Result.Failure(WorkChainErrors.InvalidAttemptState);
+        }
+
+        attempt.State = WorkAttemptState.Abandoned;
+        attempt.CompletedAt = _clock.UtcNow;
+        _tasks.Single(task => task.Id == attempt.TaskId).State = WorkTaskState.Ready;
+        return Result.Success();
+    }
+
     public Result<WorkReview> ReviewAttempt(
         EntityId<WorkAttemptTag> attemptId,
         string reviewerAgentId,

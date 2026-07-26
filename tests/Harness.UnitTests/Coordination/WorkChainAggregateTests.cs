@@ -61,6 +61,46 @@ public sealed class WorkChainAggregateTests
         Assert.Equal(WorkTaskState.AwaitingReview, task.State);
     }
 
+    [Fact]
+    public void ExpiredLeaseAbandonsAttemptAndRequeuesSameInstruction()
+    {
+        var chain = CreateChain();
+        var task = CreateTask(chain, WorkRiskTier.Low);
+        var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
+        var expiredAttempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+
+        var expired = chain.ExpireAttemptLease(expiredAttempt.Id);
+        var lateCompletion = chain.CompleteAttempt(expiredAttempt.Id, ["late:evidence"]);
+        var retried = chain.StartAttempt(task.Id, instruction.Id, "replacement-engineer");
+
+        Assert.True(expired.IsSuccess);
+        Assert.Equal(WorkAttemptState.Abandoned, expiredAttempt.State);
+        Assert.NotNull(expiredAttempt.CompletedAt);
+        Assert.Equal(WorkTaskState.Running, task.State);
+        Assert.Equal(WorkChainErrors.InvalidAttemptState, lateCompletion.Error);
+        Assert.True(retried.IsSuccess);
+        Assert.Equal(2, retried.Value.Number);
+        Assert.Equal(instruction.Id, retried.Value.InstructionVersionId);
+    }
+
+    [Fact]
+    public void LeaseExpiryRejectsUnknownOrNonRunningAttempt()
+    {
+        var chain = CreateChain();
+        var task = CreateTask(chain, WorkRiskTier.Low);
+        var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
+        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        chain.CompleteAttempt(attempt.Id, ["test:green"]);
+
+        var nonRunning = chain.ExpireAttemptLease(attempt.Id);
+        var unknown = chain.ExpireAttemptLease(
+            Harness.SharedKernel.Identifiers.EntityId<WorkAttemptTag>.Parse(
+                "01ARZ3NDEKTSV4RRFFQ69G5FD3"));
+
+        Assert.Equal(WorkChainErrors.InvalidAttemptState, nonRunning.Error);
+        Assert.Equal(WorkChainErrors.AttemptNotFound, unknown.Error);
+    }
+
     [Theory]
     [InlineData(WorkRiskTier.Medium)]
     [InlineData(WorkRiskTier.High)]

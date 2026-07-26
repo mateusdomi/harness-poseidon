@@ -51,6 +51,7 @@ public enum WorkAttemptState
     AwaitingReview,
     Approved,
     Rejected,
+    Abandoned,
 }
 
 public enum ReviewDecision
