@@ -286,7 +286,7 @@ public sealed partial class PostgresWorkBoardStore
             attemptState = await latestAttempt.ExecuteScalarAsync(cancellationToken) as string;
         }
 
-        if (task.InternalState != "ready" || attemptState != "rejected")
+        if (task.InternalState != "running" || attemptState != "rejected")
         {
             throw new WorkBoardInvalidStateException(
                 "A new instruction version requires a rejected attempt awaiting correction.");
@@ -323,7 +323,8 @@ public sealed partial class PostgresWorkBoardStore
             NullableText(command.AuthorId));
         await ExecuteAsync(
             connection, transaction,
-            "UPDATE harness.work_tasks SET board_state='ready',blocked_reason=NULL,version=version+1,updated_at=$1 WHERE tenant_id=$2 AND id=$3;",
+            "UPDATE harness.work_tasks SET state='ready',board_state='ready',blocked_reason=NULL," +
+            "version=version+1,updated_at=$1 WHERE tenant_id=$2 AND id=$3;",
             cancellationToken,
             Timestamp(command.OccurredAt), Text(command.TenantId), Text(command.TaskId));
         var payload = JsonSerializer.Serialize(new

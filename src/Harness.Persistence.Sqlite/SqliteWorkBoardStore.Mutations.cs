@@ -240,7 +240,7 @@ public sealed partial class SqliteWorkBoardStore
             "ORDER BY attempt_number DESC LIMIT 1;";
         Add(latestAttempt, "$tenant", command.TenantId); Add(latestAttempt, "$task", command.TaskId);
         var attemptState = await latestAttempt.ExecuteScalarAsync(token) as string;
-        if (task.InternalState != "ready" || attemptState != "rejected")
+        if (task.InternalState != "running" || attemptState != "rejected")
             throw new WorkBoardInvalidStateException(
                 "A new instruction version requires a rejected attempt awaiting correction.");
 
@@ -258,7 +258,8 @@ public sealed partial class SqliteWorkBoardStore
             "INSERT INTO instruction_versions " +
             "(id,tenant_id,project_id,task_id,version,content,content_hash,supersedes_id,created_at,author_kind,author_id) " +
             "VALUES ($id,$tenant,$project,$task,$version,$body,$hash,$supersedes,$at,$authorKind,$authorId); " +
-            "UPDATE work_tasks SET board_state='ready',blocked_reason=NULL,version=version+1,updated_at=$at " +
+            "UPDATE work_tasks SET state='ready',board_state='ready',blocked_reason=NULL," +
+            "version=version+1,updated_at=$at " +
             "WHERE tenant_id=$tenant AND id=$task;";
         Add(mutation, "$id", command.InstructionId); Add(mutation, "$tenant", command.TenantId);
         Add(mutation, "$project", task.ProjectId); Add(mutation, "$task", command.TaskId);

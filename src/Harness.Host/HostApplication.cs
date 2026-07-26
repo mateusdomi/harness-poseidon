@@ -234,6 +234,7 @@ public static class HostApplication
             builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
             builder.Services.AddSingleton<ISignedLicenseStore, PostgresSignedLicenseStore>();
             builder.Services.AddSingleton<IChannelLinkStore, PostgresChannelLinkStore>();
+            builder.Services.AddSingleton<Harness.SharedKernel.Memory.IVectorIndex, PostgresVectorIndex>();
         }
         else
         {
@@ -316,6 +317,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IDeliveryDailyStore, SqliteDeliveryDailyStore>();
             builder.Services.AddSingleton<IArchitectureStore, SqliteArchitectureStore>();
             builder.Services.AddSingleton<IAttemptWorkspaceStore, SqliteAttemptWorkspaceStore>();
+            builder.Services.AddSingleton<Harness.SharedKernel.Memory.IVectorIndex, SqliteVectorIndex>();
         }
         var isolatedSettings = builder.Configuration
             .GetSection("Harness:IsolatedExecution")
@@ -563,6 +565,8 @@ public static class HostApplication
         builder.Services.AddSingleton<Harness.Modules.Governance.Evaluation.IEvaluationService, Harness.Modules.Governance.Evaluation.EvaluationService>();
         builder.Services.AddSingleton<Harness.Modules.Providers.Application.CapacityManager>();
         builder.Services.AddSingleton<Harness.Modules.Providers.Application.ModelRouter>();
+        builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IHybridRagSearchEngine, Harness.Modules.Governance.Memory.HybridRagSearchEngine>();
+        builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IContextBuilder, Harness.Modules.Governance.Memory.ContextBuilder>();
         // PLAT-04: camada de medição. O detector de travamento é PURO (sempre disponível, read-only).
         // O juiz default é determinístico e sem credenciais; o juiz real ligado a um LLM só entra
         // quando explicitamente habilitado E com transport configurado (default: DESLIGADO).
