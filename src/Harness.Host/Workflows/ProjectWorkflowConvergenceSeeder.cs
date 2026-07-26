@@ -94,8 +94,19 @@ public sealed class ProjectWorkflowConvergenceSeeder(
                 // aceitações de risco, com o rebind auditado no ledger. Idempotente: quem já
                 // aponta para o recomendado (ou para template customizado) é ignorado.
                 var binding = existing[0];
-                if (binding.TemplateId == template.Id || template.CurrentVersionId is null)
+                if (template.CurrentVersionId is null)
                 {
+                    continue;
+                }
+
+                if (binding.TemplateId == template.Id)
+                {
+                    // Binding já correto — mas um run ativo pode ter ficado numa versão
+                    // anterior (ex.: rebind aplicado num boot que ainda não migrava runs).
+                    // A migração é idempotente: só age quando há run ativo divergente.
+                    await MigrateActiveRunAsync(
+                        tenantId, project.Id, binding.Id, template.CurrentVersionId,
+                        cancellationToken);
                     continue;
                 }
 
@@ -142,12 +153,14 @@ public sealed class ProjectWorkflowConvergenceSeeder(
         CancellationToken cancellationToken)
     {
         var runs = await _workflows.ListRunsAsync(tenantId, workflowId, null, 20, cancellationToken);
-        var migrated = false;
+        var activeOnNewVersion = false;
+        var cancelledLegacyRun = false;
         foreach (var run in runs.Where(run => run.State is "running" or "paused"))
         {
             if (run.VersionId == newVersionId)
             {
-                migrated = true;
+                // Já existe run ativo na versão nova: nada a criar (idempotência).
+                activeOnNewVersion = true;
                 continue;
             }
 
@@ -156,12 +169,13 @@ public sealed class ProjectWorkflowConvergenceSeeder(
                     tenantId, run.Id, WorkflowRunTransition.Cancel, run.Version,
                     $"playbook-convergence:cancel:{run.Id}", _clock.UtcNow),
                 cancellationToken);
-            migrated = true;
+            cancelledLegacyRun = true;
         }
 
-        if (!migrated)
+        if (!cancelledLegacyRun || activeOnNewVersion)
         {
-            // Sem run ativo não há o que migrar: o próximo run já nasce da versão nova.
+            // Sem run legado ativo não há o que substituir; e com run já na versão nova,
+            // criar outro seria duplicar — o próximo run nasce da versão nova naturalmente.
             return;
         }
 
