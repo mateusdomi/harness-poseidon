@@ -338,12 +338,25 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
             var snapshot = await orchestrator.GetAsync(tenantId, running.Id, token);
+            var now = clock.UtcNow;
             if (snapshot is null)
             {
+                // Tentativa SEM workspace: o orquestrador nunca aceitou o run (órfã de uma
+                // compensação perdida — ex.: processo caiu entre o start da cadeia e o aceite).
+                // A janela de tolerância evita expirar um lançamento em curso deste mesmo ciclo.
+                if (running.StartedAt < now.AddMinutes(-2))
+                {
+                    _ = await chain.ExpireAttemptLeaseAsync(
+                        new WorkAttemptLeaseExpiredCommand(
+                            tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                            $"chief-loop-orphan:{running.Id}", now),
+                        token);
+                    LogRunRequeued(logger, task.Id, running.Id, "orphan");
+                }
+
                 continue;
             }
 
-            var now = clock.UtcNow;
             if (snapshot.Status == AgentRunStatus.Completed)
             {
                 var branch = $"task/agent-run-{running.Id.ToLowerInvariant()}";
@@ -469,20 +482,38 @@ public sealed partial class ChiefBacklogLoopService(
                     diff.AsSpan(0, 160_000), "\n... (diff truncado para o review)");
             }
 
-            var result = await orchestrator.ReviewAsync(
-                new AgentCriticReviewCommand
+            // O review roda dentro do ciclo; um executor de crítico que TRAVE congelaria o loop
+            // inteiro (colheita, correções, triagem e despacho). O teto local garante que o
+            // ciclo sempre volta: estouro vira falha de infraestrutura com backoff, nunca
+            // reprovação do ator.
+            CriticReviewResult result;
+            using (var reviewTimeout = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                reviewTimeout.CancelAfter(TimeSpan.FromMinutes(10));
+                try
                 {
-                    AttemptId = awaiting.Id,
-                    CriticAlias = criticAlias,
-                    ActorAlias = producerAlias,
-                    ReviewDirectory = repositoryRoot,
-                    Diff = diff,
-                    TestEvidence =
-                        "(evidência de teste não coletada automaticamente; avalie pelo diff e pelo repositório)",
-                    AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
-                    ScopeClaims = resolution.ScopeClaims,
-                },
-                token);
+                    result = await orchestrator.ReviewAsync(
+                        new AgentCriticReviewCommand
+                        {
+                            AttemptId = awaiting.Id,
+                            CriticAlias = criticAlias,
+                            ActorAlias = producerAlias,
+                            ReviewDirectory = repositoryRoot,
+                            Diff = diff,
+                            TestEvidence =
+                                "(evidência de teste não coletada automaticamente; avalie pelo diff e pelo repositório)",
+                            AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
+                            ScopeClaims = resolution.ScopeClaims,
+                        },
+                        reviewTimeout.Token);
+                }
+                catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                {
+                    LogReviewInfrastructureFailure(logger, task.Id, awaiting.Id, "critic.review_timeout");
+                    _reviewBackoff[awaiting.Id] = clock.UtcNow.Add(ReviewRetryBackoff);
+                    continue;
+                }
+            }
 
             if (await ApplyReviewVerdictAsync(tenantId, task, awaiting.Id, result, chain, token))
             {
@@ -878,6 +909,16 @@ public sealed partial class ChiefBacklogLoopService(
         if (snapshot.Status is AgentRunStatus.Rejected or AgentRunStatus.ScopeConflict)
         {
             LogRunRejected(logger, task.Id, snapshot.Status.ToString(), snapshot.FinalError ?? string.Empty);
+
+            // COMPENSAÇÃO: a tentativa durável já estava `running` quando o orquestrador recusou
+            // o run (ex.: conflito de claim com um run vivo). Sem abandoná-la, o card ficaria em
+            // `development` com uma tentativa órfã PARA SEMPRE. O abandono devolve o card a
+            // `ready` e o próximo ciclo re-tenta quando o claim liberar.
+            _ = await chain.ExpireAttemptLeaseAsync(
+                new WorkAttemptLeaseExpiredCommand(
+                    tenantId, task.BackingSolicitationId, task.Id, attemptId,
+                    started.TaskVersion!.Value, $"chief-loop-compensate:{attemptId}", clock.UtcNow),
+                token);
             return false;
         }
 
