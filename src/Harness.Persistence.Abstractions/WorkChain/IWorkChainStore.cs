@@ -21,6 +21,14 @@ public interface IWorkChainStore
         string solicitationId,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> TriageTaskAsync(
+        WorkTaskLifecycleCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> MarkTaskReadyAsync(
+        WorkTaskLifecycleCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> AddInstructionVersionAsync(
         WorkInstructionVersionCreateCommand command,
         CancellationToken cancellationToken = default);
@@ -131,6 +139,18 @@ public sealed record WorkInstructionVersionCreateCommand(
     string InstructionVersionId,
     string Content,
     string ContentHash,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskLifecycleCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string ActorKind,
+    string ActorId,
+    string Reason,
+    string EvidenceReference,
     long ExpectedTaskVersion,
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
@@ -374,6 +394,25 @@ public static class WorkChainMutationValidator
                 "Instruction content hash does not match its immutable content.",
                 nameof(command));
         }
+    }
+
+    public static void Validate(WorkTaskLifecycleCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        if (!ActorKinds.Contains(command.ActorKind))
+        {
+            throw new ArgumentException("Lifecycle actor kind is invalid.", nameof(command));
+        }
+
+        ValidateText(command.ActorId, nameof(command), 200);
+        ValidateText(command.Reason, nameof(command), 10_000);
+        ValidateText(command.EvidenceReference, nameof(command), 2_000);
     }
 
     public static void Validate(WorkAttemptStartCommand command)

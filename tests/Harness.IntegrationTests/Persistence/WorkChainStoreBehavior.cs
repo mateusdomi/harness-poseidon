@@ -52,7 +52,7 @@ internal static class WorkChainStoreBehavior
         Assert.Equal(command.SolicitationContent, snapshot.SolicitationContent);
         Assert.Equal(command.DemandId, snapshot.DemandId);
         Assert.Equal(command.TaskId, snapshot.TaskId);
-        Assert.Equal("ready", snapshot.TaskState);
+        Assert.Equal("draft", snapshot.TaskState);
         Assert.Equal(1, snapshot.TaskVersion);
         Assert.Equal("medium", snapshot.RiskTier);
         Assert.Equal(5m, snapshot.Weight);
@@ -73,6 +73,7 @@ internal static class WorkChainStoreBehavior
             cancellationToken);
         Assert.Equal(snapshot, afterConflict);
 
+        await AssertInitialLifecycleAsync(store, command, cancellationToken);
         await AssertMutationsAsync(store, command, cancellationToken);
         await AssertLeaseExpiryAsync(store, command, cancellationToken);
         await AssertCancellationAsync(store, command, cancellationToken);
@@ -97,6 +98,7 @@ internal static class WorkChainStoreBehavior
             OccurredAt = template.OccurredAt.AddDays(2),
         };
         await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
 
         var start = new WorkAttemptStartCommand(
             chain.TenantId,
@@ -105,7 +107,7 @@ internal static class WorkChainStoreBehavior
             chain.InstructionVersionId,
             "01ARZ3NDEKTSV4RRFFQ69G5FC4",
             "cancelled-owner",
-            1,
+            3,
             "work-chain:attempt:start:cancellation",
             chain.OccurredAt.AddMinutes(1));
         var started = await store.StartAttemptAsync(start, cancellationToken);
@@ -120,7 +122,7 @@ internal static class WorkChainStoreBehavior
             "bruna",
             "The user cancelled the active card.",
             "conversation:cancel-command",
-            2,
+            4,
             "work-chain:task:cancel:first",
             chain.OccurredAt.AddMinutes(2));
         var cancelled = await store.CancelRunningTaskAsync(
@@ -131,7 +133,7 @@ internal static class WorkChainStoreBehavior
             cancellationToken);
 
         Assert.Equal(WorkChainMutationStatus.Applied, cancelled.Status);
-        Assert.Equal(3, cancelled.TaskVersion);
+        Assert.Equal(5, cancelled.TaskVersion);
         Assert.Equal("cancelled", cancelled.TaskState);
         Assert.Equal("cancelled", cancelled.AttemptState);
         Assert.NotNull(cancelled.LedgerSequence);
@@ -146,7 +148,7 @@ internal static class WorkChainStoreBehavior
                 chain.SolicitationId,
                 chain.TaskId,
                 start.AttemptId,
-                3,
+                5,
                 [new WorkEvidenceInput(
                     "01ARZ3NDEKTSV4RRFFQ69G5FC5",
                     "late:evidence")],
@@ -159,7 +161,7 @@ internal static class WorkChainStoreBehavior
             start with
             {
                 AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FC6",
-                ExpectedTaskVersion = 3,
+                ExpectedTaskVersion = 5,
                 IdempotencyKey = "work-chain:attempt:start:after-cancellation",
                 OccurredAt = chain.OccurredAt.AddMinutes(4),
             },
@@ -193,6 +195,7 @@ internal static class WorkChainStoreBehavior
             OccurredAt = template.OccurredAt.AddDays(1),
         };
         await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
 
         var start = new WorkAttemptStartCommand(
             chain.TenantId,
@@ -201,7 +204,7 @@ internal static class WorkChainStoreBehavior
             chain.InstructionVersionId,
             "01ARZ3NDEKTSV4RRFFQ69G5FB4",
             "lease-owner",
-            1,
+            3,
             "work-chain:attempt:start:lease-expiry",
             chain.OccurredAt.AddMinutes(1));
         var started = await store.StartAttemptAsync(start, cancellationToken);
@@ -212,14 +215,14 @@ internal static class WorkChainStoreBehavior
             chain.SolicitationId,
             chain.TaskId,
             start.AttemptId,
-            2,
+            4,
             "work-chain:attempt:lease-expired",
             chain.OccurredAt.AddMinutes(2));
         var expired = await store.ExpireAttemptLeaseAsync(expiry, cancellationToken);
         var replay = await store.ExpireAttemptLeaseAsync(expiry, cancellationToken);
 
         Assert.Equal(WorkChainMutationStatus.Applied, expired.Status);
-        Assert.Equal(3, expired.TaskVersion);
+        Assert.Equal(5, expired.TaskVersion);
         Assert.Equal("ready", expired.TaskState);
         Assert.Equal("abandoned", expired.AttemptState);
         Assert.NotNull(expired.LedgerSequence);
@@ -234,7 +237,7 @@ internal static class WorkChainStoreBehavior
                 chain.SolicitationId,
                 chain.TaskId,
                 start.AttemptId,
-                3,
+                5,
                 [new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FB6", "late:evidence")],
                 "work-chain:attempt:complete:expired",
                 chain.OccurredAt.AddMinutes(3)),
@@ -246,13 +249,13 @@ internal static class WorkChainStoreBehavior
             start with
             {
                 AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FB5",
-                ExpectedTaskVersion = 3,
+                ExpectedTaskVersion = 5,
                 IdempotencyKey = "work-chain:attempt:start:after-expiry",
                 OccurredAt = chain.OccurredAt.AddMinutes(4),
             },
             cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, retry.Status);
-        Assert.Equal(4, retry.TaskVersion);
+        Assert.Equal(6, retry.TaskVersion);
 
         var aggregate = await store.ReadAggregateAsync(
             chain.TenantId,
@@ -282,7 +285,7 @@ internal static class WorkChainStoreBehavior
             chain.InstructionVersionId,
             attemptId,
             "software-engineer",
-            1,
+            3,
             "work-chain:attempt:start:first",
             chain.OccurredAt.AddMinutes(1));
         var started = await Task.WhenAll(
@@ -290,7 +293,7 @@ internal static class WorkChainStoreBehavior
             store.StartAttemptAsync(start, cancellationToken));
         Assert.Single(started, item => item.Status == WorkChainMutationStatus.Applied);
         Assert.Single(started, item => item.Status == WorkChainMutationStatus.IdempotentReplay);
-        Assert.All(started, item => Assert.Equal(2, item.TaskVersion));
+        Assert.All(started, item => Assert.Equal(4, item.TaskVersion));
         Assert.Single(started.Select(item => item.LedgerHash).Distinct(StringComparer.Ordinal));
 
         var staleStart = start with
@@ -300,16 +303,16 @@ internal static class WorkChainStoreBehavior
         };
         var stale = await store.StartAttemptAsync(staleStart, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.VersionConflict, stale.Status);
-        Assert.Equal(2, stale.TaskVersion);
+        Assert.Equal(4, stale.TaskVersion);
         Assert.Null(stale.LedgerSequence);
         var staleReplay = await store.StartAttemptAsync(staleStart, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.IdempotentReplay, staleReplay.Status);
-        Assert.Equal(2, staleReplay.TaskVersion);
+        Assert.Equal(4, staleReplay.TaskVersion);
 
         var running = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
         Assert.NotNull(running);
         Assert.Equal("running", running.TaskState);
-        Assert.Equal(2, running.TaskVersion);
+        Assert.Equal(4, running.TaskVersion);
         Assert.Equal(1, running.AttemptCount);
 
         var complete = new WorkAttemptCompleteCommand(
@@ -317,13 +320,13 @@ internal static class WorkChainStoreBehavior
             chain.SolicitationId,
             chain.TaskId,
             attemptId,
-            2,
+            4,
             [new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FF7", "tests:green")],
             "work-chain:attempt:complete:first",
             chain.OccurredAt.AddMinutes(2));
         var completed = await store.CompleteAttemptAsync(complete, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, completed.Status);
-        Assert.Equal(3, completed.TaskVersion);
+        Assert.Equal(5, completed.TaskVersion);
         Assert.Equal("awaiting_review", completed.TaskState);
         Assert.NotNull(completed.LedgerSequence);
         var completedReplay = await store.CompleteAttemptAsync(complete, cancellationToken);
@@ -339,7 +342,7 @@ internal static class WorkChainStoreBehavior
             "software-engineer",
             "approved",
             "Self review must be rejected for medium risk.",
-            3,
+            5,
             "work-chain:attempt:review:self",
             chain.OccurredAt.AddMinutes(3));
         var selfReviewReceipt = await store.ReviewAttemptAsync(selfReview, cancellationToken);
@@ -357,7 +360,7 @@ internal static class WorkChainStoreBehavior
         };
         var reviewed = await store.ReviewAttemptAsync(review, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
-        Assert.Equal(4, reviewed.TaskVersion);
+        Assert.Equal(6, reviewed.TaskVersion);
         Assert.Equal("ready", reviewed.TaskState);
         Assert.Equal("rejected", reviewed.AttemptState);
         Assert.NotNull(reviewed.OutboxMessageId);
@@ -373,13 +376,13 @@ internal static class WorkChainStoreBehavior
         var correctionRequired = start with
         {
             AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FFA",
-            ExpectedTaskVersion = 4,
+            ExpectedTaskVersion = 6,
             IdempotencyKey = "work-chain:attempt:start:correction-required",
             OccurredAt = chain.OccurredAt.AddMinutes(5),
         };
         var withoutCorrection = await store.StartAttemptAsync(correctionRequired, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.InvalidState, withoutCorrection.Status);
-        Assert.Equal(4, withoutCorrection.TaskVersion);
+        Assert.Equal(6, withoutCorrection.TaskVersion);
 
         const string correctedContent = "Correct the failed gate without mutating the original instruction.";
         var correction = new WorkInstructionVersionCreateCommand(
@@ -389,12 +392,12 @@ internal static class WorkChainStoreBehavior
             "01ARZ3NDEKTSV4RRFFQ69G5FFB",
             correctedContent,
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(correctedContent))),
-            4,
+            6,
             "work-chain:instruction:correct:first",
             chain.OccurredAt.AddMinutes(6));
         var corrected = await store.AddInstructionVersionAsync(correction, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, corrected.Status);
-        Assert.Equal(5, corrected.TaskVersion);
+        Assert.Equal(7, corrected.TaskVersion);
         Assert.Equal(correction.InstructionVersionId, corrected.InstructionVersionId);
         Assert.Equal(2, corrected.InstructionVersion);
         var correctedReplay = await store.AddInstructionVersionAsync(correction, cancellationToken);
@@ -408,25 +411,25 @@ internal static class WorkChainStoreBehavior
             correction.InstructionVersionId,
             "01ARZ3NDEKTSV4RRFFQ69G5FFC",
             "software-engineer",
-            5,
+            7,
             "work-chain:attempt:start:second",
             chain.OccurredAt.AddMinutes(7));
         var secondStarted = await store.StartAttemptAsync(secondStart, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, secondStarted.Status);
-        Assert.Equal(6, secondStarted.TaskVersion);
+        Assert.Equal(8, secondStarted.TaskVersion);
 
         var secondComplete = new WorkAttemptCompleteCommand(
             chain.TenantId,
             chain.SolicitationId,
             chain.TaskId,
             secondStart.AttemptId,
-            6,
+            8,
             [new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FFD", "tests:corrected-green")],
             "work-chain:attempt:complete:second",
             chain.OccurredAt.AddMinutes(8));
         var secondCompleted = await store.CompleteAttemptAsync(secondComplete, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, secondCompleted.Status);
-        Assert.Equal(7, secondCompleted.TaskVersion);
+        Assert.Equal(9, secondCompleted.TaskVersion);
 
         var approval = new WorkAttemptReviewCommand(
             chain.TenantId,
@@ -437,12 +440,12 @@ internal static class WorkChainStoreBehavior
             "critic-qa",
             "approved",
             "The corrected evidence proves the gate.",
-            7,
+            9,
             "work-chain:attempt:review:second",
             chain.OccurredAt.AddMinutes(9));
         var approved = await store.ReviewAttemptAsync(approval, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, approved.Status);
-        Assert.Equal(8, approved.TaskVersion);
+        Assert.Equal(10, approved.TaskVersion);
         Assert.Equal("approved", approved.TaskState);
 
         var delivery = new WorkTaskDeliveryCompleteCommand(
@@ -451,7 +454,7 @@ internal static class WorkChainStoreBehavior
             chain.TaskId,
             "delivery-reconciler",
             "integration:premature",
-            8,
+            10,
             "work-chain:task:complete:premature",
             chain.OccurredAt.AddMinutes(10));
         var prematureCompletion = await store.CompleteMergedTaskAsync(
@@ -466,13 +469,13 @@ internal static class WorkChainStoreBehavior
             chain.TaskId,
             "merge-coordinator",
             "git:develop@approved",
-            8,
+            10,
             "work-chain:task:merge:first",
             chain.OccurredAt.AddMinutes(11));
         var merged = await store.MergeApprovedTaskAsync(merge, cancellationToken);
         var mergedReplay = await store.MergeApprovedTaskAsync(merge, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, merged.Status);
-        Assert.Equal(9, merged.TaskVersion);
+        Assert.Equal(11, merged.TaskVersion);
         Assert.Equal("merged", merged.TaskState);
         Assert.Equal("approved", merged.AttemptState);
         Assert.NotNull(merged.LedgerHash);
@@ -484,13 +487,13 @@ internal static class WorkChainStoreBehavior
             delivery with
             {
                 EvidenceReference = "reconciliation:projections-and-effects",
-                ExpectedTaskVersion = 9,
+                ExpectedTaskVersion = 11,
                 IdempotencyKey = "work-chain:task:complete:first",
                 OccurredAt = chain.OccurredAt.AddMinutes(12),
             },
             cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, completedDelivery.Status);
-        Assert.Equal(10, completedDelivery.TaskVersion);
+        Assert.Equal(12, completedDelivery.TaskVersion);
         Assert.Equal("completed", completedDelivery.TaskState);
         Assert.Equal("approved", completedDelivery.AttemptState);
         Assert.NotNull(completedDelivery.LedgerHash);
@@ -499,7 +502,7 @@ internal static class WorkChainStoreBehavior
         var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
         Assert.NotNull(final);
         Assert.Equal("completed", final.TaskState);
-        Assert.Equal(10, final.TaskVersion);
+        Assert.Equal(12, final.TaskVersion);
         Assert.Equal(correction.InstructionVersionId, final.InstructionVersionId);
         Assert.Equal(2, final.InstructionVersion);
         Assert.Equal(2, final.AttemptCount);
@@ -515,7 +518,7 @@ internal static class WorkChainStoreBehavior
         var demand = Assert.Single(aggregate.Demands);
         Assert.Equal(["State is atomic", "Audit is complete"], demand.AcceptanceCriteria);
         var task = Assert.Single(demand.Tasks);
-        Assert.Equal(10, task.Version);
+        Assert.Equal(12, task.Version);
         Assert.Equal([1, 2], task.Instructions.Select(item => item.Version));
         Assert.Null(task.Instructions[0].SupersedesId);
         Assert.Equal(task.Instructions[0].InstructionVersionId, task.Instructions[1].SupersedesId);
@@ -528,5 +531,62 @@ internal static class WorkChainStoreBehavior
             chain.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FFF",
             cancellationToken));
+    }
+
+    private static async Task AssertInitialLifecycleAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand chain,
+        CancellationToken cancellationToken)
+    {
+        var prematureReady = new WorkTaskLifecycleCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            "chief",
+            "bruna",
+            "Definition of Ready has not been triaged yet.",
+            "requirements:pending",
+            1,
+            $"work-chain:task:ready:premature:{chain.TaskId}",
+            chain.OccurredAt.AddSeconds(10));
+        var premature = await store.MarkTaskReadyAsync(
+            prematureReady,
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, premature.Status);
+        Assert.Null(premature.LedgerSequence);
+
+        var triage = prematureReady with
+        {
+            Reason = "Demand scope and risk were triaged.",
+            EvidenceReference = "triage:accepted",
+            IdempotencyKey = $"work-chain:task:triage:{chain.TaskId}",
+            OccurredAt = chain.OccurredAt.AddSeconds(20),
+        };
+        var triaged = await store.TriageTaskAsync(triage, cancellationToken);
+        var triagedReplay = await store.TriageTaskAsync(triage, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, triaged.Status);
+        Assert.Equal(2, triaged.TaskVersion);
+        Assert.Equal("triaged", triaged.TaskState);
+        Assert.NotNull(triaged.LedgerSequence);
+        Assert.NotNull(triaged.LedgerHash);
+        Assert.NotNull(triaged.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, triagedReplay.Status);
+        Assert.Equal(triaged.LedgerHash, triagedReplay.LedgerHash);
+
+        var readiness = prematureReady with
+        {
+            Reason = "Acceptance criteria and dependencies satisfy the Definition of Ready.",
+            EvidenceReference = "dor:validated",
+            ExpectedTaskVersion = 2,
+            IdempotencyKey = $"work-chain:task:ready:{chain.TaskId}",
+            OccurredAt = chain.OccurredAt.AddSeconds(30),
+        };
+        var ready = await store.MarkTaskReadyAsync(readiness, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, ready.Status);
+        Assert.Equal(3, ready.TaskVersion);
+        Assert.Equal("ready", ready.TaskState);
+        Assert.NotNull(ready.LedgerSequence);
+        Assert.NotNull(ready.LedgerHash);
+        Assert.NotNull(ready.OutboxMessageId);
     }
 }

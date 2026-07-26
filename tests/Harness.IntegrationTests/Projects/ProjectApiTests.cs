@@ -292,6 +292,32 @@ public sealed class ProjectApiTests
                 now),
             cancellationToken);
         Assert.False(receipt.Replay);
+        var lifecycle = new WorkTaskLifecycleCommand(
+            profile.TenantId,
+            solicitationId,
+            taskId,
+            "chief",
+            profileId,
+            "Cockpit task was triaged.",
+            "test:triage",
+            1,
+            $"cockpit-triage-{taskId}",
+            now.AddTicks(4));
+        Assert.Equal(
+            WorkChainMutationStatus.Applied,
+            (await store.TriageTaskAsync(lifecycle, cancellationToken)).Status);
+        Assert.Equal(
+            WorkChainMutationStatus.Applied,
+            (await store.MarkTaskReadyAsync(
+                lifecycle with
+                {
+                    Reason = "Cockpit task satisfies the Definition of Ready.",
+                    EvidenceReference = "test:dor",
+                    ExpectedTaskVersion = 2,
+                    IdempotencyKey = $"cockpit-ready-{taskId}",
+                    OccurredAt = now.AddTicks(5),
+                },
+                cancellationToken)).Status);
     }
 
     private static WebApplication CreateHost(string databasePath) =>

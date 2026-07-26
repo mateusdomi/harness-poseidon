@@ -118,8 +118,8 @@ public sealed partial class PostgresWorkChainStore(NpgsqlDataSource dataSource) 
             """
             INSERT INTO harness.work_tasks
                 (id, tenant_id, project_id, demand_id, title, risk_tier, weight,
-                 state, version, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, 'ready', 1, $8, $8);
+                 state, version, created_at, updated_at, source_demand_id, board_state, priority)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', 1, $8, $8, $4, 'backlog', $6);
             """,
             cancellationToken,
             Text(command.TaskId),

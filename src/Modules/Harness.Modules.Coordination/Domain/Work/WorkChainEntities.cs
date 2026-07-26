@@ -34,7 +34,7 @@ public sealed class WorkTask
         RiskTier = riskTier;
         Weight = weight;
         CreatedAt = createdAt;
-        State = WorkTaskState.Ready;
+        State = WorkTaskState.Draft;
     }
 
     public EntityId<WorkTaskTag> Id { get; }

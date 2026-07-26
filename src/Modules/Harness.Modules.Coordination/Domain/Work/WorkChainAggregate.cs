@@ -149,6 +149,46 @@ public sealed class WorkChainAggregate
         return Result<InstructionVersion>.Success(CreateInstructionVersion(task, content));
     }
 
+    public Result TriageTask(EntityId<WorkTaskTag> taskId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (!WorkTaskTransitionPolicy.IsAllowed(
+                task.State,
+                WorkTaskState.Triaged,
+                WorkTaskTransitionEvent.Triaged))
+        {
+            return Result.Failure(WorkChainErrors.InvalidTaskState);
+        }
+
+        task.State = WorkTaskState.Triaged;
+        return Result.Success();
+    }
+
+    public Result MarkTaskReady(EntityId<WorkTaskTag> taskId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (!WorkTaskTransitionPolicy.IsAllowed(
+                task.State,
+                WorkTaskState.Ready,
+                WorkTaskTransitionEvent.RequirementsCompleted))
+        {
+            return Result.Failure(WorkChainErrors.InvalidTaskState);
+        }
+
+        task.State = WorkTaskState.Ready;
+        return Result.Success();
+    }
+
     public Result<InstructionVersion> ReplanEscalatedTask(
         EntityId<WorkTaskTag> taskId,
         string content)
@@ -165,7 +205,9 @@ public sealed class WorkChainAggregate
             return Result<InstructionVersion>.Failure(WorkChainErrors.TaskIsNotEscalated);
         }
 
-        return Result<InstructionVersion>.Success(CreateInstructionVersion(task, content));
+        var instruction = CreateInstructionVersion(task, content);
+        task.State = WorkTaskState.Ready;
+        return Result<InstructionVersion>.Success(instruction);
     }
 
     private InstructionVersion CreateInstructionVersion(WorkTask task, string content)
@@ -180,7 +222,11 @@ public sealed class WorkChainAggregate
             previous?.Id,
             _clock.UtcNow);
         _instructions.Add(instruction);
-        task.State = WorkTaskState.Ready;
+        if (task.State == WorkTaskState.Running)
+        {
+            task.State = WorkTaskState.Ready;
+        }
+
         return instruction;
     }
 
@@ -219,6 +265,11 @@ public sealed class WorkChainAggregate
             previous.InstructionVersionId == instructionVersionId)
         {
             return Result<WorkAttempt>.Failure(WorkChainErrors.CorrectionRequired);
+        }
+
+        if (task.State != WorkTaskState.Ready)
+        {
+            return Result<WorkAttempt>.Failure(WorkChainErrors.InvalidTaskState);
         }
 
         var attempt = new WorkAttempt(

@@ -9,6 +9,147 @@ namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteWorkChainStore
 {
+    public Task<WorkChainMutationReceipt> TriageTaskAsync(
+        WorkTaskLifecycleCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => TransitionInitialTaskCoreAsync(
+                connection,
+                command,
+                "draft",
+                "triaged",
+                "triaged",
+                "backlog",
+                token),
+            cancellationToken);
+    }
+
+    public Task<WorkChainMutationReceipt> MarkTaskReadyAsync(
+        WorkTaskLifecycleCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => TransitionInitialTaskCoreAsync(
+                connection,
+                command,
+                "triaged",
+                "ready",
+                "requirementsCompleted",
+                "ready",
+                token),
+            cancellationToken);
+    }
+
+    private static async Task<WorkChainMutationReceipt> TransitionInitialTaskCoreAsync(
+        SqliteConnection connection,
+        WorkTaskLifecycleCommand command,
+        string expectedState,
+        string targetState,
+        string transitionEvent,
+        string targetBoardState,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            attemptId: null,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.NotFound,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.TaskState != expectedState)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                UPDATE work_tasks
+                SET state=$targetState,version=$nextVersion,updated_at=$occurredAt,
+                    board_state=$targetBoardState,blocked_reason=NULL
+                WHERE id=$taskId AND tenant_id=$tenantId AND version=$expectedVersion;
+                """;
+            Add(mutation, "$targetState", targetState);
+            Add(mutation, "$nextVersion", nextVersion);
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$targetBoardState", targetBoardState);
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$expectedVersion", command.ExpectedTaskVersion);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                null,
+                nextVersion,
+                targetState,
+                row.LatestAttemptState);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                expectedState,
+                targetState,
+                transitionEvent,
+                "backlog",
+                command.ActorKind,
+                command.ActorId,
+                command.Reason,
+                command.EvidenceReference),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> AddInstructionVersionAsync(
         WorkInstructionVersionCreateCommand command,
         CancellationToken cancellationToken = default)

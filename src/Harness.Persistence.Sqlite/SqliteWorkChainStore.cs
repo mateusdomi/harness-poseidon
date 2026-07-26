@@ -70,7 +70,7 @@ public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatche
                      state, version, created_at, updated_at, source_demand_id, board_state, priority)
                 VALUES
                     ($taskId, $tenantId, $projectId, $demandId, $taskTitle, $riskTier,
-                     $weight, 'ready', 1, $occurredAt, $occurredAt, $demandId, 'ready', $riskTier);
+                     $weight, 'draft', 1, $occurredAt, $occurredAt, $demandId, 'backlog', $riskTier);
                 INSERT INTO instruction_versions
                     (id, tenant_id, project_id, task_id, version, content, content_hash, created_at,
                      author_kind, author_id)
@@ -91,7 +91,7 @@ public sealed partial class SqliteWorkChainStore(SqliteWriteDispatcher dispatche
                 projectId = command.ProjectId,
                 demandId = command.DemandId,
                 title = command.TaskTitle,
-                state = "ready",
+                state = "backlog",
                 priority = command.RiskTier,
                 assigneeAgentId = (string?)null,
                 blockedReason = (string?)null,

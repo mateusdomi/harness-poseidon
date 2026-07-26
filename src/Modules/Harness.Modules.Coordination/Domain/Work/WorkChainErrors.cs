@@ -37,6 +37,9 @@ public static class WorkChainErrors
     public static ErrorDescriptor TaskIsNotMerged { get; } =
         new("coordination.task.notMerged", "Coordination.WorkChain.TaskIsNotMerged");
 
+    public static ErrorDescriptor InvalidTaskState { get; } =
+        new("coordination.task.invalidState", "Coordination.WorkChain.InvalidTaskState");
+
     public static ErrorDescriptor InvalidAttemptState { get; } =
         new("coordination.attempt.invalidState", "Coordination.WorkChain.InvalidAttemptState");
 

@@ -93,25 +93,9 @@ public sealed class SqliteMigrationUpgradeTests
                         FoundationTransactionBehavior.Command(),
                         timeout.Token);
                     const string instruction = "Preserve this task across the state migration.";
-                    await new SqliteWorkChainStore(dispatcher).CreateAsync(
-                        new WorkChainCreateCommand(
-                            FoundationTransactionBehavior.TenantId,
-                            FoundationTransactionBehavior.ProjectId,
-                            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
-                            UpgradeSolicitationId,
-                            "Upgrade the populated work-chain schema.",
-                            "01ARZ3NDEKTSV4RRFFQ69G5F81",
-                            "Preserve the demand",
-                            "[\"State and relationships survive\"]",
-                            "01ARZ3NDEKTSV4RRFFQ69G5F82",
-                            "Preserve the task",
-                            "medium",
-                            3m,
-                            "01ARZ3NDEKTSV4RRFFQ69G5F83",
-                            instruction,
-                            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instruction))),
-                            "upgrade:work-chain:create",
-                            DateTimeOffset.UtcNow),
+                    await SeedLegacyReadyTaskAsync(
+                        dispatcher,
+                        instruction,
                         timeout.Token);
                 }
             }
@@ -160,6 +144,79 @@ public sealed class SqliteMigrationUpgradeTests
             }
         }
     }
+
+    private static Task<int> SeedLegacyReadyTaskAsync(
+        SqliteWriteDispatcher dispatcher,
+        string instruction,
+        CancellationToken cancellationToken) =>
+        dispatcher.ExecuteAsync(
+            async (connection, token) =>
+            {
+                var occurredAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                await using var transaction = await connection.BeginTransactionAsync(token);
+                await using var command = connection.CreateCommand();
+                command.Transaction =
+                    (Microsoft.Data.Sqlite.SqliteTransaction)transaction;
+                command.CommandText =
+                    """
+                    INSERT INTO solicitations
+                        (id,tenant_id,project_id,user_id,content,created_at,kind,title,state,is_internal)
+                    VALUES
+                        ($solicitationId,$tenantId,$projectId,$userId,$content,$occurredAt,
+                         'request','Upgrade task','open',0);
+                    INSERT INTO demands
+                        (id,tenant_id,project_id,solicitation_id,title,acceptance_criteria_json,
+                         created_at,description,state,priority,source_solicitation_id,is_internal)
+                    VALUES
+                        ($demandId,$tenantId,$projectId,$solicitationId,'Preserve the demand',
+                         '["State and relationships survive"]',$occurredAt,$content,'open',
+                         'medium',$solicitationId,0);
+                    INSERT INTO work_tasks
+                        (id,tenant_id,project_id,demand_id,title,risk_tier,weight,state,version,
+                         created_at,updated_at,source_demand_id,board_state,priority)
+                    VALUES
+                        ($taskId,$tenantId,$projectId,$demandId,'Preserve the task','medium',3,
+                         'ready',1,$occurredAt,$occurredAt,$demandId,'ready','medium');
+                    INSERT INTO instruction_versions
+                        (id,tenant_id,project_id,task_id,version,content,content_hash,created_at,
+                         author_kind)
+                    VALUES
+                        ($instructionId,$tenantId,$projectId,$taskId,1,$instruction,$instructionHash,
+                         $occurredAt,'chief');
+                    """;
+                command.Parameters.AddWithValue(
+                    "$tenantId",
+                    FoundationTransactionBehavior.TenantId);
+                command.Parameters.AddWithValue(
+                    "$projectId",
+                    FoundationTransactionBehavior.ProjectId);
+                command.Parameters.AddWithValue(
+                    "$userId",
+                    "01ARZ3NDEKTSV4RRFFQ69G5FAY");
+                command.Parameters.AddWithValue("$solicitationId", UpgradeSolicitationId);
+                command.Parameters.AddWithValue(
+                    "$content",
+                    "Upgrade the populated work-chain schema.");
+                command.Parameters.AddWithValue(
+                    "$demandId",
+                    "01ARZ3NDEKTSV4RRFFQ69G5F81");
+                command.Parameters.AddWithValue(
+                    "$taskId",
+                    "01ARZ3NDEKTSV4RRFFQ69G5F82");
+                command.Parameters.AddWithValue(
+                    "$instructionId",
+                    "01ARZ3NDEKTSV4RRFFQ69G5F83");
+                command.Parameters.AddWithValue("$instruction", instruction);
+                command.Parameters.AddWithValue(
+                    "$instructionHash",
+                    Convert.ToHexString(
+                        SHA256.HashData(Encoding.UTF8.GetBytes(instruction))));
+                command.Parameters.AddWithValue("$occurredAt", occurredAt);
+                var affected = await command.ExecuteNonQueryAsync(token);
+                await transaction.CommitAsync(token);
+                return affected;
+            },
+            cancellationToken);
 
     private static (string Name, string Sql)[] ReadEmbeddedMigrations()
     {

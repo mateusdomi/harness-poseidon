@@ -11,6 +11,33 @@ public sealed class WorkChainAggregateTests
     private const string UserId = "01ARZ3NDEKTSV4RRFFQ69G5FD2";
 
     [Fact]
+    public void NewTaskRequiresTriageAndCompletedRequirementsBeforeExecution()
+    {
+        var chain = CreateChain();
+        var demand = chain.CreateDemand("Deliver feature", ["All gates are green."]);
+        var task = chain.CreateTask(
+            demand.Id,
+            "Implement feature",
+            WorkRiskTier.Medium,
+            3m).Value;
+        var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
+
+        var prematureStart = chain.StartAttempt(task.Id, instruction.Id, "engineer");
+        var prematureReady = chain.MarkTaskReady(task.Id);
+        var triaged = chain.TriageTask(task.Id);
+        var duplicateTriage = chain.TriageTask(task.Id);
+        var ready = chain.MarkTaskReady(task.Id);
+
+        Assert.Equal(WorkTaskState.Ready, task.State);
+        Assert.Equal(WorkChainErrors.InvalidTaskState, prematureStart.Error);
+        Assert.Equal(WorkChainErrors.InvalidTaskState, prematureReady.Error);
+        Assert.True(triaged.IsSuccess);
+        Assert.Equal(WorkChainErrors.InvalidTaskState, duplicateTriage.Error);
+        Assert.True(ready.IsSuccess);
+        Assert.True(chain.StartAttempt(task.Id, instruction.Id, "engineer").IsSuccess);
+    }
+
+    [Fact]
     public void SolicitationAndInstructionVersionsAreAppendOnly()
     {
         var chain = CreateChain();
@@ -282,7 +309,11 @@ public sealed class WorkChainAggregateTests
     private static WorkTask CreateTask(WorkChainAggregate chain, WorkRiskTier riskTier)
     {
         var demand = chain.CreateDemand("Deliver feature", ["All gates are green."]);
-        return chain.CreateTask(demand.Id, "Implement feature", riskTier, 3m).Value;
+        var task = chain.CreateTask(demand.Id, "Implement feature", riskTier, 3m).Value;
+        Assert.Equal(WorkTaskState.Draft, task.State);
+        Assert.True(chain.TriageTask(task.Id).IsSuccess);
+        Assert.True(chain.MarkTaskReady(task.Id).IsSuccess);
+        return task;
     }
 
     private sealed class IncrementingClock(DateTimeOffset initial) : IClock
