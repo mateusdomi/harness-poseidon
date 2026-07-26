@@ -7798,6 +7798,85 @@
                 }
             }
         },
+        "/api/v1/governance-runtime/memory-search": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "parameters": [
+                    {
+                        "name": "query",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "projectId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "topK",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "maxTokens",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MemorySearchResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/governance-docs": {
             "get": {
                 "tags": [
@@ -29221,6 +29300,80 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "MemorySearchResponse": {
+                "required": [
+                    "snapshotId",
+                    "snapshotHash",
+                    "totalTokens",
+                    "slices"
+                ],
+                "type": "object",
+                "properties": {
+                    "snapshotId": {
+                        "type": "string"
+                    },
+                    "snapshotHash": {
+                        "type": "string"
+                    },
+                    "totalTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "slices": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/MemorySliceContract"
+                        }
+                    }
+                }
+            },
+            "MemorySliceContract": {
+                "required": [
+                    "documentId",
+                    "documentType",
+                    "projectId",
+                    "content",
+                    "score",
+                    "citationReference",
+                    "provenance"
+                ],
+                "type": "object",
+                "properties": {
+                    "documentId": {
+                        "type": "string"
+                    },
+                    "documentType": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "citationReference": {
+                        "type": "string"
+                    },
+                    "provenance": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
                     }
                 }
             },

@@ -1,11 +1,13 @@
 using Harness.Host.Profiles;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Coordination.Domain;
+using Harness.Modules.Governance.Memory;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Memory;
 using Harness.SharedKernel.Security;
 using Harness.SharedKernel.Time;
 using Microsoft.Data.Sqlite;
@@ -113,6 +115,7 @@ public static class SolicitationAttachmentEndpoints
         ISolicitationAttachmentStore store,
         SolicitationAttachmentStorage storage,
         IMultimodalIntakeService intake,
+        IVectorIndex vectors,
         IAuditEventStore audit,
         IClock clock,
         CancellationToken token)
@@ -128,7 +131,8 @@ public static class SolicitationAttachmentEndpoints
             return Problem(401, "local_session_required", "A local profile session is required.");
         }
 
-        if (await board.GetSolicitationAsync(profile.TenantId, solicitationId, token) is null)
+        var solicitation = await board.GetSolicitationAsync(profile.TenantId, solicitationId, token);
+        if (solicitation is null)
         {
             return Problem(404, "solicitation_not_found", "The requested resource does not exist.");
         }
@@ -227,6 +231,30 @@ public static class SolicitationAttachmentEndpoints
                 "attachment_duplicate",
                 "An identical attachment already exists for this solicitation.");
         }
+
+        // Fase 6 — memória semântica alimentada pelo fluxo REAL: o preview redigido do anexo
+        // aceito entra no índice vetorial derivado (embedding local determinístico), com
+        // proveniência completa nos metadados. O índice NUNCA é fonte da verdade — o registro
+        // durável acima é — e pode ser reconstruído a qualquer momento.
+        var memoryContent = SecretTextProtector.Redact(
+            $"{file.FileName}: {processed.PreviewSnippet}");
+        await vectors.IndexAsync(
+            new VectorDocumentRecord(
+                attachmentId,
+                profile.TenantId,
+                solicitation.ProjectId,
+                "solicitation_attachment",
+                memoryContent,
+                DeterministicLocalEmbedding.Embed(memoryContent),
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["solicitationId"] = solicitationId,
+                    ["fileName"] = file.FileName,
+                    ["sha256"] = sha256,
+                    ["contentType"] = file.ContentType,
+                },
+                occurredAt),
+            token);
 
         // O preview do intake entra no ledger REDIGIDO: um anexo de texto pode carregar
         // segredo, e o ledger é append-only — o que entra, fica.

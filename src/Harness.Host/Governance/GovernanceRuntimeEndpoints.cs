@@ -41,6 +41,10 @@ public static class GovernanceRuntimeEndpoints
         // Fase 5: recomendações estatísticas derivadas ESTRITAMENTE das tentativas gravadas.
         group.MapGet("/evaluation-recommendations", ListEvaluationRecommendationsAsync)
             .Produces<EvaluationRecommendationsResponse>().ProducesProblem(400).ProducesProblem(401);
+        // Fase 6: memória semântica consultável com citações, montada server-side pelo
+        // Context Builder — slices vêm do índice vetorial derivado, nunca de fonte inventada.
+        group.MapGet("/memory-search", SearchMemoryAsync)
+            .Produces<MemorySearchResponse>().ProducesProblem(400).ProducesProblem(401);
         return endpoints;
     }
 
@@ -168,6 +172,67 @@ public static class GovernanceRuntimeEndpoints
                 recommendation.ConfidenceIntervalLower, recommendation.ConfidenceIntervalUpper,
                 recommendation.SampleSize, recommendation.RecommendationReason,
                 recommendation.GeneratedAt)).ToArray()));
+    }
+
+    // Fase 6 — memória semântica no caminho REAL: a query vira embedding local determinístico,
+    // o índice vetorial derivado devolve os slices com proveniência (metadados gravados na
+    // ingestão) e o Context Builder monta o bundle server-side com orçamento de tokens e hash
+    // auditável. O índice nunca é fonte da verdade: cada slice cita o registro durável de origem.
+    private static async Task<IResult> SearchMemoryAsync(
+        string? query,
+        string? projectId,
+        int? topK,
+        int? maxTokens,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        Harness.SharedKernel.Memory.IVectorIndex vectors,
+        Harness.Modules.Governance.Memory.IContextBuilder contextBuilder,
+        IClock clock,
+        CancellationToken token)
+    {
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(query))
+            return Invalid("invalid_query", "query is required.");
+
+        var results = await vectors.SearchAsync(
+            session.TenantId,
+            Harness.Modules.Governance.Memory.DeterministicLocalEmbedding.Embed(query),
+            topK is > 0 and <= 50 ? topK.Value : 5,
+            minScore: 0.0,
+            token);
+        var scoped = results
+            .Where(result => string.IsNullOrWhiteSpace(projectId) ||
+                string.Equals(result.Document.ProjectId, projectId, StringComparison.Ordinal))
+            .ToArray();
+
+        var snapshot = contextBuilder.BuildSnapshot(
+            session.TenantId,
+            projectId ?? "memory-search",
+            "vector-index-derived",
+            scoped.Select(result => new Harness.Modules.Governance.Memory.ContextBundleDocument(
+                result.Document.Id,
+                result.Document.Metadata.TryGetValue("fileName", out var fileName)
+                    ? fileName
+                    : result.Document.DocumentType,
+                result.Document.Content,
+                $"{result.Document.DocumentType}:{result.Document.Id}",
+                Math.Max(1, result.Document.Content.Length / 4))).ToArray(),
+            maxTokens is > 0 ? maxTokens.Value : 4000,
+            clock.UtcNow);
+
+        return Results.Ok(new MemorySearchResponse(
+            snapshot.SnapshotId,
+            snapshot.Hash,
+            snapshot.TotalTokens,
+            scoped.Select(result => new MemorySliceContract(
+                result.Document.Id,
+                result.Document.DocumentType,
+                result.Document.ProjectId,
+                result.Document.Content,
+                Math.Round(result.Score, 6),
+                $"{result.Document.DocumentType}:{result.Document.Id}",
+                result.Document.Metadata)).ToArray()));
     }
 
     // PLAT-04: detecção pura de travamento semântico. Read-only: surface as tarefas travadas com a
@@ -600,6 +665,15 @@ public sealed record EvaluationRecommendationsResponse(
     string ProjectId,
     IReadOnlyList<PerformanceAggregateContract> Aggregates,
     IReadOnlyList<EvaluationRecommendationContract> Recommendations);
+
+// Fase 6: contratos da memória semântica consultável (endpoint novo). Cada slice carrega a
+// citação e a proveniência gravadas na ingestão; o hash do snapshot torna a carga auditável.
+public sealed record MemorySliceContract(
+    string DocumentId, string DocumentType, string ProjectId, string Content, double Score,
+    string CitationReference, IReadOnlyDictionary<string, string> Provenance);
+public sealed record MemorySearchResponse(
+    string SnapshotId, string SnapshotHash, int TotalTokens,
+    IReadOnlyList<MemorySliceContract> Slices);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record EvalJudgeApiRequest(
