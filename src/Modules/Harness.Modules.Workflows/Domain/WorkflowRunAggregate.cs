@@ -229,6 +229,26 @@ public sealed class WorkflowRunAggregate
         return Result.Success();
     }
 
+    public Result RollbackActivePhase(string reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+        if (State != WorkflowRunState.Running)
+        {
+            return Result.Failure(WorkflowErrors.InvalidRunState);
+        }
+
+        var activePhaseIndex = _phases.FindIndex(phase => phase.State == WorkflowPhaseRunState.Active);
+        if (activePhaseIndex <= 0)
+        {
+            return Result.Failure(WorkflowErrors.NoPreviousPhaseToRollback);
+        }
+
+        _phases[activePhaseIndex].ResetToPending();
+        _phases[activePhaseIndex - 1].Reactivate();
+
+        return Result.Success();
+    }
+
     private WorkflowPhaseRun? FindActivePhase(string phaseKey) =>
         _phases.SingleOrDefault(phase =>
             phase.Key == phaseKey && phase.State == WorkflowPhaseRunState.Active);
@@ -266,6 +286,10 @@ public sealed class WorkflowPhaseRun
     internal void Activate() => State = WorkflowPhaseRunState.Active;
 
     internal void Complete() => State = WorkflowPhaseRunState.Completed;
+
+    internal void ResetToPending() => State = WorkflowPhaseRunState.Pending;
+
+    internal void Reactivate() => State = WorkflowPhaseRunState.Active;
 }
 
 public sealed class ObjectiveItemRun

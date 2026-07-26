@@ -33,4 +33,10 @@ public static class WorkflowErrors
 
     public static ErrorDescriptor PhaseCompletionBlocked { get; } =
         new("workflows.phase.completionBlocked", "Workflows.Run.PhaseCompletionBlocked");
+
+    public static ErrorDescriptor NoPreviousPhaseToRollback { get; } =
+        new("workflows.phase.noPreviousPhase", "Workflows.Run.NoPreviousPhaseToRollback");
+
+    public static ErrorDescriptor PhaseTimeoutExceeded { get; } =
+        new("workflows.phase.timeoutExceeded", "Workflows.Run.PhaseTimeoutExceeded");
 }
