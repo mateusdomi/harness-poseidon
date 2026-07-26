@@ -568,6 +568,7 @@ public static class HostApplication
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IHybridRagSearchEngine, Harness.Modules.Governance.Memory.HybridRagSearchEngine>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IContextBuilder, Harness.Modules.Governance.Memory.ContextBuilder>();
         builder.Services.AddSingleton<Harness.Modules.Coordination.Application.IMultimodalIntakeService, Harness.Modules.Coordination.Application.MultimodalIntakeService>();
+        builder.Services.AddSingleton<Harness.Modules.Governance.Ledger.ILedgerReconciliationService, Harness.Modules.Governance.Ledger.LedgerReconciliationService>();
         // PLAT-04: camada de medição. O detector de travamento é PURO (sempre disponível, read-only).
         // O juiz default é determinístico e sem credenciais; o juiz real ligado a um LLM só entra
         // quando explicitamente habilitado E com transport configurado (default: DESLIGADO).

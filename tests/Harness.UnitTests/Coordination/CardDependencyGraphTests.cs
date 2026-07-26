@@ -42,7 +42,9 @@ public sealed class CardDependencyGraphTests
         Assert.Equal(
             ["backend", "frontend"],
             plan.GetReadyCards(new HashSet<string> { "architecture" }));
-        Assert.Empty(plan.GetReadyCards(new HashSet<string> { "architecture", "backend" }));
+        Assert.Equal(
+            ["frontend"],
+            plan.GetReadyCards(new HashSet<string> { "architecture", "backend" }));
         Assert.Equal(
             ["integration"],
             plan.GetReadyCards(new HashSet<string> { "architecture", "backend", "frontend" }));
