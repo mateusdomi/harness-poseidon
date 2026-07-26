@@ -173,6 +173,7 @@ public sealed partial class ChiefBacklogLoopService(
             {
                 await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
                 await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -258,6 +259,19 @@ public sealed partial class ChiefBacklogLoopService(
                 settings.AutoDispatchMaxConcurrent, clock.UtcNow,
                 CapacitySignals(clock.UtcNow));
             deferred += plan.Deferred.Count;
+            foreach (var deferral in plan.Deferred)
+            {
+                // O MOTIVO tipado do adiamento é operável (conta indisponível? escopo? cota?);
+                // sem ele o operador só vê o contador e não consegue agir. O detalhe por conta
+                // (candidatos do scheduler) diz exatamente QUEM foi recusado e POR QUÊ.
+                LogCardDeferred(
+                    logger, deferral.Card.TaskId, deferral.ReasonCode,
+                    deferral.RetryAfter?.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) ?? "-",
+                    deferral.Candidates is null
+                        ? "-"
+                        : string.Join(", ", deferral.Candidates.Select(candidate =>
+                            $"{candidate.Alias}:{candidate.ReasonCode}")));
+            }
 
             foreach (var decision in plan.Dispatch)
             {
@@ -532,6 +546,75 @@ public sealed partial class ChiefBacklogLoopService(
     }
 
     /// <summary>
+    /// Elo de CORREÇÕES: um card reprovado pelo review (board `corrections`, cadeia `running`
+    /// com tentativa `rejected`) recebe uma NOVA instrução imutável — a original mais os achados
+    /// do crítico — e a própria mutação devolve o card a `ready`, de onde o despacho o reatribui
+    /// (a cadeia recusa nova tentativa com a MESMA instrução reprovada). Idempotente por
+    /// tentativa reprovada: uma correção por rejeição.
+    /// </summary>
+    internal async Task<int> PrepareCorrectionsAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        var prepared = 0;
+        var page = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, "corrections", null, null, "active", null, 0, 50),
+            token);
+        foreach (var task in page.Items)
+        {
+            if (!string.Equals(task.InternalState, "running", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+            var rejected = attempts.LastOrDefault(attempt =>
+                string.Equals(attempt.State, "failed", StringComparison.Ordinal));
+            if (rejected is null)
+            {
+                continue;
+            }
+
+            var instructions = await board.ListInstructionsAsync(tenantId, task.Id, null, 50, token);
+            if (instructions.Count == 0)
+            {
+                continue;
+            }
+
+            // Os achados do crítico ficam no evento 'note' da tentativa reprovada.
+            var events = await board.ListAttemptEventsAsync(tenantId, rejected.Id, null, 50, token);
+            var findings = events.LastOrDefault(entry =>
+                string.Equals(entry.Kind, "note", StringComparison.Ordinal))?.Content
+                ?? "(o review não registrou achados estruturados)";
+
+            var content =
+                $"{instructions[^1].Body}\n\n## Correções exigidas pelo review independente (tentativa {rejected.Id})\n{findings}\n" +
+                "Feche TODOS os achados acima sem reintroduzir nenhum deles.";
+            var now = clock.UtcNow;
+            var receipt = await chain.AddInstructionVersionAsync(
+                new WorkInstructionVersionCreateCommand(
+                    tenantId, task.BackingSolicitationId, task.Id,
+                    UlidValue.New(now).ToString(), content,
+                    Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                        System.Text.Encoding.UTF8.GetBytes(content))),
+                    task.Version, $"chief-loop-correct:{rejected.Id}", now),
+                token);
+            if (receipt.Status is WorkChainMutationStatus.Applied
+                or WorkChainMutationStatus.IdempotentReplay)
+            {
+                prepared++;
+                LogCorrectionPrepared(logger, task.Id, rejected.Id);
+            }
+        }
+
+        return prepared;
+    }
+
+    /// <summary>
     /// Elo de TRIAGEM por ondas: cards de um plano materializado sobem de `backlog` para `ready`
     /// quando a DoR passa (tipo despachável + instrução + não bloqueado) e TODAS as dependências
     /// declaradas do plano (códigos Tnn) estão entregues (`done`). Onda 1 (sem dependências) sobe
@@ -699,6 +782,12 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: acompanhamento do projeto {ProjectId} falhou neste ciclo: {ErrorType}.")]
     private static partial void LogFollowUpFailure(ILogger logger, string projectId, string errorType);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} adiado: {ReasonCode} (volta: {RetryAfter}; contas: {Candidates}).")]
+    private static partial void LogCardDeferred(ILogger logger, string taskId, string reasonCode, string retryAfter, string candidates);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: card {TaskId} recebeu instrução corretiva após a reprovação da tentativa {AttemptId} e voltou a `ready`.")]
+    private static partial void LogCorrectionPrepared(ILogger logger, string taskId, string attemptId);
 
     private async Task<bool> LaunchAsync(
         string tenantId,

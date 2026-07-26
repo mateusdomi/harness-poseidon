@@ -175,6 +175,16 @@ public static class AgentAccountConfigurationLoader
     public static AgentAccountContract ToContract(AgentAccountDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        // O escopo de path pertence ao PAPEL: um arquivo do operador que omite (ou zera)
+        // `allowedPathScopes` herda os escopos canônicos dos papéis da conta. Sem isto, a conta
+        // ficaria SILENCIOSAMENTE inelegível para qualquer card com claim (o scheduler exige que
+        // cada claim do card esteja na lista da conta) — e o loop do chefe adiaria para sempre.
+        // Uma lista explícita não vazia continua mandando (restrição deliberada do operador).
+        var pathScopes = definition.AllowedPathScopes.Count > 0
+            ? definition.AllowedPathScopes
+            : [.. definition.AllowedRoles
+                .SelectMany(AgentRoles.PathScopesFor)
+                .Distinct(StringComparer.Ordinal)];
         return new AgentAccountContract(
             definition.Alias,
             definition.ProviderKind,
@@ -182,7 +192,7 @@ public static class AgentAccountConfigurationLoader
             definition.CredentialRef,
             $"confighome://{definition.Alias}",
             definition.AllowedRoles,
-            definition.AllowedPathScopes,
+            pathScopes,
             // Uma conta nunca nasce Available: instalação e autenticação são comprovadas,
             // nunca presumidas.
             definition.Enabled ? AgentAccountState.AuthenticationRequired : AgentAccountState.Disabled,

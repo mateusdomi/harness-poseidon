@@ -22,8 +22,14 @@ public sealed record ChiefDispatch(ChiefCard Card, string AccountAlias, string R
 /// Card adiado: nenhuma conta do papel está disponível AGORA. <see cref="RetryAfter"/> é
 /// quando a conta mais próxima volta (do ledger de cota), para o agendador retomar — nulo
 /// quando o bloqueio exige ação humana (login) ou não há conta do papel.
+/// <see cref="Candidates"/> carrega o veredito POR CONTA do scheduler (elegível/motivo) —
+/// sem ele, "nenhuma conta elegível" não é operável.
 /// </summary>
-public sealed record ChiefDeferral(ChiefCard Card, string ReasonCode, DateTimeOffset? RetryAfter);
+public sealed record ChiefDeferral(
+    ChiefCard Card,
+    string ReasonCode,
+    DateTimeOffset? RetryAfter,
+    IReadOnlyList<AccountSelectionCandidate>? Candidates = null);
 
 /// <summary>Plano de uma rodada do chefe: o que despachar agora e o que ficou adiado (e por quê).</summary>
 public sealed record ChiefBacklogPlan(
@@ -115,7 +121,8 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
                 deferred.Add(new ChiefDeferral(
                     card,
                     retryAfter is null ? decision.ReasonCode : "chief.awaiting_account_return",
-                    retryAfter));
+                    retryAfter,
+                    decision.Candidates));
                 continue;
             }
 

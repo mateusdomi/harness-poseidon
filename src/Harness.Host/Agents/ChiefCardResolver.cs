@@ -25,7 +25,9 @@ public static class ChiefCardResolver
     {
         var text = $"{title}\n{instructionBody}".ToLowerInvariant();
 
-        var role = explicitRole ?? InferRole(text);
+        // Um card que DECLARA o papel (o materializer de planos escreve "Papel exigido: <role>")
+        // prevalece sobre qualquer heurística — a heurística só existe para cards escritos à mão.
+        var role = explicitRole ?? ParseDeclaredRole(instructionBody) ?? InferRole(text);
         var persona = explicitPersonaKey ?? InferPersona(text, role);
         var claims = AgentRoles.PathScopesFor(role);
         var capability = string.Equals(role, AgentRoles.Critic, StringComparison.OrdinalIgnoreCase)
@@ -42,8 +44,41 @@ public static class ChiefCardResolver
         return new ChiefCardResolution(role, capability, persona, claims, card);
     }
 
+    /// <summary>
+    /// Papel declarado no corpo da instrução ("Papel exigido: backend-specialist|frontend-specialist|critic").
+    /// "none" e valores desconhecidos caem para a heurística (o card de documentação, por exemplo,
+    /// declara "none" e é implementado pelo papel inferido do texto).
+    /// </summary>
+    private static string? ParseDeclaredRole(string instructionBody)
+    {
+        const string marker = "papel exigido:";
+        foreach (var line in instructionBody.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var declared = trimmed[marker.Length..].Trim();
+            if (string.Equals(declared, AgentRoles.BackendSpecialist, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(declared, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(declared, AgentRoles.Critic, StringComparison.OrdinalIgnoreCase))
+            {
+                return declared.ToLowerInvariant();
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    // "ui"/"ux" como SUBSTRING viravam falso positivo em português ("concluir", "incluir",
+    // "possui" contêm "ui") e mandavam card de backend para o papel de frontend. Os termos
+    // curtos exigem fronteira de palavra; os longos continuam por substring.
     private static string InferRole(string text) =>
-        MentionsAny(text, "frontend", "front-end", "ui", "ux", "componente", "tela", "css", "react")
+        MentionsAny(text, "frontend", "front-end", " ui ", "ui/", "/ui", " ux ", "componente", " tela", "css", "react")
             ? AgentRoles.FrontendSpecialist
             : AgentRoles.BackendSpecialist;
 
