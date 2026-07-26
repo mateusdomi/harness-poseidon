@@ -33,6 +33,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // A suíte completa disputa CPU com builds .NET e múltiplos agentes locais; os testes
+    // mantêm suas esperas/assertivas próprias, mas não devem falhar apenas por ultrapassar
+    // o default de 5 s sob contenção da máquina.
+    testTimeout: 15_000,
     css: false,
     exclude: ['**/node_modules/**', '**/e2e/**'],
   },
