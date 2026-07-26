@@ -49,6 +49,14 @@ public interface IWorkChainStore
         WorkAttemptLeaseExpiredCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> BlockRunningTaskAsync(
+        WorkTaskBlockCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> UnblockTaskAsync(
+        WorkTaskUnblockCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default);
@@ -200,6 +208,31 @@ public sealed record WorkAttemptLeaseExpiredCommand(
     string SolicitationId,
     string TaskId,
     string AttemptId,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskBlockCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string AttemptId,
+    string ActorKind,
+    string ActorId,
+    string Reason,
+    string EvidenceReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskUnblockCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string ActorKind,
+    string ActorId,
+    string Resolution,
+    string EvidenceReference,
     long ExpectedTaskVersion,
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
@@ -507,6 +540,35 @@ public static class WorkChainMutationValidator
             command.IdempotencyKey);
     }
 
+    public static void Validate(WorkTaskBlockCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateActor(command.ActorKind, command.ActorId, command.Reason, command.EvidenceReference);
+    }
+
+    public static void Validate(WorkTaskUnblockCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateActor(
+            command.ActorKind,
+            command.ActorId,
+            command.Resolution,
+            command.EvidenceReference);
+    }
+
     public static void Validate(WorkAttemptReviewCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -604,6 +666,22 @@ public static class WorkChainMutationValidator
         ValidateUlid(taskId, nameof(taskId));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedTaskVersion);
         ValidateText(idempotencyKey, nameof(idempotencyKey), 200);
+    }
+
+    private static void ValidateActor(
+        string actorKind,
+        string actorId,
+        string reason,
+        string evidenceReference)
+    {
+        if (!ActorKinds.Contains(actorKind))
+        {
+            throw new ArgumentException("Transition actor kind is invalid.", nameof(actorKind));
+        }
+
+        ValidateText(actorId, nameof(actorId), 200);
+        ValidateText(reason, nameof(reason), 10_000);
+        ValidateText(evidenceReference, nameof(evidenceReference), 2_000);
     }
 
     private static void ValidateUlid(string value, string parameterName)

@@ -132,6 +132,32 @@ public sealed class WorkChainAggregateTests
     }
 
     [Fact]
+    public void BlockingAbandonsAttemptAndRequiresExplicitUnblockBeforeRetry()
+    {
+        var chain = CreateChain();
+        var task = CreateTask(chain, WorkRiskTier.Medium);
+        var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
+        var blockedAttempt = StartAttempt(chain, task, instruction, "engineer").Value;
+
+        var blocked = chain.BlockRunningTask(task.Id, blockedAttempt.Id);
+        var lateCompletion = chain.CompleteAttempt(blockedAttempt.Id, ["late:evidence"]);
+        var prematureRetry = StartAttempt(chain, task, instruction, "replacement-engineer");
+        var unblocked = chain.UnblockTask(task.Id);
+        var retry = StartAttempt(chain, task, instruction, "replacement-engineer");
+
+        Assert.True(blocked.IsSuccess);
+        Assert.Equal(WorkAttemptState.Abandoned, blockedAttempt.State);
+        Assert.NotNull(blockedAttempt.CompletedAt);
+        Assert.Equal(WorkChainErrors.InvalidAttemptState, lateCompletion.Error);
+        Assert.Equal(WorkChainErrors.InvalidTaskState, prematureRetry.Error);
+        Assert.True(unblocked.IsSuccess);
+        Assert.True(retry.IsSuccess);
+        Assert.Equal(2, retry.Value.Number);
+        Assert.Equal(instruction.Id, retry.Value.InstructionVersionId);
+        Assert.Equal(WorkTaskState.Running, task.State);
+    }
+
+    [Fact]
     public void CancellationTerminatesRunningTaskAndAttempt()
     {
         var chain = CreateChain();

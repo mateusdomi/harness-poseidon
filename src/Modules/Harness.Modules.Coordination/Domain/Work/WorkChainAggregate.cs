@@ -351,6 +351,58 @@ public sealed class WorkChainAggregate
         return Result.Success();
     }
 
+    public Result BlockRunningTask(
+        EntityId<WorkTaskTag> taskId,
+        EntityId<WorkAttemptTag> attemptId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        var attempt = _attempts.SingleOrDefault(candidate =>
+            candidate.Id == attemptId && candidate.TaskId == taskId);
+        if (attempt is null)
+        {
+            return Result.Failure(WorkChainErrors.AttemptNotFound);
+        }
+
+        if (!WorkTaskTransitionPolicy.IsAllowed(
+                task.State,
+                WorkTaskState.Blocked,
+                WorkTaskTransitionEvent.Blocked) ||
+            attempt.State != WorkAttemptState.Running)
+        {
+            return Result.Failure(WorkChainErrors.InvalidAttemptState);
+        }
+
+        attempt.State = WorkAttemptState.Abandoned;
+        attempt.CompletedAt = _clock.UtcNow;
+        task.State = WorkTaskState.Blocked;
+        return Result.Success();
+    }
+
+    public Result UnblockTask(EntityId<WorkTaskTag> taskId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (!WorkTaskTransitionPolicy.IsAllowed(
+                task.State,
+                WorkTaskState.Ready,
+                WorkTaskTransitionEvent.Unblocked))
+        {
+            return Result.Failure(WorkChainErrors.InvalidTaskState);
+        }
+
+        task.State = WorkTaskState.Ready;
+        return Result.Success();
+    }
+
     public Result CancelRunningTask(
         EntityId<WorkTaskTag> taskId,
         EntityId<WorkAttemptTag> attemptId)

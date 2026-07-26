@@ -319,6 +319,22 @@ public sealed partial class PostgresWorkChainStore
         return ExpireAttemptLeaseCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> BlockRunningTaskAsync(
+        WorkTaskBlockCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return BlockRunningTaskCoreAsync(command, cancellationToken);
+    }
+
+    public Task<WorkChainMutationReceipt> UnblockTaskAsync(
+        WorkTaskUnblockCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return UnblockTaskCoreAsync(command, cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default)
@@ -1148,6 +1164,235 @@ public sealed partial class PostgresWorkChainStore
             "task.stateChanged",
             command.OccurredAt,
             receipt,
+            cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> BlockRunningTaskCoreAsync(
+        WorkTaskBlockCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.NotFound,
+                command.TaskId,
+                command.AttemptId);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                command.AttemptId);
+        }
+        else if (row.TaskState != "running" || row.AttemptState != "running")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                command.AttemptId);
+        }
+        else
+        {
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_attempts
+                SET state='rejected',operational_state='cancelled',
+                    completed_at=$1,failure_reason=NULL
+                WHERE id=$2 AND tenant_id=$3
+                  AND state='running' AND operational_state='running';
+                """,
+                cancellationToken,
+                Timestamp(command.OccurredAt),
+                Text(command.AttemptId),
+                Text(command.TenantId));
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                INSERT INTO harness.attempt_events
+                    (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
+                VALUES ($1,$2,$3,$4,'note',$5,$6,'error');
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()),
+                Text(command.TenantId),
+                Text(row.ProjectId),
+                Text(command.AttemptId),
+                Text(command.Reason),
+                Timestamp(command.OccurredAt));
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='blocked',version=$1,updated_at=$2,
+                    board_state='blocked',blocked_reason=$3
+                WHERE id=$4 AND tenant_id=$5 AND version=$6;
+                """,
+                cancellationToken,
+                Bigint(nextVersion),
+                Timestamp(command.OccurredAt),
+                Text(command.Reason),
+                Text(command.TaskId),
+                Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                command.AttemptId,
+                nextVersion,
+                "blocked",
+                "abandoned");
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "running",
+                "blocked",
+                "blocked",
+                "development",
+                command.ActorKind,
+                command.ActorId,
+                command.Reason,
+                command.EvidenceReference),
+            cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> UnblockTaskCoreAsync(
+        WorkTaskUnblockCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            attemptId: null,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                null);
+        }
+        else if (row.TaskState != "blocked" || row.LatestAttemptState != "abandoned")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                null);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='ready',version=$1,updated_at=$2,
+                    board_state='ready',blocked_reason=NULL,assignee_agent_id=NULL
+                WHERE id=$3 AND tenant_id=$4 AND version=$5;
+                """,
+                cancellationToken,
+                Bigint(nextVersion),
+                Timestamp(command.OccurredAt),
+                Text(command.TaskId),
+                Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                null,
+                nextVersion,
+                "ready",
+                row.LatestAttemptState);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "blocked",
+                "ready",
+                "unblocked",
+                "blocked",
+                command.ActorKind,
+                command.ActorId,
+                command.Resolution,
+                command.EvidenceReference),
             cancellationToken);
     }
 

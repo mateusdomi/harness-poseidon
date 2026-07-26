@@ -77,10 +77,147 @@ internal static class WorkChainStoreBehavior
         await AssertMutationsAsync(store, command, cancellationToken);
         await AssertLeaseExpiryAsync(store, command, cancellationToken);
         await AssertCancellationAsync(store, command, cancellationToken);
+        await AssertBlockingAsync(store, command, cancellationToken);
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FF4",
             cancellationToken));
+    }
+
+    private static async Task AssertBlockingAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FD0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FD1",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5FD2",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FD3",
+            IdempotencyKey = "work-chain:create:blocking",
+            OccurredAt = template.OccurredAt.AddDays(3),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        var start = new WorkAttemptStartCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            chain.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FD4",
+            "blocked-owner",
+            3,
+            "work-chain:attempt:start:blocking",
+            chain.OccurredAt.AddMinutes(1));
+        var started = await store.StartAttemptAsync(start, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+        Assert.Equal(5, started.TaskVersion);
+
+        var block = new WorkTaskBlockCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            start.AttemptId,
+            "agent",
+            start.ProducerAgentId,
+            "An external dependency is unavailable.",
+            "dependency:external-api",
+            5,
+            "work-chain:task:block:first",
+            chain.OccurredAt.AddMinutes(2));
+        var blocked = await store.BlockRunningTaskAsync(block, cancellationToken);
+        var blockReplay = await store.BlockRunningTaskAsync(block, cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, blocked.Status);
+        Assert.Equal(6, blocked.TaskVersion);
+        Assert.Equal("blocked", blocked.TaskState);
+        Assert.Equal("abandoned", blocked.AttemptState);
+        Assert.NotNull(blocked.LedgerSequence);
+        Assert.NotNull(blocked.LedgerHash);
+        Assert.NotNull(blocked.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, blockReplay.Status);
+        Assert.Equal(blocked.LedgerHash, blockReplay.LedgerHash);
+
+        var prematureRetry = await store.StartAttemptAsync(
+            start with
+            {
+                AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FD5",
+                ExpectedTaskVersion = 6,
+                IdempotencyKey = "work-chain:attempt:start:while-blocked",
+                OccurredAt = chain.OccurredAt.AddMinutes(3),
+            },
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, prematureRetry.Status);
+        Assert.Equal("blocked", prematureRetry.TaskState);
+        Assert.Null(prematureRetry.LedgerSequence);
+
+        var unblock = new WorkTaskUnblockCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            "chief",
+            "bruna",
+            "The dependency recovered and its health check is green.",
+            "dependency:external-api:healthy",
+            6,
+            "work-chain:task:unblock:first",
+            chain.OccurredAt.AddMinutes(4));
+        var unblocked = await store.UnblockTaskAsync(unblock, cancellationToken);
+        var unblockReplay = await store.UnblockTaskAsync(unblock, cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, unblocked.Status);
+        Assert.Equal(7, unblocked.TaskVersion);
+        Assert.Equal("ready", unblocked.TaskState);
+        Assert.Equal("abandoned", unblocked.AttemptState);
+        Assert.NotNull(unblocked.LedgerSequence);
+        Assert.NotNull(unblocked.LedgerHash);
+        Assert.NotNull(unblocked.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, unblockReplay.Status);
+        Assert.Equal(unblocked.LedgerHash, unblockReplay.LedgerHash);
+
+        var retry = await store.StartAttemptAsync(
+            start with
+            {
+                AttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FD6",
+                ProducerAgentId = "replacement-owner",
+                ExpectedTaskVersion = 7,
+                IdempotencyKey = "work-chain:attempt:start:after-unblock",
+                OccurredAt = chain.OccurredAt.AddMinutes(5),
+            },
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, retry.Status);
+        Assert.Equal(9, retry.TaskVersion);
+
+        var lateCompletion = await store.CompleteAttemptAsync(
+            new WorkAttemptCompleteCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                start.AttemptId,
+                9,
+                [new WorkEvidenceInput(
+                    "01ARZ3NDEKTSV4RRFFQ69G5FD7",
+                    "late:evidence")],
+                "work-chain:attempt:complete:blocked",
+                chain.OccurredAt.AddMinutes(6)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, lateCompletion.Status);
+        Assert.Null(lateCompletion.LedgerSequence);
+
+        var aggregate = await store.ReadAggregateAsync(
+            chain.TenantId,
+            chain.SolicitationId,
+            cancellationToken);
+        Assert.NotNull(aggregate);
+        var task = Assert.Single(Assert.Single(aggregate.Demands).Tasks);
+        Assert.Equal("running", task.State);
+        Assert.Equal(["abandoned", "running"], task.Attempts.Select(item => item.State));
+        Assert.Equal(
+            [chain.InstructionVersionId, chain.InstructionVersionId],
+            task.Attempts.Select(item => item.InstructionVersionId));
+        Assert.NotNull(task.Attempts[0].CompletedAt);
     }
 
     private static async Task AssertCancellationAsync(
