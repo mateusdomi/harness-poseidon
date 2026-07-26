@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using YamlDotNet.Serialization;
+
 namespace Harness.Modules.Governance.Documentation;
 
 public enum DocumentAuthority
@@ -90,10 +93,14 @@ public sealed class GovernanceDocument
 
     public required List<string> PathGlobs { get; init; }
 
+    [JsonPropertyName("load")]
+    [YamlMember(Alias = "load", ApplyNamingConventions = false)]
     public required DocumentLoadPolicy LoadPolicy { get; init; }
 
     public required int Priority { get; init; }
 
+    [JsonPropertyName("tokenCost")]
+    [YamlMember(Alias = "tokenCost", ApplyNamingConventions = false)]
     public required int TokenEstimate { get; set; }
 
     public required string Owner { get; init; }
