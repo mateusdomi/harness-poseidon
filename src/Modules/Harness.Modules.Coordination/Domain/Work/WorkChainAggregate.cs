@@ -306,7 +306,7 @@ public sealed class WorkChainAggregate
         if (decision == ReviewDecision.Approved)
         {
             attempt.State = WorkAttemptState.Approved;
-            task.State = WorkTaskState.Completed;
+            task.State = WorkTaskState.Approved;
         }
         else
         {
@@ -322,6 +322,40 @@ public sealed class WorkChainAggregate
         }
 
         return Result<WorkReview>.Success(review);
+    }
+
+    public Result MergeApprovedTask(EntityId<WorkTaskTag> taskId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (task.State != WorkTaskState.Approved)
+        {
+            return Result.Failure(WorkChainErrors.TaskIsNotApproved);
+        }
+
+        task.State = WorkTaskState.Merged;
+        return Result.Success();
+    }
+
+    public Result CompleteMergedTask(EntityId<WorkTaskTag> taskId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (task.State != WorkTaskState.Merged)
+        {
+            return Result.Failure(WorkChainErrors.TaskIsNotMerged);
+        }
+
+        task.State = WorkTaskState.Done;
+        return Result.Success();
     }
 
     private static void ValidateText(string value, string parameterName, int maximumLength)

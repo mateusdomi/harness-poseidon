@@ -31,6 +31,12 @@ public static class WorkChainErrors
     public static ErrorDescriptor TaskIsNotEscalated { get; } =
         new("coordination.task.notEscalated", "Coordination.WorkChain.TaskIsNotEscalated");
 
+    public static ErrorDescriptor TaskIsNotApproved { get; } =
+        new("coordination.task.notApproved", "Coordination.WorkChain.TaskIsNotApproved");
+
+    public static ErrorDescriptor TaskIsNotMerged { get; } =
+        new("coordination.task.notMerged", "Coordination.WorkChain.TaskIsNotMerged");
+
     public static ErrorDescriptor InvalidAttemptState { get; } =
         new("coordination.attempt.invalidState", "Coordination.WorkChain.InvalidAttemptState");
 

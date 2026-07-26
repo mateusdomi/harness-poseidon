@@ -87,7 +87,7 @@ public sealed class WorkChainAggregateTests
         Assert.Equal(WorkChainErrors.IndependentReviewerRequired, selfReview.Error);
         Assert.True(criticReview.IsSuccess);
         Assert.Equal(WorkAttemptState.Approved, attempt.State);
-        Assert.Equal(WorkTaskState.Completed, task.State);
+        Assert.Equal(WorkTaskState.Approved, task.State);
     }
 
     [Fact]
@@ -177,7 +177,37 @@ public sealed class WorkChainAggregateTests
             "Low-risk policy permits this review.");
 
         Assert.True(review.IsSuccess);
-        Assert.Equal(WorkTaskState.Completed, task.State);
+        Assert.Equal(WorkTaskState.Approved, task.State);
+    }
+
+    [Fact]
+    public void ApprovedTaskMustBeMergedBeforeItCanBeCompleted()
+    {
+        var chain = CreateChain();
+        var task = CreateTask(chain, WorkRiskTier.Low);
+        var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
+        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        chain.CompleteAttempt(attempt.Id, ["test:green"]);
+        chain.ReviewAttempt(
+            attempt.Id,
+            "engineer",
+            ReviewDecision.Approved,
+            "Approved for merge.");
+
+        var prematureCompletion = chain.CompleteMergedTask(task.Id);
+        var merged = chain.MergeApprovedTask(task.Id);
+
+        Assert.Equal(WorkChainErrors.TaskIsNotMerged, prematureCompletion.Error);
+        Assert.True(merged.IsSuccess);
+        Assert.Equal(WorkTaskState.Merged, task.State);
+
+        var duplicateMerge = chain.MergeApprovedTask(task.Id);
+        var completed = chain.CompleteMergedTask(task.Id);
+
+        Assert.Equal(WorkChainErrors.TaskIsNotApproved, duplicateMerge.Error);
+        Assert.True(completed.IsSuccess);
+        Assert.Equal(WorkTaskState.Done, task.State);
+        Assert.Equal(WorkChainErrors.TaskIsNotMerged, chain.CompleteMergedTask(task.Id).Error);
     }
 
     private static WorkChainAggregate CreateChain(int maximumReviewCycles = 3) =>
