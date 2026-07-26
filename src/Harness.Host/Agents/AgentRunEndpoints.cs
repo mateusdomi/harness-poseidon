@@ -280,6 +280,29 @@ public static class AgentRunEndpoints
             // tarefa. O identificador nasce de um agregado durável, nunca solto. A existência
             // de instrução já foi garantida pela disciplina de card (RN-01) acima.
             attemptId = UlidValue.New(clock.UtcNow).ToString();
+            var assigned = await chain.AssignTaskAsync(
+                new WorkTaskAssignmentCommand(
+                    profile.TenantId,
+                    task.BackingSolicitationId,
+                    input.TaskId,
+                    instructions[^1].Id,
+                    input.Account,
+                    "user",
+                    profile.Id,
+                    $"attempt:{attemptId}",
+                    task.Version,
+                    $"agent-run-assignment:{attemptId}",
+                    clock.UtcNow),
+                token);
+            if (assigned.Status != WorkChainMutationStatus.Applied &&
+                (assigned.Status != WorkChainMutationStatus.IdempotentReplay ||
+                    assigned.TaskState != "assigned"))
+            {
+                return Problem(
+                    409, "task_not_assigned",
+                    $"The work chain refused to assign the task ({assigned.Status}).");
+            }
+
             var started = await chain.StartAttemptAsync(
                 new WorkAttemptStartCommand(
                     profile.TenantId,
@@ -288,8 +311,8 @@ public static class AgentRunEndpoints
                     instructions[^1].Id,
                     attemptId,
                     input.Account,
-                    task.Version,
-                    $"agent-run-attempt:{attemptId}",
+                    assigned.TaskVersion!.Value,
+                    $"agent-run-heartbeat:{attemptId}",
                     clock.UtcNow),
                 token);
             if (started.Status is not (WorkChainMutationStatus.Applied

@@ -199,10 +199,32 @@ public sealed partial class ChiefBacklogLoopService(
 
         // Inicia uma tentativa durável na cadeia de trabalho (id nunca solto).
         var attemptId = UlidValue.New(now).ToString();
+        var assigned = await chain.AssignTaskAsync(
+            new WorkTaskAssignmentCommand(
+                tenantId,
+                task.BackingSolicitationId,
+                task.Id,
+                instructionVersionId,
+                accountAlias,
+                "chief",
+                "bruna",
+                $"attempt:{attemptId}",
+                task.Version,
+                $"chief-loop-assignment:{attemptId}",
+                now),
+            token);
+        if (assigned.Status != WorkChainMutationStatus.Applied &&
+            (assigned.Status != WorkChainMutationStatus.IdempotentReplay ||
+                assigned.TaskState != "assigned"))
+        {
+            LogAttemptNotStarted(logger, task.Id, assigned.Status.ToString());
+            return false;
+        }
+
         var started = await chain.StartAttemptAsync(
             new WorkAttemptStartCommand(
                 tenantId, task.BackingSolicitationId, task.Id, instructionVersionId, attemptId,
-                accountAlias, task.Version, $"chief-loop-attempt:{attemptId}", now),
+                accountAlias, assigned.TaskVersion!.Value, $"chief-loop-heartbeat:{attemptId}", now),
             token);
         if (started.Status is not (WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay))
         {

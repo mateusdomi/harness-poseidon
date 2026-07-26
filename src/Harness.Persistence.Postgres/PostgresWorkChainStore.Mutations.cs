@@ -142,6 +142,119 @@ public sealed partial class PostgresWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> AssignTaskAsync(
+        WorkTaskAssignmentCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return AssignTaskCoreAsync(command, cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> AssignTaskCoreAsync(
+        WorkTaskAssignmentCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            attemptId: null,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.NotFound,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.TaskState != "ready" ||
+            row.LatestInstructionId != command.InstructionVersionId ||
+            (row.LatestAttemptState == "rejected" &&
+                row.LatestAttemptInstructionId == command.InstructionVersionId))
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='assigned',version=$1,updated_at=$2,board_state='development',
+                    assignee_agent_id=$3,blocked_reason=NULL
+                WHERE id=$4 AND tenant_id=$5 AND version=$6;
+                """,
+                cancellationToken,
+                Bigint(nextVersion),
+                Timestamp(command.OccurredAt),
+                Text(command.AssigneeAgentId),
+                Text(command.TaskId),
+                Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                null,
+                nextVersion,
+                "assigned",
+                row.LatestAttemptState);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "ready",
+                "assigned",
+                "leaseAcquired",
+                "ready",
+                command.ActorKind,
+                command.ActorId,
+                "Task lease acquired for the assigned agent.",
+                command.LeaseReference),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> AddInstructionVersionAsync(
         WorkInstructionVersionCreateCommand command,
         CancellationToken cancellationToken = default)
@@ -150,12 +263,44 @@ public sealed partial class PostgresWorkChainStore
         return AddInstructionVersionCoreAsync(command, cancellationToken);
     }
 
-    public Task<WorkChainMutationReceipt> StartAttemptAsync(
+    public async Task<WorkChainMutationReceipt> StartAttemptAsync(
         WorkAttemptStartCommand command,
         CancellationToken cancellationToken = default)
     {
         WorkChainMutationValidator.Validate(command);
-        return StartAttemptCoreAsync(command, cancellationToken);
+        var assignment = await AssignTaskAsync(
+            new WorkTaskAssignmentCommand(
+                command.TenantId,
+                command.SolicitationId,
+                command.TaskId,
+                command.InstructionVersionId,
+                command.ProducerAgentId,
+                "agent",
+                command.ProducerAgentId,
+                $"attempt:{command.AttemptId}",
+                command.ExpectedTaskVersion,
+                $"{command.IdempotencyKey}:lease",
+                command.OccurredAt),
+            cancellationToken);
+        if (assignment.Status == WorkChainMutationStatus.Applied ||
+            (assignment.Status == WorkChainMutationStatus.IdempotentReplay &&
+                assignment.TaskState == "assigned"))
+        {
+            command = command with
+            {
+                ExpectedTaskVersion = assignment.TaskVersion
+                    ?? throw new InvalidOperationException(
+                        "Applied assignment has no task version."),
+            };
+        }
+        else if (assignment.Status != WorkChainMutationStatus.InvalidState ||
+            assignment.TaskState != "assigned" ||
+            assignment.TaskVersion != command.ExpectedTaskVersion)
+        {
+            return assignment with { AttemptId = command.AttemptId };
+        }
+
+        return await StartAttemptCoreAsync(command, cancellationToken);
     }
 
     public Task<WorkChainMutationReceipt> CompleteAttemptAsync(
@@ -304,7 +449,9 @@ public sealed partial class PostgresWorkChainStore
         {
             receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, command.AttemptId);
         }
-        else if (row.TaskState != "ready" || row.LatestInstructionId != command.InstructionVersionId ||
+        else if (row.TaskState != "assigned" ||
+            row.AssigneeAgentId != command.ProducerAgentId ||
+            row.LatestInstructionId != command.InstructionVersionId ||
             (row.LatestAttemptState == "rejected" && row.LatestAttemptInstructionId == command.InstructionVersionId))
         {
             receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
@@ -350,7 +497,17 @@ public sealed partial class PostgresWorkChainStore
 
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
-            "attempt.started", command.OccurredAt, receipt, cancellationToken);
+            "attempt.started", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "assigned",
+                "running",
+                "heartbeatConfirmed",
+                "development",
+                "agent",
+                command.ProducerAgentId,
+                "Assigned agent confirmed the execution heartbeat.",
+                $"attempt:{command.AttemptId}"),
+            cancellationToken);
     }
 
     private async Task<WorkChainMutationReceipt> CompleteAttemptCoreAsync(
@@ -1028,7 +1185,8 @@ public sealed partial class PostgresWorkChainStore
                             THEN 'cancelled'
                        ELSE a.state
                    END,
-                   a.producer_agent_id
+                   a.producer_agent_id,
+                   t.assignee_agent_id
             FROM harness.work_tasks t
             JOIN harness.demands d ON d.id = t.demand_id
             JOIN harness.solicitations s ON s.id = d.solicitation_id
@@ -1048,7 +1206,8 @@ public sealed partial class PostgresWorkChainStore
                 reader.IsDBNull(7) ? null : reader.GetString(7),
                 reader.IsDBNull(8) ? null : reader.GetString(8).TrimEnd(),
                 reader.IsDBNull(9) ? null : reader.GetString(9),
-                reader.IsDBNull(10) ? null : reader.GetString(10))
+                reader.IsDBNull(10) ? null : reader.GetString(10),
+                reader.IsDBNull(11) ? null : reader.GetString(11))
             : null;
     }
 
@@ -1277,7 +1436,8 @@ public sealed partial class PostgresWorkChainStore
         string? LatestAttemptState,
         string? LatestAttemptInstructionId,
         string? AttemptState,
-        string? ProducerAgentId);
+        string? ProducerAgentId,
+        string? AssigneeAgentId);
 
     private sealed record TransitionAudit(
         string FromState,

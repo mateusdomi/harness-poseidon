@@ -1,5 +1,6 @@
 using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Coordination.Domain.Work;
+using Harness.SharedKernel.Results;
 using Harness.SharedKernel.Time;
 
 namespace Harness.UnitTests.Coordination;
@@ -34,6 +35,8 @@ public sealed class WorkChainAggregateTests
         Assert.True(triaged.IsSuccess);
         Assert.Equal(WorkChainErrors.InvalidTaskState, duplicateTriage.Error);
         Assert.True(ready.IsSuccess);
+        Assert.True(chain.AssignTask(task.Id).IsSuccess);
+        Assert.Equal(WorkTaskState.Assigned, task.State);
         Assert.True(chain.StartAttempt(task.Id, instruction.Id, "engineer").IsSuccess);
     }
 
@@ -63,9 +66,9 @@ public sealed class WorkChainAggregateTests
         var first = chain.AddInstructionVersion(task.Id, "First.").Value;
         var second = chain.AddInstructionVersion(task.Id, "Second.").Value;
 
-        var stale = chain.StartAttempt(task.Id, first.Id, "engineer");
-        var running = chain.StartAttempt(task.Id, second.Id, "engineer");
-        var duplicate = chain.StartAttempt(task.Id, second.Id, "other-engineer");
+        var stale = StartAttempt(chain, task, first, "engineer");
+        var running = StartAttempt(chain, task, second, "engineer");
+        var duplicate = StartAttempt(chain, task, second, "other-engineer");
 
         Assert.Equal(WorkChainErrors.InstructionIsNotLatest, stale.Error);
         Assert.True(running.IsSuccess);
@@ -80,7 +83,7 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, WorkRiskTier.Low);
         var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        var attempt = StartAttempt(chain, task, instruction, "engineer").Value;
 
         Assert.Equal(WorkChainErrors.EvidenceRequired, chain.CompleteAttempt(attempt.Id, []).Error);
         Assert.True(chain.CompleteAttempt(attempt.Id, ["test:unit:green"]).IsSuccess);
@@ -94,11 +97,11 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, WorkRiskTier.Low);
         var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var expiredAttempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        var expiredAttempt = StartAttempt(chain, task, instruction, "engineer").Value;
 
         var expired = chain.ExpireAttemptLease(expiredAttempt.Id);
         var lateCompletion = chain.CompleteAttempt(expiredAttempt.Id, ["late:evidence"]);
-        var retried = chain.StartAttempt(task.Id, instruction.Id, "replacement-engineer");
+        var retried = StartAttempt(chain, task, instruction, "replacement-engineer");
 
         Assert.True(expired.IsSuccess);
         Assert.Equal(WorkAttemptState.Abandoned, expiredAttempt.State);
@@ -116,7 +119,7 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, WorkRiskTier.Low);
         var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        var attempt = StartAttempt(chain, task, instruction, "engineer").Value;
         chain.CompleteAttempt(attempt.Id, ["test:green"]);
 
         var nonRunning = chain.ExpireAttemptLease(attempt.Id);
@@ -134,7 +137,7 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, WorkRiskTier.Medium);
         var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        var attempt = StartAttempt(chain, task, instruction, "engineer").Value;
 
         var cancelled = chain.CancelRunningTask(task.Id, attempt.Id);
         var lateCompletion = chain.CompleteAttempt(attempt.Id, ["late:evidence"]);
@@ -157,7 +160,7 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, riskTier);
         var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        var attempt = StartAttempt(chain, task, instruction, "engineer").Value;
         chain.CompleteAttempt(attempt.Id, ["test:green"]);
 
         var selfReview = chain.ReviewAttempt(
@@ -183,13 +186,13 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, WorkRiskTier.Medium);
         var original = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var firstAttempt = chain.StartAttempt(task.Id, original.Id, "engineer").Value;
+        var firstAttempt = StartAttempt(chain, task, original, "engineer").Value;
         chain.CompleteAttempt(firstAttempt.Id, ["test:failed"]);
         chain.ReviewAttempt(firstAttempt.Id, "critic", ReviewDecision.Rejected, "Gate failed.");
 
-        var withoutCorrection = chain.StartAttempt(task.Id, original.Id, "engineer");
+        var withoutCorrection = StartAttempt(chain, task, original, "engineer");
         var corrected = chain.AddInstructionVersion(task.Id, "Fix the failed gate.").Value;
-        var secondAttempt = chain.StartAttempt(task.Id, corrected.Id, "engineer");
+        var secondAttempt = StartAttempt(chain, task, corrected, "engineer");
 
         Assert.Equal(WorkTaskState.Running, task.State);
         Assert.Equal(WorkChainErrors.CorrectionRequired, withoutCorrection.Error);
@@ -203,11 +206,11 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain(maximumReviewCycles: 1);
         var task = CreateTask(chain, WorkRiskTier.Medium);
         var original = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var firstAttempt = chain.StartAttempt(task.Id, original.Id, "engineer").Value;
+        var firstAttempt = StartAttempt(chain, task, original, "engineer").Value;
         chain.CompleteAttempt(firstAttempt.Id, ["test:first"]);
         chain.ReviewAttempt(firstAttempt.Id, "critic", ReviewDecision.Rejected, "First rejection.");
         var corrected = chain.AddInstructionVersion(task.Id, "Correct the first rejection.").Value;
-        var secondAttempt = chain.StartAttempt(task.Id, corrected.Id, "engineer").Value;
+        var secondAttempt = StartAttempt(chain, task, corrected, "engineer").Value;
         chain.CompleteAttempt(secondAttempt.Id, ["test:second"]);
 
         var review = chain.ReviewAttempt(
@@ -226,7 +229,7 @@ public sealed class WorkChainAggregateTests
         var replanned = chain.ReplanEscalatedTask(
             task.Id,
             "Replan after review escalation.");
-        var thirdAttempt = chain.StartAttempt(task.Id, replanned.Value.Id, "engineer");
+        var thirdAttempt = StartAttempt(chain, task, replanned.Value, "engineer");
 
         Assert.True(replanned.IsSuccess);
         Assert.Equal(3, replanned.Value.Version);
@@ -254,7 +257,7 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, WorkRiskTier.Low);
         var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        var attempt = StartAttempt(chain, task, instruction, "engineer").Value;
         chain.CompleteAttempt(attempt.Id, ["test:green"]);
 
         var review = chain.ReviewAttempt(
@@ -273,7 +276,7 @@ public sealed class WorkChainAggregateTests
         var chain = CreateChain();
         var task = CreateTask(chain, WorkRiskTier.Low);
         var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var attempt = chain.StartAttempt(task.Id, instruction.Id, "engineer").Value;
+        var attempt = StartAttempt(chain, task, instruction, "engineer").Value;
         chain.CompleteAttempt(attempt.Id, ["test:green"]);
         chain.ReviewAttempt(
             attempt.Id,
@@ -314,6 +317,20 @@ public sealed class WorkChainAggregateTests
         Assert.True(chain.TriageTask(task.Id).IsSuccess);
         Assert.True(chain.MarkTaskReady(task.Id).IsSuccess);
         return task;
+    }
+
+    private static Result<WorkAttempt> StartAttempt(
+        WorkChainAggregate chain,
+        WorkTask task,
+        InstructionVersion instruction,
+        string producerAgentId)
+    {
+        if (task.State == WorkTaskState.Ready)
+        {
+            Assert.True(chain.AssignTask(task.Id).IsSuccess);
+        }
+
+        return chain.StartAttempt(task.Id, instruction.Id, producerAgentId);
     }
 
     private sealed class IncrementingClock(DateTimeOffset initial) : IClock

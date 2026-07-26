@@ -29,6 +29,10 @@ public interface IWorkChainStore
         WorkTaskLifecycleCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> AssignTaskAsync(
+        WorkTaskAssignmentCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> AddInstructionVersionAsync(
         WorkInstructionVersionCreateCommand command,
         CancellationToken cancellationToken = default);
@@ -151,6 +155,19 @@ public sealed record WorkTaskLifecycleCommand(
     string ActorId,
     string Reason,
     string EvidenceReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskAssignmentCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string InstructionVersionId,
+    string AssigneeAgentId,
+    string ActorKind,
+    string ActorId,
+    string LeaseReference,
     long ExpectedTaskVersion,
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
@@ -413,6 +430,26 @@ public static class WorkChainMutationValidator
         ValidateText(command.ActorId, nameof(command), 200);
         ValidateText(command.Reason, nameof(command), 10_000);
         ValidateText(command.EvidenceReference, nameof(command), 2_000);
+    }
+
+    public static void Validate(WorkTaskAssignmentCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateUlid(command.InstructionVersionId, nameof(command));
+        if (!ActorKinds.Contains(command.ActorKind))
+        {
+            throw new ArgumentException("Assignment actor kind is invalid.", nameof(command));
+        }
+
+        ValidateText(command.AssigneeAgentId, nameof(command), 200);
+        ValidateText(command.ActorId, nameof(command), 200);
+        ValidateText(command.LeaseReference, nameof(command), 2_000);
     }
 
     public static void Validate(WorkAttemptStartCommand command)

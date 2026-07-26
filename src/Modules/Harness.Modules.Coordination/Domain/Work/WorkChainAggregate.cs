@@ -189,6 +189,26 @@ public sealed class WorkChainAggregate
         return Result.Success();
     }
 
+    public Result AssignTask(EntityId<WorkTaskTag> taskId)
+    {
+        var task = _tasks.SingleOrDefault(candidate => candidate.Id == taskId);
+        if (task is null)
+        {
+            return Result.Failure(WorkChainErrors.TaskNotFound);
+        }
+
+        if (!WorkTaskTransitionPolicy.IsAllowed(
+                task.State,
+                WorkTaskState.Assigned,
+                WorkTaskTransitionEvent.LeaseAcquired))
+        {
+            return Result.Failure(WorkChainErrors.InvalidTaskState);
+        }
+
+        task.State = WorkTaskState.Assigned;
+        return Result.Success();
+    }
+
     public Result<InstructionVersion> ReplanEscalatedTask(
         EntityId<WorkTaskTag> taskId,
         string content)
@@ -267,7 +287,7 @@ public sealed class WorkChainAggregate
             return Result<WorkAttempt>.Failure(WorkChainErrors.CorrectionRequired);
         }
 
-        if (task.State != WorkTaskState.Ready)
+        if (task.State != WorkTaskState.Assigned)
         {
             return Result<WorkAttempt>.Failure(WorkChainErrors.InvalidTaskState);
         }

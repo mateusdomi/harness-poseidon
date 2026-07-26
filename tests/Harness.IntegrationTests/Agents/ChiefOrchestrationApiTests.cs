@@ -197,8 +197,15 @@ public sealed class ChiefOrchestrationApiTests
                     Assert.Equal("idle", (await client.GetFromJsonAsync<AgentContract>($"/api/v1/agents/{newChiefId}", timeout.Token))?.State);
                     Assert.Equal(DurableExecutionState.Cancelled, (await engine.GetAsync(localProfile.TenantId, executionId, timeout.Token))?.State);
 
-                    var projectEvents = await WaitForEventAsync(client, $"project:{projectId}", "task.stateChanged", timeout.Token);
-                    var drained = projectEvents.Delta.Last(x => x.Type == "task.stateChanged").Payload;
+                    var projectEvents = await WaitForEventAsync(
+                        client,
+                        $"project:{projectId}",
+                        "task.stateChanged",
+                        "chief",
+                        timeout.Token);
+                    var drained = projectEvents.Delta.Last(x =>
+                        x.Type == "task.stateChanged" &&
+                        x.Payload.GetProperty("changedByKind").GetString() == "chief").Payload;
                     Assert.Equal("chief", drained.GetProperty("changedByKind").GetString());
                     var globalEvents = await WaitForAuditActionAsync(client, "chief.tasksDrained", timeout.Token);
                     Assert.Contains(globalEvents.Delta, x => x.Type == "agent.statusChanged");
@@ -223,13 +230,23 @@ public sealed class ChiefOrchestrationApiTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
-    private static async Task<EventStreamSnapshot> WaitForEventAsync(HttpClient client, string stream, string type, CancellationToken token)
+    private static async Task<EventStreamSnapshot> WaitForEventAsync(
+        HttpClient client,
+        string stream,
+        string type,
+        string changedByKind,
+        CancellationToken token)
     {
         for (var i = 0; i < 200; i++)
         {
             var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>(
                 $"/api/v1/event-streams/snapshot?stream={Uri.EscapeDataString(stream)}", token);
-            if (snapshot is not null && snapshot.Delta.Any(x => x.Type == type)) return snapshot;
+            if (snapshot is not null && snapshot.Delta.Any(x =>
+                    x.Type == type &&
+                    x.Payload.GetProperty("changedByKind").GetString() == changedByKind))
+            {
+                return snapshot;
+            }
             await Task.Delay(25, token);
         }
         throw new TimeoutException($"Event {type} was not dispatched to {stream}.");
