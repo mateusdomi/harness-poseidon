@@ -38,6 +38,9 @@ public sealed partial class ChiefBacklogLoopService(
     CapacityManager capacity,
     ILogger<ChiefBacklogLoopService> logger) : BackgroundService
 {
+    /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
+    private static readonly ScaleDispatcher ScaleGate = new();
+
     /// <summary>
     /// Traduz o estado do Capacity Manager (Fase 3) em sinal de cota para o plano de despacho:
     /// conta com circuito aberto por falhas consecutivas, ou marcada como esgotada com janela de
@@ -199,8 +202,39 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
+            // Fase 10 — despacho em ESCALA: antes de escolher contas, a fila priorizada corta
+            // pelo teto GLOBAL VIVO (runs em andamento agora + já despachados nesta rodada, em
+            // todos os projetos). Sem isto, cada rodada enxergaria só o próprio orçamento e o
+            // processo ultrapassaria o teto com runs de rodadas anteriores ainda vivos.
+            var queue = new CardPrioritizedBuffer();
+            foreach (var candidate in cards)
+            {
+                queue.Enqueue(
+                    candidate.Card.TaskId,
+                    candidate.Card.Role,
+                    candidate.Card.Priority >= 70
+                        ? CardPriority.High
+                        : candidate.Card.Priority >= 40 ? CardPriority.Normal : CardPriority.Low,
+                    clock.UtcNow);
+            }
+
+            var scale = ScaleGate.Dispatch(
+                queue,
+                Math.Max(1, settings.AutoDispatchMaxConcurrent),
+                orchestrator.LiveRunCount + dispatched);
+            var admitted = new HashSet<string>(
+                scale.DispatchedWorkerCards.Concat(scale.DispatchedCriticCards),
+                StringComparer.Ordinal);
+            deferred += scale.DeferredCount;
+            if (admitted.Count == 0)
+            {
+                continue;
+            }
+
             var plan = policy.Plan(
-                [.. cards.Select(entry => entry.Card)], accounts, availability,
+                [.. cards.Where(entry => admitted.Contains(entry.Card.TaskId))
+                    .Select(entry => entry.Card)],
+                accounts, availability,
                 settings.AutoDispatchMaxConcurrent, clock.UtcNow,
                 CapacitySignals(clock.UtcNow));
             deferred += plan.Deferred.Count;

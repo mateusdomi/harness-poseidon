@@ -45,6 +45,17 @@ public static class GovernanceRuntimeEndpoints
         // Context Builder — slices vêm do índice vetorial derivado, nunca de fonte inventada.
         group.MapGet("/memory-search", SearchMemoryAsync)
             .Produces<MemorySearchResponse>().ProducesProblem(400).ProducesProblem(401);
+        // Fase 10: contenção MEDIDA da fila única de merge — o gatilho decidido em arquitetura
+        // para reavaliar infraestrutura de fila externa é este número, não intuição.
+        group.MapGet("/merge-contention", (
+            Harness.Modules.Coordination.Application.ISerializedMergeCoordinator merges) =>
+        {
+            var snapshot = merges.Snapshot();
+            return Results.Ok(new MergeContentionContract(
+                snapshot.Enqueued, snapshot.Serialized, snapshot.Contended, snapshot.Waiting,
+                snapshot.Active, snapshot.TotalWait.TotalMilliseconds,
+                snapshot.MaximumWait.TotalMilliseconds, snapshot.ContentionRatio));
+        }).Produces<MergeContentionContract>();
         return endpoints;
     }
 
@@ -674,6 +685,11 @@ public sealed record MemorySliceContract(
 public sealed record MemorySearchResponse(
     string SnapshotId, string SnapshotHash, int TotalTokens,
     IReadOnlyList<MemorySliceContract> Slices);
+
+// Fase 10: contrato da medição de contenção do merge serializado.
+public sealed record MergeContentionContract(
+    long Enqueued, long Serialized, long Contended, int Waiting, int Active,
+    double TotalWaitMs, double MaximumWaitMs, double ContentionRatio);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record EvalJudgeApiRequest(

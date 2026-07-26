@@ -7877,6 +7877,25 @@
                 }
             }
         },
+        "/api/v1/governance-runtime/merge-contention": {
+            "get": {
+                "tags": [
+                    "governance-runtime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MergeContentionContract"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/governance-docs": {
             "get": {
                 "tags": [
@@ -25943,7 +25962,10 @@
                     "status",
                     "cards",
                     "createdAt",
-                    "materializedAt"
+                    "materializedAt",
+                    "dispatchWaves",
+                    "fanInBarriers",
+                    "dependencyIssues"
                 ],
                 "type": "object",
                 "properties": {
@@ -25978,6 +26000,27 @@
                             "string"
                         ],
                         "format": "date-time"
+                    },
+                    "dispatchWaves": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "fanInBarriers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlanFanInBarrierContract"
+                        }
+                    },
+                    "dependencyIssues": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlanDependencyIssueContract"
+                        }
                     }
                 }
             },
@@ -29377,6 +29420,85 @@
                     }
                 }
             },
+            "MergeContentionContract": {
+                "required": [
+                    "enqueued",
+                    "serialized",
+                    "contended",
+                    "waiting",
+                    "active",
+                    "totalWaitMs",
+                    "maximumWaitMs",
+                    "contentionRatio"
+                ],
+                "type": "object",
+                "properties": {
+                    "enqueued": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "serialized": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "contended": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "waiting": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "active": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "totalWaitMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "maximumWaitMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "contentionRatio": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    }
+                }
+            },
             "MessagePage": {
                 "required": [
                     "items",
@@ -30248,6 +30370,56 @@
                     },
                     "gates": {
                         "$ref": "#/components/schemas/PhaseProgressBreakdownContract"
+                    }
+                }
+            },
+            "PlanDependencyIssueContract": {
+                "required": [
+                    "code",
+                    "cardId",
+                    "resource",
+                    "relatedCardIds"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "cardId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "resource": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "relatedCardIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "PlanFanInBarrierContract": {
+                "required": [
+                    "consumerCard",
+                    "providerCards"
+                ],
+                "type": "object",
+                "properties": {
+                    "consumerCard": {
+                        "type": "string"
+                    },
+                    "providerCards": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },

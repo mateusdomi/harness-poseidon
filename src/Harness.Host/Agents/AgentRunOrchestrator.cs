@@ -48,6 +48,13 @@ public sealed class AgentRunOrchestrator(
 {
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Tentativas vivas NESTE processo agora. É o sinal de concorrência global que o
+    /// despachante em escala (Fase 10) usa para nunca ultrapassar o teto configurado —
+    /// contado do fato (runs registrados), não estimado.
+    /// </summary>
+    public int LiveRunCount => _live.Count;
+
     /// <summary>Runs vivos neste processo, por attempt.</summary>
     private sealed record LiveRun(
         string RunId,

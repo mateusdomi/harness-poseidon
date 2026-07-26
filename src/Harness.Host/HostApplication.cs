@@ -317,6 +317,11 @@ public static class HostApplication
         builder.Services.AddSingleton<DockerRunTargetLifecycle>();
         builder.Services.AddSingleton<RunTargetProcessSupervisor>();
         builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<RunTargetProcessSupervisor>());
+        // Fase 10: fila ÚNICA de merge com contenção medida — registrada antes dos stores
+        // porque o decorator de WorkChain dos dois modos depende dela.
+        builder.Services.AddSingleton<
+            Harness.Modules.Coordination.Application.ISerializedMergeCoordinator,
+            Harness.Modules.Coordination.Application.SerializedMergeCoordinator>();
         if (serverMode)
         {
             builder.Services.AddSingleton<ICockpitDigestStore, PostgresCockpitDigestStore>();
@@ -324,7 +329,10 @@ public static class HostApplication
             builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<PostgresConversationStore>());
             builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<PostgresConversationStore>());
             builder.Services.AddSingleton<IChiefContextNoteStore, PostgresChiefContextNoteStore>();
-            builder.Services.AddSingleton<IWorkChainStore, PostgresWorkChainStore>();
+            builder.Services.AddSingleton<PostgresWorkChainStore>();
+            builder.Services.AddSingleton<IWorkChainStore>(services => new SerializedMergeWorkChainStore(
+                services.GetRequiredService<PostgresWorkChainStore>(),
+                services.GetRequiredService<Harness.Modules.Coordination.Application.ISerializedMergeCoordinator>()));
             builder.Services.AddSingleton<IWorkBoardStore, PostgresWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, PostgresDemandPlanStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
@@ -340,7 +348,10 @@ public static class HostApplication
             builder.Services.AddSingleton<IConversationStore>(services => services.GetRequiredService<SqliteConversationStore>());
             builder.Services.AddSingleton<IChiefTurnStore>(services => services.GetRequiredService<SqliteConversationStore>());
             builder.Services.AddSingleton<IChiefContextNoteStore, SqliteChiefContextNoteStore>();
-            builder.Services.AddSingleton<IWorkChainStore, SqliteWorkChainStore>();
+            builder.Services.AddSingleton<SqliteWorkChainStore>();
+            builder.Services.AddSingleton<IWorkChainStore>(services => new SerializedMergeWorkChainStore(
+                services.GetRequiredService<SqliteWorkChainStore>(),
+                services.GetRequiredService<Harness.Modules.Coordination.Application.ISerializedMergeCoordinator>()));
             builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, SqliteDemandPlanStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();

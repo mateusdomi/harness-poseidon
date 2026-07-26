@@ -185,12 +185,30 @@ public static class DemandPlanEndpoints
         card.ProposedTitle, card.CardType, card.RequiredRole, card.Instruction, card.InScope,
         card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies);
 
-    private static DemandPlanContract ToContract(DemandPlanRecord plan) => new(
-        plan.Id, plan.ProjectId, plan.DemandId, plan.FeatureId, plan.Status,
-        plan.Cards.Select(card => new ProposedCardContract(
-            card.ProposedTitle, card.CardType, card.RequiredRole, card.Instruction, card.InScope,
-            card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies)).ToArray(),
-        plan.CreatedAt, plan.MaterializedAt);
+    private static DemandPlanContract ToContract(DemandPlanRecord plan)
+    {
+        // Fase 10 — o grafo provides/consumes REAL do plano: cada card provê o próprio código
+        // estável e consome os códigos declarados em Dependencies. As ondas de despacho e as
+        // barreiras de fan-in são derivadas deterministicamente — é o insumo do paralelismo
+        // (quem pode rodar junto, quem espera quem) e a trava contra ciclo/dependência fantasma.
+        var dependencyPlan = CardDependencyGraph.Build(
+            plan.Cards.Select(card => new CardDependencyNode(
+                DemandDecompositionPlanner.CodeOf(card.ProposedTitle),
+                [DemandDecompositionPlanner.CodeOf(card.ProposedTitle)],
+                card.Dependencies)).ToArray());
+
+        return new DemandPlanContract(
+            plan.Id, plan.ProjectId, plan.DemandId, plan.FeatureId, plan.Status,
+            plan.Cards.Select(card => new ProposedCardContract(
+                card.ProposedTitle, card.CardType, card.RequiredRole, card.Instruction, card.InScope,
+                card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies)).ToArray(),
+            plan.CreatedAt, plan.MaterializedAt,
+            dependencyPlan.DispatchWaves,
+            dependencyPlan.FanInBarriers.Select(barrier => new PlanFanInBarrierContract(
+                barrier.ConsumerCardId, barrier.ProviderCardIds)).ToArray(),
+            dependencyPlan.Issues.Select(issue => new PlanDependencyIssueContract(
+                issue.Code, issue.CardId, issue.Resource, issue.RelatedCardIds)).ToArray());
+    }
 
     private static bool Valid(string id) => UlidValue.TryParse(id, out _);
     private static IResult SessionRequired() => Problem(401, "local_session_required", "A local profile session is required.");
@@ -215,10 +233,19 @@ public sealed record ProposedCardContract(
     string OutOfScope, IReadOnlyList<string> AcceptanceCriteria, IReadOnlyList<string> Gates,
     IReadOnlyList<string> Dependencies);
 
+public sealed record PlanFanInBarrierContract(
+    string ConsumerCard, IReadOnlyList<string> ProviderCards);
+
+public sealed record PlanDependencyIssueContract(
+    string Code, string? CardId, string? Resource, IReadOnlyList<string> RelatedCardIds);
+
 public sealed record DemandPlanContract(
     string Id, string ProjectId, string DemandId, string FeatureId, string Status,
     IReadOnlyList<ProposedCardContract> Cards, DateTimeOffset CreatedAt,
-    DateTimeOffset? MaterializedAt);
+    DateTimeOffset? MaterializedAt,
+    IReadOnlyList<IReadOnlyList<string>> DispatchWaves,
+    IReadOnlyList<PlanFanInBarrierContract> FanInBarriers,
+    IReadOnlyList<PlanDependencyIssueContract> DependencyIssues);
 
 public sealed record MaterializedCardResult(string ProposedTitle, string CardType, string? TaskId);
 
