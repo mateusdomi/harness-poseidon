@@ -161,10 +161,10 @@ public static class CardDependencyGraph
                 .ToArray());
     }
 
-    private static IReadOnlyList<IReadOnlyList<string>> BuildWaves(
+    private static List<IReadOnlyList<string>> BuildWaves(
         IReadOnlyList<NormalizedNode> nodes,
         IReadOnlyList<CardDependencyEdge> edges,
-        ICollection<CardDependencyIssue> issues)
+        List<CardDependencyIssue> issues)
     {
         var cardIds = nodes.Select(node => node.CardId).ToHashSet(StringComparer.Ordinal);
         var indegree = cardIds.ToDictionary(cardId => cardId, _ => 0, StringComparer.Ordinal);
