@@ -106,13 +106,30 @@ public static class HostApplication
         var databaseProvider = (builder.Configuration["Harness:Database:Provider"] ?? "sqlite")
             .ToLowerInvariant();
         var serverMode = databaseProvider == "postgres";
+        var secretResolver = ServerSecretReferenceResolverFactory.Create(builder.Configuration);
+        builder.Services.AddSingleton<ISecretReferenceResolver>(secretResolver);
         if (serverMode)
         {
             var connectionString = builder.Configuration["Harness:Database:ConnectionString"];
+            var connectionStringReference =
+                builder.Configuration["Harness:Database:ConnectionStringReference"];
+            if (!string.IsNullOrWhiteSpace(connectionString) &&
+                !string.IsNullOrWhiteSpace(connectionStringReference))
+            {
+                throw new InvalidOperationException(
+                    "Configure apenas ConnectionString ou ConnectionStringReference, nunca ambos.");
+            }
+
+            if (string.IsNullOrWhiteSpace(connectionString) &&
+                !string.IsNullOrWhiteSpace(connectionStringReference))
+            {
+                connectionString = secretResolver.Resolve(connectionStringReference);
+            }
+
             if (string.IsNullOrWhiteSpace(connectionString))
             {
                 throw new InvalidOperationException(
-                    "Harness:Database:ConnectionString é obrigatório quando Harness:Database:Provider=postgres.");
+                    "Uma conexão PostgreSQL resolvível é obrigatória no modo servidor.");
             }
 
             builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
@@ -812,7 +829,6 @@ public static class HostApplication
         SmtpNotificationOptionsValidator.EnsureOpaqueReferences(options);
 
         builder.Services.AddSingleton(options);
-        builder.Services.AddSingleton<ISecretReferenceResolver, EnvironmentSecretReferenceResolver>();
         builder.Services.AddSingleton<ISmtpTransport, SystemNetSmtpTransport>();
         if (options.IsConfigured)
         {

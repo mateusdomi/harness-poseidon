@@ -12,7 +12,7 @@ cd "${REPOSITORY_ROOT}"
 "${DOTNET}" build Harness.sln --configuration "${CONFIGURATION}" --no-restore
 "${DOTNET}" test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
   --configuration "${CONFIGURATION}" --no-build --no-restore \
-  --filter 'FullyQualifiedName~SqliteMigrationUpgradeTests|FullyQualifiedName~LocalOperationsApiTests|FullyQualifiedName~PostgresMultiuserLoadTests|FullyQualifiedName~SqliteToPostgresMigrationTests'
+  --filter 'FullyQualifiedName~SqliteMigrationUpgradeTests|FullyQualifiedName~LocalOperationsApiTests|FullyQualifiedName~PostgresMultiuserLoadTests|FullyQualifiedName~SqliteToPostgresMigrationTests|FullyQualifiedName~PostgresTenantRowLevelSecurityTests'
 "${DOTNET}" test tests/Harness.RecoveryTests/Harness.RecoveryTests.csproj \
   --configuration "${CONFIGURATION}" --no-build --no-restore \
   --filter 'FullyQualifiedName~ProductionDurableExecutionRecoveryTests|FullyQualifiedName~IsolatedAttemptRecoveryTests'

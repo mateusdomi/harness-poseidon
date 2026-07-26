@@ -1,0 +1,137 @@
+name: poseidon
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: poseidon
+      POSTGRES_USER: poseidon_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f
+      - -c
+      - archive_timeout=300
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_wal_archive:/var/lib/postgresql/wal-archive
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username poseidon_owner --dbname poseidon"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - control_plane
+
+  minio:
+    image: ${POSEIDON_MINIO_IMAGE:?set an immutable MinIO image reference}
+    restart: unless-stopped
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets:
+      - minio_root_user
+      - minio_root_password
+    volumes:
+      - artifact_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - control_plane
+
+  host:
+    build:
+      context: ../..
+      dockerfile: infra/compose/server.Dockerfile
+    image: ${POSEIDON_HOST_IMAGE:-poseidon/server:local}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      Harness__Database__Provider: postgres
+      Harness__Database__ConnectionStringReference: secret://database_connection_string
+      Harness__Secrets__VaultMountPath: /run/secrets
+      Harness__ArtifactStore__Provider: minio
+      Harness__ArtifactStore__Endpoint: http://minio:9000
+      Harness__ArtifactStore__AccessKeyReference: secret://minio_root_user
+      Harness__ArtifactStore__SecretKeyReference: secret://minio_root_password
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    secrets:
+      - database_connection_string
+      - minio_root_user
+      - minio_root_password
+    ports:
+      - 127.0.0.1:8080:8080
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - control_plane
+
+  postgres-basebackup:
+    image: postgres:16
+    profiles: ["backup"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_basebackups:/backups
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        export PGPASSWORD="$$(cat "$${PGPASSWORD_FILE}")"
+        pg_basebackup --host=postgres --username=poseidon_owner \
+          --pgdata="/backups/$$(date -u +%Y%m%dT%H%M%SZ)" \
+          --format=plain --wal-method=stream --checkpoint=fast
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - control_plane
+
+secrets:
+  postgres_password:
+    file: ${POSEIDON_POSTGRES_PASSWORD_FILE:?set the PostgreSQL password file}
+  database_connection_string:
+    file: ${POSEIDON_POSTGRES_CONNECTION_FILE:?set the PostgreSQL connection file}
+  minio_root_user:
+    file: ${POSEIDON_MINIO_ROOT_USER_FILE:?set the MinIO user file}
+  minio_root_password:
+    file: ${POSEIDON_MINIO_ROOT_PASSWORD_FILE:?set the MinIO password file}
+
+volumes:
+  postgres_data:
+  postgres_wal_archive:
+  postgres_basebackups:
+  artifact_data:
+
+networks:
+  control_plane:
+    internal: true

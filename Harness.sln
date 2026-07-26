@@ -81,6 +81,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Harness.OmpRpcFakeServer", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Harness.Modules.Readiness", "src\Modules\Harness.Modules.Readiness\Harness.Modules.Readiness.csproj", "{B89C4F1B-62C3-451D-B801-55861892B9C1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Harness.Persistence.Migration.Tool", "tools\Harness.Persistence.Migration.Tool\Harness.Persistence.Migration.Tool.csproj", "{C361BCC6-F251-4867-B3AA-5A9401596A01}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -511,6 +513,18 @@ Global
 		{B89C4F1B-62C3-451D-B801-55861892B9C1}.Release|x64.Build.0 = Release|Any CPU
 		{B89C4F1B-62C3-451D-B801-55861892B9C1}.Release|x86.ActiveCfg = Release|Any CPU
 		{B89C4F1B-62C3-451D-B801-55861892B9C1}.Release|x86.Build.0 = Release|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Debug|x64.Build.0 = Debug|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Debug|x86.Build.0 = Debug|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Release|x64.ActiveCfg = Release|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Release|x64.Build.0 = Release|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Release|x86.ActiveCfg = Release|Any CPU
+		{C361BCC6-F251-4867-B3AA-5A9401596A01}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -552,5 +566,6 @@ Global
 		{A1D0C6E8-3F4B-4E2A-9C7D-06B5F2A10CE6} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{8E297F6B-CBFD-49FC-8CC3-81646F3A7F26} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{B89C4F1B-62C3-451D-B801-55861892B9C1} = {EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}
+		{C361BCC6-F251-4867-B3AA-5A9401596A01} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,3 @@
+{{- with secret "kv/data/poseidon/server" -}}
+{{ .Data.data.postgres_connection }}
+{{- end -}}

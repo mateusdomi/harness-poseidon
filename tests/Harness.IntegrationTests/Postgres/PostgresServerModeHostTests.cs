@@ -34,6 +34,13 @@ public sealed class PostgresServerModeHostTests
         Directory.CreateDirectory(root);
         await using var fixture = await PostgresSkipLockedPocTests.ManagedPostgresFixture
             .StartAsync(timeout.Token);
+        var secretRoot = Path.Combine(root, "vault-rendered");
+        var databaseSecretDirectory = Path.Combine(secretRoot, "database");
+        Directory.CreateDirectory(databaseSecretDirectory);
+        await File.WriteAllTextAsync(
+            Path.Combine(databaseSecretDirectory, "connection-string"),
+            fixture.ConnectionString,
+            timeout.Token);
 
         try
         {
@@ -46,8 +53,10 @@ public sealed class PostgresServerModeHostTests
                 "--Harness:AgentExecutors:Mode", "simulated",
                 "--Harness:Database:Provider",
                 "postgres",
-                "--Harness:Database:ConnectionString",
-                fixture.ConnectionString,
+                "--Harness:Secrets:VaultMountPath",
+                secretRoot,
+                "--Harness:Database:ConnectionStringReference",
+                "secret://database/connection-string",
             ]);
             await app.StartAsync(timeout.Token);
             try

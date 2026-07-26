@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Harness.Host/Harness.Host.csproj" />
+    <ProjectReference Include="../../src/Harness.Persistence.Migration/Harness.Persistence.Migration.csproj" />
   </ItemGroup>
 
   <ItemGroup>

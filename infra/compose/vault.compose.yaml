@@ -1,0 +1,48 @@
+services:
+  host:
+    environment:
+      Harness__Secrets__VaultMountPath: /run/vault-secrets
+    volumes:
+      - vault_rendered:/run/vault-secrets:ro
+
+  vault-agent:
+    image: ${POSEIDON_VAULT_IMAGE:?set an immutable Vault image reference}
+    profiles: ["vault"]
+    restart: unless-stopped
+    command: agent -config=/vault/config/agent.hcl
+    environment:
+      VAULT_ADDR: ${POSEIDON_VAULT_ADDR:?set the Vault HTTPS endpoint}
+    configs:
+      - source: vault_agent
+        target: /vault/config/agent.hcl
+      - source: vault_database_template
+        target: /vault/templates/database_connection_string.ctmpl
+    secrets:
+      - vault_role_id
+      - vault_secret_id
+    volumes:
+      - vault_rendered:/vault/rendered
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - control_plane
+
+configs:
+  vault_agent:
+    file: ../vault/agent.hcl
+  vault_database_template:
+    file: ../vault/database_connection_string.ctmpl
+
+secrets:
+  vault_role_id:
+    file: ${POSEIDON_VAULT_ROLE_ID_FILE:?set the Vault AppRole role-id file}
+  vault_secret_id:
+    file: ${POSEIDON_VAULT_SECRET_ID_FILE:?set the Vault AppRole secret-id file}
+
+volumes:
+  vault_rendered:
