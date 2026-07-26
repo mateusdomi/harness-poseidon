@@ -113,6 +113,18 @@ public sealed class BoardStateReconciliationEvaluatorTests
         Assert.Equal("review", decision.TargetState);
     }
 
+    [Theory]
+    [InlineData("approved")]
+    [InlineData("merged")]
+    public void ApprovedOrMergedTaskInReviewDoesNotRaiseFalseAttention(
+        string internalState)
+    {
+        var decision = BoardStateReconciliationEvaluator.Evaluate(
+            Facts("review", internalState, ["approved"]));
+
+        Assert.Null(decision);
+    }
+
     [Fact]
     public void DevelopmentWithoutRunningAttemptCreatesAttention()
     {

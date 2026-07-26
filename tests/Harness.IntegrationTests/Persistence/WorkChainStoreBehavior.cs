@@ -346,12 +346,63 @@ internal static class WorkChainStoreBehavior
         var approved = await store.ReviewAttemptAsync(approval, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, approved.Status);
         Assert.Equal(8, approved.TaskVersion);
-        Assert.Equal("completed", approved.TaskState);
+        Assert.Equal("approved", approved.TaskState);
+
+        var delivery = new WorkTaskDeliveryCompleteCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            "delivery-reconciler",
+            "integration:premature",
+            8,
+            "work-chain:task:complete:premature",
+            chain.OccurredAt.AddMinutes(10));
+        var prematureCompletion = await store.CompleteMergedTaskAsync(
+            delivery,
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, prematureCompletion.Status);
+        Assert.Null(prematureCompletion.LedgerSequence);
+
+        var merge = new WorkTaskMergeCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            "merge-coordinator",
+            "git:develop@approved",
+            8,
+            "work-chain:task:merge:first",
+            chain.OccurredAt.AddMinutes(11));
+        var merged = await store.MergeApprovedTaskAsync(merge, cancellationToken);
+        var mergedReplay = await store.MergeApprovedTaskAsync(merge, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, merged.Status);
+        Assert.Equal(9, merged.TaskVersion);
+        Assert.Equal("merged", merged.TaskState);
+        Assert.Equal("approved", merged.AttemptState);
+        Assert.NotNull(merged.LedgerHash);
+        Assert.NotNull(merged.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, mergedReplay.Status);
+        Assert.Equal(merged.LedgerHash, mergedReplay.LedgerHash);
+
+        var completedDelivery = await store.CompleteMergedTaskAsync(
+            delivery with
+            {
+                EvidenceReference = "reconciliation:projections-and-effects",
+                ExpectedTaskVersion = 9,
+                IdempotencyKey = "work-chain:task:complete:first",
+                OccurredAt = chain.OccurredAt.AddMinutes(12),
+            },
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, completedDelivery.Status);
+        Assert.Equal(10, completedDelivery.TaskVersion);
+        Assert.Equal("completed", completedDelivery.TaskState);
+        Assert.Equal("approved", completedDelivery.AttemptState);
+        Assert.NotNull(completedDelivery.LedgerHash);
+        Assert.NotNull(completedDelivery.OutboxMessageId);
 
         var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
         Assert.NotNull(final);
         Assert.Equal("completed", final.TaskState);
-        Assert.Equal(8, final.TaskVersion);
+        Assert.Equal(10, final.TaskVersion);
         Assert.Equal(correction.InstructionVersionId, final.InstructionVersionId);
         Assert.Equal(2, final.InstructionVersion);
         Assert.Equal(2, final.AttemptCount);
@@ -367,7 +418,7 @@ internal static class WorkChainStoreBehavior
         var demand = Assert.Single(aggregate.Demands);
         Assert.Equal(["State is atomic", "Audit is complete"], demand.AcceptanceCriteria);
         var task = Assert.Single(demand.Tasks);
-        Assert.Equal(8, task.Version);
+        Assert.Equal(10, task.Version);
         Assert.Equal([1, 2], task.Instructions.Select(item => item.Version));
         Assert.Null(task.Instructions[0].SupersedesId);
         Assert.Equal(task.Instructions[0].InstructionVersionId, task.Instructions[1].SupersedesId);

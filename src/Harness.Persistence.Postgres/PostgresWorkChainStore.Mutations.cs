@@ -48,6 +48,22 @@ public sealed partial class PostgresWorkChainStore
         return ReviewAttemptCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> MergeApprovedTaskAsync(
+        WorkTaskMergeCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return MergeApprovedTaskCoreAsync(command, cancellationToken);
+    }
+
+    public Task<WorkChainMutationReceipt> CompleteMergedTaskAsync(
+        WorkTaskDeliveryCompleteCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return CompleteMergedTaskCoreAsync(command, cancellationToken);
+    }
+
     private async Task<WorkChainMutationReceipt> AddInstructionVersionCoreAsync(
         WorkInstructionVersionCreateCommand command,
         CancellationToken cancellationToken)
@@ -353,13 +369,13 @@ public sealed partial class PostgresWorkChainStore
                 Text(row.ProjectId), Text(command.AttemptId), Text(command.Rationale),
                 Timestamp(command.OccurredAt),
                 Text(command.Decision == "rejected" ? "error" : "info"));
-            var taskState = command.Decision == "approved" ? "completed" : "ready";
+            var taskState = command.Decision == "approved" ? "approved" : "ready";
             var nextVersion = row.Version + 1;
             await ExecuteAsync(
                 connection, transaction,
                 """
                 UPDATE harness.work_tasks SET state = $1, version = $2, updated_at = $3,
-                    board_state = CASE WHEN $1 = 'completed' THEN 'done' ELSE 'corrections' END,
+                    board_state = CASE WHEN $1 = 'approved' THEN 'review' ELSE 'corrections' END,
                     blocked_reason = NULL
                 WHERE id = $4 AND tenant_id = $5 AND version = $6;
                 """,
@@ -373,7 +389,219 @@ public sealed partial class PostgresWorkChainStore
 
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
-            "gate.changed", command.OccurredAt, receipt, cancellationToken);
+            "task.stateChanged", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "awaiting_review",
+                command.Decision == "approved" ? "approved" : "ready",
+                command.Decision == "approved" ? "reviewApproved" : "reviewRejected",
+                "review",
+                "agent",
+                command.ReviewerAgentId,
+                command.Rationale,
+                $"review:{command.ReviewId}"),
+            cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> MergeApprovedTaskCoreAsync(
+        WorkTaskMergeCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            attemptId: null,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.NotFound,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.TaskState != "approved" || row.LatestAttemptState != "approved")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='merged',version=$1,updated_at=$2,
+                    board_state='review',blocked_reason=NULL
+                WHERE id=$3 AND tenant_id=$4 AND version=$5;
+                """,
+                cancellationToken,
+                Bigint(nextVersion),
+                Timestamp(command.OccurredAt),
+                Text(command.TaskId),
+                Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                null,
+                nextVersion,
+                "merged",
+                row.LatestAttemptState);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "approved",
+                "merged",
+                "mergeCompleted",
+                "review",
+                "agent",
+                command.CoordinatorAgentId,
+                "Approved submission merged by the coordinator.",
+                command.SubmissionReference),
+            cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> CompleteMergedTaskCoreAsync(
+        WorkTaskDeliveryCompleteCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            attemptId: null,
+            cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.NotFound,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else if (row.TaskState != "merged" || row.LatestAttemptState != "approved")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState,
+                row,
+                command.TaskId,
+                attemptId: null);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='completed',version=$1,updated_at=$2,
+                    board_state='done',blocked_reason=NULL
+                WHERE id=$3 AND tenant_id=$4 AND version=$5;
+                """,
+                cancellationToken,
+                Bigint(nextVersion),
+                Timestamp(command.OccurredAt),
+                Text(command.TaskId),
+                Text(command.TenantId),
+                Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied,
+                command.TaskId,
+                null,
+                nextVersion,
+                "completed",
+                row.LatestAttemptState);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "merged",
+                "completed",
+                "deliveryCompleted",
+                "review",
+                "agent",
+                command.ActorId,
+                "Merged delivery reconciled and completed.",
+                command.EvidenceReference),
+            cancellationToken);
     }
 
     private async Task<WorkChainMutationReceipt> ExpireAttemptLeaseCoreAsync(
@@ -570,6 +798,28 @@ public sealed partial class PostgresWorkChainStore
             ?? throw new InvalidOperationException("The persisted mutation receipt is invalid.");
     }
 
+    private static Task<WorkChainMutationReceipt> FinalizeMutationAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string tenantId,
+        string key,
+        string hash,
+        string eventType,
+        DateTimeOffset occurredAt,
+        WorkChainMutationReceipt receipt,
+        CancellationToken cancellationToken) =>
+        FinalizeMutationAsync(
+            connection,
+            transaction,
+            tenantId,
+            key,
+            hash,
+            eventType,
+            occurredAt,
+            receipt,
+            transitionAudit: null,
+            cancellationToken);
+
     private static async Task<WorkChainMutationReceipt> FinalizeMutationAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -579,6 +829,7 @@ public sealed partial class PostgresWorkChainStore
         string eventType,
         DateTimeOffset occurredAt,
         WorkChainMutationReceipt receipt,
+        TransitionAudit? transitionAudit,
         CancellationToken cancellationToken)
     {
         var final = receipt;
@@ -589,20 +840,32 @@ public sealed partial class PostgresWorkChainStore
                 "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));",
                 cancellationToken,
                 Text($"audit-ledger:{tenantId}"));
-            var payload = JsonSerializer.Serialize(new
-            {
-                taskId = receipt.TaskId,
-                attemptId = receipt.AttemptId,
-                taskState = receipt.TaskState,
-                attemptState = receipt.AttemptState,
-                instructionVersionId = receipt.InstructionVersionId,
-                instructionVersion = receipt.InstructionVersion,
-                version = receipt.TaskVersion,
-            });
+            var outboxPayload = await BuildOutboxPayloadAsync(
+                connection,
+                transaction,
+                eventType,
+                receipt,
+                transitionAudit,
+                cancellationToken);
+            var auditPayload = transitionAudit is null
+                ? outboxPayload
+                : JsonSerializer.Serialize(new
+                {
+                    cardId = receipt.TaskId,
+                    fromState = transitionAudit.FromState,
+                    toState = transitionAudit.ToState,
+                    @event = transitionAudit.Event,
+                    actorKind = transitionAudit.ActorKind,
+                    actorId = transitionAudit.ActorId,
+                    timestamp = occurredAt,
+                    reason = transitionAudit.Reason,
+                    evidenceRef = transitionAudit.EvidenceReference,
+                    version = receipt.TaskVersion,
+                });
             var (sequence, previousHash) = await ReadLedgerTailAsync(
                 connection, transaction, tenantId, cancellationToken);
             var eventHash = AuditLedgerHash.Compute(
-                previousHash, tenantId, sequence, eventType, payload, occurredAt);
+                previousHash, tenantId, sequence, eventType, auditPayload, occurredAt);
             var outboxId = UlidValue.New(occurredAt).ToString();
             final = receipt with
             {
@@ -619,12 +882,12 @@ public sealed partial class PostgresWorkChainStore
                 """,
                 cancellationToken,
                 Text(UlidValue.New(occurredAt).ToString()), Text(tenantId), Bigint(sequence),
-                Text(previousHash), Text(eventHash), Text(eventType), Json(payload), Timestamp(occurredAt));
+                Text(previousHash), Text(eventHash), Text(eventType), Json(auditPayload), Timestamp(occurredAt));
             await ExecuteAsync(
                 connection, transaction,
                 "INSERT INTO harness.outbox_messages (id, tenant_id, event_type, payload_json, occurred_at) VALUES ($1, $2, $3, $4, $5);",
                 cancellationToken,
-                Text(outboxId), Text(tenantId), Text(eventType), Json(payload), Timestamp(occurredAt));
+                Text(outboxId), Text(tenantId), Text(eventType), Json(outboxPayload), Timestamp(occurredAt));
         }
 
         await ExecuteAsync(
@@ -638,6 +901,59 @@ public sealed partial class PostgresWorkChainStore
             Text(tenantId), Text(key), Text(hash), Json(JsonSerializer.Serialize(final)), Timestamp(occurredAt));
         await transaction.CommitAsync(cancellationToken);
         return final;
+    }
+
+    private static async Task<string> BuildOutboxPayloadAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string eventType,
+        WorkChainMutationReceipt receipt,
+        TransitionAudit? transitionAudit,
+        CancellationToken cancellationToken)
+    {
+        if (eventType != "task.stateChanged")
+        {
+            return JsonSerializer.Serialize(new
+            {
+                taskId = receipt.TaskId,
+                attemptId = receipt.AttemptId,
+                taskState = receipt.TaskState,
+                attemptState = receipt.AttemptState,
+                instructionVersionId = receipt.InstructionVersionId,
+                instructionVersion = receipt.InstructionVersion,
+                version = receipt.TaskVersion,
+            });
+        }
+
+        await using var query = connection.CreateCommand();
+        query.Transaction = transaction;
+        query.CommandText =
+            "SELECT project_id,board_state FROM harness.work_tasks WHERE id=$1;";
+        query.Parameters.Add(Text(receipt.TaskId));
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            throw new InvalidOperationException(
+                "Applied work mutation lost its task projection.");
+        }
+
+        var projectId = reader.GetString(0).TrimEnd();
+        var boardState = reader.GetString(1);
+        var from = transitionAudit?.FromBoardState ??
+            (receipt.AttemptState == "abandoned"
+                ? "development"
+                : receipt.InstructionVersionId is not null
+                    ? "corrections"
+                    : "review");
+        return JsonSerializer.Serialize(new
+        {
+            projectId,
+            taskId = receipt.TaskId,
+            from,
+            to = boardState,
+            changedByKind = transitionAudit?.ActorKind ?? "system",
+            note = transitionAudit?.Reason,
+        });
     }
 
     private static Task LockTaskAsync(
@@ -679,4 +995,14 @@ public sealed partial class PostgresWorkChainStore
         string? LatestAttemptInstructionId,
         string? AttemptState,
         string? ProducerAgentId);
+
+    private sealed record TransitionAudit(
+        string FromState,
+        string ToState,
+        string Event,
+        string FromBoardState,
+        string ActorKind,
+        string ActorId,
+        string Reason,
+        string EvidenceReference);
 }

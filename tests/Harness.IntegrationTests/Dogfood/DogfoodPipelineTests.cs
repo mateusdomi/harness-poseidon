@@ -193,6 +193,26 @@ public sealed class DogfoodPipelineTests
                     $"dogfood-review:{attemptId}",
                     DateTimeOffset.UtcNow), timeout.Token);
                 Assert.Equal(WorkChainMutationStatus.Applied, reviewReceipt.Status);
+                var mergeReceipt = await chain.MergeApprovedTaskAsync(new(
+                    tenantId,
+                    persisted.BackingSolicitationId,
+                    task.Id,
+                    "merge-coordinator",
+                    $"workspace:{execution.Workspace.BranchName}@{execution.Workspace.CommitSha}",
+                    reviewReceipt.TaskVersion!.Value,
+                    $"dogfood-merge:{attemptId}",
+                    DateTimeOffset.UtcNow), timeout.Token);
+                Assert.Equal(WorkChainMutationStatus.Applied, mergeReceipt.Status);
+                var deliveryReceipt = await chain.CompleteMergedTaskAsync(new(
+                    tenantId,
+                    persisted.BackingSolicitationId,
+                    task.Id,
+                    "delivery-reconciler",
+                    $"board:{task.Id}:reconciled",
+                    mergeReceipt.TaskVersion!.Value,
+                    $"dogfood-delivery:{attemptId}",
+                    DateTimeOffset.UtcNow), timeout.Token);
+                Assert.Equal(WorkChainMutationStatus.Applied, deliveryReceipt.Status);
                 var done = (await board.GetTaskAsync(tenantId, task.Id, timeout.Token))!;
                 Assert.Equal("done", done.State);
 

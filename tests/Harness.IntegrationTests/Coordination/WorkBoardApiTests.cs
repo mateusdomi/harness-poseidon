@@ -223,6 +223,18 @@ public sealed class WorkBoardApiTests
                         "approved", "Evidência corrigida aprovada.", secondCompleted.TaskVersion!.Value,
                         $"api-test:review:{secondAttemptId}", at.AddSeconds(5)), timeout.Token);
                     Assert.Equal(WorkChainMutationStatus.Applied, approved.Status);
+                    var merged = await chainStore.MergeApprovedTaskAsync(new(
+                        localProfile.TenantId, persistedTask.BackingSolicitationId, taskId,
+                        "merge-coordinator", $"git:develop@{secondAttemptId}",
+                        approved.TaskVersion!.Value, $"api-test:merge:{secondAttemptId}",
+                        at.AddSeconds(6)), timeout.Token);
+                    Assert.Equal(WorkChainMutationStatus.Applied, merged.Status);
+                    var delivered = await chainStore.CompleteMergedTaskAsync(new(
+                        localProfile.TenantId, persistedTask.BackingSolicitationId, taskId,
+                        "delivery-reconciler", $"board:{taskId}:reconciled",
+                        merged.TaskVersion!.Value, $"api-test:delivery:{secondAttemptId}",
+                        at.AddSeconds(7)), timeout.Token);
+                    Assert.Equal(WorkChainMutationStatus.Applied, delivered.Status);
 
                     var finalTask = await client.GetFromJsonAsync<BoardTaskContract>(
                         $"/api/v1/tasks/{taskId}", timeout.Token);

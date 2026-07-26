@@ -40,6 +40,14 @@ public interface IWorkChainStore
     Task<WorkChainMutationReceipt> ReviewAttemptAsync(
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> MergeApprovedTaskAsync(
+        WorkTaskMergeCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkChainMutationReceipt> CompleteMergedTaskAsync(
+        WorkTaskDeliveryCompleteCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkChainCreateCommand(
@@ -164,6 +172,26 @@ public sealed record WorkAttemptReviewCommand(
     string ReviewerAgentId,
     string Decision,
     string Rationale,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskMergeCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string CoordinatorAgentId,
+    string SubmissionReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskDeliveryCompleteCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string ActorId,
+    string EvidenceReference,
     long ExpectedTaskVersion,
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
@@ -402,6 +430,32 @@ public static class WorkChainMutationValidator
         }
     }
 
+    public static void Validate(WorkTaskMergeCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateText(command.CoordinatorAgentId, nameof(command), 200);
+        ValidateText(command.SubmissionReference, nameof(command), 2_000);
+    }
+
+    public static void Validate(WorkTaskDeliveryCompleteCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateText(command.ActorId, nameof(command), 200);
+        ValidateText(command.EvidenceReference, nameof(command), 2_000);
+    }
+
     public static string Hash<TCommand>(TCommand command)
         where TCommand : notnull =>
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
@@ -418,6 +472,20 @@ public static class WorkChainMutationValidator
         ValidateUlid(solicitationId, nameof(solicitationId));
         ValidateUlid(taskId, nameof(taskId));
         ValidateUlid(attemptId, nameof(attemptId));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedTaskVersion);
+        ValidateText(idempotencyKey, nameof(idempotencyKey), 200);
+    }
+
+    private static void ValidateTaskTransition(
+        string tenantId,
+        string solicitationId,
+        string taskId,
+        long expectedTaskVersion,
+        string idempotencyKey)
+    {
+        ValidateUlid(tenantId, nameof(tenantId));
+        ValidateUlid(solicitationId, nameof(solicitationId));
+        ValidateUlid(taskId, nameof(taskId));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedTaskVersion);
         ValidateText(idempotencyKey, nameof(idempotencyKey), 200);
     }

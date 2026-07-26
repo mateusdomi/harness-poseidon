@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Identifiers;
 
@@ -13,12 +16,14 @@ namespace Harness.IntegrationTests.Persistence;
 /// </summary>
 public sealed class SqliteMigrationUpgradeTests
 {
-    private const int HeadCount = 65;
+    private const int HeadCount = 66;
+    private const string UpgradeSolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5F80";
 
     [Theory]
     [InlineData(10)]
     [InlineData(22)]
     [InlineData(33)]
+    [InlineData(65)]
     public async Task UpgradesFromAnyHistoricalSchemaPrefix(int prefixCount)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -81,6 +86,34 @@ public sealed class SqliteMigrationUpgradeTests
                         return prefixCount;
                     },
                     timeout.Token);
+
+                if (prefixCount == HeadCount - 1)
+                {
+                    await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
+                        FoundationTransactionBehavior.Command(),
+                        timeout.Token);
+                    const string instruction = "Preserve this task across the state migration.";
+                    await new SqliteWorkChainStore(dispatcher).CreateAsync(
+                        new WorkChainCreateCommand(
+                            FoundationTransactionBehavior.TenantId,
+                            FoundationTransactionBehavior.ProjectId,
+                            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+                            UpgradeSolicitationId,
+                            "Upgrade the populated work-chain schema.",
+                            "01ARZ3NDEKTSV4RRFFQ69G5F81",
+                            "Preserve the demand",
+                            "[\"State and relationships survive\"]",
+                            "01ARZ3NDEKTSV4RRFFQ69G5F82",
+                            "Preserve the task",
+                            "medium",
+                            3m,
+                            "01ARZ3NDEKTSV4RRFFQ69G5F83",
+                            instruction,
+                            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instruction))),
+                            "upgrade:work-chain:create",
+                            DateTimeOffset.UtcNow),
+                        timeout.Token);
+                }
             }
 
             // Upgrade real: reabre o banco e o runner aplica somente o restante.
@@ -91,16 +124,32 @@ public sealed class SqliteMigrationUpgradeTests
                     HeadCount - prefixCount,
                     await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
                 Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+                Assert.True(
+                    (await dispatcher.ReadPragmaStateAsync(timeout.Token)).ForeignKeysEnabled);
 
-                var store = new SqliteLocalProfileStore(dispatcher);
-                var now = DateTimeOffset.UtcNow;
-                var created = await store.CreateAsync(
-                    new LocalProfileCreateCommand(
-                        UlidValue.New(now).ToString(), "Personal",
-                        UlidValue.New(now).ToString(), "Upgrade", null, null, "pt-BR", now),
-                    timeout.Token);
-                Assert.Equal(LocalProfileMutationStatus.Applied, created.Status);
-                Assert.Equal(LocalProfileRole.Admin, created.Profile!.Role);
+                if (prefixCount == HeadCount - 1)
+                {
+                    var preserved = await new SqliteWorkChainStore(dispatcher).ReadAggregateAsync(
+                        FoundationTransactionBehavior.TenantId,
+                        UpgradeSolicitationId,
+                        timeout.Token);
+                    Assert.NotNull(preserved);
+                    var task = Assert.Single(Assert.Single(preserved.Demands).Tasks);
+                    Assert.Equal("ready", task.State);
+                    Assert.Single(task.Instructions);
+                }
+                else
+                {
+                    var store = new SqliteLocalProfileStore(dispatcher);
+                    var now = DateTimeOffset.UtcNow;
+                    var created = await store.CreateAsync(
+                        new LocalProfileCreateCommand(
+                            UlidValue.New(now).ToString(), "Personal",
+                            UlidValue.New(now).ToString(), "Upgrade", null, null, "pt-BR", now),
+                        timeout.Token);
+                    Assert.Equal(LocalProfileMutationStatus.Applied, created.Status);
+                    Assert.Equal(LocalProfileRole.Admin, created.Profile!.Role);
+                }
             }
         }
         finally

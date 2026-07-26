@@ -174,7 +174,9 @@ public static class BoardStateReconciliationEvaluator
 
         if (hasTerminalAttempt &&
             !string.Equals(facts.InternalState, "completed", StringComparison.Ordinal) &&
-            !string.Equals(facts.InternalState, "ready", StringComparison.Ordinal))
+            !string.Equals(facts.InternalState, "ready", StringComparison.Ordinal) &&
+            !string.Equals(facts.InternalState, "approved", StringComparison.Ordinal) &&
+            !string.Equals(facts.InternalState, "merged", StringComparison.Ordinal))
         {
             return new(facts.TaskId, Attention, TerminalAttemptWithoutTaskUpdate, null);
         }
