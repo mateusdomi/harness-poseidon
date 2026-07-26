@@ -1,0 +1,14 @@
+exporters:
+  otlp_http/langfuse:
+    endpoint: ${env:POSEIDON_LANGFUSE_OTLP_ENDPOINT}
+    encoding: proto
+    headers:
+      Authorization: Basic ${env:POSEIDON_LANGFUSE_AUTH}
+      x-langfuse-ingestion-version: "4"
+
+service:
+  pipelines:
+    traces:
+      exporters:
+        - otlp_grpc/tempo
+        - otlp_http/langfuse

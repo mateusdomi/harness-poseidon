@@ -1,0 +1,10 @@
+services:
+  otel-collector:
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+      - --config=/etc/otelcol-contrib/langfuse.yaml
+    environment:
+      POSEIDON_LANGFUSE_OTLP_ENDPOINT: ${POSEIDON_LANGFUSE_OTLP_ENDPOINT:?defina POSEIDON_LANGFUSE_OTLP_ENDPOINT}
+      POSEIDON_LANGFUSE_AUTH: ${POSEIDON_LANGFUSE_AUTH:?defina POSEIDON_LANGFUSE_AUTH}
+    volumes:
+      - ./otel-collector-langfuse.yaml:/etc/otelcol-contrib/langfuse.yaml:ro

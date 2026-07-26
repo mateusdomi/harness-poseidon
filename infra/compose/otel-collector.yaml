@@ -21,26 +21,26 @@ processors:
       - context: span
         statements:
           - >-
-            delete_matching_keys(attributes,
+            delete_matching_keys(span.attributes,
             "(?i).*(authorization|cookie|password|secret|token|prompt|completion|request\\.body|response\\.body|exception\\.(message|stacktrace)|url\\.(full|query)|http\\.(url|target)|db\\.(statement|query\\.text)).*")
       - context: spanevent
         statements:
           - >-
-            delete_matching_keys(attributes,
+            delete_matching_keys(spanevent.attributes,
             "(?i).*(authorization|cookie|password|secret|token|prompt|completion|request\\.body|response\\.body|exception\\.(message|stacktrace)|url\\.(full|query)|http\\.(url|target)|db\\.(statement|query\\.text)).*")
     metric_statements:
       - context: datapoint
         statements:
           - >-
-            delete_matching_keys(attributes,
+            delete_matching_keys(datapoint.attributes,
             "(?i).*(authorization|cookie|password|secret|token|prompt|completion|request\\.body|response\\.body|url\\.(full|query)|http\\.(url|target)).*")
     log_statements:
       - context: log
         statements:
           - >-
-            delete_matching_keys(attributes,
+            delete_matching_keys(log.attributes,
             "(?i).*(authorization|cookie|password|secret|token|prompt|completion|request\\.body|response\\.body|exception\\.(message|stacktrace)|url\\.(full|query)|http\\.(url|target)|db\\.(statement|query\\.text)).*")
-          - set(body, "[REDACTED]")
+          - set(log.body, "[REDACTED]")
   redaction:
     allow_all_keys: true
     redact_all_types: true
@@ -62,13 +62,13 @@ processors:
     timeout: 5s
 
 exporters:
-  otlp/tempo:
+  otlp_grpc/tempo:
     endpoint: tempo:4317
     tls:
       insecure: true
   prometheus:
     endpoint: 0.0.0.0:9464
-  otlphttp/loki:
+  otlp_http/loki:
     endpoint: http://loki:3100/otlp
 
 service:
@@ -84,7 +84,7 @@ service:
         - redaction
         - batch
       exporters:
-        - otlp/tempo
+        - otlp_grpc/tempo
     metrics:
       receivers:
         - otlp
@@ -104,7 +104,7 @@ service:
         - redaction
         - batch
       exporters:
-        - otlphttp/loki
+        - otlp_http/loki
   telemetry:
     logs:
       level: info

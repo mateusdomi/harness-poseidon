@@ -49,7 +49,7 @@ public sealed class ObservabilityInfrastructureTests
         Assert.True(transformIndex >= 0);
         Assert.True(redactionIndex > transformIndex);
         Assert.True(batchIndex > redactionIndex);
-        Assert.Contains("set(body, \"[REDACTED]\")", configuration, StringComparison.Ordinal);
+        Assert.Contains("set(log.body, \"[REDACTED]\")", configuration, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -80,6 +80,34 @@ public sealed class ObservabilityInfrastructureTests
         Assert.Contains("poseidon_agent_execution_count_total", dashboard, StringComparison.Ordinal);
         Assert.Contains("poseidon_durable_operation_count_total", dashboard, StringComparison.Ordinal);
         Assert.Contains("poseidon_channel_operation_count_total", dashboard, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LangfuseExportIsOptInAndReceivesOnlyCollectorTraces()
+    {
+        var compose = ReadRepositoryFile("infra/compose/langfuse.compose.yaml");
+        var configuration = ReadRepositoryFile(
+            "infra/compose/otel-collector-langfuse.yaml");
+
+        Assert.Contains(
+            "POSEIDON_LANGFUSE_OTLP_ENDPOINT:?",
+            compose,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "POSEIDON_LANGFUSE_AUTH:?",
+            compose,
+            StringComparison.Ordinal);
+        Assert.Contains("otlp_http/langfuse:", configuration, StringComparison.Ordinal);
+        Assert.Contains(
+            "Authorization: Basic ${env:POSEIDON_LANGFUSE_AUTH}",
+            configuration,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "x-langfuse-ingestion-version: \"4\"",
+            configuration,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("metrics:", configuration, StringComparison.Ordinal);
+        Assert.DoesNotContain("logs:", configuration, StringComparison.Ordinal);
     }
 
     private static string ReadRepositoryFile(string relativePath)
