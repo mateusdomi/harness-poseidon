@@ -29,10 +29,14 @@ public sealed class OutboxDispatcherBackgroundServiceTests
             new DateTimeOffset(2026, 7, 18, 18, 20, 0, TimeSpan.Zero));
         var worker = CreateWorker(fixture.Store, new FailFirstSink(), clock, "telemetry-worker");
 
+        using var correlation = new Activity("outbox-telemetry-test").Start();
+        Assert.NotNull(correlation);
         Assert.Equal(2, await worker.DispatchAvailableAsync(timeout.Token));
 
         var spans = activities
-            .Where(activity => activity.OperationName == "poseidon.outbox.dispatch")
+            .Where(activity =>
+                activity.OperationName == "poseidon.outbox.dispatch" &&
+                activity.TraceId == correlation.TraceId)
             .ToArray();
         Assert.Equal(2, spans.Length);
         Assert.All(spans, span =>
