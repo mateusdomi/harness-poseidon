@@ -4,6 +4,7 @@ using Harness.Modules.Governance.Ledger;
 using Harness.Modules.Governance.Memory;
 using Harness.Modules.Providers.Application;
 using Harness.Modules.Providers.Contracts;
+using Harness.SharedKernel.Auditing;
 using Harness.SharedKernel.Memory;
 
 namespace Harness.UnitTests.EndToEnd;
@@ -54,8 +55,24 @@ public sealed class EndToEndHomologationTests
 
         // Phase 12: Ledger Reconciliation
         var reconciliation = new LedgerReconciliationService();
+        var occurredAt = DateTimeOffset.UtcNow;
+        const string payload = """{"turnId":"turn-1","cardId":"card-13"}""";
+        var eventHash = AuditChainHash.Compute(
+            AuditChainHash.Genesis,
+            tenantId,
+            1,
+            "card.created",
+            payload,
+            occurredAt);
         var ledgerResult = reconciliation.Reconcile(tenantId, [
-            new(1, tenantId, "turn-1", "card.created", "hash1", "GENESIS", DateTimeOffset.UtcNow)
+            new(
+                1,
+                tenantId,
+                "card.created",
+                payload,
+                AuditChainHash.Genesis,
+                eventHash,
+                occurredAt)
         ]);
         Assert.True(ledgerResult.IsChainValid);
     }

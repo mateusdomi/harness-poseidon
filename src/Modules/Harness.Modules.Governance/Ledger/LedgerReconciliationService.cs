@@ -1,17 +1,16 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using Harness.SharedKernel.Auditing;
 
 namespace Harness.Modules.Governance.Ledger;
 
 public sealed record AuditLedgerEntry(
     long SequenceNumber,
     string TenantId,
-    string TurnId,
-    string Action,
-    string ContentHash,
+    string EventType,
+    string PayloadJson,
     string PreviousHash,
-    DateTimeOffset Timestamp);
+    string EventHash,
+    DateTimeOffset OccurredAt);
 
 public sealed record LedgerReconciliationResult(
     string TenantId,
@@ -44,11 +43,11 @@ public sealed class LedgerReconciliationService : ILedgerReconciliationService
         string tenantId,
         IReadOnlyList<AuditLedgerEntry> entries)
     {
-        ArgumentNullException.ThrowIfNull(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         ArgumentNullException.ThrowIfNull(entries);
 
         var tenantEntries = entries
-            .Where(e => string.Equals(e.TenantId, tenantId, StringComparison.OrdinalIgnoreCase))
+            .Where(e => string.Equals(e.TenantId, tenantId, StringComparison.Ordinal))
             .OrderBy(e => e.SequenceNumber)
             .ToList();
 
@@ -60,25 +59,42 @@ public sealed class LedgerReconciliationService : ILedgerReconciliationService
                 IsChainValid: true,
                 TamperedCount: 0,
                 DiscrepancySequenceNumbers: [],
-                LastValidHash: "GENESIS",
+                LastValidHash: AuditChainHash.Genesis,
                 ReconciledAt: DateTimeOffset.UtcNow);
         }
 
         var discrepancies = new List<long>();
-        var previousHash = "GENESIS";
+        var expectedPreviousHash = AuditChainHash.Genesis;
+        var lastValidHash = AuditChainHash.Genesis;
+        var expectedSequence = 1L;
+        var chainIsValid = true;
 
         foreach (var entry in tenantEntries)
         {
-            if (!string.Equals(entry.PreviousHash, previousHash, StringComparison.Ordinal))
+            var computedHash = AuditChainHash.Compute(
+                entry.PreviousHash,
+                entry.TenantId,
+                entry.SequenceNumber,
+                entry.EventType,
+                entry.PayloadJson,
+                entry.OccurredAt);
+            var entryIsValid =
+                entry.SequenceNumber == expectedSequence &&
+                string.Equals(entry.PreviousHash, expectedPreviousHash, StringComparison.Ordinal) &&
+                string.Equals(entry.EventHash, computedHash, StringComparison.Ordinal);
+
+            if (!entryIsValid)
             {
                 discrepancies.Add(entry.SequenceNumber);
+                chainIsValid = false;
+            }
+            else if (chainIsValid)
+            {
+                lastValidHash = entry.EventHash;
             }
 
-            // Recalcula o hash do elo da corrente
-            var payload = $"{entry.SequenceNumber}:{entry.TenantId}:{entry.TurnId}:{entry.Action}:{entry.ContentHash}:{entry.PreviousHash}";
-            var computedHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
-
-            previousHash = computedHash;
+            expectedPreviousHash = computedHash;
+            expectedSequence++;
         }
 
         return new LedgerReconciliationResult(
@@ -87,7 +103,7 @@ public sealed class LedgerReconciliationService : ILedgerReconciliationService
             IsChainValid: discrepancies.Count == 0,
             TamperedCount: discrepancies.Count,
             DiscrepancySequenceNumbers: discrepancies,
-            LastValidHash: previousHash,
+            LastValidHash: lastValidHash,
             ReconciledAt: DateTimeOffset.UtcNow);
     }
 
@@ -95,14 +111,20 @@ public sealed class LedgerReconciliationService : ILedgerReconciliationService
         string tenantId,
         IReadOnlyList<AuditLedgerEntry> entries)
     {
-        ArgumentNullException.ThrowIfNull(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         ArgumentNullException.ThrowIfNull(entries);
 
         var tenantEntries = entries
-            .Where(e => string.Equals(e.TenantId, tenantId, StringComparison.OrdinalIgnoreCase))
+            .Where(e => string.Equals(e.TenantId, tenantId, StringComparison.Ordinal))
             .OrderBy(e => e.SequenceNumber)
             .ToList();
 
-        return JsonSerializer.Serialize(tenantEntries, JsonIndentedOptions);
+        return JsonSerializer.Serialize(
+            new
+            {
+                reconciliation = Reconcile(tenantId, tenantEntries),
+                entries = tenantEntries,
+            },
+            JsonIndentedOptions);
     }
 }

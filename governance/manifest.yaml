@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-07-26T16:51:36.0115930+00:00
+lastGeneratedAt: 2026-07-26T17:25:32.9586780+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -783,7 +783,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:9933572cd92270356beb8bfe5ac9faf441d70d531d909e4c0343f611bea2fe45
+  checksum: sha256:9344fff79fca127162b1ad664c29972c491718a2c5f3084a51565cc0b2a14432
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1762,7 +1762,7 @@ documents:
   - src/Harness.Persistence.*/**
   load: on-demand
   priority: 750
-  tokenCost: 248
+  tokenCost: 881
   owner: Operations
   status: active
   version: 2.0.0
@@ -1773,7 +1773,7 @@ documents:
   - governance-core
   related: []
   enforcedBy: []
-  checksum: sha256:bd36a83d29c5f20e5be2439f8050ecb2356aa0b2c5d6d6b5ffaaf13245128bc0
+  checksum: sha256:372fc0acf9bc9528059a2d10bb6ec95330f6f0a29e9754628413cdf021fd1028
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/runbooks/recovery.md

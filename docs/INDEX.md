@@ -128,7 +128,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Runbook de incidente](backend/runbooks/incident.md) | sustentation | Active | Operations | OnDemand | 228 |
-| [Runbook de recuperação](backend/runbooks/recovery.md) | sustentation | Active | Operations | OnDemand | 248 |
+| [Runbook de recuperação](backend/runbooks/recovery.md) | sustentation | Active | Operations | OnDemand | 881 |
 
 #### security
 
