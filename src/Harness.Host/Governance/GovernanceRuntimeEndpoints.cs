@@ -472,8 +472,29 @@ public static class GovernanceRuntimeEndpoints
                 group.Count(item => item.receipt.Truncated.Contains(item.document.DocumentId, StringComparer.Ordinal)),
                 group.Max(item => (DateTimeOffset?)item.receipt.Timestamp)))
             .ToArray();
+        // O conjunto de enforcements ATIVOS espelha o que este Host registra de fato: gates de
+        // script/CI (verify/scan/scope) e os componentes de runtime ligados em DI — Output
+        // Gateway nos 4 canais, Security PEP no run real, ledgers, Capacity Manager/Model
+        // Router, gate de revisão (actor≠approver no WorkChain) e a fila serializada de merge.
+        // Se um desses deixar de ser registrado, ele DEVE sair daqui — regra sem enforcement
+        // ativo é finding, não decoração.
         IReadOnlySet<string> enforcement = new HashSet<string>(
-            ["tools/backend/verify-governance.sh", "tools/backend/scan-secrets.sh", "ci:governance", "runtime:governance-policy"],
+            [
+                "tools/backend/verify.sh",
+                "tools/backend/verify-governance.sh",
+                "tools/backend/verify-agent-scope.sh",
+                "tools/backend/scan-secrets.sh",
+                "ci:governance",
+                "runtime:governance-policy",
+                "runtime:output-gateway",
+                "runtime:security-pep",
+                "runtime:audit-ledger",
+                "runtime:capacity-manager",
+                "runtime:model-router",
+                "runtime:model-invocation-ledger",
+                "runtime:code-review-gate",
+                "runtime:merge-coordinator",
+            ],
             StringComparer.Ordinal);
         var findings = detector.Detect(clock.UtcNow, usage, enforcement);
         return Results.Ok(findings.Select(ToContract).ToArray());

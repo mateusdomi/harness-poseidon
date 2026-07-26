@@ -80,14 +80,19 @@ public sealed class StaleDocumentDetector
             }
             else
             {
+                var checksum = $"sha256:{Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)))}";
+
+                // SourceChanged só quando o CONTEÚDO divergiu do verificado. O mtime sozinho não
+                // é fato: todo clone/pull/checkout reescreve o mtime e transformaria o catálogo
+                // inteiro em falso positivo (foi exatamente o que aconteceu na homologação).
                 if (DateTimeOffset.TryParse(document.LastVerifiedAt, System.Globalization.CultureInfo.InvariantCulture,
                         System.Globalization.DateTimeStyles.RoundtripKind, out var verified) &&
-                    File.GetLastWriteTimeUtc(path) > verified.UtcDateTime)
+                    File.GetLastWriteTimeUtc(path) > verified.UtcDateTime &&
+                    !string.Equals(checksum, document.Checksum, StringComparison.Ordinal))
                 {
                     Add(findings, document, StaleDocumentFindingKind.SourceChanged, "Source changed after last verification.", now);
                 }
 
-                var checksum = $"sha256:{Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)))}";
                 if (!string.Equals(checksum, document.Checksum, StringComparison.Ordinal))
                 {
                     Add(findings, document, StaleDocumentFindingKind.ChecksumDrift, "Manifest checksum differs from source.", now);

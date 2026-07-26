@@ -132,6 +132,39 @@ public sealed class GovernanceRuntimeTests
     }
 
     [Fact]
+    public void FreshCloneWithMatchingChecksumsNeverReportsSourceChanged()
+    {
+        // Um clone/pull reescreve o mtime de TODOS os arquivos, mas o conteúdo continua o
+        // verificado (checksums do manifest batem). Mtime sozinho não é fato: sinalizar
+        // SourceChanged aqui transformaria o catálogo inteiro em falso positivo — foi o "59
+        // detecções" visto na homologação. O detector só acusa quando o CONTEÚDO divergiu.
+        var repositoryRoot = FindRepositoryRoot();
+        var root = Path.Combine(Path.GetTempPath(), $"stale-clone-{Guid.NewGuid():N}");
+        try
+        {
+            CopyDirectory(Path.Combine(repositoryRoot, "governance"), Path.Combine(root, "governance"));
+            CopyDirectory(Path.Combine(repositoryRoot, "docs"), Path.Combine(root, "docs"));
+            foreach (var adapter in new[] { "AGENTS.md", "CLAUDE.md", "README.md" })
+            {
+                File.Copy(Path.Combine(repositoryRoot, adapter), Path.Combine(root, adapter));
+            }
+
+            var detector = new StaleDocumentDetector(root);
+            IReadOnlySet<string> active = new HashSet<string>(StringComparer.Ordinal);
+
+            var findings = detector.Detect(DateTimeOffset.UtcNow, [], active);
+            Assert.DoesNotContain(findings, finding =>
+                finding.Kind == StaleDocumentFindingKind.SourceChanged);
+            Assert.DoesNotContain(findings, finding =>
+                finding.Kind == StaleDocumentFindingKind.ChecksumDrift);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void StaleDetectorReportsMissingSourceAsTypedFindingInsteadOfThrowing()
     {
         // Em uma instalação self-contained, um documento do manifest cuja fonte não foi
