@@ -108,10 +108,16 @@ public static class PhaseProgressEvaluator
         var required = live.Where(item => item.Required).ToArray();
         var optional = live.Where(item => !item.Required).ToArray();
 
-        var totalWeight = required.Sum(item => Math.Max(0m, item.Weight));
+        // Peso zero ou negativo (obrigação sem peso declarado, ou dado corrompido) nunca pode
+        // apagar a obrigação do denominador: isso faria uma fase com pendência real bater 100%
+        // (a obrigação pendente some da conta) e, no outro extremo, faria uma fase inteiramente
+        // aceita marcar 0% só porque nenhum peso foi atribuído. Toda obrigação obrigatória conta
+        // ao menos como 1 unidade — é a mesma unidade que DefaultWeight já usa quando o plano não
+        // declara peso.
+        var totalWeight = required.Sum(item => EffectiveWeight(item.Weight));
         var acceptedWeight = required
             .Where(item => item.State == PhaseObligationState.Accepted)
-            .Sum(item => Math.Max(0m, item.Weight));
+            .Sum(item => EffectiveWeight(item.Weight));
 
         // Sem obrigação obrigatória não há o que medir: 0%, e a fase NUNCA está tecnicamente
         // pronta. Uma fase vazia que marcasse 100% aprovaria o nada.
@@ -147,6 +153,13 @@ public static class PhaseProgressEvaluator
     /// </summary>
     public static decimal DefaultWeight(int requiredCount) =>
         requiredCount <= 0 ? 0m : Math.Round(100m / requiredCount, 4, MidpointRounding.AwayFromZero);
+
+    /// <summary>
+    /// O peso que uma obrigação REALMENTE vale na conta. Peso zero ou negativo não é "esta
+    /// obrigação não conta" — é "nenhum peso foi declarado", e o piso é 1 unidade, a mesma unidade
+    /// mínima usada por <see cref="DefaultWeight"/>.
+    /// </summary>
+    private static decimal EffectiveWeight(decimal weight) => weight > 0m ? weight : 1m;
 
     public static string ToStorage(PhaseObligationKind kind) => kind switch
     {

@@ -83,6 +83,20 @@ public sealed class PhaseGatePolicyTests
                 Ready() with { HasOpenBlocker = true }));
     }
 
+    [Theory]
+    [InlineData(ProjectOperationMode.Autonomous)]
+    [InlineData(ProjectOperationMode.SemiAutonomous)]
+    [InlineData(ProjectOperationMode.Manual)]
+    public void APhaseWithoutAGateIsNeverApprovedRegardlessOfEvidence(ProjectOperationMode mode)
+    {
+        // Sem portão nenhum, não há o que aprovar — mesmo que toda obrigação esteja aceita e sem
+        // bloqueio. Este ramo do Default-FAIL nunca tinha teste próprio.
+        Assert.Equal(
+            PhaseGateDecision.NotReady,
+            PhaseGatePolicy.Decide(mode, "5-Desenvolvimento", "Aprovação", null,
+                Ready() with { HasGate = false }));
+    }
+
     [Fact]
     public void AnEmptyPhaseIsNeverApproved()
     {
