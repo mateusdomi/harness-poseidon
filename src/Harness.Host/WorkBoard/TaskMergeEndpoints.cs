@@ -11,12 +11,10 @@ using Harness.SharedKernel.Time;
 namespace Harness.Host.WorkBoard;
 
 /// <summary>
-/// GATE HUMANO de integração: o único ponto que leva um card de `approved` (review do crítico) a
-/// `done`. Faz o merge REAL (--no-ff) da branch da tentativa aprovada na referência publicada do
-/// repositório do projeto e persiste as duas transições da cadeia durável
-/// (<c>MergeApprovedTaskAsync</c> → <c>CompleteMergedTaskAsync</c>), idempotentes por tentativa.
-/// Nunca é automático: exige uma sessão humana. É esta conclusão (`done`) que libera a próxima
-/// onda de cards do plano na triagem do chefe.
+/// Caminho HUMANO da integração de um card aprovado. A regra e o efeito vivem em
+/// <see cref="TaskIntegrationService"/>, compartilhados com o laço autônomo da chefe: o merge de
+/// um card cuja revisão independente já passou não é decisão do stakeholder, e exigir o clique
+/// dele card a card fazia a fábrica inteira depender de alguém estar disponível.
 /// </summary>
 public static class TaskMergeEndpoints
 {
@@ -33,94 +31,27 @@ public static class TaskMergeEndpoints
         string id,
         HttpRequest request,
         ILocalProfileStore profiles,
-        IWorkBoardStore board,
-        IWorkChainStore chain,
-        IProjectStore projects,
-        AgentRunSettings settings,
-        IClock clock,
+        TaskIntegrationService integration,
         CancellationToken token)
     {
         if (!UlidValue.TryParse(id, out _)) return InvalidId("task");
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
         if (profile is null) return SessionRequired();
 
-        var task = await board.GetTaskAsync(profile.TenantId, id, token);
-        if (task is null) return NotFound("task");
-        if (!string.Equals(task.InternalState, "approved", StringComparison.Ordinal))
+        // A lógica vive em TaskIntegrationService porque o mesmo merge é feito pelo laço autônomo
+        // da chefe. Aqui é apenas o caminho HUMANO: mesma regra, ator diferente.
+        var outcome = await integration.IntegrateAsync(profile.TenantId, id, profile.Id, token);
+        if (outcome.Integrated)
         {
-            return Conflict(
-                "task_not_approved",
-                $"Only tasks approved by the independent review can be merged (state: {task.InternalState}).");
+            return Results.Ok(new TaskMergeResult(
+                id, outcome.AttemptId!, outcome.Branch!, "done", "completed"));
         }
 
-        // O estado exposto do attempt é o OPERACIONAL: a tentativa aprovada fica 'completed'
-        // (a reprovada fica 'failed'); a autoridade da fase é o estado interno do card, já
-        // exigido acima ('approved') — e a cadeia revalida ao persistir o merge.
-        var attempts = await board.ListAttemptsAsync(profile.TenantId, task.Id, null, 100, token);
-        var approved = attempts.LastOrDefault(attempt =>
-            string.Equals(attempt.State, "completed", StringComparison.Ordinal));
-        if (approved is null) return Conflict("approved_attempt_missing", "The task has no approved attempt.");
-
-        var project = await projects.GetAsync(profile.TenantId, task.ProjectId, token);
-        if (project is null || string.IsNullOrWhiteSpace(project.RepositoryUrl))
+        return outcome.ReasonCode switch
         {
-            return Conflict("project_repository_missing", "The project has no local repository bound.");
-        }
-
-        if (string.IsNullOrWhiteSpace(settings.ControlledRoot))
-        {
-            return Conflict(
-                "merge_unavailable",
-                "Merging requires Harness:AgentRuns:ControlledRoot on this machine.");
-        }
-
-        // 1. Merge git REAL da branch da tentativa. Conflito aborta o merge e devolve 409 —
-        //    o repositório nunca fica no meio de um merge.
-        var branch = $"task/agent-run-{approved.Id.ToLowerInvariant()}";
-        try
-        {
-            using var manager = await GitWorktreeManager.OpenAsync(
-                System.IO.Path.GetFullPath(project.RepositoryUrl),
-                System.IO.Path.GetFullPath(settings.ControlledRoot),
-                token);
-            await manager.MergeTaskBranchAsync(
-                branch,
-                $"merge(card {DisplayCode(task.Title)}): tentativa {approved.Id} aprovada em review",
-                token);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            return Conflict("merge_failed", exception.Message);
-        }
-
-        // 2. Cadeia durável: approved → merged → completed (board `done`), idempotente por
-        //    tentativa. A conclusão destrava a próxima onda do plano na triagem do chefe.
-        var now = clock.UtcNow;
-        var merged = await chain.MergeApprovedTaskAsync(
-            new WorkTaskMergeCommand(
-                profile.TenantId, task.BackingSolicitationId, task.Id, profile.Id,
-                $"git-branch:{branch}", task.Version, $"task-merge:{approved.Id}", now),
-            token);
-        if (merged.Status is not (WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay))
-        {
-            return Conflict("merge_state_conflict", $"The work chain rejected the merge: {merged.Status}.");
-        }
-
-        var completed = await chain.CompleteMergedTaskAsync(
-            new WorkTaskDeliveryCompleteCommand(
-                profile.TenantId, task.BackingSolicitationId, task.Id, profile.Id,
-                $"git-merge:{branch}", merged.TaskVersion ?? task.Version + 1,
-                $"task-merge-complete:{approved.Id}", clock.UtcNow),
-            token);
-        if (completed.Status is not (WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay))
-        {
-            return Conflict("merge_completion_conflict", $"The work chain rejected the completion: {completed.Status}.");
-        }
-
-        var refreshed = await board.GetTaskAsync(profile.TenantId, task.Id, token);
-        return Results.Ok(new TaskMergeResult(
-            task.Id, approved.Id, branch, refreshed?.State ?? "done",
-            refreshed?.InternalState ?? "completed"));
+            "task_not_found" => NotFound("task"),
+            _ => Conflict(outcome.ReasonCode, outcome.Detail ?? outcome.ReasonCode),
+        };
     }
 
     private static string DisplayCode(string title)

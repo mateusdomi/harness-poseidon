@@ -454,6 +454,7 @@ public static class HostApplication
         // Gestão de equipe pela chefe: existe SEMPRE, inclusive sem execução externa ligada —
         // o turno de conversa depende dela e não pode falhar por ordem de registro.
         builder.Services.AddSingleton<ChiefTeamManager>();
+        builder.Services.AddSingleton<WorkBoard.TaskIntegrationService>();
 
         builder.Services.AddSingleton(
             new AccountAvailabilityLedger(

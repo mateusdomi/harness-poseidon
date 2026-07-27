@@ -205,6 +205,7 @@ public sealed partial class ChiefBacklogLoopService(
                 await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
+                await IntegrateApprovedCardsAsync(profile.TenantId, project, board, scope, token);
                 await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
                 await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
                 await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
@@ -866,6 +867,72 @@ public sealed partial class ChiefBacklogLoopService(
 
         return announced;
     }
+
+    /// <summary>
+    /// INTEGRA os cards já aprovados pela revisão independente.
+    ///
+    /// Este elo faltava, e a sua ausência era o gargalo humano mais caro do produto: um card
+    /// revisado e aprovado por agente DISTINTO ficava parado em `approved` até alguém clicar em
+    /// "merge" na tela. Como é o merge que fecha o card e o card fechado é que libera a próxima
+    /// onda do plano, a fábrica inteira dependia de o dono estar disponível — card a card, em
+    /// todos os modos. Merge de trabalho já revisado não é decisão de stakeholder.
+    ///
+    /// O gate humano continua existindo onde significa alguma coisa: a TRANSIÇÃO DE FASE, conforme
+    /// o modo do projeto. E a invariante que protege o código continua intacta — só chega aqui
+    /// card em `approved`, que exige revisor diferente de quem produziu.
+    /// </summary>
+    private async Task<int> IntegrateApprovedCardsAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var integration = scope.ServiceProvider.GetService<WorkBoard.TaskIntegrationService>();
+        if (integration is null)
+        {
+            return 0;
+        }
+
+        var page = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 50),
+            token);
+        var integrated = 0;
+        foreach (var task in page.Items)
+        {
+            if (!string.Equals(task.InternalState, "approved", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var outcome = await integration.IntegrateAsync(
+                tenantId, task.Id, ChiefIntegrationActor, token);
+            if (outcome.Integrated)
+            {
+                integrated++;
+                LogCardIntegrated(logger, task.Id, outcome.Branch ?? "-");
+            }
+            else
+            {
+                // Conflito de merge, repositório ausente ou cadeia recusando são fatos operáveis:
+                // ficam no log com o código tipado e o card permanece em `approved` para a próxima
+                // rodada — nada é dado como integrado sem ter sido.
+                LogCardIntegrationRefused(logger, task.Id, outcome.ReasonCode);
+            }
+        }
+
+        return integrated;
+    }
+
+    /// <summary>Ator registrado na cadeia quando quem integra é a chefe, não um humano.</summary>
+    public const string ChiefIntegrationActor = "chief";
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: card {TaskId} integrado ({Branch}).")]
+    private static partial void LogCardIntegrated(ILogger logger, string taskId, string branch);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: integração do card {TaskId} adiada: {ReasonCode}.")]
+    private static partial void LogCardIntegrationRefused(ILogger logger, string taskId, string reasonCode);
 
     /// <summary>
     /// Leva ao dono os cards que NENHUMA conta pode executar por motivo estrutural. O scheduler já
