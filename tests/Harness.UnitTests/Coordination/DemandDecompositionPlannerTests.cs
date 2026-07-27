@@ -305,4 +305,31 @@ public sealed class DemandDecompositionPlannerTests
         Assert.DoesNotContain("tenant scope", backend.Instruction, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("persistência dual", backend.Instruction, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void APurelyVisualDemandDoesNotEmitAServerSlice()
+    {
+        // Observado três vezes na homologação, com consequência real: "mudar a cor do botão" e
+        // "propor um redesign da tela" nasciam com card de BACKEND junto. Alguém executaria esse
+        // card e gastaria cota escrevendo código de servidor que ninguém pediu.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "UI-11: proposta de redesign visual do painel",
+            description: "Produzir duas ou três direções visuais da tela, com dados fictícios, para o dono escolher.",
+            criteria: ["O dono escolhe uma das direções apresentadas."]));
+
+        Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleFrontend);
+        Assert.DoesNotContain(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+    }
+
+    [Fact]
+    public void ADemandThatTouchesScreenAndServerKeepsBothSlices()
+    {
+        // A guarda é do PURAMENTE visual: mencionando servidor, as duas fatias continuam.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "AUT-12: filtro de vendas por vendedor",
+            description: "Aplicar o filtro na tela e garantir que o endpoint tambem restrinja os dados por vendedor."));
+
+        Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleFrontend);
+        Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+    }
 }

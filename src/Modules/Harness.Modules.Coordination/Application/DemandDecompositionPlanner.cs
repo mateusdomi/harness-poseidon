@@ -130,6 +130,21 @@ public static class DemandDecompositionPlanner
         "refatorar", "refactor", "integrar com", "automatizar",
     ];
 
+    /// <summary>
+    /// Sinais de que a demanda mexe no SERVIDOR. Existem para distinguir uma demanda puramente
+    /// visual de uma que também precisa de backend — sem eles, "mudar a cor do botão" e "propor
+    /// um redesign da tela" nasciam com card de servidor junto, mandando um agente escrever
+    /// código de produção que ninguém pediu.
+    /// </summary>
+    private static readonly string[] BackendTerms =
+    [
+        "backend", "back-end", "servidor", "server", "api", "endpoint", "banco", "database",
+        "persist", "migration", "schema", "consulta", "query", "regra de negócio",
+        "regra de negocio", "cálculo", "calculo", "autenticação", "autenticacao", "autorização",
+        "autorizacao", "integração", "integracao", "importação", "importacao", "sincroniza",
+        "backup", "job", "rotina", "fila", "webhook",
+    ];
+
     private static readonly string[] DecisionTerms =
     [
         "decidir", "decisão", "decisao", "decision", "trade-off", "tradeoff", "escolher entre",
@@ -179,7 +194,13 @@ public static class DemandDecompositionPlanner
         var mentionsImplementation = MentionsAny(haystack, ImplementationTerms);
         var deliverableIsNotCode =
             (needsDecision || hasDocumentation) && !mentionsImplementation;
-        var hasBackend = hints?.HasImplementationSurface ?? !deliverableIsNotCode;
+        // Demanda puramente VISUAL não gera fatia de servidor. A linha de base continua sendo o
+        // backend — uma demanda genérica, sem superfície declarada, segue recebendo a fatia —, mas
+        // quando o texto fala só de tela e não menciona nada de servidor, emitir o card de backend
+        // é trabalho errado: alguém vai executá-lo e gastar cota escrevendo o que ninguém pediu.
+        var mentionsBackend = MentionsAny(haystack, BackendTerms);
+        var visualOnly = hasFrontend && !mentionsBackend;
+        var hasBackend = hints?.HasImplementationSurface ?? (!deliverableIsNotCode && !visualOnly);
 
         var ordinal = 0;
         var cards = new List<ProposedCard>();
