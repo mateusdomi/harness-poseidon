@@ -254,12 +254,17 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           chave que não exista no catálogo é descartada, e o sistema decide por conta própria.
         - `surfaces` (opcional): o seu julgamento sobre a natureza da demanda. Declare apenas o que
           você realmente concluiu; omita um campo quando não souber. `true` afirma que a superfície
-          existe, `false` afirma que ela NÃO existe:
+          existe, `false` afirma que ela NÃO existe. Os três últimos campos CRIAM CARDS QUE PARAM O
+          TRABALHO à espera de um humano — declare `true` neles somente com um motivo concreto na
+          própria demanda, nunca por precaução:
           - `frontend`: a demanda mexe em interface (telas, componentes, estilo);
           - `backend`: a demanda produz código de servidor (domínio, API, persistência);
-          - `externalCredential`: depende de credencial/homologação externa provisionada por humano;
-          - `technicalUncertainty`: exige investigação antes de construir;
-          - `decision`: exige uma decisão humana entre alternativas antes de construir.
+          - `externalCredential`: a demanda NÃO pode começar sem que um humano provisione antes um
+            acesso a um sistema de terceiros (chave de API, conta em provedor externo, certificado,
+            homologação com órgão). Falar de segurança, login, senha ou configuração NÃO é isso;
+          - `technicalUncertainty`: falta informação técnica que precisa ser investigada antes de
+            construir, e não apenas trabalho que ainda não foi feito;
+          - `decision`: existem alternativas mutuamente exclusivas e a escolha é do usuário.
         - Não inclua nenhuma propriedade fora do schema.
         """;
 

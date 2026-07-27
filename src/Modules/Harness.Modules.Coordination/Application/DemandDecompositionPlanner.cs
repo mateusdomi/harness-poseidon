@@ -338,6 +338,35 @@ public static class DemandDecompositionPlanner
                 specialty));
         }
 
+        // 6b. GARANTIA DE ENTREGÁVEL. Spike investiga, decisão escolhe, gate de credencial
+        // provisiona e gate de integração verifica — nenhum deles PRODUZ o que o usuário pediu.
+        // Enquanto a fatia de servidor era a linha de base incondicional, sempre havia alguém
+        // encarregado do resultado; agora que a superfície pode ser negada (pelo texto ou pela
+        // declaração do chefe), uma demanda cujo entregável não é código de servidor, nem
+        // interface, nem documentação cerimonial ficava com um plano SEM NENHUM produtor: um
+        // threat model, um plano de testes ou uma análise nasciam com gates que esperariam para
+        // sempre por cards que não existem. Aqui o plano volta a garantir um dono do entregável;
+        // o papel fica em aberto e é inferido no despacho, então isto não reintroduz "tudo é
+        // backend".
+        if (implementationCodes.Count == 0)
+        {
+            var deliverableCode = Code();
+            implementationCodes.Add(deliverableCode);
+            cards.Add(new ProposedCard(
+                Title(deliverableCode, Label("Entregável", subject, "Produzir o entregável da demanda")),
+                CardTypeAgentTask,
+                RoleNone,
+                $"Produzir o entregável de {subjectOrFeature} conforme descrito na demanda, com o conteúdo real (nunca um esqueleto) e as evidências que os critérios de aceite exigem.",
+                $"O entregável descrito na demanda {featureId}.",
+                "Decisões que dependem de humano; provisionamento de credencial externa; trabalho não pedido pela demanda.",
+                criteria.Length > 0
+                    ? [.. criteria]
+                    : ["O entregável descrito na demanda existe e é verificável."],
+                [],
+                [.. prerequisiteCodes],
+                specialty));
+        }
+
         // 7. Integração final — sempre presente, depende de todos os cards de implementação.
         //
         // É um GATE HUMANO, não um card de agente. Dois motivos, ambos canônicos: (a) a revisão

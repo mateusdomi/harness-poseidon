@@ -72,10 +72,10 @@ public sealed class AgentAccountScheduler
         var eligible = candidates
             .Where(candidate => candidate.Eligible)
             .OrderByDescending(candidate => candidate.Priority)
-            // A prioridade é a preferência primária; no empate, uma conta saudável vence uma
-            // degradada (saúde reduzida é operacional, mas nunca preferida a igual prioridade).
-            .ThenBy(candidate =>
-                string.Equals(candidate.ReasonCode, "account.eligible_degraded", StringComparison.Ordinal) ? 1 : 0)
+            // A prioridade é a preferência primária; no empate vale a ordem de preferência
+            // (saúde reduzida e cota perto do limite são operacionais, nunca preferidas a igual
+            // prioridade — mas também nunca descartadas, porque a capacidade é real).
+            .ThenBy(candidate => candidate.PreferenceRank)
             .ThenBy(candidate => candidate.Alias, StringComparer.Ordinal)
             .ToArray();
 
@@ -95,8 +95,22 @@ public sealed class AgentAccountScheduler
         AgentAccountContract account, AccountSchedulingRequest request)
     {
         var (eligible, reason) = Classify(account, request);
-        return new AccountSelectionCandidate(account.Alias, eligible, reason, account.Priority);
+        return new AccountSelectionCandidate(
+            account.Alias, eligible, reason, account.Priority, PreferenceRankOf(reason));
     }
+
+    /// <summary>
+    /// Ordem de preferência entre elegíveis. Perto do limite pesa MAIS que degradada porque a
+    /// conta degradada entrega devagar, enquanto a que está perto do limite tende a morrer no
+    /// meio do trabalho — o custo é a tentativa inteira, não a latência.
+    /// </summary>
+    private static int PreferenceRankOf(string reasonCode) => reasonCode switch
+    {
+        "account.eligible_degraded" => 1,
+        "account.eligible_near_limit" => 2,
+        "account.eligible_degraded_near_limit" => 3,
+        _ => 0,
+    };
 
     private (bool Eligible, string ReasonCode) Classify(
         AgentAccountContract account, AccountSchedulingRequest request)
@@ -185,8 +199,25 @@ public sealed class AgentAccountScheduler
 
         // Degradada é OPERACIONAL (saúde reduzida ≠ cota/indisponível): elegível, porém a
         // razão registra a degradação para o roteamento preferir uma saudável quando houver.
-        return account.State == AgentAccountState.Degraded
-            ? (true, "account.eligible_degraded")
-            : (true, "account.eligible");
+        //
+        // Perto do limite é o MESMO tipo de sinal, do lado da cota. O estado existia no contrato
+        // ("roteamento deve preferir alternativa") e nada o consultava: uma conta a ponto de
+        // esgotar competia de igual para igual com outra cheia e, ganhando por prioridade, morria
+        // no meio da tentativa. Bloqueá-la seria pior — descartaria capacidade real e pararia o
+        // trabalho curto/crítico quando ela fosse a única. Então ela continua elegível e apenas
+        // perde a vez enquanto houver alternativa. Medição VENCIDA não de-prefere ninguém: sem
+        // proveniência fresca, não há sinal (a mesma regra que impede bloquear por dado velho).
+        var nearLimit =
+            request.Quotas.TryGetValue(account.Alias, out var observed) &&
+            observed.Status == QuotaStatus.NearLimit &&
+            !observed.IsStale(request.Now);
+        var degraded = account.State == AgentAccountState.Degraded;
+        return (degraded, nearLimit) switch
+        {
+            (true, true) => (true, "account.eligible_degraded_near_limit"),
+            (true, false) => (true, "account.eligible_degraded"),
+            (false, true) => (true, "account.eligible_near_limit"),
+            _ => (true, "account.eligible"),
+        };
     }
 }

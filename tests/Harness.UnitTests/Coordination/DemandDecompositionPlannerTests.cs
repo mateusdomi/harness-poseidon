@@ -386,6 +386,67 @@ public sealed class DemandDecompositionPlannerTests
     }
 
     [Fact]
+    public void ADemandWithoutAnySurfaceStillGetsSomeoneToProduceTheDeliverable()
+    {
+        // Achado ao vivo: "fazer o threat model", "escrever o plano de testes" e "escrever o
+        // README" nasceram com gates e ZERO cards produtores. Spike investiga, decisão escolhe,
+        // gate verifica — nenhum deles entrega. O gate de integração ficava esperando para sempre
+        // por cards de implementação que não existiam.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "SEC-02: threat model do login",
+            description: "Mapear as ameaças do fluxo de login e apontar onde a cadeia de ataque quebra.",
+            criteria: ["Cada ameaça tem um controle correspondente."],
+            hints: new DemandDecompositionHints(HasFrontendSurface: false, HasImplementationSurface: false)));
+
+        var producer = Assert.Single(
+            plan.Cards, card => card.CardType == DemandDecompositionPlanner.CardTypeAgentTask);
+        Assert.Equal(DemandDecompositionPlanner.RoleNone, producer.RequiredRole);
+        // Os critérios da demanda viajam com quem produz, senão o entregável não é verificável.
+        Assert.Equal(["Cada ameaça tem um controle correspondente."], producer.AcceptanceCriteria);
+        // E a integração passa a depender dele — antes dependia de coisa nenhuma.
+        var integration = plan.Cards.Single(c => c.ProposedTitle.Contains("integrar", StringComparison.Ordinal));
+        Assert.Contains(
+            DemandDecompositionPlanner.CodeOf(producer.ProposedTitle),
+            integration.Dependencies);
+    }
+
+    [Fact]
+    public void ALowRiskDemandWithoutSurfacesAlsoGetsAProducer()
+    {
+        // Risco baixo dispensa cerimônia — não dispensa alguém encarregado do resultado.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "DOC-01: README do piloto",
+            description: "Escrever o README e o runbook de operação. Sem código.",
+            risk: "low",
+            hints: new DemandDecompositionHints(HasImplementationSurface: false)));
+
+        Assert.Contains(plan.Cards, card => card.CardType == DemandDecompositionPlanner.CardTypeAgentTask);
+    }
+
+    [Fact]
+    public void APlanThatAlreadyHasAProducerDoesNotGainASecondOne()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request());
+        Assert.Single(plan.Cards, card => card.CardType == DemandDecompositionPlanner.CardTypeAgentTask);
+        Assert.DoesNotContain(
+            plan.Cards, card => card.ProposedTitle.Contains("Entregável", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void TheFallbackProducerCarriesTheDeclaredSpecialty()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "SEC-02: threat model",
+            description: "Mapear as ameaças do fluxo de login.",
+            hints: new DemandDecompositionHints(HasImplementationSurface: false),
+            specialty: "architecture-security"));
+
+        var producer = Assert.Single(
+            plan.Cards, card => card.CardType == DemandDecompositionPlanner.CardTypeAgentTask);
+        Assert.Equal("architecture-security", producer.Specialty);
+    }
+
+    [Fact]
     public void TheChiefDeclaringAFrontendSurfaceAddsTheSliceTheTextNeverMentions()
     {
         var plan = DemandDecompositionPlanner.Plan(Request(

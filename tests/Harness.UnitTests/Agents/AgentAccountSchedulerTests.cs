@@ -125,6 +125,77 @@ public sealed class AgentAccountSchedulerTests
     }
 
     [Fact]
+    public void AnAccountNearTheQuotaLimitLosesToOneWithHeadroomButIsNeverDiscarded()
+    {
+        // O contrato já dizia "roteamento deve preferir alternativa" para NearLimit e NADA
+        // consultava o estado: a conta a ponto de esgotar competia de igual para igual e, ganhando
+        // por prioridade, morria no meio da tentativa.
+        var near = RegistryOf(
+            Account("worker-a-near", ExecutorCatalog.Codex, AgentRoles.Critic, priority: 200),
+            Account("worker-b-full", ExecutorCatalog.Codex, AgentRoles.Critic, priority: 200));
+        var request = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-a-near"] = new(
+                    "cli-probe", Now, QuotaStatus.NearLimit, QuotaConfidence.High,
+                    0.05, null, TimeSpan.FromMinutes(5)),
+            },
+        };
+
+        var decision = new AgentAccountScheduler().Select(near, request);
+
+        Assert.Equal("worker-b-full", decision.SelectedAlias);
+        // Perder a vez não é ser descartada: ela continua no fallback, com o motivo explícito.
+        Assert.Equal(["worker-a-near"], decision.FallbackAliases);
+        Assert.Equal(
+            "account.eligible_near_limit",
+            decision.Candidates.Single(c => c.Alias == "worker-a-near").ReasonCode);
+    }
+
+    [Fact]
+    public void BeingTheOnlyAccountNearTheLimitStillRunsTheWork()
+    {
+        // Bloquear seria descartar capacidade real e parar trabalho curto/crítico.
+        var registry = RegistryOf(
+            Account("worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic));
+        var request = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-codex-critic"] = new(
+                    "cli-probe", Now, QuotaStatus.NearLimit, QuotaConfidence.High,
+                    0.05, null, TimeSpan.FromMinutes(5)),
+            },
+        };
+
+        Assert.Equal("worker-codex-critic", new AgentAccountScheduler().Select(registry, request).SelectedAlias);
+    }
+
+    [Fact]
+    public void AStaleNearLimitMeasurementDoesNotDePreferAnyone()
+    {
+        // Sem proveniência fresca não há sinal — a mesma regra que impede bloquear por dado velho.
+        var registry = RegistryOf(
+            Account("worker-a-near", ExecutorCatalog.Codex, AgentRoles.Critic, priority: 200),
+            Account("worker-b-full", ExecutorCatalog.Codex, AgentRoles.Critic, priority: 200));
+        var request = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-a-near"] = new(
+                    "cli-probe", Now.AddHours(-2), QuotaStatus.NearLimit, QuotaConfidence.Low,
+                    0.05, null, TimeSpan.FromMinutes(5)),
+            },
+        };
+
+        var decision = new AgentAccountScheduler().Select(registry, request);
+
+        // Empate real: vence o desempate determinístico por alias, não o dado vencido.
+        Assert.Equal("worker-a-near", decision.SelectedAlias);
+    }
+
+    [Fact]
     public void AnAccountNeverRunsAboveItsConcurrencyLimit()
     {
         var registry = RegistryOf(

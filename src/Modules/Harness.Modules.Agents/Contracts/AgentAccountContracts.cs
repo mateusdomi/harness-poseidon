@@ -141,4 +141,12 @@ public sealed record AccountSelectionCandidate(
     string Alias,
     bool Eligible,
     string ReasonCode,
-    int Priority);
+    int Priority,
+
+    /// <summary>
+    /// Desempate entre ELEGÍVEIS de mesma prioridade: 0 é a primeira escolha e valores maiores
+    /// só são usados na falta de alternativa. Existe porque "elegível" não é binário na prática —
+    /// uma conta perto do limite de cota executa, mas prefere-se não gastar nela o trabalho longo
+    /// enquanto houver conta com margem. Nunca bloqueia: capacidade real não é descartada.
+    /// </summary>
+    int PreferenceRank = 0);
