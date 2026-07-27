@@ -221,6 +221,15 @@ public sealed class WorkflowPhaseDriver(
             tenantId, current, byTitle, page.Items, phase.Name, cancellationToken);
         var progress = PhaseProgressEvaluator.Evaluate([.. current.Select(ToDomain)]);
 
+        // CONSISTÊNCIA: uma obrigação obrigatória sem NENHUM produtor (nem card, nem objetivo) é
+        // trabalho que ninguém vai fazer. Antes isso não tinha sintoma: o portão simplesmente
+        // esperava para sempre, e de fora parecia backlog normal. Vira achado impeditivo — o
+        // portão não fica pronto e o motivo aparece no resultado do ciclo.
+        if (PhaseObligationPlanner.HasArtifactWithoutProducer(current))
+        {
+            _failures.Add($"phase:{phase.Key}:obligation_without_producer");
+        }
+
         // ---- PORTÃO: quem decide depende do MODO configurado pelo dono ----
         var mode = PhaseGatePolicy.ParseMode(bindings[0].OperationMode);
         var gate = phase.Gates.Count > 0 ? phase.Gates[0] : null;
