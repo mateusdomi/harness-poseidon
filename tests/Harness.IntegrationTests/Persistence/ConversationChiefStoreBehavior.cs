@@ -177,5 +177,23 @@ public static class ConversationChiefStoreBehavior
         Assert.Equal("failed", deadTurn!.State);
         Assert.Null(await chiefTurns.AcquireNextAsync(
             "parity-worker", now.AddMilliseconds(40), TimeSpan.FromMinutes(1), cancellationToken));
+
+        // O turno morto NÃO emudece o chefe: o agente volta a `idle` e um novo turno é aceito.
+        // Enquanto ele ficava em `error`, a prontidão barrava toda mensagem seguinte com
+        // `agent.degraded` e o projeto perdia a única voz com o usuário — sem saída sem SQL.
+        var revivedTurnId = UlidValue.New(now.AddMilliseconds(50)).ToString();
+        await chiefTurns.EnqueueAsync(
+            new ChiefTurnEnqueueCommand(
+                tenantId, projectId, conversationId, revivedTurnId, chiefAgentId,
+                new MessageRecord(
+                    tenantId, projectId, UlidValue.New(now.AddMilliseconds(51)).ToString(),
+                    conversationId, "user", profileId, null, "Reenviando", null,
+                    now.AddMilliseconds(51)),
+                $"idem:{revivedTurnId}", now.AddMilliseconds(51)),
+            cancellationToken);
+        var revivedLease = await chiefTurns.AcquireNextAsync(
+            "parity-worker", now.AddMilliseconds(52), TimeSpan.FromMinutes(1), cancellationToken);
+        Assert.NotNull(revivedLease);
+        Assert.Equal(revivedTurnId, revivedLease!.Turn.TurnId);
     }
 }

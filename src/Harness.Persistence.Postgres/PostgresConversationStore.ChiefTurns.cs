@@ -744,11 +744,15 @@ public sealed partial class PostgresConversationStore
             Text(command.Lease.Turn.TenantId),
             Text(command.Lease.Turn.ProjectId),
             Bigint(command.Lease.FencingToken));
+        // O AGENTE volta a `idle` mesmo quando o turno morre (paridade com o SQLite): ele não
+        // está quebrado — quem falhou foi o turno, e isso já fica registrado no mailbox, no
+        // `chief_states`, no evento de ciclo e na mensagem publicada na conversa. Em `error`, a
+        // prontidão bloqueava TODO turno seguinte e o projeto perdia a única voz com o usuário.
         await ExecuteAsync(
             connection, transaction,
             "UPDATE harness.agents SET state=$1,last_heartbeat_at=$2 WHERE tenant_id=$3 AND id=$4;",
             cancellationToken,
-            Text(failed ? "error" : "idle"),
+            Text("idle"),
             Timestamp(command.OccurredAt),
             Text(command.Lease.Turn.TenantId),
             Text(command.Lease.ChiefAgentId));

@@ -461,7 +461,14 @@ public sealed partial class SqliteConversationStore
         await ExecuteChiefAsync(connection, tx,
             "UPDATE chief_turn_mailbox SET state=$state,active_fencing_token=NULL,last_error_code=$error,completed_at=CASE WHEN $state='failed' THEN $at ELSE NULL END WHERE tenant_id=$tenant AND id=$turn; " +
             "UPDATE chief_states SET state=CASE WHEN $state='failed' THEN 'error' ELSE 'idle' END,lease_owner_id=NULL,lease_expires_at=NULL,version=version+1,updated_at=$at WHERE tenant_id=$tenant AND project_id=$project AND lease_fencing_token=$fencing; " +
-            "UPDATE agents SET state=CASE WHEN $state='failed' THEN 'error' ELSE 'idle' END,last_heartbeat_at=$at WHERE tenant_id=$tenant AND id=$agent;",
+            // O AGENTE volta a `idle` mesmo quando o turno morre. Ele não está quebrado — quem
+            // falhou foi o turno, e isso já fica registrado no mailbox (estado + código do erro),
+            // no `chief_states`, no evento de ciclo e na mensagem que o chefe publica na conversa.
+            // Deixá-lo em `error` fazia a prontidão bloquear TODO turno seguinte com
+            // `agent.degraded`: a única voz com o usuário emudecia para sempre naquele projeto, e
+            // o convite "pode reenviar" que o chefe acabara de publicar era impossível de cumprir
+            // sem alguém mexer no banco.
+            "UPDATE agents SET state='idle',last_heartbeat_at=$at WHERE tenant_id=$tenant AND id=$agent;",
             token, ("$state", next), ("$error", command.ErrorCode), ("$at", Store(command.OccurredAt)),
             ("$tenant", command.Lease.Turn.TenantId), ("$turn", command.Lease.Turn.TurnId),
             ("$project", command.Lease.Turn.ProjectId), ("$fencing", command.Lease.FencingToken),
