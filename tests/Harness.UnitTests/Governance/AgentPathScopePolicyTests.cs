@@ -48,6 +48,14 @@ public sealed class AgentPathScopePolicyTests
     [InlineData("docs/frontend/**")]
     [InlineData("docs/**")]
     [InlineData("**")]
+    // Fuga de escopo: subir de diretório, caminho absoluto e `..` embutido no meio do padrão.
+    // Estavam cobertos apenas para o papel de frontend — o de backend, que é o que mais claim
+    // recebe, não tinha nenhuma trava testada contra saída do ScopeClaim.
+    [InlineData("../src/**")]
+    [InlineData("/etc/passwd")]
+    [InlineData("/Users/mateus/**")]
+    [InlineData("src/../../outro-projeto/**")]
+    [InlineData("src/../governance/core.md")]
     // Imutabilidade de guardrail: o canon e a varredura que o engloba são negados para TODO papel.
     [InlineData("governance/**")]
     [InlineData("governance/core.md")]
