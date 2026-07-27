@@ -73,8 +73,25 @@ public sealed partial class ChiefTurnBackgroundService(
         Justification = "A durable mailbox worker must isolate one failed agent turn and persist a retry decision.")]
     private async Task<bool> ProcessNextAsync(CancellationToken cancellationToken)
     {
-        var lease = await turns.AcquireNextAsync(
-            _ownerId, clock.UtcNow, options.LeaseDuration, cancellationToken);
+        ChiefTurnLease? lease;
+        try
+        {
+            lease = await turns.AcquireNextAsync(
+                _ownerId, clock.UtcNow, options.LeaseDuration, cancellationToken);
+        }
+        catch (ChiefTurnConflictException)
+        {
+            // DISPUTA DE LEASE NÃO É FALHA DO SERVIÇO. A seleção do próximo turno e a aquisição do
+            // lease são dois passos: entre eles, outro worker (ou o mesmo processo antes de um
+            // restart) pode ter assumido o projeto. Como esta aquisição acontecia FORA do try, a
+            // exceção subia até o BackgroundService — e, com `BackgroundServiceExceptionBehavior`
+            // em StopHost, derrubava o HOST INTEIRO por uma condição de corrida rotineira.
+            // Observado ao vivo: o Poseidon morria e as conversas de todos os projetos com ele.
+            // Agora o ciclo apenas cede a vez e tenta de novo no próximo tick.
+            LogTurnLeaseContended(logger, nameof(ChiefTurnConflictException));
+            return false;
+        }
+
         if (lease is null) return false;
         using var turnActivity = PoseidonTelemetry.StartChiefTurn(
             lease.Turn.TenantId,
@@ -715,6 +732,12 @@ public sealed partial class ChiefTurnBackgroundService(
         Level = LogLevel.Warning,
         Message = "Chief: catálogo de especialistas indisponível ({ErrorType}); o turno segue sem opções de delegação.")]
     private static partial void LogSpecialistCatalogUnavailable(ILogger logger, string errorType);
+
+    [LoggerMessage(
+        EventId = 2108,
+        Level = LogLevel.Information,
+        Message = "Chief: lease do projeto disputado ({ErrorType}); o ciclo cede a vez e tenta no próximo tick.")]
+    private static partial void LogTurnLeaseContended(ILogger logger, string errorType);
 
     [LoggerMessage(
         EventId = 2106,

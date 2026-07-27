@@ -235,6 +235,35 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Null(demand.Surfaces.Decision);
     }
 
+    [Fact]
+    public async Task TeamActionsSurviveIntoTheStructuredOutput()
+    {
+        // Achado ao vivo: ela anunciou ao dono ter formado um especialista e o catálogo continuou
+        // igual. O campo existia no contrato e era aceito na leitura, mas a reserialização — a
+        // ÚNICA ponte entre o que o modelo produziu e o que o worker executa — não o reescrevia.
+        // O que não passa por aqui não acontece, por mais convincente que seja a prosa.
+        const string json =
+            """
+            {"response":"Formei o especialista.","demands":[],
+             "teamActions":[{"action":"create_persona",
+               "reason":"Nenhuma persona do catálogo cobre auditoria de acessibilidade WCAG.",
+               "persona":{"key":"accessibility-auditor","name":"Auditor de Acessibilidade",
+                 "purpose":"Auditar conformidade WCAG 2.2 AA e emitir laudo por critério.",
+                 "specialty":"accessibility","responsibilities":["Auditar"],"constraints":[],
+                 "requiredCapabilities":["repo.read"],"riskTiers":["medium"]}}]}
+            """;
+        var fake = new FakeExternalExecutor(json);
+        var executor = Build(ChiefRegistry(), fake);
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var parsed = ChiefTurnOutputContract.Parse(result.StructuredOutput);
+        var action = Assert.Single(parsed.TeamActions!);
+        Assert.Equal("create_persona", action.Action);
+        Assert.Equal("accessibility-auditor", action.Persona!.Key);
+        Assert.Equal(["repo.read"], action.Persona.RequiredCapabilities);
+    }
+
     private ConversationChiefAgentExecutor Build(
         AgentAccountRegistry registry, FakeExternalExecutor fake) =>
         new(

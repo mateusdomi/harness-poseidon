@@ -271,6 +271,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           competência que nenhuma persona do catálogo acima cobre, crie o especialista — não peça
           autorização e não entregue o trabalho a um generalista por falta de perfil. O usuário é o
           stakeholder que delegou o projeto, não o RH da fábrica.
+          - ATENÇÃO: escrever em `response` que você criou o especialista NÃO cria nada. A equipe só
+            muda pelo campo `teamActions`. Anunciar a criação sem emitir a ação faz você afirmar ao
+            usuário algo que não aconteceu — e ele vai contar com um especialista que não existe.
           - `create_persona`: exige `persona` com `key` (minúsculas e hífens), `name`, `purpose`
             (o que ela existe para fazer, concreto), `specialty`, `responsibilities`,
             `constraints`, `requiredCapabilities` e `riskTiers`.
@@ -435,13 +438,21 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         return null;
     }
 
+    /// <summary>
+    /// Reserializa a saída já validada. Este método é a ÚNICA ponte entre o que o modelo produziu
+    /// e o que o worker executa — o que não for reescrito aqui simplesmente não acontece, por mais
+    /// que a resposta em prosa afirme o contrário. Foi assim que a chefe anunciou ao dono ter
+    /// formado um especialista que nunca chegou ao catálogo: o campo existia no contrato, era
+    /// aceito na leitura, e se perdia exatamente aqui.
+    /// </summary>
     private static string SerializeStructured(ChiefTurnOutput output) =>
         JsonSerializer.Serialize(
             new ChiefStructuredOutput(
                 output.Response,
                 [.. output.Demands.Select(demand => new ChiefStructuredDemand(
                     demand.Title, demand.Description, demand.RiskTier, demand.AcceptanceCriteria,
-                    demand.Specialty, demand.Surfaces))]),
+                    demand.Specialty, demand.Surfaces))],
+                output.TeamActions),
             StructuredJsonOptions);
 
     private string LoadGovernanceCore()
@@ -474,7 +485,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         JsonSerializer.Serialize(ChiefTurnOutputContract.JsonSchema, StructuredJsonOptions);
 
     private sealed record ChiefStructuredOutput(
-        string Response, IReadOnlyList<ChiefStructuredDemand> Demands);
+        string Response,
+        IReadOnlyList<ChiefStructuredDemand> Demands,
+        IReadOnlyList<ChiefTeamAction>? TeamActions);
 
     private sealed record ChiefStructuredDemand(
         string Title, string Description, string RiskTier, IReadOnlyList<string> AcceptanceCriteria,

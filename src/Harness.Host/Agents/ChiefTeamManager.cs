@@ -110,13 +110,33 @@ public sealed partial class ChiefTeamManager(
         }
 
         var now = _clock.UtcNow;
+
+        // A ESPECIALIDADE é um catálogo curado, não texto livre: o store recusa a definição
+        // inteira quando a referência não existe. Recusar por causa disso deixaria a chefe sem o
+        // especialista e a demanda com um generalista — o resultado que a criação existe para
+        // evitar. Então vale a mesma regra das capabilities: reduz-se o que não pode ser
+        // concedido e cria-se o resto. A competência não se perde: ela está no propósito, que é
+        // o que o executor lê no briefing.
+        var knownSpecialties = existing
+            .Where(definition => !string.IsNullOrWhiteSpace(definition.Specialty))
+            .Select(definition => definition.Specialty!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var specialty = !string.IsNullOrWhiteSpace(persona.Specialty) &&
+            knownSpecialties.Contains(persona.Specialty)
+                ? persona.Specialty
+                : null;
+        if (specialty is null && !string.IsNullOrWhiteSpace(persona.Specialty))
+        {
+            LogSpecialtyNotInCatalog(logger, persona.Key, persona.Specialty);
+        }
+
         var content = new AgentDefinitionContent(
             persona.Key,
             persona.Name,
             // Persona criada pela chefe é sempre ESPECIALISTA: uma segunda chefe fabricada por
             // texto do modelo seria autoridade nascendo fora do Control Plane.
             "specialist",
-            string.IsNullOrWhiteSpace(persona.Specialty) ? null : persona.Specialty,
+            specialty,
             persona.Purpose,
             DefaultModelId: null,
             SkillIds: [],
@@ -228,4 +248,7 @@ public sealed partial class ChiefTeamManager(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: ação de equipe '{Action}' recusada: {ReasonCode}.")]
     private static partial void LogTeamActionRefused(ILogger logger, string action, string reasonCode);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: especialidade '{Specialty}' não existe no catálogo; persona '{PersonaKey}' criada sem ela.")]
+    private static partial void LogSpecialtyNotInCatalog(ILogger logger, string personaKey, string specialty);
 }
