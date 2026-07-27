@@ -31,6 +31,36 @@ public sealed class DemandDecompositionPlannerTests
     }
 
     [Fact]
+    public void ALowRiskDemandDoesNotPayForTheFullCeremony()
+    {
+        // Achado da homologação: a chefe classificou "mudar a cor do botão para verde" como risco
+        // BAIXO — e o plano mesmo assim abria card de documentação e GATE HUMANO. Uma troca de cor
+        // ficava parada esperando alguém clicar. A revisão independente do card e o gate humano de
+        // MERGE continuam valendo, então dispensar o rito extra não perde segurança nenhuma.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "UI-09: alterar a cor do botão de exportar para verde",
+            description: "Trocar a cor do botão de exportar na tela de vendas. Só a cor.",
+            risk: "low"));
+
+        Assert.DoesNotContain(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeHumanGate);
+        Assert.DoesNotContain(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeSpike);
+        Assert.DoesNotContain(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeDecision);
+        Assert.All(plan.Cards, c => Assert.Equal(DemandDecompositionPlanner.CardTypeAgentTask, c.CardType));
+    }
+
+    [Fact]
+    public void RiskAboveLowKeepsTheFullCeremony()
+    {
+        // A dispensa é do trivial, não da regra: risco médio ou maior mantém o rito completo.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            description: "Investigar a viabilidade e implementar o serviço; decidir a abordagem.",
+            risk: "high"));
+
+        Assert.Contains(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeSpike);
+        Assert.Contains(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeHumanGate);
+    }
+
+    [Fact]
     public void CardTitlesCarryTheSubjectOfTheDemandInsteadOfAGenericLabel()
     {
         // Achado da homologação: com várias demandas no mesmo projeto, o board virava uma lista de

@@ -148,11 +148,20 @@ public static class DemandDecompositionPlanner
         var hints = request.Hints;
         var haystack = BuildHaystack(request.Title, request.Description, criteria);
 
+        // CERIMÔNIA PROPORCIONAL AO RISCO. A chefe já declara o risco de cada demanda; até aqui o
+        // planner ignorava essa declaração e aplicava o mesmo rito a tudo. O resultado observado na
+        // homologação: "mudar a cor do botão para verde" (risco `low`, declarado por ela) nascia
+        // com card de documentação e GATE HUMANO — ou seja, uma troca de cor ficava parada
+        // esperando decisão humana. Trabalho pequeno e reversível não paga esse pedágio: a revisão
+        // independente do próprio card e o gate humano de MERGE continuam valendo, então nada de
+        // segurança se perde ao dispensar o rito extra.
+        var ceremonial = !string.Equals(request.RiskTier, "low", StringComparison.OrdinalIgnoreCase);
+
         var hasFrontend = hints?.HasFrontendSurface ?? MentionsAny(haystack, FrontendTerms);
         var needsCredential = hints?.RequiresExternalCredential ?? MentionsAny(haystack, ExternalCredentialTerms);
-        var hasUncertainty = hints?.HasTechnicalUncertainty ?? MentionsAny(haystack, UncertaintyTerms);
-        var needsDecision = hints?.RequiresDecision ?? MentionsAny(haystack, DecisionTerms);
-        var hasDocumentation = MentionsAny(haystack, DocumentationTerms);
+        var hasUncertainty = ceremonial && (hints?.HasTechnicalUncertainty ?? MentionsAny(haystack, UncertaintyTerms));
+        var needsDecision = ceremonial && (hints?.RequiresDecision ?? MentionsAny(haystack, DecisionTerms));
+        var hasDocumentation = ceremonial && MentionsAny(haystack, DocumentationTerms);
 
         // A fatia de backend deixou de ser incondicional. Uma demanda cujo entregável é uma DECISÃO
         // (ADR), uma INVESTIGAÇÃO ou um DOCUMENTO não produz código de servidor: emitir a fatia
@@ -165,6 +174,7 @@ public static class DemandDecompositionPlanner
         // incerteza como "não é código" apagaria a implementação de quase toda demanda real.
         // Só o entregável DECISÃO (ADR) ou DOCUMENTO, sem nenhum sinal de construção, dispensa a
         // fatia de servidor.
+
         var mentionsImplementation = MentionsAny(haystack, ImplementationTerms);
         var deliverableIsNotCode =
             (needsDecision || hasDocumentation) && !mentionsImplementation;
@@ -287,6 +297,14 @@ public static class DemandDecompositionPlanner
         // 'critic', o card era ESTRUTURALMENTE indespachável — o papel crítico não possui escopo de
         // escrita, então todo ciclo do loop tentava despachá-lo e colhia `agent_path_scope_empty`,
         // para sempre, sem nunca escalar para um humano.
+        // Demanda de risco baixo não recebe o gate de integração: ela tem uma fatia só, cuja
+        // revisão independente e cujo merge humano já cobrem a entrega. O gate extra apenas
+        // deixaria trabalho trivial parado esperando alguém clicar.
+        if (!ceremonial)
+        {
+            return new DemandPlanProposal(featureId, cards);
+        }
+
         var integrationCode = Code();
         cards.Add(new ProposedCard(
             Title(integrationCode, Label("Gate humano — integrar", subject, "Gate humano: revisar e integrar a feature")),
