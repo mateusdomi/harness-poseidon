@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Harness.Host.Agents;
 using Harness.Host.Governance;
 using Harness.Host.Leadership;
 using Harness.Host.Observability;
@@ -41,6 +42,7 @@ public sealed partial class ChiefTurnBackgroundService(
     DemandPlanMaterializer demandPlans,
     IAgentCatalogStore agentCatalog,
     IConversationStore conversations,
+    ChiefTeamManager teamManager,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -343,6 +345,14 @@ public sealed partial class ChiefTurnBackgroundService(
                 await MaterializeDemandPlansAsync(lease, demandSeeds, cancellationToken);
             }
 
+            // GESTÃO DE EQUIPE: quando nenhuma persona do catálogo cobre a demanda, a chefe cria o
+            // especialista e delega — sem esperar o dono, que é stakeholder e não RH da fábrica.
+            // Falha aqui NUNCA falha o turno (a resposta já foi entregue de forma durável).
+            if (output.TeamActions is { Count: > 0 } teamActions)
+            {
+                await ApplyTeamActionsAsync(lease, teamActions, cancellationToken);
+            }
+
             turnActivity?.SetTag("chief.result", "completed");
             PoseidonTelemetry.RecordChiefTurn(
                 "completed",
@@ -465,6 +475,47 @@ public sealed partial class ChiefTurnBackgroundService(
                 LogDemandMaterializationFailure(
                     logger, seed.DemandId, lease.Turn.TurnId, exception.GetType().Name);
             }
+        }
+    }
+
+    /// <summary>
+    /// Aplica as intenções de gestão de equipe do turno. Uma ação recusada pela policy ou pelo
+    /// catálogo é registrada e seguida — a chefe continua com quem já existe, e o turno, que já
+    /// respondeu ao usuário, não é derrubado por isso.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A failed team action must not poison the completed turn.")]
+    private async Task ApplyTeamActionsAsync(
+        ChiefTurnLease lease,
+        IReadOnlyList<ChiefTeamAction> actions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var profile = (await localProfiles.ListAsync(cancellationToken))
+                .FirstOrDefault(candidate => string.Equals(
+                    candidate.TenantId, lease.Turn.TenantId, StringComparison.Ordinal));
+            if (profile is null)
+            {
+                return;
+            }
+
+            var results = await teamManager.ApplyAsync(
+                lease.Turn.TenantId, lease.Turn.ProjectId, profile.Id, actions, cancellationToken);
+            foreach (var result in results)
+            {
+                LogTeamAction(logger, lease.Turn.TurnId, result.Action, result.ReasonCode);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            LogTeamActionFailure(logger, lease.Turn.TurnId, exception.GetType().Name);
         }
     }
 
@@ -664,6 +715,19 @@ public sealed partial class ChiefTurnBackgroundService(
         Level = LogLevel.Warning,
         Message = "Chief: catálogo de especialistas indisponível ({ErrorType}); o turno segue sem opções de delegação.")]
     private static partial void LogSpecialistCatalogUnavailable(ILogger logger, string errorType);
+
+    [LoggerMessage(
+        EventId = 2106,
+        Level = LogLevel.Information,
+        Message = "Chief: ação de equipe '{Action}' do turno {TurnId} resolvida como {ReasonCode}.")]
+    private static partial void LogTeamAction(
+        ILogger logger, string turnId, string action, string reasonCode);
+
+    [LoggerMessage(
+        EventId = 2107,
+        Level = LogLevel.Warning,
+        Message = "Chief: gestão de equipe do turno {TurnId} falhou: {ErrorType}.")]
+    private static partial void LogTeamActionFailure(ILogger logger, string turnId, string errorType);
 
     [LoggerMessage(
         EventId = 2105,

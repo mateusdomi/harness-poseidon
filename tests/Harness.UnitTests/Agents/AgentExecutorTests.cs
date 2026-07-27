@@ -72,6 +72,47 @@ public sealed class AgentExecutorTests
     }
 
     [Fact]
+    public void TheChiefMayEmitTeamActionsWithinAClosedSet()
+    {
+        var output = ChiefTurnOutputContract.Parse(
+            """
+            {"response":"Vou criar o especialista.","demands":[],
+             "teamActions":[{"action":"create_persona",
+               "reason":"Nenhuma persona do catálogo cobre threat modeling de aplicações.",
+               "persona":{"key":"application-security-architect","name":"Arquiteto de Segurança",
+                 "purpose":"Projetar e revisar controles de segurança de aplicações.",
+                 "specialty":"architecture-security","responsibilities":["Modelar ameaças"],
+                 "constraints":[],"requiredCapabilities":["repo.read"],"riskTiers":["high"]}}]}
+            """);
+
+        var action = Assert.Single(output.TeamActions!);
+        Assert.Equal("create_persona", action.Action);
+        Assert.Equal("application-security-architect", action.Persona!.Key);
+    }
+
+    [Fact]
+    public void AnUnknownTeamActionIsRefusedInsteadOfInterpreted()
+    {
+        // Interpretar texto do modelo como comando é o caminho por onde a autoridade vaza.
+        Assert.Throws<AgentOutputValidationException>(() =>
+            ChiefTurnOutputContract.Parse(
+                """{"response":"ok","demands":[],"teamActions":[{"action":"delete_everything","reason":"porque sim, motivo longo"}]}"""));
+        Assert.Throws<AgentOutputValidationException>(() =>
+            ChiefTurnOutputContract.Parse(
+                """{"response":"ok","demands":[],"teamActions":[{"action":"create_persona","reason":"curto"}]}"""));
+        Assert.Throws<AgentOutputValidationException>(() =>
+            ChiefTurnOutputContract.Parse(
+                """{"response":"ok","demands":[],"teamActions":[{"action":"create_persona","reason":"motivo suficientemente longo","extra":1}]}"""));
+    }
+
+    [Fact]
+    public void ATurnWithoutTeamActionsParsesExactlyAsBefore()
+    {
+        var output = ChiefTurnOutputContract.Parse("""{"response":"ok","demands":[]}""");
+        Assert.Null(output.TeamActions);
+    }
+
+    [Fact]
     public void CodexExecutorRefusesIncompleteExternalSandboxProof()
     {
         var proof = new CodexCliExternalSandboxProof(true, true, false, true);

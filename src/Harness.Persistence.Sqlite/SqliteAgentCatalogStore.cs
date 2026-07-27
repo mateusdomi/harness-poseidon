@@ -132,6 +132,88 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
     public Task<AgentDefinitionRecord> SetDefinitionLifecycleAsync(AgentDefinitionLifecycleCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync(async (connection, token) => { if (command.Action is not ("enable" or "disable" or "archive")) throw new AgentDefinitionAdminException("Definition lifecycle action is invalid."); await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token); await using var update = connection.CreateCommand(); update.Transaction = tx; update.CommandText = command.Action switch { "enable" => "UPDATE agent_definitions SET enabled=1,updated_at=$at WHERE id=$id AND tenant_id=$tenant AND archived_at IS NULL;", "disable" => "UPDATE agent_definitions SET enabled=0,updated_at=$at WHERE id=$id AND tenant_id=$tenant AND archived_at IS NULL;", _ => "UPDATE agent_definitions SET enabled=0,archived_at=$at,updated_at=$at WHERE id=$id AND tenant_id=$tenant AND archived_at IS NULL;" }; Add(update, "$at", Store(command.OccurredAt)); Add(update, "$id", command.Id); Add(update, "$tenant", command.TenantId); if (await update.ExecuteNonQueryAsync(token) != 1) throw new AgentDefinitionAdminException("Definition cannot transition from its current state."); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, $"agentDefinition.{command.Action}d", command.Action, command.OccurredAt, token); await tx.CommitAsync(token); return (await ReadDefinitionForTenantAsync(connection, command.TenantId, command.Id, token))!; }, cancellationToken);
     public Task DeleteDefinitionAsync(AgentDefinitionDeleteCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync(async (connection, token) => { await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token); await using (var check = connection.CreateCommand()) { check.Transaction = tx; check.CommandText = "SELECT EXISTS(SELECT 1 FROM agents WHERE definition_id=$id),EXISTS(SELECT 1 FROM agent_definitions WHERE id=$id AND tenant_id=$tenant)"; Add(check, "$id", command.Id); Add(check, "$tenant", command.TenantId); await using var reader = await check.ExecuteReaderAsync(token); await reader.ReadAsync(token); if (reader.GetInt64(1) == 0) throw new AgentDefinitionAdminException("Definition was not found."); if (reader.GetInt64(0) != 0) throw new AgentDefinitionAdminException("A definition that has been used cannot be deleted."); } await using (var deleteVersions = connection.CreateCommand()) { deleteVersions.Transaction = tx; deleteVersions.CommandText = "DELETE FROM agent_definition_versions WHERE definition_id=$id;"; Add(deleteVersions, "$id", command.Id); await deleteVersions.ExecuteNonQueryAsync(token); } await using (var delete = connection.CreateCommand()) { delete.Transaction = tx; delete.CommandText = "DELETE FROM agent_definitions WHERE id=$id AND tenant_id=$tenant;"; Add(delete, "$id", command.Id); Add(delete, "$tenant", command.TenantId); await delete.ExecuteNonQueryAsync(token); } await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.deleted", "delete", command.OccurredAt, token); await tx.CommitAsync(token); }, cancellationToken);
 
+    public Task<(AgentDefinitionRecord Definition, bool Created)> CreateChiefDefinitionAsync(ChiefDefinitionCreateCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync(async (connection, token) =>
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.CreationReason);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ScopeProjectId);
+        // Idempotência por chave: duas demandas simultâneas para a mesma especialidade nova
+        // convergem para UMA definição, em vez de povoarem o catálogo com gêmeas.
+        var existing = await ReadDefinitionByKeyAsync(connection, command.TenantId, command.Content.Key, token);
+        if (existing is not null)
+        {
+            return (existing, false);
+        }
+
+        ValidateDefinition(command.Content);
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token);
+        await ValidateDefinitionReferencesAsync(connection, tx, command.TenantId, command.Content, token);
+        await InsertDefinitionAsync(connection, tx, command.TenantId, command.Id, 1, command.Content, command.OccurredAt, token);
+        // A procedência é carimbada pelo STORE, nunca pelo chamador: a chefe não pode se declarar
+        // humana nem nascer com alcance global.
+        await using (var stamp = connection.CreateCommand())
+        {
+            stamp.Transaction = tx;
+            stamp.CommandText = "UPDATE agent_definitions SET origin='chief',lifecycle_state='project_scoped',scope_project_id=$scope,creation_reason=$reason,owner=COALESCE(owner,'chief') WHERE id=$id AND tenant_id=$tenant;";
+            Add(stamp, "$scope", command.ScopeProjectId);
+            Add(stamp, "$reason", command.CreationReason);
+            Add(stamp, "$id", command.Id);
+            Add(stamp, "$tenant", command.TenantId);
+            await stamp.ExecuteNonQueryAsync(token);
+        }
+
+        await InsertDefinitionVersionAsync(connection, tx, command.Id, 1, command.ActorProfileId, command.Content, command.OccurredAt, token);
+        await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.chiefCreated", "create", command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return ((await ReadDefinitionForTenantAsync(connection, command.TenantId, command.Id, token))!, true);
+    }, cancellationToken);
+
+    public Task<AgentDefinitionRecord> SetDefinitionLifecycleStateAsync(AgentDefinitionLifecycleStateCommand command, CancellationToken cancellationToken = default) => _dispatcher.ExecuteAsync(async (connection, token) =>
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (!LifecycleStates.Contains(command.LifecycleState))
+        {
+            throw new AgentDefinitionAdminException("Definition lifecycle state is invalid.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.Reason);
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token);
+        await using (var update = connection.CreateCommand())
+        {
+            update.Transaction = tx;
+            // Quarentena e desativação também apagam o `enabled`: um perfil rebaixado não pode
+            // continuar recebendo card por uma leitura que só olhe uma das duas colunas.
+            update.CommandText = "UPDATE agent_definitions SET lifecycle_state=$state,enabled=CASE WHEN $state IN ('quarantined','disabled') THEN 0 ELSE 1 END,creation_reason=COALESCE(creation_reason,$reason),updated_at=$at WHERE id=$id AND tenant_id=$tenant;";
+            Add(update, "$state", command.LifecycleState);
+            Add(update, "$reason", command.Reason);
+            Add(update, "$at", Store(command.OccurredAt));
+            Add(update, "$id", command.Id);
+            Add(update, "$tenant", command.TenantId);
+            if (await update.ExecuteNonQueryAsync(token) != 1)
+            {
+                throw new AgentDefinitionAdminException("Definition was not found for this tenant.");
+            }
+        }
+
+        await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, $"agentDefinition.lifecycle.{command.LifecycleState}", "lifecycle", command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return (await ReadDefinitionForTenantAsync(connection, command.TenantId, command.Id, token))!;
+    }, cancellationToken);
+
+    private static readonly HashSet<string> LifecycleStates = new(
+        ["project_scoped", "active", "reusable", "global", "observation", "quarantined", "disabled"],
+        StringComparer.Ordinal);
+
+    private static async Task<AgentDefinitionRecord?> ReadDefinitionByKeyAsync(SqliteConnection connection, string tenantId, string key, CancellationToken token)
+    {
+        await using var query = connection.CreateCommand();
+        query.CommandText = $"{DefinitionSelect} WHERE agent_key=$key AND (tenant_id IS NULL OR tenant_id=$tenant) LIMIT 1;";
+        Add(query, "$key", key);
+        Add(query, "$tenant", tenantId);
+        await using var reader = await query.ExecuteReaderAsync(token);
+        return await reader.ReadAsync(token) ? ReadDefinition(reader) : null;
+    }
+
     private static async Task<AgentDefinitionRecord> CreateDefinitionCoreAsync(SqliteConnection connection, AgentDefinitionCreateCommand command, CancellationToken token) { ValidateDefinition(command.Content); await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token); await ValidateDefinitionReferencesAsync(connection, tx, command.TenantId, command.Content, token); await InsertDefinitionAsync(connection, tx, command.TenantId, command.Id, 1, command.Content, command.OccurredAt, token); await InsertDefinitionVersionAsync(connection, tx, command.Id, 1, command.ActorProfileId, command.Content, command.OccurredAt, token); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.created", "create", command.OccurredAt, token); await tx.CommitAsync(token); return (await ReadDefinitionForTenantAsync(connection, command.TenantId, command.Id, token))!; }
     private static async Task<AgentDefinitionRecord> UpdateDefinitionCoreAsync(SqliteConnection connection, AgentDefinitionUpdateCommand command, CancellationToken token) { ValidateDefinition(command.Content); await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token); await ValidateDefinitionReferencesAsync(connection, tx, command.TenantId, command.Content, token); await using var update = connection.CreateCommand(); update.Transaction = tx; update.CommandText = "UPDATE agent_definitions SET agent_key=$key,name=$name,role=$role,specialty=$specialty,description=$description,default_model_id=$model,skill_ids_json=$skills,tool_ids_json=$tools,persona=$persona,mission=$mission,operating_principles_json=$principles,deliverables_json=$deliverables,quality_criteria_json=$quality,communication_style=$communication,limitations_json=$limitations,stacks_json=$stacks,default_effort=$effort,preferred_account_id=$account,fallback_model_ids_json=$fallbacks,team=$team,actor_critic=$actorCritic,risk=$risk,version=version+1,updated_at=$at WHERE id=$id AND tenant_id=$tenant AND version=$version AND archived_at IS NULL;"; BindDefinition(update, command.Content); Add(update, "$at", Store(command.OccurredAt)); Add(update, "$id", command.Id); Add(update, "$tenant", command.TenantId); Add(update, "$version", command.ExpectedVersion); if (await update.ExecuteNonQueryAsync(token) != 1) throw new AgentDefinitionAdminException("Definition version conflicted or is archived."); await InsertDefinitionVersionAsync(connection, tx, command.Id, command.ExpectedVersion + 1, command.ActorProfileId, command.Content, command.OccurredAt, token); await AppendDefinitionAuditAsync(connection, tx, command.TenantId, command.ActorProfileId, command.Id, "agentDefinition.updated", "update", command.OccurredAt, token); await tx.CommitAsync(token); return (await ReadDefinitionForTenantAsync(connection, command.TenantId, command.Id, token))!; }
     private static async Task InsertDefinitionAsync(SqliteConnection connection, SqliteTransaction tx, string tenant, string id, int version, AgentDefinitionContent content, DateTimeOffset at, CancellationToken token) { await using var insert = connection.CreateCommand(); insert.Transaction = tx; insert.CommandText = "INSERT INTO agent_definitions(id,agent_key,name,role,specialty,description,default_model_id,skill_ids_json,tool_ids_json,tenant_id,persona,mission,operating_principles_json,deliverables_json,quality_criteria_json,communication_style,limitations_json,version,enabled,created_at,updated_at,stacks_json,default_effort,preferred_account_id,fallback_model_ids_json,team,actor_critic,risk) VALUES($id,$key,$name,$role,$specialty,$description,$model,$skills,$tools,$tenant,$persona,$mission,$principles,$deliverables,$quality,$communication,$limitations,$version,1,$at,$at,$stacks,$effort,$account,$fallbacks,$team,$actorCritic,$risk);"; BindDefinition(insert, content); Add(insert, "$id", id); Add(insert, "$tenant", tenant); Add(insert, "$version", version); Add(insert, "$at", Store(at)); await insert.ExecuteNonQueryAsync(token); }
@@ -234,7 +316,11 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
         reader.IsDBNull(23) ? null : reader.GetString(23),
         reader.IsDBNull(24) ? null : reader.GetString(24),
         reader.IsDBNull(25) ? null : reader.GetString(25),
-        reader.IsDBNull(26) ? null : reader.GetString(26));
+        reader.IsDBNull(26) ? null : reader.GetString(26),
+        reader.GetString(27),
+        reader.GetString(28),
+        reader.IsDBNull(29) ? null : reader.GetString(29),
+        reader.IsDBNull(30) ? null : reader.GetString(30));
 
     private static AgentDefinitionVersionRecord ReadDefinitionVersion(SqliteDataReader reader) => new(
         reader.GetString(0), reader.GetString(1), reader.GetInt32(2),
@@ -259,7 +345,7 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
             reader.IsDBNull(20) ? null : reader.GetString(20), reader.IsDBNull(21) ? null : Parse(reader.GetString(21)));
     }
 
-    private const string DefinitionSelect = "SELECT id,agent_key,name,role,specialty,description,default_model_id,skill_ids_json,tool_ids_json,persona,mission,operating_principles_json,deliverables_json,quality_criteria_json,communication_style,limitations_json,version,enabled,archived_at,stacks_json,default_effort,preferred_account_id,fallback_model_ids_json,team,actor_critic,risk,owner FROM agent_definitions";
+    private const string DefinitionSelect = "SELECT id,agent_key,name,role,specialty,description,default_model_id,skill_ids_json,tool_ids_json,persona,mission,operating_principles_json,deliverables_json,quality_criteria_json,communication_style,limitations_json,version,enabled,archived_at,stacks_json,default_effort,preferred_account_id,fallback_model_ids_json,team,actor_critic,risk,owner,origin,lifecycle_state,scope_project_id,creation_reason FROM agent_definitions";
     private const string AgentSelect = "SELECT tenant_id,id,definition_id,project_id,name,state,current_task_id,model_id,lease_fencing_token,lease_expires_at,tasks_completed,tokens_input,tokens_output,cost_usd,uptime_ms,last_heartbeat_at,account_id,effort,provider_effort_value,fallback_model_ids_json,selection_reason,selection_updated_at FROM agents";
     private static string Store(DateTimeOffset value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);

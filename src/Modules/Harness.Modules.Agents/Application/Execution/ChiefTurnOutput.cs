@@ -4,7 +4,29 @@ namespace Harness.Modules.Agents.Application.Execution;
 
 public sealed record ChiefTurnOutput(
     string Response,
-    IReadOnlyList<ChiefDemandProposal> Demands);
+    IReadOnlyList<ChiefDemandProposal> Demands,
+    IReadOnlyList<ChiefTeamAction>? TeamActions = null);
+
+/// <summary>
+/// Uma intenção de GESTÃO DE EQUIPE emitida pela chefe. Formar e reorganizar a equipe é atribuição
+/// dela — o dono do projeto é o stakeholder, não o gerente operacional que escolhe agentes. O que
+/// chega aqui é proposta: a policy valida, o catálogo decide e o ledger registra.
+/// </summary>
+public sealed record ChiefTeamAction(
+    string Action,
+    string Reason,
+    ChiefProposedPersona? Persona = null,
+    string? PersonaKey = null);
+
+public sealed record ChiefProposedPersona(
+    string Key,
+    string Name,
+    string Purpose,
+    string Specialty,
+    IReadOnlyList<string> Responsibilities,
+    IReadOnlyList<string> Constraints,
+    IReadOnlyList<string> RequiredCapabilities,
+    IReadOnlyList<string> RiskTiers);
 
 /// <summary>
 /// A SUPERFÍCIE declarada pelo Chefe para uma demanda: o julgamento dele sobre a natureza do
@@ -30,7 +52,24 @@ public sealed record ChiefDemandProposal(
 public static class ChiefTurnOutputContract
 {
     private static readonly HashSet<string> RootProperties =
-        new(["response", "demands"], StringComparer.Ordinal);
+        new(["response", "demands", "teamActions"], StringComparer.Ordinal);
+    private static readonly HashSet<string> TeamActionProperties =
+        new(["action", "reason", "persona", "personaKey"], StringComparer.Ordinal);
+    private static readonly HashSet<string> PersonaProperties =
+        new(
+            ["key", "name", "purpose", "specialty", "responsibilities", "constraints",
+             "requiredCapabilities", "riskTiers"],
+            StringComparer.Ordinal);
+
+    /// <summary>
+    /// Ações de equipe que a chefe pode emitir. Conjunto FECHADO: uma ação desconhecida é recusada
+    /// em vez de interpretada, porque interpretar texto do modelo como comando é exatamente o
+    /// caminho por onde a autoridade vaza.
+    /// </summary>
+    private static readonly HashSet<string> TeamActions =
+        new(
+            ["create_persona", "observe_persona", "suspend_persona", "reactivate_persona", "promote_persona"],
+            StringComparer.Ordinal);
     private static readonly HashSet<string> DemandProperties =
         new(
             ["title", "description", "riskTier", "acceptanceCriteria", "specialty", "surfaces"],
@@ -102,7 +141,89 @@ public static class ChiefTurnOutputContract
                 ReadSurfaces(demand)));
         }
 
-        return new ChiefTurnOutput(response, demands);
+        return new ChiefTurnOutput(response, demands, ReadTeamActions(root));
+    }
+
+    /// <summary>
+    /// Lê as ações de equipe. Ausente devolve nulo — a chefe não precisa mexer na equipe em todo
+    /// turno, e um array vazio significa exatamente o mesmo que não declarar.
+    /// </summary>
+    private static List<ChiefTeamAction>? ReadTeamActions(JsonElement root)
+    {
+        if (!root.TryGetProperty("teamActions", out var node) || node.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (node.ValueKind != JsonValueKind.Array || node.GetArrayLength() > 10)
+        {
+            throw new AgentOutputValidationException(
+                "Chief team actions must be an array with at most 10 items.");
+        }
+
+        var actions = new List<ChiefTeamAction>();
+        foreach (var entry in node.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                throw new AgentOutputValidationException("Every team action must be an object.");
+            }
+
+            EnsureOnlyProperties(entry, TeamActionProperties, "team action");
+            var action = ReadRequiredText(entry, "action", 1, 40);
+            if (!TeamActions.Contains(action))
+            {
+                throw new AgentOutputValidationException("Team action is not part of the closed set.");
+            }
+
+            // Sem o PORQUÊ não há auditoria possível: o dono precisa poder olhar depois e julgar
+            // se a chefe tinha razão em mexer na equipe.
+            var reason = ReadRequiredText(entry, "reason", 10, 2_000);
+            actions.Add(new ChiefTeamAction(
+                action, reason, ReadPersona(entry), ReadOptionalText(entry, "personaKey", 1, 100)));
+        }
+
+        return actions.Count == 0 ? null : actions;
+    }
+
+    private static ChiefProposedPersona? ReadPersona(JsonElement action)
+    {
+        if (!action.TryGetProperty("persona", out var node) || node.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (node.ValueKind != JsonValueKind.Object)
+        {
+            throw new AgentOutputValidationException("Team action persona must be an object.");
+        }
+
+        EnsureOnlyProperties(node, PersonaProperties, "team action persona");
+        return new ChiefProposedPersona(
+            ReadRequiredText(node, "key", 3, 100),
+            ReadRequiredText(node, "name", 1, 200),
+            ReadRequiredText(node, "purpose", 20, 2_000),
+            ReadOptionalText(node, "specialty", 1, 200) ?? string.Empty,
+            ReadTextArray(node, "responsibilities"),
+            ReadTextArray(node, "constraints"),
+            ReadTextArray(node, "requiredCapabilities"),
+            ReadTextArray(node, "riskTiers"));
+    }
+
+    private static IReadOnlyList<string> ReadTextArray(JsonElement parent, string property)
+    {
+        if (!parent.TryGetProperty(property, out var node) || node.ValueKind == JsonValueKind.Null)
+        {
+            return [];
+        }
+
+        if (node.ValueKind != JsonValueKind.Array || node.GetArrayLength() > 20)
+        {
+            throw new AgentOutputValidationException(
+                $"Persona '{property}' must be an array with at most 20 items.");
+        }
+
+        return [.. node.EnumerateArray().Select(item => ReadText(item, property, 1, 500))];
     }
 
     /// <summary>
@@ -170,6 +291,39 @@ public static class ChiefTurnOutputContract
               "additionalProperties": false,
               "required": ["response", "demands"],
               "properties": {
+                "teamActions": {
+                  "type": ["array", "null"],
+                  "maxItems": 10,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["action", "reason"],
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "enum": ["create_persona", "observe_persona", "suspend_persona",
+                                 "reactivate_persona", "promote_persona"]
+                      },
+                      "reason": { "type": "string", "minLength": 10, "maxLength": 2000 },
+                      "personaKey": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+                      "persona": {
+                        "type": ["object", "null"],
+                        "additionalProperties": false,
+                        "required": ["key", "name", "purpose"],
+                        "properties": {
+                          "key": { "type": "string", "minLength": 3, "maxLength": 100 },
+                          "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+                          "purpose": { "type": "string", "minLength": 20, "maxLength": 2000 },
+                          "specialty": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+                          "responsibilities": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+                          "constraints": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+                          "requiredCapabilities": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+                          "riskTiers": { "type": "array", "maxItems": 20, "items": { "type": "string" } }
+                        }
+                      }
+                    }
+                  }
+                },
                 "response": { "type": "string", "minLength": 1, "maxLength": 100000 },
                 "demands": {
                   "type": "array",

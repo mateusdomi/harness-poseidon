@@ -47,7 +47,49 @@ public interface IAgentCatalogStore
     Task<int> EnsureBuiltInDefinitionsAsync(
         IReadOnlyList<BuiltInAgentDefinitionSeed> definitions,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Caminho DEDICADO da criação de persona pela chefe. Existe separado do CRUD administrativo
+    /// de propósito: aqui a procedência é carimbada pelo próprio store (`origin='chief'`, escopo do
+    /// projeto que motivou a criação, motivo obrigatório) e não pode ser forjada pelo chamador.
+    /// Dar à chefe o endpoint genérico seria dar-lhe também o poder de se declarar humana.
+    ///
+    /// Idempotente por (tenant, agent_key): repetir a mesma intenção devolve a definição existente
+    /// em vez de criar uma segunda — é o que impede duas demandas simultâneas de gerarem personas
+    /// gêmeas.
+    /// </summary>
+    Task<(AgentDefinitionRecord Definition, bool Created)> CreateChiefDefinitionAsync(
+        ChiefDefinitionCreateCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Move a persona no ciclo de confiança (observação, quarentena, reutilizável, global...). É a
+    /// alavanca que permite à chefe rebaixar quem entrega mal e promover quem entrega bem sem
+    /// depender do dono — e ao dono intervir a qualquer momento.
+    /// </summary>
+    Task<AgentDefinitionRecord> SetDefinitionLifecycleStateAsync(
+        AgentDefinitionLifecycleStateCommand command, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Criação de persona pela chefe. O conteúdo é o mesmo de qualquer definição; o que este comando
+/// acrescenta é a PROCEDÊNCIA: por que a persona nasceu e a que projeto ela pertence.
+/// </summary>
+public sealed record ChiefDefinitionCreateCommand(
+    string TenantId,
+    string ActorProfileId,
+    string Id,
+    AgentDefinitionContent Content,
+    string ScopeProjectId,
+    string CreationReason,
+    DateTimeOffset OccurredAt);
+
+public sealed record AgentDefinitionLifecycleStateCommand(
+    string TenantId,
+    string ActorProfileId,
+    string Id,
+    string LifecycleState,
+    string Reason,
+    DateTimeOffset OccurredAt);
 
 /// <summary>
 /// Conteúdo canônico de uma definição built-in: o id estável da linha semeada na migração
@@ -73,7 +115,23 @@ public sealed record AgentDefinitionRecord(
     DateTimeOffset? ArchivedAt = null, IReadOnlyList<string>? Stacks = null,
     string? DefaultEffort = null, string? PreferredAccountId = null,
     IReadOnlyList<string>? FallbackModelIds = null, string? Team = null,
-    string? ActorCritic = null, string? Risk = null, string? Owner = null);
+    string? ActorCritic = null, string? Risk = null, string? Owner = null,
+
+    /// <summary>Quem criou a persona: `human`, `chief` ou `system`. Auditoria depende disto.</summary>
+    string Origin = "human",
+
+    /// <summary>
+    /// Estágio de confiança: `project_scoped`, `active`, `reusable`, `global`, `observation`,
+    /// `quarantined` ou `disabled`. Persona criada pela chefe nasce presa ao projeto que a
+    /// motivou; ampliar alcance é promoção auditada, não estado inicial.
+    /// </summary>
+    string LifecycleState = "active",
+
+    /// <summary>Projeto que motivou a criação, quando a persona é específica de um.</summary>
+    string? ScopeProjectId = null,
+
+    /// <summary>Por que a persona existe — a lacuna concreta que ela veio cobrir.</summary>
+    string? CreationReason = null);
 
 public sealed record AgentDefinitionContent(
     string Key, string Name, string Role, string? Specialty, string Description,

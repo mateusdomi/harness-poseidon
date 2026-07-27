@@ -100,6 +100,8 @@ public sealed class ChiefInvocationEffortBindingTests
         public Task<AgentDefinitionRecord> SetDefinitionLifecycleAsync(AgentDefinitionLifecycleCommand command, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task DeleteDefinitionAsync(AgentDefinitionDeleteCommand command, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<int> EnsureBuiltInDefinitionsAsync(IReadOnlyList<BuiltInAgentDefinitionSeed> definitions, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(AgentDefinitionRecord Definition, bool Created)> CreateChiefDefinitionAsync(ChiefDefinitionCreateCommand command, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<AgentDefinitionRecord> SetDefinitionLifecycleStateAsync(AgentDefinitionLifecycleStateCommand command, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class FakeProviders : IProviderCatalogStore

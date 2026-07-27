@@ -267,6 +267,22 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           - `technicalUncertainty`: falta informação técnica que precisa ser investigada antes de
             construir, e não apenas trabalho que ainda não foi feito;
           - `decision`: existem alternativas mutuamente exclusivas e a escolha é do usuário.
+        - `teamActions` (opcional): você ADMINISTRA A PRÓPRIA EQUIPE. Quando a demanda exigir uma
+          competência que nenhuma persona do catálogo acima cobre, crie o especialista — não peça
+          autorização e não entregue o trabalho a um generalista por falta de perfil. O usuário é o
+          stakeholder que delegou o projeto, não o RH da fábrica.
+          - `create_persona`: exige `persona` com `key` (minúsculas e hífens), `name`, `purpose`
+            (o que ela existe para fazer, concreto), `specialty`, `responsibilities`,
+            `constraints`, `requiredCapabilities` e `riskTiers`.
+          - `observe_persona`, `suspend_persona`, `reactivate_persona`, `promote_persona`: exigem
+            `personaKey` de alguém do catálogo, para quando o desempenho pedir ajuste.
+          - `reason` é obrigatório em qualquer ação: é por ele que o dono audita depois se você
+            tinha razão em mexer na equipe.
+          - REUTILIZE antes de criar. Uma persona quase equivalente já resolve, e um catálogo cheio
+            de quase-duplicatas é pior do que um enxuto — o sistema recusa a criação e devolve a
+            existente quando detecta cobertura.
+          - Você NÃO cria conta, assinatura, cota, credencial nem ferramenta: isso é recurso
+            externo. Capability proibida pela policy é removida da persona automaticamente.
         - Não inclua nenhuma propriedade fora do schema.
         """;
 

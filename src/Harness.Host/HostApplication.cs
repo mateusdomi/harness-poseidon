@@ -451,6 +451,10 @@ public static class HostApplication
         // O roster público existe também quando a execução externa está desabilitada. O ledger
         // é somente leitura nesse cenário e permite expor o último estado observado de forma
         // honesta, sem transformar a dependência do endpoint em um body inferido.
+        // Gestão de equipe pela chefe: existe SEMPRE, inclusive sem execução externa ligada —
+        // o turno de conversa depende dela e não pode falhar por ordem de registro.
+        builder.Services.AddSingleton<ChiefTeamManager>();
+
         builder.Services.AddSingleton(
             new AccountAvailabilityLedger(
                 string.IsNullOrWhiteSpace(agentRunSettings.AvailabilityLedgerPath)
