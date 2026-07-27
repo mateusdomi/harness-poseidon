@@ -27024,6 +27024,7 @@
                     "targetId",
                     "model",
                     "provider",
+                    "accountAlias",
                     "action",
                     "score",
                     "confidenceIntervalLower",
@@ -27044,6 +27045,12 @@
                         ]
                     },
                     "provider": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "accountAlias": {
                         "type": [
                             "null",
                             "string"
@@ -30285,6 +30292,7 @@
                     "targetId",
                     "model",
                     "provider",
+                    "accountAlias",
                     "sampleSize",
                     "successCount",
                     "failureCount",
@@ -30306,6 +30314,12 @@
                         ]
                     },
                     "provider": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "accountAlias": {
                         "type": [
                             "null",
                             "string"
