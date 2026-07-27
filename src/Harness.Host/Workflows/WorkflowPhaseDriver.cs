@@ -1,3 +1,4 @@
+using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
@@ -11,7 +12,16 @@ public sealed record WorkflowPhaseDriveResult(
     int CardsCreated,
     int ObjectivesAdvanced,
     string? GateAwaitingHuman,
-    IReadOnlyList<string> Failures);
+    IReadOnlyList<string> Failures,
+
+    /// <summary>Progresso REAL da fase corrente, por obrigações cumpridas.</summary>
+    PhaseProgressSnapshot? Progress = null,
+
+    /// <summary>Fase cujo portão a chefe aprovou por evidência neste ciclo (modo autônomo).</summary>
+    string? GateApprovedByChief = null,
+
+    /// <summary>Obrigações materializadas nesta rodada (plano novo ou rebaseline).</summary>
+    int ObligationsPlanned = 0);
 
 /// <summary>
 /// O elo que faltava entre o TRABALHO e a ESTEIRA.
@@ -27,14 +37,20 @@ public sealed record WorkflowPhaseDriveResult(
 /// 2. para cada objetivo do tipo documento ainda pendente, garante que existe um CARD encarregado
 ///    de produzi-lo, marcado com o nome da fase (idempotente pelo título do card);
 /// 3. quando o card do objetivo chega a `completed`, avança o objetivo no motor;
-/// 4. com todos os objetivos-documento da fase satisfeitos, o portão vira decisão HUMANA — o
-///    condutor NÃO aprova gate sozinho (Default-FAIL e HITL são regra), apenas reporta que a fase
-///    está pronta para o dono decidir.
+/// 4. materializa o PLANO DE OBRIGAÇÕES da fase (documentos + cards de trabalho) e mede o
+///    progresso pelo que foi realmente aceito;
+/// 5. decide o portão pelo MODO do projeto: autônomo, a própria chefe aprova por evidência;
+///    semiautônomo, só as fases que o dono marcou esperam por ele; manual, toda transição espera.
+///
+/// A regra que este condutor passou a separar: <b>Default-FAIL não é aprovação humana
+/// obrigatória</b>. Sem evidência, o portão reprova nos três modos. Com evidência, quem decide é o
+/// modo configurado — e não o produto impondo o dono como gargalo de cada fase de cada projeto.
 /// </summary>
 public sealed class WorkflowPhaseDriver(
     IWorkflowCatalogStore catalog,
     IWorkflowStore authority,
     IWorkBoardStore board,
+    IPhaseObligationStore obligations,
     IClock clock)
 {
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
@@ -71,6 +87,8 @@ public sealed class WorkflowPhaseDriver(
     private readonly IWorkflowCatalogStore _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly IWorkflowStore _authority = authority ?? throw new ArgumentNullException(nameof(authority));
     private readonly IWorkBoardStore _board = board ?? throw new ArgumentNullException(nameof(board));
+    private readonly IPhaseObligationStore _obligations =
+        obligations ?? throw new ArgumentNullException(nameof(obligations));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     /// <summary>
@@ -185,17 +203,241 @@ public sealed class WorkflowPhaseDriver(
             }
         }
 
-        // Portão: com todos os documentos entregues, a fase está pronta para a decisão do humano.
-        // O condutor NUNCA avalia o gate por conta própria — Default-FAIL e HITL são regra, não
-        // preferência, e um gate auto-aprovado destruiria o valor da esteira.
-        var allDocumentsDone = documents.Length > 0 && documents.All(objective =>
-            !string.Equals(objective.State, "pending", StringComparison.OrdinalIgnoreCase) ||
-            (byTitle.TryGetValue(CardTitleFor(phase.Name, objective.Name), out var card) &&
-                string.Equals(card.InternalState, "completed", StringComparison.Ordinal)));
-        var gateAwaiting = allDocumentsDone && phase.Gates.Count > 0 ? phase.Name : null;
+        // ---- PLANO DE OBRIGAÇÕES: o denominador do progresso ----
+        //
+        // Os cards da fase entram no plano junto com os documentos. Enquanto o progresso vinha só
+        // dos documentos, uma fase de Desenvolvimento fechava com briefing, code review e métricas
+        // produzidos e ZERO implementação — o indicador media a papelada, não a entrega.
+        var phaseCards = page.Items
+            .Where(task => string.Equals(task.PhaseName, phase.Name, StringComparison.Ordinal))
+            .Where(task => !task.Title.StartsWith($"{phase.Name} —", StringComparison.Ordinal))
+            .ToArray();
+        var planned = await EnsurePhasePlanAsync(
+            tenantId, project.Id, running.Id, phase, documents, phaseCards, cancellationToken);
 
-        return new WorkflowPhaseDriveResult(created, advanced, gateAwaiting, [.. _failures]);
+        var current = await _obligations.ListCurrentAsync(
+            tenantId, running.Id, phase.Key, cancellationToken);
+        current = await ReconcileObligationStatesAsync(
+            tenantId, current, byTitle, page.Items, phase.Name, cancellationToken);
+        var progress = PhaseProgressEvaluator.Evaluate([.. current.Select(ToDomain)]);
+
+        // ---- PORTÃO: quem decide depende do MODO configurado pelo dono ----
+        var mode = PhaseGatePolicy.ParseMode(bindings[0].OperationMode);
+        var gate = phase.Gates.Count > 0 ? phase.Gates[0] : null;
+        var blocked = page.Items.Any(task =>
+            string.Equals(task.PhaseName, phase.Name, StringComparison.Ordinal) &&
+            string.Equals(task.InternalState, "blocked", StringComparison.Ordinal));
+        var evidence = new PhaseGateEvidence(
+            HasGate: gate is not null,
+            AllRequiredObligationsAccepted: progress.TechnicallyComplete,
+            HasBlockingFinding: _failures.Count > 0,
+            HasOpenBlocker: blocked,
+            RequiredObligationCount: progress.RequiredTotal);
+
+        var decision = PhaseGatePolicy.Decide(
+            mode, phase.Name, gate?.Name, bindings[0].SemiautonomousPauseGates, evidence);
+
+        string? gateAwaiting = null;
+        string? gateApproved = null;
+        if (decision == PhaseGateDecision.AwaitHuman)
+        {
+            gateAwaiting = phase.Name;
+        }
+        else if (decision == PhaseGateDecision.ChiefApproves && gate is not null)
+        {
+            gateApproved = await TryApproveGateAsync(
+                tenantId, running.Id, phase, gate, runVersion, cancellationToken);
+        }
+
+        return new WorkflowPhaseDriveResult(
+            created, advanced, gateAwaiting, [.. _failures], progress, gateApproved, planned);
     }
+
+    /// <summary>
+    /// Materializa (ou reconcilia) o plano da fase. Um plano já existente NÃO é reescrito: quando
+    /// aparece obrigação nova e legítima — um card que o dono pediu depois —, o plano ganha uma
+    /// VERSÃO nova com todas as obrigações vigentes, e a anterior fica preservada. Mudar o
+    /// denominador em silêncio é a forma mais fácil de um indicador mentir.
+    /// </summary>
+    private async Task<int> EnsurePhasePlanAsync(
+        string tenantId,
+        string projectId,
+        string runId,
+        WorkflowPhaseRunSnapshot phase,
+        IReadOnlyList<WorkflowObjectiveRunSnapshot> documents,
+        IReadOnlyList<BoardTaskRecord> phaseCards,
+        CancellationToken cancellationToken)
+    {
+        var desired = PhaseObligationPlanner.Plan(
+            [.. documents.Select(objective => (objective.Key, objective.Name))], phaseCards);
+        if (desired.Count == 0)
+        {
+            return 0;
+        }
+
+        var version = await _obligations.CurrentPlanVersionAsync(
+            tenantId, runId, phase.Key, cancellationToken);
+        if (version == 0)
+        {
+            return await _obligations.EnsurePlanAsync(
+                new PhaseObligationPlanCommand(
+                    tenantId, projectId, runId, phase.Key, 1, desired, _clock.UtcNow),
+                cancellationToken);
+        }
+
+        var existing = await _obligations.ListCurrentAsync(tenantId, runId, phase.Key, cancellationToken);
+        var known = existing.Select(item => item.ObligationKey).ToHashSet(StringComparer.Ordinal);
+        if (desired.All(item => known.Contains(item.ObligationKey)))
+        {
+            return 0;
+        }
+
+        // REBASELINE: versão nova com o conjunto completo e o motivo registrado. O percentual é
+        // recalculado sobre o plano vigente; a versão anterior permanece consultável.
+        var rebaselined = desired
+            .Select(item => known.Contains(item.ObligationKey)
+                ? item
+                : item with { Reason = "Obrigação surgida durante a fase (trabalho novo ligado a ela)." })
+            .ToArray();
+        return await _obligations.EnsurePlanAsync(
+            new PhaseObligationPlanCommand(
+                tenantId, projectId, runId, phase.Key, version + 1, rebaselined, _clock.UtcNow),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Traz o estado das obrigações para o que o board REALMENTE mostra. Card criado, atribuído,
+    /// em execução ou em revisão é trabalho em andamento — aparece como situação operacional e
+    /// nunca como concluído.
+    /// </summary>
+    private async Task<IReadOnlyList<PhaseObligationRecord>> ReconcileObligationStatesAsync(
+        string tenantId,
+        IReadOnlyList<PhaseObligationRecord> obligations,
+        Dictionary<string, BoardTaskRecord> byTitle,
+        IReadOnlyList<BoardTaskRecord> allTasks,
+        string phaseName,
+        CancellationToken cancellationToken)
+    {
+        var byId = allTasks.ToDictionary(task => task.Id, StringComparer.Ordinal);
+        var updated = new List<PhaseObligationRecord>(obligations.Count);
+        foreach (var obligation in obligations)
+        {
+            if (string.Equals(obligation.State, "cancelled", StringComparison.Ordinal))
+            {
+                updated.Add(obligation);
+                continue;
+            }
+
+            BoardTaskRecord? card = null;
+            if (obligation.CardId is { Length: > 0 } cardId)
+            {
+                _ = byId.TryGetValue(cardId, out card);
+            }
+            else if (obligation.ObjectiveKey is { Length: > 0 })
+            {
+                var name = obligation.Description
+                    .Replace("Produzir e aceitar o artefato \"", string.Empty, StringComparison.Ordinal)
+                    .TrimEnd('.', '"');
+                _ = byTitle.TryGetValue(CardTitleFor(phaseName, name), out card);
+            }
+
+            var next = card is null ? "pending" : StateOf(card);
+            if (string.Equals(next, obligation.State, StringComparison.Ordinal))
+            {
+                updated.Add(obligation);
+                continue;
+            }
+
+            var evidence = card is null
+                ? Array.Empty<string>()
+                : new[] { $"card:{card.Id}", $"state:{card.State}" };
+            _ = await _obligations.UpdateStateAsync(
+                new PhaseObligationStateCommand(
+                    tenantId, obligation.ObligationId, next, evidence, null, _clock.UtcNow),
+                cancellationToken);
+            updated.Add(obligation with { State = next, Evidence = evidence });
+        }
+
+        return updated;
+    }
+
+    /// <summary>
+    /// Mapeia o estado do card para o estado da obrigação. Só `completed` conta como aceito: é o
+    /// estado que exige revisão independente aprovada.
+    /// </summary>
+    private static string StateOf(BoardTaskRecord card) => card.InternalState switch
+    {
+        "completed" => "accepted",
+        "awaiting_review" => "in_review",
+        "running" or "assigned" => "in_progress",
+        "blocked" or "escalated" => "blocked",
+        _ => "pending",
+    };
+
+    /// <summary>
+    /// A chefe aprova o portão POR EVIDÊNCIA e a fase avança. Não é autoaprovação sem prova: a
+    /// decisão só chega aqui depois que todas as obrigações obrigatórias foram aceitas, sem achado
+    /// impeditivo e sem card bloqueado — e fica registrada com o autor `chief`, auditável como
+    /// qualquer decisão humana.
+    /// </summary>
+    private async Task<string?> TryApproveGateAsync(
+        string tenantId,
+        string runId,
+        WorkflowPhaseRunSnapshot phase,
+        WorkflowGateRunSnapshot gate,
+        long runVersion,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(gate.State, "pending", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var receipt = await _authority.EvaluateGateAsync(
+            new WorkflowGateEvaluateCommand(
+                tenantId, runId, phase.Key, gate.Key, true, runVersion,
+                $"phase-driver-gate:{runId}:{gate.Key}", _clock.UtcNow,
+                DecidedByProfileId: ChiefGateActor,
+                Note: "Portão aprovado pela chefe: todas as obrigações obrigatórias da fase foram " +
+                    "aceitas, sem achado impeditivo e sem card bloqueado (modo autônomo)."),
+            cancellationToken);
+        if (receipt.Status is not (WorkflowRunMutationStatus.Applied
+            or WorkflowRunMutationStatus.IdempotentReplay))
+        {
+            _failures.Add($"gate:{gate.Key}:{receipt.Status}");
+            return null;
+        }
+
+        var version = receipt.RunVersion ?? runVersion;
+        var completion = await _authority.CompletePhaseAsync(
+            new WorkflowPhaseCompleteCommand(
+                tenantId, runId, phase.Key, version,
+                $"phase-driver-complete:{runId}:{phase.Key}", _clock.UtcNow),
+            cancellationToken);
+        if (completion.Status is not (WorkflowRunMutationStatus.Applied
+            or WorkflowRunMutationStatus.IdempotentReplay))
+        {
+            _failures.Add($"phase:{phase.Key}:{completion.Status}");
+            return null;
+        }
+
+        return phase.Name;
+    }
+
+    /// <summary>Autor registrado quando a decisão do portão é da chefe, não de um humano.</summary>
+    public const string ChiefGateActor = "chief";
+
+    private static PhaseObligation ToDomain(PhaseObligationRecord record) => new(
+        record.ObligationKey,
+        PhaseProgressEvaluator.ParseKind(record.Kind),
+        record.Description,
+        record.Required,
+        (decimal)record.Weight,
+        PhaseProgressEvaluator.ParseState(record.State),
+        record.Source,
+        record.CardId,
+        record.ObjectiveKey,
+        record.ArtifactRef);
 
     private async Task CreateObjectiveCardAsync(
         string tenantId,

@@ -246,6 +246,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAuditEventStore, PostgresAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, PostgresGovernanceRuntimeStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, PostgresLearningCandidateStore>();
+            builder.Services.AddSingleton<IPhaseObligationStore, PostgresPhaseObligationStore>();
             builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
@@ -277,6 +278,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, SqliteGovernanceRuntimeStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, SqliteLearningCandidateStore>();
+            builder.Services.AddSingleton<IPhaseObligationStore, SqlitePhaseObligationStore>();
             builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
