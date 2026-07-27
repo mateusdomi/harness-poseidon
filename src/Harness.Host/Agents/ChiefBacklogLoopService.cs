@@ -205,6 +205,13 @@ public sealed partial class ChiefBacklogLoopService(
             var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)>();
             foreach (var task in page.Items)
             {
+                // Card recusado na largada há pouco (conflito de claim): esperar o escopo liberar é
+                // a decisão correta — re-tentar em seguida só produz tentativa fantasma.
+                if (_dispatchBackoff.TryGetValue(task.Id, out var retryAt) && retryAt > clock.UtcNow)
+                {
+                    continue;
+                }
+
                 var instructions = await board.ListInstructionsAsync(profile.TenantId, task.Id, null, 50, token);
 
                 // Gate fail-safe da Definition of Ready: SÓ cards 'agent_task' com instrução e não
@@ -344,6 +351,18 @@ public sealed partial class ChiefBacklogLoopService(
 
     /// <summary>Backoff em memória por tentativa para reviews com falha de infraestrutura.</summary>
     private readonly Dictionary<string, DateTimeOffset> _reviewBackoff = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Espera antes de re-tentar um card cujo run foi RECUSADO na largada (tipicamente conflito de
+    /// claim com um run vivo do mesmo escopo). Sem ela, o ciclo re-despachava o card a cada
+    /// intervalo do loop: cada rodada abria uma tentativa durável, colhia a recusa, expirava a
+    /// lease e recomeçava — dezenas de tentativas fantasma na cadeia, sem nenhum trabalho feito.
+    /// O escopo só libera quando o run concorrente termina, o que leva minutos, não segundos.
+    /// </summary>
+    private static readonly TimeSpan RejectedDispatchBackoff = TimeSpan.FromMinutes(2);
+
+    /// <summary>Backoff em memória por CARD para despachos recusados na largada.</summary>
+    private readonly Dictionary<string, DateTimeOffset> _dispatchBackoff = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Elo de COLHEITA: um run externo que terminou não fecha sozinho a cadeia durável. Aqui o
@@ -956,6 +975,7 @@ public sealed partial class ChiefBacklogLoopService(
         if (snapshot.Status is AgentRunStatus.Rejected or AgentRunStatus.ScopeConflict)
         {
             LogRunRejected(logger, task.Id, snapshot.Status.ToString(), snapshot.FinalError ?? string.Empty);
+            _dispatchBackoff[task.Id] = clock.UtcNow.Add(RejectedDispatchBackoff);
 
             // COMPENSAÇÃO: a tentativa durável já estava `running` quando o orquestrador recusou
             // o run (ex.: conflito de claim com um run vivo). Sem abandoná-la, o card ficaria em

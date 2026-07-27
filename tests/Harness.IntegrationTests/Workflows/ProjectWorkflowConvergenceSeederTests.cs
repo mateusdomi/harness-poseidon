@@ -82,11 +82,29 @@ public sealed class ProjectWorkflowConvergenceSeederTests
                     await workflowCatalog.ListBindingsAsync(tenantId, projectId, null, 10, timeout.Token));
                 Assert.Equal(recommended!.Id, binding.TemplateId);
 
+                // Vincular não basta: sem RUN ATIVO o projeto não tem fase, gate nem artefato
+                // esperado — a esteira existiria só no papel e o chat não saberia dizer em que
+                // fase o trabalho está. O único código que iniciava run era um seeder preso ao
+                // projeto legado, com id de run FIXO; todo projeto criado depois nascia sem fase.
+                var runs = await workflowCatalog.ListRunsAsync(tenantId, binding.Id, null, 10, timeout.Token);
+                var run = Assert.Single(runs);
+                Assert.Equal("running", run.State);
+                Assert.Equal(binding.Id, run.WorkflowId);
+
+                // E a run tem FASE ATIVA: é a fase que dá gate, artefato esperado e a posição da
+                // esteira que o chat mostra ao usuário.
+                var phases = await workflowCatalog.ListPhasesAsync(tenantId, run.Id, null, 20, timeout.Token);
+                Assert.Contains(phases, phase => phase.State == "active");
+
                 // Idempotência: reexecutar não reata nem duplica — o projeto com workflow é respeitado.
                 var boundSecond = await seeder.EnsureBoundAsync(tenantId, profileId, timeout.Token);
                 Assert.Equal(0, boundSecond);
                 Assert.Single(
                     await workflowCatalog.ListBindingsAsync(tenantId, projectId, null, 10, timeout.Token));
+
+                // E não cria um segundo run: um projeto tem UMA esteira ativa por vez.
+                Assert.Single(
+                    await workflowCatalog.ListRunsAsync(tenantId, binding.Id, null, 10, timeout.Token));
             }
         }
         finally

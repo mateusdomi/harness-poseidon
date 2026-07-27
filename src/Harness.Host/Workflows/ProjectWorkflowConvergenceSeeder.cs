@@ -120,6 +120,9 @@ public sealed class ProjectWorkflowConvergenceSeeder(
                     await MigrateActiveRunAsync(
                         tenantId, project.Id, binding.Id, template.CurrentVersionId,
                         cancellationToken);
+                    await EnsureStartedRunAsync(
+                        tenantId, project.Id, binding.Id, template.CurrentVersionId,
+                        cancellationToken);
                     continue;
                 }
 
@@ -142,6 +145,8 @@ public sealed class ProjectWorkflowConvergenceSeeder(
                 // esteira do playbook — ambos auditados pelas mutações do motor de workflow.
                 await MigrateActiveRunAsync(
                     tenantId, project.Id, binding.Id, template.CurrentVersionId, cancellationToken);
+                await EnsureStartedRunAsync(
+                    tenantId, project.Id, binding.Id, template.CurrentVersionId, cancellationToken);
                 bound++;
                 continue;
             }
@@ -153,9 +158,55 @@ public sealed class ProjectWorkflowConvergenceSeeder(
             {
                 bound++;
             }
+
+            // Vincular não basta: sem RUN o projeto não tem fase ativa, nem gate, nem artefato
+            // esperado — a esteira existe no papel e o produto se comporta como se não houvesse
+            // workflow nenhum. O único código que iniciava run era um seeder preso ao projeto
+            // legado (id de run FIXO), então TODO projeto criado depois nascia sem fase.
+            var linked = await _workflows.ListBindingsAsync(tenantId, project.Id, null, 1, cancellationToken);
+            if (linked.Count > 0 && linked[0].ActiveVersionId is { Length: > 0 } activeVersion)
+            {
+                await EnsureStartedRunAsync(
+                    tenantId, project.Id, linked[0].Id, activeVersion, cancellationToken);
+            }
         }
 
         return bound;
+    }
+
+    /// <summary>
+    /// Garante que o binding tenha um RUN ATIVO na versão corrente: sem run não existe fase ativa,
+    /// e sem fase o projeto não tem gate, artefato esperado nem posição na esteira — o chat não
+    /// consegue nem dizer em que fase o trabalho está.
+    ///
+    /// Idempotente por leitura: só cria quando não há run `running`/`paused`. O id é um ULID por
+    /// run — um id fixo limitaria o produto a um único projeto com fase no sistema inteiro.
+    /// </summary>
+    private async Task EnsureStartedRunAsync(
+        string tenantId,
+        string projectId,
+        string workflowId,
+        string versionId,
+        CancellationToken cancellationToken)
+    {
+        var runs = await _workflows.ListRunsAsync(tenantId, workflowId, null, 20, cancellationToken);
+        if (runs.Any(run => run.State is "running" or "paused"))
+        {
+            return;
+        }
+
+        var now = _clock.UtcNow;
+        var runId = UlidValue.New(now).ToString();
+        var created = await _runAuthority.CreateRunAsync(
+            new WorkflowRunCreateCommand(
+                tenantId, projectId, versionId, runId,
+                $"workflow-convergence:create:{runId}", now, workflowId),
+            cancellationToken);
+        _ = await _runAuthority.TransitionRunAsync(
+            new WorkflowRunTransitionCommand(
+                tenantId, runId, WorkflowRunTransition.Start, created.RunVersion,
+                $"workflow-convergence:start:{runId}", now.AddTicks(1)),
+            cancellationToken);
     }
 
     private async Task MigrateActiveRunAsync(
