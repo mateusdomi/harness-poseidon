@@ -367,6 +367,12 @@ public sealed partial class ChiefBacklogLoopService(
     /// <summary>Backoff em memória por CARD para despachos recusados na largada.</summary>
     private readonly Dictionary<string, DateTimeOffset> _dispatchBackoff = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Marcador estável do aviso de escalação. É o que permite reconhecer, na própria conversa,
+    /// que aquele card JÁ foi levado ao dono — idempotência que sobrevive a restart.
+    /// </summary>
+    private const string EscalationMarker = "Preciso da sua decisão em um card:";
+
     /// <summary>Cards cuja escalação já foi anunciada ao dono — o aviso é uma vez, não a cada ciclo.</summary>
     private readonly HashSet<string> _announcedEscalations = new(StringComparer.Ordinal);
 
@@ -717,6 +723,33 @@ public sealed partial class ChiefBacklogLoopService(
 
         var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
         var open = await conversations.ListConversationsAsync(tenantId, project.Id, null, 1, token);
+
+        // A memória do processo não basta como idempotência: cada restart do Host reapresentaria
+        // a MESMA escalação, e o dono receberia o mesmo aviso repetido sem nenhum fato novo. O
+        // registro durável do que já foi dito é a própria conversa — a mensagem carrega o id do
+        // card, e é por ele que reconhecemos o aviso já publicado.
+        var alreadyAnnounced = new HashSet<string>(StringComparer.Ordinal);
+        if (open.Count > 0)
+        {
+            var history = await conversations.ListMessagesAsync(tenantId, open[0].Id, null, 200, token);
+            foreach (var previous in history.Where(entry =>
+                entry.Content.Contains(EscalationMarker, StringComparison.Ordinal)))
+            {
+                foreach (var task in escalated)
+                {
+                    if (previous.Content.Contains(task.Id, StringComparison.Ordinal))
+                    {
+                        _ = alreadyAnnounced.Add(task.Id);
+                    }
+                }
+            }
+        }
+
+        escalated = [.. escalated.Where(task => !alreadyAnnounced.Contains(task.Id))];
+        if (escalated.Length == 0)
+        {
+            return 0;
+        }
         if (open.Count == 0)
         {
             // Sem conversa não há a quem anunciar; o log permanece como registro e o card volta
@@ -746,7 +779,7 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
             var content =
-                $"Preciso da sua decisão em um card: **{task.Title}**.\n\n" +
+                $"{EscalationMarker} **{task.Title}** (card {task.Id}).\n\n" +
                 $"Ele foi reprovado {rejected} vez(es) pela revisão independente e atingiu o limite de " +
                 "ciclos de correção. Continuar tentando do mesmo jeito só repetiria o mesmo resultado, " +
                 "então parei e trouxe para você.\n\n" +
