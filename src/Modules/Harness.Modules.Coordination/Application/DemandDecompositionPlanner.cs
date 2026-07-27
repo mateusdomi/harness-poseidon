@@ -198,8 +198,12 @@ public static class DemandDecompositionPlanner
         // backend — uma demanda genérica, sem superfície declarada, segue recebendo a fatia —, mas
         // quando o texto fala só de tela e não menciona nada de servidor, emitir o card de backend
         // é trabalho errado: alguém vai executá-lo e gastar cota escrevendo o que ninguém pediu.
+        // A conclusão "é só visual" exige EVIDÊNCIA NO TEXTO de que a demanda é de tela. O hint
+        // `hasFrontendSurface` não serve para isso: ele afirma que EXISTE superfície de frontend,
+        // e não diz nada sobre a ausência de backend. Usá-lo aqui apagava a fatia de servidor de
+        // demandas que só declaravam ter tela — inclusive as que precisavam das duas.
         var mentionsBackend = MentionsAny(haystack, BackendTerms);
-        var visualOnly = hasFrontend && !mentionsBackend;
+        var visualOnly = MentionsAny(haystack, FrontendTerms) && !mentionsBackend;
         var hasBackend = hints?.HasImplementationSurface ?? (!deliverableIsNotCode && !visualOnly);
 
         var ordinal = 0;
