@@ -885,12 +885,15 @@ public sealed partial class ChiefBacklogLoopService(
 
             foreach (var task in group)
             {
-                var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
-                    task.CardType,
-                    task.InstructionVersion >= 1,
-                    string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
-                        !string.IsNullOrWhiteSpace(task.BlockedReason)));
-                if (!readiness.IsDispatchable)
+                // A triagem por ondas promove backlog→ready quando as dependências foram
+                // ENTREGUES. Ela NÃO decide quem executa: cards que exigem humano (spike,
+                // human_gate, decision) também precisam chegar a `ready`, senão o gate fica
+                // invisível para o dono, preso no backlog para sempre — e o gate humano é
+                // justamente o ponto em que o produto para e pede decisão. Quem impede a
+                // EXECUÇÃO automática desses tipos é o gate de despacho, não esta promoção.
+                var blocked = string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
+                    !string.IsNullOrWhiteSpace(task.BlockedReason);
+                if (blocked || task.InstructionVersion < 1)
                 {
                     continue;
                 }

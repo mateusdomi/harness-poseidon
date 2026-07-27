@@ -21,26 +21,26 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
                 provider, model, account_alias, input_tokens, output_tokens,
                 estimated_cost_usd, duration_ms, outcome, invoked_at
             ) VALUES (
-                $id, $tenantId, $projectId, $workTaskId, $attemptId,
-                $provider, $model, $accountAlias, $inputTokens, $outputTokens,
-                $estimatedCostUsd, $durationMs, $outcome, $invokedAt
+                @id, @tenantId, @projectId, @workTaskId, @attemptId,
+                @provider, @model, @accountAlias, @inputTokens, @outputTokens,
+                @estimatedCostUsd, @durationMs, @outcome, @invokedAt
             );
             """);
 
-        command.Parameters.AddWithValue("$id", record.Id);
-        command.Parameters.AddWithValue("$tenantId", record.TenantId);
-        command.Parameters.AddWithValue("$projectId", record.ProjectId);
-        command.Parameters.AddWithValue("$workTaskId", record.WorkTaskId);
-        command.Parameters.AddWithValue("$attemptId", record.AttemptId);
-        command.Parameters.AddWithValue("$provider", record.Provider);
-        command.Parameters.AddWithValue("$model", record.Model);
-        command.Parameters.AddWithValue("$accountAlias", record.AccountAlias);
-        command.Parameters.AddWithValue("$inputTokens", record.InputTokens);
-        command.Parameters.AddWithValue("$outputTokens", record.OutputTokens);
-        command.Parameters.AddWithValue("$estimatedCostUsd", record.EstimatedCostUsd);
-        command.Parameters.AddWithValue("$durationMs", record.DurationMs);
-        command.Parameters.AddWithValue("$outcome", record.Outcome);
-        command.Parameters.AddWithValue("$invokedAt", record.InvokedAt);
+        command.Parameters.AddWithValue("@id", record.Id);
+        command.Parameters.AddWithValue("@tenantId", record.TenantId);
+        command.Parameters.AddWithValue("@projectId", record.ProjectId);
+        command.Parameters.AddWithValue("@workTaskId", record.WorkTaskId);
+        command.Parameters.AddWithValue("@attemptId", record.AttemptId);
+        command.Parameters.AddWithValue("@provider", record.Provider);
+        command.Parameters.AddWithValue("@model", record.Model);
+        command.Parameters.AddWithValue("@accountAlias", record.AccountAlias);
+        command.Parameters.AddWithValue("@inputTokens", record.InputTokens);
+        command.Parameters.AddWithValue("@outputTokens", record.OutputTokens);
+        command.Parameters.AddWithValue("@estimatedCostUsd", record.EstimatedCostUsd);
+        command.Parameters.AddWithValue("@durationMs", record.DurationMs);
+        command.Parameters.AddWithValue("@outcome", record.Outcome);
+        command.Parameters.AddWithValue("@invokedAt", record.InvokedAt);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -56,12 +56,12 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
                    provider, model, account_alias, input_tokens, output_tokens,
                    estimated_cost_usd, duration_ms, outcome, invoked_at
             FROM model_invocations
-            WHERE tenant_id = $tenantId AND work_task_id = $workTaskId
+            WHERE tenant_id = @tenantId AND work_task_id = @workTaskId
             ORDER BY invoked_at ASC;
             """);
 
-        command.Parameters.AddWithValue("$tenantId", tenantId);
-        command.Parameters.AddWithValue("$workTaskId", workTaskId);
+        command.Parameters.AddWithValue("@tenantId", tenantId);
+        command.Parameters.AddWithValue("@workTaskId", workTaskId);
 
         var items = new List<ModelInvocationRecord>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -96,14 +96,14 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
         NpgsqlCommand command;
         if (string.IsNullOrEmpty(projectId))
         {
-            command = _dataSource.CreateCommand("SELECT COALESCE(SUM(estimated_cost_usd), 0.0) FROM model_invocations WHERE tenant_id = $tenantId;");
+            command = _dataSource.CreateCommand("SELECT COALESCE(SUM(estimated_cost_usd), 0.0) FROM model_invocations WHERE tenant_id = @tenantId;");
         }
         else
         {
-            command = _dataSource.CreateCommand("SELECT COALESCE(SUM(estimated_cost_usd), 0.0) FROM model_invocations WHERE tenant_id = $tenantId AND project_id = $projectId;");
-            command.Parameters.AddWithValue("$projectId", projectId);
+            command = _dataSource.CreateCommand("SELECT COALESCE(SUM(estimated_cost_usd), 0.0) FROM model_invocations WHERE tenant_id = @tenantId AND project_id = @projectId;");
+            command.Parameters.AddWithValue("@projectId", projectId);
         }
-        command.Parameters.AddWithValue("$tenantId", tenantId);
+        command.Parameters.AddWithValue("@tenantId", tenantId);
 
         await using (command)
         {

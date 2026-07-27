@@ -16,7 +16,7 @@ namespace Harness.IntegrationTests.Persistence;
 /// </summary>
 public sealed class SqliteMigrationUpgradeTests
 {
-    private const int HeadCount = 71;
+    private const int HeadCount = 73;
     private const string UpgradeSolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5F80";
 
     [Theory]

@@ -71,12 +71,15 @@ public sealed class DemandPlanApiTests
                     Assert.Equal("CAT-04", plan.FeatureId);
                     Assert.Equal("proposed", plan.Status);
                     Assert.Null(plan.MaterializedAt);
-                    // spike + human_gate + backend + frontend + integração = 5 cards.
-                    Assert.Contains(plan.Cards, c => c.CardType == "human_gate");
+                    // spike + gate de credencial + backend + frontend + gate de integração = 5 cards.
+                    // A integração é GATE HUMANO (o merge é humano por regra e a revisão independente
+                    // já ocorre em cada card); emiti-la como agent_task/critic criava um card
+                    // estruturalmente indespachável, porque o papel crítico não tem escopo de escrita.
                     Assert.Contains(plan.Cards, c => c.CardType == "spike");
                     Assert.Contains(plan.Cards, c => c.CardType == "agent_task" && c.RequiredRole == "backend-specialist");
                     Assert.Contains(plan.Cards, c => c.CardType == "agent_task" && c.RequiredRole == "frontend-specialist");
-                    Assert.Contains(plan.Cards, c => c.CardType == "agent_task" && c.RequiredRole == "critic");
+                    Assert.DoesNotContain(plan.Cards, c => c.CardType == "agent_task" && c.RequiredRole == "critic");
+                    Assert.Equal(2, plan.Cards.Count(c => c.CardType == "human_gate"));
 
                     // Regenerar é idempotente: devolve o MESMO plano (200) sem duplicar.
                     using (var regenerate = await client.PostAsJsonAsync(
@@ -130,7 +133,8 @@ public sealed class DemandPlanApiTests
                     Assert.Equal(cardCount, tasks!.Items.Count);
 
                     // human_gate criado, porém NÃO auto-despachável (card_type protege o dispatch).
-                    var humanGateTaskId = materialized.Cards.Single(c => c.CardType == "human_gate").TaskId!;
+                    // Dois gates humanos: o de credencial (pré-requisito) e o de integração (final).
+                    var humanGateTaskId = materialized.Cards.First(c => c.CardType == "human_gate").TaskId!;
                     var exported = await client.GetStringAsync(
                         $"/api/v1/tasks/export.csv?projectId={projectId}&demandId={demandId}", timeout.Token);
                     Assert.Contains("human_gate", exported, StringComparison.Ordinal);

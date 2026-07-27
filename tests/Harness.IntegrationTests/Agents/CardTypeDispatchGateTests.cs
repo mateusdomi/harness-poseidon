@@ -36,8 +36,9 @@ public sealed class CardTypeDispatchGateTests
     {
         var result = await RunSingleCardCycleAsync("human_gate");
 
-        Assert.Equal(0, result.Dispatched);
-        Assert.Equal(0, result.Deferred);
+        // A contagem GLOBAL do ciclo deixou de ser exata: o mesmo ciclo conduz a esteira e pode
+        // criar/despachar o card do artefato da fase ativa. A prova do gate humano é ESTE card não
+        // ter tentativa e permanecer em `ready` — o que nenhum outro card do ciclo pode falsear.
         Assert.Equal("ready", result.FinalState);
         Assert.Empty(result.Attempts);
     }
@@ -47,8 +48,7 @@ public sealed class CardTypeDispatchGateTests
     {
         var result = await RunSingleCardCycleAsync("agent_task");
 
-        Assert.Equal(1, result.Dispatched);
-        Assert.Equal(0, result.Deferred);
+        Assert.True(result.Dispatched >= 1, $"esperava ao menos um despacho; obtido {result.Dispatched}");
         Assert.Equal("development", result.FinalState);
         Assert.NotEmpty(result.Attempts);
     }

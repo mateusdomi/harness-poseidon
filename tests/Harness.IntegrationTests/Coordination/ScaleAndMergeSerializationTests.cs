@@ -80,9 +80,12 @@ public sealed class ScaleAndMergeSerializationTests
                 var spike = cards
                     .Single(card => card.GetProperty("cardType").GetString() == "spike")
                     .GetProperty("proposedTitle").GetString()!.Split(' ')[0];
-                var integration = cards
-                    .Single(card => card.GetProperty("requiredRole").GetString() == "critic")
+                // A integração é o ÚLTIMO card do plano e é gate humano (o merge é humano por
+                // regra); antes ela era um agent_task de papel crítico, que nunca poderia ser
+                // despachado porque o papel crítico não possui escopo de escrita.
+                var integration = cards[^1]
                     .GetProperty("proposedTitle").GetString()!.Split(' ')[0];
+                Assert.Equal("human_gate", cards[^1].GetProperty("cardType").GetString());
 
                 // O spike destrava as implementações: primeira onda; integração: última onda.
                 Assert.Contains(spike, waves[0]);

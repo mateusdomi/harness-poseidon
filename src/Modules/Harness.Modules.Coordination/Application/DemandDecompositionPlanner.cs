@@ -160,9 +160,14 @@ public static class DemandDecompositionPlanner
         // decidido — trabalho errado, cota gasta e ruído no board. O chefe pode declarar a natureza
         // da demanda pelo hint; sem hint, vale a leitura do texto: só se pede backend quando a
         // demanda menciona construir algo OU quando não é claramente decisão/investigação/doc.
+        // ATENÇÃO ao que NÃO entra aqui: incerteza técnica não elimina a fatia de backend. Um
+        // spike PRECEDE a construção — "investigar e depois implementar" é o caso normal, e tratar
+        // incerteza como "não é código" apagaria a implementação de quase toda demanda real.
+        // Só o entregável DECISÃO (ADR) ou DOCUMENTO, sem nenhum sinal de construção, dispensa a
+        // fatia de servidor.
         var mentionsImplementation = MentionsAny(haystack, ImplementationTerms);
         var deliverableIsNotCode =
-            (needsDecision || hasUncertainty || hasDocumentation) && !mentionsImplementation;
+            (needsDecision || hasDocumentation) && !mentionsImplementation;
         var hasBackend = hints?.HasImplementationSurface ?? !deliverableIsNotCode;
 
         var ordinal = 0;

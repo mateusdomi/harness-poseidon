@@ -651,7 +651,14 @@ public static class HostApplication
         builder.Services.AddSingleton<IEvaluationService, EvaluationService>();
         builder.Services.AddSingleton<Harness.Modules.Providers.Application.CapacityManager>();
         builder.Services.AddSingleton<Harness.Modules.Providers.Application.ProviderQuotaCollector>();
-        builder.Services.AddSingleton<Agents.ProviderRoutingCoordinator>();
+
+        // O coordenador de roteamento depende do REGISTRO DE CONTAS, que só existe quando a
+        // execução de agentes está habilitada. Registrá-lo incondicionalmente quebrava a validação
+        // do contêiner em qualquer modo sem agent-runs — o Host nem subia.
+        if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
+        {
+            builder.Services.AddSingleton<Agents.ProviderRoutingCoordinator>();
+        }
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IHybridRagSearchEngine, Harness.Modules.Governance.Memory.HybridRagSearchEngine>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IRagContextProvider, Harness.Modules.Governance.Memory.RagContextProvider>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IContextBuilder, Harness.Modules.Governance.Memory.ContextBuilder>();

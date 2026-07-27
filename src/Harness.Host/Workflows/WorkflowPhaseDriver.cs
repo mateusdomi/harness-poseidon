@@ -185,7 +185,10 @@ public sealed class WorkflowPhaseDriver(
                 UlidValue.New(now.AddMilliseconds(3)).ToString(),
                 actorProfileId,
                 CardTitleFor(phaseName, objectiveName),
-                "medium",
+                // Prioridade BAIXA de propósito: o artefato da fase é obrigatório, mas não pode
+                // passar à frente do trabalho que o dono pediu e tomar o slot de despacho dele.
+                // Quem quiser antecipá-lo repriorizamos no board — a decisão é humana.
+                "low",
                 null,
                 null,
                 instructionId,

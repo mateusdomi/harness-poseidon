@@ -18,8 +18,8 @@ public sealed class PostgresVectorIndex(NpgsqlDataSource dataSource) : IVectorIn
                 id, tenant_id, project_id, document_type, content,
                 embedding_json, metadata_json, created_at
             ) VALUES (
-                $id, $tenantId, $projectId, $documentType, $content,
-                $embeddingJson, $metadataJson, $createdAt
+                @id, @tenantId, @projectId, @documentType, @content,
+                @embeddingJson, @metadataJson, @createdAt
             ) ON CONFLICT (id) DO UPDATE SET
                 content = EXCLUDED.content,
                 embedding_json = EXCLUDED.embedding_json,
@@ -27,14 +27,14 @@ public sealed class PostgresVectorIndex(NpgsqlDataSource dataSource) : IVectorIn
                 created_at = EXCLUDED.created_at;
             """);
 
-        command.Parameters.AddWithValue("$id", document.Id);
-        command.Parameters.AddWithValue("$tenantId", document.TenantId);
-        command.Parameters.AddWithValue("$projectId", document.ProjectId);
-        command.Parameters.AddWithValue("$documentType", document.DocumentType);
-        command.Parameters.AddWithValue("$content", document.Content);
-        command.Parameters.AddWithValue("$embeddingJson", JsonSerializer.Serialize(document.Embedding));
-        command.Parameters.AddWithValue("$metadataJson", JsonSerializer.Serialize(document.Metadata));
-        command.Parameters.AddWithValue("$createdAt", document.CreatedAt);
+        command.Parameters.AddWithValue("@id", document.Id);
+        command.Parameters.AddWithValue("@tenantId", document.TenantId);
+        command.Parameters.AddWithValue("@projectId", document.ProjectId);
+        command.Parameters.AddWithValue("@documentType", document.DocumentType);
+        command.Parameters.AddWithValue("@content", document.Content);
+        command.Parameters.AddWithValue("@embeddingJson", JsonSerializer.Serialize(document.Embedding));
+        command.Parameters.AddWithValue("@metadataJson", JsonSerializer.Serialize(document.Metadata));
+        command.Parameters.AddWithValue("@createdAt", document.CreatedAt);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -79,21 +79,21 @@ public sealed class PostgresVectorIndex(NpgsqlDataSource dataSource) : IVectorIn
             SELECT id, tenant_id, project_id, document_type, content,
                    embedding_json, metadata_json, created_at
             FROM harness.vector_embeddings
-            WHERE tenant_id = $tenantId
+            WHERE tenant_id = @tenantId
             ORDER BY created_at, id;
             """
             : """
             SELECT id, tenant_id, project_id, document_type, content,
                    embedding_json, metadata_json, created_at
             FROM harness.vector_embeddings
-            WHERE tenant_id = $tenantId
-              AND project_id = $projectId
+            WHERE tenant_id = @tenantId
+              AND project_id = @projectId
             ORDER BY created_at, id;
             """);
-        command.Parameters.AddWithValue("$tenantId", tenantId);
+        command.Parameters.AddWithValue("@tenantId", tenantId);
         if (projectId is not null)
         {
-            command.Parameters.AddWithValue("$projectId", projectId);
+            command.Parameters.AddWithValue("@projectId", projectId);
         }
 
         var documents = new List<VectorDocumentRecord>();
@@ -121,9 +121,9 @@ public sealed class PostgresVectorIndex(NpgsqlDataSource dataSource) : IVectorIn
         ArgumentNullException.ThrowIfNull(tenantId);
         ArgumentNullException.ThrowIfNull(documentId);
 
-        await using var command = _dataSource.CreateCommand("DELETE FROM harness.vector_embeddings WHERE tenant_id = $tenantId AND id = $id;");
-        command.Parameters.AddWithValue("$tenantId", tenantId);
-        command.Parameters.AddWithValue("$id", documentId);
+        await using var command = _dataSource.CreateCommand("DELETE FROM harness.vector_embeddings WHERE tenant_id = @tenantId AND id = @id;");
+        command.Parameters.AddWithValue("@tenantId", tenantId);
+        command.Parameters.AddWithValue("@id", documentId);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 

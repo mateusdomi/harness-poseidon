@@ -80,9 +80,11 @@ public sealed class ProjectStateConvergenceSeederTests
                     await workflowCatalog.ListBindingsAsync(
                         tenantId, ProjectStateConvergenceSeeder.PoseidonProjectId, null, 10, timeout.Token));
 
-                // Antes: nenhuma run (cockpit mostraria "Nenhuma execução / Fase: nenhuma"), sem
-                // protótipo, org sem marca.
-                Assert.Empty(await workflowCatalog.ListRunsAsync(tenantId, binding.Id, null, 10, timeout.Token));
+                // Vincular a esteira já INICIA a run: a responsabilidade de "todo projeto tem fase
+                // ativa" mudou para a convergência de workflow, que vale para QUALQUER projeto —
+                // antes só o projeto legado ganhava run, por um seeder com id de run fixo. Este
+                // seeder continua responsável pelo protótipo e pela marca.
+                Assert.Single(await workflowCatalog.ListRunsAsync(tenantId, binding.Id, null, 10, timeout.Token));
                 Assert.Empty(await prototypes.ListPrototypesAsync(
                     tenantId, ProjectStateConvergenceSeeder.PoseidonProjectId, null, 10, timeout.Token));
 
@@ -91,7 +93,8 @@ public sealed class ProjectStateConvergenceSeederTests
 
                 // Primeira convergência: run iniciada, protótipo registrado, marca preenchida.
                 var first = await seeder.EnsureConvergedAsync(tenantId, profileId, timeout.Token);
-                Assert.True(first.RunStarted);
+                // A run já existe (criada pela convergência de workflow): este seeder não a duplica.
+                Assert.False(first.RunStarted);
                 Assert.True(first.PrototypeRegistered);
                 Assert.True(first.BrandFilled);
 

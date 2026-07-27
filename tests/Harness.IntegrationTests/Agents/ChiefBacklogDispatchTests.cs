@@ -157,8 +157,11 @@ public sealed class ChiefBacklogDispatchTests
             var service = app.Services.GetServices<IHostedService>().OfType<ChiefBacklogLoopService>().Single();
             var (dispatched, deferred) = await service.RunCycleAsync(cts.Token);
 
-            Assert.True(dispatched == 1 && deferred == 0,
-                $"esperava (dispatched=1, deferred=0); obtido dispatched={dispatched}, deferred={deferred}");
+            // A contagem GLOBAL do ciclo deixou de ser exata: o mesmo ciclo também conduz a esteira
+            // do projeto e pode criar o card do artefato da fase ativa. O que este teste prova é o
+            // despacho DESTE card — asserido logo abaixo pelo estado e pela tentativa durável.
+            Assert.True(dispatched >= 1,
+                $"esperava ao menos um despacho; obtido dispatched={dispatched}, deferred={deferred}");
 
             // PROVA: o card foi movido de `ready` para `development` pelo loop do Chefe.
             var moved = await board.GetTaskAsync(tenantId, taskId, cts.Token);
