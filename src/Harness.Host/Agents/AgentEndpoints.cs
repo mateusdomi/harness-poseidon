@@ -392,7 +392,8 @@ public static class AgentEndpoints
         value.OperatingPrinciples ?? [], value.Deliverables ?? [], value.QualityCriteria ?? [],
         value.CommunicationStyle, value.Limitations ?? [], value.Version, value.Enabled, value.ArchivedAt,
         value.Stacks ?? [], value.DefaultEffort, value.PreferredAccountId,
-        value.FallbackModelIds ?? [], value.Team, value.ActorCritic, value.Risk);
+        value.FallbackModelIds ?? [], value.Team, value.ActorCritic, value.Risk,
+        value.Origin, value.LifecycleState, value.ScopeProjectId, value.CreationReason);
 
     private static AgentDefinitionVersionContract ToContract(AgentDefinitionVersionRecord value) => new(
         value.Id, value.DefinitionId, value.Version,
@@ -447,7 +448,16 @@ public sealed record AgentDefinitionContract(
     string? CommunicationStyle, IReadOnlyList<string> Limitations, int Version, bool Enabled,
     DateTimeOffset? ArchivedAt, IReadOnlyList<string> Stacks, string? DefaultEffort,
     string? PreferredAccountId, IReadOnlyList<string> FallbackModelIds, string? Team,
-    string? ActorCritic, string? Risk);
+    string? ActorCritic, string? Risk,
+
+    /// <summary>
+    /// PROCEDÊNCIA e estágio de confiança. Existem no contrato porque a auditoria humana prometida
+    /// — ver quem criou a persona, por quê e em que escopo — é impossível sem eles na tela.
+    /// </summary>
+    string Origin = "human",
+    string LifecycleState = "active",
+    string? ScopeProjectId = null,
+    string? CreationReason = null);
 public sealed record AgentDefinitionPage(IReadOnlyList<AgentDefinitionContract> Items, string? NextCursor);
 public sealed record AgentDefinitionSnapshotContract(
     string Key, string Name, string Role, string? Specialty, string Description,

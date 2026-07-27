@@ -576,6 +576,73 @@
                 }
             }
         },
+        "/api/v1/workflow-runs/{runId}/phases/{phaseKey}/progress": {
+            "get": {
+                "tags": [
+                    "workflows"
+                ],
+                "parameters": [
+                    {
+                        "name": "runId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "phaseKey",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PhaseProgressContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{id}/workflow": {
             "post": {
                 "tags": [
@@ -20203,6 +20270,26 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "origin": {
+                        "type": "string",
+                        "default": "human"
+                    },
+                    "lifecycleState": {
+                        "type": "string",
+                        "default": "active"
+                    },
+                    "scopeProjectId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "creationReason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -30466,6 +30553,81 @@
                     }
                 }
             },
+            "PhaseObligationContract": {
+                "required": [
+                    "obligationKey",
+                    "kind",
+                    "description",
+                    "required",
+                    "weight",
+                    "state",
+                    "source",
+                    "cardId",
+                    "objectiveKey",
+                    "artifactRef",
+                    "evidence",
+                    "reason"
+                ],
+                "type": "object",
+                "properties": {
+                    "obligationKey": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "required": {
+                        "type": "boolean"
+                    },
+                    "weight": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "cardId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "objectiveKey": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "artifactRef": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "reason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
             "PhasePage": {
                 "required": [
                     "items",
@@ -30487,45 +30649,32 @@
                     }
                 }
             },
-            "PhaseProgressBreakdownContract": {
-                "required": [
-                    "completed",
-                    "total"
-                ],
-                "type": "object",
-                "properties": {
-                    "completed": {
-                        "pattern": "^-?(?:0|[1-9]\\d*)$",
-                        "type": [
-                            "integer",
-                            "string"
-                        ],
-                        "format": "int32"
-                    },
-                    "total": {
-                        "pattern": "^-?(?:0|[1-9]\\d*)$",
-                        "type": [
-                            "integer",
-                            "string"
-                        ],
-                        "format": "int32"
-                    }
-                }
-            },
             "PhaseProgressContract": {
                 "required": [
-                    "completed",
-                    "total",
-                    "percent",
-                    "source",
-                    "updatedAt",
-                    "tasks",
-                    "documents",
-                    "gates"
+                    "runId",
+                    "phaseKey",
+                    "planVersion",
+                    "percentage",
+                    "requiredTotal",
+                    "requiredAccepted",
+                    "inProgress",
+                    "inReview",
+                    "blocked",
+                    "pending",
+                    "optionalTotal",
+                    "optionalAccepted",
+                    "technicallyComplete",
+                    "obligations"
                 ],
                 "type": "object",
                 "properties": {
-                    "completed": {
+                    "runId": {
+                        "type": "string"
+                    },
+                    "phaseKey": {
+                        "type": "string"
+                    },
+                    "planVersion": {
                         "pattern": "^-?(?:0|[1-9]\\d*)$",
                         "type": [
                             "integer",
@@ -30533,15 +30682,7 @@
                         ],
                         "format": "int32"
                     },
-                    "total": {
-                        "pattern": "^-?(?:0|[1-9]\\d*)$",
-                        "type": [
-                            "integer",
-                            "string"
-                        ],
-                        "format": "int32"
-                    },
-                    "percent": {
+                    "percentage": {
                         "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
                         "type": [
                             "number",
@@ -30549,24 +30690,78 @@
                         ],
                         "format": "double"
                     },
-                    "source": {
-                        "type": "string"
-                    },
-                    "updatedAt": {
+                    "requiredTotal": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
                         "type": [
-                            "null",
+                            "integer",
                             "string"
                         ],
-                        "format": "date-time"
+                        "format": "int32"
                     },
-                    "tasks": {
-                        "$ref": "#/components/schemas/PhaseProgressBreakdownContract"
+                    "requiredAccepted": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     },
-                    "documents": {
-                        "$ref": "#/components/schemas/PhaseProgressBreakdownContract"
+                    "inProgress": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     },
-                    "gates": {
-                        "$ref": "#/components/schemas/PhaseProgressBreakdownContract"
+                    "inReview": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blocked": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "pending": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "optionalTotal": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "optionalAccepted": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "technicallyComplete": {
+                        "type": "boolean"
+                    },
+                    "obligations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PhaseObligationContract"
+                        }
                     }
                 }
             },
@@ -35638,6 +35833,9 @@
             "name": "tasks"
         },
         {
+            "name": "workflows"
+        },
+        {
             "name": "workflow-runs"
         },
         {
@@ -35738,9 +35936,6 @@
         },
         {
             "name": "workflow-versions"
-        },
-        {
-            "name": "workflows"
         },
         {
             "name": "phases"

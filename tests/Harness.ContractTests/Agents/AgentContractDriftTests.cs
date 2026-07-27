@@ -11,6 +11,10 @@ public sealed class AgentContractDriftTests
         "communicationStyle", "limitations", "version", "enabled", "archivedAt",
         "stacks", "defaultEffort", "preferredAccountId", "fallbackModelIds", "team",
         "actorCritic", "risk",
+        // PROCEDÊNCIA (2026-07-27): a chefe passou a criar especialistas sozinha, e a auditoria
+        // humana prometida depende de a tela ver quem criou, por quê, em que escopo e em que
+        // estágio de confiança. Sem estes campos no contrato, a supervisão não teria o que ler.
+        "origin", "lifecycleState", "scopeProjectId", "creationReason",
     ];
 
     private static readonly string[] AgentFields =
@@ -46,8 +50,13 @@ public sealed class AgentContractDriftTests
         AssertFields(openApi, "AgentDefinitionContract", DefinitionFields);
         AssertFields(openApi, "AgentDefinitionVersionContract",
             ["id", "definitionId", "version", "snapshot", "actorProfileId", "createdAt"]);
+        // O SNAPSHOT é o conteúdo versionado da persona. Procedência e ciclo de vida descrevem a
+        // LINHA, não a versão do conteúdo: gravá-los em cada revisão daria a impressão de que
+        // mudar o estágio de confiança altera a definição, quando são eixos independentes.
         AssertFields(openApi, "AgentDefinitionSnapshotContract", DefinitionFields
-            .Where(field => field is not ("id" or "version" or "enabled" or "archivedAt")));
+            .Where(field => field is not (
+                "id" or "version" or "enabled" or "archivedAt" or
+                "origin" or "lifecycleState" or "scopeProjectId" or "creationReason")));
         AssertFields(openApi, "AgentContract", AgentFields);
         AssertFields(openApi, "AgentOrgChartContract", ["projectId", "rootAgentId", "nodes"]);
         AssertFields(openApi, "AgentOrgChartNodeContract",

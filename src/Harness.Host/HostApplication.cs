@@ -832,6 +832,7 @@ public static class HostApplication
         app.MapBacklogHealth();
         app.MapDemandPlans();
         app.MapTaskMerge();
+        app.MapPhaseProgress();
         app.MapDeliveries();
         app.MapArchitecture();
         app.MapArchitectureHub();

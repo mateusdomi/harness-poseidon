@@ -72,6 +72,16 @@ export const agentDefinitionSchema = z.object({
   limitations: z.array(z.string()).optional(),
   enabled: z.boolean().optional(),
   archivedAt: isoDateTimeSchema.nullable().optional(),
+  /* PROCEDÊNCIA (2026-07-27). A chefe passou a criar especialistas sozinha quando há lacuna real,
+     então a auditoria humana precisa ver, na tela, QUEM criou, POR QUÊ, em que projeto e em que
+     estágio de confiança o perfil está. Sem isso a supervisão prometida não tem o que supervisionar.
+     Aditivos e opcionais: um backend anterior a esta rodada continua válido. */
+  origin: z.enum(['human', 'chief', 'system']).optional(),
+  lifecycleState: z
+    .enum(['project_scoped', 'active', 'reusable', 'global', 'observation', 'quarantined', 'disabled'])
+    .optional(),
+  scopeProjectId: ulidSchema.nullable().optional(),
+  creationReason: z.string().nullable().optional(),
 });
 export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
