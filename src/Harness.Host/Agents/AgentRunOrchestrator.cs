@@ -273,7 +273,67 @@ public sealed class AgentRunOrchestrator(
         var now = clock.UtcNow;
         var recoveredAccounts = profiles.RecoverStaleLocks(now);
         var expired = await workspaces.ListExpiredAsync(tenantId, now, cancellationToken);
-        return [.. recoveredAccounts.Concat(expired.Select(workspace => workspace.AttemptId)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+
+        // A recuperação LISTAVA as tentativas órfãs e não fazia mais nada — e a claim de path de
+        // uma tentativa órfã continua VIVA. Consequência: bastava o Host reiniciar durante uma
+        // execução para o escopo daquele card ficar preso para sempre, e todo card seguinte do
+        // mesmo escopo colhia `workspace.scopeconflict` até alguém intervir à mão. O projeto
+        // inteiro travava por causa de um processo morto.
+        //
+        // Agora a órfã é REIVINDICADA (o novo dono é este recovery, com fencing crescente) e
+        // liberada em seguida: a worktree e a claim voltam para o pool. Nenhum trabalho é
+        // destruído — a branch da tentativa permanece, e é dela que a colheita tira o diff.
+        var released = new List<string>();
+        foreach (var workspace in expired)
+        {
+            var owner = $"agent-run-recovery:{Environment.ProcessId}";
+            var reclaimed = await workspaces.ReclaimExpiredAsync(
+                new AttemptWorkspaceReclaimCommand(
+                    tenantId, workspace.AttemptId, owner, TimeSpan.FromMinutes(1), now),
+                cancellationToken);
+            if (reclaimed.Workspace is not { } snapshot)
+            {
+                continue;
+            }
+
+            // Liberar exige estado TERMINAL — uma órfã fica presa em `claimed`/`prepared`/`running`,
+            // que é justamente onde o processo morreu. A transição para `failed` é a leitura honesta
+            // do que aconteceu (a execução não terminou) e é o que destrava o release. A branch da
+            // tentativa continua intacta: nada de trabalho é destruído aqui.
+            if (!AttemptWorkspaceLifecycle.IsTerminal(snapshot.State))
+            {
+                var failed = await workspaces.TransitionAsync(
+                    new AttemptWorkspaceTransitionCommand
+                    {
+                        TenantId = tenantId,
+                        AttemptId = workspace.AttemptId,
+                        Owner = owner,
+                        FencingToken = snapshot.FencingToken,
+                        ExpectedState = snapshot.State,
+                        State = AttemptWorkspaceState.Failed,
+                        FinalError = "attempt.orphaned_by_host_restart",
+                        OccurredAt = now,
+                    },
+                    cancellationToken);
+                if (!failed.Succeeded || failed.Workspace is null)
+                {
+                    continue;
+                }
+
+                snapshot = failed.Workspace;
+            }
+
+            var release = await workspaces.ReleaseAsync(
+                new AttemptWorkspaceReleaseCommand(
+                    tenantId, workspace.AttemptId, owner, snapshot.FencingToken, now),
+                cancellationToken);
+            if (release.Succeeded)
+            {
+                released.Add(workspace.AttemptId);
+            }
+        }
+
+        return [.. recoveredAccounts.Concat(released).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
     }
 
     /// <summary>

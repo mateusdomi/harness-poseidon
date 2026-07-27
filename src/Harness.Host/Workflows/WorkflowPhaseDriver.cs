@@ -193,5 +193,14 @@ public sealed class WorkflowPhaseDriver(
                 now,
                 phaseName),
             cancellationToken);
+
+        // O card nasce em `backlog`, e quem promove backlog→ready é a triagem por ondas, que
+        // trabalha sobre um PLANO de demanda. Este card não vem de demanda: ele vem da esteira, e
+        // não tem dependência nenhuma — a fase já está ativa. Sem esta promoção explícita ele
+        // ficaria parado para sempre, invisível para o despacho.
+        _ = await _board.MoveTaskAsync(
+            new BoardTaskMoveCommand(
+                tenantId, taskId, "ready", $"esteira:{phaseName}", "agent", now.AddMilliseconds(4)),
+            cancellationToken);
     }
 }

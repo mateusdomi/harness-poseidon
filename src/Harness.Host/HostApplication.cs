@@ -472,6 +472,10 @@ public static class HostApplication
                 return registry;
             });
             builder.Services.AddHostedService<AccountRecoveryBackgroundService>();
+
+            // Sem isto, um restart do Host no meio de uma execução deixava a claim de path da
+            // tentativa órfã viva para sempre e travava todo card do mesmo escopo.
+            builder.Services.AddHostedService<AttemptRecoveryBackgroundService>();
             builder.Services.AddSingleton(new ChiefBacklogPolicy());
 
             // O condutor de fase é quem liga o trabalho entregue à esteira do projeto: sem ele o
