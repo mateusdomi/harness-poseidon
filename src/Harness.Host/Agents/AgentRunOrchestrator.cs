@@ -183,6 +183,15 @@ public sealed class AgentRunOrchestrator(
             runId, command.AccountAlias, command.Role, account.ExecutorId,
             PendingSession.Instance, accountLock.FencingToken, cancellation, completion);
 
+        // A entrada viva rastreia um run EM VOO (acompanhar/cancelar); concluído, o estado
+        // durável responde. Sem esta remoção, LiveRunCount cresceria para sempre e o teto
+        // global do ScaleGate estrangularia o despacho após poucas runs terminadas.
+        _ = completion.ContinueWith(
+            _ => _live.TryRemove(command.AttemptId, out var removed),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
         return new AgentRunSnapshot(
             runId, command.AttemptId, command.AccountAlias, command.Role, account.ExecutorId,
             AgentRunStatus.Accepted, acquired.Workspace, [], null, null, null,
