@@ -144,6 +144,7 @@ public static class DemandDecompositionPlanner
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Select(value => value.Trim())
             .ToArray();
+        var subject = SubjectOf(request.Title);
         var hints = request.Hints;
         var haystack = BuildHaystack(request.Title, request.Description, criteria);
 
@@ -229,7 +230,7 @@ public static class DemandDecompositionPlanner
             var backendCode = Code();
             implementationCodes.Add(backendCode);
             cards.Add(new ProposedCard(
-                Title(backendCode, "Backend: implementar a fatia de servidor"),
+                Title(backendCode, Label("Backend", subject, "Backend: implementar a fatia de servidor")),
                 CardTypeAgentTask,
                 RoleBackend,
                 $"Implementar a fatia de backend de {featureId}: contratos tipados, tenant scope, OCC, cancellation e persistência dual quando aplicável, com testes proporcionais ao risco.",
@@ -245,7 +246,7 @@ public static class DemandDecompositionPlanner
             var frontendCode = Code();
             implementationCodes.Add(frontendCode);
             cards.Add(new ProposedCard(
-                Title(frontendCode, "Frontend: implementar a fatia de interface"),
+                Title(frontendCode, Label("Frontend", subject, "Frontend: implementar a fatia de interface")),
                 CardTypeAgentTask,
                 RoleFrontend,
                 $"Implementar a fatia de frontend de {featureId} contra os contratos publicados, com validação de UI e testes proporcionais.",
@@ -261,7 +262,7 @@ public static class DemandDecompositionPlanner
             var docCode = Code();
             implementationCodes.Add(docCode);
             cards.Add(new ProposedCard(
-                Title(docCode, "Documentação: atualizar a documentação viva"),
+                Title(docCode, Label("Documentação", subject, "Documentação: atualizar a documentação viva")),
                 CardTypeAgentTask,
                 RoleNone,
                 $"Atualizar a documentação viva de {featureId} (guias, README, changelog) para refletir o comportamento entregue.",
@@ -283,7 +284,7 @@ public static class DemandDecompositionPlanner
         // para sempre, sem nunca escalar para um humano.
         var integrationCode = Code();
         cards.Add(new ProposedCard(
-            Title(integrationCode, "Gate humano: revisar e integrar a feature"),
+            Title(integrationCode, Label("Gate humano — integrar", subject, "Gate humano: revisar e integrar a feature")),
             CardTypeHumanGate,
             RoleNone,
             $"Revisar de forma independente e integrar as fatias de {featureId}: confirmar que os cards de implementação estão coerentes entre si, que os gates estão verdes e que os critérios de aceite da demanda foram atendidos ponta a ponta.",
@@ -304,6 +305,38 @@ public static class DemandDecompositionPlanner
             : [$"O resultado da fatia de {surface} é verificável por teste automatizado."];
 
     private static string Title(string code, string label) => $"{code} {label}";
+
+    /// <summary>
+    /// ASSUNTO da demanda para compor o título do card. Os títulos eram rótulos fixos ("Backend:
+    /// implementar a fatia de servidor"), então um board com várias demandas virava uma lista de
+    /// cards indistinguíveis: o raciocínio do chefe chegava à demanda e morria ali, sem chegar ao
+    /// card que o executor lê. Aqui o assunto real da demanda entra no título.
+    ///
+    /// O prefixo redundante ("ADR:", "Spike:", "Feature:") é removido porque o tipo do card já
+    /// carrega essa informação; sobra o que identifica a demanda. Sem assunto utilizável, o rótulo
+    /// genérico continua valendo — nunca um título vazio.
+    /// </summary>
+    private static string SubjectOf(string? demandTitle)
+    {
+        if (string.IsNullOrWhiteSpace(demandTitle))
+        {
+            return string.Empty;
+        }
+
+        var subject = FeatureIdPattern.Replace(demandTitle, string.Empty).Trim();
+        var separator = subject.IndexOf(':');
+        if (separator > 0 && separator < 24)
+        {
+            subject = subject[(separator + 1)..].Trim();
+        }
+
+        subject = subject.Trim(' ', '-', '—', '.', ':');
+        return subject.Length is > 3 and <= 90 ? subject : string.Empty;
+    }
+
+    /// <summary>Rótulo do card: o assunto da demanda quando existe; o genérico quando não.</summary>
+    private static string Label(string prefix, string subject, string fallback) =>
+        subject.Length > 0 ? $"{prefix}: {subject}" : fallback;
 
     /// <summary>Extrai o código estável do card ("&lt;featureId&gt;/T&lt;nn&gt;") do título proposto.</summary>
     public static string CodeOf(string proposedTitle)

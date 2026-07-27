@@ -31,6 +31,30 @@ public sealed class DemandDecompositionPlannerTests
     }
 
     [Fact]
+    public void CardTitlesCarryTheSubjectOfTheDemandInsteadOfAGenericLabel()
+    {
+        // Achado da homologação: com várias demandas no mesmo projeto, o board virava uma lista de
+        // cards indistinguíveis ("Backend: implementar a fatia de servidor" repetido N vezes). O
+        // raciocínio da chefe chegava à demanda e morria ali, sem chegar ao card que o executor lê.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "AUT-07: Autenticação e autorização por vendedor",
+            description: "Implementar login e filtro de vendas por vendedor na tela e no servidor."));
+
+        Assert.All(plan.Cards, card => Assert.Contains("vendedor", card.ProposedTitle, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(plan.Cards, card => card.ProposedTitle.StartsWith("AUT-07/T", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AGenericLabelStillCoversADemandWithoutAUsableSubject()
+    {
+        // Sem assunto aproveitável o rótulo genérico continua valendo — título vazio nunca.
+        var plan = DemandDecompositionPlanner.Plan(Request(title: "X"));
+
+        Assert.All(plan.Cards, card => Assert.False(string.IsNullOrWhiteSpace(card.ProposedTitle)));
+        Assert.Contains(plan.Cards, card => card.ProposedTitle.Contains("fatia de servidor", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ADemandWhoseDeliverableIsADecisionDoesNotEmitABackendSlice()
     {
         // Achado da homologação: a chefe abriu uma demanda de ADR ("definir a abordagem") e o

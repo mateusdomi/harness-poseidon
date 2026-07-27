@@ -189,6 +189,7 @@ public sealed partial class ChiefBacklogLoopService(
                 await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
                 await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
+                await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
                 await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -368,6 +369,9 @@ public sealed partial class ChiefBacklogLoopService(
 
     /// <summary>Cards cuja escalação já foi anunciada ao dono — o aviso é uma vez, não a cada ciclo.</summary>
     private readonly HashSet<string> _announcedEscalations = new(StringComparer.Ordinal);
+
+    /// <summary>Fases cujo portão já foi reportado como pronto para a decisão humana.</summary>
+    private readonly HashSet<string> _announcedGates = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Elo de COLHEITA: um run externo que terminou não fecha sozinho a cadeia durável. Aqui o
@@ -641,6 +645,38 @@ public sealed partial class ChiefBacklogLoopService(
 
         LogReviewInfrastructureFailure(logger, task.Id, attemptId, $"chain:{applied.Status}");
         return false;
+    }
+
+    /// <summary>
+    /// Elo de ESTEIRA: o trabalho do board passa a mover a fase do projeto. Sem ele, a chefe
+    /// entregava cards enquanto a esteira do playbook ficava parada na fase 1 para sempre —
+    /// nenhum objetivo saía de `pending` e nenhum documento exigido pela fase era produzido por
+    /// ninguém. Uma falha aqui é logada e nunca impede o resto do ciclo.
+    /// </summary>
+    private async Task DrivePhaseAsync(
+        string tenantId,
+        string actorProfileId,
+        ProjectRecord project,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var driver = scope.ServiceProvider.GetService<Workflows.WorkflowPhaseDriver>();
+        if (driver is null)
+        {
+            return;
+        }
+
+        var result = await driver.DriveAsync(tenantId, project, actorProfileId, token);
+        if (result.CardsCreated > 0 || result.ObjectivesAdvanced > 0)
+        {
+            LogPhaseDriven(logger, project.Id, result.CardsCreated, result.ObjectivesAdvanced);
+        }
+
+        if (result.GateAwaitingHuman is { Length: > 0 } phase &&
+            _announcedGates.Add($"{project.Id}:{phase}"))
+        {
+            LogPhaseGateReady(logger, project.Id, phase);
+        }
     }
 
     /// <summary>
@@ -971,6 +1007,12 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} adiado: {ReasonCode} (volta: {RetryAfter}; contas: {Candidates}).")]
     private static partial void LogCardDeferred(ILogger logger, string taskId, string reasonCode, string retryAfter, string candidates);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: esteira do projeto {ProjectId} — {Created} card(s) de artefato criado(s), {Advanced} objetivo(s) de fase concluído(s).")]
+    private static partial void LogPhaseDriven(ILogger logger, string projectId, int created, int advanced);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: projeto {ProjectId} — fase '{Phase}' com todos os artefatos entregues; o portão aguarda decisão humana (Default-FAIL, HITL).")]
+    private static partial void LogPhaseGateReady(ILogger logger, string projectId, string phase);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} ESCALADO — {Detail}.")]
     private static partial void LogCardEscalated(ILogger logger, string taskId, string detail);

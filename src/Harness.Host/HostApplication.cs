@@ -473,6 +473,10 @@ public static class HostApplication
             });
             builder.Services.AddHostedService<AccountRecoveryBackgroundService>();
             builder.Services.AddSingleton(new ChiefBacklogPolicy());
+
+            // O condutor de fase é quem liga o trabalho entregue à esteira do projeto: sem ele o
+            // motor de workflow nunca é chamado em produção e a esteira fica decorativa.
+            builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
             builder.Services.AddHostedService<ChiefBacklogLoopService>();
             builder.Services.AddSingleton(new AttemptArtifactArchive(
                 string.IsNullOrWhiteSpace(agentRunSettings.ArchiveRoot)
