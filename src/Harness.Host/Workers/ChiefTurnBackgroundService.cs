@@ -7,6 +7,7 @@ using Harness.Host.Observability;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Domain;
+using Harness.Modules.Coordination.Application;
 using Harness.Host.WorkBoard;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
@@ -38,6 +39,7 @@ public sealed partial class ChiefTurnBackgroundService(
     ILocalProfileStore localProfiles,
     IWorkBoardStore board,
     DemandPlanMaterializer demandPlans,
+    IAgentCatalogStore agentCatalog,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -220,6 +222,7 @@ public sealed partial class ChiefTurnBackgroundService(
             await ReportAsync(ChiefTurnActivity.Thinking);
             var communicationInstructions =
                 (await leadershipProfile.ReadAsync(cancellationToken)).CommunicationInstructions;
+            var specialists = await ReadSpecialistCatalogAsync(lease.Turn.TenantId, cancellationToken);
             AgentExecutionResult execution;
             using (var invocationActivity = PoseidonTelemetry.StartChiefInvocation(
                        lease.Turn.Selection?.Source,
@@ -237,7 +240,8 @@ public sealed partial class ChiefTurnBackgroundService(
                         lease.SessionId,
                         lease.Turn.Selection?.ModelName,
                         lease.Turn.Selection?.ProviderEffortValue,
-                        communicationInstructions),
+                        communicationInstructions,
+                        specialists),
                     cancellationToken);
                 invocationActivity?.SetTag("gen_ai.response.model", lease.Turn.Selection?.ModelName);
                 invocationActivity?.SetTag("gen_ai.client.operation.duration_ms", execution.DurationMs);
@@ -283,7 +287,16 @@ public sealed partial class ChiefTurnBackgroundService(
                     demand.Title,
                     demand.Description,
                     demand.RiskTier,
-                    demand.AcceptanceCriteria))
+                    demand.AcceptanceCriteria,
+                    demand.Specialty,
+                    demand.Surfaces is null
+                        ? null
+                        : new ChiefDemandSurfaceDeclaration(
+                            demand.Surfaces.Frontend,
+                            demand.Surfaces.Backend,
+                            demand.Surfaces.ExternalCredential,
+                            demand.Surfaces.TechnicalUncertainty,
+                            demand.Surfaces.Decision)))
                 .ToArray();
             if (demandSeeds.Length > 0)
             {
@@ -416,9 +429,13 @@ public sealed partial class ChiefTurnBackgroundService(
                     continue;
                 }
 
+                // O julgamento do Chefe chega ao PLANO. Antes, as dicas eram sempre nulas: ele
+                // declarava na conversa que a demanda era só visual (ou que exigia decisão antes de
+                // construir) e o planner, cego a isso, refazia a leitura por palavra-chave do texto
+                // — às vezes contra o que ele havia acabado de concluir.
                 var saved = await demandPlans.EnsurePlanAsync(
-                    lease.Turn.TenantId, demand, seed.AcceptanceCriteria, null,
-                    clock.UtcNow, cancellationToken);
+                    lease.Turn.TenantId, demand, seed.AcceptanceCriteria, ToHints(seed.Surfaces),
+                    seed.Specialty, clock.UtcNow, cancellationToken);
                 var outcome = await demandPlans.MaterializeAsync(
                     lease.Turn.TenantId, profile.Id, saved.Plan, demand,
                     clock.UtcNow, cancellationToken);
@@ -437,6 +454,57 @@ public sealed partial class ChiefTurnBackgroundService(
                 LogDemandMaterializationFailure(
                     logger, seed.DemandId, lease.Turn.TurnId, exception.GetType().Name);
             }
+        }
+    }
+
+    /// <summary>
+    /// Traduz a superfície declarada pelo Chefe nas dicas do planner. Nulo em ambos os lados
+    /// significa "não declarei": o planner segue inferindo do texto, como antes.
+    /// </summary>
+    private static DemandDecompositionHints? ToHints(ChiefDemandSurfaceDeclaration? surfaces) =>
+        surfaces is null
+            ? null
+            : new DemandDecompositionHints(
+                surfaces.Frontend,
+                surfaces.ExternalCredential,
+                surfaces.TechnicalUncertainty,
+                surfaces.Decision,
+                surfaces.Backend);
+
+    /// <summary>
+    /// Catálogo de especialistas oferecido ao Chefe para que ele delegue a quem é qualificado.
+    /// Falha de leitura NÃO derruba o turno: o catálogo volta vazio e o prompt declara a ausência,
+    /// em vez de apresentar uma lista inventada.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A missing specialist catalog degrades the prompt; it must never fail the turn.")]
+    private async Task<IReadOnlyList<AgentSpecialistOption>> ReadSpecialistCatalogAsync(
+        string tenantId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var definitions = await agentCatalog.ListDefinitionsForTenantAsync(
+                tenantId, null, 100, false, cancellationToken);
+            return [.. definitions
+                .Where(definition =>
+                    definition.Enabled &&
+                    definition.ArchivedAt is null &&
+                    string.Equals(definition.Role, "specialist", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(definition => definition.Key, StringComparer.Ordinal)
+                .Select(definition => new AgentSpecialistOption(
+                    definition.Key, definition.Name, definition.Specialty))];
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            LogSpecialistCatalogUnavailable(logger, exception.GetType().Name);
+            return [];
         }
     }
 
@@ -526,4 +594,10 @@ public sealed partial class ChiefTurnBackgroundService(
         string demandId,
         string turnId,
         string errorType);
+
+    [LoggerMessage(
+        EventId = 2104,
+        Level = LogLevel.Warning,
+        Message = "Chief: catálogo de especialistas indisponível ({ErrorType}); o turno segue sem opções de delegação.")]
+    private static partial void LogSpecialistCatalogUnavailable(ILogger logger, string errorType);
 }

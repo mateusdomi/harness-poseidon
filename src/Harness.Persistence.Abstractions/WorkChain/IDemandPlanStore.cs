@@ -41,7 +41,13 @@ public sealed record DemandPlanCard(
     string OutOfScope,
     IReadOnlyList<string> AcceptanceCriteria,
     IReadOnlyList<string> Gates,
-    IReadOnlyList<string> Dependencies);
+    IReadOnlyList<string> Dependencies,
+
+    /// <summary>
+    /// Especialidade (chave de persona) declarada pelo Chefe para este card. Opcional por design:
+    /// planos gravados antes desta declaração desserializam com nulo e seguem pela heurística.
+    /// </summary>
+    string? Specialty = null);
 
 public sealed record DemandPlanSaveCommand(
     string TenantId,

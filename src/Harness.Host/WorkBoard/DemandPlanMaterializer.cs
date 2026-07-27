@@ -25,12 +25,13 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
         BoardDemandRecord demand,
         IReadOnlyList<string> acceptanceCriteria,
         DemandDecompositionHints? hints,
+        string? specialty,
         DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(demand);
         var proposal = DemandDecompositionPlanner.Plan(new DemandDecompositionRequest(
-            demand.Title, demand.Description, acceptanceCriteria, demand.Priority, hints));
+            demand.Title, demand.Description, acceptanceCriteria, demand.Priority, hints, specialty));
         var command = new DemandPlanSaveCommand(
             tenantId, UlidValue.New(now).ToString(), demand.ProjectId, demand.Id,
             proposal.FeatureId, proposal.Cards.Select(ToCard).ToArray(),
@@ -92,7 +93,7 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
 
     internal static DemandPlanCard ToCard(ProposedCard card) => new(
         card.ProposedTitle, card.CardType, card.RequiredRole, card.Instruction, card.InScope,
-        card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies);
+        card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies, card.Specialty);
 
     // A instrução carrega o PAPEL exigido (nunca uma conta), o escopo in/out, os critérios de aceite,
     // os gates e as dependências — tudo o que o card precisa para virar execução após a triagem.
@@ -101,6 +102,14 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
         var builder = new StringBuilder();
         builder.Append("Feature: ").Append(featureId).Append('\n');
         builder.Append("Papel exigido: ").Append(card.RequiredRole).Append('\n');
+        if (!string.IsNullOrWhiteSpace(card.Specialty))
+        {
+            // O julgamento do Chefe sobre QUEM é o profissional qualificado chega ao card e, dali,
+            // ao despacho. Uma chave que não exista no catálogo é descartada no despacho — o texto
+            // do modelo nunca define autoridade, apenas propõe.
+            builder.Append("Especialidade exigida: ").Append(card.Specialty!.Trim()).Append('\n');
+        }
+
         builder.Append("Tipo de card: ").Append(card.CardType).Append("\n\n");
         builder.Append(card.Instruction).Append("\n\n");
         builder.Append("Em escopo: ").Append(card.InScope).Append('\n');

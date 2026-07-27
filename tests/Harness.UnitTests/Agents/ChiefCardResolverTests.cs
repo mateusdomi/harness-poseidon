@@ -65,4 +65,45 @@ public sealed class ChiefCardResolverTests
         Assert.Equal(["Testes verdes", "Sem drift"], r.Card.AcceptanceCriteria);
         Assert.Equal("medium", r.Card.RiskTier);
     }
+
+    [Fact]
+    public void TheSpecialtyDeclaredByTheChiefBeatsTheKeywordHeuristic()
+    {
+        // Sem a declaração, "endpoint de sessão" cai no engenheiro genérico: a heurística conhece
+        // 5 personas e o catálogo tem 25. A declaração do chefe alcança o especialista real.
+        var r = Resolve(
+            "Revisar a autenticação",
+            "Papel exigido: backend-specialist\nEspecialidade exigida: architecture-security\n\nRevisar o endpoint de sessão.");
+        Assert.Equal("architecture-security", r.PersonaKey);
+        Assert.Equal(ChiefCardResolver.Engineer, r.InferredPersonaKey);
+    }
+
+    [Fact]
+    public void WithoutADeclarationTheInferredPersonaIsAlsoTheChosenOne()
+    {
+        var r = Resolve("Atualizar o guia de operações", "Documentar o novo fluxo no manual.");
+        Assert.Equal(ChiefCardResolver.TechnicalWriter, r.PersonaKey);
+        Assert.Equal(r.PersonaKey, r.InferredPersonaKey);
+    }
+
+    [Fact]
+    public void AnAbsurdlyLongSpecialtyIsIgnoredAndTheHeuristicRemains()
+    {
+        var r = Resolve(
+            "Implementar X",
+            $"Especialidade exigida: {new string('x', 101)}\n\nAdicionar a geração de chave no store.");
+        Assert.Equal(ChiefCardResolver.Engineer, r.PersonaKey);
+    }
+
+    [Fact]
+    public void AnExplicitPersonaStillBeatsTheDeclarationInTheInstruction()
+    {
+        var r = ChiefCardResolver.Resolve(
+            "Qualquer título",
+            "Especialidade exigida: architecture-security",
+            ["ok"],
+            "high",
+            explicitPersonaKey: ChiefCardResolver.CriticQa);
+        Assert.Equal(ChiefCardResolver.CriticQa, r.PersonaKey);
+    }
 }

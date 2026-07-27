@@ -99,6 +99,23 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} (card_type={CardType}) NÃO despachável — pulado por prontidão (DoR): {Blockers}")]
     private static partial void LogCardNotDispatchable(ILogger logger, string taskId, string cardType, string blockers);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: a especialidade '{PersonaKey}' pedida pelo card {TaskId} não existe como especialista habilitado no catálogo; usando o fallback inferido.")]
+    private static partial void LogPersonaNotInCatalog(ILogger logger, string taskId, string personaKey);
+
+    /// <summary>
+    /// Procura a persona pela chave EXIGINDO que ela seja um especialista habilitado. É aqui que a
+    /// declaração do Chefe deixa de ser texto e passa a valer (ou não): o catálogo é a autoridade.
+    /// </summary>
+    private static AgentDefinitionRecord? FindPersona(
+        IReadOnlyList<AgentDefinitionRecord> personas, string? key) =>
+        string.IsNullOrWhiteSpace(key)
+            ? null
+            : personas.FirstOrDefault(definition =>
+                definition.Enabled &&
+                definition.ArchivedAt is null &&
+                string.Equals(definition.Role, "specialist", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(definition.Key, key.Trim(), StringComparison.OrdinalIgnoreCase));
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!settings.AutoDispatchEnabled)
@@ -1217,9 +1234,18 @@ public sealed partial class ChiefBacklogLoopService(
             return false;
         }
 
-        // Briefing = PERSONA (do catálogo, pela heurística de planejamento) + CARD (a demanda).
-        var persona = personas.FirstOrDefault(definition =>
-            string.Equals(definition.Key, resolution.PersonaKey, StringComparison.OrdinalIgnoreCase));
+        // Briefing = PERSONA (do catálogo) + CARD (a demanda). A persona pedida pelo card pode ter
+        // sido DECLARADA pelo Chefe; o texto dele propõe, o catálogo decide. Uma chave inexistente,
+        // desabilitada ou que não seja de especialista cai no fallback inferido — nunca em "sem
+        // persona", que degradaria o briefing para o escopo cru.
+        var persona = FindPersona(personas, resolution.PersonaKey);
+        if (persona is null && !string.Equals(
+                resolution.PersonaKey, resolution.InferredPersonaKey, StringComparison.OrdinalIgnoreCase))
+        {
+            LogPersonaNotInCatalog(logger, task.Id, resolution.PersonaKey);
+            persona = FindPersona(personas, resolution.InferredPersonaKey);
+        }
+
         var briefing = persona is null
             ? resolution.Card.Scope
             : PersonaCardComposer.Compose(ToContent(persona), resolution.Card);

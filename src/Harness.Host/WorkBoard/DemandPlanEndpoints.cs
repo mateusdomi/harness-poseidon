@@ -48,9 +48,10 @@ public static class DemandPlanEndpoints
                 ? null
                 : new DemandDecompositionHints(
                     input.Hints.HasFrontendSurface, input.Hints.RequiresExternalCredential,
-                    input.Hints.HasTechnicalUncertainty, input.Hints.RequiresDecision);
+                    input.Hints.HasTechnicalUncertainty, input.Hints.RequiresDecision,
+                    input.Hints.HasImplementationSurface);
             var result = await materializer.EnsurePlanAsync(
-                profile.TenantId, demand, criteria, hints, clock.UtcNow, token);
+                profile.TenantId, demand, criteria, hints, input?.Specialty, clock.UtcNow, token);
             var contract = ToContract(result.Plan);
             return result.Created
                 ? Results.Created($"/api/v1/demands/{demand.Id}/plan", contract)
@@ -129,7 +130,8 @@ public static class DemandPlanEndpoints
             plan.Id, plan.ProjectId, plan.DemandId, plan.FeatureId, plan.Status,
             plan.Cards.Select(card => new ProposedCardContract(
                 card.ProposedTitle, card.CardType, card.RequiredRole, card.Instruction, card.InScope,
-                card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies)).ToArray(),
+                card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies,
+                card.Specialty)).ToArray(),
             plan.CreatedAt, plan.MaterializedAt,
             dependencyPlan.DispatchWaves,
             dependencyPlan.FanInBarriers.Select(barrier => new PlanFanInBarrierContract(
@@ -149,17 +151,19 @@ public static class DemandPlanEndpoints
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record GeneratePlanRequest(
-    IReadOnlyList<string>? AcceptanceCriteria = null, PlanHintsPayload? Hints = null);
+    IReadOnlyList<string>? AcceptanceCriteria = null, PlanHintsPayload? Hints = null,
+    string? Specialty = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record PlanHintsPayload(
     bool? HasFrontendSurface = null, bool? RequiresExternalCredential = null,
-    bool? HasTechnicalUncertainty = null, bool? RequiresDecision = null);
+    bool? HasTechnicalUncertainty = null, bool? RequiresDecision = null,
+    bool? HasImplementationSurface = null);
 
 public sealed record ProposedCardContract(
     string ProposedTitle, string CardType, string RequiredRole, string Instruction, string InScope,
     string OutOfScope, IReadOnlyList<string> AcceptanceCriteria, IReadOnlyList<string> Gates,
-    IReadOnlyList<string> Dependencies);
+    IReadOnlyList<string> Dependencies, string? Specialty = null);
 
 public sealed record PlanFanInBarrierContract(
     string ConsumerCard, IReadOnlyList<string> ProviderCards);

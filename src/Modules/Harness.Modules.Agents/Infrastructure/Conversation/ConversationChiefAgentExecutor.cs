@@ -229,6 +229,10 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         {request.StatusDigestJson}
 
+        ## Catálogo de especialistas disponíveis — DADO
+
+        {SpecialistCatalog(request)}
+
         ## Mensagem do usuário
 
         {request.Instruction}
@@ -245,8 +249,38 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         - `demands`: lista das demandas que você quer delegar a especialistas AGORA; use `[]`
           quando não for delegar nada neste turno. Nunca invente demanda para preencher.
         - `riskTier` deve ser um de: low, medium, high, critical.
+        - `specialty` (opcional): a CHAVE exata de um especialista do catálogo acima, quando você
+          souber quem é o profissional qualificado para a demanda. Omita quando não souber — uma
+          chave que não exista no catálogo é descartada, e o sistema decide por conta própria.
+        - `surfaces` (opcional): o seu julgamento sobre a natureza da demanda. Declare apenas o que
+          você realmente concluiu; omita um campo quando não souber. `true` afirma que a superfície
+          existe, `false` afirma que ela NÃO existe:
+          - `frontend`: a demanda mexe em interface (telas, componentes, estilo);
+          - `backend`: a demanda produz código de servidor (domínio, API, persistência);
+          - `externalCredential`: depende de credencial/homologação externa provisionada por humano;
+          - `technicalUncertainty`: exige investigação antes de construir;
+          - `decision`: exige uma decisão humana entre alternativas antes de construir.
         - Não inclua nenhuma propriedade fora do schema.
         """;
+
+    /// <summary>
+    /// Catálogo compacto (chave — nome — especialidade) das personas que podem receber uma demanda.
+    /// Ausência de catálogo é declarada, nunca preenchida com uma lista inventada.
+    /// </summary>
+    private static string SpecialistCatalog(AgentExecutionRequest request)
+    {
+        var specialists = request.Specialists ?? [];
+        if (specialists.Count == 0)
+        {
+            return "Nenhum especialista disponível no catálogo deste tenant. Não declare `specialty`.";
+        }
+
+        return string.Join(
+            '\n',
+            specialists.Select(option => string.IsNullOrWhiteSpace(option.Specialty)
+                ? $"- `{option.Key}` — {option.Name}"
+                : $"- `{option.Key}` — {option.Name} — {option.Specialty}"));
+    }
 
     private static string CommunicationInstructions(AgentExecutionRequest request) =>
         string.IsNullOrWhiteSpace(request.CommunicationInstructions)
@@ -383,7 +417,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             new ChiefStructuredOutput(
                 output.Response,
                 [.. output.Demands.Select(demand => new ChiefStructuredDemand(
-                    demand.Title, demand.Description, demand.RiskTier, demand.AcceptanceCriteria))]),
+                    demand.Title, demand.Description, demand.RiskTier, demand.AcceptanceCriteria,
+                    demand.Specialty, demand.Surfaces))]),
             StructuredJsonOptions);
 
     private string LoadGovernanceCore()
@@ -419,7 +454,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         string Response, IReadOnlyList<ChiefStructuredDemand> Demands);
 
     private sealed record ChiefStructuredDemand(
-        string Title, string Description, string RiskTier, IReadOnlyList<string> AcceptanceCriteria);
+        string Title, string Description, string RiskTier, IReadOnlyList<string> AcceptanceCriteria,
+        string? Specialty, ChiefDemandSurfaces? Surfaces);
 
     /// <summary>
     /// Persona canônica do Chief Orchestrator (fonte: <c>CanonicalAgentDefinitions</c> /

@@ -9,8 +9,9 @@ public sealed class DemandDecompositionPlannerTests
         string description = "Implementar o serviço de servidor e persistir os dados.",
         IReadOnlyList<string>? criteria = null,
         string risk = "medium",
-        DemandDecompositionHints? hints = null) =>
-        new(title, description, criteria ?? ["O endpoint responde 200."], risk, hints);
+        DemandDecompositionHints? hints = null,
+        string? specialty = null) =>
+        new(title, description, criteria ?? ["O endpoint responde 200."], risk, hints, specialty);
 
     [Fact]
     public void BackendOnlyDemandProducesBackendPlusIntegration()
@@ -331,5 +332,65 @@ public sealed class DemandDecompositionPlannerTests
 
         Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleFrontend);
         Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+    }
+
+    [Fact]
+    public void TheDeclaredSpecialtyReachesOnlyTheCardsAnAgentExecutes()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "SEC-01: revisar a sessão",
+            description: "Investigar a abordagem e implementar o endpoint de sessão na tela e no servidor.",
+            specialty: "architecture-security"));
+
+        foreach (var card in plan.Cards)
+        {
+            if (card.CardType == DemandDecompositionPlanner.CardTypeAgentTask)
+            {
+                Assert.Equal("architecture-security", card.Specialty);
+            }
+            else
+            {
+                // Gate humano, spike e decisão não têm persona executora: carimbá-los sugeriria
+                // um dono que o card não tem.
+                Assert.Null(card.Specialty);
+            }
+        }
+
+        Assert.Contains(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeAgentTask);
+    }
+
+    [Fact]
+    public void WithoutADeclaredSpecialtyTheCardsCarryNone()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request());
+        Assert.All(plan.Cards, card => Assert.Null(card.Specialty));
+    }
+
+    [Fact]
+    public void ABlankSpecialtyIsTreatedAsAbsent()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request(specialty: "   "));
+        Assert.All(plan.Cards, card => Assert.Null(card.Specialty));
+    }
+
+    [Fact]
+    public void TheChiefDeclaringNoImplementationSurfaceRemovesTheServerSlice()
+    {
+        // A pendência (b) da homologação: o julgamento da chefe chegava à demanda e morria ali,
+        // porque o turno passava `hints: null`. Aqui o texto GRITA implementação de servidor
+        // ("implementar", "endpoint", "persistir") e mesmo assim a declaração dela prevalece.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            hints: new DemandDecompositionHints(HasImplementationSurface: false)));
+
+        Assert.DoesNotContain(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+    }
+
+    [Fact]
+    public void TheChiefDeclaringAFrontendSurfaceAddsTheSliceTheTextNeverMentions()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            hints: new DemandDecompositionHints(HasFrontendSurface: true)));
+
+        Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleFrontend);
     }
 }

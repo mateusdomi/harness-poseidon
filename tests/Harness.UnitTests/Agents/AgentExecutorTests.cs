@@ -34,6 +34,44 @@ public sealed class AgentExecutorTests
     }
 
     [Fact]
+    public void ChiefOutputKeepsTheDeclarationStrictlyClosed()
+    {
+        // A superfície é o JULGAMENTO da chefe, não texto livre: propriedade desconhecida e valor
+        // fora do tipo são recusados, do mesmo jeito que no resto do contrato.
+        Assert.Throws<AgentOutputValidationException>(() =>
+            ChiefTurnOutputContract.Parse(
+                """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{"mobile":true}}]}"""));
+        Assert.Throws<AgentOutputValidationException>(() =>
+            ChiefTurnOutputContract.Parse(
+                """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{"frontend":"sim"}}]}"""));
+        Assert.Throws<AgentOutputValidationException>(() =>
+            ChiefTurnOutputContract.Parse(
+                """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":[]}]}"""));
+    }
+
+    [Fact]
+    public void ADemandWithoutDeclarationParsesExactlyAsBefore()
+    {
+        // Compatibilidade: a declaração é OPCIONAL. Um turno sem ela continua válido e mantém a
+        // inferência por texto — "não declarei" nunca vira "declarei que não".
+        var output = ChiefTurnOutputContract.Parse(
+            """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"]}]}""");
+        var demand = Assert.Single(output.Demands);
+        Assert.Null(demand.Specialty);
+        Assert.Null(demand.Surfaces);
+    }
+
+    [Fact]
+    public void AnEmptySurfaceObjectIsTreatedAsNoDeclaration()
+    {
+        var output = ChiefTurnOutputContract.Parse(
+            """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{},"specialty":null}]}""");
+        var demand = Assert.Single(output.Demands);
+        Assert.Null(demand.Surfaces);
+        Assert.Null(demand.Specialty);
+    }
+
+    [Fact]
     public void CodexExecutorRefusesIncompleteExternalSandboxProof()
     {
         var proof = new CodexCliExternalSandboxProof(true, true, false, true);

@@ -93,9 +93,23 @@ public sealed record ChiefTurnCompleteCommand(
     string SessionId, string StatusDigestJson, DateTimeOffset OccurredAt,
     IReadOnlyList<ChiefDemandSeed>? Demands = null);
 
+/// <summary>
+/// A superfície que o Chefe DECLAROU para a demanda, propagada do turno até o planejamento. Cada
+/// campo é tri-state: <c>true</c>/<c>false</c> são declarações do Chefe; nulo é "não declarei" e
+/// mantém a inferência por texto. Espelha (sem acoplar módulos) a declaração do contrato de saída
+/// do Chefe e as dicas de decomposição do planner.
+/// </summary>
+public sealed record ChiefDemandSurfaceDeclaration(
+    bool? Frontend = null,
+    bool? Backend = null,
+    bool? ExternalCredential = null,
+    bool? TechnicalUncertainty = null,
+    bool? Decision = null);
+
 public sealed record ChiefDemandSeed(
     string DemandId, string BackingSolicitationId, string Title, string Description,
-    string RiskTier, IReadOnlyList<string> AcceptanceCriteria)
+    string RiskTier, IReadOnlyList<string> AcceptanceCriteria,
+    string? Specialty = null, ChiefDemandSurfaceDeclaration? Surfaces = null)
 {
     private static readonly HashSet<string> RiskTiers =
         new(["low", "medium", "high", "critical"], StringComparer.Ordinal);

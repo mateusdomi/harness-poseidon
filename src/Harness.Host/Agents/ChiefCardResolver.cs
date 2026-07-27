@@ -23,12 +23,22 @@ public static class ChiefCardResolver
         string title, string instructionBody, IReadOnlyList<string> acceptanceCriteria,
         string riskTier, string? explicitPersonaKey = null, string? explicitRole = null)
     {
-        var text = $"{title}\n{instructionBody}".ToLowerInvariant();
+        // A heurística lê a DEMANDA, não os marcadores de despacho. A linha "Especialidade
+        // exigida: architecture-security" carrega a palavra "architecture" — deixá-la no palheiro
+        // faria a persona declarada enviesar o próprio fallback dela, e uma chave inválida
+        // arrastaria a inferência junto.
+        var text = $"{title}\n{WithoutSpecialtyMarker(instructionBody)}".ToLowerInvariant();
 
         // Um card que DECLARA o papel (o materializer de planos escreve "Papel exigido: <role>")
         // prevalece sobre qualquer heurística — a heurística só existe para cards escritos à mão.
         var role = explicitRole ?? ParseDeclaredRole(instructionBody) ?? InferRole(text);
-        var persona = explicitPersonaKey ?? InferPersona(text, role);
+
+        // A persona INFERIDA é sempre calculada, mesmo quando há uma declarada: ela é o fallback
+        // usado quando a chave declarada não existe (ou não está habilitada) no catálogo. Sem esse
+        // fallback, uma chave inválida escrita pelo modelo deixaria o card sem persona alguma e o
+        // briefing degradaria para o texto cru do escopo — o executor perderia o "quem/como".
+        var inferred = InferPersona(text, role);
+        var persona = explicitPersonaKey ?? ParseDeclaredSpecialty(instructionBody) ?? inferred;
         var claims = AgentRoles.PathScopesFor(role);
         var capability = string.Equals(role, AgentRoles.Critic, StringComparison.OrdinalIgnoreCase)
             ? "review"
@@ -41,7 +51,39 @@ public static class ChiefCardResolver
             claims,
             riskTier);
 
-        return new ChiefCardResolution(role, capability, persona, claims, card);
+        return new ChiefCardResolution(role, capability, persona, claims, card, inferred);
+    }
+
+    /// <summary>
+    /// Especialidade declarada no corpo da instrução ("Especialidade exigida: &lt;agent_key&gt;"),
+    /// escrita pelo materializador quando o Chefe declarou quem é o profissional qualificado. Aqui
+    /// só o formato é validado; a EXISTÊNCIA da persona é conferida contra o catálogo no despacho,
+    /// porque autoridade é do sistema, nunca do texto que o modelo produziu.
+    /// </summary>
+    private const string SpecialtyMarker = "especialidade exigida:";
+
+    private static string WithoutSpecialtyMarker(string instructionBody) =>
+        string.Join(
+            '\n',
+            instructionBody.Split('\n').Where(line =>
+                !line.Trim().StartsWith(SpecialtyMarker, StringComparison.OrdinalIgnoreCase)));
+
+    private static string? ParseDeclaredSpecialty(string instructionBody)
+    {
+        const string marker = SpecialtyMarker;
+        foreach (var line in instructionBody.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var declared = trimmed[marker.Length..].Trim();
+            return declared.Length is > 0 and <= 100 ? declared : null;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -116,4 +158,10 @@ public sealed record ChiefCardResolution(
     string RequiredCapability,
     string PersonaKey,
     IReadOnlyList<string> ScopeClaims,
-    DelegationCard Card);
+    DelegationCard Card,
+
+    /// <summary>
+    /// A persona que a heurística escolheria. Igual a <see cref="PersonaKey"/> quando nada foi
+    /// declarado; é o fallback quando a chave declarada não existe no catálogo.
+    /// </summary>
+    string InferredPersonaKey = "");

@@ -27513,6 +27513,12 @@
                                 "$ref": "#/components/schemas/PlanHintsPayload"
                             }
                         ]
+                    },
+                    "specialty": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 },
                 "additionalProperties": false
@@ -30640,6 +30646,12 @@
                             "null",
                             "boolean"
                         ]
+                    },
+                    "hasImplementationSurface": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
                     }
                 },
                 "additionalProperties": false
@@ -31494,6 +31506,12 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "specialty": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },

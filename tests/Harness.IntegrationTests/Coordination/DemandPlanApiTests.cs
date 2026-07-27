@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Harness.Host;
+using Harness.Host.Agents;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
@@ -164,6 +165,74 @@ public sealed class DemandPlanApiTests
                 }
                 finally { await restarted.StopAsync(timeout.Token); }
             }
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task TheDeclaredSpecialtyReachesTheCardInstructionAndTheDispatchResolution()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var root = Path.Combine(AppContext.BaseDirectory, "integration-artifacts", $"plan-spec-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            await using var app = CreateHost(Path.Combine(root, "plan.db"));
+            await app.StartAsync(timeout.Token);
+            try
+            {
+                using var handler = new HttpClientHandler { CookieContainer = new CookieContainer() };
+                using var client = new HttpClient(handler) { BaseAddress = Address(app.Services) };
+                await CreateProfileAsync(client, timeout.Token);
+                var organization = await CreateOrganizationAsync(client, timeout.Token);
+                var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+
+                using var demandResponse = await client.PostAsJsonAsync("/api/v1/demands",
+                    new CreateDemandRequest(project.Id, "SEC-01 Revisar a sessão",
+                        "Implementar o endpoint de sessão com hash forte de senha.", null, "high"),
+                    timeout.Token);
+                var demand = (await demandResponse.Content.ReadFromJsonAsync<DemandContract>(timeout.Token))!;
+
+                using var generate = await client.PostAsJsonAsync(
+                    $"/api/v1/demands/{demand.Id}/plan",
+                    new GeneratePlanRequest(
+                        ["A sessão expira."],
+                        new PlanHintsPayload(HasFrontendSurface: false),
+                        "architecture-security"),
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.Created, generate.StatusCode);
+                var plan = (await generate.Content.ReadFromJsonAsync<DemandPlanContract>(timeout.Token))!;
+
+                // A declaração acompanha só os cards que um agente executa.
+                var backend = Assert.Single(
+                    plan.Cards,
+                    c => c is { CardType: "agent_task", RequiredRole: "backend-specialist" });
+                Assert.Equal("architecture-security", backend.Specialty);
+                Assert.All(
+                    plan.Cards.Where(c => c.CardType != "agent_task"),
+                    card => Assert.Null(card.Specialty));
+                // A dica negativa da chefe vale contra o texto: nenhuma fatia de frontend.
+                Assert.DoesNotContain(plan.Cards, c => c.RequiredRole == "frontend-specialist");
+
+                using var materialize = await client.PostAsync(
+                    $"/api/v1/demands/{demand.Id}/plan/materialize", null, timeout.Token);
+                Assert.Equal(HttpStatusCode.OK, materialize.StatusCode);
+
+                // A instrução persistida do card carrega a declaração, e é dela que o despacho
+                // resolve a persona — o elo que fazia o julgamento da chefe morrer na conversa.
+                var tasks = await client.GetFromJsonAsync<TaskPage>(
+                    $"/api/v1/tasks?projectId={project.Id}&demandId={demand.Id}", timeout.Token);
+                var card = tasks!.Items.Single(t => t.Title.Contains("Backend", StringComparison.Ordinal));
+                var instructions = await client.GetFromJsonAsync<InstructionPage>(
+                    $"/api/v1/task-instructions?taskId={card.Id}", timeout.Token);
+                var body = instructions!.Items[^1].Body;
+                Assert.Contains("Especialidade exigida: architecture-security", body, StringComparison.Ordinal);
+
+                var resolution = ChiefCardResolver.Resolve(card.Title, body, ["ok"], "high");
+                Assert.Equal("architecture-security", resolution.PersonaKey);
+                Assert.Equal("backend-specialist", resolution.Role);
+            }
+            finally { await app.StopAsync(timeout.Token); }
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

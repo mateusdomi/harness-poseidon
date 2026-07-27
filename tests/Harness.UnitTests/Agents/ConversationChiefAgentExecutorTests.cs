@@ -175,6 +175,66 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Equal("executor.quota_exhausted", exception.Code);
     }
 
+    [Fact]
+    public async Task TheChiefSeesTheSpecialistCatalogSheIsToldToDelegateTo()
+    {
+        // A persona dela manda "delegue ao especialista cuja persona melhor encaixa". Sem o
+        // catálogo no prompt, essa instrução era irrealizável: a escolha caía numa heurística de
+        // palavra-chave que alcança 5 das 25 personas semeadas.
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(ChiefRegistry(), fake);
+
+        await executor.ExecuteAsync(
+            Request(specialists:
+            [
+                new AgentSpecialistOption("architecture-security", "Security Architect", "Ameaças"),
+                new AgentSpecialistOption("software-engineer", "Software Engineer", null),
+            ]),
+            CancellationToken.None);
+
+        var captured = Assert.Single(fake.Requests);
+        Assert.Contains("architecture-security", captured.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Security Architect", captured.Prompt, StringComparison.Ordinal);
+        Assert.Contains("software-engineer", captured.Prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnEmptyCatalogIsDeclaredInsteadOfInvented()
+    {
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(ChiefRegistry(), fake);
+
+        await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var captured = Assert.Single(fake.Requests);
+        Assert.Contains(
+            "Nenhum especialista disponível no catálogo",
+            captured.Prompt,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TheDeclaredSpecialtyAndSurfacesSurviveIntoTheStructuredOutput()
+    {
+        const string json =
+            """
+            {"response":"Só tela.","demands":[{"title":"UI-1 cor do botão","description":"Trocar a cor.",
+            "riskTier":"low","acceptanceCriteria":["O botão fica verde."],
+            "specialty":"software-engineer","surfaces":{"frontend":true,"backend":false}}]}
+            """;
+        var fake = new FakeExternalExecutor(json);
+        var executor = Build(ChiefRegistry(), fake);
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var demand = Assert.Single(ChiefTurnOutputContract.Parse(result.StructuredOutput).Demands);
+        Assert.Equal("software-engineer", demand.Specialty);
+        Assert.True(demand.Surfaces!.Frontend);
+        Assert.False(demand.Surfaces.Backend);
+        // "Não declarei" continua distinto de "declarei que não".
+        Assert.Null(demand.Surfaces.Decision);
+    }
+
     private ConversationChiefAgentExecutor Build(
         AgentAccountRegistry registry, FakeExternalExecutor fake) =>
         new(
@@ -187,7 +247,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     private static AgentExecutionRequest Request(
         string instruction = "Continue com segurança",
         string? sessionId = null,
-        string? communicationInstructions = null) =>
+        string? communicationInstructions = null,
+        IReadOnlyList<AgentSpecialistOption>? specialists = null) =>
         new(
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "01ARZ3NDEKTSV4RRFFQ69G5FAW",
@@ -197,7 +258,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             """{"cards":7,"status":"green"}""",
             "/unused/by/this/executor",
             sessionId,
-            CommunicationInstructions: communicationInstructions);
+            CommunicationInstructions: communicationInstructions,
+            Specialists: specialists);
 
     private static AgentAccountRegistry ChiefRegistry()
     {

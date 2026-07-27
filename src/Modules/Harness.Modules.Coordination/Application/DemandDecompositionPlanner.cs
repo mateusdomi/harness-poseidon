@@ -14,7 +14,14 @@ public sealed record DemandDecompositionRequest(
     string Description,
     IReadOnlyList<string> AcceptanceCriteria,
     string RiskTier,
-    DemandDecompositionHints? Hints = null);
+    DemandDecompositionHints? Hints = null,
+
+    /// <summary>
+    /// A especialidade (chave de persona do catálogo) que o Chefe declarou para a demanda. Vai
+    /// apenas aos cards que um agente executa; cards de gate/decisão/spike não têm executor.
+    /// Nulo mantém a inferência por texto no despacho.
+    /// </summary>
+    string? Specialty = null);
 
 /// <summary>
 /// Dicas explícitas que SOBRESCREVEM a heurística por palavra-chave quando presentes (não nulas).
@@ -49,7 +56,10 @@ public sealed record ProposedCard(
     string OutOfScope,
     IReadOnlyList<string> AcceptanceCriteria,
     IReadOnlyList<string> Gates,
-    IReadOnlyList<string> Dependencies);
+    IReadOnlyList<string> Dependencies,
+
+    /// <summary>Especialidade declarada pelo Chefe para este card, quando houver executor.</summary>
+    string? Specialty = null);
 
 /// <summary>Plano proposto: o id da feature e a lista ORDENADA de cards filhos.</summary>
 public sealed record DemandPlanProposal(string FeatureId, IReadOnlyList<ProposedCard> Cards);
@@ -206,6 +216,11 @@ public static class DemandDecompositionPlanner
         var visualOnly = MentionsAny(haystack, FrontendTerms) && !mentionsBackend;
         var hasBackend = hints?.HasImplementationSurface ?? (!deliverableIsNotCode && !visualOnly);
 
+        // A especialidade declarada pelo Chefe só acompanha cards que um AGENTE executa. Um gate
+        // humano, um spike ou uma decisão não têm persona executora: carimbá-los sugeriria um dono
+        // que o card não tem.
+        var specialty = string.IsNullOrWhiteSpace(request.Specialty) ? null : request.Specialty.Trim();
+
         var ordinal = 0;
         var cards = new List<ProposedCard>();
         string Code() => $"{featureId}/T{++ordinal:00}";
@@ -285,7 +300,8 @@ public static class DemandDecompositionPlanner
                 "Qualquer UI/frontend; provisionamento de credencial externa; documentação de produto.",
                 ImplementationCriteria(criteria, "backend"),
                 ["build", "tests"],
-                [.. prerequisiteCodes]));
+                [.. prerequisiteCodes],
+                specialty));
         }
 
         if (hasFrontend)
@@ -301,7 +317,8 @@ public static class DemandDecompositionPlanner
                 "Lógica de servidor/persistência; provisionamento de credencial externa.",
                 ImplementationCriteria(criteria, "frontend"),
                 ["build", "lint"],
-                [.. prerequisiteCodes]));
+                [.. prerequisiteCodes],
+                specialty));
         }
 
         if (hasDocumentation)
@@ -317,7 +334,8 @@ public static class DemandDecompositionPlanner
                 "Código de produção; a documentação apenas descreve o que foi implementado.",
                 ["A documentação viva reflete o comportamento entregue e passa nos gates de documentação."],
                 ["docs"],
-                [.. prerequisiteCodes]));
+                [.. prerequisiteCodes],
+                specialty));
         }
 
         // 7. Integração final — sempre presente, depende de todos os cards de implementação.
