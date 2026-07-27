@@ -102,6 +102,9 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: a especialidade '{PersonaKey}' pedida pelo card {TaskId} não existe como especialista habilitado no catálogo; usando o fallback inferido.")]
     private static partial void LogPersonaNotInCatalog(ILogger logger, string taskId, string personaKey);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: a persona '{PersonaKey}' existe mas não é elegível para o card {TaskId}; usando o fallback inferido.")]
+    private static partial void LogPersonaNotEligible(ILogger logger, string taskId, string personaKey);
+
     /// <summary>
     /// Procura a persona pela chave EXIGINDO que ela seja um especialista habilitado. É aqui que a
     /// declaração do Chefe deixa de ser texto e passa a valer (ou não): o catálogo é a autoridade.
@@ -115,6 +118,30 @@ public sealed partial class ChiefBacklogLoopService(
                 definition.ArchivedAt is null &&
                 string.Equals(definition.Role, "specialist", StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(definition.Key, key.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// A persona encontrada pode REALMENTE assumir este card? Criar não é o mesmo que executar:
+    /// uma persona em quarentena, presa a outro projeto ou acima da faixa de risco autorizada
+    /// aparenta capacidade que não tem, e delegar-lhe o card gastaria cota para falhar depois.
+    /// </summary>
+    private static bool IsEligible(
+        AgentDefinitionRecord persona, string projectId, string cardRiskTier) =>
+        PersonaEligibilityPolicy.Evaluate(
+            new PersonaEligibilityInput(
+                persona.Key,
+                persona.Role,
+                persona.Enabled,
+                persona.ArchivedAt is not null,
+                persona.LifecycleState,
+                persona.ScopeProjectId,
+                persona.Risk,
+                persona.ToolIds ?? [],
+                MissingRequiredCapabilities: []),
+            projectId,
+            cardRiskTier,
+            // Ferramenta ainda não é resolvida por card neste ponto do laço: exigi-la aqui
+            // recusaria toda persona do catálogo semeado, que nasce sem tool.
+            requiresTools: false).Eligible;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -1443,6 +1470,14 @@ public sealed partial class ChiefBacklogLoopService(
         // desabilitada ou que não seja de especialista cai no fallback inferido — nunca em "sem
         // persona", que degradaria o briefing para o escopo cru.
         var persona = FindPersona(personas, resolution.PersonaKey);
+        if (persona is not null && !IsEligible(persona, project.Id, task.Priority))
+        {
+            // Existe no catálogo, mas não pode assumir ESTE card. Cair no fallback é melhor do
+            // que delegar a quem o sistema já sabe que não vai conseguir entregar.
+            LogPersonaNotEligible(logger, task.Id, persona.Key);
+            persona = null;
+        }
+
         if (persona is null && !string.Equals(
                 resolution.PersonaKey, resolution.InferredPersonaKey, StringComparison.OrdinalIgnoreCase))
         {
