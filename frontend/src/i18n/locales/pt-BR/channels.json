@@ -48,7 +48,10 @@
         "identityHintEmail": "Endereço de e-mail do remetente autorizado a conversar com Bruna por este canal.",
         "identityPlaceholder": "5774120296",
         "project": "Projeto",
-        "projectPlaceholder": "Selecione o projeto"
+        "projectPlaceholder": "Selecione o projeto",
+        "conversation": "Conversa unificada",
+        "conversationHint": "Escolha uma conversa ativa para reunir vários canais no mesmo histórico, ou crie uma conversa dedicada.",
+        "newConversation": "Criar uma nova conversa para este canal"
       },
       "submit": "Vincular canal",
       "submitting": "Vinculando…",
@@ -58,7 +61,11 @@
         "invalid_channel_kind": "Tipo de canal inválido.",
         "invalid_external_identity": "A identidade externa é obrigatória e limitada a 200 caracteres.",
         "invalid_project_id": "Selecione um projeto válido.",
+        "invalid_conversation_id": "Selecione uma conversa válida.",
         "project_not_found": "O projeto selecionado não existe mais.",
+        "conversation_not_found": "A conversa não existe no projeto selecionado.",
+        "conversation_inactive": "A conversa selecionada não está ativa.",
+        "channel_already_linked": "Essa identidade externa já está vinculada a outra conversa.",
         "generic": "Não foi possível vincular o canal. Verifique os dados e tente de novo."
       }
     },

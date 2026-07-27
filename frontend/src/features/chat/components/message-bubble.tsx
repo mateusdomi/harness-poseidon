@@ -148,7 +148,8 @@ export function MessageBubble({
                     ? `/board?task=${reference.id}`
                     : `/documents?doc=${reference.id}`
                 }
-                className="inline-flex min-h-touch items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 py-1 text-xs font-medium motion-safe:transition-colors motion-safe:duration-fast hover:bg-background"
+                data-slot="tag"
+                className="inline-flex min-h-touch items-center gap-1.5 rounded-full border border-info/50 bg-info/10 px-3 py-1 text-xs font-medium text-info motion-safe:transition-colors motion-safe:duration-fast hover:bg-info/20"
               >
                 {reference.kind === 'task' ? (
                   <ClipboardList aria-hidden="true" className="size-3.5" />

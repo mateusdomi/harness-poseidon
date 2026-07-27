@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Send, Sparkles, X } from 'lucide-react';
 
 import type { SolicitationAnalysis } from '@/api';
-import { Button, Card, CardContent, Select, Skeleton, Textarea } from '@/design-system';
+import { Badge, Button, Card, CardContent, Select, Skeleton, Textarea } from '@/design-system';
 import { FeatureIntro } from '@/features/shared/components/feature-intro';
 import { AnalysisPanelCard } from '@/features/po-assistant/components/analysis-panel-card';
 import {
@@ -196,7 +196,7 @@ export default function UpoAssistantPage() {
                   <ul className="flex flex-wrap gap-2">
                     {attachments.map((name, index) => (
                       <li key={`${name}-${index}`}>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-border-strong bg-surface-elevated px-2.5 py-0.5 text-xs">
+                        <Badge variant="accent">
                           {name}
                           <button
                             type="button"
@@ -208,7 +208,7 @@ export default function UpoAssistantPage() {
                           >
                             <X aria-hidden="true" className="size-3" />
                           </button>
-                        </span>
+                        </Badge>
                       </li>
                     ))}
                   </ul>

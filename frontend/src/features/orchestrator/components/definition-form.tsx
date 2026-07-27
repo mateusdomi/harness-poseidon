@@ -233,12 +233,13 @@ export function DefinitionFormDialog({
               disabled={index > stepIndex}
               onClick={() => setStepIndex(index)}
               aria-current={index === stepIndex ? 'step' : undefined}
+              data-slot="tag"
               className={
                 index === stepIndex
-                  ? 'min-h-touch rounded-md border border-brand px-2.5 py-1.5 text-xs font-medium text-brand-strong md:min-h-0'
+                  ? 'min-h-touch rounded-md border border-brand bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-brand-strong md:min-h-0'
                   : index < stepIndex
-                    ? 'min-h-touch rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground-muted hover:text-foreground md:min-h-0'
-                    : 'min-h-touch rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground-muted opacity-60 md:min-h-0'
+                    ? 'min-h-touch rounded-md border border-success/50 bg-success/10 px-2.5 py-1.5 text-xs text-success hover:bg-success/20 md:min-h-0'
+                    : 'min-h-touch rounded-md border border-info/50 bg-info/10 px-2.5 py-1.5 text-xs text-info opacity-60 md:min-h-0'
               }
             >
               {index + 1}. {t(`orchestrator.definitions.steps.${entry}`)}

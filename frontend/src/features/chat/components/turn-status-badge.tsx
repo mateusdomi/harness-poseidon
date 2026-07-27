@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { ChiefTurnState } from '@/api';
 import { Badge } from '@/design-system';
 import {
   deriveTurnStatus,
@@ -9,6 +8,7 @@ import {
   isTurnActive,
   type TurnStream,
 } from '@/features/chat/lib/chat-derive';
+import { chiefTurnStateVariant } from '@/lib/status';
 
 /**
  * Tag/badge de status no balão do Chefe: mostra, em tempo real, a fase granular
@@ -16,23 +16,6 @@ import {
  * elapsed para fases longas e sinal claro de "travado" (sem heartbeat há X) vs
  * "ativo". Rótulos 100% via i18n (pt-BR + en).
  */
-
-type BadgeVariant = 'info' | 'brand' | 'accent' | 'warning' | 'outline';
-
-const PHASE_VARIANT: Record<ChiefTurnState, BadgeVariant> = {
-  pending: 'outline',
-  received: 'outline',
-  reading_context: 'info',
-  thinking: 'info',
-  planning: 'info',
-  delegating: 'accent',
-  agent_working: 'brand',
-  awaiting_review: 'warning',
-  processing: 'info',
-  completed: 'outline',
-  failed: 'warning',
-  blocked: 'warning',
-};
 
 export function TurnStatusBadge({ turn }: { turn: TurnStream }) {
   const { t } = useTranslation();
@@ -56,7 +39,7 @@ export function TurnStatusBadge({ turn }: { turn: TurnStream }) {
         })
       : t(`chat.turn.states.${status.phase}`);
 
-  const variant: BadgeVariant = status.stuck ? 'warning' : PHASE_VARIANT[status.phase];
+  const variant = status.stuck ? 'warning' : chiefTurnStateVariant(status.phase);
   const elapsedText = status.elapsedMs !== null ? formatElapsed(status.elapsedMs) : null;
 
   return (

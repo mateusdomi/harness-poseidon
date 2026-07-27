@@ -77,6 +77,8 @@ export const createChannelLinkInputSchema = z.object({
   /** Identidade externa (ex.: chat id numérico do Telegram). Nunca um token de bot. */
   externalIdentity: z.string().trim().min(1).max(200),
   projectId: ulidSchema,
+  /** Conversa ativa existente do projeto; ausente cria uma conversa dedicada ao canal. */
+  conversationId: ulidSchema.optional(),
 });
 export type CreateChannelLinkInput = z.infer<typeof createChannelLinkInputSchema>;
 

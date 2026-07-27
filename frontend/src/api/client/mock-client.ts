@@ -1902,7 +1902,7 @@ export class MockApiClient implements ApiClient {
       kind: input.kind,
       externalIdentity: identity,
       projectId: input.projectId,
-      conversationId: this.#options.nextId(),
+      conversationId: input.conversationId ?? this.#options.nextId(),
       linkedAt: this.#options.now(),
     };
     this.#channelLinks.push(link);

@@ -41,6 +41,8 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 });
   await page.screenshot({
     path: testInfo.outputPath('cockpit-light.png'),
     fullPage: true,

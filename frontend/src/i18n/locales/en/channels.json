@@ -48,7 +48,10 @@
         "identityHintEmail": "Email address of the sender authorized to talk to Bruna over this channel.",
         "identityPlaceholder": "5774120296",
         "project": "Project",
-        "projectPlaceholder": "Select the project"
+        "projectPlaceholder": "Select the project",
+        "conversation": "Unified conversation",
+        "conversationHint": "Choose an active conversation to keep multiple channels in one history, or create a dedicated conversation.",
+        "newConversation": "Create a new conversation for this channel"
       },
       "submit": "Link channel",
       "submitting": "Linking…",
@@ -58,7 +61,11 @@
         "invalid_channel_kind": "Invalid channel kind.",
         "invalid_external_identity": "External identity is required and limited to 200 characters.",
         "invalid_project_id": "Select a valid project.",
+        "invalid_conversation_id": "Select a valid conversation.",
         "project_not_found": "The selected project no longer exists.",
+        "conversation_not_found": "The conversation does not exist in the selected project.",
+        "conversation_inactive": "The selected conversation is not active.",
+        "channel_already_linked": "This external identity is already linked to another conversation.",
         "generic": "Could not link the channel. Check the data and try again."
       }
     },

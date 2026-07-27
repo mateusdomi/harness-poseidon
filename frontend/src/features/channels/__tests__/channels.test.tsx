@@ -84,6 +84,44 @@ describe('ChannelsPage', () => {
     expect(screen.getAllByText('Ativo').length).toBeGreaterThan(0);
   });
 
+  it('links a second channel to an existing active conversation', async () => {
+    const bundle = createTestBundle();
+    const conversation = bundle.fixtures.data.conversations.find(
+      (entry) =>
+        entry.state === 'active' &&
+        entry.projectId === bundle.fixtures.data.projects[0]?.id,
+    );
+    expect(conversation).toBeDefined();
+
+    let submittedConversationId: string | undefined;
+    bundle.api.createChannelLink = (input) => {
+      submittedConversationId = input.conversationId;
+      return Promise.resolve({
+        id: '01J0CHANNELWHATSAPP000000009',
+        kind: input.kind,
+        externalIdentity: input.externalIdentity,
+        projectId: input.projectId,
+        conversationId: input.conversationId ?? '01J0CHANNELCONV000000000009',
+        linkedAt: '2026-07-24T10:00:00.000Z',
+      });
+    };
+    renderChannels(bundle);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Vincular novo canal/i }),
+    );
+    await userEvent.type(screen.getByPlaceholderText('5774120296'), '5511999999999');
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Conversa unificada/i),
+      conversation!.id,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^Vincular canal$/i }));
+
+    await waitFor(() => {
+      expect(submittedConversationId).toBe(conversation!.id);
+    });
+  });
+
   it('renders an error state and retries when the gateway fails', async () => {
     const bundle = createTestBundle();
     bundle.api.listChannelLinks = () => Promise.reject(new Error('gateway down'));

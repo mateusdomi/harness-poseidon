@@ -108,10 +108,11 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
             <li
               key={stepKey}
               aria-current={index === stepIndex ? 'step' : undefined}
+              data-slot="tag"
               className={
                 index === stepIndex
-                  ? 'rounded-full border border-brand px-3 py-1 text-xs font-medium text-brand-strong'
-                  : 'rounded-full border border-border px-3 py-1 text-xs text-foreground-muted'
+                  ? 'rounded-full border border-brand bg-primary/10 px-3 py-1 text-xs font-medium text-brand-strong'
+                  : 'rounded-full border border-info/50 bg-info/10 px-3 py-1 text-xs font-medium text-info'
               }
             >
               {t(`onboarding.wizard.steps.${stepKey}`)}

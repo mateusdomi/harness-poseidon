@@ -10,7 +10,13 @@ export interface BadgeProps
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
+  return (
+    <span
+      {...props}
+      data-slot="badge"
+      className={cn(badgeVariants({ variant }), className)}
+    />
+  );
 }
 
 export { Badge };

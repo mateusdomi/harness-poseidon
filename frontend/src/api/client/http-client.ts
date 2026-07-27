@@ -661,6 +661,7 @@ export class HttpApiClient implements ApiClient {
       kind: input.kind,
       externalIdentity: input.externalIdentity.trim(),
       projectId: input.projectId,
+      conversationId: input.conversationId,
     });
     return channelLinkSchema.parse(response);
   }

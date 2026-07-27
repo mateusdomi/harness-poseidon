@@ -12,7 +12,10 @@ export const badgeVariants = cva(
         warning: 'border-transparent bg-warning text-warning-foreground',
         error: 'border-transparent bg-error text-error-foreground',
         info: 'border-transparent bg-info text-info-foreground',
-        outline: 'border-border-strong text-foreground-muted',
+        // Baixa ênfase ainda precisa ser reconhecível como tag em qualquer tema.
+        // O azul semântico translúcido preserva contraste sem competir com estados
+        // fortes (success/warning/error).
+        outline: 'border-info/50 bg-info/10 text-info',
       },
     },
     defaultVariants: {

@@ -267,11 +267,12 @@ function PhaseAccordion({
                   type="button"
                   aria-pressed={filter === option}
                   onClick={() => setFilter((current) => (current === option ? null : option))}
+                  data-slot="tag"
                   className={cn(
                     'min-h-11 rounded-full border px-2.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-0 sm:py-1',
                     filter === option
                       ? 'border-brand bg-primary/10 font-semibold text-brand-strong ring-1 ring-inset ring-brand'
-                      : 'border-border font-medium text-foreground-muted hover:text-foreground',
+                      : 'border-info/50 bg-info/10 font-medium text-info hover:bg-info/20',
                   )}
                 >
                   {t(`chat.workflowPanel.health.${option}`)} ({formatNumber(counts[option])})

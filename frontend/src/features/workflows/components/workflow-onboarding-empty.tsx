@@ -92,9 +92,9 @@ export function WorkflowOnboardingEmpty({
             <ol className="flex flex-wrap items-center gap-1.5">
               {version.phases.map((phase, index) => (
                 <li key={phase} className="flex items-center gap-1.5">
-                  <span className="rounded-md bg-surface px-2 py-0.5 text-xs">
+                  <Badge variant="info">
                     {index + 1}. {phase}
-                  </span>
+                  </Badge>
                 </li>
               ))}
             </ol>

@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ApiError, type ChannelKind, type Project } from '@/api';
+import { ApiError, type ChannelKind, type Conversation, type Project } from '@/api';
 import { Button, Field, Input, Select } from '@/design-system';
 import { useCreateChannelLink } from '@/features/channels/hooks/use-channels';
 
@@ -20,11 +20,16 @@ const KNOWN_ERROR_TITLES = new Set([
   'invalid_channel_kind',
   'invalid_external_identity',
   'invalid_project_id',
+  'invalid_conversation_id',
   'project_not_found',
+  'conversation_not_found',
+  'conversation_inactive',
+  'channel_already_linked',
 ]);
 
 export interface LinkChannelFormProps {
   projects: Project[];
+  conversations: Conversation[];
   /** Chamado após vincular com sucesso (ex.: fechar o formulário). */
   onLinked?: () => void;
   onCancel?: () => void;
@@ -35,18 +40,25 @@ export interface LinkChannelFormProps {
  * `POST /api/v1/channels/links`; o token do bot NUNCA passa por aqui — só a
  * identidade externa (ex.: chat id do Telegram).
  */
-export function LinkChannelForm({ projects, onLinked, onCancel }: LinkChannelFormProps) {
+export function LinkChannelForm({
+  projects,
+  conversations,
+  onLinked,
+  onCancel,
+}: LinkChannelFormProps) {
   const { t } = useTranslation();
   const fieldId = useId();
   const kindId = `${fieldId}-kind`;
   const identityId = `${fieldId}-identity`;
   const projectId = `${fieldId}-project`;
+  const conversationId = `${fieldId}-conversation`;
 
   const mutation = useCreateChannelLink();
   const [kind, setKind] = useState<ChannelKind>('telegram');
   const [identity, setIdentity] = useState('');
   // `null` = ainda não escolhido; adota o primeiro projeto quando a lista chega.
   const [project, setProject] = useState<string | null>(null);
+  const [conversation, setConversation] = useState('');
   const [success, setSuccess] = useState(false);
 
   if (projects.length === 0) {
@@ -54,6 +66,9 @@ export function LinkChannelForm({ projects, onLinked, onCancel }: LinkChannelFor
   }
 
   const selectedProject = project ?? projects[0]?.id ?? '';
+  const availableConversations = conversations.filter(
+    (entry) => entry.projectId === selectedProject && entry.state === 'active',
+  );
 
   const errorKey = (() => {
     if (!mutation.isError) return null;
@@ -68,7 +83,12 @@ export function LinkChannelForm({ projects, onLinked, onCancel }: LinkChannelFor
     event.preventDefault();
     setSuccess(false);
     mutation.mutate(
-      { kind, externalIdentity: identity.trim(), projectId: selectedProject },
+      {
+        kind,
+        externalIdentity: identity.trim(),
+        projectId: selectedProject,
+        conversationId: conversation || undefined,
+      },
       {
         onSuccess: () => {
           setSuccess(true);
@@ -119,13 +139,39 @@ export function LinkChannelForm({ projects, onLinked, onCancel }: LinkChannelFor
       </Field>
 
       <Field htmlFor={projectId} label={t('channels.link.fields.project')} required requiredLabel={t('channels.link.required')}>
-        <Select id={projectId} value={selectedProject} onChange={(event) => setProject(event.target.value)}>
+        <Select
+          id={projectId}
+          value={selectedProject}
+          onChange={(event) => {
+            setProject(event.target.value);
+            setConversation('');
+          }}
+        >
           <option value="" disabled>
             {t('channels.link.fields.projectPlaceholder')}
           </option>
           {projects.map((entry) => (
             <option key={entry.id} value={entry.id}>
               {entry.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field
+        htmlFor={conversationId}
+        label={t('channels.link.fields.conversation')}
+        hint={t('channels.link.fields.conversationHint')}
+      >
+        <Select
+          id={conversationId}
+          value={conversation}
+          onChange={(event) => setConversation(event.target.value)}
+        >
+          <option value="">{t('channels.link.fields.newConversation')}</option>
+          {availableConversations.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.title}
             </option>
           ))}
         </Select>

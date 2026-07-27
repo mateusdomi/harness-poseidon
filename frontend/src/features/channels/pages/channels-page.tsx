@@ -8,6 +8,7 @@ import { formatDateTime } from '@/lib/format';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { LinkChannelForm } from '@/features/channels/components/link-channel-form';
 import { useChannelLinks, useChannelMessages } from '@/features/channels/hooks/use-channels';
+import { useConversations } from '@/features/conversations/hooks/use-conversations';
 
 const KIND_VARIANT: Record<ChannelKind, 'info' | 'success' | 'default'> = {
   telegram: 'info',
@@ -80,6 +81,7 @@ function CliGuide() {
 export default function UchannelsPage() {
   const { t } = useTranslation();
   const linksQuery = useChannelLinks();
+  const conversationsQuery = useConversations();
   const { projects } = useActiveProject();
   const [selectedLinkId, setSelectedLinkId] = useState<Ulid | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -137,7 +139,10 @@ export default function UchannelsPage() {
               <p className="text-sm text-foreground-muted">{t('channels.empty.body')}</p>
             </CardHeader>
             <CardContent>
-              <LinkChannelForm projects={projects} />
+              <LinkChannelForm
+                projects={projects}
+                conversations={conversationsQuery.data ?? []}
+              />
             </CardContent>
           </Card>
           <CliGuide />
@@ -153,6 +158,7 @@ export default function UchannelsPage() {
               <CardContent>
                 <LinkChannelForm
                   projects={projects}
+                  conversations={conversationsQuery.data ?? []}
                   onCancel={() => setFormOpen(false)}
                   onLinked={() => setFormOpen(false)}
                 />

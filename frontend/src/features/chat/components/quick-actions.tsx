@@ -40,7 +40,8 @@ export function QuickActions({ actions, disabled, onSelect }: QuickActionsProps)
                 type="button"
                 disabled={disabled}
                 onClick={() => onSelect(actionKey)}
-                className="inline-flex min-h-touch items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground motion-safe:transition-colors motion-safe:duration-fast hover:border-border-strong hover:bg-surface-elevated active:bg-background disabled:pointer-events-none disabled:opacity-50"
+                data-slot="tag"
+                className="inline-flex min-h-touch items-center gap-1.5 rounded-full border border-brand bg-primary/10 px-3 py-1.5 text-xs font-medium text-brand-strong motion-safe:transition-colors motion-safe:duration-fast hover:bg-primary/20 active:bg-primary/25 disabled:pointer-events-none disabled:opacity-50"
               >
                 <Icon aria-hidden="true" className="size-3.5 text-brand-strong" />
                 {t(`chat.quickActions.actions.${actionKey}.label`)}
