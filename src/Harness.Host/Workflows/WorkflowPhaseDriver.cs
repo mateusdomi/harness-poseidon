@@ -10,7 +10,8 @@ namespace Harness.Host.Workflows;
 public sealed record WorkflowPhaseDriveResult(
     int CardsCreated,
     int ObjectivesAdvanced,
-    string? GateAwaitingHuman);
+    string? GateAwaitingHuman,
+    IReadOnlyList<string> Failures);
 
 /// <summary>
 /// O elo que faltava entre o TRABALHO e a ESTEIRA.
@@ -39,6 +40,34 @@ public sealed class WorkflowPhaseDriver(
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
     private const string DocumentKind = "document";
 
+    /// <summary>
+    /// Degraus de um objetivo, em ordem. O motor exige avanço de UM degrau por vez; pular direto
+    /// para o fim é recusado como transição inválida.
+    /// </summary>
+    private static readonly string[] ObjectiveLadder = ["pending", "executed", "validated", "approved"];
+
+    /// <summary>
+    /// Degraus que o condutor pode subir a partir do estado atual — até `validated`, nunca
+    /// `approved`: o último degrau é decisão humana (Default-FAIL, HITL).
+    /// </summary>
+    private static IEnumerable<string> ObjectiveStepsAfter(string currentState)
+    {
+        var index = Array.FindIndex(
+            ObjectiveLadder,
+            step => string.Equals(step, currentState, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            yield break;
+        }
+
+        for (var next = index + 1; next < ObjectiveLadder.Length - 1; next++)
+        {
+            yield return ObjectiveLadder[next];
+        }
+    }
+
+    private readonly List<string> _failures = [];
+
     private readonly IWorkflowCatalogStore _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly IWorkflowStore _authority = authority ?? throw new ArgumentNullException(nameof(authority));
     private readonly IWorkBoardStore _board = board ?? throw new ArgumentNullException(nameof(board));
@@ -63,14 +92,14 @@ public sealed class WorkflowPhaseDriver(
         var bindings = await _catalog.ListBindingsAsync(tenantId, project.Id, null, 1, cancellationToken);
         if (bindings.Count == 0)
         {
-            return new WorkflowPhaseDriveResult(0, 0, null);
+            return new WorkflowPhaseDriveResult(0, 0, null, []);
         }
 
         var runs = await _catalog.ListRunsAsync(tenantId, bindings[0].Id, null, 20, cancellationToken);
         var running = runs.FirstOrDefault(run => string.Equals(run.State, "running", StringComparison.Ordinal));
         if (running is null)
         {
-            return new WorkflowPhaseDriveResult(0, 0, null);
+            return new WorkflowPhaseDriveResult(0, 0, null, []);
         }
 
         var aggregate = await _authority.ReadRunAggregateAsync(tenantId, running.Id, cancellationToken);
@@ -78,7 +107,7 @@ public sealed class WorkflowPhaseDriver(
             string.Equals(candidate.State, "active", StringComparison.Ordinal));
         if (aggregate is null || phase is null)
         {
-            return new WorkflowPhaseDriveResult(0, 0, null);
+            return new WorkflowPhaseDriveResult(0, 0, null, []);
         }
 
         // Board inteiro do projeto uma vez só: o casamento card↔objetivo é por título estável.
@@ -103,7 +132,8 @@ public sealed class WorkflowPhaseDriver(
         foreach (var objective in documents)
         {
             var title = CardTitleFor(phase.Name, objective.Name);
-            var isPending = !string.Equals(objective.State, "completed", StringComparison.OrdinalIgnoreCase);
+            // Objetivo ainda no primeiro degrau: é ele que precisa de um card para produzir o artefato.
+            var isPending = string.Equals(objective.State, "pending", StringComparison.OrdinalIgnoreCase);
 
             if (!byTitle.TryGetValue(title, out var card))
             {
@@ -117,19 +147,40 @@ public sealed class WorkflowPhaseDriver(
                 continue;
             }
 
-            // O card existe: quando ele fecha, o objetivo da fase fecha junto. É esta linha que
+            // O card existe: quando ele FECHA, o objetivo da fase caminha junto. É esta linha que
             // transforma trabalho entregue em progresso REAL da esteira.
+            //
+            // O objetivo anda um degrau por vez (`pending → executed → validated → approved`) e a
+            // semântica de cada degrau já existe no ciclo do card:
+            //   `executed`  — o trabalho foi feito (o card produziu o artefato);
+            //   `validated` — passou pela revisão independente (chegar a merged exige crítico
+            //                 distinto aprovando);
+            //   `approved`  — decisão HUMANA. O condutor PARA aqui, de propósito: aprovar sozinho
+            //                 o último degrau esvaziaria o sentido da esteira.
             if (isPending && string.Equals(card.InternalState, "completed", StringComparison.Ordinal))
             {
-                var receipt = await _authority.AdvanceObjectiveAsync(
-                    new WorkflowObjectiveAdvanceCommand(
-                        tenantId, running.Id, phase.Key, objective.Key, "completed",
-                        runVersion, $"phase-driver:{running.Id}:{objective.Key}", _clock.UtcNow),
-                    cancellationToken);
-                if (receipt.Status is WorkflowRunMutationStatus.Applied && receipt.RunVersion is { } next)
+                foreach (var step in ObjectiveStepsAfter(objective.State))
                 {
+                    var receipt = await _authority.AdvanceObjectiveAsync(
+                        new WorkflowObjectiveAdvanceCommand(
+                            tenantId, running.Id, phase.Key, objective.Key, step,
+                            runVersion, $"phase-driver:{running.Id}:{objective.Key}:{step}", _clock.UtcNow),
+                        cancellationToken);
+                    if (receipt.Status is not (WorkflowRunMutationStatus.Applied
+                        or WorkflowRunMutationStatus.IdempotentReplay))
+                    {
+                        // Falha de avanço NUNCA pode passar em silêncio: foi exatamente assim que
+                        // um estado-alvo inválido ficou escondido e a esteira parou sem sinal.
+                        _failures.Add($"{objective.Key}->{step}:{receipt.Status}");
+                        break;
+                    }
+
+                    if (receipt.RunVersion is { } next)
+                    {
+                        runVersion = next;
+                    }
+
                     advanced++;
-                    runVersion = next;
                 }
             }
         }
@@ -138,12 +189,12 @@ public sealed class WorkflowPhaseDriver(
         // O condutor NUNCA avalia o gate por conta própria — Default-FAIL e HITL são regra, não
         // preferência, e um gate auto-aprovado destruiria o valor da esteira.
         var allDocumentsDone = documents.Length > 0 && documents.All(objective =>
-            string.Equals(objective.State, "completed", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(objective.State, "pending", StringComparison.OrdinalIgnoreCase) ||
             (byTitle.TryGetValue(CardTitleFor(phase.Name, objective.Name), out var card) &&
                 string.Equals(card.InternalState, "completed", StringComparison.Ordinal)));
         var gateAwaiting = allDocumentsDone && phase.Gates.Count > 0 ? phase.Name : null;
 
-        return new WorkflowPhaseDriveResult(created, advanced, gateAwaiting);
+        return new WorkflowPhaseDriveResult(created, advanced, gateAwaiting, [.. _failures]);
     }
 
     private async Task CreateObjectiveCardAsync(

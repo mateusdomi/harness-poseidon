@@ -672,6 +672,11 @@ public sealed partial class ChiefBacklogLoopService(
             LogPhaseDriven(logger, project.Id, result.CardsCreated, result.ObjectivesAdvanced);
         }
 
+        foreach (var failure in result.Failures)
+        {
+            LogPhaseDriveFailure(logger, project.Id, failure);
+        }
+
         if (result.GateAwaitingHuman is { Length: > 0 } phase &&
             _announcedGates.Add($"{project.Id}:{phase}"))
         {
@@ -1013,6 +1018,9 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: esteira do projeto {ProjectId} — {Created} card(s) de artefato criado(s), {Advanced} objetivo(s) de fase concluído(s).")]
     private static partial void LogPhaseDriven(ILogger logger, string projectId, int created, int advanced);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: esteira do projeto {ProjectId} — avanço de objetivo RECUSADO: {Failure}.")]
+    private static partial void LogPhaseDriveFailure(ILogger logger, string projectId, string failure);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: projeto {ProjectId} — fase '{Phase}' com todos os artefatos entregues; o portão aguarda decisão humana (Default-FAIL, HITL).")]
     private static partial void LogPhaseGateReady(ILogger logger, string projectId, string phase);
