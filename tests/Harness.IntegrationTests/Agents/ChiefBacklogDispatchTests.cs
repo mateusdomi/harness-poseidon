@@ -8,9 +8,14 @@ using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
+using Harness.Modules.Providers.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.WorkChain;
+using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Providers;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,7 +53,8 @@ public sealed class ChiefBacklogDispatchTests
         var db = Path.Combine(root, "chief.db");
         var accountsFile = Path.Combine(root, "no-accounts.json"); // inexistente => contas reais de ~/.harness NÃO são carregadas
         var profilesRoot = Path.Combine(root, "profiles");
-        var alias = "test-backend-" + Guid.NewGuid().ToString("N"); // alias único => sem estado residual no ledger
+        var primaryAlias = "test-primary-" + Guid.NewGuid().ToString("N");
+        var fallbackAlias = "test-fallback-" + Guid.NewGuid().ToString("N");
 
         await using var app = HostApplication.Build(
         [
@@ -69,9 +75,18 @@ public sealed class ChiefBacklogDispatchTests
         {
             // Uma conta backend DISPONÍVEL (os defaults canônicos carregam como AuthenticationRequired,
             // que o scheduler ignora). Os path scopes precisam bater exatamente com os claims do card.
-            app.Services.GetRequiredService<AgentAccountRegistry>().Register(new AgentAccountContract(
-                alias, "zhipu", ExecutorCatalog.Glm,
-                "keychain://poseidon/" + alias, "confighome://" + alias,
+            var accountRegistry = app.Services.GetRequiredService<AgentAccountRegistry>();
+            accountRegistry.Register(new AgentAccountContract(
+                primaryAlias, "zhipu", ExecutorCatalog.Glm,
+                "keychain://poseidon/" + primaryAlias, "confighome://" + primaryAlias,
+                new[] { AgentRoles.BackendSpecialist },
+                AgentRoles.PathScopesFor(AgentRoles.BackendSpecialist),
+                AgentAccountState.Available, AgentAccountHealth.Healthy,
+                ConcurrencyLimit: 1, ActiveAttempts: 0, CurrentAttemptId: null, Quota: null,
+                CooldownUntil: null, LastSuccessfulSmokeAt: null, FailureReason: null, Priority: 200));
+            accountRegistry.Register(new AgentAccountContract(
+                fallbackAlias, "zhipu", ExecutorCatalog.Glm,
+                "keychain://poseidon/" + fallbackAlias, "confighome://" + fallbackAlias,
                 new[] { AgentRoles.BackendSpecialist },
                 AgentRoles.PathScopesFor(AgentRoles.BackendSpecialist),
                 AgentAccountState.Available, AgentAccountHealth.Healthy,
@@ -112,6 +127,28 @@ public sealed class ChiefBacklogDispatchTests
             var board = app.Services.GetRequiredService<IWorkBoardStore>();
             var tenantId = (await app.Services.GetRequiredService<ILocalProfileStore>().ListAsync(cts.Token))[0].TenantId;
 
+            // Fato persistido pelo caminho real do executor: a conta primária esgotou cota.
+            // O ProviderQuotaCollector deve ler este outcome, alimentar o Capacity Manager e
+            // fazer o scheduler autoritativo escolher a conta de fallback.
+            var now = DateTimeOffset.UtcNow;
+            await app.Services.GetRequiredService<IModelInvocationStore>().RecordInvocationAsync(
+                new ModelInvocationRecord(
+                    UlidValue.New(now).ToString(),
+                    tenantId,
+                    projectId,
+                    taskId,
+                    UlidValue.New(now).ToString(),
+                    "zhipu",
+                    string.Empty,
+                    primaryAlias,
+                    0,
+                    0,
+                    0m,
+                    100,
+                    "quotaexhausted|usage_unknown",
+                    now),
+                cts.Token);
+
             // Triagem: backlog -> ready. O loop só enxerga board_state == "ready".
             await board.MoveTaskAsync(
                 new BoardTaskMoveCommand(tenantId, taskId, "ready", null, "human", DateTimeOffset.UtcNow), cts.Token);
@@ -129,7 +166,29 @@ public sealed class ChiefBacklogDispatchTests
 
             // O move só ocorre após uma tentativa durável iniciar — prova que uma existe.
             var attempts = await board.ListAttemptsAsync(tenantId, taskId, null, 10, cts.Token);
-            Assert.NotEmpty(attempts);
+            var attempt = Assert.Single(attempts);
+            Assert.Equal(fallbackAlias, attempt.AgentId);
+
+            // A mesma decisão que alimentou a tentativa foi registrada no ledger append-only.
+            var audit = await app.Services.GetRequiredService<IAuditEventStore>().ListAsync(
+                new AuditEventQuery(
+                    tenantId,
+                    null,
+                    20,
+                    Action: "model.routing_decided",
+                    TargetType: "task",
+                    TargetId: taskId),
+                cts.Token);
+            var routing = Assert.Single(audit);
+            using var detail = JsonDocument.Parse(routing.Detail!);
+            Assert.Equal(
+                fallbackAlias,
+                detail.RootElement.GetProperty("accountAlias").GetString());
+            Assert.Equal("zhipu", detail.RootElement.GetProperty("provider").GetString());
+            Assert.True(detail.RootElement.GetProperty("isFallback").GetBoolean());
+            Assert.Equal(
+                "model_router.routed_to_fallback",
+                detail.RootElement.GetProperty("decisionReason").GetString());
         }
         finally
         {

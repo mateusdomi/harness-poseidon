@@ -48,7 +48,7 @@ public sealed class ProviderQuotaCollector
         {
             var quotaError = recentInvocations.FirstOrDefault(inv =>
                 string.Equals(inv.AccountAlias, accountAlias, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(inv.Outcome, "quota_exceeded", StringComparison.OrdinalIgnoreCase) &&
+                IsQuotaExceeded(inv.Outcome) &&
                 inv.InvokedAt >= now.AddMinutes(-30));
 
             if (quotaError is not null)
@@ -102,5 +102,14 @@ public sealed class ProviderQuotaCollector
         }
 
         return existingSnapshot;
+    }
+
+    private static bool IsQuotaExceeded(string outcome)
+    {
+        var normalized = outcome.Split('|', 2, StringSplitOptions.TrimEntries)[0]
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal);
+        return string.Equals(normalized, "quotaexceeded", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalized, "quotaexhausted", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -30,7 +30,7 @@ public sealed class CapacityManagerAndModelRouterTests
         var invocations = new List<ModelInvocationRecord>
         {
             new("inv-1", "tenant-1", "proj-1", "task-1", "att-1", "anthropic", "claude-3-7-sonnet",
-                "worker-1", 100, 50, 0.01m, 200, "quota_exceeded", now.AddMinutes(-5))
+                "worker-1", 100, 50, 0.01m, 200, "quotaexhausted|usage_unknown", now.AddMinutes(-5))
         };
 
         var snapshot = collector.Collect("worker-1", "anthropic", invocations, now);
@@ -87,8 +87,6 @@ public sealed class CapacityManagerAndModelRouterTests
             CreateAccount("fallback", priority: 100)
         };
 
-        var manager = new CapacityManager();
-        var router = new ModelRouter(manager);
         var now = DateTimeOffset.UtcNow;
 
         var request = new ModelRoutingRequest(
@@ -101,7 +99,13 @@ public sealed class CapacityManagerAndModelRouterTests
             RequiredPathScopes: ["src/**"],
             Now: now);
 
-        var decision = router.Route(accounts, request);
+        var decision = ModelRouter.Route(
+            accounts,
+            Selection(
+                "primary",
+                ("primary", true, "account.eligible", 200),
+                ("fallback", true, "account.eligible", 100)),
+            request);
 
         Assert.Equal("primary", decision.SelectedAlias);
         Assert.Equal("claude-3-7-sonnet", decision.SelectedModel);
@@ -117,13 +121,7 @@ public sealed class CapacityManagerAndModelRouterTests
             CreateAccount("fallback", priority: 100)
         };
 
-        var manager = new CapacityManager();
         var now = DateTimeOffset.UtcNow;
-
-        manager.UpdateQuotaSnapshot("primary", new QuotaStatusRecord(
-            "test", now, "Exhausted", "High", 0.0, now.AddMinutes(15), TimeSpan.FromMinutes(15)));
-
-        var router = new ModelRouter(manager);
 
         var request = new ModelRoutingRequest(
             Role: "backend-specialist",
@@ -135,9 +133,32 @@ public sealed class CapacityManagerAndModelRouterTests
             RequiredPathScopes: ["src/**"],
             Now: now);
 
-        var decision = router.Route(accounts, request);
+        var decision = ModelRouter.Route(
+            accounts,
+            Selection(
+                "fallback",
+                ("primary", false, "account.quota_limited", 200),
+                ("fallback", true, "account.eligible", 100)),
+            request);
 
         Assert.Equal("fallback", decision.SelectedAlias);
         Assert.True(decision.IsFallback);
     }
+
+    private static ScheduledAccountSelection Selection(
+        string selectedAlias,
+        params (string Alias, bool Eligible, string Reason, int Priority)[] candidates) =>
+        new(
+            selectedAlias,
+            "scheduler.selected",
+            candidates.Select(candidate => new ScheduledAccountCandidate(
+                candidate.Alias,
+                candidate.Eligible,
+                candidate.Reason,
+                candidate.Priority)).ToArray(),
+            candidates
+                .Where(candidate => candidate.Eligible &&
+                    !string.Equals(candidate.Alias, selectedAlias, StringComparison.Ordinal))
+                .Select(candidate => candidate.Alias)
+                .ToArray());
 }

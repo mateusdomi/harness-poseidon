@@ -56,7 +56,8 @@ public sealed record WorkflowDefinitionCreateCommand(
     IReadOnlyList<WorkflowPhaseCreateInput> Phases,
     string IdempotencyKey,
     DateTimeOffset OccurredAt,
-    string Description = "");
+    string Description = "",
+    string TransitionsJson = "{}");
 
 public sealed record WorkflowPhaseCreateInput(
     string PhaseDefinitionId,
@@ -277,6 +278,7 @@ public static class WorkflowDefinitionCreateValidator
         {
             throw new ArgumentException("Description exceeds 20000 characters.", nameof(command));
         }
+        ValidateJsonObject(command.TransitionsJson, nameof(command));
         ValidateText(command.IdempotencyKey, 200, nameof(command));
         if (command.Version != 1 || !string.Equals(
             command.ContentHash,
@@ -398,6 +400,23 @@ public static class WorkflowDefinitionCreateValidator
         if (value.Length > maximumLength)
         {
             throw new ArgumentException($"Value exceeds {maximumLength} characters.", parameterName);
+        }
+    }
+
+    private static void ValidateJsonObject(string value, string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, parameterName);
+        try
+        {
+            using var document = JsonDocument.Parse(value);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("Workflow metadata must be a JSON object.", parameterName);
+            }
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException("Workflow metadata must be valid JSON.", parameterName, exception);
         }
     }
 }

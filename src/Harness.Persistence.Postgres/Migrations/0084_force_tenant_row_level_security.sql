@@ -2,6 +2,36 @@ DO $rls$
 DECLARE
     tenant_table record;
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'poseidon_runtime')
+    THEN
+        CREATE ROLE poseidon_runtime
+            NOLOGIN
+            NOSUPERUSER
+            NOCREATEDB
+            NOCREATEROLE
+            NOINHERIT
+            NOREPLICATION
+            NOBYPASSRLS;
+    ELSE
+        ALTER ROLE poseidon_runtime
+            NOLOGIN
+            NOSUPERUSER
+            NOCREATEDB
+            NOCREATEROLE
+            NOINHERIT
+            NOREPLICATION
+            NOBYPASSRLS;
+    END IF;
+
+    GRANT poseidon_runtime TO CURRENT_USER;
+    GRANT USAGE ON SCHEMA harness TO poseidon_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA harness TO poseidon_runtime;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA harness TO poseidon_runtime;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA harness
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO poseidon_runtime;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA harness
+        GRANT USAGE, SELECT ON SEQUENCES TO poseidon_runtime;
+
     FOR tenant_table IN
         SELECT DISTINCT table_name
         FROM information_schema.columns

@@ -75,6 +75,20 @@ public sealed class WorkflowCatalogApplicationTests
         Assert.Equal("semiautonomous", value.DefaultOperationMode);
         Assert.Equal(40m, value.PhaseConfigs["Planejar"].ProgressWeight);
         Assert.Equal(["Entregar"], value.Transitions["Planejar"]);
+        var terminal = WorkflowCatalogApplicationService.CreateVersion(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+            new PublishWorkflowVersionRequest(
+                ["1-Triagem"],
+                new Dictionary<string, IReadOnlyList<string>>(),
+                Transitions: new Dictionary<string, IReadOnlyList<string>>
+                {
+                    ["1-Triagem"] = ["Arquivada", "Roteada-para-Sustentação"],
+                }),
+            new DateTimeOffset(2026, 7, 18, 21, 1, 0, TimeSpan.Zero));
+        Assert.Equal(
+            ["Arquivada", "Roteada-para-Sustentação"],
+            terminal.Transitions["1-Triagem"]);
         Assert.Equal("pause", WorkflowCatalogApplicationService.RunTransition(
             new TransitionWorkflowRunRequest("pause")));
         Assert.Equal(("Planejar", "work-1", "approved"),

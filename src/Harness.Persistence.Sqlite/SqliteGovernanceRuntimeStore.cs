@@ -60,6 +60,24 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
             (connection, token) => ListMetricsCoreAsync(connection, tenantId, turnId, token),
             cancellationToken);
 
+    public Task<ContextSnapshotRecord> CreateContextSnapshotAsync(
+        ContextSnapshotCreateCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => CreateContextSnapshotCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
+    public Task<ContextSnapshotRecord?> GetContextSnapshotAsync(
+        string tenantId,
+        string snapshotId,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(
+            (connection, token) => ReadContextSnapshotAsync(connection, tenantId, snapshotId, token),
+            cancellationToken);
+
     private static async Task<GovernanceTurnReceiptRecord> CreateCoreAsync(
         SqliteConnection connection,
         GovernanceTurnReceiptCreateCommand command,
@@ -215,6 +233,77 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
         return rows;
     }
 
+    private static async Task<ContextSnapshotRecord> CreateContextSnapshotCoreAsync(
+        SqliteConnection connection,
+        ContextSnapshotCreateCommand command,
+        CancellationToken token)
+    {
+        await using var insert = connection.CreateCommand();
+        insert.CommandText =
+            "INSERT OR IGNORE INTO context_snapshots " +
+            "(tenant_id,snapshot_id,project_id,work_task_id,execution_id,manifest_version," +
+            "bundle_manifest_ids_json,sources_json,assembled_context_hash,token_count,created_at) " +
+            "VALUES ($tenant,$snapshot,$project,$task,$execution,$manifest,$bundles,$sources,$hash,$tokens,$at);";
+        Add(insert, "$tenant", command.TenantId);
+        Add(insert, "$snapshot", command.SnapshotId);
+        Add(insert, "$project", command.ProjectId);
+        Add(insert, "$task", command.WorkTaskId);
+        Add(insert, "$execution", command.ExecutionId);
+        Add(insert, "$manifest", command.ManifestVersion);
+        Add(insert, "$bundles", JsonSerializer.Serialize(command.BundleManifestIds, JsonOptions));
+        Add(insert, "$sources", JsonSerializer.Serialize(command.Sources, JsonOptions));
+        Add(insert, "$hash", command.AssembledContextHash);
+        Add(insert, "$tokens", command.TokenCount);
+        Add(insert, "$at", Store(command.CreatedAt));
+        await insert.ExecuteNonQueryAsync(token);
+
+        var snapshot = await ReadContextSnapshotAsync(
+            connection,
+            command.TenantId,
+            command.SnapshotId,
+            token) ?? throw new InvalidOperationException("Context snapshot insert did not produce a row.");
+        if (!string.Equals(snapshot.AssembledContextHash, command.AssembledContextHash, StringComparison.Ordinal))
+        {
+            throw new GovernanceRuntimeConflictException(
+                "A context snapshot with the same ID has a different assembled context hash.");
+        }
+
+        return snapshot;
+    }
+
+    private static async Task<ContextSnapshotRecord?> ReadContextSnapshotAsync(
+        SqliteConnection connection,
+        string tenantId,
+        string snapshotId,
+        CancellationToken token)
+    {
+        await using var query = connection.CreateCommand();
+        query.CommandText =
+            "SELECT tenant_id,snapshot_id,project_id,work_task_id,execution_id,manifest_version," +
+            "bundle_manifest_ids_json,sources_json,assembled_context_hash,token_count,created_at " +
+            "FROM context_snapshots WHERE tenant_id=$tenant AND snapshot_id=$snapshot;";
+        Add(query, "$tenant", tenantId);
+        Add(query, "$snapshot", snapshotId);
+        await using var reader = await query.ExecuteReaderAsync(token);
+        if (!await reader.ReadAsync(token))
+        {
+            return null;
+        }
+
+        return new ContextSnapshotRecord(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            JsonSerializer.Deserialize<string[]>(reader.GetString(6), JsonOptions) ?? [],
+            JsonSerializer.Deserialize<ContextSnapshotSourceRecord[]>(reader.GetString(7), JsonOptions) ?? [],
+            reader.GetString(8),
+            reader.GetInt32(9),
+            Parse(reader.GetString(10)));
+    }
+
     private static GovernanceTurnReceiptRecord MapReceipt(SqliteDataReader reader) => new(
         reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
         reader.GetString(4), reader.GetString(5), reader.GetString(6),
@@ -238,6 +327,21 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
         ArgumentException.ThrowIfNullOrWhiteSpace(command.TurnId);
         ArgumentException.ThrowIfNullOrWhiteSpace(command.BundleChecksum);
         ArgumentNullException.ThrowIfNull(command.Documents);
+    }
+
+    private static void Validate(ContextSnapshotCreateCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.SnapshotId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ProjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.WorkTaskId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ExecutionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ManifestVersion);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.AssembledContextHash);
+        ArgumentNullException.ThrowIfNull(command.BundleManifestIds);
+        ArgumentNullException.ThrowIfNull(command.Sources);
+        if (command.TokenCount < 0) throw new ArgumentOutOfRangeException(nameof(command));
     }
 
     private static void Add(SqliteCommand command, string name, object? value) =>

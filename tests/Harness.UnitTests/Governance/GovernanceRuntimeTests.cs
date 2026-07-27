@@ -28,6 +28,30 @@ public sealed class GovernanceRuntimeTests
     }
 
     [Fact]
+    public void BundleRendersMemorySlicesWithAuditableCitations()
+    {
+        var bundle = new ContextBundleBuilder(FindRepositoryRoot()).Build(
+            Request() with
+            {
+                MemorySlices =
+                [
+                    new ContextMemorySlice(
+                        "attachment-1",
+                        "Decisão durável recuperada pela memória.",
+                        "solicitation_attachment:attachment-1",
+                        12),
+                ],
+            });
+
+        var memory = Assert.Single(
+            bundle.Segments,
+            segment => segment.Kind == ContextSegmentKind.Memory);
+        Assert.Equal("memory:attachment-1", memory.SourceId);
+        Assert.Equal("solicitation_attachment:attachment-1", memory.CitationReference);
+        Assert.Contains("Citation: solicitation_attachment:attachment-1", bundle.RenderedContext);
+    }
+
+    [Fact]
     public void EvaluatorIsDefaultFailAndPreventsActorSelfApproval()
     {
         var evaluator = new FreshContextEvaluator(new FreshContextEvaluatorOptions());
@@ -71,6 +95,9 @@ public sealed class GovernanceRuntimeTests
 
         Assert.Equal(EvaluationVerdict.Pass, result.Verdict);
         Assert.Empty(result.Findings);
+        Assert.Equal("actor", result.ProducerAgentId);
+        Assert.Equal("subscription-primary", result.AccountAlias);
+        Assert.Equal("backend:feature", result.TaskSignature);
     }
 
     [Fact]
@@ -216,7 +243,9 @@ public sealed class GovernanceRuntimeTests
 
     private static FreshContextEvaluationRequest Evaluation() => new(
         "evaluation", "tenant", "project", "task", "attempt", "actor", "critic",
-        "medium", ["criterion"], "diff", ["evidence"], [new("test", true, "log")]);
+        "medium", ["criterion"], "diff", ["evidence"], [new("test", true, "log")],
+        AccountAlias: "subscription-primary",
+        TaskSignature: "backend:feature");
 
     private static HashlinePatchCommand Command(string expected, string content) => new(
         "tenant", "project", "turn", "fixture.txt", expected, content, DateTimeOffset.UtcNow);

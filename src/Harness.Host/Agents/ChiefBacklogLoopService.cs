@@ -37,6 +37,7 @@ public sealed partial class ChiefBacklogLoopService(
     AgentRunSettings settings,
     IClock clock,
     CapacityManager capacity,
+    ProviderRoutingCoordinator providerRouting,
     ILogger<ChiefBacklogLoopService> logger) : BackgroundService
 {
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
@@ -252,12 +253,18 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
+            var planningCards = cards
+                .Where(entry => admitted.Contains(entry.Card.TaskId))
+                .Select(entry => entry.Card)
+                .ToArray();
+            var routingNow = clock.UtcNow;
+            await providerRouting.RefreshCapacityAsync(
+                profile.TenantId, planningCards, routingNow, token);
             var plan = policy.Plan(
-                [.. cards.Where(entry => admitted.Contains(entry.Card.TaskId))
-                    .Select(entry => entry.Card)],
+                planningCards,
                 accounts, availability,
-                settings.AutoDispatchMaxConcurrent, clock.UtcNow,
-                CapacitySignals(clock.UtcNow));
+                settings.AutoDispatchMaxConcurrent, routingNow,
+                CapacitySignals(routingNow));
             deferred += plan.Deferred.Count;
             foreach (var deferral in plan.Deferred)
             {
@@ -276,9 +283,17 @@ public sealed partial class ChiefBacklogLoopService(
             foreach (var decision in plan.Dispatch)
             {
                 var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
+                var routing = await providerRouting.RouteAndAuditAsync(
+                    profile.TenantId,
+                    project.Id,
+                    decision,
+                    preferredModel: null,
+                    routingNow,
+                    token);
                 if (await LaunchAsync(
                         profile.TenantId, project, entry.Resolution, decision.AccountAlias,
-                        entry.Task, entry.InstructionVersionId, personas, controlledRoot, board, chain, token))
+                        routing.SelectedModel, entry.Task, entry.InstructionVersionId, personas,
+                        controlledRoot, board, chain, token))
                 {
                     dispatched++;
                 }
@@ -825,6 +840,7 @@ public sealed partial class ChiefBacklogLoopService(
         ProjectRecord project,
         ChiefCardResolution resolution,
         string accountAlias,
+        string? model,
         BoardTaskRecord task,
         string instructionVersionId,
         IReadOnlyList<AgentDefinitionRecord> personas,
@@ -901,6 +917,7 @@ public sealed partial class ChiefBacklogLoopService(
                 IdempotencyKey = $"chief-loop:{attemptId}",
                 PathScopeKind = pathScopeKind,
                 Access = ExternalAgentAccess.Workspace,
+                Model = model,
                 RiskTier = resolution.Card.RiskTier,
                 AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
             },

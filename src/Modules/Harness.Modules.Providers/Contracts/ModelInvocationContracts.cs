@@ -16,6 +16,23 @@ public sealed record ModelRoutingRequest(
     DateTimeOffset Now);
 
 /// <summary>
+/// Seleção de conta já concluída pelo scheduler de agentes. O Model Router não reavalia
+/// autorização, escopo, autenticação, concorrência ou independência actor/critic: recebe a
+/// decisão autoritativa e apenas materializa provedor/modelo e fallback para execução/auditoria.
+/// </summary>
+public sealed record ScheduledAccountSelection(
+    string? SelectedAlias,
+    string ReasonCode,
+    IReadOnlyList<ScheduledAccountCandidate> Candidates,
+    IReadOnlyList<string> FallbackAliases);
+
+public sealed record ScheduledAccountCandidate(
+    string Alias,
+    bool Eligible,
+    string ReasonCode,
+    int Priority);
+
+/// <summary>
 /// Decisão de roteamento de modelo com rastreabilidade determinística.
 /// </summary>
 public sealed record ModelRoutingDecision(

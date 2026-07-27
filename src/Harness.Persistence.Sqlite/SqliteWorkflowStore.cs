@@ -56,16 +56,17 @@ public sealed partial class SqliteWorkflowStore(SqliteWriteDispatcher dispatcher
             INSERT INTO workflow_definitions (id, tenant_id, name, created_at, description)
             VALUES ($definitionId, $tenantId, $name, $occurredAt, $description);
             INSERT INTO workflow_definition_versions
-                (id, tenant_id, definition_id, version, status, content_hash, created_at, published_at)
+                (id, tenant_id, definition_id, version, status, content_hash, created_at, published_at,
+                 transitions_json)
             VALUES ($versionId, $tenantId, $definitionId, $version, 'published',
-                    $contentHash, $occurredAt, $occurredAt);
+                    $contentHash, $occurredAt, $occurredAt, $transitions);
             """,
             cancellationToken,
             ("$definitionId", value.DefinitionId), ("$tenantId", value.TenantId),
             ("$name", value.Name), ("$occurredAt", occurredAt),
             ("$description", value.Description),
             ("$versionId", value.DefinitionVersionId), ("$version", value.Version),
-            ("$contentHash", value.ContentHash));
+            ("$contentHash", value.ContentHash), ("$transitions", value.TransitionsJson));
 
         foreach (var phase in value.Phases)
         {

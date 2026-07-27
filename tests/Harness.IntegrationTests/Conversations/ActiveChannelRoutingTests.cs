@@ -12,7 +12,6 @@ using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Identity;
-using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -63,22 +62,24 @@ public sealed class ActiveChannelRoutingTests
                 var telegram = (await telegramResponse.Content
                     .ReadFromJsonAsync<ChannelLinkContract>(timeout.Token))!;
 
-                // ...e o segundo é criado apontando para a MESMA conversa, que é o cenário em que
-                // o roteamento importa (o usuário alcança a mesma conversa por dois canais).
+                // ...e o segundo é criado pela API pública apontando para a MESMA conversa, que é
+                // o cenário em que o roteamento importa (o usuário alcança a mesma conversa por
+                // dois canais).
                 var linkStore = app.Services.GetRequiredService<IChannelLinkStore>();
                 var router = app.Services.GetRequiredService<ActiveChannelRouter>();
                 var now = DateTimeOffset.UtcNow;
-                var whatsapp = await linkStore.GetOrCreateAsync(
-                    new ChannelLinkCreateCommand(
-                        tenantId,
-                        UlidValue.New(now).ToString(),
+                using var whatsappResponse = await client.PostAsJsonAsync(
+                    "/api/v1/channels/links",
+                    new CreateChannelLinkRequest(
                         "whatsapp",
                         "5511999999999",
-                        profile.Id,
                         project.Id,
-                        telegram.ConversationId,
-                        now),
+                        telegram.ConversationId),
                     timeout.Token);
+                whatsappResponse.EnsureSuccessStatusCode();
+                var whatsapp = (await whatsappResponse.Content
+                    .ReadFromJsonAsync<ChannelLinkContract>(timeout.Token))!;
+                Assert.Equal(telegram.ConversationId, whatsapp.ConversationId);
 
                 // Nenhum dos dois recebeu entrada ainda: a eleição é determinística, nunca ambígua.
                 var initial = await router.SelectActiveAsync(
@@ -97,7 +98,10 @@ public sealed class ActiveChannelRoutingTests
                     telegram.Id,
                     (await router.SelectActiveAsync(
                         tenantId, telegram.ConversationId, timeout.Token))!.Id);
-                Assert.False(await router.IsActiveAsync(tenantId, whatsapp, timeout.Token));
+                var whatsappRecord = await linkStore.GetAsync(
+                    tenantId, whatsapp.Id, timeout.Token);
+                Assert.False(await router.IsActiveAsync(
+                    tenantId, whatsappRecord!, timeout.Token));
 
                 // O usuário migra para o WhatsApp: a saída acompanha a última entrada.
                 await linkStore.MarkInboundAsync(
@@ -105,7 +109,10 @@ public sealed class ActiveChannelRoutingTests
                 var active = await router.SelectActiveAsync(
                     tenantId, telegram.ConversationId, timeout.Token);
                 Assert.Equal(whatsapp.Id, active!.Id);
-                Assert.True(await router.IsActiveAsync(tenantId, whatsapp, timeout.Token));
+                whatsappRecord = await linkStore.GetAsync(
+                    tenantId, whatsapp.Id, timeout.Token);
+                Assert.True(await router.IsActiveAsync(
+                    tenantId, whatsappRecord!, timeout.Token));
 
                 var telegramRecord = await linkStore.GetAsync(
                     tenantId, telegram.Id, timeout.Token);

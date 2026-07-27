@@ -7,6 +7,8 @@ public static class WorkflowCatalogApplicationService
 {
     private static readonly HashSet<string> Modes =
         new(["manual", "semiautonomous", "autonomous"], StringComparer.Ordinal);
+    private static readonly HashSet<string> TerminalTransitionTargets =
+        new(["Arquivada", "Roteada-para-Sustentação"], StringComparer.Ordinal);
 
     public static WorkflowDraftTemplateCreation CreateDraftTemplate(
         string templateId, CreateWorkflowTemplateRequest request, DateTimeOffset now)
@@ -107,7 +109,9 @@ public static class WorkflowCatalogApplicationService
         }
         var transitions = request.Transitions ?? new Dictionary<string, IReadOnlyList<string>>();
         if (transitions.Any(rule => !phaseSet.Contains(rule.Key) ||
-            rule.Value is null || rule.Value.Any(next => !phaseSet.Contains(next))))
+            rule.Value is null || rule.Value.Any(next =>
+                !phaseSet.Contains(next) &&
+                !(rule.Key == "1-Triagem" && TerminalTransitionTargets.Contains(next)))))
             throw new ArgumentException("Workflow transitions reference an unknown phase.", nameof(request));
         var mode = request.DefaultOperationMode is null ? null : Choice(request.DefaultOperationMode, Modes);
         return new(hierarchy, configs, mode, transitions);

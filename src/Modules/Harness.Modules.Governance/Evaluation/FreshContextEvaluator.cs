@@ -40,7 +40,9 @@ public sealed record FreshContextEvaluationRequest(
     IReadOnlyList<string> AcceptanceCriteria,
     string Diff,
     IReadOnlyList<string> Evidence,
-    IReadOnlyList<EvaluationTestResult> TestResults);
+    IReadOnlyList<EvaluationTestResult> TestResults,
+    string? AccountAlias = null,
+    string? TaskSignature = null);
 
 public sealed record FreshContextEvaluationResult(
     string SchemaVersion,
@@ -51,7 +53,10 @@ public sealed record FreshContextEvaluationResult(
     string? Model,
     bool ReadOnly,
     bool CleanContext,
-    DateTimeOffset EvaluatedAt);
+    DateTimeOffset EvaluatedAt,
+    string? ProducerAgentId = null,
+    string? AccountAlias = null,
+    string? TaskSignature = null);
 
 public sealed record FreshContextEvaluatorOptions
 {
@@ -159,7 +164,10 @@ public sealed class FreshContextEvaluator(FreshContextEvaluatorOptions options)
             _options.Model,
             true,
             true,
-            evaluatedAt);
+            evaluatedAt,
+            request.ActorAgentId,
+            request.AccountAlias,
+            request.TaskSignature);
     }
 
     private static EvaluationFinding Finding(

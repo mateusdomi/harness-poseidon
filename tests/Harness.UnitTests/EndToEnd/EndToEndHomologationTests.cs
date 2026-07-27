@@ -18,10 +18,14 @@ public sealed class EndToEndHomologationTests
 
         // Phase 3: Capacity Manager & Model Router
         var capacityManager = new CapacityManager();
-        var router = new ModelRouter(capacityManager);
         var account = new SimpleAccountSpec("acc-1", "openai", ["worker"], [], 5, 0, 1);
         var req = new ModelRoutingRequest("worker", "chat", "gpt-4o", "low", "acc-1", false, [], DateTimeOffset.UtcNow);
-        var decision = router.Route([account], req);
+        var selection = new ScheduledAccountSelection(
+            "acc-1",
+            "scheduler.selected",
+            [new ScheduledAccountCandidate("acc-1", true, "account.eligible", 1)],
+            []);
+        var decision = ModelRouter.Route([account], selection, req);
         Assert.NotNull(decision);
         Assert.Equal("acc-1", decision.SelectedAlias);
 

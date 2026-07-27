@@ -131,6 +131,55 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         return rows;
     }
 
+    public async Task<ContextSnapshotRecord> CreateContextSnapshotAsync(
+        ContextSnapshotCreateCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        Validate(command);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var insert = connection.CreateCommand();
+        insert.CommandText =
+            "INSERT INTO harness.context_snapshots " +
+            "(tenant_id,snapshot_id,project_id,work_task_id,execution_id,manifest_version," +
+            "bundle_manifest_ids_json,sources_json,assembled_context_hash,token_count,created_at) " +
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) " +
+            "ON CONFLICT (tenant_id,snapshot_id) DO NOTHING;";
+        insert.Parameters.Add(Text(command.TenantId));
+        insert.Parameters.Add(Text(command.SnapshotId));
+        insert.Parameters.Add(Text(command.ProjectId));
+        insert.Parameters.Add(Text(command.WorkTaskId));
+        insert.Parameters.Add(Text(command.ExecutionId));
+        insert.Parameters.Add(Text(command.ManifestVersion));
+        insert.Parameters.Add(Json(JsonSerializer.Serialize(command.BundleManifestIds, JsonOptions)));
+        insert.Parameters.Add(Json(JsonSerializer.Serialize(command.Sources, JsonOptions)));
+        insert.Parameters.Add(Text(command.AssembledContextHash));
+        insert.Parameters.Add(Integer(command.TokenCount));
+        insert.Parameters.Add(Timestamp(command.CreatedAt));
+        await insert.ExecuteNonQueryAsync(cancellationToken);
+
+        var snapshot = await ReadContextSnapshotAsync(
+            connection,
+            command.TenantId,
+            command.SnapshotId,
+            cancellationToken) ?? throw new InvalidOperationException("Context snapshot insert did not produce a row.");
+        if (!string.Equals(snapshot.AssembledContextHash, command.AssembledContextHash, StringComparison.Ordinal))
+        {
+            throw new GovernanceRuntimeConflictException(
+                "A context snapshot with the same ID has a different assembled context hash.");
+        }
+
+        return snapshot;
+    }
+
+    public async Task<ContextSnapshotRecord?> GetContextSnapshotAsync(
+        string tenantId,
+        string snapshotId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        return await ReadContextSnapshotAsync(connection, tenantId, snapshotId, cancellationToken);
+    }
+
     private async Task<GovernanceTurnReceiptRecord> CreateCoreAsync(
         GovernanceTurnReceiptCreateCommand command,
         CancellationToken token)
@@ -185,6 +234,39 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         return await reader.ReadAsync(token) ? MapReceipt(reader) : null;
     }
 
+    private static async Task<ContextSnapshotRecord?> ReadContextSnapshotAsync(
+        NpgsqlConnection connection,
+        string tenantId,
+        string snapshotId,
+        CancellationToken token)
+    {
+        await using var query = connection.CreateCommand();
+        query.CommandText =
+            "SELECT tenant_id,snapshot_id,project_id,work_task_id,execution_id,manifest_version," +
+            "bundle_manifest_ids_json::text,sources_json::text,assembled_context_hash,token_count,created_at " +
+            "FROM harness.context_snapshots WHERE tenant_id=$1 AND snapshot_id=$2;";
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(snapshotId));
+        await using var reader = await query.ExecuteReaderAsync(token);
+        if (!await reader.ReadAsync(token))
+        {
+            return null;
+        }
+
+        return new ContextSnapshotRecord(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            JsonSerializer.Deserialize<string[]>(reader.GetString(6), JsonOptions) ?? [],
+            JsonSerializer.Deserialize<ContextSnapshotSourceRecord[]>(reader.GetString(7), JsonOptions) ?? [],
+            reader.GetString(8),
+            reader.GetInt32(9),
+            reader.GetFieldValue<DateTimeOffset>(10));
+    }
+
     private static GovernanceTurnReceiptRecord MapReceipt(NpgsqlDataReader reader) => new(
         reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
         reader.GetString(4), reader.GetString(5), reader.GetString(6),
@@ -208,6 +290,21 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         ArgumentException.ThrowIfNullOrWhiteSpace(command.TurnId);
         ArgumentException.ThrowIfNullOrWhiteSpace(command.BundleChecksum);
         ArgumentNullException.ThrowIfNull(command.Documents);
+    }
+
+    private static void Validate(ContextSnapshotCreateCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.TenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.SnapshotId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ProjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.WorkTaskId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ExecutionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ManifestVersion);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.AssembledContextHash);
+        ArgumentNullException.ThrowIfNull(command.BundleManifestIds);
+        ArgumentNullException.ThrowIfNull(command.Sources);
+        if (command.TokenCount < 0) throw new ArgumentOutOfRangeException(nameof(command));
     }
 
     private static NpgsqlParameter Text(string? value) => value is null

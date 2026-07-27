@@ -101,9 +101,22 @@ public sealed class ProjectWorkflowConvergenceSeeder(
 
                 if (binding.TemplateId == template.Id)
                 {
-                    // Binding já correto — mas um run ativo pode ter ficado numa versão
-                    // anterior (ex.: rebind aplicado num boot que ainda não migrava runs).
-                    // A migração é idempotente: só age quando há run ativo divergente.
+                    // O template já é o correto, mas a versão pode ter sido sucedida por uma
+                    // reconciliação canônica (por exemplo, transições/evidências da Fase 9).
+                    // Atualiza o binding antes de migrar o run: sem isso, o run corrente usaria a
+                    // versão nova, mas o próximo run voltaria a nascer na versão obsoleta.
+                    if (binding.ActiveVersionId != template.CurrentVersionId)
+                    {
+                        _ = await _workflows.RebindTemplateAsync(
+                            new WorkflowTemplateRebindCommand(
+                                tenantId, binding.Id, project.Id, template.Id,
+                                template.CurrentVersionId, actorProfileId, _clock.UtcNow),
+                            cancellationToken);
+                        bound++;
+                    }
+
+                    // Um run ativo pode ter ficado numa versão anterior. A migração é
+                    // idempotente: só age quando há run ativo divergente.
                     await MigrateActiveRunAsync(
                         tenantId, project.Id, binding.Id, template.CurrentVersionId,
                         cancellationToken);

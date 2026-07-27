@@ -9,8 +9,12 @@ using Harness.Host.Realtime;
 using Harness.Host.WorkBoard;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Modules.Identity.Contracts;
+using Harness.Modules.Governance.Memory;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Governance;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.SharedKernel.Memory;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -49,6 +53,22 @@ public sealed class ChiefDemandMaterializationTests
                     var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
                     await WorkflowTestBinding.BindRecommendedAsync(client, project.Id, timeout.Token);
                     projectId = project.Id;
+                    var localProfile = Assert.Single(
+                        await app.Services.GetRequiredService<ILocalProfileStore>()
+                            .ListAsync(timeout.Token));
+                    const string memoryContent =
+                        "Dogfood exige evidência auditável e rollout incremental.";
+                    await app.Services.GetRequiredService<IVectorIndex>().IndexAsync(
+                        new VectorDocumentRecord(
+                            "chief-memory-1",
+                            localProfile.TenantId,
+                            projectId,
+                            "project_decision",
+                            memoryContent,
+                            DeterministicLocalEmbedding.Embed(memoryContent),
+                            new Dictionary<string, string>(),
+                            DateTimeOffset.UtcNow),
+                        timeout.Token);
                     using var created = await client.PostAsJsonAsync(
                         "/api/v1/conversations",
                         new CreateConversationRequest(projectId, "Dogfood"),
@@ -69,6 +89,20 @@ public sealed class ChiefDemandMaterializationTests
                         .ReadFromJsonAsync<ChatTurnHandle>(timeout.Token))!;
 
                     await WaitForTurnAsync(client, conversationId, handle.TurnId, timeout.Token);
+                    var contextSnapshot = await app.Services
+                        .GetRequiredService<IGovernanceRuntimeStore>()
+                        .GetContextSnapshotAsync(
+                            localProfile.TenantId,
+                            handle.TurnId,
+                            timeout.Token);
+                    Assert.NotNull(contextSnapshot);
+                    Assert.Equal(projectId, contextSnapshot.ProjectId);
+                    Assert.Equal(handle.TurnId, contextSnapshot.ExecutionId);
+                    Assert.Contains(
+                        contextSnapshot.Sources,
+                        source =>
+                            source.SourceId == "memory:chief-memory-1" &&
+                            source.CitationReference == "project_decision:chief-memory-1");
 
                     var demands = (await client.GetFromJsonAsync<DemandPage>(
                         $"/api/v1/demands?projectId={projectId}", timeout.Token))!;

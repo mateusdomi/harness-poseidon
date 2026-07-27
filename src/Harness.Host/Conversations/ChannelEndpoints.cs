@@ -198,6 +198,12 @@ public static class ChannelEndpoints
             return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
         }
 
+        if (input.ConversationId is not null &&
+            !UlidValue.TryParse(input.ConversationId, out _))
+        {
+            return Problem(400, "invalid_conversation_id", "Conversation ID must be a ULID.");
+        }
+
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
         if (profile is null)
         {
@@ -216,36 +222,83 @@ public static class ChannelEndpoints
             string.Equals(link.ExternalIdentity, identity, StringComparison.Ordinal));
         if (alreadyLinked is not null)
         {
+            if (input.ConversationId is not null &&
+                !string.Equals(
+                    alreadyLinked.ConversationId,
+                    input.ConversationId,
+                    StringComparison.Ordinal))
+            {
+                return Problem(
+                    409,
+                    "channel_already_linked",
+                    "The external identity is already linked to another conversation.");
+            }
+
             return Results.Created(
                 $"/api/v1/channels/links/{alreadyLinked.Id}",
                 ToContract(alreadyLinked));
         }
 
         var now = clock.UtcNow;
-        var contract = ConversationApplicationService.Create(
-            UlidValue.New(now).ToString(),
-            profile.Id,
-            new CreateConversationRequest(
-                project.Id,
-                $"Canal {input.Kind}: {input.ExternalIdentity.Trim()}"),
-            now);
-        var conversation = await conversations.CreateConversationAsync(
-            new ConversationCreateCommand(
-                new ConversationRecord(
-                    profile.TenantId,
-                    contract.Id,
-                    contract.ProjectId,
-                    contract.Title,
-                    contract.State,
-                    contract.CreatedByProfileId,
-                    contract.CreatedAt,
-                    contract.LastMessageAt,
-                    contract.Version),
-                now),
-            token);
-        if (conversation.Status != ConversationMutationStatus.Applied)
+        ConversationRecord targetConversation;
+        if (input.ConversationId is { } requestedConversationId)
         {
-            return Problem(400, "channel_conversation_failed", "A conversa do canal não pôde ser criada.");
+            var existingConversation = await conversations.GetConversationAsync(
+                profile.TenantId,
+                requestedConversationId,
+                token);
+            if (existingConversation is null ||
+                !string.Equals(existingConversation.ProjectId, project.Id, StringComparison.Ordinal))
+            {
+                return Problem(
+                    404,
+                    "conversation_not_found",
+                    "The requested conversation does not exist in the selected project.");
+            }
+
+            if (!string.Equals(existingConversation.State, "active", StringComparison.Ordinal))
+            {
+                return Problem(
+                    409,
+                    "conversation_inactive",
+                    "The requested conversation is not active.");
+            }
+
+            targetConversation = existingConversation;
+        }
+        else
+        {
+            var contract = ConversationApplicationService.Create(
+                UlidValue.New(now).ToString(),
+                profile.Id,
+                new CreateConversationRequest(
+                    project.Id,
+                    $"Canal {input.Kind}: {input.ExternalIdentity.Trim()}"),
+                now);
+            var conversation = await conversations.CreateConversationAsync(
+                new ConversationCreateCommand(
+                    new ConversationRecord(
+                        profile.TenantId,
+                        contract.Id,
+                        contract.ProjectId,
+                        contract.Title,
+                        contract.State,
+                        contract.CreatedByProfileId,
+                        contract.CreatedAt,
+                        contract.LastMessageAt,
+                        contract.Version),
+                    now),
+                token);
+            if (conversation.Status != ConversationMutationStatus.Applied ||
+                conversation.Conversation is null)
+            {
+                return Problem(
+                    400,
+                    "channel_conversation_failed",
+                    "A conversa do canal não pôde ser criada.");
+            }
+
+            targetConversation = conversation.Conversation;
         }
 
         var link = await store.GetOrCreateAsync(
@@ -256,10 +309,10 @@ public static class ChannelEndpoints
                 input.ExternalIdentity.Trim(),
                 profile.Id,
                 project.Id,
-                contract.Id,
+                targetConversation.Id,
                 now),
             token);
-        if (link.ConversationId == contract.Id)
+        if (link.ConversationId == targetConversation.Id)
         {
             await audit.AppendAsync(
                 new AuditEventAppendCommand(
@@ -459,7 +512,8 @@ public static class ChannelEndpoints
 public sealed record CreateChannelLinkRequest(
     string Kind,
     string ExternalIdentity,
-    string ProjectId);
+    string ProjectId,
+    string? ConversationId = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ChannelMessageRequest(

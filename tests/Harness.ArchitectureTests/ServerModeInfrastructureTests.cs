@@ -54,6 +54,7 @@ public sealed class ServerModeInfrastructureTests
             "src/Harness.Persistence.Postgres/Migrations/0080_tenant_row_level_security.sql");
 
         Assert.Contains("ENABLE ROW LEVEL SECURITY", migration, StringComparison.Ordinal);
+        Assert.Contains("FORCE ROW LEVEL SECURITY", migration, StringComparison.Ordinal);
         Assert.Contains("CREATE POLICY tenant_isolation", migration, StringComparison.Ordinal);
         Assert.Contains("current_setting(''poseidon.tenant_id'', true)", migration, StringComparison.Ordinal);
         Assert.Contains("WITH CHECK", migration, StringComparison.Ordinal);

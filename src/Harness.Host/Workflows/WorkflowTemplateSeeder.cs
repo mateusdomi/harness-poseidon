@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Harness.Modules.Workflows.Application;
 using Harness.Modules.Workflows.Contracts;
 using Harness.Persistence.Abstractions.Foundation;
@@ -33,7 +34,9 @@ public sealed class WorkflowTemplateSeeder(
                     ? null
                     : await _catalog.GetVersionAsync(
                         tenantId, existingTemplate.CurrentVersionId, cancellationToken);
-                if (current is not null && current.Phases.SequenceEqual(canonical.Phases))
+                if (current is not null &&
+                    current.Phases.SequenceEqual(canonical.Phases) &&
+                    TransitionsMatch(current.TransitionsJson, canonical.Transitions))
                 {
                     continue;
                 }
@@ -48,7 +51,8 @@ public sealed class WorkflowTemplateSeeder(
                     new PublishWorkflowVersionRequest(
                         canonical.Phases,
                         canonical.GatesByPhase,
-                        Changelog: "Atualiza o ciclo canônico de entrega técnica para 15 fases."),
+                        Transitions: canonical.Transitions,
+                        Changelog: $"Reconcilia o workflow canônico {canonical.Key} com a definição vigente."),
                     now);
                 var upgradedPhases = AddDocumentObjectives(
                     value.Hierarchy.Phases, canonical, now);
@@ -60,7 +64,7 @@ public sealed class WorkflowTemplateSeeder(
                         upgradedPhases,
                         "{}",
                         null,
-                        "{}",
+                        JsonSerializer.Serialize(canonical.Transitions),
                         value.Hierarchy.Changelog,
                         now),
                     cancellationToken);
@@ -87,7 +91,8 @@ public sealed class WorkflowTemplateSeeder(
                         phases,
                         $"seed:workflow-template:{tenantId}:{canonical.Key}",
                         now,
-                        creation.Description),
+                        creation.Description,
+                        TransitionsJson: JsonSerializer.Serialize(canonical.Transitions)),
                     cancellationToken);
                 seeded++;
             }
@@ -119,6 +124,7 @@ public sealed class WorkflowTemplateSeeder(
                         objective.Kind,
                         objective.Weight))
                     .ToList();
+                var documentObjectiveIds = new List<string>();
 
                 if (canonical.DocumentsByPhase.TryGetValue(phase.Name, out var documents))
                 {
@@ -126,8 +132,10 @@ public sealed class WorkflowTemplateSeeder(
                     foreach (var document in documents)
                     {
                         index++;
+                        var objectiveId = UlidValue.New(now.AddTicks(documentTick++)).ToString();
+                        documentObjectiveIds.Add(objectiveId);
                         objectives.Add(new WorkflowObjectiveCreateInput(
-                            UlidValue.New(now.AddTicks(documentTick++)).ToString(),
+                            objectiveId,
                             $"document-{index}",
                             document,
                             "document",
@@ -148,9 +156,31 @@ public sealed class WorkflowTemplateSeeder(
                             gate.Key,
                             gate.Name,
                             gate.MinimumRequiredState,
-                            gate.RequiredObjectiveIds))
+                            [
+                                .. gate.RequiredObjectiveIds,
+                                .. documentObjectiveIds,
+                            ]))
                         .ToArray());
             }),
         ];
+    }
+
+    private static bool TransitionsMatch(
+        string currentJson,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> expected)
+    {
+        try
+        {
+            var current = JsonSerializer.Deserialize<Dictionary<string, string[]>>(currentJson);
+            return current is not null &&
+                current.Count == expected.Count &&
+                expected.All(pair =>
+                    current.TryGetValue(pair.Key, out var targets) &&
+                    targets.SequenceEqual(pair.Value, StringComparer.Ordinal));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }

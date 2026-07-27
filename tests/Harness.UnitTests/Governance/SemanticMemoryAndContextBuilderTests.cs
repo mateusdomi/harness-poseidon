@@ -40,6 +40,38 @@ public sealed class SemanticMemoryAndContextBuilderTests
     }
 
     [Fact]
+    public void HybridRagSearchEngineScopesProjectBeforeTopK()
+    {
+        var engine = new HybridRagSearchEngine();
+        var tenantId = "tenant-1";
+        var corpus = new[]
+        {
+            new VectorDocumentRecord(
+                "other-project", tenantId, "proj-2", "attachment",
+                "exportar auditoria csv filtro data",
+                [1.0f, 0.0f],
+                new Dictionary<string, string>(),
+                DateTimeOffset.UtcNow),
+            new VectorDocumentRecord(
+                "requested-project", tenantId, "proj-1", "attachment",
+                "auditoria csv",
+                [0.8f, 0.2f],
+                new Dictionary<string, string>(),
+                DateTimeOffset.UtcNow),
+        };
+
+        var result = Assert.Single(engine.Search(
+            tenantId,
+            "exportar auditoria csv filtro data",
+            [1.0f, 0.0f],
+            corpus,
+            topK: 1,
+            projectId: "proj-1"));
+
+        Assert.Equal("requested-project", result.Document.Id);
+    }
+
+    [Fact]
     public void ContextBuilderEnforcesTokenBudgetAndComputesAuditHash()
     {
         var builder = new ContextBuilder();

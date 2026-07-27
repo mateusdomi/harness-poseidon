@@ -36,6 +36,16 @@ public sealed record HybridSearchResult(
     double RrfScore,
     string RankExplanation);
 
+public sealed record RagContextSlice(
+    string DocumentId,
+    string DocumentType,
+    string ProjectId,
+    string Content,
+    double Score,
+    string CitationReference,
+    IReadOnlyDictionary<string, string> Metadata,
+    int TokenCount);
+
 /// <summary>
 /// Contrato da engine de busca híbrida (Frees FTS + Vetores + Rerank) (Fase 6 / N6).
 /// </summary>
@@ -46,7 +56,8 @@ public interface IHybridRagSearchEngine
         string query,
         IReadOnlyList<float>? queryEmbedding,
         IReadOnlyList<VectorDocumentRecord> corpus,
-        int topK = 5);
+        int topK = 5,
+        string? projectId = null);
 }
 
 /// <summary>
@@ -59,13 +70,19 @@ public sealed class HybridRagSearchEngine : IHybridRagSearchEngine
         string query,
         IReadOnlyList<float>? queryEmbedding,
         IReadOnlyList<VectorDocumentRecord> corpus,
-        int topK = 5)
+        int topK = 5,
+        string? projectId = null)
     {
         ArgumentNullException.ThrowIfNull(tenantId);
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(corpus);
 
-        var tenantCorpus = corpus.Where(c => string.Equals(c.TenantId, tenantId, StringComparison.OrdinalIgnoreCase)).ToList();
+        var tenantCorpus = corpus
+            .Where(document =>
+                string.Equals(document.TenantId, tenantId, StringComparison.Ordinal) &&
+                (string.IsNullOrWhiteSpace(projectId) ||
+                    string.Equals(document.ProjectId, projectId, StringComparison.Ordinal)))
+            .ToList();
 
         if (tenantCorpus.Count == 0)
         {
@@ -150,6 +167,64 @@ public sealed class HybridRagSearchEngine : IHybridRagSearchEngine
 
         if (norm1 <= 0.0 || norm2 <= 0.0) return 0.0;
         return Math.Clamp(dot / (Math.Sqrt(norm1) * Math.Sqrt(norm2)), 0.0, 1.0);
+    }
+}
+
+public interface IRagContextProvider
+{
+    Task<IReadOnlyList<RagContextSlice>> SearchAsync(
+        string tenantId,
+        string? projectId,
+        string query,
+        int topK = 5,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Porta produtiva da memória semântica. O corpus é restringido por tenant/projeto no store
+/// antes do ranking e do topK; a engine aplica FTS + vetores + RRF sobre esse corpus já isolado.
+/// </summary>
+public sealed class RagContextProvider(
+    IVectorIndex vectorIndex,
+    IHybridRagSearchEngine searchEngine) : IRagContextProvider
+{
+    private readonly IVectorIndex _vectorIndex =
+        vectorIndex ?? throw new ArgumentNullException(nameof(vectorIndex));
+    private readonly IHybridRagSearchEngine _searchEngine =
+        searchEngine ?? throw new ArgumentNullException(nameof(searchEngine));
+
+    public async Task<IReadOnlyList<RagContextSlice>> SearchAsync(
+        string tenantId,
+        string? projectId,
+        string query,
+        int topK = 5,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(query);
+        if (topK is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(nameof(topK));
+        }
+
+        var corpus = await _vectorIndex.ListAsync(tenantId, projectId, cancellationToken);
+        var results = _searchEngine.Search(
+            tenantId,
+            query,
+            DeterministicLocalEmbedding.Embed(query),
+            corpus,
+            topK,
+            projectId);
+
+        return results.Select(result => new RagContextSlice(
+            result.Document.Id,
+            result.Document.DocumentType,
+            result.Document.ProjectId,
+            result.Document.Content,
+            result.RrfScore,
+            $"{result.Document.DocumentType}:{result.Document.Id}",
+            result.Document.Metadata,
+            Math.Max(1, result.Document.Content.Length / 4))).ToArray();
     }
 }
 

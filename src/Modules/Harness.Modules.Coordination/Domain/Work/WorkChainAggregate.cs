@@ -460,8 +460,7 @@ public sealed class WorkChainAggregate
         }
 
         var task = _tasks.Single(candidate => candidate.Id == attempt.TaskId);
-        if (task.RiskTier >= WorkRiskTier.Medium &&
-            string.Equals(attempt.ProducerAgentId, reviewerAgentId, StringComparison.Ordinal))
+        if (string.Equals(attempt.ProducerAgentId, reviewerAgentId, StringComparison.Ordinal))
         {
             return Result<WorkReview>.Failure(WorkChainErrors.IndependentReviewerRequired);
         }

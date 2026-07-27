@@ -8,6 +8,8 @@ using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Workflows;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -112,6 +114,9 @@ public sealed class PlaybookDataSeedTests
                 Assert.Equal("gate", acceptance.GetProperty("targetCardType").GetString());
                 Assert.All(items, item => Assert.False(string.IsNullOrWhiteSpace(
                     item.GetProperty("requiredFieldsJson").GetString())));
+
+                await AssertPlaybookWorkflowSemanticsAsync(
+                    app, projectId, profile.TenantId, timeout.Token);
             }
             finally
             {
@@ -122,6 +127,107 @@ public sealed class PlaybookDataSeedTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    private static async Task AssertPlaybookWorkflowSemanticsAsync(
+        WebApplication app,
+        string projectId,
+        string tenantId,
+        CancellationToken token)
+    {
+        var catalog = app.Services.GetRequiredService<IWorkflowCatalogStore>();
+        var template = (await catalog.ListTemplatesAsync(tenantId, null, 200, token))
+            .Single(item =>
+                item.Name == Harness.Host.Workflows.CanonicalWorkflowTemplates
+                    .PlaybookStandardTemplate.Name);
+        var version = await catalog.GetVersionAsync(
+            tenantId, template.CurrentVersionId!, token);
+        Assert.NotNull(version);
+
+        var transitions =
+            JsonSerializer.Deserialize<Dictionary<string, string[]>>(version.TransitionsJson)!;
+        Assert.Equal(
+            ["2-Descoberta", "Arquivada", "Roteada-para-Sustentação"],
+            transitions["1-Triagem"]);
+        Assert.Equal(["9-Sustentação"], transitions["8-Release"]);
+        Assert.Empty(transitions["9-Sustentação"]);
+
+        var authority = app.Services.GetRequiredService<IWorkflowStore>();
+        var now = DateTimeOffset.UtcNow;
+        var runId = UlidValue.New(now).ToString();
+        _ = await authority.CreateRunAsync(
+            new WorkflowRunCreateCommand(
+                tenantId,
+                projectId,
+                version.Id,
+                runId,
+                $"playbook-evidence:create:{runId}",
+                now),
+            token);
+        var started = await authority.TransitionRunAsync(
+            new WorkflowRunTransitionCommand(
+                tenantId,
+                runId,
+                WorkflowRunTransition.Start,
+                1,
+                $"playbook-evidence:start:{runId}",
+                now.AddTicks(1)),
+            token);
+        Assert.Equal(WorkflowRunMutationStatus.Applied, started.Status);
+
+        var aggregate = await authority.ReadRunAggregateAsync(tenantId, runId, token);
+        Assert.NotNull(aggregate);
+        var triage = aggregate.Phases.Single(phase => phase.Name == "1-Triagem");
+        var gate = Assert.Single(triage.Gates);
+        Assert.Equal(["work-1", "document-1"], gate.RequiredObjectiveKeys);
+
+        var blocked = await authority.EvaluateGateAsync(
+            new WorkflowGateEvaluateCommand(
+                tenantId,
+                runId,
+                triage.Key,
+                gate.Key,
+                Passed: true,
+                started.RunVersion!.Value,
+                $"playbook-evidence:blocked:{runId}",
+                now.AddTicks(2)),
+            token);
+        Assert.Equal(WorkflowRunMutationStatus.GateRequirementsNotMet, blocked.Status);
+
+        var runVersion = started.RunVersion.Value;
+        var tick = 3L;
+        foreach (var objectiveKey in new[] { "work-1", "document-1" })
+        {
+            foreach (var targetState in new[] { "executed", "validated" })
+            {
+                var advanced = await authority.AdvanceObjectiveAsync(
+                    new WorkflowObjectiveAdvanceCommand(
+                        tenantId,
+                        runId,
+                        triage.Key,
+                        objectiveKey,
+                        targetState,
+                        runVersion,
+                        $"playbook-evidence:{objectiveKey}:{targetState}:{runId}",
+                        now.AddTicks(tick++)),
+                    token);
+                Assert.Equal(WorkflowRunMutationStatus.Applied, advanced.Status);
+                runVersion = advanced.RunVersion!.Value;
+            }
+        }
+
+        var passed = await authority.EvaluateGateAsync(
+            new WorkflowGateEvaluateCommand(
+                tenantId,
+                runId,
+                triage.Key,
+                gate.Key,
+                Passed: true,
+                runVersion,
+                $"playbook-evidence:passed:{runId}",
+                now.AddTicks(tick)),
+            token);
+        Assert.Equal(WorkflowRunMutationStatus.Applied, passed.Status);
     }
 
     private static async Task<string> SeedProjectAsync(HttpClient client, CancellationToken token)

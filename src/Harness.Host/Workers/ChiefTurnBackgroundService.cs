@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Harness.Host.Governance;
 using Harness.Host.Leadership;
 using Harness.Host.Observability;
 using Harness.Modules.Agents.Application.Execution;
@@ -9,6 +10,7 @@ using Harness.Modules.Conversations.Domain;
 using Harness.Host.WorkBoard;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
+using Harness.Modules.Governance.Memory;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
@@ -25,6 +27,7 @@ public sealed partial class ChiefTurnBackgroundService(
     ICockpitDigestStore digests,
     IGovernanceRuntimeStore governance,
     ContextBundleBuilder bundleBuilder,
+    IRagContextProvider ragContext,
     IFreshContextEvaluator evaluator,
     IAgentExecutor executor,
     IClock clock,
@@ -97,6 +100,13 @@ public sealed partial class ChiefTurnBackgroundService(
             var digest = await digests.ReadAsync(
                 lease.Turn.TenantId, lease.Turn.ProjectId, 20, cancellationToken);
             var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
+            IReadOnlyList<RagContextSlice> memory = options.ContextBundlesEnabled
+                ? await ragContext.SearchAsync(
+                    lease.Turn.TenantId,
+                    lease.Turn.ProjectId,
+                    lease.Instruction,
+                    cancellationToken: cancellationToken)
+                : [];
             ContextBundle bundle;
             using (var contextActivity = PoseidonTelemetry.StartChiefContext())
             {
@@ -118,12 +128,27 @@ public sealed partial class ChiefTurnBackgroundService(
                     ["Domain writes only through typed Host stores."],
                     [],
                     ["Stop on canonical conflict, secret risk, invalid output or failed gate."],
-                    options.ContextBundlesEnabled ? options.ContextTokenBudget : 256));
+                    options.ContextBundlesEnabled ? options.ContextTokenBudget : 256,
+                    memory.Select(slice => new ContextMemorySlice(
+                        slice.DocumentId,
+                        slice.Content,
+                        slice.CitationReference,
+                        slice.TokenCount)).ToArray()));
                 contextActivity?.SetTag("context.document_count", bundle.Documents.Count);
                 contextActivity?.SetTag("context.estimated_tokens", bundle.EstimatedTokens);
                 contextActivity?.SetTag("context.truncated_count", bundle.Truncated.Count);
                 contextActivity?.SetTag("context.cache_hits", bundle.CacheHits);
             }
+            await governance.CreateContextSnapshotAsync(
+                ContextSnapshotFactory.Create(
+                    lease.Turn.TenantId,
+                    lease.Turn.TurnId,
+                    lease.Turn.ProjectId,
+                    lease.Turn.TurnId,
+                    lease.Turn.TurnId,
+                    bundle,
+                    clock.UtcNow),
+                cancellationToken);
             receipt = await governance.CreateReceiptAsync(
                 new GovernanceTurnReceiptCreateCommand(
                     lease.Turn.TenantId,

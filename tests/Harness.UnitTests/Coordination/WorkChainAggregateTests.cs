@@ -178,10 +178,11 @@ public sealed class WorkChainAggregateTests
     }
 
     [Theory]
+    [InlineData(WorkRiskTier.Low)]
     [InlineData(WorkRiskTier.Medium)]
     [InlineData(WorkRiskTier.High)]
     [InlineData(WorkRiskTier.Critical)]
-    public void MediumOrHigherRiskRequiresIndependentReviewer(WorkRiskTier riskTier)
+    public void EveryReviewRequiresIndependentReviewer(WorkRiskTier riskTier)
     {
         var chain = CreateChain();
         var task = CreateTask(chain, riskTier);
@@ -280,25 +281,6 @@ public sealed class WorkChainAggregateTests
     }
 
     [Fact]
-    public void LowRiskMayUseSameProducerAndReviewer()
-    {
-        var chain = CreateChain();
-        var task = CreateTask(chain, WorkRiskTier.Low);
-        var instruction = chain.AddInstructionVersion(task.Id, "Implement.").Value;
-        var attempt = StartAttempt(chain, task, instruction, "engineer").Value;
-        chain.CompleteAttempt(attempt.Id, ["test:green"]);
-
-        var review = chain.ReviewAttempt(
-            attempt.Id,
-            "engineer",
-            ReviewDecision.Approved,
-            "Low-risk policy permits this review.");
-
-        Assert.True(review.IsSuccess);
-        Assert.Equal(WorkTaskState.Approved, task.State);
-    }
-
-    [Fact]
     public void ApprovedTaskMustBeMergedBeforeItCanBeCompleted()
     {
         var chain = CreateChain();
@@ -308,7 +290,7 @@ public sealed class WorkChainAggregateTests
         chain.CompleteAttempt(attempt.Id, ["test:green"]);
         chain.ReviewAttempt(
             attempt.Id,
-            "engineer",
+            "critic",
             ReviewDecision.Approved,
             "Approved for merge.");
 

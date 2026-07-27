@@ -114,6 +114,37 @@ public sealed record GovernanceMetricRecord(
     int? TokenCount,
     DateTimeOffset OccurredAt);
 
+public sealed record ContextSnapshotSourceRecord(
+    string SourceId,
+    string Kind,
+    string CitationReference);
+
+public sealed record ContextSnapshotCreateCommand(
+    string TenantId,
+    string SnapshotId,
+    string ProjectId,
+    string WorkTaskId,
+    string ExecutionId,
+    string ManifestVersion,
+    IReadOnlyList<string> BundleManifestIds,
+    IReadOnlyList<ContextSnapshotSourceRecord> Sources,
+    string AssembledContextHash,
+    int TokenCount,
+    DateTimeOffset CreatedAt);
+
+public sealed record ContextSnapshotRecord(
+    string TenantId,
+    string SnapshotId,
+    string ProjectId,
+    string WorkTaskId,
+    string ExecutionId,
+    string ManifestVersion,
+    IReadOnlyList<string> BundleManifestIds,
+    IReadOnlyList<ContextSnapshotSourceRecord> Sources,
+    string AssembledContextHash,
+    int TokenCount,
+    DateTimeOffset CreatedAt);
+
 public interface IGovernanceRuntimeStore
 {
     Task<GovernanceTurnReceiptRecord> CreateReceiptAsync(
@@ -143,6 +174,15 @@ public interface IGovernanceRuntimeStore
     Task<IReadOnlyList<GovernanceMetricRecord>> ListMetricsAsync(
         string tenantId,
         string turnId,
+        CancellationToken cancellationToken = default);
+
+    Task<ContextSnapshotRecord> CreateContextSnapshotAsync(
+        ContextSnapshotCreateCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<ContextSnapshotRecord?> GetContextSnapshotAsync(
+        string tenantId,
+        string snapshotId,
         CancellationToken cancellationToken = default);
 }
 

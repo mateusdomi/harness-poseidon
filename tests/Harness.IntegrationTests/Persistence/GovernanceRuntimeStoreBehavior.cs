@@ -42,5 +42,40 @@ public static class GovernanceRuntimeStoreBehavior
         var metrics = await store.ListMetricsAsync(tenantId, turnId, token);
         Assert.Equal(2, metrics.Count);
         Assert.Single(await store.ListReceiptsAsync(tenantId, projectId, null, 10, token));
+
+        const string snapshotId = "01ARZ3NDEKTSV4RRFFQ69G5FQ5";
+        var snapshotCommand = new ContextSnapshotCreateCommand(
+            tenantId,
+            snapshotId,
+            projectId,
+            turnId,
+            turnId,
+            "1.0.0",
+            ["governance-core"],
+            [
+                new ContextSnapshotSourceRecord(
+                    "memory:attachment-1",
+                    "Memory",
+                    "solicitation_attachment:attachment-1"),
+            ],
+            new string('c', 64),
+            123,
+            at);
+        var snapshot = await store.CreateContextSnapshotAsync(snapshotCommand, token);
+        Assert.Equal(snapshotCommand.AssembledContextHash, snapshot.AssembledContextHash);
+        Assert.Equal(snapshotCommand.BundleManifestIds, snapshot.BundleManifestIds);
+        Assert.Equal(snapshotCommand.Sources, snapshot.Sources);
+        var replayedSnapshot = await store.CreateContextSnapshotAsync(snapshotCommand, token);
+        Assert.Equal(snapshot.AssembledContextHash, replayedSnapshot.AssembledContextHash);
+        await Assert.ThrowsAsync<GovernanceRuntimeConflictException>(() =>
+            store.CreateContextSnapshotAsync(
+                snapshotCommand with { AssembledContextHash = new string('d', 64) },
+                token));
+        var loadedSnapshot = await store.GetContextSnapshotAsync(tenantId, snapshotId, token);
+        Assert.NotNull(loadedSnapshot);
+        Assert.Equal(snapshot.SnapshotId, loadedSnapshot.SnapshotId);
+        Assert.Equal(snapshot.AssembledContextHash, loadedSnapshot.AssembledContextHash);
+        Assert.Equal(snapshot.BundleManifestIds, loadedSnapshot.BundleManifestIds);
+        Assert.Equal(snapshot.Sources, loadedSnapshot.Sources);
     }
 }

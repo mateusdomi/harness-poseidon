@@ -3,111 +3,70 @@ using Harness.Modules.Providers.Contracts;
 namespace Harness.Modules.Providers.Application;
 
 /// <summary>
-/// Roteador determinístico de modelos com suporte a fallback, circuit breaker e backpressure (Fase 3 / N4).
-/// Seleciona a melhor conta e modelo para cada requisição garantindo preservação integral do contexto.
+/// Roteador determinístico de modelos (Fase 3 / N4).
+///
+/// A seleção de CONTA pertence exclusivamente ao AgentAccountScheduler, que conhece adapter,
+/// autenticação, capacidade, escopo, concorrência e actor/critic. Este componente recebe essa
+/// decisão fechada e materializa somente provedor/modelo e a explicação auditável; assim não
+/// existe um segundo scheduler mais permissivo no módulo de Providers.
 /// </summary>
-public sealed class ModelRouter
+public static class ModelRouter
 {
-    private readonly CapacityManager _capacityManager;
-
-    public ModelRouter(CapacityManager capacityManager)
-    {
-        _capacityManager = capacityManager ?? throw new ArgumentNullException(nameof(capacityManager));
-    }
-
     /// <summary>
-    /// Realiza o roteamento determinístico da requisição para um modelo e conta elegível.
+    /// Materializa o roteamento a partir da seleção autoritativa do scheduler.
     /// </summary>
-    public ModelRoutingDecision Route(
+    public static ModelRoutingDecision Route(
         IReadOnlyList<SimpleAccountSpec> registeredAccounts,
+        ScheduledAccountSelection selection,
         ModelRoutingRequest request)
     {
         ArgumentNullException.ThrowIfNull(registeredAccounts);
+        ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(request);
 
-        var capacitySnapshot = _capacityManager.EvaluateCapacity(
-            registeredAccounts, request.Role, request.Now);
-
-        var candidates = registeredAccounts
-            .Where(acc => acc.AllowedRoles.Contains(request.Role, StringComparer.OrdinalIgnoreCase))
-            .OrderByDescending(acc => acc.Priority)
-            .ThenBy(acc => acc.Alias, StringComparer.Ordinal)
-            .ToList();
-
-        if (candidates.Count == 0)
+        var evaluated = selection.Candidates
+            .Select(candidate => $"{candidate.Alias}:{candidate.ReasonCode}")
+            .ToArray();
+        if (selection.SelectedAlias is not { Length: > 0 } selectedAlias)
         {
             return new ModelRoutingDecision(
                 SelectedAlias: null,
                 SelectedModel: null,
                 Provider: null,
                 IsFallback: false,
-                DecisionReason: "model_router.no_accounts_configured_for_role",
-                EvaluatedCandidates: [],
+                DecisionReason: selection.ReasonCode,
+                EvaluatedCandidates: evaluated,
                 RoutedAt: request.Now);
         }
 
-        var evaluatedLogs = new List<string>();
-        SimpleAccountSpec? selected = null;
-
-        foreach (var candidate in candidates)
-        {
-            var isTripped = _capacityManager.IsCircuitTripped(candidate.Alias, request.Now);
-            var quota = _capacityManager.GetQuotaSnapshot(candidate.Alias, request.Now);
-            var isExhausted = string.Equals(quota.Status, "Exhausted", StringComparison.OrdinalIgnoreCase) &&
-                              (quota.ResetAt is null || quota.ResetAt.Value > request.Now);
-
-            if (isTripped)
-            {
-                evaluatedLogs.Add($"{candidate.Alias}:circuit_tripped");
-                continue;
-            }
-
-            if (isExhausted)
-            {
-                evaluatedLogs.Add($"{candidate.Alias}:quota_exhausted");
-                continue;
-            }
-
-            if (request.ForCritic && request.ActorAlias is not null &&
-                string.Equals(candidate.Alias, request.ActorAlias, StringComparison.OrdinalIgnoreCase))
-            {
-                evaluatedLogs.Add($"{candidate.Alias}:actor_cannot_be_critic");
-                continue;
-            }
-
-            evaluatedLogs.Add($"{candidate.Alias}:eligible");
-            selected = candidate;
-            break;
-        }
-
+        var selected = registeredAccounts.FirstOrDefault(account =>
+            string.Equals(account.Alias, selectedAlias, StringComparison.OrdinalIgnoreCase));
         if (selected is null)
         {
-            var reason = capacitySnapshot.IsUnderBackpressure
-                ? "model_router.backpressure_all_accounts_exhausted"
-                : "model_router.no_eligible_candidate";
-
             return new ModelRoutingDecision(
                 SelectedAlias: null,
                 SelectedModel: null,
                 Provider: null,
                 IsFallback: false,
-                DecisionReason: reason,
-                EvaluatedCandidates: evaluatedLogs,
+                DecisionReason: "model_router.scheduler_selection_not_registered",
+                EvaluatedCandidates: evaluated,
                 RoutedAt: request.Now);
         }
 
-        var topCandidate = candidates.FirstOrDefault();
-        var isFallback = topCandidate is not null && !string.Equals(selected.Alias, topCandidate.Alias, StringComparison.OrdinalIgnoreCase);
-
-        var model = request.PreferredModel ?? "default";
+        var preferredConfigured = selection.Candidates
+            .OrderByDescending(candidate => candidate.Priority)
+            .ThenBy(candidate => candidate.Alias, StringComparer.Ordinal)
+            .FirstOrDefault();
+        var isFallback = preferredConfigured is not null &&
+            !string.Equals(selected.Alias, preferredConfigured.Alias, StringComparison.OrdinalIgnoreCase);
 
         return new ModelRoutingDecision(
             SelectedAlias: selected.Alias,
-            SelectedModel: model,
+            SelectedModel: request.PreferredModel,
             Provider: selected.ProviderKind,
             IsFallback: isFallback,
             DecisionReason: isFallback ? "model_router.routed_to_fallback" : "model_router.routed_to_primary",
-            EvaluatedCandidates: evaluatedLogs,
+            EvaluatedCandidates: evaluated,
             RoutedAt: request.Now);
     }
 }

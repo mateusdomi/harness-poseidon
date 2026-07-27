@@ -6,8 +6,11 @@ using System.Text.Json;
 using Harness.Host;
 using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Identity.Contracts;
+using Harness.Modules.Governance.Memory;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.SharedKernel.Memory;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -55,6 +58,29 @@ public sealed class MemorySearchApiTests
                 await UploadAsync(
                     client, solicitationId, "identidade-visual.md",
                     "# Identidade\n\nPaleta de cores, tipografia e logotipo da marca Poseidon.",
+                    timeout.Token);
+
+                // Documento de outro projeto é deliberadamente a combinação perfeita. Se o
+                // filtro ocorrer somente depois do topK, ele rouba uma vaga do projeto pedido.
+                var profile = Assert.Single(
+                    await app.Services.GetRequiredService<ILocalProfileStore>()
+                        .ListAsync(timeout.Token));
+                const string competingProjectId = "01ARZ3NDEKTSV4RRFFQ69G5FA1";
+                const string competingContent = "exportar auditoria csv filtro data";
+                await app.Services.GetRequiredService<IVectorIndex>().IndexAsync(
+                    new VectorDocumentRecord(
+                        "competing-other-project",
+                        profile.TenantId,
+                        competingProjectId,
+                        "solicitation_attachment",
+                        competingContent,
+                        DeterministicLocalEmbedding.Embed(competingContent),
+                        new Dictionary<string, string>
+                        {
+                            ["fileName"] = "competidor.md",
+                            ["solicitationId"] = "other-project",
+                        },
+                        DateTimeOffset.UtcNow),
                     timeout.Token);
 
                 using var response = await client.GetAsync(

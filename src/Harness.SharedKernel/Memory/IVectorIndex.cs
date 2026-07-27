@@ -27,6 +27,11 @@ public interface IVectorIndex
 {
     Task IndexAsync(VectorDocumentRecord document, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<VectorDocumentRecord>> ListAsync(
+        string tenantId,
+        string? projectId = null,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
         string tenantId,
         IReadOnlyList<float> queryEmbedding,

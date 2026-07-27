@@ -52,12 +52,16 @@ public sealed class EvaluationRecommendationApiTests
                 var tenantId = await TenantIdAsync(app);
                 var invocations = app.Services.GetRequiredService<IModelInvocationStore>();
 
-                // prod-alpha: 3 tentativas aprovadas, todas com invocação registrada.
-                for (var index = 0; index < 3; index++)
+                // prod-alpha: duas assinaturas distintas, cada uma com 3 tentativas aprovadas.
+                // Agente/provedor/modelo iguais NÃO podem colapsar identidades de conta.
+                for (var index = 0; index < 6; index++)
                 {
                     var attemptId = await SeedReviewedAttemptAsync(
                         app, client, projectId, $"Card alpha {index}", "prod-alpha", "approved",
                         timeout.Token);
+                    var accountAlias = index < 3
+                        ? "subscription-primary"
+                        : "subscription-secondary";
                     await invocations.RecordInvocationAsync(
                         new ModelInvocationRecord(
                             UlidValue.New(DateTimeOffset.UtcNow).ToString(),
@@ -67,7 +71,7 @@ public sealed class EvaluationRecommendationApiTests
                             attemptId.AttemptId,
                             "codex",
                             "gpt-5-codex",
-                            "worker-codex-backend",
+                            accountAlias,
                             1200,
                             300,
                             0.04m,
@@ -89,20 +93,34 @@ public sealed class EvaluationRecommendationApiTests
                     await response.Content.ReadAsStringAsync(timeout.Token));
 
                 var aggregates = body.RootElement.GetProperty("aggregates").EnumerateArray().ToArray();
-                Assert.Equal(2, aggregates.Length);
+                Assert.Equal(3, aggregates.Length);
 
-                var alpha = Assert.Single(
-                    aggregates, item => item.GetProperty("targetId").GetString() == "prod-alpha");
-                Assert.Equal("codex", alpha.GetProperty("provider").GetString());
-                Assert.Equal("gpt-5-codex", alpha.GetProperty("model").GetString());
-                Assert.Equal(3, alpha.GetProperty("sampleSize").GetInt32());
-                Assert.Equal(3, alpha.GetProperty("successCount").GetInt32());
-                Assert.Equal(1.0, alpha.GetProperty("passRate").GetDouble());
-                Assert.Equal(1.0, alpha.GetProperty("compositeScore").GetDouble());
-                Assert.True(alpha.GetProperty("sampleSizeQualified").GetBoolean());
-                var lower = alpha.GetProperty("confidenceIntervalLower").GetDouble();
-                Assert.InRange(lower, 0.30, 0.99);
-                Assert.True(lower < 1.0, "IC de Wilson nunca degenera em certeza com amostra 3.");
+                var alpha = aggregates
+                    .Where(item => item.GetProperty("targetId").GetString() == "prod-alpha")
+                    .OrderBy(item => item.GetProperty("accountAlias").GetString(), StringComparer.Ordinal)
+                    .ToArray();
+                Assert.Equal(2, alpha.Length);
+                Assert.Equal(
+                    "subscription-primary",
+                    alpha[0].GetProperty("accountAlias").GetString());
+                Assert.Equal(
+                    "subscription-secondary",
+                    alpha[1].GetProperty("accountAlias").GetString());
+                Assert.All(alpha, aggregate =>
+                {
+                    Assert.Equal("codex", aggregate.GetProperty("provider").GetString());
+                    Assert.Equal("gpt-5-codex", aggregate.GetProperty("model").GetString());
+                    Assert.Equal(3, aggregate.GetProperty("sampleSize").GetInt32());
+                    Assert.Equal(3, aggregate.GetProperty("successCount").GetInt32());
+                    Assert.Equal(1.0, aggregate.GetProperty("passRate").GetDouble());
+                    Assert.Equal(1.0, aggregate.GetProperty("compositeScore").GetDouble());
+                    Assert.True(aggregate.GetProperty("sampleSizeQualified").GetBoolean());
+                    var lower = aggregate.GetProperty("confidenceIntervalLower").GetDouble();
+                    Assert.InRange(lower, 0.30, 0.99);
+                    Assert.True(
+                        lower < 1.0,
+                        "IC de Wilson nunca degenera em certeza com amostra 3.");
+                });
 
                 var beta = Assert.Single(
                     aggregates, item => item.GetProperty("targetId").GetString() == "prod-beta");
@@ -113,12 +131,19 @@ public sealed class EvaluationRecommendationApiTests
 
                 var recommendations = body.RootElement.GetProperty("recommendations")
                     .EnumerateArray().ToArray();
-                Assert.Equal(
-                    "maintain_current_routing",
-                    Assert.Single(
-                        recommendations,
-                        item => item.GetProperty("targetId").GetString() == "prod-alpha")
-                        .GetProperty("action").GetString());
+                var alphaRecommendations = recommendations
+                    .Where(item => item.GetProperty("targetId").GetString() == "prod-alpha")
+                    .ToArray();
+                Assert.Equal(2, alphaRecommendations.Length);
+                Assert.All(alphaRecommendations, recommendation =>
+                {
+                    Assert.Equal(
+                        "maintain_current_routing",
+                        recommendation.GetProperty("action").GetString());
+                    var accountAlias = recommendation.GetProperty("accountAlias").GetString();
+                    Assert.True(
+                        accountAlias is "subscription-primary" or "subscription-secondary");
+                });
                 Assert.Equal(
                     "insufficient_sample_size",
                     Assert.Single(

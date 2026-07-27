@@ -63,6 +63,17 @@ public sealed class ChannelGatewayApiTests
                     Assert.Equal(link.Id, same.Id);
                     Assert.Equal(link.ConversationId, same.ConversationId);
                 }
+                using (var conflictingRelink = await client.PostAsJsonAsync(
+                    "/api/v1/channels/links",
+                    new CreateChannelLinkRequest(
+                        "terminal",
+                        "tty:mateus",
+                        project.Id,
+                        UlidValue.New(DateTimeOffset.UtcNow).ToString()),
+                    timeout.Token))
+                {
+                    Assert.Equal(HttpStatusCode.Conflict, conflictingRelink.StatusCode);
+                }
 
                 // Mensagem do canal com id externo; o Chief responde no canal de origem.
                 using var sendResponse = await client.PostAsJsonAsync(

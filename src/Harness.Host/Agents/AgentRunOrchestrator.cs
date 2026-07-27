@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Harness.Host.Governance;
 using Harness.Host.Realtime;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
@@ -9,6 +10,7 @@ using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Coordination;
+using Harness.Modules.Governance.Memory;
 using Harness.Modules.Providers.Application;
 using Harness.Modules.Tools.Application;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
@@ -35,6 +37,7 @@ public sealed class AgentRunOrchestrator(
     IAttemptWorkspaceStore workspaces,
     IGovernanceRuntimeStore governance,
     ContextBundleBuilder bundleBuilder,
+    IRagContextProvider ragContext,
     AccountProfileProvisioner profiles,
     AgentAccountRegistry accounts,
     ExternalAgentExecutorFactory executors,
@@ -553,6 +556,11 @@ public sealed class AgentRunOrchestrator(
             var continuationNote = await PrepareContinuationAsync(command, manager, cancellationToken);
 
             // 6. Context bundle + receipt: o worker recebe contexto SELECIONADO e auditado.
+            var memory = await ragContext.SearchAsync(
+                command.TenantId,
+                command.ProjectId,
+                string.Join('\n', new[] { command.Instruction }.Concat(command.AcceptanceCriteria)),
+                cancellationToken: cancellationToken);
             var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
                 command.TenantId, command.ProjectId, command.TaskId, command.AttemptId,
                 command.AccountAlias, account.ProviderKind, command.Model,
@@ -562,7 +570,23 @@ public sealed class AgentRunOrchestrator(
                 [$"path-scope:{command.PathScopeKind}", $"access:{command.Access}"],
                 [],
                 ["Stop on canonical conflict, missing claim, secret risk or failed gate."],
-                settings.ContextTokenBudget));
+                settings.ContextTokenBudget,
+                memory.Select(slice => new ContextMemorySlice(
+                    slice.DocumentId,
+                    slice.Content,
+                    slice.CitationReference,
+                    slice.TokenCount)).ToArray()));
+
+            await governance.CreateContextSnapshotAsync(
+                ContextSnapshotFactory.Create(
+                    command.TenantId,
+                    runId,
+                    command.ProjectId,
+                    command.TaskId,
+                    runId,
+                    bundle,
+                    clock.UtcNow),
+                cancellationToken);
 
             receipt = await governance.CreateReceiptAsync(
                 new GovernanceTurnReceiptCreateCommand(

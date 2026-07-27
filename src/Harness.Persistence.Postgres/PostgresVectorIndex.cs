@@ -49,41 +49,15 @@ public sealed class PostgresVectorIndex(NpgsqlDataSource dataSource) : IVectorIn
         ArgumentNullException.ThrowIfNull(tenantId);
         ArgumentNullException.ThrowIfNull(queryEmbedding);
 
-        await using var command = _dataSource.CreateCommand("""
-            SELECT id, tenant_id, project_id, document_type, content,
-                   embedding_json, metadata_json, created_at
-            FROM harness.vector_embeddings
-            WHERE tenant_id = $tenantId;
-            """);
-        command.Parameters.AddWithValue("$tenantId", tenantId);
-
-        var items = new List<(VectorDocumentRecord Doc, IReadOnlyList<float> Emb)>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            var emb = JsonSerializer.Deserialize<float[]>(reader.GetString(5)) ?? [];
-            var metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(6)) ?? new();
-
-            var doc = new VectorDocumentRecord(
-                Id: reader.GetString(0),
-                TenantId: reader.GetString(1),
-                ProjectId: reader.GetString(2),
-                DocumentType: reader.GetString(3),
-                Content: reader.GetString(4),
-                Embedding: emb,
-                Metadata: metadata,
-                CreatedAt: reader.GetFieldValue<DateTimeOffset>(7)
-            );
-            items.Add((doc, emb));
-        }
+        var documents = await ListAsync(tenantId, projectId: null, cancellationToken);
 
         var results = new List<VectorSearchResult>();
-        foreach (var (doc, emb) in items)
+        foreach (var document in documents)
         {
-            var score = ComputeCosineSimilarity(queryEmbedding, emb);
+            var score = ComputeCosineSimilarity(queryEmbedding, document.Embedding);
             if (score >= minScore)
             {
-                results.Add(new VectorSearchResult(doc, score));
+                results.Add(new VectorSearchResult(document, score));
             }
         }
 
@@ -91,6 +65,55 @@ public sealed class PostgresVectorIndex(NpgsqlDataSource dataSource) : IVectorIn
             .OrderByDescending(r => r.Score)
             .Take(topK)
             .ToList();
+    }
+
+    public async Task<IReadOnlyList<VectorDocumentRecord>> ListAsync(
+        string tenantId,
+        string? projectId = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+
+        await using var command = _dataSource.CreateCommand(projectId is null
+            ? """
+            SELECT id, tenant_id, project_id, document_type, content,
+                   embedding_json, metadata_json, created_at
+            FROM harness.vector_embeddings
+            WHERE tenant_id = $tenantId
+            ORDER BY created_at, id;
+            """
+            : """
+            SELECT id, tenant_id, project_id, document_type, content,
+                   embedding_json, metadata_json, created_at
+            FROM harness.vector_embeddings
+            WHERE tenant_id = $tenantId
+              AND project_id = $projectId
+            ORDER BY created_at, id;
+            """);
+        command.Parameters.AddWithValue("$tenantId", tenantId);
+        if (projectId is not null)
+        {
+            command.Parameters.AddWithValue("$projectId", projectId);
+        }
+
+        var documents = new List<VectorDocumentRecord>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var embedding = JsonSerializer.Deserialize<float[]>(reader.GetString(5)) ?? [];
+            var metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(6)) ?? new();
+            documents.Add(new VectorDocumentRecord(
+                Id: reader.GetString(0),
+                TenantId: reader.GetString(1),
+                ProjectId: reader.GetString(2),
+                DocumentType: reader.GetString(3),
+                Content: reader.GetString(4),
+                Embedding: embedding,
+                Metadata: metadata,
+                CreatedAt: reader.GetFieldValue<DateTimeOffset>(7)));
+        }
+
+        return documents;
     }
 
     public async Task DeleteAsync(string tenantId, string documentId, CancellationToken cancellationToken = default)

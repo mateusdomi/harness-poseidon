@@ -79,12 +79,14 @@ public sealed partial class PostgresWorkflowStore(NpgsqlDataSource dataSource) :
             connection, transaction,
             """
             INSERT INTO harness.workflow_definition_versions
-                (id,tenant_id,definition_id,version,status,content_hash,created_at,published_at)
-            VALUES ($1,$2,$3,$4,'published',$5,$6,$6);
+                (id,tenant_id,definition_id,version,status,content_hash,created_at,published_at,
+                 transitions_json)
+            VALUES ($1,$2,$3,$4,'published',$5,$6,$6,$7);
             """,
             cancellationToken,
             Text(value.DefinitionVersionId), Text(value.TenantId), Text(value.DefinitionId),
-            Integer(value.Version), Text(value.ContentHash), Timestamp(value.OccurredAt));
+            Integer(value.Version), Text(value.ContentHash), Timestamp(value.OccurredAt),
+            Json(value.TransitionsJson));
         foreach (var phase in value.Phases)
         {
             await ExecuteAsync(

@@ -8,7 +8,8 @@ public sealed record CanonicalWorkflowTemplate(
     string Description,
     IReadOnlyList<string> Phases,
     IReadOnlyDictionary<string, IReadOnlyList<string>> GatesByPhase,
-    IReadOnlyDictionary<string, IReadOnlyList<string>> DocumentsByPhase)
+    IReadOnlyDictionary<string, IReadOnlyList<string>> DocumentsByPhase,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> Transitions)
 {
     public CreateWorkflowTemplateRequest ToRequest() => new(
         Name,
@@ -21,6 +22,8 @@ public sealed record CanonicalWorkflowTemplate(
 public static class CanonicalWorkflowTemplates
 {
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> NoDocuments =
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> NoTransitions =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
     private static CanonicalWorkflowTemplate Build(
@@ -37,7 +40,8 @@ public static class CanonicalWorkflowTemplates
             phase => phase,
             phase => (IReadOnlyList<string>)[$"Aprovação de {phase}"],
             StringComparer.Ordinal),
-        NoDocuments);
+        NoDocuments,
+        NoTransitions);
 
     /// <summary>
     /// A chave canônica do template RECOMENDADO, pré-selecionado na criação de um projeto para
@@ -204,6 +208,22 @@ public static class CanonicalWorkflowTemplates
                 "Capacity planning",
             ],
         };
+        var transitions = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+        {
+            ["1-Triagem"] = [
+                "2-Descoberta",
+                "Arquivada",
+                "Roteada-para-Sustentação",
+            ],
+            ["2-Descoberta"] = ["3-Arquitetura"],
+            ["3-Arquitetura"] = ["4-Planejamento"],
+            ["4-Planejamento"] = ["5-Desenvolvimento"],
+            ["5-Desenvolvimento"] = ["6-Testes"],
+            ["6-Testes"] = ["7-Homologação"],
+            ["7-Homologação"] = ["8-Release"],
+            ["8-Release"] = ["9-Sustentação"],
+            ["9-Sustentação"] = [],
+        };
 
         return new CanonicalWorkflowTemplate(
             PlaybookStandardKey,
@@ -214,7 +234,8 @@ public static class CanonicalWorkflowTemplates
             "homologação com aceite humano, release com rollback testado e sustentação por SLO.",
             phases,
             gates,
-            documents);
+            documents,
+            transitions);
     }
 
     // DEL-07 — as 15 fases da entrega técnica, com portões e documentos esperados por fase. Cada
@@ -286,6 +307,7 @@ public static class CanonicalWorkflowTemplates
             "encerramento e revisão de benefícios.",
             phases,
             gates,
-            documents);
+            documents,
+            NoTransitions);
     }
 }

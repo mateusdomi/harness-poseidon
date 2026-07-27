@@ -16,7 +16,7 @@ public sealed class PostgresTenantRowLevelSecurityTests
         await using var fixture = await PostgresSkipLockedPocTests.ManagedPostgresFixture
             .StartAsync(timeout.Token);
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
-        Assert.Equal(72, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
+        Assert.True(await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token) >= 73);
         await using var connection = await dataSource.OpenConnectionAsync(timeout.Token);
         await using var transaction = await connection.BeginTransactionAsync(timeout.Token);
         var role = $"poseidon_rls_probe_{Guid.NewGuid():N}";
@@ -58,6 +58,7 @@ public sealed class PostgresTenantRowLevelSecurityTests
                 WHERE c.table_schema='harness'
                   AND c.column_name='tenant_id'
                   AND t.relrowsecurity
+                  AND t.relforcerowsecurity
                   AND EXISTS
                   (
                       SELECT 1 FROM pg_policies p

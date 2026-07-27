@@ -92,4 +92,18 @@ public sealed class PlaybookStandardWorkflowTemplateTests
             CanonicalWorkflowTemplates.All,
             template => template.Key == CanonicalWorkflowTemplates.PlaybookStandardKey);
     }
+
+    [Fact]
+    public void TransitionsCarryTheLinearLaneAndTheTwoCanonicalTriageTerminals()
+    {
+        var transitions = CanonicalWorkflowTemplates.PlaybookStandardTemplate.Transitions;
+
+        Assert.Equal(
+            ["2-Descoberta", "Arquivada", "Roteada-para-Sustentação"],
+            transitions["1-Triagem"]);
+        Assert.Equal(["3-Arquitetura"], transitions["2-Descoberta"]);
+        Assert.Equal(["9-Sustentação"], transitions["8-Release"]);
+        Assert.Empty(transitions["9-Sustentação"]);
+        Assert.Equal(9, transitions.Count);
+    }
 }

@@ -781,8 +781,10 @@ public sealed partial class PostgresWorkChainStore
         {
             receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
         }
-        else if (row.RiskTier != "low" &&
-            string.Equals(row.ProducerAgentId, command.ReviewerAgentId, StringComparison.Ordinal))
+        else if (string.Equals(
+            row.ProducerAgentId,
+            command.ReviewerAgentId,
+            StringComparison.Ordinal))
         {
             receipt = Rejected(
                 WorkChainMutationStatus.IndependentReviewerRequired,

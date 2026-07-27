@@ -21,7 +21,14 @@ public enum ContextSegmentKind
     Evidence,
     StopCondition,
     Budget,
+    Memory,
 }
+
+public sealed record ContextMemorySlice(
+    string DocumentId,
+    string Content,
+    string CitationReference,
+    int EstimatedTokens);
 
 public sealed record ContextBundleRequest(
     string TenantId,
@@ -41,7 +48,8 @@ public sealed record ContextBundleRequest(
     IReadOnlyList<string> ToolPermissions,
     IReadOnlyList<string> Evidence,
     IReadOnlyList<string> StopConditions,
-    int TokenBudget);
+    int TokenBudget,
+    IReadOnlyList<ContextMemorySlice>? MemorySlices = null);
 
 public sealed record ContextBundleDocument(
     string DocumentId,
@@ -56,7 +64,8 @@ public sealed record ContextBundleSegment(
     string SourceId,
     string Content,
     int EstimatedTokens,
-    bool Mandatory);
+    bool Mandatory,
+    string? CitationReference = null);
 
 public sealed record ContextBundle(
     string ManifestVersion,
@@ -268,7 +277,7 @@ public sealed class ContextBundleBuilder
     }
 
     private static void AddRuntimeSegments(
-        ICollection<ContextBundleSegment> segments,
+        List<ContextBundleSegment> segments,
         ContextBundleRequest request)
     {
         Add(segments, ContextSegmentKind.PathConstraint, "runtime:path-constraints", request.Paths, false);
@@ -278,10 +287,27 @@ public sealed class ContextBundleBuilder
         Add(segments, ContextSegmentKind.Evidence, "runtime:evidence", request.Evidence, false);
         Add(segments, ContextSegmentKind.StopCondition, "runtime:stop-conditions", request.StopConditions, true);
         Add(segments, ContextSegmentKind.Budget, "runtime:budget", [$"tokenBudget={request.TokenBudget}"], true);
+        foreach (var slice in request.MemorySlices ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(slice.DocumentId) ||
+                string.IsNullOrWhiteSpace(slice.Content) ||
+                string.IsNullOrWhiteSpace(slice.CitationReference))
+            {
+                continue;
+            }
+
+            segments.Add(new ContextBundleSegment(
+                ContextSegmentKind.Memory,
+                $"memory:{slice.DocumentId}",
+                $"{slice.Content.Trim()}\n\nCitation: {slice.CitationReference}",
+                Math.Max(1, slice.EstimatedTokens),
+                false,
+                slice.CitationReference));
+        }
     }
 
     private static void Add(
-        ICollection<ContextBundleSegment> segments,
+        List<ContextBundleSegment> segments,
         ContextSegmentKind kind,
         string source,
         IReadOnlyList<string> values,

@@ -29,7 +29,7 @@ internal static class WorkChainStoreBehavior
             "[\"State is atomic\",\"Audit is complete\"]",
             "01ARZ3NDEKTSV4RRFFQ69G5FF2",
             "Create work-chain transaction",
-            "medium",
+            "low",
             5m,
             "01ARZ3NDEKTSV4RRFFQ69G5FF3",
             instruction,
@@ -55,7 +55,7 @@ internal static class WorkChainStoreBehavior
         Assert.Equal(command.TaskId, snapshot.TaskId);
         Assert.Equal("draft", snapshot.TaskState);
         Assert.Equal(1, snapshot.TaskVersion);
-        Assert.Equal("medium", snapshot.RiskTier);
+        Assert.Equal("low", snapshot.RiskTier);
         Assert.Equal(5m, snapshot.Weight);
         Assert.Equal(command.InstructionVersionId, snapshot.InstructionVersionId);
         Assert.Equal(1, snapshot.InstructionVersion);
@@ -709,7 +709,7 @@ internal static class WorkChainStoreBehavior
             "01ARZ3NDEKTSV4RRFFQ69G5FF8",
             "software-engineer",
             "approved",
-            "Self review must be rejected for medium risk.",
+            "Self review must be rejected even for low risk.",
             6,
             "work-chain:attempt:review:self",
             chain.OccurredAt.AddMinutes(3));

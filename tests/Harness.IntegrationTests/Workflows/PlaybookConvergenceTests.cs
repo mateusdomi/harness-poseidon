@@ -6,9 +6,12 @@ using Harness.Host.Workflows;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Modules.Workflows.Application;
+using Harness.Modules.Workflows.Contracts;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Workflows;
+using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -104,6 +107,73 @@ public sealed class PlaybookConvergenceTests
                 var active = Assert.Single(runs, run => run.State is "running" or "paused");
                 Assert.Equal(recommended.CurrentVersionId, active.VersionId);
                 Assert.Contains(runs, run => run.State == "cancelled");
+
+                // Regressão da Fase 9: uma versão publicada com as mesmas fases, mas sem
+                // transições/evidências, é drift canônico. O seeder publica a versão corrigida;
+                // a convergência atualiza tanto o binding quanto o run ativo, sem deixar o
+                // próximo run voltar à versão obsoleta.
+                var driftAt = clock.UtcNow;
+                var driftVersionId = UlidValue.New(driftAt).ToString();
+                var drift = WorkflowCatalogApplicationService.CreateVersion(
+                    recommended.Id,
+                    driftVersionId,
+                    new PublishWorkflowVersionRequest(
+                        CanonicalWorkflowTemplates.PlaybookStandardTemplate.Phases,
+                        CanonicalWorkflowTemplates.PlaybookStandardTemplate.GatesByPhase,
+                        Changelog: "Drift de regressão sem transições."),
+                    driftAt);
+                _ = await workflows.PublishVersionAsync(
+                    new WorkflowVersionPublishCommand(
+                        profile.TenantId,
+                        recommended.Id,
+                        driftVersionId,
+                        drift.Hierarchy.Phases.Select(phase => new WorkflowPhaseCreateInput(
+                            phase.Id,
+                            phase.Key,
+                            phase.Name,
+                            phase.Order,
+                            phase.Objectives.Select(objective => new WorkflowObjectiveCreateInput(
+                                objective.Id,
+                                objective.Key,
+                                objective.Name,
+                                objective.Kind,
+                                objective.Weight)).ToArray(),
+                            phase.Gates.Select(gate => new WorkflowGateCreateInput(
+                                gate.Id,
+                                gate.ObjectiveId,
+                                gate.Key,
+                                gate.Name,
+                                gate.MinimumRequiredState,
+                                gate.RequiredObjectiveIds)).ToArray())).ToArray(),
+                        "{}",
+                        null,
+                        "{}",
+                        drift.Hierarchy.Changelog,
+                        driftAt),
+                    timeout.Token);
+
+                Assert.Equal(1, await seeder.EnsureSeededAsync(
+                    profile.TenantId, timeout.Token));
+                var repairedTemplate = await workflows.GetTemplateAsync(
+                    profile.TenantId, recommended.Id, timeout.Token);
+                Assert.NotNull(repairedTemplate);
+                Assert.NotEqual(driftVersionId, repairedTemplate.CurrentVersionId);
+                var repairedVersion = await workflows.GetVersionAsync(
+                    profile.TenantId, repairedTemplate.CurrentVersionId!, timeout.Token);
+                Assert.NotNull(repairedVersion);
+                Assert.Contains("Arquivada", repairedVersion.TransitionsJson, StringComparison.Ordinal);
+
+                Assert.Equal(1, await convergence.EnsureBoundAsync(
+                    profile.TenantId, profile.Id, timeout.Token));
+                var upgradedBinding = (await workflows.ListBindingsAsync(
+                    profile.TenantId, projectId, null, 1, timeout.Token))[0];
+                Assert.Equal(repairedTemplate.CurrentVersionId, upgradedBinding.ActiveVersionId);
+                runs = await workflows.ListRunsAsync(
+                    profile.TenantId, binding.Id, null, 20, timeout.Token);
+                active = Assert.Single(runs, run => run.State is "running" or "paused");
+                Assert.Equal(repairedTemplate.CurrentVersionId, active.VersionId);
+                Assert.Equal(0, await convergence.EnsureBoundAsync(
+                    profile.TenantId, profile.Id, timeout.Token));
 
                 // O rebind é fato auditável no ledger.
                 var ledger = app.Services.GetRequiredService<IAuditEventStore>();

@@ -494,6 +494,7 @@ public static class HostApplication
                 services.GetRequiredService<IAttemptWorkspaceStore>(),
                 services.GetRequiredService<IGovernanceRuntimeStore>(),
                 services.GetRequiredService<ContextBundleBuilder>(),
+                services.GetRequiredService<Harness.Modules.Governance.Memory.IRagContextProvider>(),
                 services.GetRequiredService<AccountProfileProvisioner>(),
                 services.GetRequiredService<AgentAccountRegistry>(),
                 services.GetRequiredService<ExternalAgentExecutorFactory>(),
@@ -625,10 +626,17 @@ public static class HostApplication
             .Get<FreshContextEvaluatorOptions>() ?? new FreshContextEvaluatorOptions();
         builder.Services.AddSingleton(evaluatorOptions);
         builder.Services.AddSingleton<IFreshContextEvaluator, FreshContextEvaluator>();
-        builder.Services.AddSingleton<Harness.Modules.Governance.Evaluation.IEvaluationService, Harness.Modules.Governance.Evaluation.EvaluationService>();
+        var evaluationScoringOptions = builder.Configuration
+            .GetSection("Harness:Governance:Evaluation:Scoring")
+            .Get<EvaluationScoringOptions>() ?? new EvaluationScoringOptions();
+        evaluationScoringOptions.Validate();
+        builder.Services.AddSingleton(evaluationScoringOptions);
+        builder.Services.AddSingleton<IEvaluationService, EvaluationService>();
         builder.Services.AddSingleton<Harness.Modules.Providers.Application.CapacityManager>();
-        builder.Services.AddSingleton<Harness.Modules.Providers.Application.ModelRouter>();
+        builder.Services.AddSingleton<Harness.Modules.Providers.Application.ProviderQuotaCollector>();
+        builder.Services.AddSingleton<Agents.ProviderRoutingCoordinator>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IHybridRagSearchEngine, Harness.Modules.Governance.Memory.HybridRagSearchEngine>();
+        builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IRagContextProvider, Harness.Modules.Governance.Memory.RagContextProvider>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IContextBuilder, Harness.Modules.Governance.Memory.ContextBuilder>();
         builder.Services.AddSingleton<Harness.Modules.Coordination.Application.IMultimodalIntakeService, Harness.Modules.Coordination.Application.MultimodalIntakeService>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Ledger.ILedgerReconciliationService, Harness.Modules.Governance.Ledger.LedgerReconciliationService>();
@@ -742,6 +750,11 @@ public static class HostApplication
         if (!serverOptions.Multiuser)
         {
             app.UseMiddleware<PersonalProfileSessionMiddleware>();
+        }
+
+        if (serverMode)
+        {
+            app.UseMiddleware<PostgresTenantTransactionMiddleware>();
         }
 
         if (serverOptions.RateLimitPermitsPerMinute > 0)

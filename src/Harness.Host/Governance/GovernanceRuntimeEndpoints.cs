@@ -148,13 +148,17 @@ public static class GovernanceRuntimeEndpoints
                 != AttemptOutcome.InProgress)
             .ToArray();
 
-        // Provedor/modelo por tentativa a partir do fato durável de invocação (Fase 3).
-        var providerByAttempt = new Dictionary<string, (string Provider, string Model)>(StringComparer.Ordinal);
+        // Provedor/modelo/conta por tentativa a partir do fato durável de invocação (Fase 3).
+        // AccountAlias é a identidade da assinatura agendada; não é derivada do nome do agente.
+        var providerByAttempt = new Dictionary<
+            string,
+            (string Provider, string Model, string AccountAlias)>(StringComparer.Ordinal);
         foreach (var taskId in terminal.Select(row => row.TaskId).Distinct(StringComparer.Ordinal))
         {
             foreach (var invocation in await invocations.GetTaskInvocationsAsync(session.TenantId, taskId, token))
             {
-                providerByAttempt[invocation.AttemptId] = (invocation.Provider, invocation.Model);
+                providerByAttempt[invocation.AttemptId] =
+                    (invocation.Provider, invocation.Model, invocation.AccountAlias);
             }
         }
 
@@ -163,8 +167,12 @@ public static class GovernanceRuntimeEndpoints
             {
                 var invocation = providerByAttempt.TryGetValue(row.AttemptId, out var value)
                     ? value
-                    : ((string?)null, (string?)null);
-                return (Agent: row.ProducerAgentId, invocation.Item1, invocation.Item2);
+                    : ((string?)null, (string?)null, (string?)null);
+                return (
+                    Agent: row.ProducerAgentId,
+                    Provider: invocation.Item1,
+                    Model: invocation.Item2,
+                    AccountAlias: invocation.Item3);
             })
             .Select(group =>
             {
@@ -186,8 +194,8 @@ public static class GovernanceRuntimeEndpoints
                 var (lower, upper) = evaluations.CalculateConfidenceInterval(total, successes);
                 return new PerformanceAggregate(
                     group.Key.Agent,
-                    group.Key.Item3,
-                    group.Key.Item2,
+                    group.Key.Model,
+                    group.Key.Provider,
                     null,
                     total,
                     successes,
@@ -196,22 +204,27 @@ public static class GovernanceRuntimeEndpoints
                     compositeScore,
                     lower,
                     upper,
-                    total >= minimumSample);
+                    total >= minimumSample,
+                    group.Key.AccountAlias);
             })
             .OrderBy(aggregate => aggregate.TargetId, StringComparer.Ordinal)
             .ThenBy(aggregate => aggregate.Provider, StringComparer.Ordinal)
+            .ThenBy(aggregate => aggregate.Model, StringComparer.Ordinal)
+            .ThenBy(aggregate => aggregate.AccountAlias, StringComparer.Ordinal)
             .ToArray();
 
         var recommendations = evaluations.GenerateRecommendations(aggregates, clock.UtcNow);
         return Results.Ok(new EvaluationRecommendationsResponse(
             projectId,
             aggregates.Select(aggregate => new PerformanceAggregateContract(
-                aggregate.TargetId, aggregate.Model, aggregate.Provider, aggregate.SampleSize,
+                aggregate.TargetId, aggregate.Model, aggregate.Provider, aggregate.AccountAlias,
+                aggregate.SampleSize,
                 aggregate.SuccessCount, aggregate.FailureCount, aggregate.PassRate,
                 aggregate.CompositeScore, aggregate.ConfidenceIntervalLower,
                 aggregate.ConfidenceIntervalUpper, aggregate.SampleSizeQualified)).ToArray(),
             recommendations.Select(recommendation => new EvaluationRecommendationContract(
                 recommendation.TargetId, recommendation.Model, recommendation.Provider,
+                recommendation.AccountAlias,
                 recommendation.Action, recommendation.Score,
                 recommendation.ConfidenceIntervalLower, recommendation.ConfidenceIntervalUpper,
                 recommendation.SampleSize, recommendation.RecommendationReason,
@@ -229,7 +242,7 @@ public static class GovernanceRuntimeEndpoints
         int? maxTokens,
         HttpRequest request,
         ILocalProfileStore profiles,
-        Harness.SharedKernel.Memory.IVectorIndex vectors,
+        Harness.Modules.Governance.Memory.IRagContextProvider ragContext,
         Harness.Modules.Governance.Memory.IContextBuilder contextBuilder,
         IClock clock,
         CancellationToken token)
@@ -238,30 +251,28 @@ public static class GovernanceRuntimeEndpoints
         if (session is null) return Unauthorized();
         if (string.IsNullOrWhiteSpace(query))
             return Invalid("invalid_query", "query is required.");
+        if (!string.IsNullOrWhiteSpace(projectId) && !UlidValue.TryParse(projectId, out _))
+            return Invalid("invalid_project", "projectId must be a ULID.");
 
-        var results = await vectors.SearchAsync(
+        var results = await ragContext.SearchAsync(
             session.TenantId,
-            Harness.Modules.Governance.Memory.DeterministicLocalEmbedding.Embed(query),
+            projectId,
+            query,
             topK is > 0 and <= 50 ? topK.Value : 5,
-            minScore: 0.0,
             token);
-        var scoped = results
-            .Where(result => string.IsNullOrWhiteSpace(projectId) ||
-                string.Equals(result.Document.ProjectId, projectId, StringComparison.Ordinal))
-            .ToArray();
 
         var snapshot = contextBuilder.BuildSnapshot(
             session.TenantId,
             projectId ?? "memory-search",
             "vector-index-derived",
-            scoped.Select(result => new Harness.Modules.Governance.Memory.ContextBundleDocument(
-                result.Document.Id,
-                result.Document.Metadata.TryGetValue("fileName", out var fileName)
+            results.Select(result => new Harness.Modules.Governance.Memory.ContextBundleDocument(
+                result.DocumentId,
+                result.Metadata.TryGetValue("fileName", out var fileName)
                     ? fileName
-                    : result.Document.DocumentType,
-                result.Document.Content,
-                $"{result.Document.DocumentType}:{result.Document.Id}",
-                Math.Max(1, result.Document.Content.Length / 4))).ToArray(),
+                    : result.DocumentType,
+                result.Content,
+                result.CitationReference,
+                result.TokenCount)).ToArray(),
             maxTokens is > 0 ? maxTokens.Value : 4000,
             clock.UtcNow);
 
@@ -269,14 +280,14 @@ public static class GovernanceRuntimeEndpoints
             snapshot.SnapshotId,
             snapshot.Hash,
             snapshot.TotalTokens,
-            scoped.Select(result => new MemorySliceContract(
-                result.Document.Id,
-                result.Document.DocumentType,
-                result.Document.ProjectId,
-                result.Document.Content,
+            results.Select(result => new MemorySliceContract(
+                result.DocumentId,
+                result.DocumentType,
+                result.ProjectId,
+                result.Content,
                 Math.Round(result.Score, 6),
-                $"{result.Document.DocumentType}:{result.Document.Id}",
-                result.Document.Metadata)).ToArray()));
+                result.CitationReference,
+                result.Metadata)).ToArray()));
     }
 
     // PLAT-04: detecção pura de travamento semântico. Read-only: surface as tarefas travadas com a
@@ -719,11 +730,13 @@ public sealed record StuckTasksResponse(string ProjectId, IReadOnlyList<StuckTas
 // Fase 5: contratos das recomendações estatísticas (endpoint novo — não altera contratos
 // existentes). Cada número deriva das tentativas gravadas e do espelho `model_invocations`.
 public sealed record PerformanceAggregateContract(
-    string TargetId, string? Model, string? Provider, int SampleSize, int SuccessCount,
+    string TargetId, string? Model, string? Provider, string? AccountAlias,
+    int SampleSize, int SuccessCount,
     int FailureCount, double PassRate, double CompositeScore, double ConfidenceIntervalLower,
     double ConfidenceIntervalUpper, bool SampleSizeQualified);
 public sealed record EvaluationRecommendationContract(
-    string TargetId, string? Model, string? Provider, string Action, double Score,
+    string TargetId, string? Model, string? Provider, string? AccountAlias,
+    string Action, double Score,
     double ConfidenceIntervalLower, double ConfidenceIntervalUpper, int SampleSize,
     string RecommendationReason, DateTimeOffset GeneratedAt);
 public sealed record EvaluationRecommendationsResponse(

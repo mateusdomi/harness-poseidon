@@ -16,7 +16,11 @@ public sealed record ChiefCard(
     IReadOnlyList<string> ScopeClaims);
 
 /// <summary>Decisão de despachar um card para uma conta disponível, com o motivo explicável.</summary>
-public sealed record ChiefDispatch(ChiefCard Card, string AccountAlias, string ReasonCode);
+public sealed record ChiefDispatch(
+    ChiefCard Card,
+    string AccountAlias,
+    string ReasonCode,
+    AccountSelectionDecision Selection);
 
 /// <summary>
 /// Card adiado: nenhuma conta do papel está disponível AGORA. <see cref="RetryAfter"/> é
@@ -127,7 +131,16 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
             }
 
             used[chosen] = used.GetValueOrDefault(chosen) + 1;
-            dispatched.Add(new ChiefDispatch(card, chosen, "chief.dispatched"));
+            var effectiveSelection = decision with
+            {
+                SelectedAlias = chosen,
+                ReasonCode = string.Equals(
+                    chosen, decision.SelectedAlias, StringComparison.OrdinalIgnoreCase)
+                        ? decision.ReasonCode
+                        : "scheduler.selected_fallback_slot",
+            };
+            dispatched.Add(new ChiefDispatch(
+                card, chosen, "chief.dispatched", effectiveSelection));
         }
 
         return new ChiefBacklogPlan(dispatched, deferred);
