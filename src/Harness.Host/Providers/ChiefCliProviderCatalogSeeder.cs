@@ -59,14 +59,26 @@ public sealed class ChiefCliProviderCatalogSeeder(
     /// </summary>
     public const string ChiefAccountId = "01ARZ3NDEKTSV4RRFFQ69G5FH3";
 
-    /// <summary>Modelo de chat REAL do Chefe (fora da faixa simulada J1..J4).</summary>
-    public const string ChiefModelId = "01ARZ3NDEKTSV4RRFFQ69G5FJ5";
+    /// <summary>
+    /// Modelo de chat REAL do Chefe (fora da faixa simulada J1..J4).
+    ///
+    /// O identificador técnico de um modelo é IMUTÁVEL (o update do catálogo só troca o rótulo de
+    /// exibição), então promover o chefe a um modelo mais capaz é um REGISTRO NOVO — não uma edição
+    /// do antigo. J5 (Sonnet) permanece no catálogo como história; a seleção do chefe passa a J6.
+    /// </summary>
+    public const string ChiefModelId = "01ARZ3NDEKTSV4RRFFQ69G5FJ6";
 
     /// <summary>
-    /// Nome passado verbatim para <c>claude --model &lt;nome&gt;</c>. É um alias que a CLI do Claude
-    /// Code resolve para o Sonnet atual da assinatura. NÃO é usado como chave de API.
+    /// Nome passado verbatim para <c>claude --model &lt;nome&gt;</c>. É um ALIAS que a CLI do Claude
+    /// Code resolve para o Opus atual da assinatura. NÃO é usado como chave de API.
+    ///
+    /// O chefe roda no modelo mais capaz disponível — não é preferência, é consequência do papel:
+    /// ele é quem interpreta a demanda em prosa, decide a decomposição, escolhe o profissional e
+    /// responde pelo sucesso do projeto. Um erro de julgamento dele se multiplica por todos os
+    /// cards que despacha; um erro de um executor fica contido no card e ainda passa pelo crítico.
+    /// O alias (e não uma versão fixa) faz o chefe acompanhar o Opus corrente da assinatura.
     /// </summary>
-    public const string ChiefModelName = "claude-sonnet-4-5";
+    public const string ChiefModelName = "opus";
 
     /// <summary>Referência opaca ao segredo — nunca a credencial. Igual ao alias da conta CLI.</summary>
     public const string ChiefCredentialReference = "keychain://poseidon/chief-claude-primary";
@@ -167,7 +179,7 @@ public sealed class ChiefCliProviderCatalogSeeder(
                     ChiefModelId,
                     AnthropicProviderId,
                     ChiefModelName,
-                    "Claude Sonnet 4.5 (CLI)",
+                    "Claude Opus (CLI)",
                     Capabilities: ["chat", "code"],
                     ContextWindow: 200_000,
                     CostPer1kInputUsd: 0.003m,

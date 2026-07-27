@@ -24,7 +24,14 @@ public sealed record DemandDecompositionHints(
     bool? HasFrontendSurface = null,
     bool? RequiresExternalCredential = null,
     bool? HasTechnicalUncertainty = null,
-    bool? RequiresDecision = null);
+    bool? RequiresDecision = null,
+
+    /// <summary>
+    /// A demanda produz CÓDIGO de servidor? Uma demanda cujo entregável é uma decisão (ADR), uma
+    /// investigação ou um documento não produz — e emitir uma fatia de backend para ela manda um
+    /// agente escrever código de produção para algo que ainda nem foi decidido.
+    /// </summary>
+    bool? HasImplementationSurface = null);
 
 /// <summary>
 /// Um card proposto do plano. <see cref="ProposedTitle"/> começa sempre pelo código estável
@@ -113,6 +120,16 @@ public static class DemandDecompositionPlanner
         "manual", "changelog", "docs", "runbook",
     ];
 
+    /// <summary>
+    /// Sinais de que a demanda pede CONSTRUÇÃO, e não apenas decisão/investigação/documento.
+    /// </summary>
+    private static readonly string[] ImplementationTerms =
+    [
+        "implementar", "implement", "construir", "build", "codificar", "desenvolver", "develop",
+        "criar endpoint", "criar api", "expor endpoint", "persistir", "migration", "corrigir bug",
+        "refatorar", "refactor", "integrar com", "automatizar",
+    ];
+
     private static readonly string[] DecisionTerms =
     [
         "decidir", "decisão", "decisao", "decision", "trade-off", "tradeoff", "escolher entre",
@@ -135,6 +152,17 @@ public static class DemandDecompositionPlanner
         var hasUncertainty = hints?.HasTechnicalUncertainty ?? MentionsAny(haystack, UncertaintyTerms);
         var needsDecision = hints?.RequiresDecision ?? MentionsAny(haystack, DecisionTerms);
         var hasDocumentation = MentionsAny(haystack, DocumentationTerms);
+
+        // A fatia de backend deixou de ser incondicional. Uma demanda cujo entregável é uma DECISÃO
+        // (ADR), uma INVESTIGAÇÃO ou um DOCUMENTO não produz código de servidor: emitir a fatia
+        // assim mesmo colocava um agente para escrever código de produção do que ainda não foi
+        // decidido — trabalho errado, cota gasta e ruído no board. O chefe pode declarar a natureza
+        // da demanda pelo hint; sem hint, vale a leitura do texto: só se pede backend quando a
+        // demanda menciona construir algo OU quando não é claramente decisão/investigação/doc.
+        var mentionsImplementation = MentionsAny(haystack, ImplementationTerms);
+        var deliverableIsNotCode =
+            (needsDecision || hasUncertainty || hasDocumentation) && !mentionsImplementation;
+        var hasBackend = hints?.HasImplementationSurface ?? !deliverableIsNotCode;
 
         var ordinal = 0;
         var cards = new List<ProposedCard>();
@@ -195,19 +223,22 @@ public static class DemandDecompositionPlanner
                 []));
         }
 
-        // 4. Fatia de backend — sempre presente (linha de base da implementação).
-        var backendCode = Code();
-        implementationCodes.Add(backendCode);
-        cards.Add(new ProposedCard(
-            Title(backendCode, "Backend: implementar a fatia de servidor"),
-            CardTypeAgentTask,
-            RoleBackend,
-            $"Implementar a fatia de backend de {featureId}: contratos tipados, tenant scope, OCC, cancellation e persistência dual quando aplicável, com testes proporcionais ao risco.",
-            $"Código de servidor de {featureId}: domínio, aplicação, persistência, endpoints e testes de backend.",
-            "Qualquer UI/frontend; provisionamento de credencial externa; documentação de produto.",
-            ImplementationCriteria(criteria, "backend"),
-            ["build", "tests"],
-            [.. prerequisiteCodes]));
+        // 4. Fatia de backend — presente quando a demanda produz código de servidor.
+        if (hasBackend)
+        {
+            var backendCode = Code();
+            implementationCodes.Add(backendCode);
+            cards.Add(new ProposedCard(
+                Title(backendCode, "Backend: implementar a fatia de servidor"),
+                CardTypeAgentTask,
+                RoleBackend,
+                $"Implementar a fatia de backend de {featureId}: contratos tipados, tenant scope, OCC, cancellation e persistência dual quando aplicável, com testes proporcionais ao risco.",
+                $"Código de servidor de {featureId}: domínio, aplicação, persistência, endpoints e testes de backend.",
+                "Qualquer UI/frontend; provisionamento de credencial externa; documentação de produto.",
+                ImplementationCriteria(criteria, "backend"),
+                ["build", "tests"],
+                [.. prerequisiteCodes]));
+        }
 
         if (hasFrontend)
         {

@@ -31,6 +31,43 @@ public sealed class DemandDecompositionPlannerTests
     }
 
     [Fact]
+    public void ADemandWhoseDeliverableIsADecisionDoesNotEmitABackendSlice()
+    {
+        // Achado da homologação: a chefe abriu uma demanda de ADR ("definir a abordagem") e o
+        // plano emitia, junto, um card de "implementar a fatia de servidor" — mandando um agente
+        // escrever código de produção do que ainda nem foi decidido.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "ADR: arquitetura do painel",
+            description: "Decidir entre arquivo e banco de dados para a persistência, com trade-off registrado.",
+            criteria: ["A decisão está registrada com o porquê."]));
+
+        Assert.Contains(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeDecision);
+        Assert.DoesNotContain(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+    }
+
+    [Fact]
+    public void ADemandThatAsksToBuildStillEmitsTheBackendSlice()
+    {
+        // A guarda não pode virar desculpa para não construir: havendo pedido de construção, a
+        // fatia de backend continua sendo a linha de base, mesmo com decisão no meio do caminho.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            description: "Decidir o formato do payload e implementar o endpoint de vendas do dia."));
+
+        Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+    }
+
+    [Fact]
+    public void TheChiefCanDeclareTheDemandHasNoImplementationSurface()
+    {
+        // O hint é a via pela qual o raciocínio da chefe chega ao plano sem depender de palavra-chave.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            description: "Implementar e construir o serviço completo.",
+            hints: new DemandDecompositionHints(HasImplementationSurface: false)));
+
+        Assert.DoesNotContain(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+    }
+
+    [Fact]
     public void NoPlannedCardIsEverDispatchableWithoutAWriteScope()
     {
         // Trava de regressão: todo card auto-despachável ('agent_task') precisa de um papel que
