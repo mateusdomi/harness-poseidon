@@ -100,6 +100,27 @@ public sealed class AgentAccountScheduler
     }
 
     /// <summary>
+    /// O escopo pedido está DENTRO de um escopo permitido da conta? Compara pelas raízes,
+    /// tolerando o sufixo de varredura dos dois lados: `src/Modules/X/**` está dentro de `src/**`,
+    /// e um path exato está dentro da raiz que o contém.
+    /// </summary>
+    private static bool IsWithinScope(string requested, string allowed)
+    {
+        var candidate = TrimScope(requested);
+        var root = TrimScope(allowed);
+        return candidate.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+            candidate.StartsWith($"{root}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string TrimScope(string value)
+    {
+        var normalized = value.Replace('\\', '/').Trim('/');
+        return normalized.EndsWith("/**", StringComparison.Ordinal)
+            ? normalized[..^3].TrimEnd('/')
+            : normalized;
+    }
+
+    /// <summary>
     /// Ordem de preferência entre elegíveis. Perto do limite pesa MAIS que degradada porque a
     /// conta degradada entrega devagar, enquanto a que está perto do limite tende a morrer no
     /// meio do trabalho — o custo é a tentativa inteira, não a latência.
@@ -180,11 +201,19 @@ public sealed class AgentAccountScheduler
             return (false, "account.concurrency_exhausted");
         }
 
-        // 8. Escopo de path: um conflito de escopo impede o escalonamento (o claim real é
-        //    validado depois, mas uma conta que sequer permite o escopo nunca é escolhida).
+        // 8. Escopo de path: uma conta que sequer permite o escopo nunca é escolhida (o claim real
+        //    é validado depois pela política de path).
+        //
+        //    A comparação é por CONTINÊNCIA, não por igualdade. O escopo permitido da conta é uma
+        //    RAIZ de trabalho — `frontend/**` significa "pode trabalhar dentro de frontend", não
+        //    "só aceita exatamente esta string". Enquanto era igualdade, o card que pedia
+        //    `frontend/src/features/approvals/**` — mais estreito e portanto mais seguro — era
+        //    recusado com `path_scope_not_allowed`, e o escopo por card ficava impossível de usar
+        //    justamente nas contas que declaram raízes. Observado ao vivo: quatro cards de módulos
+        //    diferentes adiados a cada ciclo com a frota inteira disponível.
         foreach (var scope in request.RequiredPathScopes)
         {
-            if (!account.AllowedPathScopes.Contains(scope, StringComparer.Ordinal))
+            if (!account.AllowedPathScopes.Any(allowed => IsWithinScope(scope, allowed)))
             {
                 return (false, "account.path_scope_not_allowed");
             }

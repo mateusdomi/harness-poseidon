@@ -196,6 +196,48 @@ public sealed class AgentAccountSchedulerTests
     }
 
     [Fact]
+    public void ANarrowerScopeIsAcceptedInsideAnAllowedRoot()
+    {
+        // Achado ao vivo: o escopo permitido da conta é uma RAIZ de trabalho, mas a comparação era
+        // por igualdade — então o card que pedia `frontend/src/features/approvals/**`, mais
+        // estreito e portanto mais seguro, era recusado com `path_scope_not_allowed`. Quatro cards
+        // de módulos diferentes ficaram adiados a cada ciclo com a frota inteira disponível.
+        var registry = RegistryOf(
+            Account("worker-codex-frontend", ExecutorCatalog.Codex, AgentRoles.FrontendSpecialist,
+                pathScopes: ["frontend/**", "docs/frontend/**"]));
+
+        var decision = new AgentAccountScheduler().Select(registry, new AccountSchedulingRequest
+        {
+            Role = AgentRoles.FrontendSpecialist,
+            RequiredCapability = "code",
+            Now = Now,
+            RequiredPathScopes = ["frontend/src/features/approvals/**"],
+        });
+
+        Assert.Equal("worker-codex-frontend", decision.SelectedAlias);
+    }
+
+    [Fact]
+    public void AScopeOutsideEveryAllowedRootIsStillRefused()
+    {
+        // Aceitar o mais estreito não pode virar aceitar qualquer coisa.
+        var registry = RegistryOf(
+            Account("worker-codex-frontend", ExecutorCatalog.Codex, AgentRoles.FrontendSpecialist,
+                pathScopes: ["frontend/**"]));
+
+        var decision = new AgentAccountScheduler().Select(registry, new AccountSchedulingRequest
+        {
+            Role = AgentRoles.FrontendSpecialist,
+            RequiredCapability = "code",
+            Now = Now,
+            RequiredPathScopes = ["src/Modules/Harness.Modules.Agents/**"],
+        });
+
+        Assert.Null(decision.SelectedAlias);
+        Assert.Equal("account.path_scope_not_allowed", Assert.Single(decision.Candidates).ReasonCode);
+    }
+
+    [Fact]
     public void AnAccountNeverRunsAboveItsConcurrencyLimit()
     {
         var registry = RegistryOf(
