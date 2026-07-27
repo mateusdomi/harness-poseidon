@@ -248,6 +248,7 @@ public static class HostApplication
             builder.Services.AddSingleton<ILearningCandidateStore, PostgresLearningCandidateStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, PostgresPhaseObligationStore>();
             builder.Services.AddSingleton<IAgentRequestStore, PostgresAgentRequestStore>();
+            builder.Services.AddSingleton<IExecutionCheckpointStore, PostgresExecutionCheckpointStore>();
             builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
@@ -281,6 +282,7 @@ public static class HostApplication
             builder.Services.AddSingleton<ILearningCandidateStore, SqliteLearningCandidateStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, SqlitePhaseObligationStore>();
             builder.Services.AddSingleton<IAgentRequestStore, SqliteAgentRequestStore>();
+            builder.Services.AddSingleton<IExecutionCheckpointStore, SqliteExecutionCheckpointStore>();
             builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
@@ -457,6 +459,7 @@ public static class HostApplication
         // o turno de conversa depende dela e não pode falhar por ordem de registro.
         builder.Services.AddSingleton<ChiefTeamManager>();
         builder.Services.AddSingleton<AgentRequestResolver>();
+        builder.Services.AddSingleton<ExecutionCheckpointService>();
         builder.Services.AddSingleton<WorkBoard.TaskIntegrationService>();
 
         builder.Services.AddSingleton(

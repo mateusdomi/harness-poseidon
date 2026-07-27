@@ -328,6 +328,41 @@ public sealed class GitWorktreeManager : IDisposable
     }
 
     /// <summary>
+    /// Os arquivos que a branch da tentativa alterou em relação à referência publicada. É o que
+    /// torna o checkpoint TRANSFERÍVEL entre contas: o trabalho parcial vive no Git, não na sessão
+    /// do agente que o produziu — então trocar de conta não precisa descartar nada.
+    ///
+    /// Devolve vazio quando a branch não existe: uma tentativa que morreu antes de commitar não
+    /// tem o que transferir, e inventar uma lista aqui criaria a ilusão de retomada.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ListBranchChangedFilesAsync(
+        string branchName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        if (!branchName.StartsWith("task/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Task branches must use the task/ prefix.", nameof(branchName));
+        }
+
+        var head = await RunGitAsync(
+            _repositoryRoot, ["rev-parse", "--verify", $"{branchName}^{{commit}}"], cancellationToken);
+        if (head.ExitCode != 0)
+        {
+            return [];
+        }
+
+        var names = await RunGitAsync(
+            _repositoryRoot, ["diff", "--name-only", $"HEAD...{branchName}"], cancellationToken);
+        return names.ExitCode != 0
+            ? []
+            : [.. names.StandardOutput
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)];
+    }
+
+    /// <summary>
     /// Integração do gate humano: merge REAL (sempre com commit de merge, --no-ff) da branch de
     /// tentativa aprovada na referência atualmente publicada do repositório. Em conflito, o merge
     /// é abortado e a exceção sobe — nunca deixa o repositório no meio de um merge.
