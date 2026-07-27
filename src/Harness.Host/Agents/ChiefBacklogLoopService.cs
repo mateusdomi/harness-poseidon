@@ -332,6 +332,12 @@ public sealed partial class ChiefBacklogLoopService(
                             $"{candidate.Alias}:{candidate.ReasonCode}")));
             }
 
+            // Adiamento transitório é rotina e não incomoda ninguém. Adiamento ESTRUTURAL é outra
+            // coisa: nenhuma espera o resolve, e o dono precisa saber que aquele card não tem quem
+            // o execute — senão ele fica parado para sempre com o fato vivo só no log.
+            await AnnounceUndispatchableCardsAsync(
+                profile.TenantId, project, cards, plan.Deferred, scope, token);
+
             foreach (var decision in plan.Dispatch)
             {
                 var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
@@ -392,6 +398,15 @@ public sealed partial class ChiefBacklogLoopService(
 
     /// <summary>Cards cuja escalação já foi anunciada ao dono — o aviso é uma vez, não a cada ciclo.</summary>
     private readonly HashSet<string> _announcedEscalations = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Marcador estável do aviso de card SEM EXECUTOR POSSÍVEL. Mesma função do marcador de
+    /// escalação: reconhecer na conversa o que já foi dito, sobrevivendo a restart.
+    /// </summary>
+    private const string UndispatchableMarker = "Um card não tem quem o execute:";
+
+    /// <summary>Cards já anunciados como indespacháveis nesta instância do processo.</summary>
+    private readonly HashSet<string> _announcedUndispatchable = new(StringComparer.Ordinal);
 
     /// <summary>Fases cujo portão já foi reportado como pronto para a decisão humana.</summary>
     private readonly HashSet<string> _announcedGates = new(StringComparer.Ordinal);
@@ -851,6 +866,99 @@ public sealed partial class ChiefBacklogLoopService(
 
         return announced;
     }
+
+    /// <summary>
+    /// Leva ao dono os cards que NENHUMA conta pode executar por motivo estrutural. O scheduler já
+    /// era fail-closed — ele recusa em vez de escalar para qualquer um —, mas a recusa morria no
+    /// log: o card ficava adiado a cada ciclo, para sempre, e do lado de fora parecia backlog
+    /// normal. Bloquear sem contar é meio caminho; o chefe é a única voz com o usuário e é ele
+    /// quem responde pelo projeto parado.
+    ///
+    /// Só o ESTRUTURAL é anunciado (ver <see cref="StructuralRefusals"/>): cota, cooldown,
+    /// concorrência e orçamento da rodada se resolvem sozinhos e virariam ruído. A idempotência é
+    /// a mesma da escalação — o id do card viaja na mensagem e a conversa é o registro durável,
+    /// então um restart não repete o aviso.
+    /// </summary>
+    private async Task<int> AnnounceUndispatchableCardsAsync(
+        string tenantId,
+        ProjectRecord project,
+        IReadOnlyList<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)> cards,
+        IReadOnlyList<ChiefDeferral> deferrals,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var structural = deferrals
+            .Where(ChiefDeferralTriage.IsStructural)
+            .Where(deferral => _announcedUndispatchable.Add(deferral.Card.TaskId))
+            .ToArray();
+        if (structural.Length == 0)
+        {
+            return 0;
+        }
+
+        var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
+        var open = await conversations.ListConversationsAsync(tenantId, project.Id, null, 1, token);
+        if (open.Count == 0)
+        {
+            foreach (var deferral in structural)
+            {
+                _ = _announcedUndispatchable.Remove(deferral.Card.TaskId);
+            }
+
+            return 0;
+        }
+
+        var history = await conversations.ListMessagesAsync(tenantId, open[0].Id, null, 200, token);
+        var alreadyAnnounced = history
+            .Where(entry => entry.Content.Contains(UndispatchableMarker, StringComparison.Ordinal))
+            .ToArray();
+
+        var now = clock.UtcNow;
+        var announced = 0;
+        foreach (var deferral in structural)
+        {
+            if (alreadyAnnounced.Any(entry =>
+                    entry.Content.Contains(deferral.Card.TaskId, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            var title = cards
+                .FirstOrDefault(entry => string.Equals(
+                    entry.Card.TaskId, deferral.Card.TaskId, StringComparison.Ordinal))
+                .Task?.Title ?? deferral.Card.TaskId;
+            var refusals = string.Join(
+                "\n",
+                deferral.Candidates!.Select(candidate => $"- {candidate.Alias}: `{candidate.ReasonCode}`"));
+            var content =
+                $"{UndispatchableMarker} **{title}** (card {deferral.Card.TaskId}).\n\n" +
+                $"Ele precisa do papel `{deferral.Card.Role}` com a capacidade `{deferral.Card.RequiredCapability}`, " +
+                "e nenhuma conta da frota atende — por motivo que esperar não resolve. " +
+                "Não vou atribuir para qualquer agente disponível, então o card fica parado até isto mudar.\n\n" +
+                $"O que cada conta respondeu:\n{refusals}\n\n" +
+                "Para destravar: habilitar/autenticar uma conta com esse papel, ou me dizer para " +
+                "reformular o card em algo que a frota atual consiga executar.";
+
+            var result = await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    tenantId,
+                    new MessageRecord(
+                        tenantId, project.Id, UlidValue.New(now).ToString(), open[0].Id,
+                        "chief", null, project.ChiefAgentId, content, null, now),
+                    now),
+                token);
+            if (result.Status == MessageMutationStatus.Applied)
+            {
+                announced++;
+                LogCardUndispatchable(logger, deferral.Card.TaskId, deferral.Card.Role);
+            }
+        }
+
+        return announced;
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} sem executor possível para o papel '{Role}' — anunciado ao dono.")]
+    private static partial void LogCardUndispatchable(ILogger logger, string taskId, string role);
 
     /// <summary>Marca que identifica, no histórico durável, uma instrução de replanejamento.</summary>
     private const string ReplanMarker = "## Replanejamento após escalonamento";

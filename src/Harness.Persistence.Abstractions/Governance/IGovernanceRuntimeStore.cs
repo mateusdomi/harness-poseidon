@@ -16,6 +16,15 @@ public static class GovernanceReceiptLifecycle
             (GovernanceReceiptState.Selected, GovernanceReceiptState.Delivered or GovernanceReceiptState.Completed or GovernanceReceiptState.Failed) => true,
             (GovernanceReceiptState.Delivered, GovernanceReceiptState.Completed or GovernanceReceiptState.Failed) => true,
             (GovernanceReceiptState.Failed, GovernanceReceiptState.Delivered) => true,
+
+            // RETOMADA. Um turno interrompido no meio da invocação (queda do Host, lease vencida)
+            // deixa o recibo em `delivered`; a nova tentativa refaz o caminho e entrega o MESMO
+            // bundle outra vez. Sem esta repetição idempotente, a transição era recusada como
+            // "stale", a tentativa morria em conflito e o turno esgotava as retentativas sem nunca
+            // sair do lugar — a mensagem do usuário ficava sem resposta para sempre. A repetição é
+            // registrada como uma nova versão do recibo: o ledger mostra as duas entregas, e o que
+            // é idempotente é o direito de repetir, não o registro do fato.
+            (GovernanceReceiptState.Delivered, GovernanceReceiptState.Delivered) => true,
             _ => false,
         };
 }

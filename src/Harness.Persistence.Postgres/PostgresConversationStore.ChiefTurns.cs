@@ -260,7 +260,7 @@ public sealed partial class PostgresConversationStore
         return CompleteCoreAsync(command, cancellationToken);
     }
 
-    public Task FailAsync(
+    public Task<ChiefTurnFailOutcome> FailAsync(
         ChiefTurnFailCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -707,13 +707,16 @@ public sealed partial class PostgresConversationStore
         string Id, string ProjectId, string? SolicitationId, string Title, string Description,
         string State, string Priority, DateTimeOffset CreatedAt);
 
-    private async Task FailCoreAsync(
+    /// <summary>Retentativas de um turno do chefe antes de ele ser dado como perdido.</summary>
+    private const int MaxChiefTurnAttempts = 3;
+
+    private async Task<ChiefTurnFailOutcome> FailCoreAsync(
         ChiefTurnFailCommand command, CancellationToken cancellationToken)
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         await EnsureLeaseAsync(connection, transaction, command.Lease, command.OccurredAt, cancellationToken);
-        var next = command.Retryable && command.Lease.Turn.AttemptCount < 3 ? "pending" : "failed";
+        var next = command.Retryable && command.Lease.Turn.AttemptCount < MaxChiefTurnAttempts ? "pending" : "failed";
         var failed = next == "failed";
         await ExecuteAsync(
             connection, transaction,
@@ -757,6 +760,7 @@ public sealed partial class PostgresConversationStore
                 command.Lease.Turn.ProjectId, next, command.OccurredAt, command.ErrorCode, null, null, null),
             command.OccurredAt, command.OccurredAt, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        return new ChiefTurnFailOutcome(failed, command.Lease.Turn.AttemptCount);
     }
 
     private static async Task EnsureLeaseAsync(

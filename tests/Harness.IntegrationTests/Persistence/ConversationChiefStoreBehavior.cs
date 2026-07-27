@@ -134,5 +134,48 @@ public static class ConversationChiefStoreBehavior
                 """{"phase":"parity"}""",
                 now.AddMilliseconds(9)),
             cancellationToken));
+
+        // FALHA: a política de retentativa é do store, e quem chama precisa saber QUANDO o turno
+        // morreu — é o instante em que a pergunta do usuário fica sem resposta e alguém tem de
+        // contar isso a ele. Antes o método não devolvia nada e o fato ficava só no mailbox.
+        var failingTurnId = UlidValue.New(now.AddMilliseconds(20)).ToString();
+        await chiefTurns.EnqueueAsync(
+            new ChiefTurnEnqueueCommand(
+                tenantId, projectId, conversationId, failingTurnId, chiefAgentId,
+                new MessageRecord(
+                    tenantId, projectId, UlidValue.New(now.AddMilliseconds(21)).ToString(),
+                    conversationId, "user", profileId, null, "Vai falhar", null,
+                    now.AddMilliseconds(21)),
+                $"idem:{failingTurnId}", now.AddMilliseconds(21)),
+            cancellationToken);
+
+        var terminalAt = 0;
+        for (var attempt = 1; attempt <= 4; attempt++)
+        {
+            var failingLease = await chiefTurns.AcquireNextAsync(
+                "parity-worker", now.AddMilliseconds(21 + attempt), TimeSpan.FromMinutes(1),
+                cancellationToken);
+            if (failingLease is null)
+            {
+                break;
+            }
+
+            var outcome = await chiefTurns.FailAsync(
+                new ChiefTurnFailCommand(
+                    failingLease, "ParityFailure", now.AddMilliseconds(22 + attempt), true),
+                cancellationToken);
+            if (outcome.Terminal)
+            {
+                terminalAt = attempt;
+                break;
+            }
+        }
+
+        // Morre na terceira: as duas primeiras voltam para a fila, a terceira encerra.
+        Assert.Equal(3, terminalAt);
+        var deadTurn = await chiefTurns.GetAsync(tenantId, failingTurnId, cancellationToken);
+        Assert.Equal("failed", deadTurn!.State);
+        Assert.Null(await chiefTurns.AcquireNextAsync(
+            "parity-worker", now.AddMilliseconds(40), TimeSpan.FromMinutes(1), cancellationToken));
     }
 }

@@ -27,6 +27,17 @@ public sealed record AgentRunSettings
     public string? AccountsFilePath { get; init; }
 
     /// <summary>
+    /// Arquivo do ledger durável de disponibilidade (cota/cooldown/login) das contas. Ausente
+    /// usa `~/.harness/account-availability.json`, o caminho do operador.
+    ///
+    /// Existe configurável porque, sem isso, QUALQUER Host — inclusive o que sobe dentro de um
+    /// teste — lê e escreve o ledger da instalação real do operador: uma conta em cooldown na
+    /// máquina reprovava a suíte por um motivo que não está no código, e um teste podia sujar o
+    /// estado de produção do dono. Ambiente é configuração, não constante.
+    /// </summary>
+    public string? AvailabilityLedgerPath { get; init; }
+
+    /// <summary>
     /// Raiz do arquivo de artifacts de tentativas reprovadas (patch + manifest de
     /// provenance), fora do repositório. Ausente usa <c>~/.harness/pilots</c>.
     /// </summary>

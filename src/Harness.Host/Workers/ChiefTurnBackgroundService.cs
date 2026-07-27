@@ -40,6 +40,7 @@ public sealed partial class ChiefTurnBackgroundService(
     IWorkBoardStore board,
     DemandPlanMaterializer demandPlans,
     IAgentCatalogStore agentCatalog,
+    IConversationStore conversations,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -376,7 +377,7 @@ public sealed partial class ChiefTurnBackgroundService(
                     cancellationToken);
             }
             var retryable = exception is not AgentOutputValidationException;
-            await turns.FailAsync(
+            var outcome = await turns.FailAsync(
                 new ChiefTurnFailCommand(
                     lease, exception.GetType().Name, clock.UtcNow, retryable),
                 cancellationToken);
@@ -385,6 +386,16 @@ public sealed partial class ChiefTurnBackgroundService(
                 lease.Turn.TurnId,
                 exception.GetType().Name,
                 retryable);
+
+            // O turno morreu: o usuário perguntou e NINGUÉM ia responder. Até aqui o fato ficava
+            // só no mailbox e no log — do lado de fora, a conversa simplesmente parava, sem
+            // resposta e sem erro. Quem responde pelo projeto é o chefe, então é ele quem conta a
+            // má notícia, com o código técnico e o id do turno para o caso ser reconstruído.
+            if (outcome.Terminal)
+            {
+                await AnnounceTerminalFailureAsync(
+                    lease, exception.GetType().Name, cancellationToken);
+            }
             var result = retryable ? "retryable_failure" : "terminal_failure";
             turnActivity?.SetTag("chief.result", result);
             PoseidonTelemetry.RecordChiefTurn(
@@ -454,6 +465,59 @@ public sealed partial class ChiefTurnBackgroundService(
                 LogDemandMaterializationFailure(
                     logger, seed.DemandId, lease.Turn.TurnId, exception.GetType().Name);
             }
+        }
+    }
+
+    /// <summary>
+    /// Publica, na própria conversa, que a mensagem do usuário NÃO foi respondida. É o único
+    /// lugar em que a falha terminal vira informação para quem perguntou; sem isto a conversa
+    /// morre em silêncio e o usuário fica esperando uma resposta que não vem.
+    ///
+    /// A mensagem é do chefe (a única voz com o usuário), diz o que aconteceu, o código técnico e
+    /// o identificador do turno — sem prompt, sem resposta parcial do modelo e sem segredo. Uma
+    /// falha AQUI não pode mascarar a falha original, então nada é propagado.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Announcing the failure must never mask the failure being announced.")]
+    private async Task AnnounceTerminalFailureAsync(
+        ChiefTurnLease lease,
+        string errorCode,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var occurredAt = clock.UtcNow;
+            var content =
+                "Não consegui processar sua última mensagem. Tentei três vezes e parei — nenhuma " +
+                "delas chegou a uma resposta, então prefiro dizer isso a deixar você esperando.\n\n" +
+                $"Código técnico: `{errorCode}` · turno `{lease.Turn.TurnId}`.\n\n" +
+                "Nada foi decidido nem delegado a partir dessa mensagem. Pode reenviá-la que eu " +
+                "retomo do zero; se falhar de novo, o código acima é o fio para investigar.";
+            var message = ConversationApplicationService.CreateChiefMessage(
+                UlidValue.New(occurredAt).ToString(),
+                lease.Turn.ConversationId,
+                lease.ChiefAgentId,
+                content,
+                occurredAt);
+            await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    lease.Turn.TenantId,
+                    new MessageRecord(
+                        lease.Turn.TenantId, lease.Turn.ProjectId, message.Id,
+                        message.ConversationId, message.AuthorRole, message.AuthorProfileId,
+                        message.AuthorAgentId, message.Content, message.TokenCount, message.CreatedAt),
+                    occurredAt),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            LogTerminalAnnouncementFailure(logger, lease.Turn.TurnId, exception.GetType().Name);
         }
     }
 
@@ -600,4 +664,11 @@ public sealed partial class ChiefTurnBackgroundService(
         Level = LogLevel.Warning,
         Message = "Chief: catálogo de especialistas indisponível ({ErrorType}); o turno segue sem opções de delegação.")]
     private static partial void LogSpecialistCatalogUnavailable(ILogger logger, string errorType);
+
+    [LoggerMessage(
+        EventId = 2105,
+        Level = LogLevel.Error,
+        Message = "Chief: falha terminal do turno {TurnId} NÃO pôde ser anunciada ao usuário ({ErrorType}).")]
+    private static partial void LogTerminalAnnouncementFailure(
+        ILogger logger, string turnId, string errorType);
 }

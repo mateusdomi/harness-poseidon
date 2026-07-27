@@ -10,7 +10,13 @@ public interface IChiefTurnStore
         string ownerId, DateTimeOffset now, TimeSpan leaseDuration,
         CancellationToken cancellationToken = default);
     Task CompleteAsync(ChiefTurnCompleteCommand command, CancellationToken cancellationToken = default);
-    Task FailAsync(ChiefTurnFailCommand command, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Registra a falha da tentativa e devolve se o turno ainda vai ser retentado ou se MORREU.
+    /// Quem chama precisa saber a diferença: um turno terminal deixou uma pergunta do usuário sem
+    /// resposta, e isso tem de ser comunicado — a política de retentativa é do store, então
+    /// recalculá-la fora seria duplicar a regra e arriscar divergir dela.
+    /// </summary>
+    Task<ChiefTurnFailOutcome> FailAsync(ChiefTurnFailCommand command, CancellationToken cancellationToken = default);
     Task<ChiefTurnRecord?> GetAsync(string tenantId, string turnId, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -143,5 +149,11 @@ public sealed record ChiefDemandSeed(
 
 public sealed record ChiefTurnFailCommand(
     ChiefTurnLease Lease, string ErrorCode, DateTimeOffset OccurredAt, bool Retryable);
+
+/// <summary>
+/// Desfecho do registro de falha. <see cref="Terminal"/> é verdadeiro quando o turno não será
+/// mais retentado — o ponto em que a mensagem do usuário fica definitivamente sem resposta.
+/// </summary>
+public sealed record ChiefTurnFailOutcome(bool Terminal, int AttemptCount);
 
 public sealed class ChiefTurnConflictException(string message) : Exception(message);

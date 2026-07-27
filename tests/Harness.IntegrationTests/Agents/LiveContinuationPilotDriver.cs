@@ -129,6 +129,11 @@ public sealed class LiveContinuationPilotDriver
             "--Harness:DatabasePath", Path.Combine(ResultsDir, "pilot.db"),
             "--Harness:AgentRuns:Enabled", "true",
             "--Harness:AgentRuns:ControlledRoot", ControlledRoot,
+            // Ledger de disponibilidade PRÓPRIO do teste: sem isto o Host de teste lê e escreve
+            // o ledger da instalação real do operador — uma conta em cooldown na máquina
+            // reprovava a suíte, e o teste sujava o estado de produção do dono.
+            "--Harness:AgentRuns:AvailabilityLedgerPath",
+                Path.Combine(Path.GetTempPath(), $"harness-availability-{Guid.NewGuid():N}.json"),
             "--Harness:AgentRuns:ArchiveRoot", ArchiveRoot,
             "--Harness:AgentRuns:RunTimeout", "00:30:00",
             "--Harness:AgentRuns:LeaseDuration", "00:30:00",

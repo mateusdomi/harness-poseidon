@@ -48,12 +48,10 @@ public sealed partial class SqliteConversationStore
             return null;
         }, cancellationToken);
 
-    public Task FailAsync(ChiefTurnFailCommand command, CancellationToken cancellationToken = default) =>
-        _dispatcher.ExecuteAsync<object?>(async (connection, token) =>
-        {
-            await FailCoreAsync(connection, command, token);
-            return null;
-        }, cancellationToken);
+    public Task<ChiefTurnFailOutcome> FailAsync(
+        ChiefTurnFailCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(
+            (connection, token) => FailCoreAsync(connection, command, token), cancellationToken);
 
     public Task<ChiefTurnRecord?> GetAsync(string tenantId, string turnId, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((connection, token) => ReadChiefTurnAsync(connection, null, tenantId, turnId, token), cancellationToken);
@@ -455,11 +453,11 @@ public sealed partial class SqliteConversationStore
         string Id, string ProjectId, string? SolicitationId, string Title, string Description,
         string State, string Priority, DateTimeOffset CreatedAt);
 
-    private static async Task FailCoreAsync(SqliteConnection connection, ChiefTurnFailCommand command, CancellationToken token)
+    private static async Task<ChiefTurnFailOutcome> FailCoreAsync(SqliteConnection connection, ChiefTurnFailCommand command, CancellationToken token)
     {
         await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token);
         await EnsureLeaseAsync(connection, tx, command.Lease, command.OccurredAt, token);
-        var next = command.Retryable && command.Lease.Turn.AttemptCount < 3 ? "pending" : "failed";
+        var next = command.Retryable && command.Lease.Turn.AttemptCount < MaxChiefTurnAttempts ? "pending" : "failed";
         await ExecuteChiefAsync(connection, tx,
             "UPDATE chief_turn_mailbox SET state=$state,active_fencing_token=NULL,last_error_code=$error,completed_at=CASE WHEN $state='failed' THEN $at ELSE NULL END WHERE tenant_id=$tenant AND id=$turn; " +
             "UPDATE chief_states SET state=CASE WHEN $state='failed' THEN 'error' ELSE 'idle' END,lease_owner_id=NULL,lease_expires_at=NULL,version=version+1,updated_at=$at WHERE tenant_id=$tenant AND project_id=$project AND lease_fencing_token=$fencing; " +
@@ -476,7 +474,13 @@ public sealed partial class SqliteConversationStore
                 command.Lease.Turn.ProjectId, next, command.OccurredAt, command.ErrorCode, null, null, null),
             command.OccurredAt, command.OccurredAt, token);
         await tx.CommitAsync(token);
+        return new ChiefTurnFailOutcome(
+            string.Equals(next, "failed", StringComparison.Ordinal),
+            command.Lease.Turn.AttemptCount);
     }
+
+    /// <summary>Retentativas de um turno do chefe antes de ele ser dado como perdido.</summary>
+    private const int MaxChiefTurnAttempts = 3;
 
     private static async Task EnsureLeaseAsync(SqliteConnection connection, SqliteTransaction tx, ChiefTurnLease lease, DateTimeOffset now, CancellationToken token)
     {

@@ -450,7 +450,10 @@ public static class HostApplication
         // é somente leitura nesse cenário e permite expor o último estado observado de forma
         // honesta, sem transformar a dependência do endpoint em um body inferido.
         builder.Services.AddSingleton(
-            new AccountAvailabilityLedger(AccountAvailabilityLedger.DefaultPath));
+            new AccountAvailabilityLedger(
+                string.IsNullOrWhiteSpace(agentRunSettings.AvailabilityLedgerPath)
+                    ? AccountAvailabilityLedger.DefaultPath
+                    : Path.GetFullPath(agentRunSettings.AvailabilityLedgerPath)));
 
         if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
         {

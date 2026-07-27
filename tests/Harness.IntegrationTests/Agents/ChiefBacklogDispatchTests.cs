@@ -62,6 +62,11 @@ public sealed class ChiefBacklogDispatchTests
             "--Harness:DatabasePath", db,
             "--Harness:AgentRuns:Enabled", "true",
             "--Harness:AgentRuns:ControlledRoot", controlledRoot,
+            // Ledger de disponibilidade PRÓPRIO do teste: sem isto o Host de teste lê e escreve
+            // o ledger da instalação real do operador — uma conta em cooldown na máquina
+            // reprovava a suíte, e o teste sujava o estado de produção do dono.
+            "--Harness:AgentRuns:AvailabilityLedgerPath",
+                Path.Combine(Path.GetTempPath(), $"harness-availability-{Guid.NewGuid():N}.json"),
             "--Harness:AgentRuns:ProfilesRoot", profilesRoot,
             "--Harness:AgentRuns:AccountsFilePath", accountsFile,
             "--Harness:AgentRuns:AutoDispatchEnabled", "false", // o ciclo é disparado pelo teste, não pelo BackgroundService
