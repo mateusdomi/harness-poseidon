@@ -23,6 +23,13 @@ public static class ProjectEndpoints
             "RN-02: projeto {ProjectId} criado sem workflow — nenhum template recomendado publicável " +
             "disponível; a convergência de startup vinculará quando existir.");
 
+    private static readonly Action<ILogger, string, Exception?> ChiefConvergenceFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(1013, nameof(ChiefConvergenceFailed)),
+            "GP-06: convergência do chefe falhou para o projeto {ProjectId}; o projeto foi criado e a " +
+            "convergência de startup reata no próximo boot.");
+
     public static IEndpointRouteBuilder MapProjects(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/projects").WithTags("projects");
@@ -146,7 +153,10 @@ public static class ProjectEndpoints
     {
         if (!UlidValue.TryParse(projectId, out _)) return InvalidId(); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var project = await store.GetAsync(profile.TenantId, projectId, token); return project is null ? NotFound() : Results.Ok(ToResponse(project));
     }
-    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IWorkflowCatalogStore workflows, WorkflowTemplateSeeder seeder, IClock clock, ILoggerFactory loggers, CancellationToken token)
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design", "CA1031:Do not catch general exception types",
+        Justification = "O projeto já está persistido quando a convergência do chefe roda; qualquer falha dela vira log e converge no boot, jamais derruba a criação.")]
+    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IWorkflowCatalogStore workflows, WorkflowTemplateSeeder seeder, IClock clock, ILoggerFactory loggers, IServiceProvider services, CancellationToken token)
     {
         var profile = await LocalProfileSession.ResolveAsync(http, profiles, token); if (profile is null) return SessionRequired();
         ArgumentNullException.ThrowIfNull(request);
@@ -189,6 +199,23 @@ public static class ProjectEndpoints
                 // RN-02: nenhum template recomendado publicável existe (nem após semear os canônicos).
                 // Não quebramos a criação — log honesto; a convergência de startup vincula quando existir.
                 WorkflowlessProjectCreated(loggers.CreateLogger("Harness.Host.Projects.ProjectEndpoints"), value.Id, null);
+            }
+
+            // GP-06: um projeto criado EM RUNTIME também precisa nascer EXECUTÁVEL. A convergência
+            // do catálogo do chefe é um IHostedService — roda uma vez no boot — então todo projeto
+            // criado depois ficava com o chefe sem modelo (`chief.model_unresolved`), e a Bruna não
+            // conseguia sequer abrir um turno até o próximo restart. Reexecutar é idempotente por
+            // construção: não duplica conta/modelo e não reata o que já está atado.
+            if (services.GetService<Providers.ChiefCliProviderCatalogSeeder>() is { } chiefSeeder)
+            {
+                try
+                {
+                    _ = await chiefSeeder.EnsureSeededAsync(profile.TenantId, profile.Id, token);
+                }
+                catch (Exception e)
+                {
+                    ChiefConvergenceFailed(loggers.CreateLogger("Harness.Host.Projects.ProjectEndpoints"), value.Id, e);
+                }
             }
 
             return Results.Created($"/api/v1/projects/{value.Id}", ToResponse(result.Project!));

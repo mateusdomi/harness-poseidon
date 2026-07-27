@@ -25,7 +25,9 @@ public sealed class ChiefBacklogPolicyTests : IDisposable
         {
             registry.Register(new AgentAccountContract(
                 alias, "provider", executor, $"keychain://poseidon/{alias}", $"confighome://{alias}",
-                [role], role == AgentRoles.FrontendSpecialist ? ["frontend/**", "docs/frontend/**"] : [],
+                // Escopo canônico do papel — é o que `AgentAccountConfigurationLoader.ToContract`
+                // atribui em produção quando o operador não restringe explicitamente.
+                [role], [.. AgentRoles.PathScopesFor(role)],
                 AgentAccountState.Available, AgentAccountHealth.Healthy, concurrency, 0, null,
                 null, null, null, null, 100));
         }
@@ -182,6 +184,87 @@ public sealed class ChiefBacklogPolicyTests : IDisposable
 
         Assert.Equal("worker-glm-general", Assert.Single(plan.Dispatch).AccountAlias);
         Assert.Empty(plan.Deferred);
+    }
+
+    private static ChiefCard ScopedCard(string taskId, string role, int priority) =>
+        new(taskId, "project-1", role, "code", priority, [.. AgentRoles.PathScopesFor(role)]);
+
+    [Fact]
+    public void ChiefLendsHerOwnSubscriptionWhenTheSpecialistFleetRanOutOfQuota()
+    {
+        // O cenário real do dono: os especialistas esgotaram a cota e a esteira pararia. Escalar a
+        // mão de obra é atribuição do chefe — ele empresta a PRÓPRIA assinatura como executor extra
+        // (persona especialista, papel do card), em vez de deixar o card parado.
+        var registry = RegistryWith(
+            ("chief-claude-primary", ExecutorCatalog.ClaudeCode, AgentRoles.ChiefOrchestrator, 3),
+            ("worker-glm-general", ExecutorCatalog.Glm, AgentRoles.BackendSpecialist, 3));
+
+        var ledger = Ledger();
+        ledger.MarkQuotaLimited("worker-glm-general", Now.AddHours(5), "quota.exhausted", Now);
+
+        var plan = new ChiefBacklogPolicy().Plan(
+            [ScopedCard("t", AgentRoles.BackendSpecialist, 50)], registry, ledger,
+            maxConcurrentDispatch: 5, Now);
+
+        var dispatch = Assert.Single(plan.Dispatch);
+        Assert.Equal("chief-claude-primary", dispatch.AccountAlias);
+        Assert.Equal("chief.reinforcement_dispatched", dispatch.ReasonCode);
+        Assert.Equal("scheduler.selected_chief_reinforcement", dispatch.Selection.ReasonCode);
+        Assert.Empty(plan.Deferred);
+    }
+
+    [Fact]
+    public void ReinforcementNeverCoversTheCriticRole()
+    {
+        // Ator ≠ crítico é invariante: emprestar a conta do chefe para revisar abriria a porta para
+        // a revisão cair em quem produziu. Sem especialista crítico, o card ADIA — não é reforçado.
+        var registry = RegistryWith(
+            ("chief-claude-primary", ExecutorCatalog.ClaudeCode, AgentRoles.ChiefOrchestrator, 3));
+
+        var plan = new ChiefBacklogPolicy().Plan(
+            [Card("t", AgentRoles.Critic, 50)], registry, Ledger(), maxConcurrentDispatch: 5, Now);
+
+        Assert.Empty(plan.Dispatch);
+        Assert.Single(plan.Deferred);
+    }
+
+    [Fact]
+    public void ReinforcementIsALastResortAndNeverStealsFromAHealthySpecialist()
+    {
+        // Com especialista disponível, o card é dele: o reforço não pode virar rota preferencial e
+        // gastar a assinatura do chefe à toa.
+        var registry = RegistryWith(
+            ("chief-claude-primary", ExecutorCatalog.ClaudeCode, AgentRoles.ChiefOrchestrator, 3),
+            ("worker-glm-general", ExecutorCatalog.Glm, AgentRoles.BackendSpecialist, 3));
+
+        var plan = new ChiefBacklogPolicy().Plan(
+            [ScopedCard("t", AgentRoles.BackendSpecialist, 50)], registry, Ledger(),
+            maxConcurrentDispatch: 5, Now);
+
+        var dispatch = Assert.Single(plan.Dispatch);
+        Assert.Equal("worker-glm-general", dispatch.AccountAlias);
+        Assert.Equal("chief.dispatched", dispatch.ReasonCode);
+    }
+
+    [Fact]
+    public void ReinforcementStopsWhenTheChiefSubscriptionIsAlsoExhausted()
+    {
+        // Nada é inventado: se a assinatura do chefe também está em cota, o card adia com motivo —
+        // o reforço não fura cota, só cobre ausência de mão de obra.
+        var registry = RegistryWith(
+            ("chief-claude-primary", ExecutorCatalog.ClaudeCode, AgentRoles.ChiefOrchestrator, 3),
+            ("worker-glm-general", ExecutorCatalog.Glm, AgentRoles.BackendSpecialist, 3));
+
+        var ledger = Ledger();
+        ledger.MarkQuotaLimited("worker-glm-general", Now.AddHours(5), "quota.exhausted", Now);
+        ledger.MarkQuotaLimited("chief-claude-primary", Now.AddHours(5), "quota.exhausted", Now);
+
+        var plan = new ChiefBacklogPolicy().Plan(
+            [ScopedCard("t", AgentRoles.BackendSpecialist, 50)], registry, ledger,
+            maxConcurrentDispatch: 5, Now);
+
+        Assert.Empty(plan.Dispatch);
+        Assert.Equal(Now.AddHours(5), Assert.Single(plan.Deferred).RetryAfter);
     }
 
     public void Dispose()

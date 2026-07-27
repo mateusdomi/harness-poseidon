@@ -22,8 +22,25 @@ public sealed class DemandDecompositionPlannerTests
         var integration = plan.Cards[1];
         Assert.Equal(DemandDecompositionPlanner.CardTypeAgentTask, backend.CardType);
         Assert.Equal(DemandDecompositionPlanner.RoleBackend, backend.RequiredRole);
-        Assert.Equal(DemandDecompositionPlanner.CardTypeAgentTask, integration.CardType);
-        Assert.Equal(DemandDecompositionPlanner.RoleCritic, integration.RequiredRole);
+        // A integração é GATE HUMANO: o merge é humano por regra e a revisão independente já
+        // acontece em cada card de implementação. Emiti-la como 'agent_task' com papel 'critic'
+        // criava um card estruturalmente indespachável — o papel crítico não tem escopo de escrita,
+        // então o loop colhia `agent_path_scope_empty` a cada ciclo, para sempre.
+        Assert.Equal(DemandDecompositionPlanner.CardTypeHumanGate, integration.CardType);
+        Assert.Equal(DemandDecompositionPlanner.RoleNone, integration.RequiredRole);
+    }
+
+    [Fact]
+    public void NoPlannedCardIsEverDispatchableWithoutAWriteScope()
+    {
+        // Trava de regressão: todo card auto-despachável ('agent_task') precisa de um papel que
+        // POSSUA escopo de escrita, senão a tentativa nasce condenada a agent_path_scope_empty.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            description: "Implementar a tela em React, o endpoint no backend e atualizar a documentação."));
+
+        Assert.All(
+            plan.Cards.Where(card => card.CardType == DemandDecompositionPlanner.CardTypeAgentTask),
+            card => Assert.NotEqual(DemandDecompositionPlanner.RoleCritic, card.RequiredRole));
     }
 
     [Fact]
@@ -36,9 +53,9 @@ public sealed class DemandDecompositionPlannerTests
         Assert.Contains(plan.Cards, c =>
             c.RequiredRole == DemandDecompositionPlanner.RoleFrontend &&
             c.CardType == DemandDecompositionPlanner.CardTypeAgentTask);
-        // Backend continua presente; a crítica é o último card.
+        // Backend continua presente; o gate humano de integração é o último card.
         Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
-        Assert.Equal(DemandDecompositionPlanner.RoleCritic, plan.Cards[^1].RequiredRole);
+        Assert.Equal(DemandDecompositionPlanner.CardTypeHumanGate, plan.Cards[^1].CardType);
     }
 
     [Fact]
@@ -57,7 +74,9 @@ public sealed class DemandDecompositionPlannerTests
         var plan = DemandDecompositionPlanner.Plan(Request(
             description: "Integrar com o gateway de pagamento usando a credencial de homologação externa."));
 
-        var gate = Assert.Single(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeHumanGate);
+        // O gate de credencial é o pré-requisito (sem dependências); o de integração fecha o plano.
+        var gate = Assert.Single(plan.Cards, c =>
+            c.CardType == DemandDecompositionPlanner.CardTypeHumanGate && c.Dependencies.Count == 0);
         Assert.Equal(DemandDecompositionPlanner.RoleNone, gate.RequiredRole);
     }
 
@@ -106,7 +125,7 @@ public sealed class DemandDecompositionPlannerTests
             description: "Implementar backend e a tela React de UI."));
 
         var integration = plan.Cards[^1];
-        Assert.Equal(DemandDecompositionPlanner.RoleCritic, integration.RequiredRole);
+        Assert.Equal(DemandDecompositionPlanner.CardTypeHumanGate, integration.CardType);
         var implementationCodes = plan.Cards
             .Where(c => c.RequiredRole is DemandDecompositionPlanner.RoleBackend or DemandDecompositionPlanner.RoleFrontend)
             .Select(c => DemandDecompositionPlanner.CodeOf(c.ProposedTitle))
@@ -122,7 +141,10 @@ public sealed class DemandDecompositionPlannerTests
             description: "Investigar a viabilidade e usar a credencial externa de homologação; implementar o backend."));
 
         var spike = Assert.Single(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeSpike);
-        var gate = Assert.Single(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeHumanGate);
+        // Dois gates humanos coexistem: o de credencial (pré-requisito) e o de integração (final).
+        // Aqui interessa o de credencial — o único sem dependências.
+        var gate = Assert.Single(plan.Cards, c =>
+            c.CardType == DemandDecompositionPlanner.CardTypeHumanGate && c.Dependencies.Count == 0);
         var backend = Assert.Single(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
         var spikeCode = DemandDecompositionPlanner.CodeOf(spike.ProposedTitle);
         var gateCode = DemandDecompositionPlanner.CodeOf(gate.ProposedTitle);

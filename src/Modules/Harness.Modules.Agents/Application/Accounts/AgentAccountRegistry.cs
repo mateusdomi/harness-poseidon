@@ -39,6 +39,46 @@ public sealed class AgentAccountRegistry
     public IReadOnlyList<AgentAccountContract> List() =>
         _accounts.Values.OrderBy(account => account.Alias, StringComparer.Ordinal).ToArray();
 
+    /// <summary>
+    /// Hidrata o registro (memória do processo) com a disponibilidade JÁ OBSERVADA no ledger
+    /// durável. Toda conta nasce <c>AuthenticationRequired</c> — disponibilidade é comprovada,
+    /// nunca presumida — mas uma conta cuja disponibilidade já foi PROVADA antes do restart não
+    /// pode voltar a exigir prova manual: sem este elo, todo reinício do Host devolvia a frota
+    /// inteira para `authentication-required` e o loop do chefe adiava cada card com
+    /// `no_eligible_account` até um humano rodar o doctor de novo.
+    ///
+    /// Contas desabilitadas na configuração continuam desabilitadas: o ledger observa
+    /// disponibilidade, jamais reabilita o que o operador desligou.
+    /// </summary>
+    public int ApplyObservedAvailability(IReadOnlyList<AccountAvailabilityRecord> records)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        var applied = 0;
+        foreach (var record in records)
+        {
+            if (!_accounts.TryGetValue(record.Alias, out var account) ||
+                account.State == AgentAccountState.Disabled)
+            {
+                continue;
+            }
+
+            _accounts[account.Alias] = account with
+            {
+                State = record.State,
+                Health = record.State switch
+                {
+                    AgentAccountState.Available => AgentAccountHealth.Healthy,
+                    AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown
+                        or AgentAccountState.Degraded => AgentAccountHealth.Degraded,
+                    _ => AgentAccountHealth.Unknown,
+                },
+            };
+            applied++;
+        }
+
+        return applied;
+    }
+
     public AgentAccountContract? Get(string alias) =>
         _accounts.TryGetValue(alias, out var account) ? account : null;
 

@@ -92,6 +92,9 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: run REJEITADO para o card {TaskId}: {Status}/{Code}")]
     private static partial void LogRunRejected(ILogger logger, string taskId, string status, string code);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} pulado — o papel '{Role}' não possui escopo de escrita; despachá-lo seria rejeitado por agent_path_scope_empty a cada ciclo.")]
+    private static partial void LogCardWithoutWriteScope(ILogger logger, string taskId, string role);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} (card_type={CardType}) NÃO despachável — pulado por prontidão (DoR): {Blockers}")]
     private static partial void LogCardNotDispatchable(ILogger logger, string taskId, string cardType, string blockers);
 
@@ -158,6 +161,15 @@ public sealed partial class ChiefBacklogLoopService(
         var projectList = await projects.ListAsync(profile.TenantId, null, 50, token);
         foreach (var project in projectList)
         {
+            // `pause` do chefe precisa PARAR de verdade. Sem este filtro o loop continuava
+            // colhendo, revisando e despachando cards de projeto pausado/arquivado — o botão
+            // existia na API e não segurava nada, e um projeto que o dono mandou parar seguia
+            // gastando cota e slot de despacho dos projetos ativos.
+            if (!IsDispatchable(project))
+            {
+                continue;
+            }
+
             if (!IsInsideControlledRoot(project, controlledRoot))
             {
                 continue;
@@ -213,6 +225,19 @@ public sealed partial class ChiefBacklogLoopService(
 
                 var resolution = ChiefCardResolver.Resolve(
                     task.Title, instructions[^1].Body, [], "medium");
+
+                // Defesa em profundidade: um papel SEM escopo de escrita (o crítico, por exemplo)
+                // produz claim vazia, e a política de path rejeita a tentativa com
+                // `agent_path_scope_empty`. Sem esta guarda o loop redespachava o mesmo card a cada
+                // ciclo, para sempre, queimando slot e registrando tentativa rejeitada sem NUNCA
+                // avisar ninguém. O card é pulado com motivo tipado — quem decide o que fazer com
+                // ele é a triagem, não um retry cego.
+                if (resolution.ScopeClaims.Count == 0)
+                {
+                    LogCardWithoutWriteScope(logger, task.Id, resolution.Role);
+                    continue;
+                }
+
                 cards.Add((
                     new ChiefCard(task.Id, project.Id, resolution.Role, resolution.RequiredCapability,
                         PriorityWeight(task.Priority), resolution.ScopeClaims),
@@ -293,7 +318,10 @@ public sealed partial class ChiefBacklogLoopService(
                 if (await LaunchAsync(
                         profile.TenantId, project, entry.Resolution, decision.AccountAlias,
                         routing.SelectedModel, entry.Task, entry.InstructionVersionId, personas,
-                        controlledRoot, board, chain, token))
+                        controlledRoot,
+                        string.Equals(
+                            decision.ReasonCode, "chief.reinforcement_dispatched", StringComparison.Ordinal),
+                        board, chain, token))
                 {
                     dispatched++;
                 }
@@ -845,6 +873,7 @@ public sealed partial class ChiefBacklogLoopService(
         string instructionVersionId,
         IReadOnlyList<AgentDefinitionRecord> personas,
         string controlledRoot,
+        bool chiefReinforcement,
         IWorkBoardStore board,
         IWorkChainStore chain,
         CancellationToken token)
@@ -920,6 +949,7 @@ public sealed partial class ChiefBacklogLoopService(
                 Model = model,
                 RiskTier = resolution.Card.RiskTier,
                 AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
+                ChiefReinforcement = chiefReinforcement,
             },
             token);
 
@@ -946,6 +976,14 @@ public sealed partial class ChiefBacklogLoopService(
             token);
         return true;
     }
+
+    /// <summary>
+    /// Só projeto ATIVO entra no ciclo autônomo. `paused` é decisão explícita do dono (endpoint
+    /// `chief/pause`) e `archived` é fim de vida: nenhum dos dois pode consumir cota, slot de
+    /// despacho ou disparar review.
+    /// </summary>
+    private static bool IsDispatchable(ProjectRecord project) =>
+        string.Equals(project.State, "active", StringComparison.Ordinal);
 
     private static bool IsInsideControlledRoot(ProjectRecord project, string controlledRoot)
     {

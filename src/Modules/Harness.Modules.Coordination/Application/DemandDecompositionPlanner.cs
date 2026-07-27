@@ -61,8 +61,9 @@ public sealed record DemandPlanProposal(string FeatureId, IReadOnlyList<Proposed
 /// 5. superfície de frontend (palavras-chave/dica) → uma fatia de frontend ('agent_task',
 ///    frontend-specialist);
 /// 6. superfície de documentação (palavras-chave) → um card de documentação ('agent_task', none);
-/// 7. SEMPRE um card final de integração/crítica ('agent_task', critic) que DEPENDE dos cards de
-///    implementação (backend/frontend/documentação).
+/// 7. SEMPRE um card final de integração ('human_gate', none) que DEPENDE dos cards de
+///    implementação (backend/frontend/documentação): a revisão independente já ocorre em cada card
+///    de implementação (ator≠crítico) e a integração é o merge, que é gate humano por regra.
 /// Os cards de implementação dependem do spike e do human_gate quando estes existem — a incerteza é
 /// resolvida e a credencial é provisionada antes de construir.
 /// </summary>
@@ -240,12 +241,20 @@ public static class DemandDecompositionPlanner
                 [.. prerequisiteCodes]));
         }
 
-        // 7. Integração/crítica final — sempre presente, depende de todos os cards de implementação.
+        // 7. Integração final — sempre presente, depende de todos os cards de implementação.
+        //
+        // É um GATE HUMANO, não um card de agente. Dois motivos, ambos canônicos: (a) a revisão
+        // independente por agente crítico já acontece EM CADA card de implementação (ator≠crítico),
+        // então um card extra de crítica duplicaria o que já foi feito; (b) a integração é o merge,
+        // e o merge é gate humano por regra. Enquanto isto nascia como 'agent_task' com papel
+        // 'critic', o card era ESTRUTURALMENTE indespachável — o papel crítico não possui escopo de
+        // escrita, então todo ciclo do loop tentava despachá-lo e colhia `agent_path_scope_empty`,
+        // para sempre, sem nunca escalar para um humano.
         var integrationCode = Code();
         cards.Add(new ProposedCard(
-            Title(integrationCode, "Integração/crítica: revisar e integrar a feature"),
-            CardTypeAgentTask,
-            RoleCritic,
+            Title(integrationCode, "Gate humano: revisar e integrar a feature"),
+            CardTypeHumanGate,
+            RoleNone,
             $"Revisar de forma independente e integrar as fatias de {featureId}: confirmar que os cards de implementação estão coerentes entre si, que os gates estão verdes e que os critérios de aceite da demanda foram atendidos ponta a ponta.",
             $"Revisão independente e integração ponta a ponta de {featureId}.",
             "Nova implementação de escopo; o card apenas integra e valida o que os cards de implementação entregaram.",

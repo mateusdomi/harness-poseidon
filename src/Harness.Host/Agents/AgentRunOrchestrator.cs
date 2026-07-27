@@ -100,7 +100,16 @@ public sealed class AgentRunOrchestrator(
             return Rejected(runId, command, "account.disabled");
         }
 
-        if (account.AllowedRoles.Count > 0 &&
+        // O papel emprestado no REFORÇO do chefe é aceito aqui — e só aqui — porque a política de
+        // backlog já provou que nenhuma conta do papel estava elegível. O empréstimo é estreito:
+        // exige que a conta seja de fato a do chefe e nunca cobre o papel de crítico, senão a
+        // revisão poderia cair em quem produziu.
+        var reinforcing = command.ChiefReinforcement &&
+            account.AllowedRoles.Contains(AgentRoles.ChiefOrchestrator, StringComparer.OrdinalIgnoreCase) &&
+            !string.Equals(command.Role, AgentRoles.Critic, StringComparison.OrdinalIgnoreCase);
+
+        if (!reinforcing &&
+            account.AllowedRoles.Count > 0 &&
             !account.AllowedRoles.Contains(command.Role, StringComparer.OrdinalIgnoreCase))
         {
             return Rejected(runId, command, "account.role_not_allowed");
@@ -507,6 +516,12 @@ public sealed class AgentRunOrchestrator(
                     State = AgentAccountState.Available,
                     Health = AgentAccountHealth.Healthy,
                 });
+
+                // O registry é MEMÓRIA do processo; quem sobrevive ao restart é o ledger durável, e
+                // é dele que o roster público e a recuperação leem. Sem gravar aqui, cada restart
+                // devolvia a frota inteira para `authentication-required` e o loop do chefe adiava
+                // todo card com `no_eligible_account` até alguém rodar o doctor à mão.
+                availability.MarkAvailable(account.Alias, now);
             }
         }
 

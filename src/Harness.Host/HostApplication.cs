@@ -460,8 +460,17 @@ public static class HostApplication
             builder.Services.AddSingleton(new AccountProfileProvisioner(
                 profilesRoot,
                 [Path.GetFullPath(agentRunSettings.ControlledRoot)]));
-            builder.Services.AddSingleton(
-                AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath));
+            // O registro nasce da configuração do operador (toda conta `AuthenticationRequired`) e é
+            // imediatamente hidratado com a disponibilidade JÁ OBSERVADA no ledger durável. Sem esta
+            // hidratação, reiniciar o Host apagava a prova de disponibilidade e a frota inteira
+            // ficava inelegível até alguém rodar o doctor à mão.
+            builder.Services.AddSingleton(services =>
+            {
+                var registry = AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath);
+                _ = registry.ApplyObservedAvailability(
+                    services.GetRequiredService<AccountAvailabilityLedger>().List());
+                return registry;
+            });
             builder.Services.AddHostedService<AccountRecoveryBackgroundService>();
             builder.Services.AddSingleton(new ChiefBacklogPolicy());
             builder.Services.AddHostedService<ChiefBacklogLoopService>();

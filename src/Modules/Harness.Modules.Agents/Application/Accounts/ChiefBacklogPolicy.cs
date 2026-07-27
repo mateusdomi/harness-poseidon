@@ -121,6 +121,30 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
             var chosen = FirstFreeSlot(decision, accounts, used);
             if (chosen is null)
             {
+                // REFORÇO DE FORÇA DE TRABALHO: a frota de especialistas acabou (cota esgotada,
+                // cooldown, login pendente) mas a assinatura do CHEFE continua com capacidade. Em
+                // vez de parar a esteira, o chefe empresta a PRÓPRIA assinatura como mais um
+                // executor — e é só isso que ele empresta: o card continua sendo executado por uma
+                // persona ESPECIALISTA, com o escopo de escrita do papel do card. O chefe não passa
+                // a executar; ele escala a mão de obra, que é atribuição dele.
+                //
+                // Três invariantes: (a) nunca para o papel `critic` — revisor tem de ser realmente
+                // distinto de quem produziu, e emprestar a conta do chefe para revisar abriria a
+                // porta para autoaprovação; (b) só quando NENHUMA conta do papel estava elegível
+                // (nunca para furar orçamento de concorrência); (c) motivo próprio e auditável no
+                // despacho, para que o operador veja que aquilo foi reforço, não rotina.
+                var reinforcement = TryReinforce(card, accounts, quotas, used, now);
+                if (reinforcement is not null)
+                {
+                    used[reinforcement.Alias] = used.GetValueOrDefault(reinforcement.Alias) + 1;
+                    dispatched.Add(new ChiefDispatch(
+                        card,
+                        reinforcement.Alias,
+                        "chief.reinforcement_dispatched",
+                        reinforcement.Selection));
+                    continue;
+                }
+
                 var retryAfter = NextReturn(decision, quotas);
                 deferred.Add(new ChiefDeferral(
                     card,
@@ -144,6 +168,72 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
         }
 
         return new ChiefBacklogPlan(dispatched, deferred);
+    }
+
+    /// <summary>Reforço concedido: qual conta do chefe assume o card e com que veredito.</summary>
+    private sealed record Reinforcement(string Alias, AccountSelectionDecision Selection);
+
+    /// <summary>
+    /// Tenta cobrir um card órfão com a assinatura do CHEFE atuando como executor extra.
+    ///
+    /// A conta do chefe é reapresentada ao MESMO scheduler sob o papel do card e com o escopo de
+    /// escrita canônico desse papel; nada é afrouxado além disso — cota, cooldown, autenticação,
+    /// adapter, capacidade e concorrência continuam sendo verificados exatamente como para
+    /// qualquer especialista. Se a conta do chefe também estiver esgotada, não há reforço.
+    /// </summary>
+    private Reinforcement? TryReinforce(
+        ChiefCard card,
+        AgentAccountRegistry accounts,
+        Dictionary<string, AccountQuotaSnapshot> quotas,
+        Dictionary<string, int> used,
+        DateTimeOffset now)
+    {
+        // Revisão jamais é reforçada: ator ≠ crítico é invariante, não preferência.
+        if (string.Equals(card.Role, AgentRoles.Critic, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(card.Role, AgentRoles.ChiefOrchestrator, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var roleScopes = AgentRoles.PathScopesFor(card.Role);
+        if (roleScopes.Count == 0)
+        {
+            return null;
+        }
+
+        foreach (var chief in accounts.List()
+            .Where(account => account.AllowedRoles.Contains(
+                AgentRoles.ChiefOrchestrator, StringComparer.OrdinalIgnoreCase))
+            .OrderByDescending(account => account.Priority)
+            .ThenBy(account => account.Alias, StringComparer.Ordinal))
+        {
+            // Registro efêmero de UMA conta: a do chefe, vestindo o papel do card. Não muda o
+            // registro real — o empréstimo vale só para esta decisão.
+            var borrowed = new AgentAccountRegistry();
+            borrowed.Register(chief with
+            {
+                AllowedRoles = [card.Role],
+                AllowedPathScopes = roleScopes,
+            });
+
+            var decision = _scheduler.Select(borrowed, new AccountSchedulingRequest
+            {
+                Role = card.Role,
+                RequiredCapability = card.RequiredCapability,
+                Now = now,
+                RequiredPathScopes = card.ScopeClaims,
+                Quotas = quotas,
+            });
+
+            if (FirstFreeSlot(decision, borrowed, used) is { } alias)
+            {
+                return new Reinforcement(
+                    alias,
+                    decision with { ReasonCode = "scheduler.selected_chief_reinforcement" });
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

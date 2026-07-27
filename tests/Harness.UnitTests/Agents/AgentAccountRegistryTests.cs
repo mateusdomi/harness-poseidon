@@ -20,6 +20,58 @@ public sealed class AgentAccountRegistryTests
             roles ?? ["frontend-specialist"], ["frontend/**", "docs/frontend/**"],
             state, AgentAccountHealth.Unknown, concurrency, active, null, null, null, null, null, 100);
 
+    private static AccountAvailabilityRecord Observed(
+        string alias,
+        AgentAccountState state) =>
+        new(alias, state, null, "availability.available", 0, DateTimeOffset.UnixEpoch);
+
+    [Fact]
+    public void ObservedAvailabilitySurvivesTheProcessAndRehydratesTheRegistry()
+    {
+        // Toda conta nasce AuthenticationRequired (disponibilidade é comprovada, nunca presumida).
+        // Mas a prova JÁ COLHIDA antes do restart não pode ser jogada fora: sem esta hidratação, o
+        // reinício do Host devolvia a frota inteira para authentication-required e o loop do chefe
+        // adiava todo card com no_eligible_account até um humano rodar o doctor de novo.
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account(state: AgentAccountState.AuthenticationRequired));
+
+        var applied = registry.ApplyObservedAvailability(
+            [Observed("worker-codex-frontend", AgentAccountState.Available)]);
+
+        Assert.Equal(1, applied);
+        var account = registry.Get("worker-codex-frontend")!;
+        Assert.Equal(AgentAccountState.Available, account.State);
+        Assert.Equal(AgentAccountHealth.Healthy, account.Health);
+    }
+
+    [Fact]
+    public void ObservedAvailabilityNeverReenablesWhatTheOperatorDisabled()
+    {
+        // O ledger observa disponibilidade; ele não é autoridade sobre a decisão do operador.
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account(state: AgentAccountState.Disabled));
+
+        var applied = registry.ApplyObservedAvailability(
+            [Observed("worker-codex-frontend", AgentAccountState.Available)]);
+
+        Assert.Equal(0, applied);
+        Assert.Equal(AgentAccountState.Disabled, registry.Get("worker-codex-frontend")!.State);
+    }
+
+    [Fact]
+    public void ObservedAvailabilityIgnoresAliasesThatAreNotRegistered()
+    {
+        // Ledger com conta removida da configuração não pode ressuscitá-la no registro.
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account(state: AgentAccountState.AuthenticationRequired));
+
+        var applied = registry.ApplyObservedAvailability(
+            [Observed("worker-glm-general", AgentAccountState.Available)]);
+
+        Assert.Equal(0, applied);
+        Assert.Null(registry.Get("worker-glm-general"));
+    }
+
     [Fact]
     public void EmailIsRejectedAsAlias()
     {

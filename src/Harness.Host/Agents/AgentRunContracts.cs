@@ -91,6 +91,14 @@ public sealed record StartAgentRunCommand
     /// <summary>Alias da conta. Nunca um e-mail, nunca uma credencial.</summary>
     public required string AccountAlias { get; init; }
 
+    /// <summary>
+    /// Este run é REFORÇO do chefe: a frota de especialistas do papel estava indisponível e o
+    /// chefe emprestou a própria assinatura como executor extra. Só isto muda — a conta segue
+    /// passando por adapter, cota, cooldown, autenticação e escopo de path como qualquer outra;
+    /// o papel emprestado nunca é `critic` (ator ≠ crítico é invariante).
+    /// </summary>
+    public bool ChiefReinforcement { get; init; }
+
     public required string Instruction { get; init; }
 
     public required string RepositoryRoot { get; init; }
