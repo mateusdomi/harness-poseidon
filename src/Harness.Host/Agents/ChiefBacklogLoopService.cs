@@ -6,6 +6,7 @@ using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Providers.Application;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Agents;
+using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -187,6 +188,7 @@ public sealed partial class ChiefBacklogLoopService(
                 await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
+                await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
                 await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -363,6 +365,9 @@ public sealed partial class ChiefBacklogLoopService(
 
     /// <summary>Backoff em memória por CARD para despachos recusados na largada.</summary>
     private readonly Dictionary<string, DateTimeOffset> _dispatchBackoff = new(StringComparer.Ordinal);
+
+    /// <summary>Cards cuja escalação já foi anunciada ao dono — o aviso é uma vez, não a cada ciclo.</summary>
+    private readonly HashSet<string> _announcedEscalations = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Elo de COLHEITA: um run externo que terminou não fecha sozinho a cadeia durável. Aqui o
@@ -639,6 +644,94 @@ public sealed partial class ChiefBacklogLoopService(
     }
 
     /// <summary>
+    /// Elo de ESCALAÇÃO: um card que estourou o teto de ciclos de review vira `escalated` — a
+    /// cadeia recusa novas correções automáticas de propósito, porque repetir a mesma tentativa
+    /// nunca resolveria. Até aqui nada no produto lia esse estado: o card simplesmente MORRIA em
+    /// silêncio, e o dono só descobriria olhando o board.
+    ///
+    /// O chefe é a única voz com o usuário e responde pelo sucesso do projeto, então ele ANUNCIA:
+    /// posta na conversa principal do projeto o que travou, o veredito do crítico e o que precisa
+    /// ser decidido. Uma vez por card — o anúncio é idempotente por conteúdo, não vira spam a
+    /// cada ciclo do loop.
+    /// </summary>
+    private async Task<int> AnnounceEscalatedCardsAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var page = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 100),
+            token);
+        var escalated = page.Items
+            .Where(task => string.Equals(task.InternalState, "escalated", StringComparison.Ordinal))
+            .Where(task => _announcedEscalations.Add(task.Id))
+            .ToArray();
+        if (escalated.Length == 0)
+        {
+            return 0;
+        }
+
+        var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
+        var open = await conversations.ListConversationsAsync(tenantId, project.Id, null, 1, token);
+        if (open.Count == 0)
+        {
+            // Sem conversa não há a quem anunciar; o log permanece como registro e o card volta
+            // a ser anunciado quando existir canal (o Add acima já o marcou, então liberamos).
+            foreach (var task in escalated)
+            {
+                _ = _announcedEscalations.Remove(task.Id);
+                LogCardEscalated(logger, task.Id, "sem conversa no projeto");
+            }
+
+            return 0;
+        }
+
+        var now = clock.UtcNow;
+        var announced = 0;
+        foreach (var task in escalated)
+        {
+            var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+            var rejected = attempts.Count(attempt =>
+                string.Equals(attempt.State, "failed", StringComparison.Ordinal));
+            var findings = "(o review não registrou achados estruturados)";
+            if (attempts.Count > 0)
+            {
+                var events = await board.ListAttemptEventsAsync(tenantId, attempts[^1].Id, null, 50, token);
+                findings = events.LastOrDefault(entry =>
+                    string.Equals(entry.Kind, "note", StringComparison.Ordinal))?.Content ?? findings;
+            }
+
+            var content =
+                $"Preciso da sua decisão em um card: **{task.Title}**.\n\n" +
+                $"Ele foi reprovado {rejected} vez(es) pela revisão independente e atingiu o limite de " +
+                "ciclos de correção. Continuar tentando do mesmo jeito só repetiria o mesmo resultado, " +
+                "então parei e trouxe para você.\n\n" +
+                $"O que a revisão apontou:\n{findings}\n\n" +
+                "Me diga como prefere seguir: mudar o critério de aceite, reduzir o escopo do card, " +
+                "ou tratar isso como decisão de projeto.";
+
+            var result = await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    tenantId,
+                    new MessageRecord(
+                        tenantId, project.Id, UlidValue.New(now).ToString(), open[0].Id,
+                        "chief", null, project.ChiefAgentId, content, null, now),
+                    now),
+                token);
+            if (result.Status == MessageMutationStatus.Applied)
+            {
+                announced++;
+                LogCardEscalated(logger, task.Id, $"anunciado ao dono após {rejected} reprovação(ões)");
+            }
+        }
+
+        return announced;
+    }
+
+    /// <summary>
     /// Elo de CORREÇÕES: um card reprovado pelo review (board `corrections`, cadeia `running`
     /// com tentativa `rejected`) recebe uma NOVA instrução imutável — a original mais os achados
     /// do crítico — e a própria mutação devolve o card a `ready`, de onde o despacho o reatribui
@@ -878,6 +971,9 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} adiado: {ReasonCode} (volta: {RetryAfter}; contas: {Candidates}).")]
     private static partial void LogCardDeferred(ILogger logger, string taskId, string reasonCode, string retryAfter, string candidates);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} ESCALADO — {Detail}.")]
+    private static partial void LogCardEscalated(ILogger logger, string taskId, string detail);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: card {TaskId} recebeu instrução corretiva após a reprovação da tentativa {AttemptId} e voltou a `ready`.")]
     private static partial void LogCorrectionPrepared(ILogger logger, string taskId, string attemptId);
