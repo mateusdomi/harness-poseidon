@@ -72,15 +72,15 @@ public sealed class DemandPlanApiTests
                     Assert.Equal("CAT-04", plan.FeatureId);
                     Assert.Equal("proposed", plan.Status);
                     Assert.Null(plan.MaterializedAt);
-                    // spike + gate de credencial + backend + frontend + gate de integração = 5 cards.
-                    // A integração é GATE HUMANO (o merge é humano por regra e a revisão independente
-                    // já ocorre em cada card); emiti-la como agent_task/critic criava um card
-                    // estruturalmente indespachável, porque o papel crítico não tem escopo de escrita.
+                    // spike + gate de credencial + backend + frontend = 4 cards. Não há mais gate
+                    // de integração por demanda: a revisão independente acontece em cada card, o
+                    // merge do card revisado é feito pela chefe e a verificação ponta a ponta virou
+                    // obrigação da FASE.
                     Assert.Contains(plan.Cards, c => c.CardType == "spike");
                     Assert.Contains(plan.Cards, c => c.CardType == "agent_task" && c.RequiredRole == "backend-specialist");
                     Assert.Contains(plan.Cards, c => c.CardType == "agent_task" && c.RequiredRole == "frontend-specialist");
                     Assert.DoesNotContain(plan.Cards, c => c.CardType == "agent_task" && c.RequiredRole == "critic");
-                    Assert.Equal(2, plan.Cards.Count(c => c.CardType == "human_gate"));
+                    Assert.Equal(1, plan.Cards.Count(c => c.CardType == "human_gate"));
 
                     // Regenerar é idempotente: devolve o MESMO plano (200) sem duplicar.
                     using (var regenerate = await client.PostAsJsonAsync(

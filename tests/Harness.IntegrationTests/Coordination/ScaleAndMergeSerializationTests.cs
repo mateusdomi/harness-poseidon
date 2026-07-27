@@ -74,28 +74,23 @@ public sealed class ScaleAndMergeSerializationTests
                     .Select(wave => wave.EnumerateArray()
                         .Select(item => item.GetString()!).ToArray())
                     .ToArray();
-                Assert.True(waves.Length >= 3, "spike -> implementações -> integração.");
+                Assert.True(waves.Length >= 2, "spike -> implementações (a integração deixou de ser card).");
 
                 var cards = plan.RootElement.GetProperty("cards").EnumerateArray().ToArray();
                 var spike = cards
                     .Single(card => card.GetProperty("cardType").GetString() == "spike")
                     .GetProperty("proposedTitle").GetString()!.Split(' ')[0];
-                // A integração é o ÚLTIMO card do plano e é gate humano (o merge é humano por
-                // regra); antes ela era um agent_task de papel crítico, que nunca poderia ser
-                // despachado porque o papel crítico não possui escopo de escrita.
-                var integration = cards[^1]
-                    .GetProperty("proposedTitle").GetString()!.Split(' ')[0];
-                Assert.Equal("human_gate", cards[^1].GetProperty("cardType").GetString());
-
-                // O spike destrava as implementações: primeira onda; integração: última onda.
+                // O spike destrava as implementações: ele é a primeira onda e elas vêm depois.
+                // Não há mais card de integração no plano — a verificação ponta a ponta virou
+                // obrigação da FASE, e o merge de card revisado é feito pela própria chefe.
                 Assert.Contains(spike, waves[0]);
-                Assert.Contains(integration, waves[^1]);
+                Assert.DoesNotContain(
+                    cards,
+                    card => card.GetProperty("proposedTitle").GetString()!
+                        .Contains("integrar", StringComparison.OrdinalIgnoreCase));
 
-                // A integração espera TODAS as implementações — barreira de fan-in explícita.
-                var barrier = Assert.Single(
-                    plan.RootElement.GetProperty("fanInBarriers").EnumerateArray().ToArray(),
-                    item => item.GetProperty("consumerCard").GetString() == integration);
-                Assert.True(barrier.GetProperty("providerCards").GetArrayLength() >= 2);
+                // As implementações continuam dependendo do spike: a onda seguinte não é vazia.
+                Assert.NotEmpty(waves[^1]);
 
                 // (b) Merge real de uma task aprovada: o decorator serializa e MEDE.
                 var chain = app.Services.GetRequiredService<IWorkChainStore>();

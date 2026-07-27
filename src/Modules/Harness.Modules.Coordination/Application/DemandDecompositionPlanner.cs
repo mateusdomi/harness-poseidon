@@ -367,37 +367,19 @@ public static class DemandDecompositionPlanner
                 specialty));
         }
 
-        // 7. Integração final — sempre presente, depende de todos os cards de implementação.
+        // 7. NÃO existe mais um gate humano de integração por demanda.
         //
-        // É um GATE HUMANO, não um card de agente. Dois motivos, ambos canônicos: (a) a revisão
-        // independente por agente crítico já acontece EM CADA card de implementação (ator≠crítico),
-        // então um card extra de crítica duplicaria o que já foi feito; (b) a integração é o merge,
-        // e o merge é gate humano por regra. Enquanto isto nascia como 'agent_task' com papel
-        // 'critic', o card era ESTRUTURALMENTE indespachável — o papel crítico não possui escopo de
-        // escrita, então todo ciclo do loop tentava despachá-lo e colhia `agent_path_scope_empty`,
-        // para sempre, sem nunca escalar para um humano.
-        // Demanda de risco baixo não recebe o gate de integração: ela tem uma fatia só, cuja
-        // revisão independente e cujo merge humano já cobrem a entrega. O gate extra apenas
-        // deixaria trabalho trivial parado esperando alguém clicar.
-        if (!ceremonial)
-        {
-            return new DemandPlanProposal(featureId, cards);
-        }
-
-        var integrationCode = Code();
-        cards.Add(new ProposedCard(
-            Title(integrationCode, Label("Gate humano — integrar", subject, "Gate humano: revisar e integrar a feature")),
-            CardTypeHumanGate,
-            RoleNone,
-            $"Revisar de forma independente e integrar as fatias de {featureId}: confirmar que os cards de implementação estão coerentes entre si, que os gates estão verdes e que os critérios de aceite da demanda foram atendidos ponta a ponta.",
-            $"Revisão independente e integração ponta a ponta de {featureId}.",
-            "Nova implementação de escopo; o card apenas integra e valida o que os cards de implementação entregaram.",
-            criteria.Length > 0
-                ? [.. criteria]
-                : ["A feature está integrada e verificável ponta a ponta com gates verdes."],
-            ["build", "tests", "review"],
-            [.. implementationCodes]));
-
+        // Ele nasceu para garantir que alguém conferisse a feature ponta a ponta, e virou o
+        // pedágio mais caro do produto: a revisão independente já acontece EM CADA card de
+        // implementação (ator≠crítico), o merge do card revisado passou a ser feito pela própria
+        // chefe, e a verificação ponta a ponta da entrega passou a ser a obrigação da FASE, medida
+        // pelo plano de obrigações e decidida no portão conforme o modo do projeto. Manter o card
+        // aqui só acrescentaria um item indespachável ao board de cada demanda, esperando um
+        // clique que não decide mais nada — e o dono do projeto é o stakeholder, não o operador
+        // que fecha feature por feature.
+        //
+        // O que continua sendo gate humano nesta decomposição é o que exige o mundo externo:
+        // provisionar credencial (acima) e escolher entre alternativas mutuamente exclusivas.
         return new DemandPlanProposal(featureId, cards);
     }
 

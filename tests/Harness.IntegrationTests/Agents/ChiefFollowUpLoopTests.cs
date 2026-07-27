@@ -103,10 +103,11 @@ public sealed class ChiefFollowUpLoopTests
                 new CreateSolicitationRequest(projectId, "request", "AGD-01", "Criar utilitário de agenda."), cts.Token);
             var demId = await PostId(client, "/api/v1/demands",
                 new CreateDemandRequest(projectId, "AGD-01 Utilitário de agenda",
-                    "Implementar um utilitário de agenda no src.", solId), cts.Token);
+                    "Investigar a abordagem e implementar um utilitário de agenda no src.", solId), cts.Token);
 
-            // 1. Plano determinístico (backend T01 + integração/crítica T02, que DEPENDE de T01)
-            //    e materialização em cards reais — ambos nascem em `backlog`.
+            // 1. Plano determinístico (spike T01 + backend T02, que DEPENDE de T01) e
+            //    materialização em cards reais — ambos nascem em `backlog`. A onda existe porque a
+            //    implementação espera a incerteza ser resolvida, não por um gate de cerimônia.
             using (var planResponse = await client.PostAsJsonAsync(
                 $"/api/v1/demands/{demId}/plan", new { }, cts.Token))
             {

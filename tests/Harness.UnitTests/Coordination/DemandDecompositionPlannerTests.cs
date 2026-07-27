@@ -14,21 +14,17 @@ public sealed class DemandDecompositionPlannerTests
         new(title, description, criteria ?? ["O endpoint responde 200."], risk, hints, specialty);
 
     [Fact]
-    public void BackendOnlyDemandProducesBackendPlusIntegration()
+    public void BackendOnlyDemandProducesJustTheServerSlice()
     {
         var plan = DemandDecompositionPlanner.Plan(Request());
 
-        Assert.Equal(2, plan.Cards.Count);
-        var backend = plan.Cards[0];
-        var integration = plan.Cards[1];
+        // Não existe mais gate humano de integração por demanda: a revisão independente acontece
+        // em cada card, o merge do card revisado é feito pela própria chefe e a verificação ponta a
+        // ponta virou obrigação da FASE. O card só acrescentaria um item indespachável ao board,
+        // esperando um clique que não decide mais nada.
+        var backend = Assert.Single(plan.Cards);
         Assert.Equal(DemandDecompositionPlanner.CardTypeAgentTask, backend.CardType);
         Assert.Equal(DemandDecompositionPlanner.RoleBackend, backend.RequiredRole);
-        // A integração é GATE HUMANO: o merge é humano por regra e a revisão independente já
-        // acontece em cada card de implementação. Emiti-la como 'agent_task' com papel 'critic'
-        // criava um card estruturalmente indespachável — o papel crítico não tem escopo de escrita,
-        // então o loop colhia `agent_path_scope_empty` a cada ciclo, para sempre.
-        Assert.Equal(DemandDecompositionPlanner.CardTypeHumanGate, integration.CardType);
-        Assert.Equal(DemandDecompositionPlanner.RoleNone, integration.RequiredRole);
     }
 
     [Fact]
@@ -58,7 +54,9 @@ public sealed class DemandDecompositionPlannerTests
             risk: "high"));
 
         Assert.Contains(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeSpike);
-        Assert.Contains(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeHumanGate);
+        // O rito que sobrou é o que exige o mundo externo (decisão entre alternativas), não o
+        // pedágio de integração.
+        Assert.Contains(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeDecision);
     }
 
     [Fact]
@@ -145,9 +143,9 @@ public sealed class DemandDecompositionPlannerTests
         Assert.Contains(plan.Cards, c =>
             c.RequiredRole == DemandDecompositionPlanner.RoleFrontend &&
             c.CardType == DemandDecompositionPlanner.CardTypeAgentTask);
-        // Backend continua presente; o gate humano de integração é o último card.
+        // Backend continua presente, e o plano termina no trabalho — não num gate de cerimônia.
         Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
-        Assert.Equal(DemandDecompositionPlanner.CardTypeHumanGate, plan.Cards[^1].CardType);
+        Assert.DoesNotContain(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeHumanGate);
     }
 
     [Fact]
@@ -211,19 +209,15 @@ public sealed class DemandDecompositionPlannerTests
     }
 
     [Fact]
-    public void FinalIntegrationCardDependsOnTheImplementationCards()
+    public void NoCeremonialIntegrationGateIsEmittedForTheDemand()
     {
         var plan = DemandDecompositionPlanner.Plan(Request(
             description: "Implementar backend e a tela React de UI."));
 
-        var integration = plan.Cards[^1];
-        Assert.Equal(DemandDecompositionPlanner.CardTypeHumanGate, integration.CardType);
-        var implementationCodes = plan.Cards
-            .Where(c => c.RequiredRole is DemandDecompositionPlanner.RoleBackend or DemandDecompositionPlanner.RoleFrontend)
-            .Select(c => DemandDecompositionPlanner.CodeOf(c.ProposedTitle))
-            .ToArray();
-        Assert.NotEmpty(implementationCodes);
-        Assert.All(implementationCodes, code => Assert.Contains(code, integration.Dependencies));
+        // As duas fatias de implementação existem e o plano acaba nelas.
+        Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+        Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleFrontend);
+        Assert.DoesNotContain(plan.Cards, c => c.CardType == DemandDecompositionPlanner.CardTypeHumanGate);
     }
 
     [Fact]
@@ -403,11 +397,8 @@ public sealed class DemandDecompositionPlannerTests
         Assert.Equal(DemandDecompositionPlanner.RoleNone, producer.RequiredRole);
         // Os critérios da demanda viajam com quem produz, senão o entregável não é verificável.
         Assert.Equal(["Cada ameaça tem um controle correspondente."], producer.AcceptanceCriteria);
-        // E a integração passa a depender dele — antes dependia de coisa nenhuma.
-        var integration = plan.Cards.Single(c => c.ProposedTitle.Contains("integrar", StringComparison.Ordinal));
-        Assert.Contains(
-            DemandDecompositionPlanner.CodeOf(producer.ProposedTitle),
-            integration.Dependencies);
+        // E o produtor é o ÚNICO card do plano: nenhum gate de cerimônia sobra esperando clique.
+        Assert.Single(plan.Cards);
     }
 
     [Fact]
