@@ -253,10 +253,12 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           souber quem é o profissional qualificado para a demanda. Omita quando não souber — uma
           chave que não exista no catálogo é descartada, e o sistema decide por conta própria.
         - `surfaces` (opcional): o seu julgamento sobre a natureza da demanda. Declare apenas o que
-          você realmente concluiu; omita um campo quando não souber. `true` afirma que a superfície
-          existe, `false` afirma que ela NÃO existe. Os três últimos campos CRIAM CARDS QUE PARAM O
-          TRABALHO à espera de um humano — declare `true` neles somente com um motivo concreto na
-          própria demanda, nunca por precaução:
+          você realmente concluiu. `true` afirma que a superfície existe, `false` afirma que ela
+          NÃO existe, e OMITIR entrega a decisão ao sistema, que a infere do texto da demanda —
+          omitir não é o mesmo que declarar `false`, e o resultado pode contrariar o que você
+          disse ao usuário. Os três últimos campos CRIAM CARDS QUE PARAM O TRABALHO à espera de um
+          humano — declare `true` neles somente com um motivo concreto na própria demanda, nunca
+          por precaução:
           - `frontend`: a demanda mexe em interface (telas, componentes, estilo);
           - `backend`: a demanda produz código de servidor (domínio, API, persistência);
           - `externalCredential`: a demanda NÃO pode começar sem que um humano provisione antes um
