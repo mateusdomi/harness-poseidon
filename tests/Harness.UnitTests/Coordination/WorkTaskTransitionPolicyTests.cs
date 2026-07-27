@@ -89,6 +89,12 @@ public sealed class WorkTaskTransitionPolicyTests
         WorkTaskState.Cancelled,
         WorkTaskState.Running,
         WorkTaskTransitionEvent.HeartbeatConfirmed)]
+    // Dar por entregue um card que nunca passou por revisão pularia justamente o ponto onde o
+    // sistema verifica alguma coisa. (Draft → Running já é coberto acima.)
+    [InlineData(
+        WorkTaskState.Running,
+        WorkTaskState.Done,
+        WorkTaskTransitionEvent.ReviewApproved)]
     public void ShortcutOrTerminalTransitionIsRejected(
         WorkTaskState from,
         WorkTaskState to,

@@ -721,6 +721,36 @@ public sealed partial class ChiefBacklogLoopService(
             return 0;
         }
 
+        // REPLANEJAMENTO antes de incomodar o dono. A máquina de estados prevê
+        // `Escalated → Ready: Replanned` e essa transição nunca teve chamador em produção: o card
+        // escalava e parava. Mas escalar significa que a MESMA abordagem falhou N vezes — repetir
+        // não resolve, e chamar o humano de imediato joga para ele um trabalho que o chefe ainda
+        // pode tentar de outro jeito.
+        //
+        // Uma tentativa, e só uma: a instrução revisada declara explicitamente que a abordagem
+        // anterior esgotou os ciclos e que o card deve ser reduzido ao menor incremento
+        // verificável. Se escalar de novo, aí sim é decisão humana — é o que a contagem de
+        // replanejamentos abaixo garante, lendo o histórico durável de instruções.
+        var stillEscalated = new List<BoardTaskRecord>();
+        foreach (var task in escalated)
+        {
+            if (await TryReplanEscalatedAsync(
+                tenantId, project, task, board,
+                scope.ServiceProvider.GetRequiredService<IWorkChainStore>(), token))
+            {
+                _ = _announcedEscalations.Remove(task.Id);
+                continue;
+            }
+
+            stillEscalated.Add(task);
+        }
+
+        escalated = [.. stillEscalated];
+        if (escalated.Length == 0)
+        {
+            return 0;
+        }
+
         var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
         var open = await conversations.ListConversationsAsync(tenantId, project.Id, null, 1, token);
 
@@ -803,6 +833,77 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         return announced;
+    }
+
+    /// <summary>Marca que identifica, no histórico durável, uma instrução de replanejamento.</summary>
+    private const string ReplanMarker = "## Replanejamento após escalonamento";
+
+    /// <summary>
+    /// Tenta UMA estratégia revisada para um card escalado. Devolve <c>true</c> quando replanejou
+    /// (o card volta a `ready`); <c>false</c> quando o replanejamento já foi gasto e o caso é
+    /// mesmo do humano.
+    ///
+    /// O limite de uma tentativa não é arbitrário: escalonamento já significa N ciclos de review
+    /// reprovados, e um replanejamento automático sem teto reproduziria exatamente o laço infinito
+    /// que a escalação existe para cortar. O histórico de instruções é o registro durável desse
+    /// gasto — sobrevive a restart sem estado em memória.
+    /// </summary>
+    private async Task<bool> TryReplanEscalatedAsync(
+        string tenantId,
+        ProjectRecord project,
+        BoardTaskRecord task,
+        IWorkBoardStore board,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        var instructions = await board.ListInstructionsAsync(tenantId, task.Id, null, 100, token);
+        if (instructions.Count == 0 ||
+            instructions.Any(instruction =>
+                instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+        var rejected = attempts.Count(attempt =>
+            string.Equals(attempt.State, "failed", StringComparison.Ordinal));
+        var content =
+            $"{instructions[^1].Body}\n\n{ReplanMarker}\n" +
+            $"A abordagem anterior esgotou os ciclos de revisão ({rejected} reprovação(ões)) e NÃO " +
+            "deve ser repetida como está. Antes de escrever qualquer código:\n" +
+            "1. Releia os achados da revisão e diga, em uma linha, por que a abordagem anterior " +
+            "não fechou.\n" +
+            "2. Reduza o card ao MENOR incremento verificável que satisfaça os critérios de aceite " +
+            "— entregar menos, com evidência, vale mais que entregar tudo sem evidência.\n" +
+            "3. Produza a evidência que faltou (execução de teste, log, diff) junto com a mudança.\n" +
+            "Se após isto o escopo ainda não couber, registre o bloqueio em vez de tentar de novo.";
+
+        var now = clock.UtcNow;
+        var receipt = await chain.ReplanEscalatedTaskAsync(
+            new WorkTaskReplanCommand(
+                tenantId,
+                task.BackingSolicitationId,
+                task.Id,
+                UlidValue.New(now).ToString(),
+                content,
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(content))),
+                project.ChiefAgentId,
+                "chief.replan_after_escalation",
+                $"attempts:{rejected}",
+                task.Version,
+                $"chief-loop-replan:{task.Id}",
+                now),
+            token);
+        if (receipt.Status is not (WorkChainMutationStatus.Applied
+            or WorkChainMutationStatus.IdempotentReplay))
+        {
+            LogCardEscalated(logger, task.Id, $"replanejamento recusado: {receipt.Status}");
+            return false;
+        }
+
+        LogCardEscalated(logger, task.Id, $"replanejado com estratégia revisada após {rejected} reprovação(ões)");
+        return true;
     }
 
     /// <summary>
