@@ -247,6 +247,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IGovernanceRuntimeStore, PostgresGovernanceRuntimeStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, PostgresLearningCandidateStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, PostgresPhaseObligationStore>();
+            builder.Services.AddSingleton<IAgentRequestStore, PostgresAgentRequestStore>();
             builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
@@ -279,6 +280,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IGovernanceRuntimeStore, SqliteGovernanceRuntimeStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, SqliteLearningCandidateStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, SqlitePhaseObligationStore>();
+            builder.Services.AddSingleton<IAgentRequestStore, SqliteAgentRequestStore>();
             builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
@@ -454,6 +456,7 @@ public static class HostApplication
         // Gestão de equipe pela chefe: existe SEMPRE, inclusive sem execução externa ligada —
         // o turno de conversa depende dela e não pode falhar por ordem de registro.
         builder.Services.AddSingleton<ChiefTeamManager>();
+        builder.Services.AddSingleton<AgentRequestResolver>();
         builder.Services.AddSingleton<WorkBoard.TaskIntegrationService>();
 
         builder.Services.AddSingleton(

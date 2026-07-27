@@ -21,7 +21,8 @@ public static class ChiefCardResolver
 
     public static ChiefCardResolution Resolve(
         string title, string instructionBody, IReadOnlyList<string> acceptanceCriteria,
-        string riskTier, string? explicitPersonaKey = null, string? explicitRole = null)
+        string riskTier, string? explicitPersonaKey = null, string? explicitRole = null,
+        RepositorySurfaceMap? surfaceMap = null)
     {
         // A heurística lê a DEMANDA, não os marcadores de despacho. A linha "Especialidade
         // exigida: architecture-security" carrega a palavra "architecture" — deixá-la no palheiro
@@ -39,7 +40,16 @@ public static class ChiefCardResolver
         // briefing degradaria para o texto cru do escopo — o executor perderia o "quem/como".
         var inferred = InferPersona(text, role);
         var persona = explicitPersonaKey ?? ParseDeclaredSpecialty(instructionBody) ?? inferred;
-        var claims = AgentRoles.PathScopesFor(role);
+
+        // ESCOPO POR CARD, não por papel. Enquanto todo card de backend reivindicava `src/**`,
+        // dois cards independentes do mesmo projeto nunca rodavam juntos — o paralelismo escalava
+        // por papéis, e não pelo trabalho. O planejador estreita quando reconhece a superfície
+        // real no repositório e devolve o escopo do papel quando não reconhece: claim estreito
+        // demais trava o agente no meio, o que é pior do que um claim amplo que só serializa.
+        var roleClaims = AgentRoles.PathScopesFor(role);
+        var plan = CardPathScopePlanner.Plan(
+            roleClaims, surfaceMap ?? RepositorySurfaceMap.Empty, title, instructionBody);
+        var claims = plan.Claims;
         var capability = string.Equals(role, AgentRoles.Critic, StringComparison.OrdinalIgnoreCase)
             ? "review"
             : "code";
@@ -51,7 +61,7 @@ public static class ChiefCardResolver
             claims,
             riskTier);
 
-        return new ChiefCardResolution(role, capability, persona, claims, card, inferred);
+        return new ChiefCardResolution(role, capability, persona, claims, card, inferred, plan);
     }
 
     /// <summary>
@@ -164,4 +174,10 @@ public sealed record ChiefCardResolution(
     /// A persona que a heurística escolheria. Igual a <see cref="PersonaKey"/> quando nada foi
     /// declarado; é o fallback quando a chave declarada não existe no catálogo.
     /// </summary>
-    string InferredPersonaKey = "");
+    string InferredPersonaKey = "",
+
+    /// <summary>
+    /// Como o escopo foi decidido: estreitado para as superfícies reconhecidas do repositório ou
+    /// herdado do papel, e por quê. É o que permite auditar por que dois cards colidiram.
+    /// </summary>
+    CardPathScopePlan? ScopePlan = null);

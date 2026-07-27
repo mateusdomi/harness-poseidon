@@ -205,6 +205,7 @@ public sealed partial class ChiefBacklogLoopService(
                 await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
                 await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
+                await ResolveAgentRequestsAsync(profile.TenantId, project, scope, token);
                 await IntegrateApprovedCardsAsync(profile.TenantId, project, board, scope, token);
                 await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
                 await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
@@ -222,6 +223,13 @@ public sealed partial class ChiefBacklogLoopService(
                 profile.TenantId,
                 new BoardTaskPageQuery(project.Id, null, null, "ready", null, null, "active", null, 0, 50),
                 token);
+
+            // Mapa das superfícies REAIS do repositório do projeto, lido uma vez por ciclo. É ele
+            // que permite ao card reivindicar o módulo que ele mexe em vez de `src/**` inteiro —
+            // sem isso, dois cards independentes do mesmo projeto nunca rodam juntos.
+            var surfaceMap = string.IsNullOrWhiteSpace(project.RepositoryUrl)
+                ? RepositorySurfaceMap.Empty
+                : RepositorySurfaceMap.Build(System.IO.Path.GetFullPath(project.RepositoryUrl));
 
             var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)>();
             foreach (var task in page.Items)
@@ -252,7 +260,7 @@ public sealed partial class ChiefBacklogLoopService(
                 }
 
                 var resolution = ChiefCardResolver.Resolve(
-                    task.Title, instructions[^1].Body, [], "medium");
+                    task.Title, instructions[^1].Body, [], "medium", surfaceMap: surfaceMap);
 
                 // Defesa em profundidade: um papel SEM escopo de escrita (o crítico, por exemplo)
                 // produz claim vazia, e a política de path rejeita a tentativa com
@@ -866,6 +874,27 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         return announced;
+    }
+
+    /// <summary>
+    /// Resolve as solicitações estruturadas que os agentes deixaram para a chefe. É o elo que
+    /// substitui o caminho caro: até aqui, um executor que precisava de uma informação só
+    /// conseguia falhar, ser reprovado e escalar depois de N ciclos.
+    /// </summary>
+    private static async Task<int> ResolveAgentRequestsAsync(
+        string tenantId,
+        ProjectRecord project,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var resolver = scope.ServiceProvider.GetService<AgentRequestResolver>();
+        if (resolver is null)
+        {
+            return 0;
+        }
+
+        var resolutions = await resolver.ResolveOpenAsync(tenantId, project.Id, token);
+        return resolutions.Count;
     }
 
     /// <summary>
