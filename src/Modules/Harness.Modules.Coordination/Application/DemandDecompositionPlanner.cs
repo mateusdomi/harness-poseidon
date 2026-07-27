@@ -145,6 +145,7 @@ public static class DemandDecompositionPlanner
             .Select(value => value.Trim())
             .ToArray();
         var subject = SubjectOf(request.Title);
+        var subjectOrFeature = subject.Length > 0 ? subject : featureId;
         var hints = request.Hints;
         var haystack = BuildHaystack(request.Title, request.Description, criteria);
 
@@ -248,7 +249,13 @@ public static class DemandDecompositionPlanner
                 Title(backendCode, Label("Backend", subject, "Backend: implementar a fatia de servidor")),
                 CardTypeAgentTask,
                 RoleBackend,
-                $"Implementar a fatia de backend de {featureId}: contratos tipados, tenant scope, OCC, cancellation e persistência dual quando aplicável, com testes proporcionais ao risco.",
+                // A instrução descreve A DEMANDA, não a arquitetura de um projeto específico. O texto
+                // anterior mandava aplicar "tenant scope, OCC e persistência dual" em QUALQUER card
+                // — inclusive numa CLI Python de um projeto-cliente, onde nada disso existe. Ruído
+                // no melhor caso; instrução enganosa no pior. Os padrões do projeto o executor
+                // encontra no próprio repositório e no contexto governado.
+                $"Implementar a fatia de servidor de {subjectOrFeature}. Siga os padrões já " +
+                    "estabelecidos no repositório do projeto e escreva testes proporcionais ao risco.",
                 $"Código de servidor de {featureId}: domínio, aplicação, persistência, endpoints e testes de backend.",
                 "Qualquer UI/frontend; provisionamento de credencial externa; documentação de produto.",
                 ImplementationCriteria(criteria, "backend"),
@@ -264,7 +271,7 @@ public static class DemandDecompositionPlanner
                 Title(frontendCode, Label("Frontend", subject, "Frontend: implementar a fatia de interface")),
                 CardTypeAgentTask,
                 RoleFrontend,
-                $"Implementar a fatia de frontend de {featureId} contra os contratos publicados, com validação de UI e testes proporcionais.",
+                $"Implementar a fatia de interface de {subjectOrFeature} contra os contratos publicados, com validação de UI e testes proporcionais.",
                 $"Código de interface de {featureId}: componentes, telas e integração com os contratos do backend.",
                 "Lógica de servidor/persistência; provisionamento de credencial externa.",
                 ImplementationCriteria(criteria, "frontend"),

@@ -287,4 +287,22 @@ public sealed class DemandDecompositionPlannerTests
 
         Assert.All(plan.Cards, c => Assert.NotEmpty(c.AcceptanceCriteria));
     }
+
+    [Fact]
+    public void TheInstructionDescribesTheDemandNotTheArchitectureOfAnotherProject()
+    {
+        // Achado da homologação: a instrução do card mandava aplicar "tenant scope, OCC e
+        // persistência dual" em QUALQUER demanda — inclusive numa CLI Python de projeto-cliente,
+        // onde nada disso existe. É o texto que o executor lê antes de escrever código.
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "CUR-02: adicionar libra esterlina ao conversor",
+            description: "Implementar o suporte a GBP no conversor de moedas."));
+
+        var backend = Assert.Single(
+            plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleBackend);
+        Assert.Contains("libra esterlina", backend.Instruction, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("OCC", backend.Instruction, StringComparison.Ordinal);
+        Assert.DoesNotContain("tenant scope", backend.Instruction, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("persistência dual", backend.Instruction, StringComparison.OrdinalIgnoreCase);
+    }
 }
