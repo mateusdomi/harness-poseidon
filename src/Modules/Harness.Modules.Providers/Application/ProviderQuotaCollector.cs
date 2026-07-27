@@ -74,14 +74,19 @@ public sealed class ProviderQuotaCollector
                 StaleAfter: _defaultStaleAfter);
         }
 
-        // Se o snapshot existente venceu (stale), rebaixa a confiança.
+        // Se o snapshot existente venceu (stale), o status anterior não é mais uma medição
+        // confiável: mantê-lo seria interpretação por aproximação. Degrada para "Unknown" honesto,
+        // no mesmo espírito de nunca inventar um número quando não há evidência fresca.
         if (existingSnapshot.ObservedAt.Add(existingSnapshot.StaleAfter) < now)
         {
-            return existingSnapshot with
-            {
-                Confidence = "Low",
-                StaleAfter = _defaultStaleAfter
-            };
+            return new QuotaStatusRecord(
+                Source: existingSnapshot.Source,
+                ObservedAt: now,
+                Status: "Unknown",
+                Confidence: "Low",
+                RemainingFraction: null,
+                ResetAt: null,
+                StaleAfter: _defaultStaleAfter);
         }
 
         // Avalia o limite em relação à fração restante observada.

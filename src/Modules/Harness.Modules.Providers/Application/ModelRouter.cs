@@ -24,6 +24,14 @@ public static class ModelRouter
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(request);
 
+        var duplicateAlias = registeredAccounts
+            .GroupBy(account => account.Alias, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicateAlias is not null)
+        {
+            throw new DuplicateRegisteredAccountAliasException(duplicateAlias.Key);
+        }
+
         var evaluated = selection.Candidates
             .Select(candidate => $"{candidate.Alias}:{candidate.ReasonCode}")
             .ToArray();

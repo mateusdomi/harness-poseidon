@@ -145,6 +145,56 @@ public sealed class CapacityManagerAndModelRouterTests
         Assert.True(decision.IsFallback);
     }
 
+    [Fact]
+    public void ModelRouterRejectsDuplicateRegisteredAccountAlias()
+    {
+        var accounts = new List<SimpleAccountSpec>
+        {
+            CreateAccount("primary", priority: 200),
+            CreateAccount("PRIMARY", priority: 50)
+        };
+
+        var now = DateTimeOffset.UtcNow;
+
+        var request = new ModelRoutingRequest(
+            Role: "backend-specialist",
+            RequiredCapability: "code",
+            PreferredModel: "claude-3-7-sonnet",
+            RiskTier: "low",
+            ActorAlias: null,
+            ForCritic: false,
+            RequiredPathScopes: ["src/**"],
+            Now: now);
+
+        Assert.Throws<DuplicateRegisteredAccountAliasException>(() =>
+            ModelRouter.Route(
+                accounts,
+                Selection("primary", ("primary", true, "account.eligible", 200)),
+                request));
+    }
+
+    [Fact]
+    public void ProviderQuotaCollectorDegradesStaleSnapshotToUnknownInsteadOfKeepingOldStatus()
+    {
+        var collector = new ProviderQuotaCollector(defaultStaleAfter: TimeSpan.FromMinutes(15));
+        var now = DateTimeOffset.UtcNow;
+
+        var stale = new QuotaStatusRecord(
+            Source: "test",
+            ObservedAt: now.AddMinutes(-30),
+            Status: "Available",
+            Confidence: "High",
+            RemainingFraction: 0.5,
+            ResetAt: null,
+            StaleAfter: TimeSpan.FromMinutes(15));
+
+        var snapshot = collector.Collect("worker-1", "anthropic", [], now, stale);
+
+        Assert.Equal("Unknown", snapshot.Status);
+        Assert.Equal("Low", snapshot.Confidence);
+        Assert.Null(snapshot.RemainingFraction);
+    }
+
     private static ScheduledAccountSelection Selection(
         string selectedAlias,
         params (string Alias, bool Eligible, string Reason, int Priority)[] candidates) =>

@@ -33,6 +33,17 @@ public sealed record ScheduledAccountCandidate(
     int Priority);
 
 /// <summary>
+/// Lançada quando <see cref="Application.ModelRouter"/> recebe contas registradas com aliases
+/// ambíguos (mesmo alias, ignorando caixa, em mais de um registro). A ambiguidade nunca é
+/// resolvida por aproximação (ex.: "pega o primeiro"): é rejeitada na fronteira.
+/// </summary>
+public sealed class DuplicateRegisteredAccountAliasException(string alias)
+    : Exception($"model_router.duplicate_registered_account_alias:{alias}")
+{
+    public string Alias { get; } = alias;
+}
+
+/// <summary>
 /// Decisão de roteamento de modelo com rastreabilidade determinística.
 /// </summary>
 public sealed record ModelRoutingDecision(
