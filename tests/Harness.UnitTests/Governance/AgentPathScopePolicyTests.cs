@@ -17,7 +17,10 @@ public sealed class AgentPathScopePolicyTests
 
     [Theory]
     [InlineData("src/**")]
-    [InlineData("governance/**")]
+    // `governance/**` SAIU daqui: a varredura ampla da raiz de governança engole as duas fontes
+    // canônicas, e elas são a regra que restringe o próprio agente. Um claim estreito dentro de
+    // governança continua aceito — ver `BackendKeepsNarrowGovernanceClaims`.
+    [InlineData("governance/rules/**")]
     [InlineData("CLAUDE.md")]
     [InlineData("docs/backend/security/THREAT_MODEL.md")]
     public void BackendAcceptsOwnedOrExplicitlySharedClaims(string claim)
@@ -45,6 +48,10 @@ public sealed class AgentPathScopePolicyTests
     [InlineData("docs/frontend/**")]
     [InlineData("docs/**")]
     [InlineData("**")]
+    // Imutabilidade de guardrail: o canon e a varredura que o engloba são negados para TODO papel.
+    [InlineData("governance/**")]
+    [InlineData("governance/core.md")]
+    [InlineData("governance/manifest.yaml")]
     public void BackendRejectsFrontendAndOverbroadClaims(string claim)
     {
         var result = AgentPathScopePolicy.Evaluate(AgentPathScopeKind.Backend, [claim]);

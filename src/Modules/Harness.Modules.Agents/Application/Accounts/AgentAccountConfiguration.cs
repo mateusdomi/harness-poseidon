@@ -31,11 +31,15 @@ public static class AgentRoles
                 ? BackendDefaultScopes
                 : [];
 
+    // `governance/**` NÃO entra aqui: varrer a raiz de governança engoliria as duas fontes
+    // canônicas, e um card comum passaria a poder reescrever a regra que o restringe. Um card que
+    // precise produzir documento de governança declara um claim estreito (ex.: `governance/rules/**`),
+    // que a política aceita — o que ela nega é a varredura ampla e os dois arquivos canônicos.
     private static readonly string[] BackendDefaultScopes =
     [
         "src/**", "tests/**", "docs/backend/**", "docs/contracts/**",
         "docs/architecture/**", "docs/decisions/**", "infra/**",
-        "tools/backend/**", "governance/**",
+        "tools/backend/**",
     ];
 
     public static bool IsKnown(string role) =>
