@@ -4,7 +4,68 @@ services:
       - --config=/etc/otelcol-contrib/config.yaml
       - --config=/etc/otelcol-contrib/langfuse.yaml
     environment:
-      POSEIDON_LANGFUSE_OTLP_ENDPOINT: ${POSEIDON_LANGFUSE_OTLP_ENDPOINT:?defina POSEIDON_LANGFUSE_OTLP_ENDPOINT}
+      POSEIDON_LANGFUSE_OTLP_ENDPOINT: http://langfuse:3000/api/public/otel
       POSEIDON_LANGFUSE_AUTH: ${POSEIDON_LANGFUSE_AUTH:?defina POSEIDON_LANGFUSE_AUTH}
     volumes:
       - ./otel-collector-langfuse.yaml:/etc/otelcol-contrib/langfuse.yaml:ro
+    depends_on:
+      langfuse:
+        condition: service_healthy
+
+  langfuse:
+    image: langfuse/langfuse:2@sha256:85c278dcab96c15db94191a5c1664f85aba2d7fb6771a00e99681c902c4b7015
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://langfuse:${POSEIDON_LANGFUSE_POSTGRES_PASSWORD:?defina POSEIDON_LANGFUSE_POSTGRES_PASSWORD}@langfuse-db:5432/langfuse
+      NEXTAUTH_URL: ${POSEIDON_LANGFUSE_URL:-http://localhost:3001}
+      NEXTAUTH_SECRET: ${POSEIDON_LANGFUSE_NEXTAUTH_SECRET:?defina POSEIDON_LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${POSEIDON_LANGFUSE_SALT:?defina POSEIDON_LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${POSEIDON_LANGFUSE_ENCRYPTION_KEY:?defina POSEIDON_LANGFUSE_ENCRYPTION_KEY}
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      LANGFUSE_INIT_ORG_ID: ${POSEIDON_LANGFUSE_ORG_ID:-poseidon}
+      LANGFUSE_INIT_ORG_NAME: ${POSEIDON_LANGFUSE_ORG_NAME:-Poseidon}
+      LANGFUSE_INIT_PROJECT_ID: ${POSEIDON_LANGFUSE_PROJECT_ID:-poseidon}
+      LANGFUSE_INIT_PROJECT_NAME: ${POSEIDON_LANGFUSE_PROJECT_NAME:-Poseidon}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${POSEIDON_LANGFUSE_PUBLIC_KEY:?defina POSEIDON_LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${POSEIDON_LANGFUSE_SECRET_KEY:?defina POSEIDON_LANGFUSE_SECRET_KEY}
+    ports:
+      - 127.0.0.1:3001:3000
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch("http://127.0.0.1:3000/api/public/health").then(response=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - observability
+
+  langfuse-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: ${POSEIDON_LANGFUSE_POSTGRES_PASSWORD:?defina POSEIDON_LANGFUSE_POSTGRES_PASSWORD}
+      POSTGRES_DB: langfuse
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U langfuse -d langfuse
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - langfuse-postgres-data:/var/lib/postgresql/data
+    networks:
+      - observability
+
+volumes:
+  langfuse-postgres-data:

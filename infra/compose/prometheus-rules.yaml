@@ -1,0 +1,40 @@
+groups:
+  - name: poseidon-slos
+    interval: 30s
+    rules:
+      - record: poseidon:agent_execution_success_ratio:rate5m
+        expr: >-
+          sum(rate(poseidon_agent_execution_count_total{result="completed"}[5m]))
+          /
+          clamp_min(sum(rate(poseidon_agent_execution_count_total[5m])), 0.000001)
+      - record: poseidon:chief_turn_success_ratio:rate5m
+        expr: >-
+          sum(rate(poseidon_chief_turn_count_total{result="completed"}[5m]))
+          /
+          clamp_min(sum(rate(poseidon_chief_turn_count_total[5m])), 0.000001)
+      - record: poseidon:outbox_dispatch_failure_ratio:rate5m
+        expr: >-
+          sum(rate(poseidon_outbox_dispatch_count_total{result=~"retry_scheduled|dead_lettered"}[5m]))
+          /
+          clamp_min(sum(rate(poseidon_outbox_dispatch_count_total[5m])), 0.000001)
+      - alert: PoseidonAgentExecutionErrorBudgetBurn
+        expr: poseidon:agent_execution_success_ratio:rate5m < 0.99
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Agent execution success ratio is below 99%
+      - alert: PoseidonChiefTurnErrorBudgetBurn
+        expr: poseidon:chief_turn_success_ratio:rate5m < 0.99
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Chief turn success ratio is below 99%
+      - alert: PoseidonOutboxDispatchFailures
+        expr: poseidon:outbox_dispatch_failure_ratio:rate5m > 0.01
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Outbox dispatch failure ratio is above 1%

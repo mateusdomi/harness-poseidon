@@ -55,6 +55,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./prometheus-rules.yaml:/etc/prometheus/rules/poseidon.yaml:ro
       - prometheus-data:/prometheus
     ports:
       - 127.0.0.1:9090:9090

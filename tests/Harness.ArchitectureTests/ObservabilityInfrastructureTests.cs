@@ -80,23 +80,95 @@ public sealed class ObservabilityInfrastructureTests
         Assert.Contains("poseidon_agent_execution_count_total", dashboard, StringComparison.Ordinal);
         Assert.Contains("poseidon_durable_operation_count_total", dashboard, StringComparison.Ordinal);
         Assert.Contains("poseidon_channel_operation_count_total", dashboard, StringComparison.Ordinal);
+        Assert.Contains(
+            "poseidon:agent_execution_success_ratio:rate5m",
+            dashboard,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "poseidon:chief_turn_success_ratio:rate5m",
+            dashboard,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "poseidon:outbox_dispatch_failure_ratio:rate5m",
+            dashboard,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "poseidon_outbox_recovered_claim_count_total",
+            dashboard,
+            StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LangfuseExportIsOptInAndReceivesOnlyCollectorTraces()
+    public void PrometheusDefinesOperationalSlosAndAlerts()
+    {
+        var compose = ReadRepositoryFile("infra/compose/observability.compose.yaml");
+        var prometheus = ReadRepositoryFile("infra/compose/prometheus.yaml");
+        var rules = ReadRepositoryFile("infra/compose/prometheus-rules.yaml");
+
+        Assert.Contains(
+            "./prometheus-rules.yaml:/etc/prometheus/rules/poseidon.yaml:ro",
+            compose,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "/etc/prometheus/rules/poseidon.yaml",
+            prometheus,
+            StringComparison.Ordinal);
+
+        foreach (var rule in new[]
+                 {
+                     "poseidon:agent_execution_success_ratio:rate5m",
+                     "poseidon:chief_turn_success_ratio:rate5m",
+                     "poseidon:outbox_dispatch_failure_ratio:rate5m",
+                     "PoseidonAgentExecutionErrorBudgetBurn",
+                     "PoseidonChiefTurnErrorBudgetBurn",
+                     "PoseidonOutboxDispatchFailures",
+                 })
+        {
+            Assert.Contains(rule, rules, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void LangfuseIsSelfHostedAndReceivesOnlyCollectorTraces()
     {
         var compose = ReadRepositoryFile("infra/compose/langfuse.compose.yaml");
         var configuration = ReadRepositoryFile(
             "infra/compose/otel-collector-langfuse.yaml");
 
         Assert.Contains(
-            "POSEIDON_LANGFUSE_OTLP_ENDPOINT:?",
+            "image: langfuse/langfuse:2@sha256:85c278dcab96c15db94191a5c1664f85aba2d7fb6771a00e99681c902c4b7015",
+            compose,
+            StringComparison.Ordinal);
+        Assert.Contains("image: postgres:16", compose, StringComparison.Ordinal);
+        Assert.Contains("127.0.0.1:3001:3000", compose, StringComparison.Ordinal);
+        Assert.Contains(
+            "langfuse-postgres-data:/var/lib/postgresql/data",
+            compose,
+            StringComparison.Ordinal);
+        Assert.Contains("condition: service_healthy", compose, StringComparison.Ordinal);
+        Assert.Contains(
+            "http://127.0.0.1:3000/api/public/health",
+            compose,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "POSEIDON_LANGFUSE_OTLP_ENDPOINT: http://langfuse:3000/api/public/otel",
+            compose,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "POSEIDON_LANGFUSE_POSTGRES_PASSWORD:?",
             compose,
             StringComparison.Ordinal);
         Assert.Contains(
             "POSEIDON_LANGFUSE_AUTH:?",
             compose,
             StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_LANGFUSE_NEXTAUTH_SECRET:?", compose, StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_LANGFUSE_SALT:?", compose, StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_LANGFUSE_ENCRYPTION_KEY:?", compose, StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_LANGFUSE_PUBLIC_KEY:?", compose, StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_LANGFUSE_SECRET_KEY:?", compose, StringComparison.Ordinal);
+        Assert.Contains("TELEMETRY_ENABLED: \"false\"", compose, StringComparison.Ordinal);
+        Assert.DoesNotContain("0.0.0.0:", compose, StringComparison.Ordinal);
         Assert.Contains("otlp_http/langfuse:", configuration, StringComparison.Ordinal);
         Assert.Contains(
             "Authorization: Basic ${env:POSEIDON_LANGFUSE_AUTH}",
