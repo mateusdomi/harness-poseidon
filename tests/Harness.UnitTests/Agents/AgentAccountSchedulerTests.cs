@@ -350,4 +350,198 @@ public sealed class AgentAccountSchedulerTests
         Assert.Null(decision.SelectedAlias);
         Assert.Equal("account.role_not_allowed", Assert.Single(decision.Candidates).ReasonCode);
     }
+
+    [Fact]
+    public void AnExhaustedAccountNeverReceivesAnAttemptEvenAsTheOnlyCandidate()
+    {
+        var registry = RegistryOf(
+            Account("worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic));
+        var request = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-codex-critic"] = new(
+                    "cli-probe", Now, QuotaStatus.Exhausted, QuotaConfidence.High,
+                    RemainingFraction: 0, ResetAt: Now.AddHours(1), StaleAfter: TimeSpan.FromMinutes(5)),
+            },
+        };
+
+        var decision = new AgentAccountScheduler().Select(registry, request);
+
+        Assert.Null(decision.SelectedAlias);
+        Assert.Empty(decision.FallbackAliases);
+        Assert.Equal(
+            "account.quota_limited",
+            decision.Candidates.Single(c => c.Alias == "worker-codex-critic").ReasonCode);
+    }
+
+    [Fact]
+    public void AStaleAvailableQuotaSnapshotNeverProvesAvailabilityOverARealBlock()
+    {
+        // Uma medição VENCIDA não é prova de nada — nem para bloquear (já coberto por
+        // AStaleNearLimitMeasurementDoesNotDePreferAnyone), nem para "provar" que a conta tem
+        // margem. O bloqueio real (aqui, autenticação pendente) nunca é destravado por uma
+        // leitura antiga de cota, mesmo que ela diga "Available".
+        var registry = RegistryOf(
+            Account("worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic,
+                state: AgentAccountState.AuthenticationRequired));
+        var staleAvailable = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-codex-critic"] = new(
+                    "cli-probe", Now.AddDays(-1), QuotaStatus.Available, QuotaConfidence.Low,
+                    RemainingFraction: 0.9, ResetAt: null, StaleAfter: TimeSpan.FromMinutes(5)),
+            },
+        };
+
+        var decision = new AgentAccountScheduler().Select(registry, staleAvailable);
+
+        Assert.Null(decision.SelectedAlias);
+        Assert.Equal(
+            "account.authentication_required",
+            Assert.Single(decision.Candidates).ReasonCode);
+    }
+
+    [Fact]
+    public void AStaleAvailableQuotaSnapshotNeverProvesAvailabilityOverConcurrency()
+    {
+        // Mesmo cenário, do lado da concorrência: a conta está ocupada de verdade (ActiveAttempts
+        // no limite); uma leitura antiga de cota "Available" não pode destravar um slot que não
+        // existe.
+        var registry = RegistryOf(
+            Account("worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic,
+                state: AgentAccountState.Running, concurrency: 1, active: 1));
+        var staleAvailable = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-codex-critic"] = new(
+                    "cli-probe", Now.AddDays(-1), QuotaStatus.Available, QuotaConfidence.Low,
+                    RemainingFraction: 0.9, ResetAt: null, StaleAfter: TimeSpan.FromMinutes(5)),
+            },
+        };
+
+        var decision = new AgentAccountScheduler().Select(registry, staleAvailable);
+
+        Assert.Null(decision.SelectedAlias);
+        Assert.Equal(
+            "account.concurrency_exhausted",
+            Assert.Single(decision.Candidates).ReasonCode);
+    }
+
+    [Fact]
+    public void UnknownQuotaAppliesTheLocalConcurrencyLimitInsteadOfEstimatingRemainingFraction()
+    {
+        // account.eligible_* nunca nasce de um percentual inventado: UnknownFrom nem carrega
+        // RemainingFraction. A política conservadora para Unknown é o limite local de
+        // concorrência — quando ele já está no teto, é ESSA razão que bloqueia, nunca uma cota
+        // fabricada.
+        var unknownQuota = AccountQuotaSnapshot.UnknownFrom("cli-probe", Now, TimeSpan.FromMinutes(5));
+        Assert.Null(unknownQuota.RemainingFraction);
+
+        var registry = RegistryOf(
+            Account("worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic,
+                state: AgentAccountState.Running, concurrency: 1, active: 1));
+        var request = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-codex-critic"] = unknownQuota,
+            },
+        };
+
+        var decision = new AgentAccountScheduler().Select(registry, request);
+
+        Assert.Null(decision.SelectedAlias);
+        Assert.Equal(
+            "account.concurrency_exhausted",
+            Assert.Single(decision.Candidates).ReasonCode);
+    }
+
+    [Fact]
+    public void TheRouteDecisionRecordsWhichQuotaSnapshotWasUsedForTheSelectedAccount()
+    {
+        // Contrato de quota (N4/5.1): "a decisão de rota registra o snapshot usado". Antes desta
+        // fatia, AccountSelectionCandidate/Decision não carregavam o snapshot considerado —
+        // a decisão era explicável por código de razão, mas não auditável até a medição concreta.
+        var registry = RegistryOf(
+            Account("worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic));
+        var snapshot = new AccountQuotaSnapshot(
+            "cli-probe", Now, QuotaStatus.NearLimit, QuotaConfidence.High,
+            0.05, null, TimeSpan.FromMinutes(5));
+        var request = CriticRequest() with
+        {
+            Quotas = new Dictionary<string, AccountQuotaSnapshot>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["worker-codex-critic"] = snapshot,
+            },
+        };
+
+        var decision = new AgentAccountScheduler().Select(registry, request);
+
+        Assert.Equal("worker-codex-critic", decision.SelectedAlias);
+        Assert.Equal(snapshot, decision.SelectedQuotaSnapshot);
+        Assert.Equal(snapshot, Assert.Single(decision.Candidates).QuotaSnapshotUsed);
+    }
+
+    [Fact]
+    public void TheRouteDecisionRecordsNoSnapshotWhenNoneWasObserved()
+    {
+        var registry = RegistryOf(
+            Account("worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic));
+
+        var decision = new AgentAccountScheduler().Select(registry, CriticRequest());
+
+        Assert.Equal("worker-codex-critic", decision.SelectedAlias);
+        Assert.Null(decision.SelectedQuotaSnapshot);
+        Assert.Null(Assert.Single(decision.Candidates).QuotaSnapshotUsed);
+    }
+
+    [Fact]
+    public async Task ConcurrentReservationsNeverExceedTheAccountConcurrencyLimit()
+    {
+        // Regressão do defeito real: Reserve() fazia "checar concessão/limite, escrever de volta"
+        // sem lock sobre um Dictionary comum. Sob concorrência real (tentativas distintas
+        // disputando a MESMA conta), duas reservas podiam passar a checagem antes de qualquer uma
+        // escrever — e mais de uma tentativa acabava concedida para uma conta de concorrência 1,
+        // exatamente o invariante que o scheduler existe para impor. O teste dispara muitas
+        // reservas simultâneas, uma Task por tentativa (nunca Parallel.For, cujo grau de
+        // paralelismo é limitado ao número de núcleos e travaria contra a barreira em qualquer
+        // máquina com menos de `attempts` núcleos lógicos), alinhadas por barreira para maximizar
+        // a chance de colisão, e prova que exatamente UMA é concedida e o estado final da conta é
+        // consistente com ela.
+        const int attempts = 64;
+
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account(
+            "worker-codex-critic", ExecutorCatalog.Codex, AgentRoles.Critic, concurrency: 1));
+
+        using var barrier = new Barrier(attempts);
+        var granted = new bool[attempts];
+
+        var workers = Enumerable.Range(0, attempts).Select(index => Task.Run(() =>
+        {
+            barrier.SignalAndWait();
+            try
+            {
+                registry.Reserve(
+                    "worker-codex-critic", $"attempt-{index}", $"owner-{index}", Now, TimeSpan.FromMinutes(5));
+                granted[index] = true;
+            }
+            catch (AgentAccountValidationException exception) when (
+                exception.Code is "account.concurrency_exhausted" or "account.already_reserved")
+            {
+                granted[index] = false;
+            }
+        }));
+        await Task.WhenAll(workers);
+
+        var grantedCount = granted.Count(value => value);
+        Assert.Equal(1, grantedCount);
+
+        var account = registry.Get("worker-codex-critic")!;
+        Assert.Equal(1, account.ActiveAttempts);
+        Assert.Equal(AgentAccountState.Reserved, account.State);
+    }
 }

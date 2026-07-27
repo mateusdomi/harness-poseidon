@@ -20,6 +20,13 @@ public sealed class AgentAccountValidationException(string code) : Exception(cod
 /// </summary>
 public sealed class AgentAccountRegistry
 {
+    // O motor durável reserva e libera contas de tentativas concorrentes (attempts distintos
+    // podem competir pela mesma conta ao mesmo tempo). Sem este lock, o "ler ActiveAttempts,
+    // comparar com ConcurrencyLimit, escrever de volta" em Reserve() é check-then-act sobre um
+    // Dictionary comum: duas tentativas simultâneas podem passar a checagem antes de qualquer
+    // uma escrever e a conta acaba executando acima do limite — o próprio invariante que o
+    // scheduler existe para garantir.
+    private readonly object _sync = new();
     private readonly Dictionary<string, AgentAccountContract> _accounts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AccountLeaseContract> _leases = new(StringComparer.OrdinalIgnoreCase);
     private long _fencing;
@@ -36,8 +43,13 @@ public sealed class AgentAccountRegistry
         "worker-antigravity-review",
     ];
 
-    public IReadOnlyList<AgentAccountContract> List() =>
-        _accounts.Values.OrderBy(account => account.Alias, StringComparer.Ordinal).ToArray();
+    public IReadOnlyList<AgentAccountContract> List()
+    {
+        lock (_sync)
+        {
+            return _accounts.Values.OrderBy(account => account.Alias, StringComparer.Ordinal).ToArray();
+        }
+    }
 
     /// <summary>
     /// Hidrata o registro (memória do processo) com a disponibilidade JÁ OBSERVADA no ledger
@@ -53,34 +65,42 @@ public sealed class AgentAccountRegistry
     public int ApplyObservedAvailability(IReadOnlyList<AccountAvailabilityRecord> records)
     {
         ArgumentNullException.ThrowIfNull(records);
-        var applied = 0;
-        foreach (var record in records)
+        lock (_sync)
         {
-            if (!_accounts.TryGetValue(record.Alias, out var account) ||
-                account.State == AgentAccountState.Disabled)
+            var applied = 0;
+            foreach (var record in records)
             {
-                continue;
+                if (!_accounts.TryGetValue(record.Alias, out var account) ||
+                    account.State == AgentAccountState.Disabled)
+                {
+                    continue;
+                }
+
+                _accounts[account.Alias] = account with
+                {
+                    State = record.State,
+                    Health = record.State switch
+                    {
+                        AgentAccountState.Available => AgentAccountHealth.Healthy,
+                        AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown
+                            or AgentAccountState.Degraded => AgentAccountHealth.Degraded,
+                        _ => AgentAccountHealth.Unknown,
+                    },
+                };
+                applied++;
             }
 
-            _accounts[account.Alias] = account with
-            {
-                State = record.State,
-                Health = record.State switch
-                {
-                    AgentAccountState.Available => AgentAccountHealth.Healthy,
-                    AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown
-                        or AgentAccountState.Degraded => AgentAccountHealth.Degraded,
-                    _ => AgentAccountHealth.Unknown,
-                },
-            };
-            applied++;
+            return applied;
         }
-
-        return applied;
     }
 
-    public AgentAccountContract? Get(string alias) =>
-        _accounts.TryGetValue(alias, out var account) ? account : null;
+    public AgentAccountContract? Get(string alias)
+    {
+        lock (_sync)
+        {
+            return _accounts.TryGetValue(alias, out var account) ? account : null;
+        }
+    }
 
     public AgentAccountContract Register(AgentAccountContract account)
     {
@@ -98,7 +118,11 @@ public sealed class AgentAccountRegistry
             throw new AgentAccountValidationException("account.concurrency_invalid");
         }
 
-        _accounts[account.Alias] = account;
+        lock (_sync)
+        {
+            _accounts[account.Alias] = account;
+        }
+
         return account;
     }
 
@@ -179,81 +203,106 @@ public sealed class AgentAccountRegistry
     public AccountLeaseContract Reserve(
         string alias, string attemptId, string ownerId, DateTimeOffset now, TimeSpan duration)
     {
-        var account = Get(alias) ?? throw new AgentAccountValidationException("account.not_found");
-        if (_leases.TryGetValue(alias, out var current) && current.ExpiresAt > now)
+        lock (_sync)
         {
-            throw new AgentAccountValidationException("account.already_reserved");
-        }
+            var account = _accounts.TryGetValue(alias, out var found)
+                ? found
+                : throw new AgentAccountValidationException("account.not_found");
+            if (_leases.TryGetValue(alias, out var current) && current.ExpiresAt > now)
+            {
+                throw new AgentAccountValidationException("account.already_reserved");
+            }
 
-        if (account.State is not (AgentAccountState.Available or AgentAccountState.Reserved))
-        {
-            throw new AgentAccountValidationException("account.not_available");
-        }
+            if (account.State is not (AgentAccountState.Available or AgentAccountState.Reserved))
+            {
+                throw new AgentAccountValidationException("account.not_available");
+            }
 
-        if (account.ActiveAttempts >= account.ConcurrencyLimit)
-        {
-            throw new AgentAccountValidationException("account.concurrency_exhausted");
-        }
+            if (account.ActiveAttempts >= account.ConcurrencyLimit)
+            {
+                throw new AgentAccountValidationException("account.concurrency_exhausted");
+            }
 
-        var lease = new AccountLeaseContract(
-            alias, attemptId, ownerId, ++_fencing, now, now.Add(duration));
-        _leases[alias] = lease;
-        _accounts[alias] = account with
-        {
-            State = AgentAccountState.Reserved,
-            CurrentAttemptId = attemptId,
-            ActiveAttempts = account.ActiveAttempts + 1,
-        };
-        return lease;
+            var lease = new AccountLeaseContract(
+                alias, attemptId, ownerId, ++_fencing, now, now.Add(duration));
+            _leases[alias] = lease;
+            _accounts[alias] = account with
+            {
+                State = AgentAccountState.Reserved,
+                CurrentAttemptId = attemptId,
+                ActiveAttempts = account.ActiveAttempts + 1,
+            };
+            return lease;
+        }
     }
 
     /// <summary>Libera a concessão; um fencing antigo nunca libera a concessão vigente.</summary>
     public void Release(string alias, long fencingToken)
     {
-        var account = Get(alias) ?? throw new AgentAccountValidationException("account.not_found");
-        if (!_leases.TryGetValue(alias, out var lease))
+        lock (_sync)
         {
-            return;
-        }
+            var account = _accounts.TryGetValue(alias, out var found)
+                ? found
+                : throw new AgentAccountValidationException("account.not_found");
+            if (!_leases.TryGetValue(alias, out var lease))
+            {
+                return;
+            }
 
-        if (lease.FencingToken != fencingToken)
-        {
-            throw new AgentAccountValidationException("account.fencing_conflict");
-        }
+            if (lease.FencingToken != fencingToken)
+            {
+                throw new AgentAccountValidationException("account.fencing_conflict");
+            }
 
-        _leases.Remove(alias);
-        _accounts[alias] = account with
-        {
-            State = AgentAccountState.Available,
-            CurrentAttemptId = null,
-            ActiveAttempts = Math.Max(0, account.ActiveAttempts - 1),
-        };
+            _leases.Remove(alias);
+            _accounts[alias] = account with
+            {
+                State = AgentAccountState.Available,
+                CurrentAttemptId = null,
+                ActiveAttempts = Math.Max(0, account.ActiveAttempts - 1),
+            };
+        }
     }
 
-    public AccountLeaseContract? GetLease(string alias) =>
-        _leases.TryGetValue(alias, out var lease) ? lease : null;
+    public AccountLeaseContract? GetLease(string alias)
+    {
+        lock (_sync)
+        {
+            return _leases.TryGetValue(alias, out var lease) ? lease : null;
+        }
+    }
 
     /// <summary>Coloca a conta em cooldown por cota, preservando o motivo tipado.</summary>
     public void MarkQuotaLimited(string alias, DateTimeOffset until, string reasonCode)
     {
-        var account = Get(alias) ?? throw new AgentAccountValidationException("account.not_found");
-        _accounts[alias] = account with
+        lock (_sync)
         {
-            State = AgentAccountState.QuotaLimited,
-            CooldownUntil = until,
-            FailureReason = reasonCode,
-        };
+            var account = _accounts.TryGetValue(alias, out var found)
+                ? found
+                : throw new AgentAccountValidationException("account.not_found");
+            _accounts[alias] = account with
+            {
+                State = AgentAccountState.QuotaLimited,
+                CooldownUntil = until,
+                FailureReason = reasonCode,
+            };
+        }
     }
 
     public void UpdateHealth(
         string alias, AgentAccountHealth health, AgentAccountState state, string? failureReason)
     {
-        var account = Get(alias) ?? throw new AgentAccountValidationException("account.not_found");
-        _accounts[alias] = account with
+        lock (_sync)
         {
-            Health = health,
-            State = state,
-            FailureReason = failureReason,
-        };
+            var account = _accounts.TryGetValue(alias, out var found)
+                ? found
+                : throw new AgentAccountValidationException("account.not_found");
+            _accounts[alias] = account with
+            {
+                Health = health,
+                State = state,
+                FailureReason = failureReason,
+            };
+        }
     }
 }

@@ -95,8 +95,9 @@ public sealed class AgentAccountScheduler
         AgentAccountContract account, AccountSchedulingRequest request)
     {
         var (eligible, reason) = Classify(account, request);
+        var quotaSnapshot = request.Quotas.TryGetValue(account.Alias, out var quota) ? quota : null;
         return new AccountSelectionCandidate(
-            account.Alias, eligible, reason, account.Priority, PreferenceRankOf(reason));
+            account.Alias, eligible, reason, account.Priority, PreferenceRankOf(reason), quotaSnapshot);
     }
 
     /// <summary>

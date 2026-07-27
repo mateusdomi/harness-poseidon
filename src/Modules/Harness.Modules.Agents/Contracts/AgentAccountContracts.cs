@@ -135,7 +135,22 @@ public sealed record AccountSelectionDecision(
     string? SelectedAlias,
     string ReasonCode,
     IReadOnlyList<AccountSelectionCandidate> Candidates,
-    IReadOnlyList<string> FallbackAliases);
+    IReadOnlyList<string> FallbackAliases)
+{
+    /// <summary>
+    /// O snapshot de cota (N4/5.1, contrato de quota) que fundamentou a conta selecionada —
+    /// nulo quando nenhuma foi selecionada ou nenhum snapshot foi observado para o alias. A
+    /// decisão de rota precisa expor QUAL medição usou, para auditoria e para que o operador
+    /// possa distinguir uma escolha fundamentada em dado fresco de uma sem cota observada.
+    /// </summary>
+    public AccountQuotaSnapshot? SelectedQuotaSnapshot =>
+        SelectedAlias is null
+            ? null
+            : Candidates
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.Alias, SelectedAlias, StringComparison.OrdinalIgnoreCase))
+                ?.QuotaSnapshotUsed;
+}
 
 public sealed record AccountSelectionCandidate(
     string Alias,
@@ -149,4 +164,11 @@ public sealed record AccountSelectionCandidate(
     /// uma conta perto do limite de cota executa, mas prefere-se não gastar nela o trabalho longo
     /// enquanto houver conta com margem. Nunca bloqueia: capacidade real não é descartada.
     /// </summary>
-    int PreferenceRank = 0);
+    int PreferenceRank = 0,
+
+    /// <summary>
+    /// O snapshot de cota consultado para este alias (N4/5.1), nulo quando nenhum foi
+    /// observado. Presente independentemente do veredito — para que a razão de recusa ou de
+    /// escolha seja rastreável até a medição concreta que a fundamentou.
+    /// </summary>
+    AccountQuotaSnapshot? QuotaSnapshotUsed = null);
