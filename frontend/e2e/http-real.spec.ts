@@ -99,7 +99,7 @@ async function ensureSession(page: Page) {
     await profile.locator('xpath=ancestor::li').getByRole('button', { name: 'Entrar' }).click();
   }
 
-  await expect(page).toHaveURL(/\/cockpit$/);
+  await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
   return selectedName;
 }
 

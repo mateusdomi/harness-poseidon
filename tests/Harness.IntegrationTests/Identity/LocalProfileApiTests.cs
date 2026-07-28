@@ -49,6 +49,7 @@ public sealed class LocalProfileApiTests
                     Assert.NotNull(created);
                     profileId = created.Id;
                     Assert.Equal("Mateus", created.DisplayName);
+                    Assert.Equal("admin", created.Role);
                     Assert.Contains(
                         "HttpOnly",
                         createdResponse.Headers.GetValues("Set-Cookie").Single(),
@@ -58,6 +59,7 @@ public sealed class LocalProfileApiTests
                         "/api/v1/profiles/current",
                         timeout.Token);
                     Assert.Equal(profileId, current?.Id);
+                    Assert.Equal("admin", current?.Role);
 
                     using var patch = new StringContent(
                         "{\"displayName\":\"Mateus Domi\",\"email\":null}",

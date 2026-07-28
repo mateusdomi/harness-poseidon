@@ -116,7 +116,7 @@ async function createProfile(page: Page) {
   await page.getByRole('button', { name: 'Avançar' }).click();
   await page.getByLabel('Entendo os riscos').check();
   await page.getByRole('button', { name: 'Concluir' }).click();
-  await expect(page).toHaveURL(/\/cockpit$/);
+  await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
 }
 
 async function createOrganization(page: Page) {

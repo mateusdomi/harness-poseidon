@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { PanelRight, Plus } from 'lucide-react';
 
 import type { ChatTurnHandle, ReadinessStep, Ulid } from '@/api';
@@ -25,6 +25,7 @@ import {
   useMessages,
   useSendMessage,
 } from '@/features/chat/hooks/use-chat';
+import { useActiveConversation } from '@/features/chat/hooks/use-active-conversation';
 import { ChatReadinessNotice } from '@/features/chat/components/chat-readiness-notice';
 import {
   deriveQuickActions,
@@ -40,30 +41,28 @@ import { useUiStore } from '@/stores/ui-store';
 
 export default function ChatPage() {
   const { t } = useTranslation();
-  const { activeProject, isPending: projectsPending } = useActiveProject();
+  const { profileId, activeProject, isPending: projectsPending } = useActiveProject();
   const projectId = activeProject?.id ?? null;
 
   const conversationsQuery = useConversations(projectId);
   const createConversation = useCreateConversation();
 
-  // Deep-link do histórico: `/chat?conversation=<id>` retoma o contexto,
-  // inclusive de conversas arquivadas (entram na lista efetiva).
-  const [searchParams] = useSearchParams();
-  const requestedId = searchParams.get('conversation');
   const allConversations = useMemo(() => conversationsQuery.data ?? [], [conversationsQuery.data]);
-  const requested = requestedId ? allConversations.find((c) => c.id === requestedId) : undefined;
+  const {
+    conversation,
+    selectConversation,
+    requestedConversationUnavailable,
+  } = useActiveConversation(
+    profileId,
+    projectId,
+    allConversations,
+    conversationsQuery.isLoading,
+  );
   const conversations = useMemo(() => {
     const active = allConversations.filter((c) => c.state === 'active');
-    if (requested && requested.state !== 'active') return [requested, ...active];
+    if (conversation && conversation.state !== 'active') return [conversation, ...active];
     return active;
-  }, [allConversations, requested]);
-
-  const [selectedId, setSelectedId] = useState<Ulid | null>(null);
-  useEffect(() => {
-    if (requestedId && requested) setSelectedId(requested.id);
-  }, [requestedId, requested]);
-  // Conversa efetiva: a escolhida (se ainda existe) ou a mais recente.
-  const conversation = conversations.find((c) => c.id === selectedId) ?? conversations[0] ?? null;
+  }, [allConversations, conversation]);
   const conversationId = conversation?.id ?? null;
 
   const messagesQuery = useMessages(conversationId);
@@ -164,7 +163,7 @@ export default function ChatPage() {
         projectId,
         title: t('chat.conversation.newTitle'),
       });
-      setSelectedId(created.id);
+      selectConversation(created.id);
       // A mutation de envio é ligada ao id da conversa; para a recém-criada
       // enviamos direto pelo cliente, mantendo o mesmo contrato (modelo/esforço).
       setPendingSend({ conversationId: created.id, content: withAttachments, selection });
@@ -179,7 +178,7 @@ export default function ChatPage() {
       projectId,
       title: t('chat.conversation.newTitle'),
     });
-    setSelectedId(created.id);
+    selectConversation(created.id);
   }
 
   // Prontidão para EXECUTAR vem do read model canônico (§13): quem decide se
@@ -255,6 +254,24 @@ export default function ChatPage() {
     );
   }
 
+  if (requestedConversationUnavailable) {
+    return (
+      <Card className="mx-auto w-full max-w-5xl">
+        <CardContent className="flex flex-col items-start gap-3 p-6">
+          <h1 className="font-heading text-xl font-semibold">
+            {t('chat.conversation.unavailableTitle')}
+          </h1>
+          <p className="text-sm text-foreground-muted">
+            {t('chat.conversation.unavailableBody')}
+          </p>
+          <Button asChild>
+            <Link to="/chat">{t('chat.conversation.backToChat')}</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex w-full gap-4 lg:h-[calc(100svh-7rem)] lg:min-h-0 lg:gap-6">
       <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-4 lg:h-full lg:min-h-0">
@@ -270,7 +287,7 @@ export default function ChatPage() {
                   id="chat-conversation"
                   className="min-w-0 flex-1 sm:w-auto sm:min-w-48"
                   value={conversation?.id ?? ''}
-                  onChange={(event) => setSelectedId(event.target.value)}
+                  onChange={(event) => selectConversation(event.target.value)}
                 >
                   {conversations.map((c) => (
                     <option key={c.id} value={c.id}>

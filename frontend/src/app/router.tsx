@@ -35,6 +35,7 @@ const featureRoutes: RouteObject[] = NAV_ITEMS.filter((item) => item.key !== 'on
 );
 
 const OnboardingPage = featurePage('onboarding');
+const ChatPage = featurePage('chat');
 
 export const router = createBrowserRouter(
   [
@@ -55,7 +56,15 @@ export const router = createBrowserRouter(
         </RequireProfile>
       ),
       errorElement: <RouteError />,
-      children: [{ index: true, element: <Navigate to="/cockpit" replace /> }, ...featureRoutes],
+      children: [
+        { index: true, element: <Navigate to="/chat" replace /> },
+        ...featureRoutes,
+        {
+          path: '/chat/:conversationId',
+          Component: ChatPage,
+          errorElement: <RouteError />,
+        },
+      ],
     },
   ],
 );

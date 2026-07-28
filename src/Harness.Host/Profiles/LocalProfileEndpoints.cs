@@ -190,7 +190,7 @@ public static class LocalProfileEndpoints
 
     private static ProfileResponse ToResponse(LocalProfileRecord profile) =>
         new(profile.Id, profile.DisplayName, profile.Email, profile.AvatarUrl, profile.Locale,
-            profile.CreatedAt, profile.LastActiveAt);
+            LocalProfileRoleCodec.ToStorage(profile.Role), profile.CreatedAt, profile.LastActiveAt);
 
     private static IResult Problem(int status, string title, string detail) =>
         Results.Problem(statusCode: status, title: title, detail: detail);
@@ -217,6 +217,7 @@ public sealed record ProfileResponse(
     string? Email,
     string? AvatarUrl,
     string Locale,
+    string Role,
     DateTimeOffset CreatedAt,
     DateTimeOffset LastActiveAt);
 

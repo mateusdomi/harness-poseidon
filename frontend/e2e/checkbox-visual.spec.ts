@@ -37,7 +37,7 @@ async function navTo(page: Page, name: string) {
 async function gotoNotifications(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /Mateus/ }).click();
-  await expect(page).toHaveURL(/\/cockpit$/);
+  await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
   await navTo(page, 'Notificações');
   await expect(page).toHaveURL(/\/notifications$/);
 }

@@ -84,6 +84,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     email: 'mateus@poseidon.local',
     avatarUrl: null,
     locale: 'pt-BR',
+    role: 'admin',
     createdAt: tick(),
     lastActiveAt: tick(),
   };
@@ -93,6 +94,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     email: 'ana@poseidon.local',
     avatarUrl: null,
     locale: 'pt-BR',
+    role: 'member',
     createdAt: tick(),
     lastActiveAt: tick(),
   };
@@ -1730,6 +1732,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     { id: id(), key: 'offline-mode', description: 'Modo offline com fila local', included: true, limit: null },
     { id: id(), key: 'sso.oidc', description: 'Login corporativo via OIDC', included: false, limit: null },
     { id: id(), key: 'audit.retention', description: 'Retenção do log de auditoria (dias)', included: true, limit: 90 },
+    { id: id(), key: 'presentation.technical', description: 'Detalhes técnicos autorizados', included: true, limit: null },
   ];
 
   /* ---- budgets e política de roteamento ---- */

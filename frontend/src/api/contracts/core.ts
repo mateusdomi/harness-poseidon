@@ -21,6 +21,8 @@ export const profileSchema = z.object({
   email: z.string().email().nullable(),
   avatarUrl: z.string().nullable(),
   locale: z.string(),
+  /** Papel autorizado pelo backend; nunca inferido pelo frontend. */
+  role: z.enum(['admin', 'member']),
   createdAt: isoDateTimeSchema,
   lastActiveAt: isoDateTimeSchema,
 });

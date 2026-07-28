@@ -19,6 +19,7 @@ public sealed class SqliteLicenseStore(SqliteWriteDispatcher dispatcher) : ILice
         ("offline-mode", "Modo offline com fila local", null),
         ("sso.oidc", "Login corporativo via OIDC", null),
         ("audit.retention", "Retenção do log de auditoria (dias)", 90),
+        ("presentation.technical", "Detalhes técnicos autorizados", null),
     ];
     private readonly SqliteWriteDispatcher _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 

@@ -2315,6 +2315,7 @@ export class MockApiClient implements ApiClient {
           email: i.email ?? null,
           avatarUrl: i.avatarUrl ?? null,
           locale: i.locale,
+          role: this.#table('profiles').size === 0 ? 'admin' : 'member',
           createdAt: now,
           lastActiveAt: now,
         };

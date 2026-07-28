@@ -45,7 +45,7 @@ const THEME_STORAGE_KEY = 'poseidon-theme';
 async function ensureProfile(page: Page) {
   if (/\/onboarding$/.test(page.url())) {
     await page.getByRole('button', { name: /Mateus/ }).click();
-    await expect(page).toHaveURL(/\/cockpit$/);
+    await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
   }
 }
 

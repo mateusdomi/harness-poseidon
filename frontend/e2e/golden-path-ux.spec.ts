@@ -34,7 +34,7 @@ async function signIn(page: Page) {
   await page.goto('/');
   await expect(page).toHaveURL(/\/onboarding$/);
   await page.getByRole('button', { name: /Mateus/ }).click();
-  await expect(page).toHaveURL(/\/cockpit$/);
+  await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
 }
 
 /** Cria um projeto novo com o workflow recomendado e o torna ativo. */

@@ -54,8 +54,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'operation',
     items: [
-      { key: 'cockpit', path: '/cockpit', icon: Gauge },
       { key: 'chat', path: '/chat', icon: MessageSquare },
+      { key: 'cockpit', path: '/cockpit', icon: Gauge },
       { key: 'board', path: '/board', icon: ClipboardList },
       { key: 'conversations', path: '/conversations', icon: MessagesSquare },
       { key: 'projects', path: '/projects', icon: FolderKanban },
@@ -102,7 +102,7 @@ export const NAV_GROUPS: NavGroup[] = [
 export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
 /** Itens fixos da barra inferior mobile (o restante fica no drawer "Mais"). */
-export const MOBILE_PRIMARY_KEYS = ['cockpit', 'chat', 'board', 'notifications'] as const;
+export const MOBILE_PRIMARY_KEYS = ['chat', 'cockpit', 'board', 'conversations'] as const;
 
 export const MOBILE_PRIMARY_ITEMS: NavItem[] = MOBILE_PRIMARY_KEYS.map(
   (key) => NAV_ITEMS.find((item) => item.key === key)!,

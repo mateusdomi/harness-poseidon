@@ -11,6 +11,7 @@ public sealed class ProfileContractDriftTests
         "email",
         "avatarUrl",
         "locale",
+        "role",
         "createdAt",
         "lastActiveAt",
     ];

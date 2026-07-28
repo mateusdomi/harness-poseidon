@@ -44,7 +44,7 @@ test.describe('Gate FE-1', () => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/onboarding$/);
     await page.getByRole('button', { name: /Mateus/ }).click();
-    await expect(page).toHaveURL(/\/cockpit$/);
+    await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
 
     // 2. Criar projeto (abas: identificação + pessoas; demais com defaults válidos).
     await navTo(page, 'Projetos');

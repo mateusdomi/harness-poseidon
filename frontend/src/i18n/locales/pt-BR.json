@@ -1190,7 +1190,10 @@
     "conversation": {
       "label": "Conversa",
       "new": "Nova conversa",
-      "newTitle": "Nova conversa"
+      "newTitle": "Nova conversa",
+      "unavailableTitle": "Conversa indisponível",
+      "unavailableBody": "Esta conversa não existe ou você não tem permissão para acessá-la neste projeto.",
+      "backToChat": "Voltar ao Chat"
     },
     "messagesLabel": "Mensagens da conversa",
     "workflowPanel": {

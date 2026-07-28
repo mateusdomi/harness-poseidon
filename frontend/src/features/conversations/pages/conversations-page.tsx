@@ -19,6 +19,7 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useProfiles } from '@/features/shared/hooks/use-profiles';
 import { PaginationBar } from '@/features/shared/components/pagination';
 import { usePagination } from '@/features/shared/hooks/use-pagination';
+import { useConversationPreferencesStore } from '@/stores/conversation-preferences-store';
 
 const PERIODS: PeriodFilter[] = ['', 'today', '7d', '30d', 'custom'];
 
@@ -30,8 +31,11 @@ const PERIODS: PeriodFilter[] = ['', 'today', '7d', '30d', 'custom'];
 export default function UconversationsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { projects, activeProject, setActiveProject, isPending, isError, refetch } =
+  const { profileId, projects, activeProject, setActiveProject, isPending, isError, refetch } =
     useActiveProject();
+  const rememberConversation = useConversationPreferencesStore(
+    (state) => state.selectConversation,
+  );
   const conversationsQuery = useConversations();
   const profilesQuery = useProfiles();
   const updateConversation = useUpdateConversation();
@@ -68,7 +72,10 @@ export default function UconversationsPage() {
     if (conversation.projectId !== activeProject?.id) {
       setActiveProject(conversation.projectId);
     }
-    navigate(`/chat?conversation=${conversation.id}`);
+    if (profileId) {
+      rememberConversation(profileId, conversation.projectId, conversation.id);
+    }
+    navigate(`/chat/${conversation.id}`);
   }
 
   const loading = isPending || conversationsQuery.isLoading;

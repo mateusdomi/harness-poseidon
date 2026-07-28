@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Smoke do AppShell: abre `/` (redireciona para /cockpit) e navega
+ * Smoke do AppShell: abre `/` (redireciona para /chat) e navega
  * para 2 rotas. Roda nos viewports 360px e 1440px (ver playwright.config.ts).
  */
 
@@ -28,8 +28,8 @@ test.describe('AppShell smoke', () => {
     // Sem perfil na sessão, o guard RequireProfile leva ao onboarding.
     await expect(page).toHaveURL(/\/onboarding$/);
     await page.getByRole('button', { name: /Mateus/ }).click();
-    await expect(page).toHaveURL(/\/cockpit$/);
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
+    await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
 
     // Rota 1: Projetos
     await navTo(page, 'Projetos');

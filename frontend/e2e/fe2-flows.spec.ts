@@ -41,7 +41,7 @@ async function completeOnboarding(page: Page) {
   await page.goto('/');
   await expect(page).toHaveURL(/\/onboarding$/);
   await page.getByRole('button', { name: /Mateus/ }).click();
-  await expect(page).toHaveURL(/\/cockpit$/);
+  await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
 }
 
 /** Abre o detalhe: card clicável no mobile (<md); linha da tabela no desktop. */

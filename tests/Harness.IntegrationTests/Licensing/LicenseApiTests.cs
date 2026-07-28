@@ -66,7 +66,9 @@ public sealed class LicenseApiTests
                     Assert.Equal(licenseId, activated.Id); Assert.Equal("active", activated.State);
                     Assert.NotNull(activated.ExpiresAt); Assert.NotNull(activated.GracePeriodEndsAt);
                     var entitlements = (await client.GetFromJsonAsync<EntitlementPage>("/api/v1/entitlements", timeout.Token))!;
-                    Assert.Equal(5, entitlements.Items.Count);
+                    Assert.Equal(6, entitlements.Items.Count);
+                    Assert.True(entitlements.Items.Single(
+                        value => value.Key == "presentation.technical").Included);
                     Assert.False(entitlements.Items.Single(value => value.Key == "sso.oidc").Included);
                     var audit = await WaitForAuditAsync(client, timeout.Token);
                     var detail = audit.Delta.Single(value => value.Type == "audit.eventAppended" &&
@@ -88,7 +90,7 @@ public sealed class LicenseApiTests
                 Assert.Equal("expired", Assert.Single(license.Items).State);
                 using var project = await client.GetAsync($"/api/v1/projects/{projectId}", timeout.Token);
                 Assert.Equal(HttpStatusCode.OK, project.StatusCode);
-                Assert.Equal(5, (await client.GetFromJsonAsync<EntitlementPage>(
+                Assert.Equal(6, (await client.GetFromJsonAsync<EntitlementPage>(
                     "/api/v1/entitlements", timeout.Token))!.Items.Count);
             }
             finally { await restarted.StopAsync(timeout.Token); }

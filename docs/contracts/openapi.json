@@ -31065,6 +31065,7 @@
                     "email",
                     "avatarUrl",
                     "locale",
+                    "role",
                     "createdAt",
                     "lastActiveAt"
                 ],
@@ -31090,6 +31091,13 @@
                     },
                     "locale": {
                         "type": "string"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "admin",
+                            "member"
+                        ]
                     },
                     "createdAt": {
                         "type": "string",

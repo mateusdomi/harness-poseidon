@@ -35,7 +35,7 @@ async function ensureProfile(page: Page) {
   await page.goto('/');
   if (/\/onboarding$/.test(page.url())) {
     await page.getByRole('button', { name: /Mateus/ }).click();
-    await expect(page).toHaveURL(/\/cockpit$/);
+    await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
   }
 }
 

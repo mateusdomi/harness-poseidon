@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { buildFixtures, streams, type Message } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
@@ -14,6 +14,7 @@ import {
   reduceChatTurn,
 } from '@/features/chat/lib/chat-derive';
 import ChatPage from '@/features/chat/pages/chat-page';
+import { useConversationPreferencesStore } from '@/stores/conversation-preferences-store';
 import { renderWithApi } from '@/test/render-with-providers';
 
 const fixtures = buildFixtures(42);
@@ -148,6 +149,10 @@ describe('MarkdownContent', () => {
 });
 
 describe('ChatPage', () => {
+  beforeEach(() => {
+    useConversationPreferencesStore.setState({ selectionsByProfileAndProject: {} });
+  });
+
   function renderChat() {
     const bundle = createTestBundle({ chatChunkDelayMs: 5 });
     const utils = renderWithApi(
@@ -178,6 +183,50 @@ describe('ChatPage', () => {
       'href',
       expect.stringContaining('/board?task='),
     );
+  });
+
+  it('restaura deep link canônico e persiste a conversa por projeto', async () => {
+    const bundle = createTestBundle();
+    const target = bundle.fixtures.data.conversations.find(
+      (conversation) =>
+        conversation.projectId === project.id &&
+        conversation.title === 'Planejamento da sprint 12',
+    )!;
+    renderWithApi(
+      <MemoryRouter initialEntries={[`/chat/${target.id}`]}>
+        <Routes>
+          <Route path="/chat/:conversationId" element={<ChatPage />} />
+        </Routes>
+      </MemoryRouter>,
+      bundle,
+    );
+
+    expect(
+      await screen.findByText('Bruna, preciso exportar o quadro em CSV até sexta.'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      const stored =
+        useConversationPreferencesStore.getState().selectionsByProfileAndProject[
+          bundle.fixtures.meta.currentProfileId
+        ][project.id];
+      expect(stored.conversationId).toBe(target.id);
+    });
+  });
+
+  it('falha de forma segura em deep link sem acesso, sem abrir outra conversa', async () => {
+    const bundle = createTestBundle();
+    renderWithApi(
+      <MemoryRouter initialEntries={['/chat/01ARZ3NDEKTSV4RRFFQ69G5ZZ']}>
+        <Routes>
+          <Route path="/chat/:conversationId" element={<ChatPage />} />
+        </Routes>
+      </MemoryRouter>,
+      bundle,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Conversa indisponível' }))
+      .toBeInTheDocument();
+    expect(screen.queryByLabelText(/mensagem para bruna/i)).not.toBeInTheDocument();
   });
 
   it('envia mensagem e renderiza os chunks do turno do chefe', async () => {
