@@ -1099,7 +1099,7 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
   const conversaGate: Conversation = {
     id: id(),
     projectId: projetoPoseidon.id,
-    title: 'Dúvidas sobre o gate de release',
+    title: 'Validação da próxima entrega',
     state: 'active',
     createdByProfileId: profile.id,
     createdAt: tick(),
@@ -1156,25 +1156,25 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     'Demanda aceita. Iniciando a tarefa "Exportação CSV do quadro".',
     agenteBackend.id,
   );
-  addMessage(conversaSprint, 'user', 'Ótimo. Como está o gate de release?');
+  addMessage(conversaSprint, 'user', 'Ótimo. O que falta para concluir a validação?');
   addMessage(
     conversaSprint,
     'chief',
-    'O gate de qualidade está pendente de aprovação humana; o modo atual é manual.',
+    'A validação final aguarda sua aprovação. O projeto está configurado para pedir sua decisão nesta etapa.',
     chefePoseidon.id,
   );
-  addMessage(conversaGate, 'user', 'O que falta para aprovar o gate de release?');
+  addMessage(conversaGate, 'user', 'O que falta para aprovar a próxima entrega?');
   addMessage(
     conversaGate,
     'chief',
-    'Falta a suíte E2E do fluxo de aprovação passar e a Lia voltar do estado de erro.',
+    'Falta concluir a validação de ponta a ponta e a Lia voltar a ficar disponível.',
     chefePoseidon.id,
   );
   addMessage(conversaGate, 'user', 'Certo, me avisa quando destravar.');
   addMessage(
     conversaPagamentos,
     'chief',
-    'Projeto de pagamentos configurado em modo semiautônomo, pausando no gate de release.',
+    'O projeto de pagamentos está pronto para avançar e vai pausar somente quando uma decisão sua for necessária.',
     chefePagamentos.id,
   );
   addMessage(conversaPagamentos, 'user', 'Perfeito, obrigado.');
