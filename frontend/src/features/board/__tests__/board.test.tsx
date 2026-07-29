@@ -131,11 +131,12 @@ describe('BoardPage', () => {
     expect(
       within(blockedColumn).getByRole('button', { name: /Deploy em staging/ }),
     ).toBeInTheDocument();
-    expect(within(blockedColumn).getAllByText(/Bloqueada:/).length).toBeGreaterThan(0);
+    expect(within(blockedColumn).getAllByText(/Impedimento:/).length).toBeGreaterThan(0);
 
     // Não existe botão "nova tarefa" — humano não cria tarefa técnica.
     expect(screen.queryByRole('button', { name: /nova tarefa/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/cadeia solicitação → demanda → tarefa/)).toBeInTheDocument();
+    expect(screen.getByText(/quadro organiza o trabalho do projeto por etapa/i)).toBeInTheDocument();
+    expect(screen.queryByText(/cadeia solicitação → demanda → tarefa/i)).not.toBeInTheDocument();
   });
 
   it('oculta ID e filtros internos no modo de negócio', async () => {
@@ -177,7 +178,7 @@ describe('BoardPage', () => {
     const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     const task = projectTasks.find((entry) => entry.title === 'Mapear endpoints de billing')!;
-    renderBoard(`/board?task=${task.id}`);
+    renderBoard(`/board?task=${task.id}`, 'technical');
 
     expect(await screen.findByText(task.id)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Copiar ID' }));
@@ -243,6 +244,7 @@ describe('BoardPage', () => {
 
   it('abre o detalhe como página dedicada no mobile e volta ao quadro', async () => {
     const user = userEvent.setup();
+    const task = projectTasks.find((entry) => entry.title === 'Mapear endpoints de billing')!;
     renderBoard();
 
     const backlogColumn = await screen.findByRole('region', { name: /Planejado/ });
@@ -250,11 +252,15 @@ describe('BoardPage', () => {
       within(backlogColumn).getByRole('button', { name: /Mapear endpoints de billing/ }),
     );
 
-    // Detalhe substitui o quadro (página mobile) — instrução imutável visível.
-    expect(await screen.findByText('Instrução enviada ao agente')).toBeInTheDocument();
+    // Detalhe substitui o quadro e prioriza a leitura de negócio.
+    expect(await screen.findByText('Objetivo')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Mapear endpoints de billing' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Trabalho realizado' })).toBeInTheDocument();
+    expect(screen.queryByText('Instrução enviada ao agente')).not.toBeInTheDocument();
+    expect(screen.queryByText('Claims e escopo autorizado')).not.toBeInTheDocument();
+    expect(screen.queryByText(task.id)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /Planejado/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Voltar ao quadro/ }));
@@ -272,9 +278,10 @@ describe('BoardPage', () => {
     expect(await within(dialog).findByRole('heading', { name: projectTasks[0].title })).toHaveClass(
       'break-words',
     );
-    expect(within(dialog).getAllByText(/Backlog|Pronta|Em desenvolvimento/).length).toBeGreaterThan(
+    expect(within(dialog).getAllByText(/Planejado|Pronto para começar|Em andamento/).length).toBeGreaterThan(
       0,
     );
+    expect(within(dialog).queryByText(projectTasks[0].id)).not.toBeInTheDocument();
     // O quadro continua visível atrás do drawer.
     expect(await screen.findByRole('region', { name: /Planejado/ })).toBeInTheDocument();
 
@@ -468,23 +475,24 @@ describe('BoardPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Como o trabalho flui' }));
     const dialog = await screen.findByRole('dialog', { name: 'Como o trabalho flui' });
 
-    // Stepper linear (7 colunas) — Bloqueada fora da lista ordenada.
+    // Stepper linear (7 colunas) — o impedimento fica fora da lista ordenada.
     const steps = within(dialog).getAllByRole('list')[0];
     for (const name of [
-      'Backlog',
-      'Pronta',
-      'Em desenvolvimento',
+      'Planejado',
+      'Pronto para começar',
+      'Em andamento',
       'Em revisão',
       'Em correção',
-      'Testes e gates',
-      'Concluída',
+      'Em validação',
+      'Concluído',
     ]) {
       expect(within(steps).getByText(name)).toBeInTheDocument();
     }
-    expect(within(steps).queryByText('Bloqueada')).not.toBeInTheDocument();
-    expect(within(dialog).getByText(/transversal/)).toBeInTheDocument();
-    expect(within(dialog).getByText('O que você (humano) faz')).toBeInTheDocument();
-    expect(within(dialog).getByText('O que Bruna e os agentes fazem')).toBeInTheDocument();
+    expect(within(steps).queryByText('Precisa de atenção')).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/pode surgir em qualquer etapa/i)).toBeInTheDocument();
+    expect(within(dialog).getByText('Suas decisões')).toBeInTheDocument();
+    expect(within(dialog).getByText('Como a equipe conduz o trabalho')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/gate|card|Bruna|agente/i)).not.toBeInTheDocument();
 
     await user.keyboard('{Escape}');
     await waitFor(() => {

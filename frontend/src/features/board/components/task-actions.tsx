@@ -13,6 +13,7 @@ import {
 
 export interface TaskActionsProps {
   task: Task;
+  showTechnicalDetails?: boolean;
 }
 
 /**
@@ -28,7 +29,10 @@ export interface TaskActionsProps {
  * - solicitar revisão → moveTask('review') com nota;
  * - arquivar/desarquivar → archiveTask/unarchiveTask (não muda `state`).
  */
-export function TaskActions({ task }: TaskActionsProps) {
+export function TaskActions({
+  task,
+  showTechnicalDetails = true,
+}: TaskActionsProps) {
   const { t } = useTranslation();
   const moveTask = useMoveTask();
   const setPriority = useSetTaskPriority();
@@ -46,7 +50,11 @@ export function TaskActions({ task }: TaskActionsProps) {
       <p className="flex items-start gap-2 rounded-lg border border-border bg-surface p-3 text-xs text-foreground-muted">
         <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
         <span>
-          {t('board.detail.actions.explain')}{' '}
+          {t(
+            showTechnicalDetails
+              ? 'board.detail.actions.explain'
+              : 'board.detail.actions.explainBusiness',
+          )}{' '}
           <Link
             to="/chat"
             className="font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"

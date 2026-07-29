@@ -12,6 +12,7 @@ import {
   type BoardPeriod,
 } from '@/features/board/lib/board-filters';
 import { taskStateLabelKey } from '@/features/board/lib/board-presentation';
+import { cn } from '@/lib/utils';
 
 export interface BoardSignatureOption {
   value: string;
@@ -72,9 +73,16 @@ export function BoardFiltersBar({
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3">
-      <div className="flex flex-wrap items-end gap-3">
+      <div
+        className={cn(
+          'grid items-end gap-3',
+          showTechnicalDetails
+            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5'
+            : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+        )}
+      >
         {showTechnicalDetails && (
-          <div className="flex min-w-48 flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="board-filter-q" className="text-xs font-medium">
               {t('board.filters.search')}
             </label>
@@ -87,11 +95,12 @@ export function BoardFiltersBar({
             />
           </div>
         )}
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="board-filter-state" className="text-xs font-medium">
             {t('board.filters.state')}
           </label>
           <Select
+            className="w-full"
             id="board-filter-state"
             value={filters.state}
             onChange={(event) => patch({ state: event.target.value as TaskState | '' })}
@@ -105,7 +114,7 @@ export function BoardFiltersBar({
           </Select>
         </div>
         {showTechnicalDetails && (
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="board-filter-agent" className="text-xs font-medium">
               {t('board.filters.agent')}
             </label>
@@ -124,7 +133,7 @@ export function BoardFiltersBar({
           </div>
         )}
         {showTechnicalDetails && (
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="board-filter-signature" className="text-xs font-medium">
               {t('board.filters.signature')}
             </label>
@@ -143,7 +152,7 @@ export function BoardFiltersBar({
           </div>
         )}
         {showTechnicalDetails && (
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="board-filter-specialty" className="text-xs font-medium">
               {t('board.filters.specialty')}
             </label>
@@ -162,7 +171,7 @@ export function BoardFiltersBar({
           </div>
         )}
         {showTechnicalDetails && (
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="board-filter-type" className="text-xs font-medium">
               {t('board.filters.type')}
             </label>
@@ -180,11 +189,12 @@ export function BoardFiltersBar({
             </Select>
           </div>
         )}
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="board-filter-phase" className="text-xs font-medium">
             {t('board.filters.phase')}
           </label>
           <Select
+            className="w-full"
             id="board-filter-phase"
             value={filters.phase}
             onChange={(event) => patch({ phase: event.target.value })}
@@ -198,7 +208,7 @@ export function BoardFiltersBar({
           </Select>
         </div>
         {showTechnicalDetails && (
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="board-filter-priority" className="text-xs font-medium">
               {t('board.filters.priority')}
             </label>
@@ -216,11 +226,12 @@ export function BoardFiltersBar({
             </Select>
           </div>
         )}
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="board-filter-period" className="text-xs font-medium">
             {t('board.filters.period')}
           </label>
           <Select
+            className="w-full"
             id="board-filter-period"
             value={filters.period}
             onChange={(event) => patch({ period: event.target.value as BoardPeriod })}
@@ -231,11 +242,12 @@ export function BoardFiltersBar({
             <option value="30d">{t('board.filters.period30d')}</option>
           </Select>
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="board-filter-archive" className="text-xs font-medium">
             {t('board.filters.archive')}
           </label>
           <Select
+            className="w-full"
             id="board-filter-archive"
             value={filters.archive}
             onChange={(event) => patch({ archive: event.target.value as BoardArchiveFilter })}
@@ -249,6 +261,7 @@ export function BoardFiltersBar({
           type="button"
           variant="ghost"
           size="sm"
+          className="w-full sm:w-auto"
           disabled={!hasActiveBoardFilters(filters)}
           onClick={onClear}
         >
@@ -261,21 +274,23 @@ export function BoardFiltersBar({
         <p className="text-xs text-foreground-muted" role="status">
           {t('board.filters.results', { count: filteredCount, total: totalCount })}
         </p>
-        <div className="ml-auto flex flex-wrap gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
           <Button type="button" variant="outline" size="sm" onClick={onShowFlow}>
             <Route aria-hidden="true" />
             {t('board.flow.open')}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={filteredCount === 0 || exportPending}
-            onClick={onExport}
-          >
-            <Download aria-hidden="true" />
-            {t('board.export.button')}
-          </Button>
+          {showTechnicalDetails && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={filteredCount === 0 || exportPending}
+              onClick={onExport}
+            >
+              <Download aria-hidden="true" />
+              {t('board.export.button')}
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"

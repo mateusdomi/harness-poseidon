@@ -209,7 +209,11 @@ export default function UboardPage() {
           <ArrowLeft aria-hidden="true" />
           {t('board.detail.back')}
         </Button>
-        <TaskDetail taskId={openTaskId} agents={agents} />
+        <TaskDetail
+          taskId={openTaskId}
+          agents={agents}
+          showTechnicalDetails={presentation.showTechnicalDetails}
+        />
       </div>
     );
   }
@@ -253,7 +257,11 @@ export default function UboardPage() {
           <p className="flex items-start gap-2 rounded-lg border border-border bg-surface p-3 text-xs text-foreground-muted">
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>
-              {t('board.hint')}{' '}
+              {t(
+                presentation.showTechnicalDetails
+                  ? 'board.hintTechnical'
+                  : 'board.hint',
+              )}{' '}
               <Link
                 to="/chat"
                 className="font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -267,7 +275,13 @@ export default function UboardPage() {
             <Card>
               <CardContent className="flex flex-col items-start gap-3 p-6">
                 <h2 className="font-heading text-lg font-semibold">{t('board.empty.title')}</h2>
-                <p className="text-sm text-foreground-muted">{t('board.empty.body')}</p>
+                <p className="text-sm text-foreground-muted">
+                  {t(
+                    presentation.showTechnicalDetails
+                      ? 'board.empty.bodyTechnical'
+                      : 'board.empty.body',
+                  )}
+                </p>
                 <Button asChild>
                   <Link to="/chat">{t('board.empty.cta')}</Link>
                 </Button>
@@ -307,10 +321,20 @@ export default function UboardPage() {
       )}
 
       {openTaskId && isDesktop && (
-        <TaskDrawer taskId={openTaskId} agents={agents} onClose={closeTask} />
+        <TaskDrawer
+          taskId={openTaskId}
+          agents={agents}
+          showTechnicalDetails={presentation.showTechnicalDetails}
+          onClose={closeTask}
+        />
       )}
 
-      {flowOpen && <BoardFlowDialog onClose={() => setFlowOpen(false)} />}
+      {flowOpen && (
+        <BoardFlowDialog
+          showTechnicalDetails={presentation.showTechnicalDetails}
+          onClose={() => setFlowOpen(false)}
+        />
+      )}
 
       {archiveAllOpen && (
         <ModalDialog label={t('board.archive.batchTitle')} onClose={() => setArchiveAllOpen(false)}>

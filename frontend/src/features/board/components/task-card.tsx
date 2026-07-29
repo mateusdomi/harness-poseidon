@@ -42,6 +42,7 @@ export function TaskCard({
   const { t, i18n } = useTranslation();
   const stuck = isTaskStuck(task, now);
   const presentation = resolveBoardPresentation(showTechnicalDetails);
+  const publicAgentName = agentName?.split(/\s+[—–]\s+/u)[0]?.trim() || null;
 
   return (
     <li>
@@ -80,7 +81,7 @@ export function TaskCard({
                   priority: t(`status.priority.${task.priority}`).toLocaleLowerCase(),
                 })}
           </Badge>
-          {task.archivedAt !== null && <Badge variant="outline">{t('board.card.archived')}</Badge>}
+          {task.archivedAt !== null && <Badge variant="info">{t('board.card.archived')}</Badge>}
           {presentation.showCardType && (
             <Badge
               variant={
@@ -100,7 +101,7 @@ export function TaskCard({
           <span className="flex items-start gap-1.5 text-xs text-error">
             <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             <span className="line-clamp-2">
-              {t('board.card.blocked', {
+              {t(showTechnicalDetails ? 'board.card.blocked' : 'board.card.blockedBusiness', {
                 reason: task.blockedReason ?? t('board.card.blockedUnknown'),
               })}
             </span>
@@ -114,7 +115,7 @@ export function TaskCard({
         )}
         <span className="flex items-center justify-between gap-2 text-xs text-foreground-muted">
           <span className="truncate">
-            {agentName ?? t(unassignedLabelKey(showTechnicalDetails))}
+            {publicAgentName ?? t(unassignedLabelKey(showTechnicalDetails))}
           </span>
           <span className="shrink-0">
             {t('board.card.updated', {

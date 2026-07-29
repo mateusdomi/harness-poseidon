@@ -1081,7 +1081,8 @@
         "done": "Completed"
       }
     },
-    "hint": "Technical tasks follow the solicitation → demand → task chain coordinated by Bruna Magalhães. To ask for something new, create a solicitation in the chat; movements follow flow permissions and gates.",
+    "hint": "The board organizes project work by stage. To request a new delivery or ask a question, talk to the team.",
+    "hintTechnical": "Technical tasks follow the solicitation → demand → task chain coordinated by project leadership. To ask for something new, create a solicitation in the chat; movements follow flow permissions and gates.",
     "hintCta": "Open the chat",
     "noProject": {
       "body": "The board shows a project's tasks. Create your first project to get started.",
@@ -1089,7 +1090,8 @@
     },
     "empty": {
       "title": "No tasks in this project",
-      "body": "Bruna hasn't broken demands down into tasks yet. Talk to her in the chat: create a solicitation and follow the solicitation → demand → task chain.",
+      "body": "The team has not organized any work for this project yet. Tell the team in the chat what outcome you want to achieve.",
+      "bodyTechnical": "Project leadership has not broken demands down into tasks yet. Use the chat to create a solicitation and follow the solicitation → demand → task chain.",
       "cta": "Create solicitation in the chat"
     },
     "column": {
@@ -1101,6 +1103,7 @@
       "unassignedTechnical": "Unassigned",
       "priority": "{{priority}} priority",
       "blocked": "Blocked: {{reason}}",
+      "blockedBusiness": "Blocker: {{reason}}",
       "blockedUnknown": "no reason given",
       "updated": "Updated {{time}}",
       "archived": "Archived",
@@ -1125,8 +1128,15 @@
       "updated": "Last activity",
       "progressTitle": "Progress",
       "sourceUnavailable": "Unavailable in the current contract; no data was inferred.",
+      "objectiveUnavailable": "The objective has not been published by the team yet.",
+      "businessProgress": {
+        "executed": "Work completed",
+        "validated": "Work verified",
+        "approved": "Work approved"
+      },
       "scope": {
         "title": "Objective, scope and criteria",
+        "businessTitle": "Objective",
         "objective": "Work objective",
         "included": "Included in scope",
         "excluded": "Out of scope",
@@ -1165,6 +1175,7 @@
       },
       "approvals": {
         "title": "Gates and approvals",
+        "businessTitle": "Decisions and approvals",
         "empty": "No approvals linked to this task.",
         "approve": "Approve",
         "reject": "Reject",
@@ -1176,7 +1187,9 @@
       },
       "actions": {
         "title": "Human actions",
+        "businessTitle": "What you can do",
         "explain": "Technical tasks follow the solicitation → demand → task chain coordinated by Bruna. Here you can reprioritize, pause, cancel, request review and decide gates. To ask for something new, use the chat.",
+        "explainBusiness": "Adjust priority, pause the work, request a review, or archive a completed delivery. To request something new, talk to the team.",
         "chatCta": "Create solicitation in the chat",
         "priorityLabel": "Change priority",
         "pause": "Pause",
@@ -1231,31 +1244,61 @@
     "flow": {
       "open": "How work flows",
       "title": "How work flows",
-      "intro": "A card originates from a ready demand and advances only when each stage's criteria are met:",
-      "stages": {
-        "backlog": "Card origin: demand, expected result, scope and criteria still await Definition of Ready.",
-        "ready": "Definition of Ready is met; Bruna may dispatch it to a compatible agent.",
-        "development": "The agent implements with immutable instructions, attempts and traceable evidence.",
-        "review": "An independent critic reviews the result and records approval or findings.",
-        "corrections": "Rework after rejection; the card returns to the flow with a new versioned instruction.",
-        "testsGates": "Tests, technical gates and human decisions validate acceptance criteria.",
-        "done": "Completion only after evidence, gates and operational projections are reconciled."
+      "business": {
+        "intro": "Each work item moves through clear stages, from initial planning to a completed delivery:",
+        "stages": {
+          "backlog": "The expected outcome is being organized.",
+          "ready": "The work is ready to begin.",
+          "development": "The team is carrying out the work.",
+          "review": "The delivery receives an independent review.",
+          "corrections": "Adjustments found during review are in progress.",
+          "testsGates": "The delivery is being verified before completion.",
+          "done": "The work is complete and available."
+        },
+        "blockedNote": "can arise at any stage. Once the blocker is resolved, the work resumes.",
+        "humanTitle": "Your decisions",
+        "human": {
+          "priority": "Adjust a work item's priority",
+          "pause": "Pause it temporarily when needed",
+          "cancel": "Cancel work that is no longer needed",
+          "requestReview": "Request another review",
+          "gate": "Approve deliveries or request adjustments"
+        },
+        "agentsTitle": "How the team moves work forward",
+        "agents": {
+          "create": "Organize work around the desired outcome",
+          "move": "Update the stage as work progresses",
+          "execute": "Carry out and monitor each delivery",
+          "unblock": "Resolve blockers and apply corrections"
+        }
       },
-      "blockedNote": "is transversal: it can happen from any column (external dependency, manual pause) and, once resolved, the task resumes to its origin column.",
-      "humanTitle": "What you (human) do",
-      "human": {
-        "priority": "Change any task's priority",
-        "pause": "Pause (the task goes to Blocked with a pause note)",
-        "cancel": "Cancel (returns to Backlog for Bruna to re-plan)",
-        "requestReview": "Request review (moves to In review)",
-        "gate": "Approve or reject gates and documents (rejection requires a note)"
-      },
-      "agentsTitle": "What Bruna and agents do",
-      "agents": {
-        "create": "Create tasks from the solicitation → demand → task chain",
-        "move": "Move tasks across columns as work progresses",
-        "execute": "Execute the work (attempts with evidence, cost and tokens)",
-        "unblock": "Unblock and fix (In corrections) after rejections"
+      "technical": {
+        "intro": "A card originates from a ready demand and advances only when each stage's criteria are met:",
+        "stages": {
+          "backlog": "Card origin: demand, expected result, scope and criteria still await Definition of Ready.",
+          "ready": "Definition of Ready is met; project leadership may dispatch it to a compatible agent.",
+          "development": "The agent implements with immutable instructions, attempts and traceable evidence.",
+          "review": "An independent critic reviews the result and records approval or findings.",
+          "corrections": "Rework after rejection; the card returns to the flow with a new versioned instruction.",
+          "testsGates": "Tests, technical gates and human decisions validate acceptance criteria.",
+          "done": "Completion only after evidence, gates and operational projections are reconciled."
+        },
+        "blockedNote": "is transversal: it can happen from any column (external dependency, manual pause) and, once resolved, the task resumes to its origin column.",
+        "humanTitle": "What you (human) do",
+        "human": {
+          "priority": "Change any task's priority",
+          "pause": "Pause (the task goes to Blocked with a pause note)",
+          "cancel": "Cancel (returns to Backlog for project leadership to re-plan)",
+          "requestReview": "Request review (moves to In review)",
+          "gate": "Approve or reject gates and documents (rejection requires a note)"
+        },
+        "agentsTitle": "What project leadership and agents do",
+        "agents": {
+          "create": "Create tasks from the solicitation → demand → task chain",
+          "move": "Move tasks across columns as work progresses",
+          "execute": "Execute the work (attempts with evidence, cost and tokens)",
+          "unblock": "Unblock and fix (In corrections) after rejections"
+        }
       }
     }
   },

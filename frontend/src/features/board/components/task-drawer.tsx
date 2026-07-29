@@ -10,6 +10,7 @@ const FOCUSABLE =
 export interface TaskDrawerProps {
   taskId: Ulid;
   agents: Agent[];
+  showTechnicalDetails: boolean;
   onClose: () => void;
 }
 
@@ -18,7 +19,12 @@ export interface TaskDrawerProps {
  * modal, foco preso no painel, Esc fecha, clique no backdrop fecha e o
  * foco volta para quem abriu. No mobile a página usa a view dedicada.
  */
-export function TaskDrawer({ taskId, agents, onClose }: TaskDrawerProps) {
+export function TaskDrawer({
+  taskId,
+  agents,
+  showTechnicalDetails,
+  onClose,
+}: TaskDrawerProps) {
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -76,7 +82,12 @@ export function TaskDrawer({ taskId, agents, onClose }: TaskDrawerProps) {
         tabIndex={-1}
         className="absolute bottom-0 right-0 top-16 flex w-full max-w-xl flex-col overflow-y-auto border-l border-t border-border bg-background p-4 shadow-2xl"
       >
-        <TaskDetail taskId={taskId} agents={agents} onClose={onClose} />
+        <TaskDetail
+          taskId={taskId}
+          agents={agents}
+          showTechnicalDetails={showTechnicalDetails}
+          onClose={onClose}
+        />
       </div>
     </div>
   );

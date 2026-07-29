@@ -1081,7 +1081,8 @@
         "done": "Concluído"
       }
     },
-    "hint": "Tarefas técnicas nascem da cadeia solicitação → demanda → tarefa, coordenada por Bruna Magalhães. Para pedir algo novo, crie uma solicitação no chat; movimentos seguem as permissões e os gates do fluxo.",
+    "hint": "O quadro organiza o trabalho do projeto por etapa. Para pedir uma nova entrega ou tirar dúvidas, converse com a equipe.",
+    "hintTechnical": "Tarefas técnicas nascem da cadeia solicitação → demanda → tarefa, coordenada pela liderança do projeto. Para pedir algo novo, crie uma solicitação no chat; movimentos seguem as permissões e os gates do fluxo.",
     "hintCta": "Abrir o chat",
     "noProject": {
       "body": "O quadro mostra as tarefas de um projeto. Crie o primeiro projeto para começar.",
@@ -1089,7 +1090,8 @@
     },
     "empty": {
       "title": "Nenhuma tarefa neste projeto",
-      "body": "Bruna ainda não decompôs demandas em tarefas. Converse com ela no chat: crie uma solicitação e acompanhe a cadeia solicitação → demanda → tarefa.",
+      "body": "A equipe ainda não organizou trabalhos para este projeto. Conte no chat o resultado que você deseja alcançar.",
+      "bodyTechnical": "A liderança ainda não decompôs demandas em tarefas. Use o chat para criar uma solicitação e acompanhar a cadeia solicitação → demanda → tarefa.",
       "cta": "Criar solicitação no chat"
     },
     "column": {
@@ -1101,6 +1103,7 @@
       "unassignedTechnical": "Sem responsável",
       "priority": "Prioridade {{priority}}",
       "blocked": "Bloqueada: {{reason}}",
+      "blockedBusiness": "Impedimento: {{reason}}",
       "blockedUnknown": "motivo não informado",
       "updated": "Atualizada {{time}}",
       "archived": "Arquivada",
@@ -1125,8 +1128,15 @@
       "updated": "Última atividade",
       "progressTitle": "Progresso",
       "sourceUnavailable": "Indisponível no contrato atual; nenhum dado foi inferido.",
+      "objectiveUnavailable": "O objetivo ainda não foi publicado pela equipe.",
+      "businessProgress": {
+        "executed": "Trabalho realizado",
+        "validated": "Trabalho verificado",
+        "approved": "Trabalho aprovado"
+      },
       "scope": {
         "title": "Objetivo, escopo e critérios",
+        "businessTitle": "Objetivo",
         "objective": "Objetivo do trabalho",
         "included": "Incluído no escopo",
         "excluded": "Fora de escopo",
@@ -1165,6 +1175,7 @@
       },
       "approvals": {
         "title": "Gates e aprovações",
+        "businessTitle": "Decisões e aprovações",
         "empty": "Nenhuma aprovação ligada a esta tarefa.",
         "approve": "Aprovar",
         "reject": "Reprovar",
@@ -1176,7 +1187,9 @@
       },
       "actions": {
         "title": "Ações humanas",
+        "businessTitle": "O que você pode fazer",
         "explain": "As tarefas técnicas seguem a cadeia solicitação → demanda → tarefa, coordenada por Bruna. Aqui você pode repriorizar, pausar, cancelar, pedir revisão e decidir gates. Para pedir algo novo, use o chat.",
+        "explainBusiness": "Ajuste a prioridade, pause o trabalho, peça uma revisão ou arquive uma entrega concluída. Para solicitar algo novo, converse com a equipe.",
         "chatCta": "Criar solicitação no chat",
         "priorityLabel": "Alterar prioridade",
         "pause": "Pausar",
@@ -1231,31 +1244,61 @@
     "flow": {
       "open": "Como o trabalho flui",
       "title": "Como o trabalho flui",
-      "intro": "O card nasce de uma demanda pronta e avança somente quando os critérios da etapa são atendidos:",
-      "stages": {
-        "backlog": "Origem do card: demanda, resultado esperado, escopo e critérios ainda aguardam Definition of Ready.",
-        "ready": "Definition of Ready atendida; Bruna pode fazer o dispatch para um agente compatível.",
-        "development": "O agente implementa com instruções imutáveis, attempts e evidências rastreáveis.",
-        "review": "Um critic independente revisa o resultado e registra aprovação ou findings.",
-        "corrections": "Retrabalho após reprovação; o card retorna ao fluxo com nova instrução versionada.",
-        "testsGates": "Testes, gates técnicos e decisões humanas validam os critérios de aceite.",
-        "done": "Conclusão somente após evidências, gates e projeção operacional reconciliados."
+      "business": {
+        "intro": "Cada trabalho avança por etapas claras, da organização inicial à entrega concluída:",
+        "stages": {
+          "backlog": "O resultado esperado está sendo organizado.",
+          "ready": "O trabalho está preparado para começar.",
+          "development": "A equipe está realizando o trabalho.",
+          "review": "A entrega passa por uma revisão independente.",
+          "corrections": "Os ajustes encontrados na revisão estão em andamento.",
+          "testsGates": "A entrega está sendo verificada antes da conclusão.",
+          "done": "O trabalho foi concluído e está disponível."
+        },
+        "blockedNote": "pode surgir em qualquer etapa. Quando o impedimento é resolvido, o trabalho retoma seu andamento.",
+        "humanTitle": "Suas decisões",
+        "human": {
+          "priority": "Ajustar a prioridade de um trabalho",
+          "pause": "Pausar temporariamente quando necessário",
+          "cancel": "Cancelar um trabalho que deixou de ser necessário",
+          "requestReview": "Pedir uma nova revisão",
+          "gate": "Aprovar ou solicitar ajustes nas entregas"
+        },
+        "agentsTitle": "Como a equipe conduz o trabalho",
+        "agents": {
+          "create": "Organizar os trabalhos a partir do resultado desejado",
+          "move": "Atualizar a etapa conforme o trabalho avança",
+          "execute": "Realizar e acompanhar cada entrega",
+          "unblock": "Resolver impedimentos e aplicar correções"
+        }
       },
-      "blockedNote": "é transversal: pode ocorrer a partir de qualquer coluna (dependência externa, pausa manual) e, ao ser resolvida, a tarefa retoma para a coluna de origem.",
-      "humanTitle": "O que você (humano) faz",
-      "human": {
-        "priority": "Alterar a prioridade de qualquer tarefa",
-        "pause": "Pausar (a tarefa vai para Bloqueada com nota de pausa)",
-        "cancel": "Cancelar (volta ao Backlog para Bruna replanejar)",
-        "requestReview": "Solicitar revisão (vai para Em revisão)",
-        "gate": "Aprovar ou reprovar gates e documentos (reprovação exige observação)"
-      },
-      "agentsTitle": "O que Bruna e os agentes fazem",
-      "agents": {
-        "create": "Criar tarefas a partir da cadeia solicitação → demanda → tarefa",
-        "move": "Mover entre as colunas conforme o trabalho avança",
-        "execute": "Executar o trabalho (tentativas com evidências, custo e tokens)",
-        "unblock": "Desbloquear e corrigir (Em correção) após reprovações"
+      "technical": {
+        "intro": "O card nasce de uma demanda pronta e avança somente quando os critérios da etapa são atendidos:",
+        "stages": {
+          "backlog": "Origem do card: demanda, resultado esperado, escopo e critérios ainda aguardam Definition of Ready.",
+          "ready": "Definition of Ready atendida; a liderança pode fazer o dispatch para um agente compatível.",
+          "development": "O agente implementa com instruções imutáveis, attempts e evidências rastreáveis.",
+          "review": "Um critic independente revisa o resultado e registra aprovação ou findings.",
+          "corrections": "Retrabalho após reprovação; o card retorna ao fluxo com nova instrução versionada.",
+          "testsGates": "Testes, gates técnicos e decisões humanas validam os critérios de aceite.",
+          "done": "Conclusão somente após evidências, gates e projeção operacional reconciliados."
+        },
+        "blockedNote": "é transversal: pode ocorrer a partir de qualquer coluna (dependência externa, pausa manual) e, ao ser resolvida, a tarefa retoma para a coluna de origem.",
+        "humanTitle": "O que você (humano) faz",
+        "human": {
+          "priority": "Alterar a prioridade de qualquer tarefa",
+          "pause": "Pausar (a tarefa vai para Bloqueada com nota de pausa)",
+          "cancel": "Cancelar (volta ao Backlog para a liderança replanejar)",
+          "requestReview": "Solicitar revisão (vai para Em revisão)",
+          "gate": "Aprovar ou reprovar gates e documentos (reprovação exige observação)"
+        },
+        "agentsTitle": "O que a liderança e os agentes fazem",
+        "agents": {
+          "create": "Criar tarefas a partir da cadeia solicitação → demanda → tarefa",
+          "move": "Mover entre as colunas conforme o trabalho avança",
+          "execute": "Executar o trabalho (tentativas com evidências, custo e tokens)",
+          "unblock": "Desbloquear e corrigir (Em correção) após reprovações"
+        }
       }
     }
   },

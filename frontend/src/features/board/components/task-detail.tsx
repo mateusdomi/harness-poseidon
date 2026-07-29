@@ -10,15 +10,27 @@ import { cn } from '@/lib/utils';
 import { TaskActions } from '@/features/board/components/task-actions';
 import { TaskApprovals } from '@/features/board/components/task-approvals';
 import { useTaskDetail, useTaskRealtime } from '@/features/board/hooks/use-board';
+import {
+  resolveBoardPresentation,
+  taskStateLabelKey,
+  unassignedLabelKey,
+} from '@/features/board/lib/board-presentation';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
 import { progressEvidence } from '@/features/cockpit/lib/cockpit-derive';
 
 export interface TaskDetailProps {
   taskId: Ulid;
   agents: Agent[];
+  showTechnicalDetails?: boolean;
   /** Quando definido (drawer/página), renderiza o botão de fechar. */
   onClose?: () => void;
 }
+
+const BUSINESS_PROGRESS = [
+  { key: 'executed', fill: 'bg-brand' },
+  { key: 'validated', fill: 'bg-info' },
+  { key: 'approved', fill: 'bg-success' },
+] as const;
 
 /**
  * Detalhe da tarefa — mesmo conteúdo no drawer (desktop) e na página
@@ -26,7 +38,12 @@ export interface TaskDetailProps {
  * versionada, tentativas com evidências (custo/tokens/duração/commits/
  * timeline), demanda de origem, gates e ações humanas.
  */
-export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
+export function TaskDetail({
+  taskId,
+  agents,
+  showTechnicalDetails = true,
+  onClose,
+}: TaskDetailProps) {
   const { t, i18n } = useTranslation();
   useTaskRealtime(taskId);
   const { task, instructions, attempts, attemptEvents, approvals, demand, isPending, isError, refetch } =
@@ -38,6 +55,7 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
     [agents],
   );
+  const presentation = resolveBoardPresentation(showTechnicalDetails);
 
   async function copyId() {
     if (!task) return;
@@ -77,6 +95,9 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
   const currentVersion = selectedVersion ?? task.instructionVersion;
   const instruction =
     instructions.find((entry) => entry.version === currentVersion) ?? instructions[0] ?? null;
+  const assignedName = task.assigneeAgentId
+    ? agentNames.get(task.assigneeAgentId)?.split(/\s+[—–]\s+/u)[0]?.trim()
+    : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -93,45 +114,62 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
           </h2>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant={taskStateVariant(task.state)}>
-              {t(`status.taskState.${task.state}`)}
+              {t(taskStateLabelKey(task.state, showTechnicalDetails))}
             </Badge>
             <Badge variant={priorityVariant(task.priority)}>
-              {t(`status.priority.${task.priority}`)}
+              {showTechnicalDetails
+                ? t(`status.priority.${task.priority}`)
+                : t('board.card.priority', {
+                    priority: t(`status.priority.${task.priority}`).toLocaleLowerCase(),
+                  })}
             </Badge>
-            <Badge variant={task.cardType === 'human_gate' ? 'warning' : 'info'}>
-              {t(`board.card.types.${task.cardType ?? 'agent_task'}`)}
-            </Badge>
+            {presentation.showCardType && (
+              <Badge
+                variant={
+                  task.cardType === 'human_gate'
+                    ? 'warning'
+                    : task.cardType === 'decision'
+                      ? 'brand'
+                      : 'info'
+                }
+              >
+                {t(`board.card.types.${task.cardType ?? 'agent_task'}`)}
+              </Badge>
+            )}
             {task.phaseName && <Badge variant="brand">{task.phaseName}</Badge>}
+            {task.archivedAt !== null && (
+              <Badge variant="info">{t('board.card.archived')}</Badge>
+            )}
           </div>
-          <dl className="flex flex-col gap-1 text-xs text-foreground-muted">
-            <div className="flex items-center gap-1.5">
-              <dt>{t('board.detail.id')}:</dt>
-              <dd className="flex items-center gap-1.5">
-                <code className="rounded bg-surface-elevated px-1.5 py-0.5 font-mono text-[0.7rem] text-foreground">
-                  {task.id}
-                </code>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-6"
-                  aria-label={copied ? t('board.detail.copiedId') : t('board.detail.copyId')}
-                  onClick={() => void copyId()}
-                >
-                  {copied ? (
-                    <Check aria-hidden="true" className="size-3.5 text-success" />
-                  ) : (
-                    <Copy aria-hidden="true" className="size-3.5" />
-                  )}
-                </Button>
-              </dd>
-            </div>
-            <div className="flex gap-1">
+          <dl className="grid gap-2 text-xs text-foreground-muted sm:grid-cols-2">
+            {presentation.showInternalId && (
+              <div className="flex items-center gap-1.5 sm:col-span-2">
+                <dt>{t('board.detail.id')}:</dt>
+                <dd className="flex min-w-0 items-center gap-1.5">
+                  <code className="min-w-0 break-all rounded bg-surface-elevated px-1.5 py-0.5 font-mono text-[0.7rem] text-foreground">
+                    {task.id}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 shrink-0"
+                    aria-label={copied ? t('board.detail.copiedId') : t('board.detail.copyId')}
+                    onClick={() => void copyId()}
+                  >
+                    {copied ? (
+                      <Check aria-hidden="true" className="size-3.5 text-success" />
+                    ) : (
+                      <Copy aria-hidden="true" className="size-3.5" />
+                    )}
+                  </Button>
+                </dd>
+              </div>
+            )}
+            <div className="flex min-w-0 gap-1">
               <dt>{t('board.detail.assignee')}:</dt>
-              <dd>
-                {task.assigneeAgentId
-                  ? (agentNames.get(task.assigneeAgentId) ?? t('board.card.unassigned'))
-                  : t('board.card.unassigned')}
+              <dd className="min-w-0 truncate">
+                {assignedName ?? t(unassignedLabelKey(showTechnicalDetails))}
               </dd>
             </div>
             <div className="flex gap-1">
@@ -141,7 +179,9 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
           </dl>
           {task.state === 'blocked' && task.blockedReason && (
             <p className="text-sm text-error">
-              {t('board.card.blocked', { reason: task.blockedReason })}
+              {t(showTechnicalDetails ? 'board.card.blocked' : 'board.card.blockedBusiness', {
+                reason: task.blockedReason,
+              })}
             </p>
           )}
         </div>
@@ -154,7 +194,11 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
 
       <section aria-labelledby="task-scope" className="flex flex-col gap-2">
         <h3 id="task-scope" className="font-heading text-sm font-semibold">
-          {t('board.detail.scope.title')}
+          {t(
+            showTechnicalDetails
+              ? 'board.detail.scope.title'
+              : 'board.detail.scope.businessTitle',
+          )}
         </h3>
         <dl className="grid gap-3 rounded-lg border border-border bg-surface p-3 text-sm">
           <div>
@@ -162,35 +206,44 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
               {t('board.detail.scope.objective')}
             </dt>
             <dd>
-              {demand?.description || t('board.detail.sourceUnavailable')}
+              {demand?.description ||
+                t(
+                  showTechnicalDetails
+                    ? 'board.detail.sourceUnavailable'
+                    : 'board.detail.objectiveUnavailable',
+                )}
             </dd>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs font-medium text-foreground-muted">
-                {t('board.detail.scope.included')}
-              </dt>
-              <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-foreground-muted">
-                {t('board.detail.scope.excluded')}
-              </dt>
-              <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
-            </div>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-foreground-muted">
-              {t('board.detail.scope.acceptanceCriteria')}
-            </dt>
-            <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-foreground-muted">
-              {t('board.detail.scope.claims')}
-            </dt>
-            <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
-          </div>
+          {showTechnicalDetails && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-medium text-foreground-muted">
+                    {t('board.detail.scope.included')}
+                  </dt>
+                  <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-foreground-muted">
+                    {t('board.detail.scope.excluded')}
+                  </dt>
+                  <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+                </div>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-foreground-muted">
+                  {t('board.detail.scope.acceptanceCriteria')}
+                </dt>
+                <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-foreground-muted">
+                  {t('board.detail.scope.claims')}
+                </dt>
+                <dd className="text-foreground-muted">{t('board.detail.sourceUnavailable')}</dd>
+              </div>
+            </>
+          )}
         </dl>
       </section>
 
@@ -198,9 +251,39 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
         <h3 id="task-progress" className="font-heading text-sm font-semibold">
           {t('board.detail.progressTitle')}
         </h3>
-        <ProgressTracks progress={task.progress} evidence={progressEvidence([task])} />
+        {showTechnicalDetails ? (
+          <ProgressTracks progress={task.progress} evidence={progressEvidence([task])} />
+        ) : (
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
+            {BUSINESS_PROGRESS.map(({ key, fill }) => (
+              <div key={key} className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-foreground-muted">
+                    {t(`board.detail.businessProgress.${key}`)}
+                  </span>
+                  <span className="font-medium tabular-nums">{task.progress[key]}%</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label={t(`board.detail.businessProgress.${key}`)}
+                  aria-valuenow={task.progress[key]}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-2 overflow-hidden rounded-full bg-surface-elevated"
+                >
+                  <div
+                    className={cn('h-full rounded-full transition-[width]', fill)}
+                    style={{ width: `${task.progress[key]}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
+      {showTechnicalDetails && (
+        <>
       <section aria-labelledby="task-instruction" className="flex flex-col gap-2">
         <h3 id="task-instruction" className="font-heading text-sm font-semibold">
           {t('board.detail.instruction.title')}
@@ -333,19 +416,29 @@ export function TaskDetail({ taskId, agents, onClose }: TaskDetailProps) {
           <p className="text-sm text-foreground-muted">{t('board.detail.demand.none')}</p>
         )}
       </section>
+        </>
+      )}
 
       <section aria-labelledby="task-approvals" className="flex flex-col gap-2">
         <h3 id="task-approvals" className="font-heading text-sm font-semibold">
-          {t('board.detail.approvals.title')}
+          {t(
+            showTechnicalDetails
+              ? 'board.detail.approvals.title'
+              : 'board.detail.approvals.businessTitle',
+          )}
         </h3>
         <TaskApprovals approvals={approvals} />
       </section>
 
       <section aria-labelledby="task-actions" className="flex flex-col gap-2">
         <h3 id="task-actions" className="font-heading text-sm font-semibold">
-          {t('board.detail.actions.title')}
+          {t(
+            showTechnicalDetails
+              ? 'board.detail.actions.title'
+              : 'board.detail.actions.businessTitle',
+          )}
         </h3>
-        <TaskActions task={task} />
+        <TaskActions task={task} showTechnicalDetails={showTechnicalDetails} />
       </section>
     </div>
   );
