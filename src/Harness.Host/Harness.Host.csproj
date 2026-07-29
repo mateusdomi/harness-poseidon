@@ -19,6 +19,11 @@
     <!-- CAT-06: import/export de definições de agente em YAML, reutilizando a mesma
          biblioteca (versão gerida centralmente) já usada pelo módulo de Governança. -->
     <PackageReference Include="YamlDotNet" />
+    <!-- B6/F15: o índice de grafo de código mora aqui, junto do resto do serviço de Architecture
+         (ArchitectureSelfMapSeeder, ArchitectureReadModelService), porque é o Host que faz I/O. Os
+         consumidores (políticas em Modules.Coordination) só veem a abstração em SharedKernel, então
+         Roslyn NÃO entra em nenhum módulo de domínio nem no Runner. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 
   <ItemGroup>
