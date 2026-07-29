@@ -114,4 +114,52 @@ public sealed class NegativeBoundaryPolicyTests
     {
         Assert.Throws<ArgumentException>(() => NegativeBoundaryPolicy.Derive("card-fantasma", Plan));
     }
+
+    /// <summary>Gate da fase: o planner preenche o OutOfScope de cada card com as dos irmãos.</summary>
+    [Fact]
+    public void ThePlannerFillsOutOfScopeWithTheSiblingBoundaries()
+    {
+        var proposal = new DemandPlanProposal("feature-1",
+        [
+            Card("Motor de cobrança", "src/Modules/Billing", "Não mexa em migrations."),
+            Card("Tela de cobrança", "frontend/src/features/billing", "")
+        ]);
+
+        var enriched = NegativeBoundaryPolicy.EnrichWithSiblingBoundaries(proposal);
+
+        var back = enriched.Cards[0];
+        // O texto do planner é preservado: apagá-lo perderia informação que só ele tinha.
+        Assert.StartsWith("Não mexa em migrations.", back.OutOfScope, StringComparison.Ordinal);
+        Assert.Contains("frontend/src/features/billing", back.OutOfScope, StringComparison.Ordinal);
+        Assert.Contains("Tela de cobrança", back.OutOfScope, StringComparison.Ordinal);
+
+        var front = enriched.Cards[1];
+        Assert.Contains("src/Modules/Billing", front.OutOfScope, StringComparison.Ordinal);
+        Assert.DoesNotContain("frontend/src/features/billing", front.OutOfScope, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ASingleCardPlanIsReturnedUntouched()
+    {
+        var proposal = new DemandPlanProposal("feature-1", [Card("Só ela", "src/X", "nada")]);
+
+        Assert.Same(proposal, NegativeBoundaryPolicy.EnrichWithSiblingBoundaries(proposal));
+    }
+
+    [Fact]
+    public void CardsSharingTheSameScopeGetNoBoundaryAgainstEachOther()
+    {
+        var proposal = new DemandPlanProposal("feature-1",
+        [
+            Card("A", "src/Comum", ""),
+            Card("B", "src/Comum", "")
+        ]);
+
+        var enriched = NegativeBoundaryPolicy.EnrichWithSiblingBoundaries(proposal);
+
+        Assert.All(enriched.Cards, card => Assert.Equal(string.Empty, card.OutOfScope));
+    }
+
+    private static ProposedCard Card(string title, string inScope, string outOfScope) => new(
+        title, "tarefa", "backend", "Instrução.", inScope, outOfScope, [], [], []);
 }

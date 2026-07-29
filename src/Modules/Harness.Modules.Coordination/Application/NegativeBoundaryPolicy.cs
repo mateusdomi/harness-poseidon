@@ -84,6 +84,56 @@ public static class NegativeBoundaryPolicy
     }
 
     /// <summary>
+    /// Preenche o <c>OutOfScope</c> de cada card do plano com as fronteiras derivadas dos irmãos.
+    ///
+    /// É aqui que a regra deixa de ser teoria: o planner já sabe o escopo de todos os cards, então
+    /// cada card pode receber, no próprio enunciado, o que não é dele e de quem é. O texto que o
+    /// planner escreveu é PRESERVADO — as fronteiras se somam a ele, porque apagar a instrução
+    /// original para caber uma regra derivada seria perder informação que só o planner tinha.
+    ///
+    /// Cards são identificados pelo título, e não por id, porque no momento do plano eles ainda não
+    /// têm id — e o título é justamente o que faz sentido para o agente do outro lado.
+    /// </summary>
+    public static DemandPlanProposal EnrichWithSiblingBoundaries(DemandPlanProposal proposal)
+    {
+        ArgumentNullException.ThrowIfNull(proposal);
+        if (proposal.Cards.Count <= 1)
+        {
+            // Um card sozinho não tem irmão: nada a declarar, e nada a inventar.
+            return proposal;
+        }
+
+        var scopes = proposal.Cards
+            .Select(card => new CardScope(card.ProposedTitle, card.ProposedTitle, [card.InScope]))
+            .ToArray();
+
+        var enriched = proposal.Cards
+            .Select(card =>
+            {
+                var boundaries = Derive(card.ProposedTitle, scopes);
+                if (boundaries.Count == 0)
+                {
+                    return card;
+                }
+
+                var declared = string.Join(
+                    " ",
+                    boundaries.Select(boundary =>
+                        $"Não altere {boundary.Scope} — é da tarefa \"{boundary.OwnerTitle}\"."));
+
+                return card with
+                {
+                    OutOfScope = string.IsNullOrWhiteSpace(card.OutOfScope)
+                        ? declared
+                        : $"{card.OutOfScope.TrimEnd()} {declared}"
+                };
+            })
+            .ToArray();
+
+        return proposal with { Cards = enriched };
+    }
+
+    /// <summary>
     /// Verdadeiro quando um caminho tocado viola a fronteira. Comparação por prefixo de escopo,
     /// porque escopo é raiz de trabalho e não caminho exato.
     /// </summary>
