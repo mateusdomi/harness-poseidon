@@ -34907,6 +34907,13 @@
                                 "$ref": "#/components/schemas/PrototypingConfigContract"
                             }
                         ]
+                    },
+                    "targetDeadline": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
                     }
                 },
                 "additionalProperties": false
