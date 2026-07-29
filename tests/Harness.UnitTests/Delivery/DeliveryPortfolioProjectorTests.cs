@@ -88,12 +88,36 @@ public sealed class DeliveryPortfolioProjectorTests
         IReadOnlyList<DeliverySolicitationFacts> solicitations,
         IReadOnlyList<DeliveryDocumentFacts> documents,
         int stuckTaskCount,
-        DateTimeOffset? lastActivityAt = null) =>
+        DateTimeOffset? lastActivityAt = null,
+        DateTimeOffset? targetDeadline = null) =>
         new(
             new DeliveryProjectFacts(
                 "p1", "Pagamentos", "PAY", "high", "chief1",
-                AsOf.AddDays(-40), lastActivityAt ?? AsOf.AddHours(-1)),
+                AsOf.AddDays(-40), lastActivityAt ?? AsOf.AddHours(-1), targetDeadline),
             AsOf, solicitations, demands, tasks, [], documents, stuckTaskCount, [], []);
+
+    [Fact]
+    public void OwnerDeadlineAndStartReachTheTrackingView()
+    {
+        // Rastreamento de encomenda (D10): a tela precisa dizer quando comecou
+        // e para quando o dono pediu, sem inventar nenhum dos dois.
+        var deadline = AsOf.AddDays(15);
+        var summary = DeliveryPortfolioProjector.Summarize(
+            Build([], [], [], [], 0, targetDeadline: deadline));
+
+        Assert.Equal(deadline, summary.TargetDeadline);
+        Assert.Equal(AsOf.AddDays(-40), summary.StartedAt);
+    }
+
+    [Fact]
+    public void ProjectWithoutDeadlineSaysNothingInsteadOfGuessing()
+    {
+        var summary = DeliveryPortfolioProjector.Summarize(Build([], [], [], [], 0));
+
+        // Nulo e a resposta honesta: "o dono nao disse". A previsao calculada
+        // vive em ForecastDate e nunca ocupa o lugar do prazo declarado.
+        Assert.Null(summary.TargetDeadline);
+    }
 
     private static DeliveryTaskFacts Task(
         string id, string demandId, string state, string cardType, string? assignee,

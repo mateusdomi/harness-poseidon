@@ -31,6 +31,11 @@ public sealed record DeliverySummaryContract(
     int OpenTaskCount,
     int BlockedTaskCount,
     DateTimeOffset LastActivityAt,
+    // Rastreamento de encomenda (D10): quando o trabalho comecou e para quando
+    // o DONO pediu. `TargetDeadline` e declaracao, nao previsao — a previsao
+    // calculada e `ForecastDate`. Nulo e estado legitimo: "o dono nao disse".
+    DateTimeOffset StartedAt,
+    DateTimeOffset? TargetDeadline,
     IReadOnlyList<AttentionSignalContract> AttentionSignals);
 
 public sealed record DeliveryPortfolioContract(

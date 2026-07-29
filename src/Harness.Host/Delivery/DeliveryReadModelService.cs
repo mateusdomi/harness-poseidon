@@ -99,7 +99,7 @@ public sealed class DeliveryReadModelService(
         return new DeliveryProjectionInput(
             new DeliveryProjectFacts(
                 project.Id, project.Name, project.Key, project.Criticality, project.ChiefAgentId,
-                project.CreatedAt, project.LastActivityAt),
+                project.CreatedAt, project.LastActivityAt, project.TargetDeadline),
             _clock.UtcNow,
             solicitations,
             demands,

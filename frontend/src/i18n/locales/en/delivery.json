@@ -328,6 +328,23 @@
         "none": "No markers captured in this session.",
         "poCards": "PO cards are not created by default."
       }
+    },
+    "tracking": {
+      "startedAt": "Started on",
+      "noStart": "Not started yet",
+      "deadline": "Agreed deadline",
+      "noDeadline": "No deadline set",
+      "progress": "Progress",
+      "progressValue": "{{done}} of {{total}} deliveries done",
+      "attention": "Attention",
+      "guidance": {
+        "late": "At the current pace, the delivery should miss the agreed deadline. Talk to Bruna to decide what to prioritise.",
+        "tight": "The agreed deadline is close to the expected end of the work: it fits, but with no slack."
+      },
+      "documentsHint": "Download everything already approved in this project.",
+      "downloadDocuments": "Download documents",
+      "downloading": "Preparing the package…",
+      "downloadFailed": "The package could not be prepared right now. Try again in a moment."
     }
   }
 }

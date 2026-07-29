@@ -302,9 +302,25 @@ function summaryOf(o: Delivery360): DeliverySummary {
     openTaskCount: e.openTaskCount,
     blockedTaskCount: e.blockedTaskCount,
     lastActivityAt: e.lastActivityAt,
+    // Fixture: a demonstração mostra um projeto com prazo declarado e outro
+    // sem — "sem prazo definido" é estado legítimo, não erro de dados.
+    startedAt: STARTED_AT[o.deliveryId] ?? e.lastActivityAt,
+    targetDeadline: TARGET_DEADLINE[o.deliveryId] ?? null,
     attentionSignals: o.risksAndDependencies.risks,
   };
 }
+
+const STARTED_AT: Record<string, string> = {
+  [IDS.d1]: '2026-06-01T09:00:00.000Z',
+  [IDS.d2]: '2026-06-15T09:00:00.000Z',
+  [IDS.d3]: '2026-05-04T09:00:00.000Z',
+};
+
+const TARGET_DEADLINE: Record<string, string | null> = {
+  [IDS.d1]: '2026-08-15T00:00:00.000Z',
+  [IDS.d2]: null,
+  [IDS.d3]: '2026-07-20T00:00:00.000Z',
+};
 
 function metricsOf(o: Delivery360): DeliveryMetrics {
   return {

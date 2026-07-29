@@ -26032,6 +26032,8 @@
                     "openTaskCount",
                     "blockedTaskCount",
                     "lastActivityAt",
+                    "startedAt",
+                    "targetDeadline",
                     "attentionSignals"
                 ],
                 "type": "object",
@@ -26114,6 +26116,17 @@
                     },
                     "lastActivityAt": {
                         "type": "string",
+                        "format": "date-time"
+                    },
+                    "startedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "targetDeadline": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
                         "format": "date-time"
                     },
                     "attentionSignals": {

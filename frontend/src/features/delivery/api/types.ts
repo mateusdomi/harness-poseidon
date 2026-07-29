@@ -67,6 +67,13 @@ export const deliverySummarySchema = z.object({
   openTaskCount: int,
   blockedTaskCount: int,
   lastActivityAt: z.string(),
+  /** Quando o trabalho começou (criação do projeto). */
+  startedAt: z.string(),
+  /**
+   * Prazo que o DONO declarou. `null` é resposta honesta ("ele não disse") —
+   * a previsão calculada vive em `forecastDate` e nunca ocupa este lugar.
+   */
+  targetDeadline: z.string().nullable(),
   attentionSignals: z.array(attentionSignalSchema),
 });
 export type DeliverySummary = z.infer<typeof deliverySummarySchema>;

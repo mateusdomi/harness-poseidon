@@ -31,6 +31,8 @@ public static class DeliveryPortfolioProjector
             OpenTaskCount: aggregate.OpenTaskCount,
             BlockedTaskCount: aggregate.BlockedTaskCount,
             LastActivityAt: aggregate.LastActivityAt,
+            StartedAt: input.Project.CreatedAt,
+            TargetDeadline: input.Project.TargetDeadline,
             AttentionSignals: aggregate.AttentionSignals);
     }
 

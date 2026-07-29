@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Card, CardContent } from '@/design-system';
@@ -5,7 +6,9 @@ import { Badge, Button, Card, CardContent } from '@/design-system';
 import { formatDate } from '../lib/format';
 import { attentionSignalLabel } from '../lib/attention-signal';
 import type { DeliverySummary } from '../api/types';
+import { downloadProjectDocuments } from '../lib/download-documents';
 import { SourceDisclosure } from './source-disclosure';
+import { TrackingCard } from './tracking-card';
 import { HealthBadge, PredictabilityBadge } from './status-badges';
 
 /**
@@ -25,6 +28,22 @@ export function PortfolioList({
   agentNames: ReadonlyMap<string, string>;
 }) {
   const { t, i18n } = useTranslation();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadFailed, setDownloadFailed] = useState<string | null>(null);
+
+  async function download(delivery: DeliverySummary) {
+    setDownloadingId(delivery.deliveryId);
+    setDownloadFailed(null);
+    try {
+      await downloadProjectDocuments(delivery.projectId);
+    } catch {
+      // Falha de download não pode passar em branco: o dono clicou e nada
+      // aconteceu — a tela precisa dizer isso em linguagem dele.
+      setDownloadFailed(delivery.deliveryId);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   if (deliveries.length === 0) {
     return (
@@ -102,6 +121,18 @@ export function PortfolioList({
                     <dd className="text-foreground">{forecast ?? t('delivery.portfolio.noDate')}</dd>
                   </div>
                 </dl>
+
+                <TrackingCard
+                  delivery={d}
+                  downloading={downloadingId === d.deliveryId}
+                  onDownloadDocuments={download}
+                />
+
+                {downloadFailed === d.deliveryId && (
+                  <p role="alert" className="text-sm text-error">
+                    {t('delivery.tracking.downloadFailed')}
+                  </p>
+                )}
 
                 {d.attentionSignals.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2">

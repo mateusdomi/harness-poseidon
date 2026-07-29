@@ -328,6 +328,23 @@
         "none": "Nenhuma marcação capturada nesta sessão.",
         "poCards": "Cards de PO não são criados por padrão."
       }
+    },
+    "tracking": {
+      "startedAt": "Começou em",
+      "noStart": "Ainda não começou",
+      "deadline": "Prazo combinado",
+      "noDeadline": "Sem prazo definido",
+      "progress": "Progresso",
+      "progressValue": "{{done}} de {{total}} entregas concluídas",
+      "attention": "Atenção",
+      "guidance": {
+        "late": "Do jeito que o trabalho está andando, a entrega deve passar do prazo combinado. Fale com a Bruna para decidir o que priorizar.",
+        "tight": "O prazo combinado está próximo do fim previsto do trabalho: dá para cumprir, mas sem folga."
+      },
+      "documentsHint": "Baixe tudo o que já foi aprovado neste projeto.",
+      "downloadDocuments": "Baixar documentos",
+      "downloading": "Preparando o pacote…",
+      "downloadFailed": "Não foi possível preparar o pacote agora. Tente de novo em instantes."
     }
   }
 }

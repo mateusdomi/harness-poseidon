@@ -19,7 +19,10 @@ public sealed record DeliveryProjectionInput(
 
 public sealed record DeliveryProjectFacts(
     string ProjectId, string Name, string Key, string Criticality, string ChiefAgentId,
-    DateTimeOffset CreatedAt, DateTimeOffset LastActivityAt);
+    DateTimeOffset CreatedAt, DateTimeOffset LastActivityAt,
+    // Prazo desejado pelo dono, capturado na conversa ou no cadastro. Nunca
+    // inferido: sem valor, a tela diz "sem prazo definido".
+    DateTimeOffset? TargetDeadline = null);
 
 public sealed record DeliverySolicitationFacts(
     string Id, string State, string? SupersedesId, DateTimeOffset CreatedAt);
