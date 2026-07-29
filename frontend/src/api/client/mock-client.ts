@@ -203,9 +203,9 @@ function businessChatReply(
     if (inEnglish) {
       const situation =
         project.state === 'paused'
-          ? `${project.name} is paused${phase ? ` at the ${phase.name} stage` : ''}. `
+          ? `${project.name} is paused${phase ? ` at stage ${phase.order} of its plan` : ''}. `
           : phase
-            ? `${project.name} is at the ${phase.name} stage. `
+            ? `${project.name} is at stage ${phase.order} of its plan. `
             : `${project.name} is still preparing the first stage overview. `;
       const activity =
         `The team has completed ${completed} activit${completed === 1 ? 'y' : 'ies'} and has ` +
