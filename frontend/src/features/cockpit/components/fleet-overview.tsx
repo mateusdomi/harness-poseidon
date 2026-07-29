@@ -25,7 +25,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   moonshot: 'Kimi · Moonshot',
 };
 
-const CAPACITY_STATES = new Set(['working', 'idle', 'degraded']);
+const CAPACITY_STATES = new Set(['working', 'idle']);
 const STATE_VARIANTS: Record<string, BadgeProps['variant']> = {
   working: 'info',
   idle: 'success',

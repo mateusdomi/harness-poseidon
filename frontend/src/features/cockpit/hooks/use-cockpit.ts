@@ -138,12 +138,13 @@ export function useCockpitAgentDefinitions() {
   });
 }
 
-/** Budgets de todos os escopos (global, projeto, conta) — cotas críticas. */
-export function useCockpitBudgets() {
+/** Budgets técnicos; o modo Negócio deriva capacidade diretamente das pessoas. */
+export function useCockpitBudgets(enabled = true) {
   const api = useApi();
   return useQuery({
     queryKey: cockpitKeys.budgets,
     queryFn: async () => (await api.list('budgets')).items,
+    enabled,
   });
 }
 
@@ -160,7 +161,8 @@ export function useCockpitWorkflow(projectId: Ulid | null) {
 
   const runsQuery = useQuery({
     queryKey: cockpitKeys.runs(workflow?.id ?? 'none'),
-    queryFn: async () => (await api.list('workflow-runs', { filter: { workflowId: workflow!.id } })).items,
+    queryFn: async () =>
+      (await api.list('workflow-runs', { filter: { workflowId: workflow!.id } })).items,
     enabled: workflow !== null,
   });
   const run = runsQuery.data?.find((r) => r.state === 'running') ?? runsQuery.data?.[0] ?? null;

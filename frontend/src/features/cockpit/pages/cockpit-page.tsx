@@ -164,7 +164,7 @@ export default function CockpitPage() {
           </Button>
         </div>
       ) : !activeProject ? (
-        // Sem projeto ativo, o checklist do golden path acima é a orientação
+        // Sem projeto ativo, o checklist do golden path é a orientação
         // primária e dono da CTA única (§4): aqui mantemos apenas o contexto,
         // sem repetir um botão semanticamente equivalente.
         <>
@@ -181,6 +181,9 @@ export default function CockpitPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <FleetOverview agents={agents} taskCounts={counts} mode={presentationMode} />
+          <div className="lg:col-span-2">
+            <GoldenPathChecklist hideWhenComplete />
+          </div>
           {technical ? (
             <>
               {featureFlags.governanceContractUi && (
