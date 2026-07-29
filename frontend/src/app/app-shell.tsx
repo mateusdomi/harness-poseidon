@@ -252,13 +252,17 @@ function Header() {
       >
         <Menu aria-hidden="true" />
       </Button>
-      <div className="lg:hidden">
+      <div className="hidden sm:block lg:hidden">
         <BrandMark />
       </div>
       <HeaderContext />
       <div className="ml-auto flex items-center gap-1">
-        <CommandPalette />
-        <LanguageSelector />
+        <div className="hidden sm:block">
+          <CommandPalette />
+        </div>
+        <div className="hidden md:block">
+          <LanguageSelector />
+        </div>
         <ThemeToggle />
         <NotificationsButton />
       </div>

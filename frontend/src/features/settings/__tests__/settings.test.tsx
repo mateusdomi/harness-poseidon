@@ -23,6 +23,15 @@ describe('SettingsPage', () => {
     renderPage();
 
     expect(await screen.findByText('Preferências')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Modo de apresentação' })).toHaveValue(
+      'business',
+    );
+    expect(
+      within(screen.getByRole('combobox', { name: 'Modo de apresentação' })).getByRole(
+        'option',
+        { name: 'Administrador' },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('Diretórios de trabalho')).toBeInTheDocument();
     expect(screen.getByText('Sandbox e modo inseguro')).toBeInTheDocument();
     // Fixture: aceite do modo inseguro preenchido → data exibida + revogar.

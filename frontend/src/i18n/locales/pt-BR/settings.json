@@ -10,6 +10,19 @@
         "system": "Seguir o sistema"
       }
     },
+    "presentation": {
+      "label": "Modo de apresentação",
+      "modes": {
+        "business": "Negócio",
+        "technical": "Técnico",
+        "admin": "Administrador"
+      },
+      "help": {
+        "business": "Prioriza andamento, equipe e decisões humanas.",
+        "technical": "Inclui diagnósticos de execução, fleet e capacidade técnica.",
+        "admin": "Inclui também superfícies administrativas autorizadas."
+      }
+    },
     "workspace": {
       "title": "Diretórios de trabalho",
       "directory": "Diretório de trabalho",

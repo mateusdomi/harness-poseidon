@@ -38,6 +38,14 @@
       "agentsWorking": "{{count}} agentes trabalhando",
       "agentsWorking_one": "{{count}} agente trabalhando"
     },
+    "project": {
+      "label": "Projeto ativo",
+      "loading": "Carregando projetos",
+      "error": "Projetos indisponíveis — tentar novamente",
+      "empty": "Nenhum projeto",
+      "unavailable": "Projeto sem acesso",
+      "unavailableHelp": "O projeto selecionado não existe mais ou você perdeu o acesso. Escolha outro projeto."
+    },
     "search": {
       "open": "Buscar telas ({{shortcut}})",
       "label": "Busca global de telas",
@@ -788,6 +796,70 @@
     "projectSelector": {
       "label": "Projeto ativo"
     },
+    "team": {
+      "title": "Equipe em atividade",
+      "subtitle": "Uma visão compacta da equipe virtual, dos núcleos e de quem precisa de ação agora.",
+      "empty": "Nenhum especialista virtual está vinculado a este projeto.",
+      "leadership": "Liderança",
+      "chiefRole": "Única chefe e voz do projeto",
+      "chiefUnavailable": "Liderança não configurada",
+      "metrics": {
+        "working": "em atividade",
+        "available": "com capacidade disponível",
+        "attention": "precisam de atenção"
+      },
+      "nuclei": "Capacidade por núcleo",
+      "nucleusCapacity": "{{working}} em atividade · {{available}} disponíveis · {{attention}} em atenção",
+      "workingNow": "Em atividade agora",
+      "needsAttention": "Precisam de atenção",
+      "noOneWorking": "Nenhum especialista está executando uma tarefa agora.",
+      "noAttention": "Nenhuma ação de capacidade é necessária.",
+      "states": {
+        "working": "Trabalhando",
+        "idle": "Disponível",
+        "waiting": "Aguardando atenção",
+        "error": "Temporariamente indisponível",
+        "outOfQuota": "Em pausa para recuperação"
+      },
+      "more": "+{{count}}"
+    },
+    "workflow": {
+      "title": "Jornada do projeto",
+      "subtitle": "Nove fases do início à sustentação. O percentual conta apenas obrigações aceitas.",
+      "timelineLabel": "Timeline das nove fases do projeto",
+      "phaseNumber": "Fase {{number}}",
+      "currentPhase": "Fase em curso",
+      "openPhase": "Abrir detalhes da fase {{phase}}",
+      "acceptedProgress": "Progresso aceito da fase {{phase}}",
+      "acceptedFraction": "{{accepted}} de {{total}} obrigações obrigatórias aceitas",
+      "planUnavailable": "O plano canônico desta fase ainda não foi materializado.",
+      "progressError": "Não foi possível consultar o progresso canônico.",
+      "signals": {
+        "inProgress": "Em andamento",
+        "inReview": "Em revisão",
+        "blocked": "Bloqueios",
+        "humanGates": "Decisões humanas"
+      },
+      "states": {
+        "completed": "Concluída",
+        "active": "Em andamento",
+        "future": "Futura",
+        "approval": "Aguardando sua aprovação",
+        "blocked": "Bloqueada",
+        "correction": "Em correção"
+      },
+      "phases": {
+        "triage": "Triagem",
+        "discovery": "Descoberta",
+        "architecture": "Arquitetura",
+        "planning": "Planejamento",
+        "development": "Desenvolvimento",
+        "testing": "Testes",
+        "homologation": "Homologação",
+        "release": "Release",
+        "support": "Sustentação"
+      }
+    },
     "empty": {
       "title": "Nenhum projeto ativo",
       "body": "O Dashboard mostra a operação de um projeto: fase, progresso, bloqueios e agentes. Crie o primeiro projeto para começar.",
@@ -908,9 +980,9 @@
       "empty": "Nenhuma tarefa bloqueada."
     },
     "approvals": {
-      "title": "Aprovações pendentes",
-      "empty": "Nenhuma aprovação pendente.",
-      "viewAll": "Ver todas as aprovações"
+      "title": "Decisões humanas",
+      "empty": "Nenhuma decisão humana pendente.",
+      "viewAll": "Ver todas as decisões"
     },
     "agents": {
       "title": "Equipe operacional",
@@ -1366,7 +1438,7 @@
     },
     "cockpit": {
       "title": "Dashboard",
-      "description": "Visão geral da operação: status dos agentes e projetos ativos."
+      "description": "Acompanhe o avanço, a capacidade da equipe e as decisões que precisam de você."
     },
     "chat": {
       "title": "Chat",

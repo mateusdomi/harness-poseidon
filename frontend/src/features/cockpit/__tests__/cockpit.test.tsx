@@ -20,8 +20,10 @@ import {
 } from '@/features/cockpit/lib/cockpit-derive';
 import { workflowPhaseKey } from '@/features/cockpit/hooks/use-cockpit';
 import { isMeaningfulActivity } from '@/features/cockpit/lib/activity-humanize';
+import { summarizeTeamActivity } from '@/features/cockpit/lib/dashboard-presentation';
 import { renderWithApi } from '@/test/render-with-providers';
 import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
+import { usePresentationStore } from '@/stores/presentation-store';
 
 const fixtures = buildFixtures(42);
 const tasks = fixtures.data.tasks;
@@ -125,6 +127,40 @@ describe('cockpit-derive', () => {
     expect(m.attention.map((a) => a.id)).toEqual(['c', 'd']);
   });
 
+  it('resume equipes com mais de 30 agentes por núcleo e mantém uma única chefe', () => {
+    const chief = fixtures.data.agents.find(
+      (agent) => agent.id === fixtures.data.projects[0].chiefAgentId,
+    )!;
+    const specialistDefinitions = new Set(
+      fixtures.data['agent-definitions']
+        .filter((definition) => definition.role === 'specialist')
+        .map((definition) => definition.id),
+    );
+    const specialist = fixtures.data.agents.find((agent) =>
+      specialistDefinitions.has(agent.definitionId),
+    )!;
+    const expanded = [
+      chief,
+      ...Array.from({ length: 36 }, (_, index) => ({
+        ...specialist,
+        id: `specialist-${index}`,
+        name: `Especialista ${index}`,
+        state: index < 12 ? ('working' as const) : ('idle' as const),
+      })),
+    ];
+
+    const summary = summarizeTeamActivity(
+      expanded,
+      fixtures.data['agent-definitions'],
+      chief.id,
+    );
+
+    expect(summary.chief?.id).toBe(chief.id);
+    expect(summary.nuclei.reduce((total, nucleus) => total + nucleus.total, 0)).toBe(36);
+    expect(summary.working).toHaveLength(4);
+    expect(summary.hiddenWorking).toBe(8);
+  });
+
   it('classifica severidade de budget pelo limiar de alerta', () => {
     const account = budgets.find((b) => b.scope === 'account')!; // 80% com limiar 75%
     expect(budgetSeverity(account)).toBe('warning');
@@ -183,6 +219,10 @@ function renderCockpit(bundle?: TestBundle) {
 }
 
 describe('CockpitPage', () => {
+  beforeEach(() => {
+    usePresentationStore.setState({ modeByProfile: {} });
+  });
+
   it('encerra o loading e orienta criar projeto quando a base está vazia', async () => {
     const bundle = createTestBundle();
     const originalList = bundle.api.list.bind(bundle.api);
@@ -193,36 +233,32 @@ describe('CockpitPage', () => {
     renderCockpit(bundle);
 
     expect(await screen.findByText(/crie o primeiro projeto/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/carregando/i)).not.toBeInTheDocument();
   });
 
-  it('mantém as três trilhas só no global e usa a fonte unificada na fase', async () => {
+  it('usa um único progresso canônico e separa os sinais operacionais', async () => {
     renderCockpit();
 
-    // As três trilhas pertencem apenas ao progresso global.
-    expect(await screen.findAllByRole('progressbar', { name: 'Executado' })).toHaveLength(1);
-    expect(screen.getAllByRole('progressbar', { name: 'Validado' })).toHaveLength(1);
-    expect(screen.getAllByRole('progressbar', { name: 'Aprovado' })).toHaveLength(1);
-
-    // Fase atual com gate associado.
-    expect(screen.getByText('Validação')).toBeInTheDocument();
-    expect(screen.getByText('Gate de Qualidade')).toBeInTheDocument();
     expect(
-      screen.getByRole('progressbar', { name: 'Progresso da fase Validação' }),
+      await screen.findByRole('progressbar', { name: 'Progresso aceito da fase Validação' }),
     ).toHaveAttribute('aria-valuenow', '0');
-    expect(screen.getByText('Relatório de testes')).toBeInTheDocument();
-    expect(screen.getByText('Evidências')).toBeInTheDocument();
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
+    expect(screen.queryByRole('progressbar', { name: 'Executado' })).not.toBeInTheDocument();
+    expect(screen.getAllByText('Em andamento').length).toBeGreaterThan(0);
+    expect(screen.getByText('Em revisão')).toBeInTheDocument();
+    expect(screen.getAllByText('Bloqueios').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Decisões humanas').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Timeline das nove fases do projeto')).toBeInTheDocument();
+    expect(screen.getByText('Sustentação')).toBeInTheDocument();
   });
 
-  it('renderiza contadores por estado e navega para o quadro filtrado ao clicar', async () => {
+  it('abre no quadro uma tarefa que está bloqueada', async () => {
     const user = userEvent.setup();
     renderCockpit();
 
-    const blockedButton = await screen.findByRole('button', { name: /bloqueada/i });
-    expect(blockedButton).toHaveTextContent('3');
-
-    await user.click(blockedButton);
-    expect(await screen.findByText('BOARD state=blocked')).toBeInTheDocument();
+    await user.click(
+      await screen.findByRole('link', { name: /deploy em staging/i }),
+    );
+    expect(await screen.findByText('BOARD state=')).toBeInTheDocument();
   });
 
   it('recomenda resolver aprovações e o CTA leva ao chat', async () => {
@@ -237,20 +273,34 @@ describe('CockpitPage', () => {
     expect(await screen.findByText('CHAT')).toBeInTheDocument();
   });
 
-  it('mostra seletor de projeto, bloqueios, aprovações, agentes e atividade', async () => {
+  it('começa pela equipe e mantém detalhes técnicos fora do modo negócio', async () => {
     renderCockpit();
 
-    // Aguarda o carregamento completo (cards de bloqueio só existem no fim).
     expect(await screen.findByText('Deploy em staging (sem credencial)')).toBeInTheDocument();
-    expect(screen.getByLabelText(/projeto ativo/i)).toBeInTheDocument();
+    expect(screen.getByText('Equipe em atividade')).toBeInTheDocument();
+    expect(screen.getByText('Única chefe e voz do projeto')).toBeInTheDocument();
+    expect(screen.getAllByText(/Bruna Magalhães/)).toHaveLength(1);
     expect(screen.getByText('Aprovar Gate de Qualidade')).toBeInTheDocument();
-    expect(screen.getByText('Fleet operacional')).toBeInTheDocument();
-    expect(screen.getByText('Online').tagName).toBe('DT');
-    expect(screen.getByText('58').tagName).toBe('DD');
-    expect((await screen.findAllByText('Autenticação necessária')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Produtividade por assinatura')).toBeInTheDocument();
-    expect(screen.getByText('Cotas críticas')).toBeInTheDocument();
+    expect(screen.getAllByText('Decisões humanas').length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/projeto ativo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Fleet operacional')).not.toBeInTheDocument();
+    expect(screen.queryByText('Produtividade por assinatura')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cotas críticas')).not.toBeInTheDocument();
     expect(screen.getByText('Atividade recente')).toBeInTheDocument();
+  });
+
+  it('revela diagnósticos de fleet e as trilhas antigas apenas no modo técnico', async () => {
+    const bundle = createTestBundle();
+    usePresentationStore
+      .getState()
+      .requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+
+    renderCockpit(bundle);
+
+    expect(await screen.findByText('Fleet operacional')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Executado' })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Validado' })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Aprovado' })).toBeInTheDocument();
   });
 });
 

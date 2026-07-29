@@ -25,6 +25,12 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   await page.goto('/cockpit');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole('combobox', { name: 'Projeto ativo' })).toBeVisible();
+  await expect(page.getByText('Equipe em atividade')).toBeVisible();
+  await expect(page.getByLabel('Timeline das nove fases do projeto')).toBeVisible();
+  await expect(page.getByText('Sustentação', { exact: true })).toBeVisible();
+  await expect(page.getByText('Fleet operacional')).toHaveCount(0);
+  await expect(page.getByText('Cotas críticas')).toHaveCount(0);
 
   const heading = page.getByRole('heading', { name: 'Dashboard' });
   await expect

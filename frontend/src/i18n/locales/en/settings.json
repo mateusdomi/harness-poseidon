@@ -10,6 +10,19 @@
         "system": "Follow system"
       }
     },
+    "presentation": {
+      "label": "Presentation mode",
+      "modes": {
+        "business": "Business",
+        "technical": "Technical",
+        "admin": "Administrator"
+      },
+      "help": {
+        "business": "Prioritizes progress, team activity, and human decisions.",
+        "technical": "Adds execution diagnostics, fleet, and technical capacity.",
+        "admin": "Also includes authorized administrative surfaces."
+      }
+    },
     "workspace": {
       "title": "Working directories",
       "directory": "Working directory",

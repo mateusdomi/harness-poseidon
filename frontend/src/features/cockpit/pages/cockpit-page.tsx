@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton } from '@/design-system';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
 import { BlockedTasksCard, PendingApprovalsCard } from '@/features/cockpit/components/attention-cards';
@@ -9,16 +10,19 @@ import { QuotaCard } from '@/features/cockpit/components/health-cards';
 import { FleetOverview } from '@/features/cockpit/components/fleet-overview';
 import { NextActionCard } from '@/features/cockpit/components/next-action-card';
 import { GovernanceHealthCard } from '@/features/cockpit/components/governance-health-card';
-import { PhaseSummary } from '@/features/cockpit/components/phase-summary';
+import { TeamActivity } from '@/features/cockpit/components/team-activity';
+import { WorkflowProgress } from '@/features/cockpit/components/workflow-progress';
 import { GoldenPathChecklist } from '@/features/onboarding/components/golden-path-checklist';
 import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
 import { TasksByStateChart } from '@/features/cockpit/components/tasks-by-state-chart';
 import {
   useCockpitActivity,
+  useCockpitAgentDefinitions,
   useCockpitAgents,
   useCockpitApprovals,
   useCockpitBudgets,
+  useCockpitPhaseProgress,
   useCockpitRealtime,
   useCockpitTasks,
   useCockpitWorkflow,
@@ -35,8 +39,8 @@ import { featureFlags } from '@/config/features';
 
 export default function CockpitPage() {
   const { t } = useTranslation();
-  const { projects, activeProject, setActiveProject, isPending, isError, refetch } =
-    useActiveProject();
+  const presentation = usePresentationPolicy();
+  const { activeProject, isPending, isError, refetch } = useActiveProject();
 
   const projectId = activeProject?.id ?? null;
   useCockpitRealtime(projectId);
@@ -44,15 +48,21 @@ export default function CockpitPage() {
   const tasksQuery = useCockpitTasks(projectId);
   const approvalsQuery = useCockpitApprovals(projectId);
   const agentsQuery = useCockpitAgents(projectId);
+  const definitionsQuery = useCockpitAgentDefinitions();
   const budgetsQuery = useCockpitBudgets();
   const activityQuery = useCockpitActivity();
   const workflowData = useCockpitWorkflow(projectId);
+  const phaseProgress = useCockpitPhaseProgress(
+    workflowData.run?.id ?? null,
+    workflowData.phases,
+  );
 
   const loading =
     isPending ||
     tasksQuery.isLoading ||
     approvalsQuery.isLoading ||
     agentsQuery.isLoading ||
+    definitionsQuery.isLoading ||
     budgetsQuery.isLoading ||
     activityQuery.isLoading ||
     workflowData.isPending;
@@ -61,6 +71,7 @@ export default function CockpitPage() {
     tasksQuery.isError ||
     approvalsQuery.isError ||
     agentsQuery.isError ||
+    definitionsQuery.isError ||
     budgetsQuery.isError ||
     activityQuery.isError ||
     workflowData.isError;
@@ -70,20 +81,38 @@ export default function CockpitPage() {
     void tasksQuery.refetch();
     void approvalsQuery.refetch();
     void agentsQuery.refetch();
+    void definitionsQuery.refetch();
     void budgetsQuery.refetch();
     void activityQuery.refetch();
     workflowData.refetch();
+    phaseProgress.refetch();
   }
 
   const tasks = tasksQuery.data ?? [];
   const approvals = approvalsQuery.data ?? [];
   const agents = agentsQuery.data ?? [];
+  const definitions = definitionsQuery.data ?? [];
   const budgets = budgetsQuery.data ?? [];
   const events = activityQuery.data ?? [];
   const phase = currentPhase(workflowData.phases);
+  const canonicalProgress = phase ? phaseProgress.byPhaseId.get(phase.id) ?? null : null;
+  const humanApprovals = approvals.filter(
+    (approval) =>
+      approval.documentId !== null ||
+      workflowData.gates.some(
+        (gate) =>
+          gate.id === approval.gateId &&
+          gate.requiresApproval,
+      ),
+  );
+  const humanGateCount = humanApprovals.filter(
+    (approval) =>
+      approval.state === 'pending' &&
+      workflowData.gates.some((gate) => gate.id === approval.gateId && gate.phaseId === phase?.id),
+  ).length;
   const counts = countTasksByState(tasks);
   const nextAction = recommendNextAction({
-    pendingApprovals: approvals.filter((a) => a.state === 'pending').length,
+    pendingApprovals: humanApprovals.filter((a) => a.state === 'pending').length,
     blockedTasks: counts.blocked,
     errorAgents: agents.filter((a) => a.state === 'error' || a.state === 'outOfQuota').length,
     criticalBudgets: budgets.filter((b) => budgetSeverity(b) !== 'ok').length,
@@ -106,31 +135,11 @@ export default function CockpitPage() {
             {/* O cockpit mostra cotas/orçamento e saúde: quando a origem é fixture,
                 dizemos isso explicitamente em vez de passar por dado real (§15). */}
             <SimulatedModeBadge />
+            <Badge variant="outline">{t(`settings.presentation.modes.${presentation.mode}`)}</Badge>
           </div>
           <p className="text-sm text-foreground-muted">{t('features.cockpit.description')}</p>
         </div>
-        {projects.length > 0 && (
-          <div className="ml-auto flex flex-col gap-1.5 sm:min-w-64">
-            <label htmlFor="cockpit-project" className="text-xs font-medium text-foreground-muted">
-              {t('cockpit.projectSelector.label')}
-            </label>
-            <Select
-              id="cockpit-project"
-              className="w-full"
-              value={activeProject?.id ?? ''}
-              onChange={(event) => setActiveProject(event.target.value)}
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
       </section>
-
-      <GoldenPathChecklist hideWhenComplete />
 
       {loading ? (
         <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
@@ -154,36 +163,59 @@ export default function CockpitPage() {
         // Sem projeto ativo, o checklist do golden path acima é a orientação
         // primária e dono da CTA única (§4): aqui mantemos apenas o contexto,
         // sem repetir um botão semanticamente equivalente.
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('cockpit.empty.title')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-foreground-muted">{t('cockpit.empty.body')}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {featureFlags.governanceContractUi && <GovernanceHealthCard projectId={activeProject.id} />}
-          <PhaseSummary phase={phase} gates={workflowData.gates} />
-          <NextActionCard actionKey={nextAction} />
-          <Card className="lg:col-span-2">
+        <>
+          <GoldenPathChecklist hideWhenComplete />
+          <Card>
             <CardHeader>
-              <CardTitle>{t('cockpit.progress.globalTitle')}</CardTitle>
-              <p className="text-xs text-foreground-muted">{t('cockpit.progress.subtitle')}</p>
+              <CardTitle>{t('cockpit.empty.title')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ProgressTracks
-                progress={aggregateProgress(tasks)}
-                evidence={progressEvidence(tasks)}
-              />
+              <p className="text-sm text-foreground-muted">{t('cockpit.empty.body')}</p>
             </CardContent>
           </Card>
-          <TasksByStateChart counts={counts} />
+        </>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <TeamActivity
+            agents={agents}
+            definitions={definitions}
+            chiefAgentId={activeProject.chiefAgentId}
+          />
+          <WorkflowProgress
+            phases={workflowData.phases}
+            currentPhase={phase}
+            progress={canonicalProgress}
+            progressByPhaseId={phaseProgress.byPhaseId}
+            gates={workflowData.gates}
+            humanGateCount={humanGateCount}
+            isPending={phaseProgress.isPending}
+            isError={phaseProgress.isError}
+          />
+          <NextActionCard actionKey={nextAction} />
           <BlockedTasksCard tasks={tasks} />
-          <PendingApprovalsCard approvals={approvals} />
-          <FleetOverview agents={agents} taskCounts={counts} />
-          <QuotaCard budgets={budgets} />
+          <PendingApprovalsCard approvals={humanApprovals} />
+          {presentation.showTechnicalDetails && (
+            <>
+              {featureFlags.governanceContractUi && (
+                <GovernanceHealthCard projectId={activeProject.id} />
+              )}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>{t('cockpit.progress.globalTitle')}</CardTitle>
+                  <p className="text-xs text-foreground-muted">{t('cockpit.progress.subtitle')}</p>
+                </CardHeader>
+                <CardContent>
+                  <ProgressTracks
+                    progress={aggregateProgress(tasks)}
+                    evidence={progressEvidence(tasks)}
+                  />
+                </CardContent>
+              </Card>
+              <TasksByStateChart counts={counts} />
+              <FleetOverview agents={agents} taskCounts={counts} />
+              <QuotaCard budgets={budgets} />
+            </>
+          )}
           <div className="lg:col-span-2">
             <ActivityFeed events={events} />
           </div>

@@ -38,6 +38,14 @@
       "agentsWorking": "{{count}} agents working",
       "agentsWorking_one": "{{count}} agent working"
     },
+    "project": {
+      "label": "Active project",
+      "loading": "Loading projects",
+      "error": "Projects unavailable — try again",
+      "empty": "No projects",
+      "unavailable": "Project unavailable",
+      "unavailableHelp": "The selected project no longer exists or you lost access. Choose another project."
+    },
     "search": {
       "open": "Search screens ({{shortcut}})",
       "label": "Global screen search",
@@ -788,6 +796,70 @@
     "projectSelector": {
       "label": "Active project"
     },
+    "team": {
+      "title": "Team in action",
+      "subtitle": "A compact view of the virtual team, team groups, and who needs action now.",
+      "empty": "No virtual specialist is assigned to this project.",
+      "leadership": "Leadership",
+      "chiefRole": "Sole chief and voice of the project",
+      "chiefUnavailable": "Leadership not configured",
+      "metrics": {
+        "working": "in action",
+        "available": "with available capacity",
+        "attention": "need attention"
+      },
+      "nuclei": "Capacity by team group",
+      "nucleusCapacity": "{{working}} in action · {{available}} available · {{attention}} need attention",
+      "workingNow": "In action now",
+      "needsAttention": "Need attention",
+      "noOneWorking": "No specialist is running a task right now.",
+      "noAttention": "No capacity action is needed.",
+      "states": {
+        "working": "Working",
+        "idle": "Available",
+        "waiting": "Awaiting attention",
+        "error": "Temporarily unavailable",
+        "outOfQuota": "Paused for recovery"
+      },
+      "more": "+{{count}}"
+    },
+    "workflow": {
+      "title": "Project journey",
+      "subtitle": "Nine phases from intake through support. The percentage counts accepted obligations only.",
+      "timelineLabel": "Project nine-phase timeline",
+      "phaseNumber": "Phase {{number}}",
+      "currentPhase": "Current phase",
+      "openPhase": "Open details for the {{phase}} phase",
+      "acceptedProgress": "Accepted progress for phase {{phase}}",
+      "acceptedFraction": "{{accepted}} of {{total}} required obligations accepted",
+      "planUnavailable": "The canonical plan for this phase has not been materialized yet.",
+      "progressError": "Canonical progress could not be loaded.",
+      "signals": {
+        "inProgress": "In progress",
+        "inReview": "In review",
+        "blocked": "Blocked",
+        "humanGates": "Human decisions"
+      },
+      "states": {
+        "completed": "Completed",
+        "active": "In progress",
+        "future": "Future",
+        "approval": "Awaiting your approval",
+        "blocked": "Blocked",
+        "correction": "In correction"
+      },
+      "phases": {
+        "triage": "Triage",
+        "discovery": "Discovery",
+        "architecture": "Architecture",
+        "planning": "Planning",
+        "development": "Development",
+        "testing": "Testing",
+        "homologation": "UAT",
+        "release": "Release",
+        "support": "Support"
+      }
+    },
     "empty": {
       "title": "No active project",
       "body": "The Dashboard shows a project's operation: phase, progress, blockers and agents. Create your first project to get started.",
@@ -908,9 +980,9 @@
       "empty": "No blocked tasks."
     },
     "approvals": {
-      "title": "Pending approvals",
-      "empty": "No pending approvals.",
-      "viewAll": "View all approvals"
+      "title": "Human decisions",
+      "empty": "No human decision is pending.",
+      "viewAll": "View all decisions"
     },
     "agents": {
       "title": "Operations team",
@@ -1366,7 +1438,7 @@
     },
     "cockpit": {
       "title": "Dashboard",
-      "description": "Operation overview: agent status and active projects."
+      "description": "Track progress, team capacity, and the decisions that need you."
     },
     "chat": {
       "title": "Chat",
