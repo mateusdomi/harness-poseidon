@@ -210,7 +210,11 @@ public sealed class ConversationApiTests
                             "chief.turnStateChanged",
                             "chief.turnStateChanged",
                             "chat.turnStarted",
-                            "chat.turnChunk",
+                            // UM chunk, e por decisão de segurança, não por acidente: o worker
+                            // projeta `new[] { output.Response }` — a resposta JÁ VALIDADA — porque
+                            // fatias vindas do adapter são dados não confiáveis e não podem furar a
+                            // policy de apresentação. Quem for "consertar" isto de volta para dois
+                            // chunks estará reabrindo esse furo.
                             "chat.turnChunk",
                             "message.appended",
                             "chat.turnCompleted",
@@ -220,7 +224,7 @@ public sealed class ConversationApiTests
                         snapshot.Delta.Select(item => item.Type));
                     // Sequência contígua sem lacuna nem duplicata em todo o ciclo.
                     Assert.Equal(
-                        Enumerable.Range(1, 18).Select(value => (long)value),
+                        Enumerable.Range(1, 17).Select(value => (long)value),
                         snapshot.Delta.Select(item => item.Sequence));
                     var completed = snapshot.Delta
                         .Last(item => item.Type == "chat.turnCompleted").Payload;
