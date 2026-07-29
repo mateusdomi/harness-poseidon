@@ -18,7 +18,8 @@ public sealed record ApprovalContract(
     string Id, string ProjectId, string? GateId, string? TaskId, string? DocumentId,
     string Title, string Description, string Priority, DateTimeOffset? DueAt, string State,
     string RequestedByAgentId, DateTimeOffset RequestedAt, string? ResolvedByProfileId,
-    DateTimeOffset? ResolvedAt, string? ResolutionNote);
+    DateTimeOffset? ResolvedAt, string? ResolutionNote,
+    string? BusinessTitle, string? BusinessDescription);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateDocumentRequest(

@@ -21437,7 +21437,9 @@
                     "requestedAt",
                     "resolvedByProfileId",
                     "resolvedAt",
-                    "resolutionNote"
+                    "resolutionNote",
+                    "businessTitle",
+                    "businessDescription"
                 ],
                 "type": "object",
                 "properties": {
@@ -21505,6 +21507,18 @@
                         "format": "date-time"
                     },
                     "resolutionNote": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "businessTitle": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "businessDescription": {
                         "type": [
                             "null",
                             "string"

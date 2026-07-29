@@ -31,7 +31,7 @@ export interface TaskActionsProps {
  */
 export function TaskActions({
   task,
-  showTechnicalDetails = true,
+  showTechnicalDetails = false,
 }: TaskActionsProps) {
   const { t } = useTranslation();
   const moveTask = useMoveTask();

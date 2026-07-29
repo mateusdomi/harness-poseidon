@@ -338,7 +338,14 @@ describe('BoardPage', () => {
     renderBoard(`/board?task=${task.id}`);
 
     // Aprovação pendente ligada à tarefa (fixture).
-    expect(await screen.findByText('Aprovar publicação da suíte E2E')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Aprovar a publicação das verificações de ponta a ponta'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Entrega', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('Aprovar publicação da suíte E2E')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Suíte completa rodando em CI; aprovar para marcar o gate.'),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Reprovar' }));
     await user.click(screen.getByRole('button', { name: 'Confirmar reprovação' }));
@@ -356,7 +363,9 @@ describe('BoardPage', () => {
     const task = projectTasks.find((entry) => entry.title === 'Suíte E2E do fluxo de aprovação')!;
     renderBoard(`/board?task=${task.id}`);
 
-    expect(await screen.findByText('Aprovar publicação da suíte E2E')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Aprovar a publicação das verificações de ponta a ponta'),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Aprovar' }));
     expect(await screen.findByText('Aprovada')).toBeInTheDocument();
   });

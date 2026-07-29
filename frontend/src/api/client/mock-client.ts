@@ -2330,6 +2330,8 @@ export class MockApiClient implements ApiClient {
           resolvedByProfileId: null,
           resolvedAt: null,
           resolutionNote: null,
+          businessTitle: null,
+          businessDescription: null,
         } satisfies Approval) as unknown as ResourceMap[K];
       }
       case 'conversations': {

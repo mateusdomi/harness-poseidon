@@ -1130,6 +1130,7 @@
       "sourceUnavailable": "Unavailable in the current contract; no data was inferred.",
       "objectiveUnavailable": "The objective has not been published by the team yet.",
       "businessProgress": {
+        "hint": "These measures are independent: they show how much was completed, verified, and accepted.",
         "executed": "Work completed",
         "validated": "Work verified",
         "approved": "Work approved"
@@ -1183,7 +1184,18 @@
         "noteLabel": "Note",
         "noteRequired": "A note is required to reject.",
         "notePlaceholder": "Explain the reason for the rejection…",
-        "resolutionNote": "Note: {{note}}"
+        "resolutionNote": "Note: {{note}}",
+        "requestedAt": "Requested on {{date}}",
+        "businessResolutionRecorded": "A note was recorded with this decision. Its operational content is available in technical details.",
+        "businessPurposeUnavailableTitle": "Business context unavailable",
+        "businessPurposeUnavailableDescription": "This decision does not yet have enough business context and cannot be resolved in this view.",
+        "askForContext": "Ask the team for clarification",
+        "businessKinds": {
+          "validation": "Validation",
+          "document": "Document",
+          "delivery": "Delivery",
+          "decision": "Decision"
+        }
       },
       "actions": {
         "title": "Human actions",

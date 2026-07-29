@@ -395,7 +395,8 @@ public static class DocumentEndpoints
     private static ApprovalContract ToContract(ApprovalCatalogRecord value) => new(
         value.Id, value.ProjectId, value.GateId, value.TaskId, value.DocumentId, value.Title,
         value.Description, value.Priority, value.DueAt, value.State, value.RequestedByAgentId,
-        value.RequestedAt, value.ResolvedByProfileId, value.ResolvedAt, value.ResolutionNote);
+        value.RequestedAt, value.ResolvedByProfileId, value.ResolvedAt, value.ResolutionNote,
+        null, null);
 
     private static IResult? Page(string? cursor, int? limit, params string?[] filters) =>
         ((cursor is not null && !Valid(cursor)) || limit is < 1 or > 200 ||

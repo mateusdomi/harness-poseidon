@@ -1130,6 +1130,7 @@
       "sourceUnavailable": "Indisponível no contrato atual; nenhum dado foi inferido.",
       "objectiveUnavailable": "O objetivo ainda não foi publicado pela equipe.",
       "businessProgress": {
+        "hint": "As medidas são independentes: mostram quanto foi realizado, quanto já foi verificado e quanto recebeu aceite.",
         "executed": "Trabalho realizado",
         "validated": "Trabalho verificado",
         "approved": "Trabalho aprovado"
@@ -1183,7 +1184,18 @@
         "noteLabel": "Observação",
         "noteRequired": "A observação é obrigatória para reprovar.",
         "notePlaceholder": "Explique o motivo da reprovação…",
-        "resolutionNote": "Observação: {{note}}"
+        "resolutionNote": "Observação: {{note}}",
+        "requestedAt": "Solicitada em {{date}}",
+        "businessResolutionRecorded": "Uma observação foi registrada com esta decisão. O conteúdo operacional está disponível nos detalhes técnicos.",
+        "businessPurposeUnavailableTitle": "Contexto de negócio indisponível",
+        "businessPurposeUnavailableDescription": "Esta decisão ainda não possui uma explicação de negócio suficiente e não pode ser resolvida nesta visão.",
+        "askForContext": "Pedir esclarecimento à equipe",
+        "businessKinds": {
+          "validation": "Validação",
+          "document": "Documento",
+          "delivery": "Entrega",
+          "decision": "Decisão"
+        }
       },
       "actions": {
         "title": "Ações humanas",

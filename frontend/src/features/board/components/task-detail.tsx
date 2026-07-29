@@ -41,7 +41,7 @@ const BUSINESS_PROGRESS = [
 export function TaskDetail({
   taskId,
   agents,
-  showTechnicalDetails = true,
+  showTechnicalDetails = false,
   onClose,
 }: TaskDetailProps) {
   const { t, i18n } = useTranslation();
@@ -255,6 +255,9 @@ export function TaskDetail({
           <ProgressTracks progress={task.progress} evidence={progressEvidence([task])} />
         ) : (
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
+            <p className="text-xs text-foreground-muted">
+              {t('board.detail.businessProgress.hint')}
+            </p>
             {BUSINESS_PROGRESS.map(({ key, fill }) => (
               <div key={key} className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between gap-3 text-sm">
@@ -427,7 +430,10 @@ export function TaskDetail({
               : 'board.detail.approvals.businessTitle',
           )}
         </h3>
-        <TaskApprovals approvals={approvals} />
+        <TaskApprovals
+          approvals={approvals}
+          showTechnicalDetails={showTechnicalDetails}
+        />
       </section>
 
       <section aria-labelledby="task-actions" className="flex flex-col gap-2">

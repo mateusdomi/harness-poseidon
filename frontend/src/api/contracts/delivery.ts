@@ -324,6 +324,12 @@ export const approvalSchema = z
     resolvedByProfileId: ulidSchema.nullable(),
     resolvedAt: isoDateTimeSchema.nullable(),
     resolutionNote: z.string().nullable(),
+    /**
+     * Projeção preparada pelo backend para decisão segura em modo de negócio.
+     * Ausência mantém o detalhe técnico intacto, mas bloqueia a resolução nessa visão.
+     */
+    businessTitle: z.string().nullable(),
+    businessDescription: z.string().nullable(),
   })
   .refine((a) => a.state !== 'rejected' || (a.resolutionNote?.length ?? 0) > 0, {
     message: 'Reprovação exige observação (resolutionNote).',
