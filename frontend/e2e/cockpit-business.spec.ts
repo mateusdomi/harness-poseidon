@@ -3,10 +3,10 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function ensureProfile(page: Page) {
   await page.goto('/');
-  await page.waitForURL(/\/(?:onboarding|cockpit)$/);
+  await page.waitForURL(/\/(?:onboarding|cockpit|chat(?:\/[^/]+)?)$/);
   if (/\/onboarding$/.test(page.url())) {
     await page.getByRole('button', { name: /Mateus/ }).click();
-    await expect(page).toHaveURL(/\/cockpit$/);
+    await page.waitForURL(/\/(?:cockpit|chat(?:\/[^/]+)?)$/);
   }
   await page.goto('/cockpit');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
@@ -38,7 +38,7 @@ test.describe('F3 — Dashboard de negócio', () => {
     await expect(page.getByText('Plano de testes')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Produtividade da equipe' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Capacidade da equipe' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Aprovações pendentes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Decisões humanas' })).toBeVisible();
 
     const visibleDashboard = await page.getByRole('main').innerText();
     expect(visibleDashboard).not.toMatch(
