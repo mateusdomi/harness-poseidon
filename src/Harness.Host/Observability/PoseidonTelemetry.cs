@@ -94,7 +94,10 @@ internal static class PoseidonTelemetry
                     .AddSource(ActivitySourceName)
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddProcessor(new SensitiveTelemetryProcessor());
+                    .AddProcessor(new SensitiveTelemetryProcessor())
+                    // Amostragem de cauda dos turnos: falha, escalação, guarda de laço e turno
+                    // lento são retidos integralmente; o corpo normal entra por fração estável.
+                    .AddProcessor(new TurnTailSamplingProcessor());
 
                 if (HasOtlpEndpoint(configuration, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
                 {
@@ -205,6 +208,20 @@ internal static class PoseidonTelemetry
 
     internal static void RecordChiefTurn(string result, double durationMilliseconds)
     {
+        // O desfecho precisa estar NO span para a amostragem de cauda poder decidir no fim: sem
+        // esta marca, todo turno pareceria concluído e as falhas seriam descartadas como rotina.
+        for (var activity = Activity.Current; activity is not null; activity = activity.Parent)
+        {
+            if (string.Equals(
+                    activity.OperationName,
+                    TurnTailSamplingProcessor.ChiefTurnActivityName,
+                    StringComparison.Ordinal))
+            {
+                activity.SetTag(TurnTailSamplingProcessor.OutcomeTagName, result);
+                break;
+            }
+        }
+
         var tags = new TagList
         {
             { "result", result },
