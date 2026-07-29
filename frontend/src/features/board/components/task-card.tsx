@@ -5,6 +5,11 @@ import type { Task, TaskState } from '@/api';
 import { Badge } from '@/design-system';
 import { shortTaskId } from '@/features/board/lib/board-derive';
 import { isTaskStuck } from '@/features/board/lib/board-filters';
+import {
+  resolveBoardPresentation,
+  taskStateLabelKey,
+  unassignedLabelKey,
+} from '@/features/board/lib/board-presentation';
 import { formatRelativeTime } from '@/lib/format';
 import { priorityVariant, taskStateVariant } from '@/lib/status';
 import { cn } from '@/lib/utils';
@@ -13,6 +18,7 @@ export interface TaskCardProps {
   task: Task;
   /** Nome do agente responsável (null = sem responsável). */
   agentName: string | null;
+  showTechnicalDetails: boolean;
   /** Destaque discreto aplicado logo após movimento em tempo real. */
   justMoved: boolean;
   /** Relógio compartilhado do quadro (tempo relativo atualiza junto). */
@@ -25,9 +31,17 @@ export interface TaskCardProps {
  * indicador de bloqueio e tempo desde a última atividade. É um <button>
  * inteiro — focável e ativável por teclado, alvo de toque ≥ 44px.
  */
-export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardProps) {
+export function TaskCard({
+  task,
+  agentName,
+  showTechnicalDetails,
+  justMoved,
+  now,
+  onOpen,
+}: TaskCardProps) {
   const { t, i18n } = useTranslation();
   const stuck = isTaskStuck(task, now);
+  const presentation = resolveBoardPresentation(showTechnicalDetails);
 
   return (
     <li>
@@ -40,39 +54,46 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
           // Arquivada (metaestado): indicação visual discreta.
           task.archivedAt !== null && 'opacity-75',
           // Movimento em tempo real: flash discreto (200 ms) — desligado com prefers-reduced-motion.
-          justMoved && 'motion-safe:bg-surface-elevated motion-safe:ring-2 motion-safe:ring-info motion-safe:transition-shadow motion-safe:duration-200',
+          justMoved &&
+            'motion-safe:bg-surface-elevated motion-safe:ring-2 motion-safe:ring-info motion-safe:transition-shadow motion-safe:duration-200',
         )}
       >
         <span className="flex min-w-0 items-start justify-between gap-2">
           <span className="line-clamp-2 min-w-0 text-sm font-medium">{task.title}</span>
-          <span
-            className="shrink-0 font-mono text-[0.7rem] text-foreground-muted"
-            title={t('board.card.idLabel', { id: task.id })}
-          >
-            #{shortTaskId(task.id)}
-          </span>
+          {presentation.showInternalId && (
+            <span
+              className="shrink-0 font-mono text-[0.7rem] text-foreground-muted"
+              title={t('board.card.idLabel', { id: task.id })}
+            >
+              #{shortTaskId(task.id)}
+            </span>
+          )}
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
           <Badge variant={taskStateVariant(task.state)}>
-            {t(`status.taskState.${task.state}`)}
+            {t(taskStateLabelKey(task.state, showTechnicalDetails))}
           </Badge>
           <Badge variant={priorityVariant(task.priority)}>
-            {t(`status.priority.${task.priority}`)}
+            {showTechnicalDetails
+              ? t(`status.priority.${task.priority}`)
+              : t('board.card.priority', {
+                  priority: t(`status.priority.${task.priority}`).toLocaleLowerCase(),
+                })}
           </Badge>
-          {task.archivedAt !== null && (
-            <Badge variant="outline">{t('board.card.archived')}</Badge>
+          {task.archivedAt !== null && <Badge variant="outline">{t('board.card.archived')}</Badge>}
+          {presentation.showCardType && (
+            <Badge
+              variant={
+                task.cardType === 'human_gate'
+                  ? 'warning'
+                  : task.cardType === 'decision'
+                    ? 'brand'
+                    : 'info'
+              }
+            >
+              {t(`board.card.types.${task.cardType ?? 'agent_task'}`)}
+            </Badge>
           )}
-          <Badge
-            variant={
-              task.cardType === 'human_gate'
-                ? 'warning'
-                : task.cardType === 'decision'
-                  ? 'brand'
-                  : 'info'
-            }
-          >
-            {t(`board.card.types.${task.cardType ?? 'agent_task'}`)}
-          </Badge>
           {task.phaseName && <Badge variant="brand">{task.phaseName}</Badge>}
         </span>
         {task.state === 'blocked' && (
@@ -92,7 +113,9 @@ export function TaskCard({ task, agentName, justMoved, now, onOpen }: TaskCardPr
           </span>
         )}
         <span className="flex items-center justify-between gap-2 text-xs text-foreground-muted">
-          <span className="truncate">{agentName ?? t('board.card.unassigned')}</span>
+          <span className="truncate">
+            {agentName ?? t(unassignedLabelKey(showTechnicalDetails))}
+          </span>
           <span className="shrink-0">
             {t('board.card.updated', {
               time: formatRelativeTime(task.updatedAt, i18n.language, now),

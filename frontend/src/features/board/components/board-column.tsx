@@ -5,12 +5,14 @@ import type { Task, TaskState } from '@/api';
 import { Badge } from '@/design-system';
 import { cn } from '@/lib/utils';
 import { TaskCard } from '@/features/board/components/task-card';
+import { taskStateLabelKey } from '@/features/board/lib/board-presentation';
 
 export interface BoardColumnProps {
   state: TaskState;
   tasks: Task[];
   /** Mapa agente → nome para o responsável do card. */
   agentNames: Map<string, string>;
+  showTechnicalDetails: boolean;
   /** Coluna destacada pelo filtro `?state=` (vinda do cockpit). */
   highlighted: boolean;
   recentlyMoved: ReadonlySet<string>;
@@ -23,7 +25,7 @@ export interface BoardColumnProps {
  * Largura fixa em todos os breakpoints para preservar o fluxo horizontal.
  */
 export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function BoardColumn(
-  { state, tasks, agentNames, highlighted, recentlyMoved, now, onOpenTask },
+  { state, tasks, agentNames, showTechnicalDetails, highlighted, recentlyMoved, now, onOpenTask },
   ref,
 ) {
   const { t } = useTranslation();
@@ -43,7 +45,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
         id={`board-column-${state}`}
         className="sticky top-0 z-10 flex items-center gap-2 rounded-md bg-surface-elevated/95 px-1 py-2 font-heading text-sm font-semibold backdrop-blur"
       >
-        {t(`status.taskState.${state}`)}
+        {t(taskStateLabelKey(state, showTechnicalDetails))}
         <Badge variant="outline">{tasks.length}</Badge>
       </h3>
       {tasks.length === 0 ? (
@@ -54,7 +56,10 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
             <TaskCard
               key={task.id}
               task={task}
-              agentName={task.assigneeAgentId ? (agentNames.get(task.assigneeAgentId) ?? null) : null}
+              agentName={
+                task.assigneeAgentId ? (agentNames.get(task.assigneeAgentId) ?? null) : null
+              }
+              showTechnicalDetails={showTechnicalDetails}
               justMoved={recentlyMoved.has(task.id)}
               now={now}
               onOpen={onOpenTask}

@@ -12,6 +12,7 @@ import {
   shortTaskId,
 } from '@/features/board/lib/board-derive';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
 
 const fixtures = createTestBundle().fixtures.data;
 const { tasks, projects, agents } = fixtures;
@@ -65,9 +66,16 @@ describe('board-derive', () => {
   });
 });
 
-function renderBoard(initialEntry = '/board') {
+function renderBoard(
+  initialEntry = '/board',
+  presentationMode: 'business' | 'technical' = 'business',
+) {
   // Bundle novo por teste: o store do mock é mutável (aprovações, prioridade).
   const bundle = createTestBundle();
+  usePresentationStore.setState({ modeByProfile: {} });
+  if (presentationMode === 'technical') {
+    usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+  }
   return renderWithApi(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
@@ -102,24 +110,24 @@ describe('BoardPage', () => {
     renderBoard();
 
     for (const name of [
-      'Backlog',
-      'Pronta',
-      'Em desenvolvimento',
+      'Planejado',
+      'Pronto para começar',
+      'Em andamento',
       'Em revisão',
       'Em correção',
-      'Testes e gates',
-      'Bloqueada',
-      'Concluída',
+      'Em validação',
+      'Precisa de atenção',
+      'Concluído',
     ]) {
       expect(await screen.findByRole('region', { name: new RegExp(name) })).toBeInTheDocument();
     }
 
-    const backlogColumn = screen.getByRole('region', { name: /Backlog/ });
+    const backlogColumn = screen.getByRole('region', { name: /Planejado/ });
     expect(
       within(backlogColumn).getByRole('button', { name: /Mapear endpoints de billing/ }),
     ).toBeInTheDocument();
 
-    const blockedColumn = screen.getByRole('region', { name: /Bloqueada/ });
+    const blockedColumn = screen.getByRole('region', { name: /Precisa de atenção/ });
     expect(
       within(blockedColumn).getByRole('button', { name: /Deploy em staging/ }),
     ).toBeInTheDocument();
@@ -130,9 +138,26 @@ describe('BoardPage', () => {
     expect(screen.getByText(/cadeia solicitação → demanda → tarefa/)).toBeInTheDocument();
   });
 
-  it('mostra o ID curto (discreto) no card, buscável pelo que o usuário vê', async () => {
-    const user = userEvent.setup();
+  it('oculta ID e filtros internos no modo de negócio', async () => {
     renderBoard();
+
+    const task = projectTasks.find((entry) => entry.title === 'Mapear endpoints de billing')!;
+    const plannedColumn = await screen.findByRole('region', { name: /Planejado/ });
+    expect(within(plannedColumn).queryByText(`#${shortTaskId(task.id)}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Buscar')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Responsável')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Prioridade')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Coluna')).toBeInTheDocument();
+    expect(screen.getByLabelText('Fase')).toBeInTheDocument();
+    expect(screen.getByLabelText('Última atividade')).toBeInTheDocument();
+    expect(screen.getByLabelText('Arquivamento')).toBeInTheDocument();
+    expect(screen.queryByText('Tarefa de agente')).not.toBeInTheDocument();
+  });
+
+  it('preserva ID e filtros avançados no modo técnico autorizado', async () => {
+    const user = userEvent.setup();
+    renderBoard('/board', 'technical');
 
     const task = projectTasks.find((entry) => entry.title === 'Mapear endpoints de billing')!;
     const backlogColumn = await screen.findByRole('region', { name: /Backlog/ });
@@ -161,13 +186,17 @@ describe('BoardPage', () => {
   });
 
   it('o filtro "Responsável" abre em "Todos os responsáveis" e lista responsáveis reais', async () => {
-    renderBoard();
+    renderBoard('/board', 'technical');
 
     const assigneeSelect = await screen.findByLabelText('Responsável');
     // Opção neutra clara (não mais um "Todas" ambíguo).
-    expect(within(assigneeSelect).getByRole('option', { name: 'Todos os responsáveis' })).toBeInTheDocument();
+    expect(
+      within(assigneeSelect).getByRole('option', { name: 'Todos os responsáveis' }),
+    ).toBeInTheDocument();
     // Sem opções mortas: nenhum chefe entra na lista de responsáveis.
-    expect(within(assigneeSelect).queryByRole('option', { name: /^Chefe/ })).not.toBeInTheDocument();
+    expect(
+      within(assigneeSelect).queryByRole('option', { name: /^Chefe/ }),
+    ).not.toBeInTheDocument();
     // Só entra quem tem card: cada opção corresponde a um assignee real.
     const assignedIds = new Set(
       projectTasks.map((entry) => entry.assigneeAgentId).filter((id): id is string => id !== null),
@@ -183,7 +212,7 @@ describe('BoardPage', () => {
   it('move o card de coluna ao receber task.stateChanged no stream do projeto', async () => {
     const { bundle } = renderBoard();
 
-    const backlogColumn = await screen.findByRole('region', { name: /Backlog/ });
+    const backlogColumn = await screen.findByRole('region', { name: /Planejado/ });
     const cardName = /Mapear endpoints de billing/;
     expect(within(backlogColumn).getByRole('button', { name: cardName })).toBeInTheDocument();
 
@@ -198,7 +227,7 @@ describe('BoardPage', () => {
       });
     });
 
-    const readyColumn = screen.getByRole('region', { name: /Pronta/ });
+    const readyColumn = screen.getByRole('region', { name: /Pronto para começar/ });
     expect(await within(readyColumn).findByRole('button', { name: cardName })).toBeInTheDocument();
     expect(within(backlogColumn).queryByRole('button', { name: cardName })).not.toBeInTheDocument();
   });
@@ -206,9 +235,9 @@ describe('BoardPage', () => {
   it('destaca a coluna filtrada por ?state= (link do cockpit)', async () => {
     renderBoard('/board?state=blocked');
 
-    const blockedColumn = await screen.findByRole('region', { name: /Bloqueada/ });
+    const blockedColumn = await screen.findByRole('region', { name: /Precisa de atenção/ });
     expect(blockedColumn).toHaveAttribute('data-highlighted', 'true');
-    const backlogColumn = screen.getByRole('region', { name: /Backlog/ });
+    const backlogColumn = screen.getByRole('region', { name: /Planejado/ });
     expect(backlogColumn).not.toHaveAttribute('data-highlighted');
   });
 
@@ -216,16 +245,20 @@ describe('BoardPage', () => {
     const user = userEvent.setup();
     renderBoard();
 
-    const backlogColumn = await screen.findByRole('region', { name: /Backlog/ });
-    await user.click(within(backlogColumn).getByRole('button', { name: /Mapear endpoints de billing/ }));
+    const backlogColumn = await screen.findByRole('region', { name: /Planejado/ });
+    await user.click(
+      within(backlogColumn).getByRole('button', { name: /Mapear endpoints de billing/ }),
+    );
 
     // Detalhe substitui o quadro (página mobile) — instrução imutável visível.
     expect(await screen.findByText('Instrução enviada ao agente')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Mapear endpoints de billing' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: /Backlog/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Mapear endpoints de billing' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /Planejado/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Voltar ao quadro/ }));
-    expect(await screen.findByRole('region', { name: /Backlog/ })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: /Planejado/ })).toBeInTheDocument();
   });
 
   it('abre o detalhe como drawer no desktop (lg+) e fecha com Esc', async () => {
@@ -236,12 +269,14 @@ describe('BoardPage', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Detalhes da tarefa' });
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveClass('top-16', 'bottom-0', 'overflow-y-auto');
-    expect(
-      await within(dialog).findByRole('heading', { name: projectTasks[0].title }),
-    ).toHaveClass('break-words');
-    expect(within(dialog).getAllByText(/Backlog|Pronta|Em desenvolvimento/).length).toBeGreaterThan(0);
+    expect(await within(dialog).findByRole('heading', { name: projectTasks[0].title })).toHaveClass(
+      'break-words',
+    );
+    expect(within(dialog).getAllByText(/Backlog|Pronta|Em desenvolvimento/).length).toBeGreaterThan(
+      0,
+    );
     // O quadro continua visível atrás do drawer.
-    expect(await screen.findByRole('region', { name: /Backlog/ })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: /Planejado/ })).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
     await waitFor(() => {
@@ -278,10 +313,9 @@ describe('BoardPage', () => {
     fireEvent.pointerUp(board, { pointerId: 7, clientX: 220 });
     expect(board).not.toHaveAttribute('data-panning');
 
-    const card = within(screen.getByRole('region', { name: /Backlog/ })).getByRole(
-      'button',
-      { name: /Mapear endpoints de billing/ },
-    );
+    const card = within(screen.getByRole('region', { name: /Planejado/ })).getByRole('button', {
+      name: /Mapear endpoints de billing/,
+    });
     fireEvent.pointerDown(card, { button: 0, pointerId: 8, clientX: 300 });
     fireEvent.pointerMove(board, { pointerId: 8, clientX: 100 });
     expect(board.scrollLeft).toBe(200);
@@ -332,10 +366,12 @@ describe('BoardPage', () => {
 
   it('filtra por busca (título) com contagem de resultados e limpa os filtros', async () => {
     const user = userEvent.setup();
-    renderBoard();
+    renderBoard('/board', 'technical');
 
     const search = await screen.findByLabelText('Buscar');
-    expect(screen.getByText(`${projectTasks.length - 1} de ${projectTasks.length} tarefas`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${projectTasks.length - 1} de ${projectTasks.length} tarefas`),
+    ).toBeInTheDocument();
 
     await user.type(search, 'Mapear endpoints');
     expect(await screen.findByText(`1 de ${projectTasks.length} tarefas`)).toBeInTheDocument();
@@ -359,12 +395,12 @@ describe('BoardPage', () => {
 
     await user.selectOptions(await screen.findByLabelText('Coluna'), 'blocked');
 
-    const blockedColumn = await screen.findByRole('region', { name: /Bloqueada/ });
+    const blockedColumn = await screen.findByRole('region', { name: /Precisa de atenção/ });
     expect(
       within(blockedColumn).getByRole('button', { name: /Deploy em staging/ }),
     ).toBeInTheDocument();
     // Estrutura preservada: coluna vazia continua visível com contador 0.
-    const backlogColumn = screen.getByRole('region', { name: /Backlog/ });
+    const backlogColumn = screen.getByRole('region', { name: /Planejado/ });
     expect(within(backlogColumn).getByText('0')).toBeInTheDocument();
     expect(within(backlogColumn).getByText('Sem tarefas nesta coluna.')).toBeInTheDocument();
   });
@@ -373,16 +409,14 @@ describe('BoardPage', () => {
     const user = userEvent.setup();
     renderBoard();
 
-    const doneColumn = await screen.findByRole('region', { name: /Concluída/ });
+    const doneColumn = await screen.findByRole('region', { name: /Concluído/ });
     expect(
       within(doneColumn).queryByRole('button', { name: /Setup do Vite/ }),
     ).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText('Arquivamento'), 'archived');
     expect(await screen.findByText(`1 de ${projectTasks.length} tarefas`)).toBeInTheDocument();
-    expect(
-      within(doneColumn).getByRole('button', { name: /Setup do Vite/ }),
-    ).toBeInTheDocument();
+    expect(within(doneColumn).getByRole('button', { name: /Setup do Vite/ })).toBeInTheDocument();
     expect(within(doneColumn).getByText('Arquivada')).toBeInTheDocument();
   });
 
@@ -399,12 +433,10 @@ describe('BoardPage', () => {
 
     // Após arquivar, não restam elegíveis: botão zera e desabilita.
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /Arquivar concluídas \(0\)/ }),
-      ).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Arquivar concluídas \(0\)/ })).toBeDisabled();
     });
     // A coluna Concluída fica vazia no filtro padrão (ativas).
-    const doneColumn = screen.getByRole('region', { name: /Concluída/ });
+    const doneColumn = screen.getByRole('region', { name: /Concluído/ });
     expect(within(doneColumn).getByText('0')).toBeInTheDocument();
   });
 

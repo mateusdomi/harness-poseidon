@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Info } from 'lucide-react';
 
-import { Button, Card, CardContent, Select, Skeleton } from '@/design-system';
+import { Button, Card, CardContent, Skeleton } from '@/design-system';
 import { useApi } from '@/app/api-context';
+import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
 import { BoardFiltersBar } from '@/features/board/components/board-filters-bar';
 import { BoardFlowDialog } from '@/features/board/components/board-flow-dialog';
 import { KanbanBoard } from '@/features/board/components/kanban-board';
@@ -47,11 +48,11 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 export default function UboardPage() {
   const { t } = useTranslation();
   const api = useApi();
+  const presentation = usePresentationPolicy();
   const [searchParams, setSearchParams] = useSearchParams();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
-  const { projects, activeProject, setActiveProject, isPending, isError, refetch } =
-    useActiveProject();
+  const { activeProject, isPending, isError, refetch } = useActiveProject();
   const projectId = activeProject?.id ?? null;
 
   const tasksQuery = useBoardTasks(projectId);
@@ -103,8 +104,7 @@ export default function UboardPage() {
 
   const loading =
     isPending || tasksQuery.isLoading || agentsQuery.isLoading || definitionsQuery.isLoading;
-  const errored =
-    isError || tasksQuery.isError || agentsQuery.isError || definitionsQuery.isError;
+  const errored = isError || tasksQuery.isError || agentsQuery.isError || definitionsQuery.isError;
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
   const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
   const definitions = useMemo(() => definitionsQuery.data ?? [], [definitionsQuery.data]);
@@ -144,10 +144,7 @@ export default function UboardPage() {
   // tarefas do projeto (não do conjunto filtrado), para a lista ficar estável.
   const filterAssignees = useMemo(() => assigneeAgents(tasks, agents), [tasks, agents]);
   const assignedDefinitionIds = useMemo(
-    () =>
-      new Set(
-        filterAssignees.map((agent) => agent.definitionId),
-      ),
+    () => new Set(filterAssignees.map((agent) => agent.definitionId)),
     [filterAssignees],
   );
   const filterSignatures = useMemo(
@@ -174,9 +171,7 @@ export default function UboardPage() {
     () =>
       Array.from(
         new Set(
-          tasks
-            .map((task) => task.phaseName)
-            .filter((phase): phase is string => Boolean(phase)),
+          tasks.map((task) => task.phaseName).filter((phase): phase is string => Boolean(phase)),
         ),
       ).sort((a, b) => a.localeCompare(b)),
     [tasks],
@@ -223,25 +218,6 @@ export default function UboardPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-semibold">{t('features.board.title')}</h1>
-        {projects.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            <label htmlFor="board-project" className="text-sm text-foreground-muted">
-              {t('cockpit.projectSelector.label')}
-            </label>
-            <Select
-              id="board-project"
-              className="w-auto min-w-48"
-              value={activeProject?.id ?? ''}
-              onChange={(event) => setActiveProject(event.target.value)}
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
       </div>
 
       {loading ? (
@@ -301,6 +277,7 @@ export default function UboardPage() {
             <>
               <BoardFiltersBar
                 filters={filters}
+                showTechnicalDetails={presentation.showTechnicalDetails}
                 agents={filterAssignees}
                 signatures={filterSignatures}
                 specialties={filterSpecialties}
@@ -318,6 +295,7 @@ export default function UboardPage() {
               <KanbanBoard
                 tasks={filteredTasks}
                 agents={agents}
+                showTechnicalDetails={presentation.showTechnicalDetails}
                 filteredState={filteredState}
                 recentlyMoved={recentlyMoved}
                 now={now}
@@ -335,10 +313,7 @@ export default function UboardPage() {
       {flowOpen && <BoardFlowDialog onClose={() => setFlowOpen(false)} />}
 
       {archiveAllOpen && (
-        <ModalDialog
-          label={t('board.archive.batchTitle')}
-          onClose={() => setArchiveAllOpen(false)}
-        >
+        <ModalDialog label={t('board.archive.batchTitle')} onClose={() => setArchiveAllOpen(false)}>
           <h2 className="font-heading text-lg font-semibold">{t('board.archive.batchTitle')}</h2>
           <p className="text-sm text-foreground-muted">
             {t('board.archive.batchBody', { count: archivableTasks.length })}

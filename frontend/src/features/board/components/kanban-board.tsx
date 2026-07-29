@@ -8,6 +8,7 @@ import { groupTasksByState } from '@/features/board/lib/board-derive';
 export interface KanbanBoardProps {
   tasks: Task[];
   agents: Agent[];
+  showTechnicalDetails: boolean;
   /** Filtro `?state=` (do cockpit): destaca e rola até a coluna. */
   filteredState: TaskState | null;
   recentlyMoved: ReadonlySet<string>;
@@ -37,6 +38,7 @@ const KANBAN_STATES: readonly TaskState[] = [
 export function KanbanBoard({
   tasks,
   agents,
+  showTechnicalDetails,
   filteredState,
   recentlyMoved,
   now,
@@ -49,9 +51,12 @@ export function KanbanBoard({
     [agents],
   );
   const columnRefs = useRef(new Map<TaskState, HTMLElement>());
-  const pan = useRef<{ pointerId: number; startX: number; scrollLeft: number; moved: boolean } | null>(
-    null,
-  );
+  const pan = useRef<{
+    pointerId: number;
+    startX: number;
+    scrollLeft: number;
+    moved: boolean;
+  } | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,6 +133,7 @@ export function KanbanBoard({
           state={state}
           tasks={tasksByState[state]}
           agentNames={agentNames}
+          showTechnicalDetails={showTechnicalDetails}
           highlighted={filteredState === state}
           recentlyMoved={recentlyMoved}
           now={now}

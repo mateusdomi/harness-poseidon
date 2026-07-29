@@ -1069,6 +1069,18 @@
   },
   "board": {
     "kanbanLabel": "Horizontal Kanban board",
+    "presentation": {
+      "states": {
+        "backlog": "Planned",
+        "ready": "Ready to start",
+        "development": "In progress",
+        "review": "In review",
+        "corrections": "Being corrected",
+        "testsGates": "Being validated",
+        "blocked": "Needs attention",
+        "done": "Completed"
+      }
+    },
     "hint": "Technical tasks follow the solicitation → demand → task chain coordinated by Bruna Magalhães. To ask for something new, create a solicitation in the chat; movements follow flow permissions and gates.",
     "hintCta": "Open the chat",
     "noProject": {
@@ -1085,7 +1097,9 @@
     },
     "card": {
       "open": "Open details of task {{title}}",
-      "unassigned": "Unassigned",
+      "unassigned": "Awaiting organization",
+      "unassignedTechnical": "Unassigned",
+      "priority": "{{priority}} priority",
       "blocked": "Blocked: {{reason}}",
       "blockedUnknown": "no reason given",
       "updated": "Updated {{time}}",

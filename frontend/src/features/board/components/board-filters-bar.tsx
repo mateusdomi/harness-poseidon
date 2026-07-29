@@ -11,6 +11,7 @@ import {
   type BoardFilters,
   type BoardPeriod,
 } from '@/features/board/lib/board-filters';
+import { taskStateLabelKey } from '@/features/board/lib/board-presentation';
 
 export interface BoardSignatureOption {
   value: string;
@@ -19,6 +20,7 @@ export interface BoardSignatureOption {
 
 export interface BoardFiltersBarProps {
   filters: BoardFilters;
+  showTechnicalDetails: boolean;
   /**
    * Responsáveis REAIS (agentes com ao menos um card) — opções do filtro
    * "Responsável". Sem opções mortas: quem não recebe cards não aparece.
@@ -50,6 +52,7 @@ export interface BoardFiltersBarProps {
  */
 export function BoardFiltersBar({
   filters,
+  showTechnicalDetails,
   agents,
   signatures,
   specialties,
@@ -70,18 +73,20 @@ export function BoardFiltersBar({
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3">
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-48 flex-col gap-1">
-          <label htmlFor="board-filter-q" className="text-xs font-medium">
-            {t('board.filters.search')}
-          </label>
-          <Input
-            id="board-filter-q"
-            type="search"
-            value={filters.query}
-            placeholder={t('board.filters.searchPlaceholder')}
-            onChange={(event) => patch({ query: event.target.value })}
-          />
-        </div>
+        {showTechnicalDetails && (
+          <div className="flex min-w-48 flex-col gap-1">
+            <label htmlFor="board-filter-q" className="text-xs font-medium">
+              {t('board.filters.search')}
+            </label>
+            <Input
+              id="board-filter-q"
+              type="search"
+              value={filters.query}
+              placeholder={t('board.filters.searchPlaceholder')}
+              onChange={(event) => patch({ query: event.target.value })}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <label htmlFor="board-filter-state" className="text-xs font-medium">
             {t('board.filters.state')}
@@ -94,79 +99,87 @@ export function BoardFiltersBar({
             <option value="">{t('board.filters.all')}</option>
             {TASK_STATES.map((state) => (
               <option key={state} value={state}>
-                {t(`status.taskState.${state}`)}
+                {t(taskStateLabelKey(state, showTechnicalDetails))}
               </option>
             ))}
           </Select>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="board-filter-agent" className="text-xs font-medium">
-            {t('board.filters.agent')}
-          </label>
-          <Select
-            id="board-filter-agent"
-            value={filters.agentId}
-            onChange={(event) => patch({ agentId: event.target.value })}
-          >
-            <option value="">{t('board.filters.agentAll')}</option>
-            {agents.map((agent) => (
-              <option key={agent.id} value={agent.id}>
-                {agent.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="board-filter-signature" className="text-xs font-medium">
-            {t('board.filters.signature')}
-          </label>
-          <Select
-            id="board-filter-signature"
-            value={filters.signature}
-            onChange={(event) => patch({ signature: event.target.value })}
-          >
-            <option value="">{t('board.filters.signatureAll')}</option>
-            {signatures.map((signature) => (
-              <option key={signature.value} value={signature.value}>
-                {signature.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="board-filter-specialty" className="text-xs font-medium">
-            {t('board.filters.specialty')}
-          </label>
-          <Select
-            id="board-filter-specialty"
-            value={filters.specialty}
-            onChange={(event) => patch({ specialty: event.target.value })}
-          >
-            <option value="">{t('board.filters.specialtyAll')}</option>
-            {specialties.map((specialty) => (
-              <option key={specialty} value={specialty}>
-                {specialty}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="board-filter-type" className="text-xs font-medium">
-            {t('board.filters.type')}
-          </label>
-          <Select
-            id="board-filter-type"
-            value={filters.cardType}
-            onChange={(event) => patch({ cardType: event.target.value as BoardCardType | '' })}
-          >
-            <option value="">{t('board.filters.all')}</option>
-            {BOARD_CARD_TYPES.map((cardType) => (
-              <option key={cardType} value={cardType}>
-                {t(`board.card.types.${cardType}`)}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {showTechnicalDetails && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="board-filter-agent" className="text-xs font-medium">
+              {t('board.filters.agent')}
+            </label>
+            <Select
+              id="board-filter-agent"
+              value={filters.agentId}
+              onChange={(event) => patch({ agentId: event.target.value })}
+            >
+              <option value="">{t('board.filters.agentAll')}</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+        {showTechnicalDetails && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="board-filter-signature" className="text-xs font-medium">
+              {t('board.filters.signature')}
+            </label>
+            <Select
+              id="board-filter-signature"
+              value={filters.signature}
+              onChange={(event) => patch({ signature: event.target.value })}
+            >
+              <option value="">{t('board.filters.signatureAll')}</option>
+              {signatures.map((signature) => (
+                <option key={signature.value} value={signature.value}>
+                  {signature.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+        {showTechnicalDetails && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="board-filter-specialty" className="text-xs font-medium">
+              {t('board.filters.specialty')}
+            </label>
+            <Select
+              id="board-filter-specialty"
+              value={filters.specialty}
+              onChange={(event) => patch({ specialty: event.target.value })}
+            >
+              <option value="">{t('board.filters.specialtyAll')}</option>
+              {specialties.map((specialty) => (
+                <option key={specialty} value={specialty}>
+                  {specialty}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+        {showTechnicalDetails && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="board-filter-type" className="text-xs font-medium">
+              {t('board.filters.type')}
+            </label>
+            <Select
+              id="board-filter-type"
+              value={filters.cardType}
+              onChange={(event) => patch({ cardType: event.target.value as BoardCardType | '' })}
+            >
+              <option value="">{t('board.filters.all')}</option>
+              {BOARD_CARD_TYPES.map((cardType) => (
+                <option key={cardType} value={cardType}>
+                  {t(`board.card.types.${cardType}`)}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <label htmlFor="board-filter-phase" className="text-xs font-medium">
             {t('board.filters.phase')}
@@ -184,23 +197,25 @@ export function BoardFiltersBar({
             ))}
           </Select>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="board-filter-priority" className="text-xs font-medium">
-            {t('board.filters.priority')}
-          </label>
-          <Select
-            id="board-filter-priority"
-            value={filters.priority}
-            onChange={(event) => patch({ priority: event.target.value as Priority | '' })}
-          >
-            <option value="">{t('board.filters.all')}</option>
-            {PRIORITIES.map((priority) => (
-              <option key={priority} value={priority}>
-                {t(`status.priority.${priority}`)}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {showTechnicalDetails && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="board-filter-priority" className="text-xs font-medium">
+              {t('board.filters.priority')}
+            </label>
+            <Select
+              id="board-filter-priority"
+              value={filters.priority}
+              onChange={(event) => patch({ priority: event.target.value as Priority | '' })}
+            >
+              <option value="">{t('board.filters.all')}</option>
+              {PRIORITIES.map((priority) => (
+                <option key={priority} value={priority}>
+                  {t(`status.priority.${priority}`)}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <label htmlFor="board-filter-period" className="text-xs font-medium">
             {t('board.filters.period')}

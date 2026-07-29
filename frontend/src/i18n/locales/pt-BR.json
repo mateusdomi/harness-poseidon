@@ -1069,6 +1069,18 @@
   },
   "board": {
     "kanbanLabel": "Quadro Kanban horizontal",
+    "presentation": {
+      "states": {
+        "backlog": "Planejado",
+        "ready": "Pronto para começar",
+        "development": "Em andamento",
+        "review": "Em revisão",
+        "corrections": "Em correção",
+        "testsGates": "Em validação",
+        "blocked": "Precisa de atenção",
+        "done": "Concluído"
+      }
+    },
     "hint": "Tarefas técnicas nascem da cadeia solicitação → demanda → tarefa, coordenada por Bruna Magalhães. Para pedir algo novo, crie uma solicitação no chat; movimentos seguem as permissões e os gates do fluxo.",
     "hintCta": "Abrir o chat",
     "noProject": {
@@ -1085,7 +1097,9 @@
     },
     "card": {
       "open": "Abrir detalhes da tarefa {{title}}",
-      "unassigned": "Sem responsável",
+      "unassigned": "Aguardando organização",
+      "unassignedTechnical": "Sem responsável",
+      "priority": "Prioridade {{priority}}",
       "blocked": "Bloqueada: {{reason}}",
       "blockedUnknown": "motivo não informado",
       "updated": "Atualizada {{time}}",
