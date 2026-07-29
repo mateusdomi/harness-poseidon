@@ -4,7 +4,7 @@
 fases:
   F1:  { estado: em_andamento, agente: claude-a, iniciado_em: "2026-07-29T17:06:55Z", atualizado_em: "2026-07-29T17:06:55Z", nota: "lexico + modo de apresentacao + gate de vocabulario" }
   F2:  { estado: em_andamento, agente: codex-a, iniciado_em: "2026-07-29T17:11:59Z", atualizado_em: "2026-07-29T17:11:59Z", nota: "voz da Bruna e experiencia de chat full-stack; sem tocar planner nem guardas de turno" }
-  F3:  { estado: em_andamento, agente: codex-b, iniciado_em: "2026-07-29T17:12:44Z", atualizado_em: "2026-07-29T17:12:44Z", nota: "dashboard de negocio: quadro da equipe, timeline, progresso unificado e aprovacoes pendentes" }
+  F3:  { estado: em_andamento, agente: codex-b, iniciado_em: "2026-07-29T17:12:44Z", atualizado_em: "2026-07-29T18:18:00Z", nota: "implementacao conciliada com os commits do dono; 28 testes focados verdes; aguardando F1/F4 e gates finais" }
   F4:  { estado: em_andamento, agente: claude-opus, iniciado_em: "2026-07-29T17:10:00Z", atualizado_em: "2026-07-29T17:52:00Z", nota: "gates verdes na worktree; RECONCILIANDO com o presentation-policy que ja existia no develop (19 commits do dono publicados hoje) antes de integrar" }
   F5:  { estado: em_andamento, agente: kimi-a, iniciado_em: "2026-07-29T17:15:35Z", atualizado_em: "2026-07-29T17:40:58Z", nota: "backend (prazo+intake+ZIP+tracking) e frontend (tela rastreamento) em implementacao paralela na worktree poseidon-kimi-a" }
   F6:  { estado: concluida, agente: antigravity-a, iniciado_em: "2026-07-29T17:18:17Z", concluido_em: "2026-07-29T17:57:00Z", atualizado_em: "2026-07-29T17:57:00Z", nota: "projetos: criacao por modo + bindings auditados; migrations 0092-0093; 100% verificado" }
