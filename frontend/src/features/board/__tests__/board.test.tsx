@@ -135,7 +135,9 @@ describe('BoardPage', () => {
 
     // Não existe botão "nova tarefa" — humano não cria tarefa técnica.
     expect(screen.queryByRole('button', { name: /nova tarefa/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/quadro organiza o trabalho do projeto por etapa/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/quadro organiza o trabalho do projeto por etapa/i),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/cadeia solicitação → demanda → tarefa/i)).not.toBeInTheDocument();
   });
 
@@ -156,8 +158,7 @@ describe('BoardPage', () => {
     expect(screen.queryByText('Tarefa de agente')).not.toBeInTheDocument();
   });
 
-  it('preserva ID e filtros avançados no modo técnico autorizado', async () => {
-    const user = userEvent.setup();
+  it('preserva o ID técnico sem ampliar o conjunto enxuto de filtros', async () => {
     renderBoard('/board', 'technical');
 
     const task = projectTasks.find((entry) => entry.title === 'Mapear endpoints de billing')!;
@@ -166,11 +167,14 @@ describe('BoardPage', () => {
     const idChip = within(backlogColumn).getByText(`#${shortTaskId(task.id)}`);
     expect(idChip).toHaveAttribute('title', `ID da tarefa: ${task.id}`);
 
-    // Buscar pelo sufixo visível encontra a tarefa (busca por ID casa).
-    await user.type(await screen.findByLabelText('Buscar'), shortTaskId(task.id));
-    expect(
-      await within(backlogColumn).findByRole('button', { name: /Mapear endpoints de billing/ }),
-    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Buscar')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Responsável')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Prioridade')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Coluna')).toBeInTheDocument();
+    expect(screen.getByLabelText('Etapa')).toBeInTheDocument();
+    expect(screen.getByLabelText('Última atividade')).toBeInTheDocument();
+    expect(screen.getByLabelText('Arquivamento')).toBeInTheDocument();
   });
 
   it('expõe o ID completo copiável no detalhe da tarefa', async () => {
@@ -186,28 +190,12 @@ describe('BoardPage', () => {
     expect(await screen.findByRole('button', { name: 'ID copiado' })).toBeInTheDocument();
   });
 
-  it('o filtro "Responsável" abre em "Todos os responsáveis" e lista responsáveis reais', async () => {
+  it('usa a etiqueta Tarefa e mantém o nome público da pessoa responsável', async () => {
     renderBoard('/board', 'technical');
 
-    const assigneeSelect = await screen.findByLabelText('Responsável');
-    // Opção neutra clara (não mais um "Todas" ambíguo).
-    expect(
-      within(assigneeSelect).getByRole('option', { name: 'Todos os responsáveis' }),
-    ).toBeInTheDocument();
-    // Sem opções mortas: nenhum chefe entra na lista de responsáveis.
-    expect(
-      within(assigneeSelect).queryByRole('option', { name: /^Chefe/ }),
-    ).not.toBeInTheDocument();
-    // Só entra quem tem card: cada opção corresponde a um assignee real.
-    const assignedIds = new Set(
-      projectTasks.map((entry) => entry.assigneeAgentId).filter((id): id is string => id !== null),
-    );
-    const options = within(assigneeSelect)
-      .getAllByRole('option')
-      .map((option) => (option as HTMLOptionElement).value)
-      .filter((value) => value !== '');
-    expect(options.length).toBeGreaterThan(0);
-    expect(options.every((value) => assignedIds.has(value))).toBe(true);
+    const card = await screen.findByRole('button', { name: /Mapear endpoints de billing/ });
+    expect(within(card).getByText('Tarefa', { exact: true })).toBeInTheDocument();
+    expect(within(card).queryByText(/—/)).not.toBeInTheDocument();
   });
 
   it('move o card de coluna ao receber task.stateChanged no stream do projeto', async () => {
@@ -278,9 +266,9 @@ describe('BoardPage', () => {
     expect(await within(dialog).findByRole('heading', { name: projectTasks[0].title })).toHaveClass(
       'break-words',
     );
-    expect(within(dialog).getAllByText(/Planejado|Pronto para começar|Em andamento/).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      within(dialog).getAllByText(/Planejado|Pronto para começar|Em andamento/).length,
+    ).toBeGreaterThan(0);
     expect(within(dialog).queryByText(projectTasks[0].id)).not.toBeInTheDocument();
     // O quadro continua visível atrás do drawer.
     expect(await screen.findByRole('region', { name: /Planejado/ })).toBeInTheDocument();
@@ -380,24 +368,21 @@ describe('BoardPage', () => {
     await waitFor(() => expect(prioritySelect).toHaveValue('critical'));
   });
 
-  it('filtra por busca (título) com contagem de resultados e limpa os filtros', async () => {
+  it('filtra por coluna com contagem de resultados e limpa os filtros', async () => {
     const user = userEvent.setup();
     renderBoard('/board', 'technical');
 
-    const search = await screen.findByLabelText('Buscar');
+    const expected = projectTasks.filter(
+      (task) => task.archivedAt === null && task.state === 'blocked',
+    ).length;
     expect(
-      screen.getByText(`${projectTasks.length - 1} de ${projectTasks.length} tarefas`),
+      await screen.findByText(`${projectTasks.length - 1} de ${projectTasks.length} tarefas`),
     ).toBeInTheDocument();
 
-    await user.type(search, 'Mapear endpoints');
-    expect(await screen.findByText(`1 de ${projectTasks.length} tarefas`)).toBeInTheDocument();
-    const backlogColumn = screen.getByRole('region', { name: /Backlog/ });
+    await user.selectOptions(await screen.findByLabelText('Coluna'), 'blocked');
     expect(
-      within(backlogColumn).getByRole('button', { name: /Mapear endpoints de billing/ }),
+      await screen.findByText(`${expected} de ${projectTasks.length} tarefas`),
     ).toBeInTheDocument();
-    expect(
-      within(backlogColumn).queryByRole('button', { name: /Definir tokens de espaçamento/ }),
-    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Limpar filtros' }));
     expect(

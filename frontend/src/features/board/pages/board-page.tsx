@@ -14,14 +14,12 @@ import { TaskDrawer } from '@/features/board/components/task-drawer';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
 import {
   useArchiveCompletedTasks,
-  useBoardAgentDefinitions,
   useBoardAgents,
   useBoardRealtime,
   useBoardTasks,
   useNow,
 } from '@/features/board/hooks/use-board';
 import { useMediaQuery } from '@/features/board/hooks/use-media-query';
-import { assigneeAgents } from '@/features/board/lib/board-derive';
 import {
   boardFiltersToSearchParams,
   filterBoardTasks,
@@ -42,7 +40,7 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
  *   até ela (o filtro de coluna da barra usa o MESMO param — D-074);
  * - `?task=<id>`: abre o detalhe — drawer no desktop (lg+), página
  *   dedicada no mobile. Deep-linkável nos dois modos;
- * - `?q=`, `?agent=`, `?priority=`, `?period=`, `?archive=`: filtros da
+ * - `?phase=`, `?period=`, `?archive=`: filtros da
  *   barra (padrões omitidos; `?task=` preservado em todas as operações).
  */
 export default function UboardPage() {
@@ -57,7 +55,6 @@ export default function UboardPage() {
 
   const tasksQuery = useBoardTasks(projectId);
   const agentsQuery = useBoardAgents(projectId);
-  const definitionsQuery = useBoardAgentDefinitions();
   const recentlyMoved = useBoardRealtime(projectId);
   const archiveCompleted = useArchiveCompletedTasks();
   const now = useNow();
@@ -102,71 +99,13 @@ export default function UboardPage() {
     });
   }
 
-  const loading =
-    isPending || tasksQuery.isLoading || agentsQuery.isLoading || definitionsQuery.isLoading;
-  const errored = isError || tasksQuery.isError || agentsQuery.isError || definitionsQuery.isError;
+  const loading = isPending || tasksQuery.isLoading || agentsQuery.isLoading;
+  const errored = isError || tasksQuery.isError || agentsQuery.isError;
   const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
   const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
-  const definitions = useMemo(() => definitionsQuery.data ?? [], [definitionsQuery.data]);
 
-  const definitionById = useMemo(
-    () => new Map(definitions.map((definition) => [definition.id, definition])),
-    [definitions],
-  );
-  const agentAttributes = useMemo(
-    () =>
-      new Map(
-        agents.flatMap((agent) => {
-          const definition = definitionById.get(agent.definitionId);
-          return definition
-            ? [
-                [
-                  agent.id,
-                  {
-                    signature: definition.key,
-                    specialty: definition.specialty ?? '',
-                  },
-                ] as const,
-              ]
-            : [];
-        }),
-      ),
-    [agents, definitionById],
-  );
-
-  const filteredTasks = useMemo(
-    () => filterBoardTasks(tasks, filters, now, agentAttributes),
-    [tasks, filters, now, agentAttributes],
-  );
+  const filteredTasks = useMemo(() => filterBoardTasks(tasks, filters, now), [tasks, filters, now]);
   const filteredState = filters.state === '' ? null : filters.state;
-  // Opções do filtro "Responsável": só quem realmente tem card (dado real),
-  // com nome legível — sem opções mortas (ex.: chefes). Derivado de todas as
-  // tarefas do projeto (não do conjunto filtrado), para a lista ficar estável.
-  const filterAssignees = useMemo(() => assigneeAgents(tasks, agents), [tasks, agents]);
-  const assignedDefinitionIds = useMemo(
-    () => new Set(filterAssignees.map((agent) => agent.definitionId)),
-    [filterAssignees],
-  );
-  const filterSignatures = useMemo(
-    () =>
-      definitions
-        .filter((definition) => assignedDefinitionIds.has(definition.id))
-        .map((definition) => ({ value: definition.key, label: definition.name }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [definitions, assignedDefinitionIds],
-  );
-  const filterSpecialties = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          definitions
-            .filter((definition) => assignedDefinitionIds.has(definition.id))
-            .map((definition) => definition.specialty)
-            .filter((specialty): specialty is string => Boolean(specialty)),
-        ),
-      ).sort((a, b) => a.localeCompare(b)),
-    [definitions, assignedDefinitionIds],
-  );
   const filterPhases = useMemo(
     () =>
       Array.from(
@@ -198,7 +137,6 @@ export default function UboardPage() {
     refetch();
     void tasksQuery.refetch();
     void agentsQuery.refetch();
-    void definitionsQuery.refetch();
   }
 
   // Detalhe em página dedicada (mobile): substitui o quadro.
@@ -257,11 +195,7 @@ export default function UboardPage() {
           <p className="flex items-start gap-2 rounded-lg border border-border bg-surface p-3 text-xs text-foreground-muted">
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>
-              {t(
-                presentation.showTechnicalDetails
-                  ? 'board.hintTechnical'
-                  : 'board.hint',
-              )}{' '}
+              {t(presentation.showTechnicalDetails ? 'board.hintTechnical' : 'board.hint')}{' '}
               <Link
                 to="/chat"
                 className="font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -292,9 +226,6 @@ export default function UboardPage() {
               <BoardFiltersBar
                 filters={filters}
                 showTechnicalDetails={presentation.showTechnicalDetails}
-                agents={filterAssignees}
-                signatures={filterSignatures}
-                specialties={filterSpecialties}
                 phases={filterPhases}
                 filteredCount={filteredTasks.length}
                 totalCount={tasks.length}

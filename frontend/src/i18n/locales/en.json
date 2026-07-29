@@ -1202,7 +1202,7 @@
       "stuck": "Possible stagnation: active work has not been updated for at least 2 hours.",
       "types": {
         "feature": "Feature",
-        "agent_task": "Team task",
+        "agent_task": "Task",
         "human_gate": "Your decision",
         "spike": "Investigation",
         "decision": "Decision"

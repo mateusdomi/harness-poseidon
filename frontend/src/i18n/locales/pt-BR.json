@@ -1202,7 +1202,7 @@
       "stuck": "Possível estagnação: trabalho ativo sem atualização há pelo menos 2 horas.",
       "types": {
         "feature": "Funcionalidade",
-        "agent_task": "Tarefa da equipe",
+        "agent_task": "Tarefa",
         "human_gate": "Decisão sua",
         "spike": "Investigação",
         "decision": "Decisão"

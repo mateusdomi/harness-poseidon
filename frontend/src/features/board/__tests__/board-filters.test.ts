@@ -5,7 +5,6 @@ import {
   filterBoardTasks,
   hasActiveBoardFilters,
   isTaskStuck,
-  normalizeBoardQuery,
   parseBoardFilters,
   periodCutoff,
 } from '@/features/board/lib/board-filters';
@@ -29,14 +28,8 @@ describe('board-filters: parse e serialização da URL', () => {
       'q=foo&state=blocked&priority=high&period=7d&archive=archived&agent=a1&signature=front&specialty=Frontend&type=agent_task&phase=Implementação',
     );
     expect(parseBoardFilters(params)).toEqual({
-      query: 'foo',
       state: 'blocked',
-      agentId: 'a1',
-      signature: 'front',
-      specialty: 'Frontend',
-      cardType: 'agent_task',
       phase: 'Implementação',
-      priority: 'high',
       period: '7d',
       archive: 'archived',
     });
@@ -54,19 +47,20 @@ describe('board-filters: parse e serialização da URL', () => {
 
     const filled = boardFiltersToSearchParams(new URLSearchParams(), {
       ...DEFAULT_BOARD_FILTERS,
-      query: ' billing ',
+      phase: 'Implementação',
       archive: 'all',
       period: '30d',
     });
-    expect(filled.get('q')).toBe(' billing ');
+    expect(filled.get('phase')).toBe('Implementação');
     expect(filled.get('archive')).toBe('all');
     expect(filled.get('period')).toBe('30d');
-    expect(filled.get('priority')).toBeNull();
+    expect(filled.get('q')).toBeNull();
   });
 
   it('hasActiveBoardFilters detecta qualquer desvio do padrão', () => {
     expect(hasActiveBoardFilters(DEFAULT_BOARD_FILTERS)).toBe(false);
-    expect(hasActiveBoardFilters({ ...DEFAULT_BOARD_FILTERS, query: 'x' })).toBe(true);
+    expect(hasActiveBoardFilters({ ...DEFAULT_BOARD_FILTERS, state: 'blocked' })).toBe(true);
+    expect(hasActiveBoardFilters({ ...DEFAULT_BOARD_FILTERS, phase: 'Implementação' })).toBe(true);
     expect(hasActiveBoardFilters({ ...DEFAULT_BOARD_FILTERS, archive: 'archived' })).toBe(true);
     expect(hasActiveBoardFilters({ ...DEFAULT_BOARD_FILTERS, period: 'today' })).toBe(true);
   });
@@ -91,88 +85,21 @@ describe('board-filters: filterBoardTasks', () => {
     expect(all).toHaveLength(tasks.length);
   });
 
-  it('busca por título (sem acento) e por ID', () => {
-    expect(normalizeBoardQuery('Conciliação')).toBe('conciliacao');
-
-    const byTitle = filterBoardTasks(
-      tasks,
-      { ...DEFAULT_BOARD_FILTERS, query: 'conciliacao' },
-      NOW,
-    );
-    expect(byTitle.length).toBeGreaterThan(0);
-    expect(byTitle.every((task) => normalizeBoardQuery(task.title).includes('conciliacao'))).toBe(
-      true,
-    );
-
-    const byId = filterBoardTasks(
-      tasks,
-      { ...DEFAULT_BOARD_FILTERS, query: archivedTask.id },
-      { ...NOW },
-    );
-    // A busca casa, mas o padrão "ativas" esconde a arquivada.
-    expect(byId).toHaveLength(0);
-    const byIdAll = filterBoardTasks(
-      tasks,
-      { ...DEFAULT_BOARD_FILTERS, query: archivedTask.id, archive: 'all' },
-      NOW,
-    );
-    expect(byIdAll).toEqual([archivedTask]);
-  });
-
-  it('filtra por coluna, prioridade e responsável', () => {
+  it('filtra por coluna e etapa', () => {
     const blocked = filterBoardTasks(tasks, { ...DEFAULT_BOARD_FILTERS, state: 'blocked' }, NOW);
     expect(blocked.length).toBeGreaterThan(0);
     expect(blocked.every((task) => task.state === 'blocked')).toBe(true);
 
-    const critical = filterBoardTasks(
-      tasks,
-      { ...DEFAULT_BOARD_FILTERS, priority: 'critical' },
+    const withPhases = [
+      { ...tasks[0], phaseName: 'Implementação' },
+      { ...tasks[1], phaseName: 'Validação' },
+    ];
+    const byPhase = filterBoardTasks(
+      withPhases,
+      { ...DEFAULT_BOARD_FILTERS, phase: 'Implementação' },
       NOW,
     );
-    expect(critical.every((task) => task.priority === 'critical')).toBe(true);
-
-    const withAgent = tasks.find((task) => task.assigneeAgentId !== null)!;
-    const byAgent = filterBoardTasks(
-      tasks,
-      { ...DEFAULT_BOARD_FILTERS, agentId: withAgent.assigneeAgentId! },
-      NOW,
-    );
-    expect(byAgent.length).toBeGreaterThan(0);
-    expect(byAgent.every((task) => task.assigneeAgentId === withAgent.assigneeAgentId)).toBe(true);
-  });
-
-  it('filtra por assinatura, especialidade, tipo e fase sem inventar metadados', () => {
-    const assigned = tasks.find((task) => task.assigneeAgentId !== null)!;
-    const sample = {
-      ...assigned,
-      cardType: 'human_gate' as const,
-      phaseName: 'Homologação',
-    };
-    const attributes = new Map([
-      [assigned.assigneeAgentId!, { signature: 'quality-critic', specialty: 'Qualidade' }],
-    ]);
-
-    const filtered = filterBoardTasks(
-      [sample],
-      {
-        ...DEFAULT_BOARD_FILTERS,
-        signature: 'quality-critic',
-        specialty: 'Qualidade',
-        cardType: 'human_gate',
-        phase: 'Homologação',
-      },
-      NOW,
-      attributes,
-    );
-    expect(filtered).toEqual([sample]);
-    expect(
-      filterBoardTasks(
-        [sample],
-        { ...DEFAULT_BOARD_FILTERS, signature: 'outra' },
-        NOW,
-        attributes,
-      ),
-    ).toEqual([]);
+    expect(byPhase).toEqual([withPhases[0]]);
   });
 
   it('filtra por período sobre a última atividade (updatedAt)', () => {
@@ -183,9 +110,15 @@ describe('board-filters: filterBoardTasks', () => {
       { ...tasks[1], updatedAt: old.toISOString() },
     ];
     expect(periodCutoff('all', NOW)).toBeNull();
-    expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: 'today' }, NOW)).toHaveLength(1);
-    expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: '7d' }, NOW)).toHaveLength(1);
-    expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: 'all' }, NOW)).toHaveLength(2);
+    expect(
+      filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: 'today' }, NOW),
+    ).toHaveLength(1);
+    expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: '7d' }, NOW)).toHaveLength(
+      1,
+    );
+    expect(filterBoardTasks(sample, { ...DEFAULT_BOARD_FILTERS, period: 'all' }, NOW)).toHaveLength(
+      2,
+    );
   });
 });
 
@@ -198,9 +131,9 @@ describe('board-health: sinal conservador de estagnação', () => {
     expect(
       isTaskStuck({ ...base, state: 'development', updatedAt: '2026-07-19T14:00:01Z' }, NOW),
     ).toBe(false);
-    expect(
-      isTaskStuck({ ...base, state: 'backlog', updatedAt: '2026-07-01T00:00:00Z' }, NOW),
-    ).toBe(false);
+    expect(isTaskStuck({ ...base, state: 'backlog', updatedAt: '2026-07-01T00:00:00Z' }, NOW)).toBe(
+      false,
+    );
   });
 });
 
@@ -245,6 +178,8 @@ describe('board-export: CSV compatível com Excel', () => {
   });
 
   it('nome do arquivo leva a data da exportação', () => {
-    expect(boardCsvFilename(new Date('2026-07-19T15:00:00Z'))).toBe('poseidon-quadro-2026-07-19.csv');
+    expect(boardCsvFilename(new Date('2026-07-19T15:00:00Z'))).toBe(
+      'poseidon-quadro-2026-07-19.csv',
+    );
   });
 });
