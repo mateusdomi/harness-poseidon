@@ -17,7 +17,9 @@ describe('estado seguro de requests e rotas', () => {
   it('mostra request lento e o remove ao encerrar', () => {
     render(<RequestStatusBanner />);
     act(() => emit({ requestId: 'one', method: 'GET', path: '/api/v1/projects', phase: 'slow', durationMs: 4_000 }));
-    expect(screen.getByRole('status')).toHaveTextContent('/api/v1/projects');
+    // Modo Negócio (padrão): mensagem sem caminho técnico.
+    expect(screen.getByRole('status')).toHaveTextContent(/demorando para responder/i);
+    expect(screen.getByRole('status')).not.toHaveTextContent('/api/v1/projects');
     act(() => emit({ requestId: 'one', method: 'GET', path: '/api/v1/projects', phase: 'settled', durationMs: 4_100, status: 200 }));
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });

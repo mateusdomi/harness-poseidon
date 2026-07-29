@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Clock3 } from 'lucide-react';
 
 import { API_REQUEST_EVENT, type ApiRequestTelemetry } from '@/api/request-observability';
+import { usePresentationMode } from '@/app/presentation';
 
 export function RequestStatusBanner() {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const [slowRequests, setSlowRequests] = useState<Record<string, ApiRequestTelemetry>>({});
 
   useEffect(() => {
@@ -30,7 +32,11 @@ export function RequestStatusBanner() {
     <div className="border-b border-warning/40 bg-warning/10 px-4 py-2 text-sm text-foreground" role="status">
       <div className="mx-auto flex max-w-screen-2xl items-center gap-2">
         <Clock3 aria-hidden="true" className="size-4 shrink-0 text-warning" />
-        <span>{t('common.requests.slow', { path: first.path, count: requests.length })}</span>
+        <span>{t('common.requests.slow', { count: requests.length })}</span>
+        {/* O caminho da chamada é detalhe técnico: some no modo Negócio. */}
+        {showTechnicalDetails && (
+          <span className="font-mono text-xs text-foreground-muted">{first.path}</span>
+        )}
       </div>
     </div>
   );
