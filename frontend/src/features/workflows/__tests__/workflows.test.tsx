@@ -22,7 +22,7 @@ function renderWorkflows() {
 
 /** Card (li) de um template pelo nome, dentro da seção de templates. */
 async function templateCard(name: string) {
-  const section = await screen.findByRole('region', { name: 'Templates de workflow' });
+  const section = await screen.findByRole('region', { name: 'Modelos de fluxo de trabalho' });
   const heading = await within(section).findByRole('heading', { name });
   return within(heading.closest('li')!);
 }
@@ -32,10 +32,10 @@ describe('WorkflowsPage', () => {
     renderWorkflows();
 
     expect(
-      await screen.findByRole('heading', { name: 'Fases do workflow' }),
+      await screen.findByRole('heading', { name: 'Etapas do fluxo de trabalho' }),
     ).toBeInTheDocument();
 
-    const stepper = screen.getByRole('list', { name: 'Fases do workflow' });
+    const stepper = screen.getByRole('list', { name: 'Etapas do fluxo de trabalho' });
     for (const phase of ['Planejamento', 'Execução', 'Validação', 'Publicação']) {
       expect(within(stepper).getByText(new RegExp(phase))).toBeInTheDocument();
     }
@@ -49,7 +49,7 @@ describe('WorkflowsPage', () => {
     expect(within(faseValidacao).getByText('Pendente')).toBeInTheDocument();
     expect(
       within(faseValidacao).getByRole('progressbar', {
-        name: 'Progresso da fase Validação',
+        name: 'Progresso da etapa Validação',
       }),
     ).toHaveAttribute('aria-valuenow', '0');
     expect(within(faseValidacao).getByText('Relatório de testes')).toBeInTheDocument();
@@ -115,13 +115,13 @@ describe('WorkflowsPage', () => {
     // Sem gate selecionado → erro específico.
     await user.click(screen.getByRole('button', { name: 'Confirmar troca' }));
     expect(
-      await screen.findByText('Selecione ao menos um gate que pausa para aprovação.'),
+      await screen.findByText('Selecione ao menos um ponto de aprovação que pause para a sua decisão.'),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('checkbox', { name: 'Gate de Release' }));
     await user.click(screen.getByRole('button', { name: 'Confirmar troca' }));
 
-    expect(await screen.findByText(/Pausa nos gates: Gate de Release/)).toBeInTheDocument();
+    expect(await screen.findByText(/Pausa nos pontos de aprovação: Gate de Release/)).toBeInTheDocument();
   });
 });
 
@@ -130,11 +130,11 @@ describe('TemplateAdmin (FR-4)', () => {
     const user = userEvent.setup();
     renderWorkflows();
 
-    await user.click(await screen.findByRole('button', { name: 'Novo template' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Novo template de workflow' });
+    await user.click(await screen.findByRole('button', { name: 'Novo modelo de fluxo' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo modelo de fluxo de trabalho' });
     await user.type(within(dialog).getByLabelText(/Nome/), 'Fluxo Sob Medida');
     await user.type(within(dialog).getByLabelText('Descrição'), 'Template criado do zero.');
-    await user.click(within(dialog).getByRole('button', { name: 'Criar template' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Criar modelo de fluxo' }));
 
     const card = await templateCard('Fluxo Sob Medida');
     expect(card.getByText('Rascunho')).toBeInTheDocument();
@@ -158,7 +158,7 @@ describe('TemplateAdmin (FR-4)', () => {
     ).toBeInTheDocument();
 
     // Edita o nome da 4ª fase e salva o rascunho (segue editável).
-    const names = within(dialog).getAllByLabelText(/Nome da fase/);
+    const names = within(dialog).getAllByLabelText(/Nome da etapa/);
     await user.clear(names[3]);
     await user.type(names[3], 'Publicação Final');
     await user.click(within(dialog).getByRole('button', { name: 'Salvar rascunho' }));
@@ -185,7 +185,7 @@ describe('TemplateAdmin (FR-4)', () => {
     });
 
     // Fase duplicada: renomeia a 4ª fase com o nome da 3ª.
-    const names = within(dialog).getAllByLabelText(/Nome da fase/);
+    const names = within(dialog).getAllByLabelText(/Nome da etapa/);
     await user.clear(names[3]);
     await user.type(names[3], 'Validação');
     await user.click(within(dialog).getByRole('button', { name: 'Publicar versão' }));
@@ -194,7 +194,7 @@ describe('TemplateAdmin (FR-4)', () => {
     expect(
       await within(dialog).findByText('A versão não passou na validação do Harness:'),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText('Fase duplicada: Validação.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Etapa duplicada: Validação.')).toBeInTheDocument();
     expect(
       screen.getByRole('dialog', { name: 'Editar rascunho — Fluxo de Entrega Padrão (v2)' }),
     ).toBeInTheDocument();
@@ -254,7 +254,7 @@ describe('TemplateAdmin (FR-4)', () => {
     renderWorkflows();
 
     const card = await templateCard('Fluxo de Entrega Padrão');
-    const chips = await card.findByRole('list', { name: 'Fases desta versão' });
+    const chips = await card.findByRole('list', { name: 'Etapas desta versão' });
     for (const phase of ['Planejamento', 'Execução', 'Validação', 'Publicação']) {
       expect(within(chips).getByText(phase)).toBeInTheDocument();
     }
@@ -270,7 +270,7 @@ describe('TemplateAdmin (FR-4)', () => {
     const editor = await screen.findByRole('dialog', {
       name: 'Editar rascunho — Fluxo de Entrega Padrão (v2)',
     });
-    const names = within(editor).getAllByLabelText(/Nome da fase/);
+    const names = within(editor).getAllByLabelText(/Nome da etapa/);
     await user.clear(names[3]);
     await user.type(names[3], 'Publicação Final');
     await user.click(within(editor).getByRole('button', { name: 'Publicar versão' }));
@@ -279,7 +279,7 @@ describe('TemplateAdmin (FR-4)', () => {
     await user.click(updatedCard.getByRole('checkbox', { name: 'Selecionar v1 para comparar' }));
     await user.click(updatedCard.getByRole('checkbox', { name: 'Selecionar v2 para comparar' }));
 
-    const section = screen.getByRole('region', { name: 'Templates de workflow' });
+    const section = screen.getByRole('region', { name: 'Modelos de fluxo de trabalho' });
     await user.click(within(section).getByRole('button', { name: 'Comparar versões' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Comparar versões' });
@@ -288,11 +288,11 @@ describe('TemplateAdmin (FR-4)', () => {
     expect(within(dialog).getByText('Destino (depois)')).toBeInTheDocument();
     // Diff explícito sobre de qual lado veio o quê.
     expect(
-      within(dialog).getByText('Fases adicionadas em Fluxo de Entrega Padrão v2'),
+      within(dialog).getByText('Etapas adicionadas em Fluxo de Entrega Padrão v2'),
     ).toBeInTheDocument();
     expect(within(dialog).getByText('+ Publicação Final')).toBeInTheDocument();
     expect(
-      within(dialog).getByText('Fases removidas de Fluxo de Entrega Padrão v1'),
+      within(dialog).getByText('Etapas removidas de Fluxo de Entrega Padrão v1'),
     ).toBeInTheDocument();
     expect(within(dialog).getByText('− Publicação')).toBeInTheDocument();
   });
@@ -317,6 +317,6 @@ describe('TemplateAdmin (FR-4)', () => {
     const card = await templateCard('Fluxo Experimental');
     const link = card.getByRole('button', { name: 'Vincular ao projeto ativo' });
     expect(link).toBeDisabled();
-    expect(link).toHaveAttribute('title', 'O projeto ativo já tem um workflow vinculado.');
+    expect(link).toHaveAttribute('title', 'O projeto ativo já tem um fluxo de trabalho vinculado.');
   });
 });

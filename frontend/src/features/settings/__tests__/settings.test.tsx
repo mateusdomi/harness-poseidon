@@ -33,9 +33,9 @@ describe('SettingsPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Diretórios de trabalho')).toBeInTheDocument();
-    expect(screen.getByText('Sandbox e modo inseguro')).toBeInTheDocument();
+    expect(screen.getByText('Proteção de isolamento e modo inseguro')).toBeInTheDocument();
     // Fixture: aceite do modo inseguro preenchido → data exibida + revogar.
-    expect(screen.getByText(/Modo inseguro \(execução sem sandbox\) aceito em/)).toBeInTheDocument();
+    expect(screen.getByText(/Modo inseguro \(execução sem proteção de isolamento\) aceito em/)).toBeInTheDocument();
     expect(screen.getByText('Backup e restauração')).toBeInTheDocument();
     // Backup: orientação sobre o que é / onde fica.
     expect(screen.getByText(/arquivo local com o estado do dispositivo/)).toBeInTheDocument();

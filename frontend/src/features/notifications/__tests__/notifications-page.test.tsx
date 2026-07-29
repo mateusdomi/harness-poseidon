@@ -111,7 +111,7 @@ describe('UnotificationsPage', () => {
 
     // Semântica positiva: a categoria começa marcada (recebendo); desmarcá-la silencia.
     const workflowToggle = screen.getByRole('checkbox', {
-      name: 'Receber notificações de Workflow',
+      name: 'Receber notificações de Fluxo de trabalho',
     });
     expect(workflowToggle).toBeChecked();
     await user.click(workflowToggle);

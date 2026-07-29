@@ -319,7 +319,7 @@ describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
 
     // Painel de impacto ANTES de salvar; confirmação reforçada por checkbox.
     const dialog = await screen.findByRole('dialog', { name: 'Impacto da alteração' });
-    expect(within(dialog).getByText(/execução de workflow em andamento/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/execução de fluxo de trabalho em andamento/i)).toBeInTheDocument();
     expect(within(dialog).getByText('Branch padrão')).toBeInTheDocument();
     const confirm = within(dialog).getByRole('button', { name: 'Salvar mesmo assim' });
     expect(confirm).toBeDisabled();

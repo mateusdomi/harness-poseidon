@@ -116,7 +116,7 @@ describe('DocumentsPage', () => {
       within(orphansSection).getAllByRole('button', { name: 'Classificar' })[0],
     );
     const dialog = await screen.findByRole('dialog', { name: /Classificar "Spec do protótipo v0"/ });
-    await user.selectOptions(within(dialog).getByLabelText(/Fase do workflow/), 'Execução');
+    await user.selectOptions(within(dialog).getByLabelText(/Etapa do fluxo de trabalho/), 'Execução');
     await user.click(within(dialog).getByRole('button', { name: 'Salvar' }));
 
     // Saiu da lista de órfãos; o ADR 002 permanece.

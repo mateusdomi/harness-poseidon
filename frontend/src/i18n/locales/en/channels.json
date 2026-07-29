@@ -31,7 +31,7 @@
     },
     "concepts": {
       "title": "Configured bot ≠ linked channel",
-      "body": "Configuring the bot (BotFather token on the gateway) only enables Telegram on the server. For a conversation to become work, you must link the chat identity to a project — that is what this screen shows. If you already talk to the bot but see nothing here, the link has not been created in this tenant yet."
+      "body": "Configuring the bot on the server only enables Telegram. For a conversation to become work, you must link the chat to a project — that is what this screen shows. If you already talk to the bot but see nothing here, the link has not been created yet."
     },
     "link": {
       "title": "Link a channel to a project",
@@ -42,9 +42,9 @@
       "fields": {
         "kind": "Channel kind",
         "identity": "External identity",
-        "identityHintTelegram": "Numeric Telegram chat id (e.g. 5774120296). The bot reports the chat id on the first message from a not-yet-linked chat. Never paste the bot token here.",
+        "identityHintTelegram": "Telegram chat number (e.g. 5774120296). The bot reports this number on the first message from a not-yet-linked chat. Never paste the bot password here.",
         "identityHintTeams": "Teams conversation identity (channel/conversation id).",
-        "identityHintWhatsApp": "WhatsApp phone number with country code and WITHOUT the leading '+' (e.g. 5511999999999) — exactly the format the Meta Cloud API sends in the 'from' field. Never paste the access token here.",
+        "identityHintWhatsApp": "WhatsApp phone number with country code and WITHOUT the leading '+' (e.g. 5511999999999) — exactly the format WhatsApp sends. Never paste the access password here.",
         "identityHintEmail": "Email address of the sender authorized to talk to Bruna over this channel.",
         "identityPlaceholder": "5774120296",
         "project": "Project",
@@ -86,12 +86,12 @@
       "select": "Select a channel to see its message history.",
       "author": {
         "user": "User",
-        "agent": "Agent"
+        "agent": "Team member"
       }
     },
     "manage": {
       "title": "Manage",
-      "unlinkNote": "Unlinking a channel is done via the gateway/CLI (there is no delete action on this screen). While the link exists, chat messages keep reaching Bruna's inbox."
+      "unlinkNote": "Unlinking a channel is not possible from this screen yet. While the link exists, chat messages keep reaching Bruna."
     }
   }
 }

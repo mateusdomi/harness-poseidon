@@ -23,8 +23,8 @@
       "stack": "Stack",
       "stackUnavailable": "Stack não declarada pelo projeto",
       "dependencies": "Dependências",
-      "hostName": "Aplicação Poseidon (Host + frontend)",
-      "hostDependencies": "Processo externo observado; hospeda esta tela e a API.",
+      "hostName": "Aplicação Poseidon",
+      "hostDependencies": "Processo externo observado; hospeda esta tela.",
       "managedDependencies": "Alvo gerenciado pelo Launcher; dependências específicas não são declaradas pelo manifesto."
     },
     "logs": {
@@ -46,7 +46,7 @@
     },
     "credentials": {
       "title": "Credenciais de demonstração",
-      "backendOnly": "Nenhuma credencial de demonstração foi fornecida pelo backend para este projeto. A interface não armazena nem revela credenciais locais por conta própria."
+      "backendOnly": "Nenhuma credencial de demonstração foi fornecida para este projeto. A interface não guarda nem revela credenciais por conta própria."
     },
     "guideTitle": "O que testar primeiro",
     "guide": {
@@ -69,7 +69,7 @@
       "dataDirectory": "~/.harness-poseidon",
       "actionsNote": "Para gerenciar o ambiente, use as ações Reiniciar e Parar disponíveis acima, em cada serviço.",
       "shortcut": "Instrução: para abrir este ambiente fora do app, use o atalho \"Harness Poseidon Launcher\" no menu de aplicativos do sistema.",
-      "diagnostics": "Diagnóstico"
+      "diagnostics": "Verificação do ambiente"
     }
   }
 }

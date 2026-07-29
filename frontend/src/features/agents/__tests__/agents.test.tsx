@@ -100,7 +100,7 @@ describe('AgentsPage', () => {
 
     // Badge de estado vem do i18n de status (agente em erro do fixture).
     expect(within(tree).getByText('Em erro')).toBeInTheDocument();
-    expect(within(tree).getByText('Sem cota')).toBeInTheDocument();
+    expect(within(tree).getByText('Jornada esgotada')).toBeInTheDocument();
 
     // Métricas com rótulos e ajuda (definição visível via title/aria-label).
     expect(

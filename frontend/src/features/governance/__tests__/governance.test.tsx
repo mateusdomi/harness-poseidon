@@ -41,7 +41,7 @@ describe('GovernancePage', () => {
 
     // Nota de mascaramento visível uma vez na tela.
     expect(
-      screen.getByText('Revelado no backend somente com permissão.'),
+      screen.getByText('Revelado somente com permissão.'),
     ).toBeInTheDocument();
   });
 

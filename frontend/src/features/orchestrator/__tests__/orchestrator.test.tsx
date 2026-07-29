@@ -209,13 +209,13 @@ describe('OrchestratorPage', () => {
 
     expect((await screen.findAllByText('Bruna Magalhães')).length).toBeGreaterThan(0);
     // Rótulo estável + displayName do modelo em uso (E2E).
-    expect(screen.getByText('Modelo em uso')).toBeInTheDocument();
+    expect(screen.getByText('Modo de trabalho em uso')).toBeInTheDocument();
     expect(screen.getByText('GPT-4o')).toBeInTheDocument();
     expect(screen.getByText('Modo de operação')).toBeInTheDocument();
     expect(screen.getByText('Manual')).toBeInTheDocument();
     // Heartbeat das fixtures é antigo → saúde "Atenção".
     expect(screen.getByText('Atenção')).toBeInTheDocument();
-    expect(screen.getByText('Não iniciado')).toBeInTheDocument();
+    expect(screen.getByText('Ainda não começou')).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Drenar tarefas' })).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe('OrchestratorPage', () => {
     await user.click(within(runningCard).getByRole('button', { name: 'Abrir' }));
 
     const dialog = await screen.findByRole('dialog', {
-      name: `Tentativa nº ${runningAttempt.number}`,
+      name: `Rodada de trabalho nº ${runningAttempt.number}`,
     });
     expect(within(dialog).getByText('Linha do tempo')).toBeInTheDocument();
     expect(within(dialog).getByText('Log estruturado')).toBeInTheDocument();
@@ -253,7 +253,7 @@ describe('OrchestratorPage', () => {
     expect((await within(dialog).findAllByText(/api_key=\*\*\*\*/)).length).toBeGreaterThan(0);
     expect(within(dialog).queryByText(/sk-live-123456/)).not.toBeInTheDocument();
     expect(
-      within(dialog).getByText('Revelado no backend somente com permissão.'),
+      within(dialog).getByText('Revelado somente com permissão.'),
     ).toBeInTheDocument();
 
     // Filtro por tipo + busca textual.
@@ -271,7 +271,7 @@ describe('OrchestratorPage', () => {
     const bundle = createTestBundle();
     renderOrchestrator(bundle);
 
-    expect(await screen.findByText('Não iniciado')).toBeInTheDocument();
+    expect(await screen.findByText('Ainda não começou')).toBeInTheDocument();
     const conversation = bundle.fixtures.data.conversations.find(
       (entry) => entry.projectId === project.id,
     )!;
@@ -283,7 +283,7 @@ describe('OrchestratorPage', () => {
         state: 'pending',
       });
     });
-    expect(await screen.findByText('Pendente')).toBeInTheDocument();
+    expect(await screen.findByText('Na fila')).toBeInTheDocument();
     act(() => {
       bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
         conversationId: conversation.id,
@@ -292,7 +292,7 @@ describe('OrchestratorPage', () => {
         state: 'processing',
       });
     });
-    expect(await screen.findByText('Processando')).toBeInTheDocument();
+    expect(await screen.findByText('Em andamento')).toBeInTheDocument();
     act(() => {
       bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
         conversationId: conversation.id,
@@ -310,7 +310,7 @@ describe('OrchestratorPage', () => {
         state: 'failed',
       });
     });
-    expect(await screen.findByText('Falhou')).toBeInTheDocument();
+    expect(await screen.findByText('Não deu certo')).toBeInTheDocument();
   });
 
   it('pausa e retoma a orquestração do chefe', async () => {
@@ -362,7 +362,7 @@ describe('OrchestratorPage', () => {
       await within(dialog).findByText('Informe o motivo da passagem de bastão.'),
     ).toBeInTheDocument();
 
-    await user.selectOptions(within(dialog).getByLabelText('Modelo da nova liderança'), [
+    await user.selectOptions(within(dialog).getByLabelText('Modo de trabalho da nova liderança'), [
       'Claude Sonnet 4',
     ]);
     await user.type(within(dialog).getByLabelText(/Motivo/), 'Teste de passagem de bastão');
@@ -378,7 +378,7 @@ describe('OrchestratorPage', () => {
     );
     // O card do chefe reflete o novo modelo (nova instância no mock).
     expect(await screen.findByText('Claude Sonnet 4')).toBeInTheDocument();
-    expect(screen.getByText('Modelo em uso')).toBeInTheDocument();
+    expect(screen.getByText('Modo de trabalho em uso')).toBeInTheDocument();
   });
 
   it('drena tarefas com confirmação e observação opcional', async () => {

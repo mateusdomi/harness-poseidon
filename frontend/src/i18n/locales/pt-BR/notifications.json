@@ -47,12 +47,12 @@
       "saved": "Alterações salvas",
       "descriptions": {
         "system": "Avisos do próprio Poseidon: atualizações, saúde do sistema e incidentes.",
-        "task": "Mudanças em cards e tarefas: status, atribuição e conclusão.",
+        "task": "Mudanças nas tarefas: andamento, responsável e conclusão.",
         "approval": "Quando algo espera o seu aval antes de prosseguir.",
-        "quota": "Consumo de cota e orçamento se aproximando do limite.",
+        "quota": "Jornada e orçamento se aproximando do limite.",
         "license": "Estado da licença: ativação, expiração e período de carência.",
         "chat": "Novas mensagens e respostas nas conversas.",
-        "workflow": "Progresso de fluxos e publicações: gates aprovados e novas versões."
+        "workflow": "Progresso dos fluxos de trabalho: etapas aprovadas e novas versões."
       }
     }
   }

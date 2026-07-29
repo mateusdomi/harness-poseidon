@@ -31,7 +31,7 @@
     },
     "concepts": {
       "title": "Bot configurado ≠ canal vinculado",
-      "body": "Configurar o bot (token do BotFather no gateway) apenas habilita o Telegram no servidor. Para que uma conversa vire trabalho, é preciso vincular a identidade do chat a um projeto — é isso que esta tela mostra. Se você já fala com o bot mas não vê nada aqui, o vínculo ainda não foi criado neste tenant."
+      "body": "Configurar o bot no servidor apenas habilita o Telegram. Para que uma conversa vire trabalho, é preciso vincular o chat a um projeto — é isso que esta tela mostra. Se você já fala com o bot mas não vê nada aqui, o vínculo ainda não foi criado."
     },
     "link": {
       "title": "Vincular um canal a um projeto",
@@ -42,9 +42,9 @@
       "fields": {
         "kind": "Tipo de canal",
         "identity": "Identidade externa",
-        "identityHintTelegram": "Chat id numérico do Telegram (ex.: 5774120296). O bot informa o chat id na primeira mensagem de um chat ainda não vinculado. Nunca cole aqui o token do bot.",
+        "identityHintTelegram": "Número do chat no Telegram (ex.: 5774120296). O bot informa esse número na primeira mensagem de um chat ainda não vinculado. Nunca cole aqui a senha do bot.",
         "identityHintTeams": "Identidade da conversa do Teams (id do canal/conversa).",
-        "identityHintWhatsApp": "Número de telefone do WhatsApp com código do país e SEM o sinal de '+' (ex.: 5511999999999) — exatamente o formato que a Cloud API da Meta envia no campo 'from'. Nunca cole aqui o token de acesso.",
+        "identityHintWhatsApp": "Número de telefone do WhatsApp com código do país e SEM o sinal de '+' (ex.: 5511999999999) — exatamente o formato que o WhatsApp envia. Nunca cole aqui a senha de acesso.",
         "identityHintEmail": "Endereço de e-mail do remetente autorizado a conversar com Bruna por este canal.",
         "identityPlaceholder": "5774120296",
         "project": "Projeto",
@@ -86,12 +86,12 @@
       "select": "Selecione um canal para ver o histórico de mensagens.",
       "author": {
         "user": "Usuário",
-        "agent": "Agente"
+        "agent": "Pessoa da equipe"
       }
     },
     "manage": {
       "title": "Gerenciar",
-      "unlinkNote": "Desvincular um canal é feito pelo gateway/CLI (não há ação de exclusão nesta tela). Enquanto o vínculo existir, as mensagens do chat continuam entrando na caixa de Bruna."
+      "unlinkNote": "Desvincular um canal ainda não é possível por esta tela. Enquanto o vínculo existir, as mensagens do chat continuam chegando para a Bruna."
     }
   }
 }

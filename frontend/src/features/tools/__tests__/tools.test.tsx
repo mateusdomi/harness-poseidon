@@ -116,7 +116,7 @@ describe('ToolsPage', () => {
     expect(within(github).getByText('HTTP')).toBeInTheDocument();
     expect(within(github).getByText('6 ferramentas')).toBeInTheDocument();
     expect(
-      within(github).getByText('Revelado no backend somente com permissão.'),
+      within(github).getByText('Revelado somente com permissão.'),
     ).toBeInTheDocument();
     // Endpoint exibido sem credenciais (fixture não tem; a máscara é aplicada sempre).
     expect(within(github).getByText('https://mcp.github.local/sse')).toBeInTheDocument();

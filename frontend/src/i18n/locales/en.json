@@ -34,9 +34,9 @@
     },
     "context": {
       "label": "Project context",
-      "phase": "Phase {{name}}",
-      "agentsWorking": "{{count}} agents working",
-      "agentsWorking_one": "{{count}} agent working"
+      "phase": "Stage {{name}}",
+      "agentsWorking": "{{count}} people working",
+      "agentsWorking_one": "{{count}} person working"
     },
     "project": {
       "label": "Active project",
@@ -67,7 +67,7 @@
     "prototypes": "Prototypes",
     "architecture": "Architecture",
     "approvals": "Approvals",
-    "orchestrator": "Orchestrator",
+    "orchestrator": "Team",
     "agents": "Agents",
     "tools": "Tools",
     "run-project": "Run project",
@@ -88,18 +88,18 @@
     "keywords": {
       "cockpit": "overview dashboard operation status",
       "chat": "talk bruna leadership message conversation ask",
-      "board": "tasks kanban cards columns",
-      "conversations": "history threads chats past",
-      "projects": "projects list repository",
+      "board": "tasks kanban columns",
+      "conversations": "history chats past",
+      "projects": "projects list work",
       "delivery": "deliveries portfolio forecast dora reports daily copilot 360 tech lead",
-      "workflows": "pipelines automation flows phases",
-      "orchestrator": "coordination leadership delegation agents",
+      "workflows": "flows stages automation work",
+      "orchestrator": "coordination leadership delegation team",
       "agents": "agents team specialists bots",
       "run-project": "execute run start trigger",
       "documents": "docs catalog files specification",
       "prototypes": "mockups screens wireframes references gallery",
       "architecture": "architecture studio c4 archimate elements views diagrams model",
-      "approvals": "pending gates decisions review approve",
+      "approvals": "pending decisions review approve",
       "governance": "audit trail policies limits timeline",
       "governance-docs": "governance behavior leadership rules docs edit disk core manifest",
       "organizations": "orgs company workspace brand",
@@ -142,13 +142,13 @@
     },
     "simulated": {
       "label": "Simulated mode",
-      "hint": "This screen shows simulated data (fixtures), not a real backend. Switch to HTTP mode to work with real data."
+      "hint": "This screen is showing demonstration data, not your real work."
     },
     "breadcrumb": {
       "label": "Breadcrumb"
     },
     "requests": {
-      "slow": "The API is taking longer than expected at {{path}} ({{count}} request(s)). The operation is still monitored.",
+      "slow": "The system is taking longer than expected ({{count}} request(s) in progress). We are still watching it.",
       "routeTimeout": "This screen exceeded the safe loading time. Try again."
     },
     "routeError": {
@@ -229,7 +229,7 @@
       }
     },
     "secrets": {
-      "maskedNote": "Revealed in the backend only with permission."
+      "maskedNote": "Revealed only with permission."
     }
   },
   "status": {
@@ -257,7 +257,7 @@
       "development": "In development",
       "review": "In review",
       "corrections": "In correction",
-      "testsGates": "Tests & gates",
+      "testsGates": "Tests & checks",
       "blocked": "Blocked",
       "done": "Done"
     },
@@ -266,7 +266,7 @@
       "idle": "Idle",
       "waiting": "Waiting",
       "error": "Error",
-      "outOfQuota": "Out of quota"
+      "outOfQuota": "Workload exhausted"
     },
     "approvalState": {
       "pending": "Pending",
@@ -307,7 +307,7 @@
     "auditActorKind": {
       "user": "You",
       "chief": "Bruna Magalhães",
-      "agent": "Agent",
+      "agent": "Team member",
       "system": "System"
     },
     "documentState": {
@@ -346,12 +346,19 @@
       "archived": "Archived"
     },
     "chiefTurnState": {
-      "notStarted": "Not started",
-      "pending": "Pending",
-      "processing": "Processing",
+      "notStarted": "Not started yet",
+      "pending": "In queue",
+      "received": "Received",
+      "reading_context": "Understanding the request",
+      "thinking": "Analysing",
+      "planning": "Planning",
+      "delegating": "Handing over to the team",
+      "agent_working": "Team working",
+      "awaiting_review": "In a colleague's review",
+      "processing": "In progress",
       "completed": "Completed",
-      "failed": "Failed",
-      "blocked": "Blocked"
+      "failed": "Did not work out",
+      "blocked": "On hold"
     },
     "componentState": {
       "enabled": "Enabled",
@@ -377,7 +384,7 @@
       "system": "System",
       "task": "Task",
       "approval": "Approval",
-      "quota": "Quota",
+      "quota": "Workload",
       "license": "License",
       "chat": "Chat",
       "workflow": "Workflow"
@@ -396,7 +403,7 @@
     "accountState": {
       "active": "Active",
       "disabled": "Disabled",
-      "quotaExceeded": "Quota exceeded"
+      "quotaExceeded": "Workload exhausted"
     },
     "agentRole": {
       "chief": "Leadership",
@@ -489,29 +496,29 @@
         "cta": "Create project"
       },
       "ProviderAccountReady": {
-        "title": "Provider and account",
-        "explanation": "Connect a model provider and activate an account (the credential is a secure reference).",
-        "cta": "Configure provider"
+        "title": "Team hired",
+        "explanation": "Finish hiring at least one team member (their access is stored securely).",
+        "cta": "Finish hiring"
       },
       "ModelReady": {
-        "title": "Model",
-        "explanation": "Enable at least one chat model from the provider.",
-        "cta": "Enable model"
+        "title": "Working mode",
+        "explanation": "Enable at least one working mode so the team can talk to you.",
+        "cta": "Set working mode"
       },
       "WorkflowReady": {
         "title": "Workflow",
-        "explanation": "Link a workflow to the project to define execution phases and gates.",
+        "explanation": "Link a workflow to the project to define its stages and what is needed to advance.",
         "cta": "Link workflow"
       },
       "ChiefDefinitionReady": {
         "title": "Bruna configured",
-        "explanation": "Bruna needs a resolvable model to coordinate the project.",
+        "explanation": "Bruna needs a working mode set to coordinate the project.",
         "cta": "Configure Bruna"
       },
       "AgentPoolReady": {
-        "title": "Agents available",
-        "explanation": "Agents must be available and healthy to receive work.",
-        "cta": "Review agents"
+        "title": "Team available",
+        "explanation": "The team must be available to take on work.",
+        "cta": "See the team board"
       },
       "ExecutionReady": {
         "title": "Ready to run",
@@ -523,11 +530,11 @@
       "profile.create": "Create profile",
       "organization.create": "Create organization",
       "project.create": "Create project",
-      "provider.connectAccount": "Connect provider account",
-      "model.enable": "Enable model",
+      "provider.connectAccount": "Finish a hiring",
+      "model.enable": "Set working mode",
       "workflow.bind": "Link workflow",
       "chief.configureModel": "Configure Bruna",
-      "agent.recover": "Recover agent",
+      "agent.recover": "Bring a team member back",
       "conversation.start": "Start conversation"
     },
     "blockers": {
@@ -535,13 +542,13 @@
       "organization.missing": "No organization registered.",
       "organization.required": "Requires an organization first.",
       "project.missing": "Requires a project first.",
-      "provider_account.missing": "No active provider account.",
-      "model.none_chat_enabled": "No chat model enabled.",
+      "provider_account.missing": "No team member hired yet.",
+      "model.none_chat_enabled": "No working mode enabled.",
       "workflow.unbound": "No workflow linked to the project.",
       "chief.missing": "The project has no configured leadership.",
-      "chief.model_unresolved": "Bruna’s model could not be resolved.",
-      "agent.unavailable": "No agent available.",
-      "agent.degraded": "Agent in a degraded state."
+      "chief.model_unresolved": "Bruna's working mode could not be resolved.",
+      "agent.unavailable": "Nobody on the team is available.",
+      "agent.degraded": "Someone on the team is unwell."
     }
   },
   "onboarding": {
@@ -583,11 +590,11 @@
       "workspace": {
         "directory": "Working directory",
         "directoryPlaceholder": "~/poseidon",
-        "hint": "Local folder where agents read and write files. Leave blank to set it later."
+        "hint": "Local folder where the team keeps the work files. Leave blank to set it later."
       },
       "safety": {
         "title": "Unsafe mode",
-        "warning": "The execution sandbox is not available in this environment. Agents will run commands directly on your machine, without isolation. Proceed only if you trust the executed content.",
+        "warning": "The isolation protection is not available in this environment. The team will run commands directly on your machine, without that protection. Proceed only if you trust the executed content.",
         "accept": "I understand the risks and accept running in unsafe mode",
         "required": "Explicit acceptance of unsafe mode is required to finish."
       }
@@ -621,7 +628,7 @@
       "createTitle": "New organization",
       "editTitle": "Edit organization",
       "name": "Name",
-      "slug": "Slug",
+      "slug": "Acronym",
       "slugHint": "Short identifier used in URLs, e.g. poseidon-labs.",
       "slugLabel": "URL identifier",
       "slugHelper": "Used internally in URLs and integrations. Generated from the name.",
@@ -648,7 +655,7 @@
       "noProjects": "No projects in this organization yet.",
       "noWorkflowsImpact": "Without a default workflow, every new project must link one manually.",
       "configureWorkflows": "Configure workflows",
-      "noTemplatesImpact": "Document templates standardize the artifacts agents produce.",
+      "noTemplatesImpact": "Document templates standardize what the team produces.",
       "noPoliciesImpact": "Policies define limits inherited by this organization's projects.",
       "noProjectsContextual": "Create the first project for {{name}}.",
       "createProject": "Create project"
@@ -679,7 +686,7 @@
     },
     "empty": {
       "title": "No projects yet",
-      "body": "Projects are where agents work: code, documents and deliveries. Create the first one to get started.",
+      "body": "Projects are where the team works: code, documents and deliveries. Create the first one to get started.",
       "cta": "Create project"
     },
     "emptySearch": "No projects found with the current filters.",
@@ -687,7 +694,7 @@
       "lastActivity": "Last activity {{time}}",
       "logoAlt": "{{name}} project brand",
       "poseidonDescription": "Poseidon control plane.",
-      "phase": "Phase",
+      "phase": "Stage",
       "progress": "Executed progress",
       "progressValue": "{{completed}}/{{total}} points — {{percent}}%",
       "responsible": "Owner",
@@ -865,19 +872,19 @@
     },
     "empty": {
       "title": "No active project",
-      "body": "The Dashboard shows a project's operation: phase, progress, blockers and agents. Create your first project to get started.",
+      "body": "The Dashboard shows how a project is going: stage, progress, blockers and team. Create your first project to get started.",
       "cta": "Create project"
     },
     "phase": {
-      "title": "Current phase",
+      "title": "Current stage",
       "noRun": "No workflow run in progress in this project.",
-      "gate": "Associated gate:",
-      "noGate": "No gate in this phase",
-      "progressLabel": "Progress of phase {{phase}}",
+      "gate": "What is missing to advance:",
+      "noGate": "Nothing pending in this stage",
+      "progressLabel": "Progress of stage {{phase}}",
       "progressFraction": "{{completed}} of {{total}} items completed",
-      "progressTooltip": "Single source: persisted workflow-run objectives and gates.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "progressTooltip": "Single source: objectives and reviews recorded in the workflow.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nReviews: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
       "deliverables": "Expected deliverables",
-      "deliverablesUnavailable": "This run did not publish deliverables for the phase."
+      "deliverablesUnavailable": "This work did not publish deliverables for the stage."
     },
     "progress": {
       "globalTitle": "Project-wide progress",
@@ -888,8 +895,8 @@
         "approved": "Approved"
       },
       "tooltips": {
-        "executed": "Executed = how much work the agents have already produced (code, documents). It does not yet mean it is correct.",
-        "validated": "Validated = how much work has already passed automated review and the quality tests/gates.",
+        "executed": "Executed = how much work the team has already produced (code, documents). It does not yet mean it is correct.",
+        "validated": "Validated = how much work has already passed the automated review and the quality tests.",
         "approved": "Approved = how much work you or Bruna have formally approved as ready to deliver."
       },
       "metadata": {
@@ -903,10 +910,10 @@
       }
     },
     "fleet": {
-      "title": "Operational fleet",
+      "title": "Team board",
       "subtitle": "Bruna and the global identities available to execute work in any project.",
       "identities": "{{count}} identities",
-      "error": "The fleet state could not be loaded.",
+      "error": "The team board could not be loaded.",
       "empty": "No execution identity is configured in this installation.",
       "kpis": {
         "online": "Online",
@@ -923,15 +930,15 @@
         "attention": "Health: attention",
         "unhealthy": "Health: critical"
       },
-      "quotaUnavailable": "Quota: provider does not report quota.",
-      "quotaReturns": "Out of quota. Reported return at {{time}}.",
-      "quotaNoReturn": "Out of quota. The provider did not report when it returns.",
+      "quotaUnavailable": "Workload: we do not have that information for this person.",
+      "quotaReturns": "Workload exhausted. Should be back at {{time}}.",
+      "quotaNoReturn": "Workload exhausted. We do not know yet when it comes back.",
       "cooldownReturns": "Cooldown until {{time}}.",
       "productivity": {
         "title": "Productivity by subscription",
-        "source": "Intended source: persisted tasks and attempts attributed to the execution account. This installation has not published attributable attempts.",
+        "source": "Intended source: recorded tasks and work rounds attributed to each person. This installation has not published attributable rounds.",
         "columns": {
-          "provider": "Subscription / provider",
+          "provider": "Team member",
           "completed": "Completed",
           "success": "Success",
           "rework": "Rework",
@@ -939,7 +946,7 @@
           "duration": "Average duration"
         },
         "unavailable": "Unavailable",
-        "zeroExplanation": "Zeros are real for the available slice. Duration is unavailable because there is no persisted attempt attributable to a subscription."
+        "zeroExplanation": "Zeros are real for the available period. Duration is unavailable because there is no recorded work round attributable to a person."
       }
     },
     "tasksChart": {
@@ -953,7 +960,7 @@
       "runInChat": "Run in chat",
       "actions": {
         "resolveApprovals": {
-          "label": "There are approvals awaiting your decision. Resolving them unblocks the workflow gates.",
+          "label": "There are approvals awaiting your decision. Resolving them unblocks the stages.",
           "message": "Bruna, list the project's pending approvals and help me decide each one."
         },
         "unblockTasks": {
@@ -961,16 +968,16 @@
           "message": "Bruna, which tasks are blocked and what is needed to unblock each one?"
         },
         "recoverAgents": {
-          "label": "There are agents in error or out of quota. Bruna can redistribute the work.",
-          "message": "Bruna, we have agents in error or out of quota. How do we recover the team's capacity?"
+          "label": "Some people are unwell or out of workload. Bruna can redistribute the work.",
+          "message": "Bruna, some people are unwell or out of workload. How do we recover the team's capacity?"
         },
         "reviewQuotas": {
-          "label": "Some budgets are near the limit. Review consumption before running out of quota.",
+          "label": "Some budgets are near the limit. Review consumption before the workload runs out.",
           "message": "Bruna, how is the project's cost consumption and what can we optimize?"
         },
         "reviewPhase": {
-          "label": "Healthy operation. Ask for a summary of the current phase.",
-          "message": "Bruna, give me a summary of the current phase progress and next steps."
+          "label": "All healthy. Ask for a summary of the current stage.",
+          "message": "Bruna, give me a summary of the current stage progress and next steps."
         }
       }
     },
@@ -989,23 +996,23 @@
     },
     "agents": {
       "title": "Operations team",
-      "empty": "No agents linked to this project.",
+      "empty": "Nobody on the team is linked to this project.",
       "online": "Online",
-      "onlineTooltip": "Agents ready to produce (working, idle or waiting). Does not count those in error or out of quota.",
+      "onlineTooltip": "People ready to produce (working, available or waiting). Does not count those unwell or out of workload.",
       "tasksDone": "Tasks completed",
-      "tasksDoneTooltip": "Total tasks already delivered by this project's agent team (cumulative).",
+      "tasksDoneTooltip": "Total tasks already delivered by this project's team (cumulative).",
       "tasksTodo": "Tasks to do",
       "tasksTodoTooltip": "Tasks not yet completed — the remaining production queue.",
       "problems": "No capacity",
-      "problemsTooltip": "Agents in error or out of quota. Each one here is stalled production capacity.",
+      "problemsTooltip": "People unwell or out of workload. Each one here is stalled production capacity.",
       "workingNow": "Producing now",
       "needAttention": "Need attention",
       "idleLabel": "idle",
       "problemState": "no capacity"
     },
     "quotas": {
-      "title": "Critical quotas",
-      "empty": "Providers have not published a quota time series. Once real observations exist, this card will show consumption and quota reset on a timeline; until then, see each subscription's honest state in Fleet.",
+      "title": "Team capacity",
+      "empty": "No workload history has been published yet. Once real observations exist, this block will show workload consumption and reset over time; until then, see each person's honest state on the Team board.",
       "severity": {
         "warning": "Warning: {{pct}}% of the budget consumed.",
         "critical": "Limit reached: {{pct}}% of the budget consumed."
@@ -1044,7 +1051,7 @@
         "detail": "Detail"
       },
       "actions": {
-        "agent.error": "Agent reported an error",
+        "agent.error": "Someone on the team reported an error",
         "approval.resolved": "Approval resolved",
         "demand.created": "Demand created by Bruna",
         "license.validated": "License validated",
@@ -1114,8 +1121,8 @@
       "stuck": "Possible stagnation: active work has not been updated for at least 2 hours.",
       "types": {
         "feature": "Feature",
-        "agent_task": "Agent task",
-        "human_gate": "Human gate",
+        "agent_task": "Team task",
+        "human_gate": "Your decision",
         "spike": "Investigation",
         "decision": "Decision"
       }
@@ -1148,7 +1155,7 @@
         "claims": "Claims and authorized scope"
       },
       "instruction": {
-        "title": "Instruction sent to the agent",
+        "title": "Instruction sent to the person in charge",
         "immutable": "Instructions are immutable: a correction creates a new version instead of editing the previous one.",
         "versionLabel": "Instruction version",
         "version": "Version {{version}}",
@@ -1158,13 +1165,13 @@
         }
       },
       "attempts": {
-        "title": "Attempts and evidence",
-        "empty": "No execution attempts yet.",
-        "attempt": "Attempt {{number}}",
+        "title": "Work rounds and evidence",
+        "empty": "No work rounds yet.",
+        "attempt": "Work round {{number}}",
         "duration": "Duration",
         "cost": "Cost",
-        "tokens": "Tokens (input/output)",
-        "commits": "Commits/diffs",
+        "tokens": "Processed work (input/output)",
+        "commits": "Delivered changes",
         "running": "In progress"
       },
       "eventKinds": {
@@ -1230,8 +1237,8 @@
       "specialty": "Specialty",
       "specialtyAll": "All specialties",
       "type": "Type",
-      "phase": "Phase",
-      "phaseAll": "All phases",
+      "phase": "Stage",
+      "phaseAll": "All stages",
       "priority": "Priority",
       "period": "Last activity",
       "periodAll": "All time",
@@ -1346,18 +1353,18 @@
       "title": "Project workflow",
       "open": "Open workflow panel",
       "close": "Close workflow panel",
-      "phaseProgress": "Progress of phase {{phase}}",
-      "documentsLabel": "Documents of phase {{phase}}",
-      "noDocuments": "No document has been produced or linked to this phase.",
+      "phaseProgress": "Progress of stage {{phase}}",
+      "documentsLabel": "Documents of stage {{phase}}",
+      "noDocuments": "No document has been produced or linked to this stage.",
       "noDocumentsFiltered": "No documents in this state.",
       "expectedArtifacts": "Expected artifacts",
       "progressEvidence": {
         "fraction": "{{completed}} of {{total}} items completed",
-        "phaseFallback": "The run did not publish objectives for this phase.",
-        "tooltip": "Single source: persisted workflow-run objectives and gates.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}"
+        "phaseFallback": "The work has not published objectives for this stage yet.",
+        "tooltip": "Single source: objectives and reviews recorded in the workflow.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nReviews: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}"
       },
       "filters": {
-        "label": "Filter documents of phase {{phase}}"
+        "label": "Filter documents of stage {{phase}}"
       },
       "health": {
         "planned": "Planned",
@@ -1371,12 +1378,12 @@
       },
       "notStarted": {
         "title": "Execution not started yet",
-        "body": "This project already has a workflow assigned. Phases, progress and documents appear here as soon as the first run begins.",
+        "body": "This project already has a workflow assigned. Stages, progress and documents appear here as soon as the work begins.",
         "cta": "View workflow"
       },
       "empty": {
         "title": "Workflow not linked",
-        "body": "Every project gets a default workflow automatically — finding this project without one is an exception. Link a workflow to track phases, progress and documents without leaving the conversation.",
+        "body": "Every project gets a default workflow automatically — finding this project without one is an exception. Link a workflow to track stages, progress and documents without leaving the conversation.",
         "cta": "View workflows"
       }
     },
@@ -1437,7 +1444,7 @@
         "failed": "⛔ Failed",
         "blocked": "⛔ Blocked"
       },
-      "agentFallback": "an agent",
+      "agentFallback": "someone on the team",
       "elapsedLabel": "{{elapsed}} elapsed",
       "stuck": "no signal — possibly stuck",
       "acknowledged": "Turn registered — Bruna will run.",
@@ -1483,7 +1490,7 @@
       "removeAttachment": "Remove attachment {{name}}",
       "model": "Model",
       "modelDefault": "Bruna's default",
-      "effort": "Effort",
+      "effort": "Working mode",
       "effortOptions": {
         "low": "Low",
         "medium": "Medium",
@@ -1515,17 +1522,17 @@
       "technicalDetails": "Technical details",
       "blockers": {
         "unknown": "A required dependency is not ready yet.",
-        "provider_account": { "missing": "Connect a provider account." },
-        "model": { "none_chat_enabled": "Enable a chat model." },
+        "provider_account": { "missing": "Finish hiring a team member." },
+        "model": { "none_chat_enabled": "Enable a working mode." },
         "workflow": { "unbound": "Bind a workflow to the project." },
-        "chief": { "model_unresolved": "Set Bruna's model." }
+        "chief": { "model_unresolved": "Set Bruna's working mode." }
       },
       "actions": {
         "unknown": "Resolve dependency",
-        "provider": { "connectAccount": "Connect a provider account" },
-        "model": { "enable": "Enable a model" },
+        "provider": { "connectAccount": "Finish hiring" },
+        "model": { "enable": "Set working mode" },
         "workflow": { "bind": "Bind a workflow" },
-        "chief": { "configureModel": "Configure Bruna's model" }
+        "chief": { "configureModel": "Configure Bruna's working mode" }
       }
     },
     "readiness": {
@@ -1533,10 +1540,10 @@
       "businessBody": "You can keep writing. Execution starts as soon as the required setup is ready.",
       "title": "Bruna's execution is blocked",
       "body": "You can write, but Bruna only runs once these dependencies are ready:",
-      "additionalBlocker": "The basic dependencies are ready, but the read model reports another operational blocker. Open diagnostics to see the cause.",
+      "additionalBlocker": "The basic dependencies are ready, but something else is blocking the way. Open the environment check to see the cause.",
       "items": {
-        "provider": "Provider connected with an active account",
-        "model": "Enabled model",
+        "provider": "Team hired and active",
+        "model": "Working mode set",
         "workflow": "Workflow linked to the project"
       },
       "actions": {
@@ -1559,7 +1566,7 @@
     },
     "projects": {
       "title": "Projects",
-      "description": "List and details of projects built by the agents."
+      "description": "List and details of the projects delivered by the team."
     },
     "cockpit": {
       "title": "Dashboard",
@@ -1571,7 +1578,7 @@
     },
     "conversations": {
       "title": "Conversations",
-      "description": "Conversation history with the agents."
+      "description": "History of your conversations with the team."
     },
     "workflows": {
       "title": "Workflows",
@@ -1583,7 +1590,7 @@
     },
     "documents": {
       "title": "Documents",
-      "description": "Documentation generated and maintained by the agents."
+      "description": "Documents produced and maintained by the team."
     },
     "prototypes": {
       "title": "Prototypes",
@@ -1594,8 +1601,8 @@
       "description": "Decisions pending human approval."
     },
     "orchestrator": {
-      "title": "Orchestrator",
-      "description": "Bruna's coordination over the other agents."
+      "title": "Team",
+      "description": "How Bruna coordinates the team's work."
     },
     "agents": {
       "title": "Agents",
@@ -1642,10 +1649,10 @@
     "empty": {
       "title": "No workflow linked",
       "body": "This project has no workflow yet. Link a template to get started.",
-      "explanation": "A workflow defines the phases of the work (e.g. discovery, development, review) and the approval gates between them. It guides Bruna in running the project.",
+      "explanation": "A workflow defines the stages of the work (e.g. discovery, development, review) and the approval approval points between them. It guides Bruna in running the project.",
       "recommendedBadge": "Recommended",
       "versionLabel": "version {{version}}",
-      "phasesLabel": "Phases",
+      "phasesLabel": "Stages",
       "useRecommended": "Use recommended workflow",
       "chooseAnother": "Choose another template",
       "otherTemplateLabel": "Another published template",
@@ -1661,41 +1668,41 @@
     "mode": {
       "title": "Operation mode",
       "description": {
-        "manual": "Every gate and transition waits for your decision.",
-        "semiautonomous": "Agents advance on their own; only the selected gates pause for approval.",
-        "autonomous": "Agents execute and approve gates with no human intervention."
+        "manual": "Every approval point and transition waits for your decision.",
+        "semiautonomous": "The team advances on its own; only the approval points you choose pause for your decision.",
+        "autonomous": "The team executes and approves everything with no human intervention."
       },
       "change": "Change mode",
       "dialogTitle": "Change operation mode",
       "selectLabel": "New mode",
       "risk": {
-        "manual": "In manual mode, no gate advances without your approval. Slower, but fully under your control.",
-        "semiautonomous": "In semi-autonomous mode, agents advance phases and gates on their own, except at the gates you choose to pause. You are accountable for delegated decisions.",
-        "autonomous": "In autonomous mode, agents execute and approve gates with no human intervention, including releases. The operational risk is entirely yours."
+        "manual": "In manual mode, no approval point advances without your approval. Slower, but fully under your control.",
+        "semiautonomous": "In semi-autonomous mode, the team advances stages and approval points on its own, except at the ones you choose to pause. You are accountable for delegated decisions.",
+        "autonomous": "In autonomous mode, the team executes and approves everything with no human intervention, including releases. The operational risk is entirely yours."
       },
-      "pauseGatesLabel": "Gates that pause for human approval",
+      "pauseGatesLabel": "Approval points that pause for your decision",
       "noteLabel": "Acceptance rationale",
       "notePlaceholder": "Why do you accept this mode now?",
       "acceptCheckbox": "I have read and accept the risks of this operation mode",
       "confirm": "Confirm change",
       "errors": {
         "acceptanceRequired": "Check the risk acceptance and write the rationale.",
-        "gatesRequired": "Select at least one gate that pauses for approval."
+        "gatesRequired": "Select at least one approval point that pauses for your decision."
       },
-      "pauseGates": "Pauses at gates: {{gates}}",
-      "noPauseGates": "No gate pauses for approval.",
+      "pauseGates": "Pauses at approval points: {{gates}}",
+      "noPauseGates": "No approval point pauses for your decision.",
       "acceptances": "{{count}} risk acceptance(s) recorded",
       "acceptanceItem": "{{mode}} — {{date}} — {{note}}"
     },
     "phases": {
-      "title": "Workflow phases",
-      "label": "Workflow phases",
-      "gatesLabel": "Gates of phase {{phase}}",
-      "progressLabel": "Progress of phase {{phase}}",
-      "progressDetails": "View progress calculation for phase {{phase}}",
-      "progressTooltip": "Single source: persisted workflow-run objectives and gates.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "title": "Workflow stages",
+      "label": "Workflow stages",
+      "gatesLabel": "Approval points of stage {{phase}}",
+      "progressLabel": "Progress of stage {{phase}}",
+      "progressDetails": "View progress calculation for stage {{phase}}",
+      "progressTooltip": "Single source: persisted workflow-run objectives and approval points.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nApproval points: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
       "deliverablesLabel": "Expected deliverables",
-      "deliverablesUnavailable": "This run version did not publish deliverables for the phase.",
+      "deliverablesUnavailable": "This run version did not publish deliverables for the stage.",
       "producedDocumentsLabel": "Produced documents",
       "documentVersion": "v{{version}}"
     },
@@ -1704,20 +1711,20 @@
       "newVersion": "New version",
       "version": "v{{version}}",
       "current": "Current",
-      "phaseCount": "{{count}} phases",
-      "phasesListLabel": "Phases in this version",
+      "phaseCount": "{{count}} stages",
+      "phasesListLabel": "Stages in this version",
       "dialogTitle": "New version — {{name}}",
       "dialogHint": "The version is published immutable; runs in progress are not affected.",
-      "phasesLabel": "Phases (one per line, in execution order)",
-      "phasesHint": "Line order defines phase order.",
+      "phasesLabel": "Stages (one per line, in execution order)",
+      "phasesHint": "Line order defines stage order.",
       "changelogLabel": "Changelog",
       "defaultModeLabel": "Default operation mode",
       "noDefaultMode": "No default mode",
-      "gatesLabel": "Gates",
+      "gatesLabel": "Approval points",
       "gatesHint": "Comma separated.",
       "weightLabel": "Progress weight (%)",
       "documentKindsLabel": "Expected documents",
-      "agentsLabel": "Allowed agents",
+      "agentsLabel": "Who can work on this stage",
       "transitionsLabel": "Allowed transitions",
       "publish": "Publish version",
       "create": "New template",
@@ -1740,16 +1747,16 @@
       "impactBanner": "The project's active run stays on v{{version}} — the new version only applies to new runs.",
       "validationTitle": "The version failed Harness validation:",
       "validation": {
-        "phasesRequired": "Provide at least one phase.",
-        "emptyPhaseName": "Every phase needs a name.",
-        "duplicatePhase": "Duplicated phase: {{phase}}.",
-        "unknownGatePhase": "Gates reference the missing phase \"{{phase}}\".",
-        "unknownTransitionPhase": "Transition defined on the missing phase \"{{phase}}\".",
-        "unknownTransitionTarget": "Phase \"{{phase}}\" transitions to the missing phase \"{{target}}\".",
-        "unknownConfigPhase": "Configuration defined for the missing phase \"{{phase}}\".",
-        "unknownDependency": "Phase \"{{phase}}\" depends on the missing phase \"{{target}}\".",
+        "phasesRequired": "Provide at least one stage.",
+        "emptyPhaseName": "Every stage needs a name.",
+        "duplicatePhase": "Duplicated stage: {{phase}}.",
+        "unknownGatePhase": "Approval points reference the missing stage \"{{phase}}\".",
+        "unknownTransitionPhase": "Transition defined on the missing stage \"{{phase}}\".",
+        "unknownTransitionTarget": "Stage \"{{phase}}\" transitions to the missing stage \"{{target}}\".",
+        "unknownConfigPhase": "Configuration defined for the missing stage \"{{phase}}\".",
+        "unknownDependency": "Stage \"{{phase}}\" depends on the missing stage \"{{target}}\".",
         "dependencyCycle": "Dependency cycle between \"{{phase}}\" and \"{{target}}\".",
-        "invalidWeight": "Invalid weight in phase {{phase}} (use 0–100)."
+        "invalidWeight": "Invalid weight in stage {{phase}} (use 0–100)."
       },
       "createDialog": {
         "title": "New workflow template",
@@ -1768,26 +1775,28 @@
         "confirm": "Delete draft"
       },
       "errors": {
-        "phasesRequired": "Provide at least one phase.",
-        "invalidWeight": "Invalid weight in phase {{phase}} (use 0–100)."
+        "phasesRequired": "Provide at least one stage.",
+        "invalidWeight": "Invalid weight in stage {{phase}} (use 0–100)."
       }
     },
     "editor": {
       "title": "Edit draft — {{name}} (v{{version}})",
       "hint": "Drafts are editable; publishing freezes the version (immutable) after Harness validation.",
-      "phaseLegend": "Phase {{index}}",
-      "nameLabel": "Phase name",
+      "phaseLegend": "Stage {{index}}",
+      "nameLabel": "Stage name",
       "objectiveLabel": "Objective",
       "contextLabel": "Context",
       "acceptanceCriteriaLabel": "Acceptance criteria",
+      "entryConditionsLabel": "What must be ready to start",
+      "exitConditionsLabel": "What must be ready to finish",
       "linesHint": "One per line.",
       "skillsLabel": "Allowed skills",
       "toolsLabel": "Allowed tools",
       "dependsOnLabel": "Depends on",
-      "addPhase": "Add phase",
-      "removePhase": "Remove phase",
-      "moveUp": "Move phase up",
-      "moveDown": "Move phase down",
+      "addPhase": "Add stage",
+      "removePhase": "Remove stage",
+      "moveUp": "Move stage up",
+      "moveDown": "Move stage down",
       "saveDraft": "Save draft",
       "saved": "Draft saved."
     },
@@ -1798,12 +1807,12 @@
       "sideTo": "Target (after)",
       "crossTemplate": "You are comparing two different workflows.",
       "identical": "The versions are structurally identical.",
-      "phasesAdded": "Added phases",
-      "phasesRemoved": "Removed phases",
-      "phasesAddedIn": "Phases added in {{label}}",
-      "phasesRemovedFrom": "Phases removed from {{label}}",
-      "phasesReordered": "Reordered phases: {{phases}}",
-      "phasesChanged": "Changed phases",
+      "phasesAdded": "Added stages",
+      "phasesRemoved": "Removed stages",
+      "phasesAddedIn": "Stages added in {{label}}",
+      "phasesRemovedFrom": "Stages removed from {{label}}",
+      "phasesReordered": "Reordered stages: {{phases}}",
+      "phasesChanged": "Changed stages",
       "modeChange": "Default mode: {{from}} → {{to}}",
       "mode": {
         "manual": "Manual",
@@ -1812,9 +1821,9 @@
         "none": "no default mode"
       },
       "fields": {
-        "gates": "Gates",
+        "gates": "Approval points",
         "documentKinds": "Documents",
-        "agents": "Agents",
+        "agents": "Who can work",
         "skills": "Skills",
         "tools": "Tools",
         "acceptanceCriteria": "Acceptance criteria",
@@ -1835,9 +1844,9 @@
     },
     "empty": {
       "title": "No documents in this project yet",
-      "body": "Documents are versioned project artifacts (PRD, specification, design, runbook, notes and reports). Bruna and the agents produce them along the flow — each correction becomes a new immutable version, with history and comparison.",
-      "appears": "As soon as an agent or a workflow phase generates an artifact, it shows up here with its state (draft, in review, approved). You can also create the first one right now.",
-      "governanceNote": "Looking to edit repository files (governance, policies, manifests)? That lives in Governance Documents — a separate screen.",
+      "body": "Documents are the versioned project artifacts (product vision, specification, design, operations manual, notes and reports). Bruna and the team produce them along the work — each correction becomes a new version, with history and comparison.",
+      "appears": "As soon as someone on the team or a workflow stage generates a document, it shows up here with its state (draft, in review, approved). You can also create the first one right now.",
+      "governanceNote": "Looking to edit the system's internal files (governance, policies, manifests)? That lives in Governance Documents — a separate screen.",
       "governanceLink": "Go to Governance Documents",
       "createCta": "Create document",
       "uploadCta": "Upload file"
@@ -1861,7 +1870,7 @@
     },
     "filters": {
       "kind": "Category",
-      "phase": "Phase",
+      "phase": "Stage",
       "state": "State",
       "inconsistent": "Inconsistent",
       "waiver": "With waiver",
@@ -1873,11 +1882,11 @@
     },
     "catalog": {
       "label": "Document catalog",
-      "noPhase": "No phase",
+      "noPhase": "No stage",
       "columns": {
         "title": "Title",
         "kind": "Category",
-        "phase": "Phase",
+        "phase": "Stage",
         "state": "State",
         "version": "Version",
         "updatedAt": "Updated"
@@ -1886,7 +1895,7 @@
     "detail": {
       "back": "Back to catalog",
       "version": "v{{version}}",
-      "phase": "Phase: {{phase}}",
+      "phase": "Stage: {{phase}}",
       "inconsistent": "Document marked as inconsistent: it conflicts with another artifact or with the project state.",
       "waiver": "Waiver: {{reason}} (granted on {{date}})",
       "contentTitle": "Content",
@@ -1922,7 +1931,7 @@
       "authorKind": {
         "user": "You",
         "chief": "Bruna",
-        "agent": "Agent"
+        "agent": "Team member"
       },
       "diffFrom": "Compare from",
       "diffTo": "to",
@@ -1932,11 +1941,11 @@
     },
     "orphans": {
       "title": "Orphan documents",
-      "body": "Documents not linked to a workflow phase. Classify them to bring them into the flow.",
+      "body": "Documents not linked to a workflow stage. Classify them to bring them into the work.",
       "classify": "Classify",
       "dialogTitle": "Classify \"{{title}}\"",
-      "phaseLabel": "Workflow phase",
-      "phaseHint": "Suggestion: phases of the project's active workflow version.",
+      "phaseLabel": "Workflow stage",
+      "phaseHint": "Suggestion: stages of the project's active workflow version.",
       "classificationsLabel": "Classifications",
       "classificationsHint": "Comma separated."
     },
@@ -1956,7 +1965,7 @@
   },
   "approvals": {
     "kind": {
-      "gate": "Gate",
+      "gate": "Stage advance",
       "document": "Document",
       "task": "Task",
       "decision": "Decision"

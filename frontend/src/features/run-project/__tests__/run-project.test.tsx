@@ -87,7 +87,7 @@ describe('RunProjectPage', () => {
     expect(await screen.findByText('Credenciais de demonstração')).toBeInTheDocument();
     expect(screen.queryByText('demo@poseidon.local')).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Nenhuma credencial de demonstração foi fornecida pelo backend/),
+      screen.getByText(/Nenhuma credencial de demonstração foi fornecida para este projeto/),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Revelar' })).not.toBeInTheDocument();
   });
@@ -102,7 +102,7 @@ describe('RunProjectPage', () => {
     expect(screen.getByText('~/poseidon')).toBeInTheDocument();
     expect(screen.getByText('~/.harness-poseidon')).toBeInTheDocument();
     // Sem âncora na seção de diagnóstico de /settings: link simples para a página.
-    expect(screen.getByRole('link', { name: 'Diagnóstico' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Verificação do ambiente' })).toHaveAttribute('href', '/settings');
     // Instrução estática de atalho — texto informativo, sem botão.
     expect(screen.getByText(/Instrução: para abrir este ambiente fora do app/)).toBeInTheDocument();
   });

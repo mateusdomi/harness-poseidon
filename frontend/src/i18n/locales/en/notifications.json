@@ -47,12 +47,12 @@
       "saved": "Changes saved",
       "descriptions": {
         "system": "Alerts from Poseidon itself: updates, system health and incidents.",
-        "task": "Changes to cards and tasks: status, assignment and completion.",
+        "task": "Task changes: progress, owner and completion.",
         "approval": "When something is waiting for your approval before proceeding.",
-        "quota": "Quota and budget usage approaching the limit.",
+        "quota": "Workload and budget approaching the limit.",
         "license": "License state: activation, expiration and grace period.",
         "chat": "New messages and replies in conversations.",
-        "workflow": "Flow and publish progress: approved gates and new versions."
+        "workflow": "Workflow progress: approved stages and new versions."
       }
     }
   }

@@ -26,18 +26,18 @@
     "workspace": {
       "title": "Working directories",
       "directory": "Working directory",
-      "hint": "Local folder where agents read and write files.",
+      "hint": "Local folder where the team keeps the work files.",
       "placeholder": "e.g. /Users/you/projects/my-app",
-      "empty": "No working directory configured. While blank, agents use the device default directory. Enter the path to your project's local folder and save.",
+      "empty": "No working folder configured. While blank, the team uses the device default folder. Enter the path to your project's local folder and save.",
       "current": "Current directory: {{path}}"
     },
     "sandbox": {
-      "title": "Sandbox and unsafe mode",
-      "acceptedAt": "Unsafe mode (execution without sandbox) accepted on {{date}}.",
-      "notAccepted": "Unsafe mode not accepted — execution requires an available sandbox.",
+      "title": "Isolation protection and unsafe mode",
+      "acceptedAt": "Unsafe mode (execution without isolation protection) accepted on {{date}}.",
+      "notAccepted": "Unsafe mode not accepted — execution requires the isolation protection to be available.",
       "revoke": "Revoke acceptance",
       "revokeTitle": "Revoke unsafe mode acceptance",
-      "revokeBody": "Once revoked, unsafe mode will require explicit acceptance again on the next onboarding or out-of-sandbox execution. Continue?",
+      "revokeBody": "Once revoked, unsafe mode will require explicit acceptance again on the next setup or execution without the isolation protection. Continue?",
       "revokeConfirm": "Revoke acceptance"
     },
     "backup": {
@@ -105,7 +105,7 @@
     },
     "about": {
       "title": "About",
-      "body": "{{name}} {{version}} (codename {{codename}}) — local agent orchestration console."
+      "body": "{{name}} {{version}} (codename {{codename}}) — your team's local console."
     }
   }
 }

@@ -23,8 +23,8 @@
       "stack": "Stack",
       "stackUnavailable": "Stack not declared by the project",
       "dependencies": "Dependencies",
-      "hostName": "Poseidon application (Host + frontend)",
-      "hostDependencies": "Observed external process; it hosts this screen and the API.",
+      "hostName": "Poseidon application",
+      "hostDependencies": "Observed external process; it hosts this screen.",
       "managedDependencies": "Launcher-managed target; target-specific dependencies are not declared by the manifest."
     },
     "logs": {
@@ -46,7 +46,7 @@
     },
     "credentials": {
       "title": "Demo credentials",
-      "backendOnly": "The backend did not provide demo credentials for this project. The interface does not store or reveal local credentials on its own."
+      "backendOnly": "No demo credentials were provided for this project. The interface does not store or reveal credentials on its own."
     },
     "guideTitle": "What to test first",
     "guide": {
@@ -69,7 +69,7 @@
       "dataDirectory": "~/.harness-poseidon",
       "actionsNote": "To manage the environment, use the Restart and Stop actions available above, on each service.",
       "shortcut": "Instruction: to open this environment outside the app, use the \"Harness Poseidon Launcher\" shortcut in the system applications menu.",
-      "diagnostics": "Diagnostics"
+      "diagnostics": "Environment check"
     }
   }
 }

@@ -26,18 +26,18 @@
     "workspace": {
       "title": "Diretórios de trabalho",
       "directory": "Diretório de trabalho",
-      "hint": "Pasta local onde os agentes leem e escrevem arquivos.",
+      "hint": "Pasta local onde a equipe guarda os arquivos do trabalho.",
       "placeholder": "Ex.: /Users/voce/projetos/meu-app",
-      "empty": "Nenhum diretório de trabalho configurado. Enquanto estiver em branco, os agentes usam o diretório padrão do dispositivo. Informe o caminho da pasta local do seu projeto e salve.",
+      "empty": "Nenhuma pasta de trabalho configurada. Enquanto estiver em branco, a equipe usa a pasta padrão do dispositivo. Informe o caminho da pasta local do seu projeto e salve.",
       "current": "Diretório atual: {{path}}"
     },
     "sandbox": {
-      "title": "Sandbox e modo inseguro",
-      "acceptedAt": "Modo inseguro (execução sem sandbox) aceito em {{date}}.",
-      "notAccepted": "Modo inseguro não aceito — a execução exige sandbox disponível.",
+      "title": "Proteção de isolamento e modo inseguro",
+      "acceptedAt": "Modo inseguro (execução sem proteção de isolamento) aceito em {{date}}.",
+      "notAccepted": "Modo inseguro não aceito — a execução exige a proteção de isolamento disponível.",
       "revoke": "Revogar aceite",
       "revokeTitle": "Revogar aceite do modo inseguro",
-      "revokeBody": "Ao revogar, o modo inseguro volta a exigir aceite explícito no próximo onboarding ou execução fora do sandbox. Deseja continuar?",
+      "revokeBody": "Ao revogar, o modo inseguro volta a exigir aceite explícito na próxima configuração inicial ou execução sem a proteção de isolamento. Deseja continuar?",
       "revokeConfirm": "Revogar aceite"
     },
     "backup": {
@@ -105,7 +105,7 @@
     },
     "about": {
       "title": "Sobre",
-      "body": "{{name}} {{version}} (codinome {{codename}}) — console local de orquestração de agentes."
+      "body": "{{name}} {{version}} (codinome {{codename}}) — console local da sua equipe."
     }
   }
 }

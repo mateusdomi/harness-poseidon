@@ -11,7 +11,7 @@
       "help": {
         "externalPrototype": "The project uses an externally hosted prototype; references here are read-only.",
         "guidelinesOnly": "The project follows visual guidelines only (colors, logo, references) — no navigable prototype.",
-        "autonomousGeneration": "Agents autonomously generate the project's prototypes from the documents.",
+        "autonomousGeneration": "The team creates the project's prototypes on its own, from the documents.",
         "notApplicable": "The project has no visual interface — prototyping is formally waived."
       },
       "waiverLabel": "Waiver reason",

@@ -34,9 +34,9 @@
     },
     "context": {
       "label": "Contexto do projeto",
-      "phase": "Fase {{name}}",
-      "agentsWorking": "{{count}} agentes trabalhando",
-      "agentsWorking_one": "{{count}} agente trabalhando"
+      "phase": "Etapa {{name}}",
+      "agentsWorking": "{{count}} pessoas trabalhando",
+      "agentsWorking_one": "{{count}} pessoa trabalhando"
     },
     "project": {
       "label": "Projeto ativo",
@@ -67,7 +67,7 @@
     "prototypes": "Protótipos",
     "architecture": "Arquitetura",
     "approvals": "Aprovações",
-    "orchestrator": "Orquestrador",
+    "orchestrator": "Equipe",
     "agents": "Agentes",
     "tools": "Ferramentas",
     "run-project": "Executar projeto",
@@ -90,16 +90,16 @@
       "chat": "conversar bruna liderança mensagem perguntar falar",
       "board": "tarefas kanban cartões colunas",
       "conversations": "histórico conversas antigas",
-      "projects": "projetos lista repositório",
+      "projects": "projetos lista trabalhos",
       "delivery": "entregas portfólio previsão forecast dora relatórios daily copilot 360 tech lead",
-      "workflows": "fluxos pipeline automação fases",
-      "orchestrator": "coordenação liderança delegação agentes",
+      "workflows": "fluxos etapas automação trabalho",
+      "orchestrator": "coordenação liderança delegação equipe",
       "agents": "agentes equipe especialistas robôs",
       "run-project": "executar rodar iniciar disparar",
       "documents": "docs catálogo arquivos especificação",
       "prototypes": "telas mockups wireframes referências galeria",
       "architecture": "arquitetura studio estúdio hub central c4 archimate elementos views vistas diagramas modelo",
-      "approvals": "pendências gates decisões revisar aprovar",
+      "approvals": "pendências decisões revisar aprovar",
       "governance": "auditoria trilha políticas limites timeline",
       "governance-docs": "governança comportamento liderança regras docs editar disco core manifest",
       "organizations": "orgs empresa workspace marca",
@@ -142,13 +142,13 @@
     },
     "simulated": {
       "label": "Modo simulado",
-      "hint": "Esta tela mostra dados simulados (fixtures), não um backend real. Configure o modo HTTP para operar com dados reais."
+      "hint": "Esta tela está mostrando dados de demonstração, não os do seu trabalho real."
     },
     "breadcrumb": {
       "label": "Trilha de navegação"
     },
     "requests": {
-      "slow": "A API está demorando para responder em {{path}} ({{count}} requisição(ões)). A operação continua monitorada.",
+      "slow": "O sistema está demorando para responder ({{count}} pedido(s) em andamento). Continuamos acompanhando.",
       "routeTimeout": "A tela excedeu o tempo seguro de carregamento. Tente novamente."
     },
     "routeError": {
@@ -229,7 +229,7 @@
       }
     },
     "secrets": {
-      "maskedNote": "Revelado no backend somente com permissão."
+      "maskedNote": "Revelado somente com permissão."
     }
   },
   "status": {
@@ -257,7 +257,7 @@
       "development": "Em desenvolvimento",
       "review": "Em revisão",
       "corrections": "Em correção",
-      "testsGates": "Testes e gates",
+      "testsGates": "Testes e conferências",
       "blocked": "Bloqueada",
       "done": "Concluída"
     },
@@ -266,7 +266,7 @@
       "idle": "Ocioso",
       "waiting": "Aguardando",
       "error": "Em erro",
-      "outOfQuota": "Sem cota"
+      "outOfQuota": "Jornada esgotada"
     },
     "approvalState": {
       "pending": "Pendente",
@@ -307,7 +307,7 @@
     "auditActorKind": {
       "user": "Você",
       "chief": "Bruna Magalhães",
-      "agent": "Agente",
+      "agent": "Pessoa da equipe",
       "system": "Sistema"
     },
     "documentState": {
@@ -346,12 +346,19 @@
       "archived": "Arquivada"
     },
     "chiefTurnState": {
-      "notStarted": "Não iniciado",
-      "pending": "Pendente",
-      "processing": "Processando",
+      "notStarted": "Ainda não começou",
+      "pending": "Na fila",
+      "received": "Recebido",
+      "reading_context": "Entendendo o pedido",
+      "thinking": "Analisando",
+      "planning": "Planejando",
+      "delegating": "Distribuindo para a equipe",
+      "agent_working": "Equipe trabalhando",
+      "awaiting_review": "Em conferência de um colega",
+      "processing": "Em andamento",
       "completed": "Concluído",
-      "failed": "Falhou",
-      "blocked": "Bloqueado"
+      "failed": "Não deu certo",
+      "blocked": "Parado"
     },
     "componentState": {
       "enabled": "Habilitado",
@@ -377,10 +384,10 @@
       "system": "Sistema",
       "task": "Tarefa",
       "approval": "Aprovação",
-      "quota": "Cota",
+      "quota": "Jornada",
       "license": "Licença",
       "chat": "Chat",
-      "workflow": "Workflow"
+      "workflow": "Fluxo de trabalho"
     },
     "notificationStatus": {
       "unread": "Não lida",
@@ -396,7 +403,7 @@
     "accountState": {
       "active": "Ativa",
       "disabled": "Desabilitada",
-      "quotaExceeded": "Cota excedida"
+      "quotaExceeded": "Jornada esgotada"
     },
     "agentRole": {
       "chief": "Liderança",
@@ -489,29 +496,29 @@
         "cta": "Criar projeto"
       },
       "ProviderAccountReady": {
-        "title": "Provedor e conta",
-        "explanation": "Conecte um provedor de modelos e ative uma conta (a credencial é uma referência segura).",
-        "cta": "Configurar provedor"
+        "title": "Equipe contratada",
+        "explanation": "Conclua a contratação de pelo menos uma pessoa da equipe (o acesso dela fica guardado com segurança).",
+        "cta": "Concluir contratação"
       },
       "ModelReady": {
-        "title": "Modelo",
-        "explanation": "Habilite ao menos um modelo de chat do provedor.",
-        "cta": "Habilitar modelo"
+        "title": "Modo de trabalho",
+        "explanation": "Habilite ao menos um modo de trabalho para a equipe conversar com você.",
+        "cta": "Definir modo de trabalho"
       },
       "WorkflowReady": {
-        "title": "Workflow",
-        "explanation": "Vincule um workflow ao projeto para definir as fases e os portões de execução.",
-        "cta": "Vincular workflow"
+        "title": "Fluxo de trabalho",
+        "explanation": "Vincule um fluxo de trabalho ao projeto para definir as etapas e o que é preciso para avançar.",
+        "cta": "Vincular fluxo de trabalho"
       },
       "ChiefDefinitionReady": {
         "title": "Bruna configurada",
-        "explanation": "Bruna precisa de um modelo resolvível para coordenar o projeto.",
+        "explanation": "A Bruna precisa de um modo de trabalho definido para coordenar o projeto.",
         "cta": "Configurar Bruna"
       },
       "AgentPoolReady": {
-        "title": "Agentes disponíveis",
-        "explanation": "Os agentes precisam estar disponíveis e saudáveis para receber trabalho.",
-        "cta": "Revisar agentes"
+        "title": "Equipe disponível",
+        "explanation": "A equipe precisa estar disponível para receber trabalho.",
+        "cta": "Ver o quadro da equipe"
       },
       "ExecutionReady": {
         "title": "Pronto para executar",
@@ -523,11 +530,11 @@
       "profile.create": "Criar perfil",
       "organization.create": "Criar organização",
       "project.create": "Criar projeto",
-      "provider.connectAccount": "Conectar conta de provedor",
-      "model.enable": "Habilitar modelo",
-      "workflow.bind": "Vincular workflow",
+      "provider.connectAccount": "Concluir uma contratação",
+      "model.enable": "Definir modo de trabalho",
+      "workflow.bind": "Vincular fluxo de trabalho",
       "chief.configureModel": "Configurar Bruna",
-      "agent.recover": "Recuperar agente",
+      "agent.recover": "Reativar pessoa da equipe",
       "conversation.start": "Iniciar conversa"
     },
     "blockers": {
@@ -535,13 +542,13 @@
       "organization.missing": "Nenhuma organização cadastrada.",
       "organization.required": "Requer uma organização antes.",
       "project.missing": "Requer um projeto antes.",
-      "provider_account.missing": "Nenhuma conta de provedor ativa.",
-      "model.none_chat_enabled": "Nenhum modelo de chat habilitado.",
-      "workflow.unbound": "Nenhum workflow vinculado ao projeto.",
+      "provider_account.missing": "Nenhuma pessoa da equipe contratada ainda.",
+      "model.none_chat_enabled": "Nenhum modo de trabalho habilitado.",
+      "workflow.unbound": "Nenhum fluxo de trabalho vinculado ao projeto.",
       "chief.missing": "O projeto não tem liderança configurada.",
-      "chief.model_unresolved": "O modelo de Bruna não pôde ser resolvido.",
-      "agent.unavailable": "Nenhum agente disponível.",
-      "agent.degraded": "Agente em estado degradado."
+      "chief.model_unresolved": "Não foi possível definir o modo de trabalho da Bruna.",
+      "agent.unavailable": "Ninguém da equipe está disponível.",
+      "agent.degraded": "Alguém da equipe está indisposto."
     }
   },
   "onboarding": {
@@ -583,11 +590,11 @@
       "workspace": {
         "directory": "Diretório de trabalho",
         "directoryPlaceholder": "~/poseidon",
-        "hint": "Pasta local onde os agentes leem e escrevem arquivos. Deixe em branco para definir depois."
+        "hint": "Pasta local onde a equipe guarda os arquivos do trabalho. Deixe em branco para definir depois."
       },
       "safety": {
         "title": "Modo inseguro",
-        "warning": "O sandbox de execução não está disponível neste ambiente. Os agentes executarão comandos diretamente na sua máquina, sem isolamento. Prossiga somente se você confia no conteúdo executado.",
+        "warning": "A proteção de isolamento não está disponível neste ambiente. A equipe executará comandos diretamente na sua máquina, sem essa proteção. Prossiga somente se você confia no conteúdo executado.",
         "accept": "Entendo os riscos e aceito executar em modo inseguro",
         "required": "O aceite explícito do modo inseguro é obrigatório para concluir."
       }
@@ -599,7 +606,7 @@
     "create": "Nova organização",
     "empty": {
       "title": "Nenhuma organização ainda",
-      "body": "Organizações agrupam projetos, marca, políticas e workflows padrão. Crie a primeira para começar.",
+      "body": "Organizações agrupam projetos, marca, políticas e fluxos de trabalho padrão. Crie a primeira para começar.",
       "cta": "Criar organização"
     },
     "emptySearch": "Nenhuma organização encontrada para \"{{query}}\".",
@@ -621,7 +628,7 @@
       "createTitle": "Nova organização",
       "editTitle": "Editar organização",
       "name": "Nome",
-      "slug": "Slug",
+      "slug": "Sigla",
       "slugHint": "Identificador curto em URLs, ex.: poseidon-labs.",
       "slugLabel": "Identificador da URL",
       "slugHelper": "Usado internamente em URLs e integrações. Gerado a partir do nome.",
@@ -636,8 +643,8 @@
     "detail": {
       "edit": "Editar organização",
       "brand": "Marca",
-      "workflows": "Workflows padrão",
-      "noWorkflows": "Nenhum workflow padrão configurado.",
+      "workflows": "Fluxos de trabalho padrão",
+      "noWorkflows": "Nenhum fluxo de trabalho padrão configurado.",
       "templates": "Templates",
       "noTemplates": "Nenhum template disponível.",
       "policies": "Políticas",
@@ -646,9 +653,9 @@
       "policyDisabled": "Inativa",
       "projects": "Projetos associados",
       "noProjects": "Nenhum projeto nesta organização ainda.",
-      "noWorkflowsImpact": "Sem workflow padrão, cada projeto novo precisa vincular um manualmente.",
-      "configureWorkflows": "Configurar workflows",
-      "noTemplatesImpact": "Templates de documento padronizam os artefatos produzidos pelos agentes.",
+      "noWorkflowsImpact": "Sem fluxo de trabalho padrão, cada projeto novo precisa vincular um manualmente.",
+      "configureWorkflows": "Configurar fluxos de trabalho",
+      "noTemplatesImpact": "Modelos de documento padronizam o que a equipe produz.",
       "noPoliciesImpact": "Políticas definem limites herdados pelos projetos desta organização.",
       "noProjectsContextual": "Crie o primeiro projeto de {{name}}.",
       "createProject": "Criar projeto"
@@ -660,7 +667,7 @@
     "create": "Novo projeto",
     "precondition": {
       "title": "Crie uma organização primeiro",
-      "body": "Todo projeto pertence a uma organização — é ela que reúne marca, workflows padrão e políticas herdadas. Crie a primeira organização para então cadastrar o projeto; você volta para cá automaticamente com ela pré-selecionada.",
+      "body": "Todo projeto pertence a uma organização — é ela que reúne marca, fluxos de trabalho padrão e políticas herdadas. Crie a primeira organização para então cadastrar o projeto; você volta para cá automaticamente com ela pré-selecionada.",
       "cta": "Criar organização"
     },
     "filters": {
@@ -679,7 +686,7 @@
     },
     "empty": {
       "title": "Nenhum projeto ainda",
-      "body": "Projetos são onde os agentes trabalham: código, documentos e entregas. Crie o primeiro para começar.",
+      "body": "Projetos são onde a equipe trabalha: código, documentos e entregas. Crie o primeiro para começar.",
       "cta": "Criar projeto"
     },
     "emptySearch": "Nenhum projeto encontrado com os filtros atuais.",
@@ -687,12 +694,12 @@
       "lastActivity": "Última atividade {{time}}",
       "logoAlt": "Marca do projeto {{name}}",
       "poseidonDescription": "Plano de controle do Poseidon.",
-      "phase": "Fase",
+      "phase": "Etapa",
       "progress": "Progresso executado",
       "progressValue": "{{completed}}/{{total}} pontos — {{percent}}%",
       "responsible": "Responsável",
       "health": "Saúde",
-      "workflow": "Workflow",
+      "workflow": "Fluxo de trabalho",
       "repository": "Repositório",
       "notAvailable": "Não informado",
       "healthStates": {
@@ -775,7 +782,7 @@
     },
     "impact": {
       "title": "Impacto da alteração",
-      "body": "Este projeto tem uma execução de workflow em andamento. Alterações em campos operacionais valem para NOVAS execuções: a execução ativa permanece na configuração anterior.",
+      "body": "Este projeto tem uma execução de fluxo de trabalho em andamento. Alterações em campos operacionais valem para NOVAS execuções: a execução ativa permanece na configuração anterior.",
       "changedFields": "Campos que vão mudar:",
       "versionNote": "Salvar incrementa a versão de configuração e registra no histórico do projeto.",
       "confirmCheckbox": "Entendo que a execução ativa não será alterada e que a nova configuração vale apenas para novas execuções",
@@ -865,19 +872,19 @@
     },
     "empty": {
       "title": "Nenhum projeto ativo",
-      "body": "O Dashboard mostra a operação de um projeto: fase, progresso, bloqueios e agentes. Crie o primeiro projeto para começar.",
+      "body": "O Dashboard mostra o andamento de um projeto: etapa, progresso, bloqueios e equipe. Crie o primeiro projeto para começar.",
       "cta": "Criar projeto"
     },
     "phase": {
-      "title": "Fase atual",
-      "noRun": "Nenhuma execução de workflow em andamento neste projeto.",
-      "gate": "Gate associado:",
-      "noGate": "Sem gate nesta fase",
-      "progressLabel": "Progresso da fase {{phase}}",
+      "title": "Etapa atual",
+      "noRun": "Nenhum fluxo de trabalho em andamento neste projeto.",
+      "gate": "O que falta para avançar:",
+      "noGate": "Nada pendente nesta etapa",
+      "progressLabel": "Progresso da etapa {{phase}}",
       "progressFraction": "{{completed}} de {{total}} itens concluídos",
-      "progressTooltip": "Fonte única: objetivos e gates persistidos da execução do workflow.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "progressTooltip": "Fonte única: objetivos e conferências registrados no fluxo de trabalho.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nConferências: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
       "deliverables": "Entregáveis esperados",
-      "deliverablesUnavailable": "Esta execução não publicou entregáveis para a fase."
+      "deliverablesUnavailable": "Este trabalho não publicou entregáveis para a etapa."
     },
     "progress": {
       "globalTitle": "Progresso global do projeto",
@@ -888,8 +895,8 @@
         "approved": "Aprovado"
       },
       "tooltips": {
-        "executed": "Executado = quanto do trabalho os agentes já produziram (código, documentos). Ainda não significa que está correto.",
-        "validated": "Validado = quanto do trabalho já passou pela revisão automática e pelos testes/gates de qualidade.",
+        "executed": "Executado = quanto do trabalho a equipe já produziu (código, documentos). Ainda não significa que está correto.",
+        "validated": "Validado = quanto do trabalho já passou pela conferência automática e pelos testes de qualidade.",
         "approved": "Aprovado = quanto do trabalho você ou a Bruna já aprovou formalmente como pronto para entregar."
       },
       "metadata": {
@@ -903,10 +910,10 @@
       }
     },
     "fleet": {
-      "title": "Fleet operacional",
+      "title": "Quadro da Equipe",
       "subtitle": "Bruna e as identidades globais disponíveis para executar trabalho em qualquer projeto.",
       "identities": "{{count}} identidades",
-      "error": "Não foi possível consultar o estado da fleet.",
+      "error": "Não foi possível consultar o quadro da equipe.",
       "empty": "Nenhuma identidade de execução foi configurada nesta instalação.",
       "kpis": {
         "online": "Online",
@@ -923,15 +930,15 @@
         "attention": "Saúde: atenção",
         "unhealthy": "Saúde: crítica"
       },
-      "quotaUnavailable": "Cota: o provedor não informa cota.",
-      "quotaReturns": "Sem cota. Retorno informado para {{time}}.",
-      "quotaNoReturn": "Sem cota. O provedor não informou quando ela retorna.",
+      "quotaUnavailable": "Jornada: não temos essa informação para esta pessoa.",
+      "quotaReturns": "Jornada esgotada. Deve voltar às {{time}}.",
+      "quotaNoReturn": "Jornada esgotada. Ainda não sabemos quando ela volta.",
       "cooldownReturns": "Cooldown até {{time}}.",
       "productivity": {
         "title": "Produtividade por assinatura",
-        "source": "Fonte prevista: tarefas e tentativas persistidas, atribuídas à conta de execução. Nenhuma tentativa atribuível foi publicada nesta instalação.",
+        "source": "Fonte prevista: tarefas e rodadas de trabalho registradas, atribuídas a cada pessoa. Nenhuma rodada atribuível foi publicada nesta instalação.",
         "columns": {
-          "provider": "Assinatura / provedor",
+          "provider": "Pessoa da equipe",
           "completed": "Concluídas",
           "success": "Sucesso",
           "rework": "Retrabalho",
@@ -939,7 +946,7 @@
           "duration": "Duração média"
         },
         "unavailable": "Não disponível",
-        "zeroExplanation": "Os zeros são reais para o recorte disponível. A duração fica indisponível porque não há tentativa persistida atribuível a uma assinatura."
+        "zeroExplanation": "Os zeros são reais para o período disponível. A duração fica indisponível porque não há rodada de trabalho registrada atribuível a uma pessoa."
       }
     },
     "tasksChart": {
@@ -953,7 +960,7 @@
       "runInChat": "Executar no chat",
       "actions": {
         "resolveApprovals": {
-          "label": "Há aprovações aguardando sua decisão. Resolver libera os gates do workflow.",
+          "label": "Há aprovações aguardando sua decisão. Resolver libera o avanço das etapas.",
           "message": "Bruna, liste as aprovações pendentes do projeto e me ajude a decidir cada uma."
         },
         "unblockTasks": {
@@ -961,16 +968,16 @@
           "message": "Bruna, quais tarefas estão bloqueadas e o que falta para desbloquear cada uma?"
         },
         "recoverAgents": {
-          "label": "Há agentes em erro ou sem cota. Bruna pode redistribuir o trabalho.",
-          "message": "Bruna, tem agente em erro ou sem cota. Como recuperamos a capacidade do time?"
+          "label": "Há pessoas indispostas ou sem jornada. A Bruna pode redistribuir o trabalho.",
+          "message": "Bruna, tem gente indisposta ou sem jornada. Como recuperamos a capacidade do time?"
         },
         "reviewQuotas": {
-          "label": "Há budgets perto do limite. Revise o consumo antes de estourar a cota.",
+          "label": "Há orçamentos perto do limite. Revise o consumo antes de esgotar a jornada.",
           "message": "Bruna, como está o consumo de custo do projeto e o que podemos otimizar?"
         },
         "reviewPhase": {
-          "label": "Operação saudável. Peça um resumo do andamento da fase atual.",
-          "message": "Bruna, me dê um resumo do progresso da fase atual e dos próximos passos."
+          "label": "Tudo saudável. Peça um resumo do andamento da etapa atual.",
+          "message": "Bruna, me dê um resumo do progresso da etapa atual e dos próximos passos."
         }
       }
     },
@@ -989,23 +996,23 @@
     },
     "agents": {
       "title": "Equipe operacional",
-      "empty": "Nenhum agente vinculado a este projeto.",
+      "empty": "Ninguém da equipe está vinculado a este projeto.",
       "online": "Online",
-      "onlineTooltip": "Agentes prontos para produzir (trabalhando, ociosos ou aguardando). Não conta os em erro ou sem cota.",
+      "onlineTooltip": "Pessoas prontas para produzir (trabalhando, disponíveis ou aguardando). Não conta quem está indisposto ou sem jornada.",
       "tasksDone": "Tarefas concluídas",
-      "tasksDoneTooltip": "Total de tarefas já entregues pela equipe de agentes deste projeto (acumulado).",
+      "tasksDoneTooltip": "Total de tarefas já entregues pela equipe deste projeto (acumulado).",
       "tasksTodo": "Tarefas a fazer",
       "tasksTodoTooltip": "Tarefas que ainda não foram concluídas — a fila de produção que resta.",
       "problems": "Sem capacidade",
-      "problemsTooltip": "Agentes em erro ou sem cota. Cada um aqui é capacidade de produção parada.",
+      "problemsTooltip": "Pessoas indispostas ou sem jornada. Cada uma aqui é capacidade de produção parada.",
       "workingNow": "Produzindo agora",
       "needAttention": "Precisam de atenção",
       "idleLabel": "ocioso",
       "problemState": "sem capacidade"
     },
     "quotas": {
-      "title": "Cotas críticas",
-      "empty": "Nenhuma série temporal de cota foi publicada pelos provedores. Quando houver observações reais, este card mostrará consumo e retorno da cota em uma timeline; até lá, consulte o estado honesto de cada assinatura na Fleet.",
+      "title": "Capacidade da equipe",
+      "empty": "Ainda não há histórico de jornada publicado. Quando houver observações reais, este bloco mostrará consumo e retorno da jornada ao longo do tempo; até lá, consulte o estado honesto de cada pessoa no Quadro da Equipe.",
       "severity": {
         "warning": "Atenção: {{pct}}% do budget consumido.",
         "critical": "Limite atingido: {{pct}}% do budget consumido."
@@ -1044,19 +1051,19 @@
         "detail": "Detalhe"
       },
       "actions": {
-        "agent.error": "Agente relatou um erro",
+        "agent.error": "Alguém da equipe relatou um erro",
         "approval.resolved": "Aprovação resolvida",
         "demand.created": "Demanda criada por Bruna",
         "license.validated": "Licença validada",
         "solicitation.created": "Solicitação registrada",
         "task.created": "Tarefa criada",
-        "workflow.operationModeChanged": "Modo de operação do workflow alterado",
-        "workflow.versionPublished": "Workflow padrão publicado durante a configuração inicial",
+        "workflow.operationModeChanged": "Modo de operação do fluxo de trabalho alterado",
+        "workflow.versionPublished": "Fluxo de trabalho padrão publicado durante a configuração inicial",
         "project.created": "Projeto criado",
         "organization.created": "Organização criada",
         "profile.settingsUpdated": "Preferências do perfil atualizadas",
         "conversation.created": "Conversa iniciada",
-        "workflow.linked": "Workflow vinculado ao projeto",
+        "workflow.linked": "Fluxo de trabalho vinculado ao projeto",
         "task.stateChanged": "Tarefa mudou de estágio",
         "task.completed": "Tarefa concluída",
         "document.created": "Documento criado",
@@ -1114,8 +1121,8 @@
       "stuck": "Possível estagnação: trabalho ativo sem atualização há pelo menos 2 horas.",
       "types": {
         "feature": "Funcionalidade",
-        "agent_task": "Tarefa de agente",
-        "human_gate": "Gate humano",
+        "agent_task": "Tarefa da equipe",
+        "human_gate": "Decisão sua",
         "spike": "Investigação",
         "decision": "Decisão"
       }
@@ -1148,7 +1155,7 @@
         "claims": "Claims e escopo autorizado"
       },
       "instruction": {
-        "title": "Instrução enviada ao agente",
+        "title": "Instrução enviada à pessoa responsável",
         "immutable": "Instruções são imutáveis: uma correção gera uma nova versão, sem editar a anterior.",
         "versionLabel": "Versão da instrução",
         "version": "Versão {{version}}",
@@ -1158,13 +1165,13 @@
         }
       },
       "attempts": {
-        "title": "Tentativas e evidências",
-        "empty": "Nenhuma tentativa de execução ainda.",
-        "attempt": "Tentativa {{number}}",
+        "title": "Rodadas de trabalho e evidências",
+        "empty": "Nenhuma rodada de trabalho ainda.",
+        "attempt": "Rodada de trabalho {{number}}",
         "duration": "Duração",
         "cost": "Custo",
-        "tokens": "Tokens (entrada/saída)",
-        "commits": "Commits/diffs",
+        "tokens": "Trabalho processado (entrada/saída)",
+        "commits": "Alterações entregues",
         "running": "Em andamento"
       },
       "eventKinds": {
@@ -1230,8 +1237,8 @@
       "specialty": "Especialidade",
       "specialtyAll": "Todas as especialidades",
       "type": "Tipo",
-      "phase": "Fase",
-      "phaseAll": "Todas as fases",
+      "phase": "Etapa",
+      "phaseAll": "Todas as etapas",
       "priority": "Prioridade",
       "period": "Última atividade",
       "periodAll": "Tudo",
@@ -1343,21 +1350,21 @@
     },
     "messagesLabel": "Mensagens da conversa",
     "workflowPanel": {
-      "title": "Workflow do projeto",
-      "open": "Abrir painel do workflow",
-      "close": "Fechar painel do workflow",
-      "phaseProgress": "Progresso da fase {{phase}}",
-      "documentsLabel": "Documentos da fase {{phase}}",
-      "noDocuments": "Nenhum documento produzido ou vinculado a esta fase.",
+      "title": "Fluxo de trabalho do projeto",
+      "open": "Abrir painel do fluxo de trabalho",
+      "close": "Fechar painel do fluxo de trabalho",
+      "phaseProgress": "Progresso da etapa {{phase}}",
+      "documentsLabel": "Documentos da etapa {{phase}}",
+      "noDocuments": "Nenhum documento produzido ou vinculado a esta etapa.",
       "noDocumentsFiltered": "Nenhum documento neste estado.",
       "expectedArtifacts": "Artefatos esperados",
       "progressEvidence": {
         "fraction": "{{completed}} de {{total}} itens concluídos",
-        "phaseFallback": "A execução não publicou objetivos para esta fase.",
-        "tooltip": "Fonte única: objetivos e gates persistidos da execução do workflow.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}"
+        "phaseFallback": "O trabalho ainda não publicou objetivos para esta etapa.",
+        "tooltip": "Fonte única: objetivos e conferências registrados no fluxo de trabalho.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nConferências: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}"
       },
       "filters": {
-        "label": "Filtrar documentos da fase {{phase}}"
+        "label": "Filtrar documentos da etapa {{phase}}"
       },
       "health": {
         "planned": "Previsto",
@@ -1371,13 +1378,13 @@
       },
       "notStarted": {
         "title": "Execução ainda não iniciada",
-        "body": "O projeto já tem um workflow atribuído. As fases, o progresso e os documentos aparecem aqui assim que a primeira execução começar.",
-        "cta": "Ver workflow"
+        "body": "O projeto já tem um fluxo de trabalho atribuído. As etapas, o progresso e os documentos aparecem aqui assim que o trabalho começar.",
+        "cta": "Ver fluxo de trabalho"
       },
       "empty": {
-        "title": "Workflow não vinculado",
-        "body": "Todo projeto recebe um workflow padrão automaticamente — encontrar este projeto sem vínculo é uma exceção. Vincule um workflow para acompanhar fases, progresso e documentos sem sair da conversa.",
-        "cta": "Ver workflows"
+        "title": "Fluxo de trabalho não vinculado",
+        "body": "Todo projeto recebe um fluxo de trabalho padrão automaticamente — encontrar este projeto sem vínculo é uma exceção. Vincule um fluxo de trabalho para acompanhar etapas, progresso e documentos sem sair da conversa.",
+        "cta": "Ver fluxos de trabalho"
       }
     },
     "projectPanel": {
@@ -1437,7 +1444,7 @@
         "failed": "⛔ Falhou",
         "blocked": "⛔ Bloqueado"
       },
-      "agentFallback": "um agente",
+      "agentFallback": "alguém da equipe",
       "elapsedLabel": "há {{elapsed}}",
       "stuck": "sem sinal — possivelmente travado",
       "acknowledged": "Turno registrado — Bruna vai executar.",
@@ -1483,11 +1490,11 @@
       "removeAttachment": "Remover anexo {{name}}",
       "model": "Modelo",
       "modelDefault": "Padrão de Bruna",
-      "effort": "Esforço",
+      "effort": "Modo de trabalho",
       "effortOptions": {
-        "low": "Baixo",
-        "medium": "Médio",
-        "high": "Alto",
+        "low": "Rápido",
+        "medium": "Equilibrado",
+        "high": "Aprofundado",
         "max": "Máximo"
       },
       "workProfile": "Perfil de trabalho",
@@ -1515,17 +1522,17 @@
       "technicalDetails": "Detalhes técnicos",
       "blockers": {
         "unknown": "Uma dependência necessária ainda não está pronta.",
-        "provider_account": { "missing": "Conecte uma conta de provedor." },
-        "model": { "none_chat_enabled": "Habilite um modelo de chat." },
-        "workflow": { "unbound": "Vincule um workflow ao projeto." },
-        "chief": { "model_unresolved": "Defina o modelo de Bruna." }
+        "provider_account": { "missing": "Conclua a contratação de uma pessoa da equipe." },
+        "model": { "none_chat_enabled": "Habilite um modo de trabalho." },
+        "workflow": { "unbound": "Vincule um fluxo de trabalho ao projeto." },
+        "chief": { "model_unresolved": "Defina o modo de trabalho da Bruna." }
       },
       "actions": {
         "unknown": "Resolver dependência",
-        "provider": { "connectAccount": "Conectar conta de provedor" },
-        "model": { "enable": "Habilitar modelo" },
-        "workflow": { "bind": "Vincular workflow" },
-        "chief": { "configureModel": "Configurar modelo de Bruna" }
+        "provider": { "connectAccount": "Concluir contratação" },
+        "model": { "enable": "Definir modo de trabalho" },
+        "workflow": { "bind": "Vincular fluxo de trabalho" },
+        "chief": { "configureModel": "Configurar o modo de trabalho da Bruna" }
       }
     },
     "readiness": {
@@ -1533,11 +1540,11 @@
       "businessBody": "Você pode continuar escrevendo. A execução começa assim que a configuração necessária estiver pronta.",
       "title": "Execução de Bruna bloqueada",
       "body": "Você pode escrever, mas Bruna só executa quando estas dependências estiverem prontas:",
-      "additionalBlocker": "As dependências básicas estão prontas, mas o read model reporta outro bloqueio operacional. Consulte o diagnóstico para ver a causa.",
+      "additionalBlocker": "As dependências básicas estão prontas, mas há outro bloqueio no caminho. Abra a verificação do ambiente para ver a causa.",
       "items": {
-        "provider": "Provedor conectado com conta ativa",
-        "model": "Modelo habilitado",
-        "workflow": "Workflow vinculado ao projeto"
+        "provider": "Equipe contratada e ativa",
+        "model": "Modo de trabalho definido",
+        "workflow": "Fluxo de trabalho vinculado ao projeto"
       },
       "actions": {
         "reviewConfiguration": "Revisar configuração",
@@ -1559,7 +1566,7 @@
     },
     "projects": {
       "title": "Projetos",
-      "description": "Lista e detalhes dos projetos desenvolvidos pelos agentes."
+      "description": "Lista e detalhes dos projetos entregues pela equipe."
     },
     "cockpit": {
       "title": "Dashboard",
@@ -1571,7 +1578,7 @@
     },
     "conversations": {
       "title": "Conversas",
-      "description": "Histórico de conversas com os agentes."
+      "description": "Histórico das suas conversas com a equipe."
     },
     "workflows": {
       "title": "Fluxos de trabalho",
@@ -1583,7 +1590,7 @@
     },
     "documents": {
       "title": "Documentos",
-      "description": "Documentação gerada e mantida pelos agentes."
+      "description": "Documentos produzidos e mantidos pela equipe."
     },
     "prototypes": {
       "title": "Protótipos",
@@ -1594,8 +1601,8 @@
       "description": "Decisões pendentes de aprovação humana."
     },
     "orchestrator": {
-      "title": "Orquestrador",
-      "description": "Coordenação de Bruna sobre os demais agentes."
+      "title": "Equipe",
+      "description": "Como a Bruna coordena o trabalho do time."
     },
     "agents": {
       "title": "Agentes",
@@ -1636,91 +1643,91 @@
   },
   "workflows": {
     "noProject": {
-      "body": "Selecione ou crie um projeto para ver os workflows.",
+      "body": "Selecione ou crie um projeto para ver os fluxos de trabalho.",
       "cta": "Ver projetos"
     },
     "empty": {
-      "title": "Nenhum workflow vinculado",
-      "body": "Este projeto ainda não tem um workflow. Vincule um template para começar.",
-      "explanation": "Um workflow define as fases do trabalho (ex.: descoberta, desenvolvimento, revisão) e os portões de aprovação entre elas. É ele que orienta Bruna na condução do projeto.",
+      "title": "Nenhum fluxo de trabalho vinculado",
+      "body": "Este projeto ainda não tem um fluxo de trabalho. Vincule um modelo de fluxo para começar.",
+      "explanation": "Um fluxo de trabalho define as etapas do trabalho (ex.: descoberta, desenvolvimento, revisão) e os portões de aprovação entre elas. É ele que orienta Bruna na condução do projeto.",
       "recommendedBadge": "Recomendado",
       "versionLabel": "versão {{version}}",
-      "phasesLabel": "Fases",
-      "useRecommended": "Usar workflow recomendado",
-      "chooseAnother": "Escolher outro template",
-      "otherTemplateLabel": "Outro template publicado",
-      "otherTemplatePlaceholder": "Selecione um template…",
+      "phasesLabel": "Etapas",
+      "useRecommended": "Usar fluxo de trabalho recomendado",
+      "chooseAnother": "Escolher outro modelo de fluxo",
+      "otherTemplateLabel": "Outro modelo de fluxo publicado",
+      "otherTemplatePlaceholder": "Selecione um modelo de fluxo…",
       "linkSelected": "Vincular selecionado",
-      "linkError": "Não foi possível vincular o workflow. Tente novamente.",
-      "noTemplates": "Nenhum template publicado está disponível ainda. Publique um template na gestão de workflows para poder vinculá-lo a este projeto.",
-      "manageHint": "Você pode trocar o template depois, na gestão de workflows."
+      "linkError": "Não foi possível vincular o fluxo de trabalho. Tente novamente.",
+      "noTemplates": "Nenhum modelo de fluxo publicado está disponível ainda. Publique um na gestão de fluxos de trabalho para poder vinculá-lo a este projeto.",
+      "manageHint": "Você pode trocar o modelo de fluxo depois, na gestão de fluxos de trabalho."
     },
     "run": {
-      "versionPinned": "Esta execução segue a versão v{{version}} do template \"{{template}}\": publicar novas versões não altera execuções em andamento."
+      "versionPinned": "Esta execução segue a versão v{{version}} do modelo de fluxo \"{{template}}\": publicar novas versões não altera execuções em andamento."
     },
     "mode": {
       "title": "Modo de operação",
       "description": {
-        "manual": "Todos os gates e transições aguardam a sua decisão.",
-        "semiautonomous": "Os agentes avançam sozinhos; apenas os gates selecionados pausam para aprovação.",
-        "autonomous": "Os agentes executam e aprovam gates sem intervenção humana."
+        "manual": "Todos os pontos de aprovação e transições aguardam a sua decisão.",
+        "semiautonomous": "A equipe avança sozinha; apenas os pontos de aprovação que você escolher pausam para a sua decisão.",
+        "autonomous": "A equipe executa e aprova os pontos de aprovação sem intervenção humana."
       },
       "change": "Alterar modo",
       "dialogTitle": "Trocar modo de operação",
       "selectLabel": "Novo modo",
       "risk": {
-        "manual": "No modo manual, nenhum gate avança sem a sua aprovação. A operação fica mais lenta, mas sob controle total.",
-        "semiautonomous": "No modo semiautônomo, os agentes avançam fases e gates por conta própria, exceto nos gates que você escolher para pausar. Você responde pelas decisões delegadas.",
-        "autonomous": "No modo autônomo, os agentes executam e aprovam gates sem intervenção humana, incluindo publicações. O risco operacional é integralmente seu."
+        "manual": "No modo manual, nenhum ponto de aprovação avança sem a sua aprovação. A operação fica mais lenta, mas sob controle total.",
+        "semiautonomous": "No modo semiautônomo, a equipe avança etapas e pontos de aprovação por conta própria, exceto nos que você escolher para pausar. Você responde pelas decisões delegadas.",
+        "autonomous": "No modo autônomo, a equipe executa e aprova tudo sem intervenção humana, incluindo publicações. O risco operacional é integralmente seu."
       },
-      "pauseGatesLabel": "Gates que pausam para aprovação humana",
+      "pauseGatesLabel": "Pontos de aprovação que pausam para a sua decisão",
       "noteLabel": "Justificativa do aceite",
       "notePlaceholder": "Por que você aceita este modo agora?",
       "acceptCheckbox": "Li e aceito os riscos deste modo de operação",
       "confirm": "Confirmar troca",
       "errors": {
         "acceptanceRequired": "Marque o aceite de risco e escreva a justificativa.",
-        "gatesRequired": "Selecione ao menos um gate que pausa para aprovação."
+        "gatesRequired": "Selecione ao menos um ponto de aprovação que pause para a sua decisão."
       },
-      "pauseGates": "Pausa nos gates: {{gates}}",
-      "noPauseGates": "Nenhum gate pausa para aprovação.",
+      "pauseGates": "Pausa nos pontos de aprovação: {{gates}}",
+      "noPauseGates": "Nenhum ponto de aprovação pausa para a sua decisão.",
       "acceptances": "{{count}} aceite(s) de risco registrado(s)",
       "acceptanceItem": "{{mode}} — {{date}} — {{note}}"
     },
     "phases": {
-      "title": "Fases do workflow",
-      "label": "Fases do workflow",
-      "gatesLabel": "Gates da fase {{phase}}",
-      "progressLabel": "Progresso da fase {{phase}}",
-      "progressDetails": "Ver cálculo do progresso da fase {{phase}}",
-      "progressTooltip": "Fonte única: objetivos e gates persistidos da execução do workflow.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nGates: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "title": "Etapas do fluxo de trabalho",
+      "label": "Etapas do fluxo de trabalho",
+      "gatesLabel": "Pontos de aprovação da etapa {{phase}}",
+      "progressLabel": "Progresso da etapa {{phase}}",
+      "progressDetails": "Ver cálculo do progresso da etapa {{phase}}",
+      "progressTooltip": "Fonte única: objetivos e pontos de aprovação persistidos da execução do fluxo de trabalho.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nPontos de aprovação: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
       "deliverablesLabel": "Entregáveis esperados",
-      "deliverablesUnavailable": "A versão desta execução não publicou entregáveis para a fase.",
+      "deliverablesUnavailable": "A versão desta execução não publicou entregáveis para a etapa.",
       "producedDocumentsLabel": "Documentos produzidos",
       "documentVersion": "v{{version}}"
     },
     "templates": {
-      "title": "Templates de workflow",
+      "title": "Modelos de fluxo de trabalho",
       "newVersion": "Nova versão",
       "version": "v{{version}}",
       "current": "Atual",
-      "phaseCount": "{{count}} fases",
-      "phasesListLabel": "Fases desta versão",
+      "phaseCount": "{{count}} etapas",
+      "phasesListLabel": "Etapas desta versão",
       "dialogTitle": "Nova versão — {{name}}",
       "dialogHint": "A versão nasce publicada e imutável; execuções em andamento não são afetadas.",
-      "phasesLabel": "Fases (uma por linha, na ordem de execução)",
-      "phasesHint": "A ordem das linhas define a ordem das fases.",
+      "phasesLabel": "Etapas (uma por linha, na ordem de execução)",
+      "phasesHint": "A ordem das linhas define a ordem das etapas.",
       "changelogLabel": "Changelog",
       "defaultModeLabel": "Modo de operação padrão",
       "noDefaultMode": "Sem modo padrão",
-      "gatesLabel": "Gates",
+      "gatesLabel": "Pontos de aprovação",
       "gatesHint": "Separados por vírgula.",
       "weightLabel": "Peso no progresso (%)",
       "documentKindsLabel": "Documentos esperados",
-      "agentsLabel": "Agentes permitidos",
+      "agentsLabel": "Quem pode trabalhar nesta etapa",
       "transitionsLabel": "Transições permitidas",
       "publish": "Publicar versão",
-      "create": "Novo template",
+      "create": "Novo modelo de fluxo",
       "newDraft": "Novo rascunho",
       "editDraft": "Editar rascunho",
       "duplicate": "Duplicar",
@@ -1732,34 +1739,34 @@
       "compareSelect": "Selecionar v{{version}} para comparar",
       "notPublished": "Não publicada",
       "archivedAt": "Arquivado em {{date}}",
-      "deleteBlocked": "Apenas templates rascunho nunca utilizados podem ser excluídos — arquive para preservar o histórico.",
+      "deleteBlocked": "Apenas modelos de fluxo em rascunho nunca utilizados podem ser excluídos — arquive para preservar o histórico.",
       "deleteVersionInUse": "Este rascunho está em uso e não pode ser excluído — arquive-o.",
       "deletePublishedBlocked": "Versões publicadas são imutáveis e nunca excluídas — arquive para tirar de circulação.",
-      "linkBlockedInUse": "O projeto ativo já tem um workflow vinculado.",
-      "linkBlockedNoPublished": "Publique uma versão antes de vincular o template.",
+      "linkBlockedInUse": "O projeto ativo já tem um fluxo de trabalho vinculado.",
+      "linkBlockedNoPublished": "Publique uma versão antes de vincular o modelo de fluxo.",
       "impactBanner": "A execução ativa do projeto permanece na v{{version}} — a nova versão vale apenas para novas execuções.",
       "validationTitle": "A versão não passou na validação do Harness:",
       "validation": {
-        "phasesRequired": "Informe ao menos uma fase.",
-        "emptyPhaseName": "Toda fase precisa de um nome.",
-        "duplicatePhase": "Fase duplicada: {{phase}}.",
-        "unknownGatePhase": "Gates referenciam a fase inexistente \"{{phase}}\".",
-        "unknownTransitionPhase": "Transição definida na fase inexistente \"{{phase}}\".",
-        "unknownTransitionTarget": "A fase \"{{phase}}\" transiciona para a fase inexistente \"{{target}}\".",
-        "unknownConfigPhase": "Configuração definida para a fase inexistente \"{{phase}}\".",
-        "unknownDependency": "A fase \"{{phase}}\" depende da fase inexistente \"{{target}}\".",
+        "phasesRequired": "Informe ao menos uma etapa.",
+        "emptyPhaseName": "Toda etapa precisa de um nome.",
+        "duplicatePhase": "Etapa duplicada: {{phase}}.",
+        "unknownGatePhase": "Pontos de aprovação referenciam a etapa inexistente \"{{phase}}\".",
+        "unknownTransitionPhase": "Transição definida na etapa inexistente \"{{phase}}\".",
+        "unknownTransitionTarget": "A etapa \"{{phase}}\" transiciona para a etapa inexistente \"{{target}}\".",
+        "unknownConfigPhase": "Configuração definida para a etapa inexistente \"{{phase}}\".",
+        "unknownDependency": "A etapa \"{{phase}}\" depende da etapa inexistente \"{{target}}\".",
         "dependencyCycle": "Dependência em ciclo entre \"{{phase}}\" e \"{{target}}\".",
-        "invalidWeight": "Peso inválido na fase {{phase}} (use 0–100)."
+        "invalidWeight": "Peso inválido na etapa {{phase}} (use 0–100)."
       },
       "createDialog": {
-        "title": "Novo template de workflow",
+        "title": "Novo modelo de fluxo de trabalho",
         "nameLabel": "Nome",
         "descriptionLabel": "Descrição",
-        "confirm": "Criar template"
+        "confirm": "Criar modelo de fluxo"
       },
       "deleteDialog": {
-        "title": "Excluir template",
-        "body": "Excluir o template \"{{name}}\"? Apenas rascunhos nunca utilizados podem ser excluídos; versões publicadas são preservadas por arquivamento.",
+        "title": "Excluir modelo de fluxo",
+        "body": "Excluir o modelo de fluxo \"{{name}}\"? Apenas rascunhos nunca utilizados podem ser excluídos; versões publicadas são preservadas por arquivamento.",
         "confirm": "Excluir definitivamente"
       },
       "deleteVersionDialog": {
@@ -1768,26 +1775,28 @@
         "confirm": "Excluir rascunho"
       },
       "errors": {
-        "phasesRequired": "Informe ao menos uma fase.",
-        "invalidWeight": "Peso inválido na fase {{phase}} (use 0–100)."
+        "phasesRequired": "Informe ao menos uma etapa.",
+        "invalidWeight": "Peso inválido na etapa {{phase}} (use 0–100)."
       }
     },
     "editor": {
       "title": "Editar rascunho — {{name}} (v{{version}})",
       "hint": "Rascunhos são editáveis; publicar congela a versão (imutável) após a validação do Harness.",
-      "phaseLegend": "Fase {{index}}",
-      "nameLabel": "Nome da fase",
+      "phaseLegend": "Etapa {{index}}",
+      "nameLabel": "Nome da etapa",
       "objectiveLabel": "Objetivo",
       "contextLabel": "Contexto",
       "acceptanceCriteriaLabel": "Critérios de aceite",
+      "entryConditionsLabel": "O que precisa estar pronto para começar",
+      "exitConditionsLabel": "O que precisa estar pronto para concluir",
       "linesHint": "Um por linha.",
       "skillsLabel": "Skills permitidas",
       "toolsLabel": "Ferramentas permitidas",
       "dependsOnLabel": "Depende de",
-      "addPhase": "Adicionar fase",
-      "removePhase": "Remover fase",
-      "moveUp": "Mover fase para cima",
-      "moveDown": "Mover fase para baixo",
+      "addPhase": "Adicionar etapa",
+      "removePhase": "Remover etapa",
+      "moveUp": "Mover etapa para cima",
+      "moveDown": "Mover etapa para baixo",
       "saveDraft": "Salvar rascunho",
       "saved": "Rascunho salvo."
     },
@@ -1796,14 +1805,14 @@
       "subtitle": "Diff estrutural — o que muda da origem para o destino.",
       "sideFrom": "Origem (antes)",
       "sideTo": "Destino (depois)",
-      "crossTemplate": "Você está comparando dois workflows diferentes.",
+      "crossTemplate": "Você está comparando dois fluxos de trabalho diferentes.",
       "identical": "As versões são estruturalmente idênticas.",
-      "phasesAdded": "Fases adicionadas",
-      "phasesRemoved": "Fases removidas",
-      "phasesAddedIn": "Fases adicionadas em {{label}}",
-      "phasesRemovedFrom": "Fases removidas de {{label}}",
-      "phasesReordered": "Fases reordenadas: {{phases}}",
-      "phasesChanged": "Fases alteradas",
+      "phasesAdded": "Etapas adicionadas",
+      "phasesRemoved": "Etapas removidas",
+      "phasesAddedIn": "Etapas adicionadas em {{label}}",
+      "phasesRemovedFrom": "Etapas removidas de {{label}}",
+      "phasesReordered": "Etapas reordenadas: {{phases}}",
+      "phasesChanged": "Etapas alteradas",
       "modeChange": "Modo padrão: {{from}} → {{to}}",
       "mode": {
         "manual": "Manual",
@@ -1812,9 +1821,9 @@
         "none": "sem modo padrão"
       },
       "fields": {
-        "gates": "Gates",
+        "gates": "Pontos de aprovação",
         "documentKinds": "Documentos",
-        "agents": "Agentes",
+        "agents": "Quem pode trabalhar",
         "skills": "Skills",
         "tools": "Ferramentas",
         "acceptanceCriteria": "Critérios de aceite",
@@ -1835,9 +1844,9 @@
     },
     "empty": {
       "title": "Ainda não há documentos neste projeto",
-      "body": "Documentos são artefatos versionados do projeto (PRD, especificação, design, runbook, notas e relatórios). Bruna e os agentes os produzem ao longo do fluxo — cada correção vira uma nova versão imutável, com histórico e comparação.",
-      "appears": "Assim que um agente ou uma fase do workflow gerar um artefato, ele aparece aqui com estado (rascunho, em revisão, aprovado). Você também pode criar o primeiro agora mesmo.",
-      "governanceNote": "Procurando editar arquivos do repositório (governança, políticas, manifestos)? Isso fica em Documentos de Governança — outra tela.",
+      "body": "Documentos são os artefatos versionados do projeto (visão do produto, especificação, design, manual de operação, notas e relatórios). A Bruna e a equipe os produzem ao longo do trabalho — cada correção vira uma nova versão, com histórico e comparação.",
+      "appears": "Assim que alguém da equipe ou uma etapa do fluxo de trabalho gerar um documento, ele aparece aqui com o estado (rascunho, em conferência, aprovado). Você também pode criar o primeiro agora mesmo.",
+      "governanceNote": "Procurando editar os arquivos internos do sistema (governança, políticas, manifestos)? Isso fica em Documentos de Governança — outra tela.",
       "governanceLink": "Ir para Documentos de Governança",
       "createCta": "Criar documento",
       "uploadCta": "Enviar arquivo"
@@ -1861,7 +1870,7 @@
     },
     "filters": {
       "kind": "Categoria",
-      "phase": "Fase",
+      "phase": "Etapa",
       "state": "Estado",
       "inconsistent": "Inconsistentes",
       "waiver": "Com waiver",
@@ -1873,11 +1882,11 @@
     },
     "catalog": {
       "label": "Catálogo de documentos",
-      "noPhase": "Sem fase",
+      "noPhase": "Sem etapa",
       "columns": {
         "title": "Título",
         "kind": "Categoria",
-        "phase": "Fase",
+        "phase": "Etapa",
         "state": "Estado",
         "version": "Versão",
         "updatedAt": "Atualizado"
@@ -1886,7 +1895,7 @@
     "detail": {
       "back": "Voltar ao catálogo",
       "version": "v{{version}}",
-      "phase": "Fase: {{phase}}",
+      "phase": "Etapa: {{phase}}",
       "inconsistent": "Documento marcado como inconsistente: há conflito com outro artefato ou com o estado do projeto.",
       "waiver": "Waiver: {{reason}} (concedido em {{date}})",
       "contentTitle": "Conteúdo",
@@ -1922,7 +1931,7 @@
       "authorKind": {
         "user": "Você",
         "chief": "Bruna",
-        "agent": "Agente"
+        "agent": "Pessoa da equipe"
       },
       "diffFrom": "Comparar de",
       "diffTo": "para",
@@ -1932,11 +1941,11 @@
     },
     "orphans": {
       "title": "Documentos órfãos",
-      "body": "Documentos sem vínculo com uma fase do workflow. Classifique para integrá-los ao fluxo.",
+      "body": "Documentos sem vínculo com uma etapa do fluxo de trabalho. Classifique para integrá-los ao trabalho.",
       "classify": "Classificar",
       "dialogTitle": "Classificar \"{{title}}\"",
-      "phaseLabel": "Fase do workflow",
-      "phaseHint": "Sugestão: fases da versão ativa do workflow do projeto.",
+      "phaseLabel": "Etapa do fluxo de trabalho",
+      "phaseHint": "Sugestão: etapas da versão ativa do fluxo de trabalho do projeto.",
       "classificationsLabel": "Classificações",
       "classificationsHint": "Separadas por vírgula."
     },
@@ -1956,7 +1965,7 @@
   },
   "approvals": {
     "kind": {
-      "gate": "Gate",
+      "gate": "Avanço de etapa",
       "document": "Documento",
       "task": "Tarefa",
       "decision": "Decisão"
@@ -1986,7 +1995,7 @@
       "showContext": "Ver impacto e evidências",
       "hideContext": "Ocultar contexto",
       "contextTitle": "Impacto e evidências",
-      "openWorkflow": "Abrir workflow",
+      "openWorkflow": "Abrir fluxo de trabalho",
       "openDocument": "Abrir documento",
       "openTask": "Abrir tarefa",
       "decisionContext": "Decisão humana sem vínculo direto; o contexto está na descrição."

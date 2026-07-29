@@ -37,25 +37,25 @@ describe('ChatReadinessNotice', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/você pode escrever/i)).toBeInTheDocument();
     // As três dependências são sempre listadas (transparência, não bloqueio cego).
-    expect(screen.getByText(/provedor conectado/i)).toBeInTheDocument();
-    expect(screen.getByText(/modelo habilitado/i)).toBeInTheDocument();
-    expect(screen.getByText(/workflow vinculado/i)).toBeInTheDocument();
+    expect(screen.getByText(/equipe contratada/i)).toBeInTheDocument();
+    expect(screen.getByText(/modo de trabalho definido/i)).toBeInTheDocument();
+    expect(screen.getByText(/fluxo de trabalho vinculado/i)).toBeInTheDocument();
   });
 
   it('oferece uma CTA única para a primeira lacuna — o provedor', () => {
     renderNotice({ hasProvider: false, hasModel: false, hasWorkflow: false });
 
-    const cta = screen.getByRole('link', { name: /configurar provedor/i });
+    const cta = screen.getByRole('link', { name: /concluir contratação/i });
     expect(cta).toHaveAttribute('href', '/providers');
     // Sem CTA duplicada (UX-01): só a primeira lacuna tem ação.
-    expect(screen.queryByRole('link', { name: /escolher modelo/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /escolher modo de trabalho/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /vincular workflow/i })).not.toBeInTheDocument();
   });
 
   it('avança a CTA para a próxima lacuna quando o provedor já está pronto', () => {
     renderNotice({ hasProvider: true, hasModel: false, hasWorkflow: false });
 
-    const cta = screen.getByRole('link', { name: /escolher modelo/i });
+    const cta = screen.getByRole('link', { name: /escolher modo de trabalho/i });
     expect(cta).toHaveAttribute('href', '/providers?tab=models');
   });
 
@@ -70,8 +70,8 @@ describe('ChatReadinessNotice', () => {
     expect(
       screen.getByRole('heading', { name: /execução de bruna bloqueada/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/outro bloqueio operacional/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ver diagnóstico/i })).toHaveAttribute(
+    expect(screen.getByText(/outro bloqueio no caminho/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ver verificação do ambiente/i })).toHaveAttribute(
       'href',
       '/orchestrator',
     );

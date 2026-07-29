@@ -435,7 +435,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
                     <li key={document.id} className="flex items-start justify-between gap-3">
                       <span className="text-foreground">{document.title}</span>
                       <Badge variant="outline">
-                        {t(`enums.documentState.${document.state}`)}
+                        {t(`status.documentState.${document.state}`)}
                       </Badge>
                     </li>
                   ))}
@@ -499,7 +499,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
                   <li key={task.id} className="flex items-start justify-between gap-3">
                     <span className="text-foreground">{task.title}</span>
                     <Badge variant={task.state === 'blocked' ? 'warning' : 'outline'}>
-                      {t(`enums.taskState.${task.state}`)}
+                      {t(`status.taskState.${task.state}`)}
                     </Badge>
                   </li>
                 ))}

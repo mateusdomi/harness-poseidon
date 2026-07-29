@@ -217,7 +217,7 @@ describe('WorkflowPanel', () => {
     // Uma barra 0–100 por fase, com nome acessível.
     expect(screen.getAllByRole('progressbar')).toHaveLength(4);
     expect(
-      screen.getByRole('progressbar', { name: 'Progresso da fase Validação' }),
+      screen.getByRole('progressbar', { name: 'Progresso da etapa Validação' }),
     ).toHaveAttribute('aria-valuenow', '0');
 
     // Documento da fase ativa com estado como TEXTO (não só cor).

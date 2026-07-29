@@ -1,7 +1,7 @@
 {
   "orchestrator": {
     "tabs": {
-      "label": "Orchestrator sections",
+      "label": "Team sections",
       "overview": "Overview",
       "definitions": "Agent definitions"
     },
@@ -290,11 +290,11 @@
       "turnState": "Turn state",
       "health": "Health",
       "operationMode": "Operation mode",
-      "model": "Model in use",
-      "noModel": "No model set",
+      "model": "Working mode in use",
+      "noModel": "No working mode set",
       "account": "Account in use",
-      "noAccount": "No account for the provider",
-      "quota": "Quota",
+      "noAccount": "Hiring not finished yet",
+      "quota": "Workload",
       "quotaUsage": "{{used}} of {{limit}}",
       "noBudget": "No limit configured",
       "lastActivity": "Last activity {{time}}",
@@ -321,25 +321,25 @@
     },
     "agents": {
       "title": "Invocation history",
-      "empty": "No agent has been invoked in this project.",
+      "empty": "Nobody on the team has been called in on this project.",
       "currentTask": "Current task",
       "noTask": "No current task",
       "runningFor": "Running for {{duration}}",
-      "attempts_one": "{{count}} attempt",
-      "attempts_other": "{{count}} attempts",
+      "attempts_one": "{{count}} work round",
+      "attempts_other": "{{count}} work rounds",
       "cost": "Accumulated cost",
       "open": "Open",
-      "noAttempts": "No attempts"
+      "noAttempts": "No work rounds"
     },
     "attempt": {
-      "title": "Attempt #{{number}}",
+      "title": "Work round #{{number}}",
       "timeline": "Timeline",
       "log": "Structured log",
       "filterKind": "Event type",
       "allKinds": "All types",
       "searchLabel": "Search the log",
       "searchPlaceholder": "Filter by text…",
-      "empty": "No events recorded for this attempt.",
+      "empty": "No events recorded for this work round.",
       "noResults": "No events match the filters."
     },
     "actions": {
@@ -364,11 +364,11 @@
       "hobbies": "Hobbies and personal details",
       "listHint": "One item per line or comma-separated.",
       "communicationTitle": "Communication layer",
-      "communicationHelp": "Only affects how Bruna talks to the user. It does not modify technical instructions, governance, claims, gates or execution.",
+      "communicationHelp": "Only affects how Bruna talks to you. It does not modify technical instructions, governance, permissions, approvals or execution.",
       "communicationInstructions": "Communication instructions",
       "routingTitle": "Global routing",
-      "routingHelp": "Model and account are persisted in the global definition and create a new auditable revision.",
-      "model": "Default model",
+      "routingHelp": "The working mode and the person are stored in the global definition and create a new auditable revision.",
+      "model": "Default working mode",
       "account": "Preferred account",
       "notConfigured": "Not configured",
       "history": "Change history ({{count}})",
@@ -376,14 +376,14 @@
       "revision": "v{{version}}"
     },
     "projectAgents": {
-      "availableTitle": "Fleet available for invocation",
-      "availableHelp": "The fleet is global and reusable. Availability here does not mean an identity has already worked on this project.",
-      "invokedTitle": "Agents invoked in this project",
-      "invokedHelp": "Instances and attempts effectively linked to the current project. When empty, no work has been assigned yet."
+      "availableTitle": "Team available to call in",
+      "availableHelp": "The team board is global and reusable. Being available here does not mean the person has already worked on this project.",
+      "invokedTitle": "People called in on this project",
+      "invokedHelp": "People and work rounds effectively linked to the current project. When empty, no work has been assigned yet."
     },
     "drain": {
       "title": "Drain tasks",
-      "description": "In-progress tasks return to the Ready column, running attempts are cancelled and agents become idle.",
+      "description": "In-progress tasks return to the Ready column, running work rounds are cancelled and the team becomes available.",
       "noteLabel": "Note (optional)",
       "confirm": "Drain tasks",
       "success_one": "{{count}} task drained.",
@@ -393,11 +393,11 @@
       "title": "Leadership handoff",
       "stepChoice": "Step 1 of 2 — choose the new leadership route",
       "stepConfirm": "Step 2 of 2 — confirmation",
-      "modelLabel": "New leadership model",
-      "keepCurrentModel": "Keep current model",
+      "modelLabel": "New leadership working mode",
+      "keepCurrentModel": "Keep the current working mode",
       "reasonLabel": "Reason",
       "reasonRequired": "Enter the reason for the handoff.",
-      "summaryModel": "Model",
+      "summaryModel": "Working mode",
       "summaryReason": "Reason",
       "confirm": "Confirm leadership handoff"
     },
@@ -412,25 +412,25 @@
     "readiness": {
       "states": {
         "notConfigured": "Not configured",
-        "awaitingProvider": "Awaiting provider",
+        "awaitingProvider": "Awaiting hiring",
         "awaitingWorkflow": "Awaiting workflow",
         "ready": "Ready",
         "running": "Running",
         "degraded": "Degraded"
       },
       "explanations": {
-        "notConfigured": "Bruna has no provider, model or workflow yet. Configure the dependencies to enable execution.",
-        "awaitingProvider": "An enabled model with an active provider account is missing. Without it Bruna cannot run.",
-        "awaitingWorkflow": "Provider and model are ready. Link a workflow to the project to define phases and gates.",
+        "notConfigured": "Bruna has no hired team, working mode or workflow yet. Configure those to enable execution.",
+        "awaitingProvider": "An enabled working mode with a hired, active person is missing. Without it Bruna cannot run.",
+        "awaitingWorkflow": "Team and working mode are ready. Link a workflow to the project to define its stages and what is needed to advance.",
         "ready": "Dependencies satisfied: Bruna can run on this project.",
-        "running": "Bruna is running an attempt right now.",
-        "degraded": "Bruna is in error or out of quota. Review the agents before continuing."
+        "running": "Bruna is in a work round right now.",
+        "degraded": "Bruna is unwell or out of workload. Review the team board before continuing."
       },
       "actions": {
-        "configureProvider": "Configure provider",
-        "chooseModel": "Choose model",
+        "configureProvider": "Finish hiring",
+        "chooseModel": "Choose working mode",
         "linkWorkflow": "Link workflow",
-        "reviewAgents": "Review agents"
+        "reviewAgents": "See the team board"
       }
     }
   }

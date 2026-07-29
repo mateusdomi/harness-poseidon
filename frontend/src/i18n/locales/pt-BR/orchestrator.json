@@ -1,7 +1,7 @@
 {
   "orchestrator": {
     "tabs": {
-      "label": "Seções do orquestrador",
+      "label": "Seções da equipe",
       "overview": "Visão geral",
       "definitions": "Definições de agentes"
     },
@@ -290,11 +290,11 @@
       "turnState": "Estado do turno",
       "health": "Saúde",
       "operationMode": "Modo de operação",
-      "model": "Modelo em uso",
-      "noModel": "Sem modelo definido",
+      "model": "Modo de trabalho em uso",
+      "noModel": "Sem modo de trabalho definido",
       "account": "Conta em uso",
-      "noAccount": "Nenhuma conta do provedor",
-      "quota": "Cota",
+      "noAccount": "Contratação ainda não concluída",
+      "quota": "Jornada",
       "quotaUsage": "{{used}} de {{limit}}",
       "noBudget": "Sem limite configurado",
       "lastActivity": "Última atividade {{time}}",
@@ -321,25 +321,25 @@
     },
     "agents": {
       "title": "Histórico de acionamentos",
-      "empty": "Nenhum agente foi acionado neste projeto.",
+      "empty": "Ninguém da equipe foi acionado neste projeto.",
       "currentTask": "Tarefa atual",
       "noTask": "Sem tarefa atual",
       "runningFor": "Em execução há {{duration}}",
-      "attempts_one": "{{count}} tentativa",
-      "attempts_other": "{{count}} tentativas",
+      "attempts_one": "{{count}} rodada de trabalho",
+      "attempts_other": "{{count}} rodadas de trabalho",
       "cost": "Custo acumulado",
       "open": "Abrir",
-      "noAttempts": "Sem tentativas"
+      "noAttempts": "Sem rodadas de trabalho"
     },
     "attempt": {
-      "title": "Tentativa nº {{number}}",
+      "title": "Rodada de trabalho nº {{number}}",
       "timeline": "Linha do tempo",
       "log": "Log estruturado",
       "filterKind": "Tipo de evento",
       "allKinds": "Todos os tipos",
       "searchLabel": "Buscar no log",
       "searchPlaceholder": "Filtrar por texto…",
-      "empty": "Nenhum evento registrado nesta tentativa.",
+      "empty": "Nenhum evento registrado nesta rodada de trabalho.",
       "noResults": "Nenhum evento corresponde aos filtros."
     },
     "actions": {
@@ -364,11 +364,11 @@
       "hobbies": "Hobbies e curiosidades",
       "listHint": "Um item por linha ou separado por vírgulas.",
       "communicationTitle": "Camada de comunicação",
-      "communicationHelp": "Afeta somente como Bruna conversa com o usuário. Não modifica instruções técnicas, governança, claims, gates ou execução.",
+      "communicationHelp": "Afeta somente como a Bruna conversa com você. Não modifica instruções técnicas, governança, permissões, aprovações ou execução.",
       "communicationInstructions": "Instruções de comunicação",
       "routingTitle": "Roteamento global",
-      "routingHelp": "Modelo e conta são persistidos na definição global e geram uma nova revisão auditável.",
-      "model": "Modelo padrão",
+      "routingHelp": "O modo de trabalho e a pessoa ficam guardados na definição global e geram uma nova revisão auditável.",
+      "model": "Modo de trabalho padrão",
       "account": "Conta preferencial",
       "notConfigured": "Não configurado",
       "history": "Histórico de alterações ({{count}})",
@@ -376,14 +376,14 @@
       "revision": "v{{version}}"
     },
     "projectAgents": {
-      "availableTitle": "Fleet disponível para invocação",
-      "availableHelp": "A fleet é global e reutilizável. Estar disponível aqui não significa que a identidade já trabalhou neste projeto.",
-      "invokedTitle": "Agentes acionados neste projeto",
-      "invokedHelp": "Instâncias e tentativas efetivamente vinculadas ao projeto atual. Quando vazio, nenhum trabalho foi atribuído ainda."
+      "availableTitle": "Equipe disponível para acionar",
+      "availableHelp": "O quadro da equipe é global e reutilizável. Estar disponível aqui não significa que a pessoa já trabalhou neste projeto.",
+      "invokedTitle": "Pessoas acionadas neste projeto",
+      "invokedHelp": "Pessoas e rodadas de trabalho efetivamente vinculadas ao projeto atual. Quando vazio, nenhum trabalho foi atribuído ainda."
     },
     "drain": {
       "title": "Drenar tarefas",
-      "description": "As tarefas em andamento voltam para a coluna Pronta, as tentativas em execução são canceladas e os agentes ficam ociosos.",
+      "description": "As tarefas em andamento voltam para a coluna Pronta, as rodadas de trabalho em execução são canceladas e a equipe fica disponível.",
       "noteLabel": "Observação (opcional)",
       "confirm": "Drenar tarefas",
       "success_one": "{{count}} tarefa drenada.",
@@ -393,11 +393,11 @@
       "title": "Passagem de bastão",
       "stepChoice": "Etapa 1 de 2 — escolha da nova liderança",
       "stepConfirm": "Etapa 2 de 2 — confirmação",
-      "modelLabel": "Modelo da nova liderança",
-      "keepCurrentModel": "Manter modelo atual",
+      "modelLabel": "Modo de trabalho da nova liderança",
+      "keepCurrentModel": "Manter o modo de trabalho atual",
       "reasonLabel": "Motivo",
       "reasonRequired": "Informe o motivo da passagem de bastão.",
-      "summaryModel": "Modelo",
+      "summaryModel": "Modo de trabalho",
       "summaryReason": "Motivo",
       "confirm": "Confirmar passagem de bastão"
     },
@@ -412,25 +412,25 @@
     "readiness": {
       "states": {
         "notConfigured": "Não configurado",
-        "awaitingProvider": "Aguardando provedor",
-        "awaitingWorkflow": "Aguardando workflow",
+        "awaitingProvider": "Aguardando contratação",
+        "awaitingWorkflow": "Aguardando fluxo de trabalho",
         "ready": "Pronto",
         "running": "Em execução",
         "degraded": "Degradado"
       },
       "explanations": {
-        "notConfigured": "Bruna ainda não tem provedor, modelo nem workflow. Configure as dependências para habilitar a execução.",
-        "awaitingProvider": "Falta um modelo habilitado com conta ativa do provedor. Sem isso Bruna não pode executar.",
-        "awaitingWorkflow": "Provedor e modelo prontos. Vincule um workflow ao projeto para definir fases e portões.",
+        "notConfigured": "A Bruna ainda não tem equipe contratada, modo de trabalho nem fluxo de trabalho. Configure isso para habilitar a execução.",
+        "awaitingProvider": "Falta um modo de trabalho habilitado com uma pessoa contratada e ativa. Sem isso a Bruna não pode executar.",
+        "awaitingWorkflow": "Equipe e modo de trabalho prontos. Vincule um fluxo de trabalho ao projeto para definir as etapas e o que é preciso para avançar.",
         "ready": "Dependências satisfeitas: Bruna pode executar neste projeto.",
-        "running": "Bruna está executando uma tentativa agora.",
-        "degraded": "Bruna está em erro ou sem cota. Revise os agentes antes de continuar."
+        "running": "A Bruna está em uma rodada de trabalho agora.",
+        "degraded": "A Bruna está indisposta ou sem jornada. Revise o quadro da equipe antes de continuar."
       },
       "actions": {
-        "configureProvider": "Configurar provedor",
-        "chooseModel": "Escolher modelo",
-        "linkWorkflow": "Vincular workflow",
-        "reviewAgents": "Revisar agentes"
+        "configureProvider": "Concluir contratação",
+        "chooseModel": "Escolher modo de trabalho",
+        "linkWorkflow": "Vincular fluxo de trabalho",
+        "reviewAgents": "Ver o quadro da equipe"
       }
     }
   }
