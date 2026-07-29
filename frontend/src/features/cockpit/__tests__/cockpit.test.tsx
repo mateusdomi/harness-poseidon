@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -336,7 +336,7 @@ describe('CockpitPage', () => {
     renderCockpit();
 
     await user.click(
-      await screen.findByRole('link', { name: /deploy em staging/i }),
+      await screen.findByRole('link', { name: /publicação em preparação/i }),
     );
     expect(await screen.findByText('BOARD state=')).toBeInTheDocument();
   });
@@ -371,7 +371,7 @@ describe('CockpitPage', () => {
     );
   });
 
-  it('revela diagnósticos de fleet e as trilhas antigas apenas no modo técnico', async () => {
+  it('revela diagnósticos e as três trilhas apenas no modo técnico', async () => {
     const bundle = createTestBundle();
     usePresentationStore
       .getState()
@@ -379,7 +379,7 @@ describe('CockpitPage', () => {
 
     renderCockpit(bundle);
 
-    expect(await screen.findByText('Fleet operacional')).toBeInTheDocument();
+    expect((await screen.findAllByText('Claude · Anthropic')).length).toBeGreaterThan(0);
     expect(screen.getByRole('progressbar', { name: 'Executado' })).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Validado' })).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Aprovado' })).toBeInTheDocument();
