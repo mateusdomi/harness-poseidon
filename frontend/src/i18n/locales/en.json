@@ -263,10 +263,17 @@
     },
     "agentState": {
       "working": "Working",
-      "idle": "Idle",
+      "idle": "Available",
       "waiting": "Waiting",
-      "error": "Error",
+      "error": "Unwell",
       "outOfQuota": "Workload exhausted"
+    },
+    "agentStateHint": {
+      "working": "on a task right now",
+      "idle": "ready to take work",
+      "waiting": "waiting on something to continue",
+      "error": "should be back shortly",
+      "outOfQuota": "this person's workload is over for now"
     },
     "approvalState": {
       "pending": "Pending",

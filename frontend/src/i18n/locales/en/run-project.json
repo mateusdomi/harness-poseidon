@@ -3,6 +3,21 @@
     "noProject": {
       "body": "Select or create a project to run its environment services."
     },
+    "business": {
+      "title": "Open {{project}}",
+      "body": "One click starts everything the project needs and opens your product's screen. What runs underneath is the team's business.",
+      "status": {
+        "live": "Live",
+        "preparing": "Getting ready…",
+        "stopped": "Stopped"
+      },
+      "start": "Open {{project}}",
+      "open": "Open {{project}}",
+      "preparing": "Getting ready…",
+      "address": "Address: {{url}}",
+      "unknownService": "We don't know yet which service of this project serves the customer's screen. Once the team marks it, the button shows up here — we won't open some other service instead.",
+      "credentials": "This project has no demo credentials on file. When it does, they appear here so you can sign in and try it."
+    },
     "actions": {
       "start": "Start",
       "stop": "Stop",

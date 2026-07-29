@@ -3,6 +3,21 @@
     "noProject": {
       "body": "Selecione ou crie um projeto para rodar os serviços do ambiente."
     },
+    "business": {
+      "title": "Abrir {{project}}",
+      "body": "Um clique sobe tudo o que o projeto precisa e abre a tela do seu produto. O que roda por baixo é assunto da equipe.",
+      "status": {
+        "live": "No ar",
+        "preparing": "Preparando…",
+        "stopped": "Parado"
+      },
+      "start": "Abrir {{project}}",
+      "open": "Abrir {{project}}",
+      "preparing": "Preparando…",
+      "address": "Endereço: {{url}}",
+      "unknownService": "Ainda não sabemos qual serviço deste projeto entrega a tela para o cliente. Quando a equipe marcar isso no projeto, o botão aparece aqui — não vamos abrir um serviço qualquer no lugar.",
+      "credentials": "Este projeto não tem credenciais de demonstração cadastradas. Quando tiver, elas aparecem aqui para você entrar e testar."
+    },
     "actions": {
       "start": "Iniciar",
       "stop": "Parar",

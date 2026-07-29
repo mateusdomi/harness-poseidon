@@ -1695,10 +1695,12 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
 
   /* ---- run-targets, settings, licença, entitlements ---- */
 
+  // `userFacing` só é verdadeiro no serviço que entrega a tela ao cliente (D8):
+  // é ele que o modo Negócio revela, e os demais sobem como dependência.
   const runTargets: RunTarget[] = [
-    { id: id(), projectId: projetoPoseidon.id, name: 'Frontend Vite (dev)', kind: 'http', url: 'http://localhost:5173', port: 5173, state: 'running', detectedAt: tick(), lastCheckAt: tick() },
-    { id: id(), projectId: projetoPoseidon.id, name: 'Backend API (.NET)', kind: 'http', url: 'http://localhost:5001', port: 5001, state: 'stopped', detectedAt: tick(), lastCheckAt: tick() },
-    { id: id(), projectId: projetoPagamentos.id, name: 'Worker de conciliação', kind: 'process', url: null, port: null, state: 'unknown', detectedAt: tick(), lastCheckAt: null },
+    { id: id(), projectId: projetoPoseidon.id, name: 'Frontend Vite (dev)', kind: 'http', url: 'http://localhost:5173', port: 5173, state: 'running', detectedAt: tick(), lastCheckAt: tick(), userFacing: true },
+    { id: id(), projectId: projetoPoseidon.id, name: 'Backend API (.NET)', kind: 'http', url: 'http://localhost:5001', port: 5001, state: 'stopped', detectedAt: tick(), lastCheckAt: tick(), userFacing: false },
+    { id: id(), projectId: projetoPagamentos.id, name: 'Worker de conciliação', kind: 'process', url: null, port: null, state: 'unknown', detectedAt: tick(), lastCheckAt: null, userFacing: false },
   ];
 
   const settings: Settings = {

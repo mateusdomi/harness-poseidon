@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { Agent, Attempt, Task } from '@/api';
+import type { Agent, AgentDefinition, Attempt, Task } from '@/api';
+import { usePresentationMode } from '@/app/presentation';
 import { Badge, Button, Card, CardContent } from '@/design-system';
 import { formatCurrencyUSD, formatDurationMs } from '@/lib/format';
 import { agentStateVariant } from '@/lib/status';
+import { resolveAgentIdentity } from '@/lib/agent-persona';
+import { ManagedAgentAvatar } from '@/features/shared/components/managed-agent-avatar';
 import { AttemptDialog } from '@/features/orchestrator/components/attempt-dialog';
+import { PersonProfileDialog } from '@/features/orchestrator/components/person-profile-dialog';
 import {
   attemptsOf,
   groupAgentsByState,
@@ -19,6 +23,8 @@ export interface AgentGridProps {
   tasks: Task[];
   attempts: Attempt[];
   now: Date;
+  /** Definições do projeto: dão cargo, competências e procedência da pessoa (D1). */
+  definitions?: AgentDefinition[];
 }
 
 /**
@@ -26,10 +32,16 @@ export interface AgentGridProps {
  * tarefa atual, duração da tentativa em execução, nº de tentativas, custo
  * acumulado e a ação "Abrir" (linha do tempo + log da tentativa).
  */
-export function AgentGrid({ agents, tasks, attempts, now }: AgentGridProps) {
+export function AgentGrid({ agents, tasks, attempts, now, definitions = [] }: AgentGridProps) {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const [openAttempt, setOpenAttempt] = useState<Attempt | null>(null);
+  const [openPerson, setOpenPerson] = useState<Agent | null>(null);
   const groups = groupAgentsByState(agents);
+
+  function definitionOf(agent: Agent): AgentDefinition | null {
+    return definitions.find((entry) => entry.id === agent.definitionId) ?? null;
+  }
 
   if (groups.length === 0) {
     return (
@@ -64,7 +76,28 @@ export function AgentGrid({ agents, tasks, attempts, now }: AgentGridProps) {
                 <li key={agent.id}>
                   <Card className="h-full">
                     <CardContent className="flex h-full flex-col gap-2 p-4">
-                      <p className="font-medium">{agent.name}</p>
+                      {showTechnicalDetails ? (
+                        <p className="font-medium">{agent.name}</p>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <ManagedAgentAvatar
+                            alias={definitionOf(agent)?.key ?? agent.name}
+                            fallbackName={agent.name}
+                            roleLabel={
+                              resolveAgentIdentity(definitionOf(agent)?.key, agent.name).roleLabel
+                            }
+                            size={40}
+                          />
+                          <div className="flex min-w-0 flex-col">
+                            <p className="font-medium">
+                              {resolveAgentIdentity(definitionOf(agent)?.key, agent.name).humanName}
+                            </p>
+                            <p className="text-xs text-foreground-muted">
+                              {resolveAgentIdentity(definitionOf(agent)?.key, agent.name).roleLabel}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-sm text-foreground-muted">
                         {task ? task.title : t('orchestrator.agents.noTask')}
                       </p>
@@ -77,21 +110,39 @@ export function AgentGrid({ agents, tasks, attempts, now }: AgentGridProps) {
                           })}
                         </p>
                       ) : null}
-                      <p className="text-sm text-foreground-muted">
-                        {t('orchestrator.agents.attempts', { count: attemptsOf(attempts, agent.id).length })}
-                        {' · '}
-                        {t('orchestrator.agents.cost')}: {formatCurrencyUSD(agent.metrics.costUsd)}
-                      </p>
+                      {/* Rodadas de trabalho e custo são leitura de operação: no modo
+                          Negócio a pessoa aparece pelo que faz, não pelo que consome. */}
+                      {showTechnicalDetails ? (
+                        <p className="text-sm text-foreground-muted">
+                          {t('orchestrator.agents.attempts', {
+                            count: attemptsOf(attempts, agent.id).length,
+                          })}
+                          {' · '}
+                          {t('orchestrator.agents.cost')}:{' '}
+                          {formatCurrencyUSD(agent.metrics.costUsd)}
+                        </p>
+                      ) : null}
                       <div className="mt-auto pt-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={latest === null}
-                          onClick={() => setOpenAttempt(latest)}
-                        >
-                          {t('orchestrator.agents.open')}
-                        </Button>
+                        {showTechnicalDetails ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={latest === null}
+                            onClick={() => setOpenAttempt(latest)}
+                          >
+                            {t('orchestrator.agents.open')}
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOpenPerson(agent)}
+                          >
+                            {t('orchestrator.agents.openProfile')}
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -103,6 +154,14 @@ export function AgentGrid({ agents, tasks, attempts, now }: AgentGridProps) {
       ))}
       {openAttempt ? (
         <AttemptDialog attempt={openAttempt} onClose={() => setOpenAttempt(null)} />
+      ) : null}
+      {openPerson ? (
+        <PersonProfileDialog
+          agent={openPerson}
+          definition={definitionOf(openPerson)}
+          task={tasks.find((entry) => entry.id === openPerson.currentTaskId) ?? null}
+          onClose={() => setOpenPerson(null)}
+        />
       ) : null}
     </section>
   );

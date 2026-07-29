@@ -4,9 +4,11 @@ import { Link } from 'react-router-dom';
 import { Play, RotateCcw, Square, Trash2 } from 'lucide-react';
 
 import { streams, type RunTarget, type Ulid } from '@/api';
+import { usePresentationMode } from '@/app/presentation';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton } from '@/design-system';
 import { runTargetStateVariant } from '@/lib/status';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
+import { BusinessRunPanel } from '@/features/run-project/components/business-run-panel';
 import { RunLogPanel } from '@/features/run-project/components/run-log-panel';
 import {
   useCleanupRunEnvironment,
@@ -32,6 +34,7 @@ export default function UrunProjectPage() {
     useActiveProject();
   const projectId = activeProject?.id ?? null;
 
+  const { showTechnicalDetails } = usePresentationMode();
   const targetsQuery = useRunTargets(projectId);
   const runAction = useRunTargetAction();
   const cleanup = useCleanupRunEnvironment();
@@ -69,6 +72,8 @@ export default function UrunProjectPage() {
         state: 'running',
         detectedAt: new Date().toISOString(),
         lastCheckAt: new Date().toISOString(),
+        // O host que serve ESTA página não é a tela do cliente do projeto.
+        userFacing: false,
       }
     : null;
   const targets = hostTarget ? [hostTarget, ...managedTargets] : managedTargets;
@@ -150,6 +155,14 @@ export default function UrunProjectPage() {
             <p className="text-sm text-foreground-muted">{t('runProject.noProject.body')}</p>
           </CardContent>
         </Card>
+      ) : !showTechnicalDetails ? (
+        <BusinessRunPanel
+          projectName={activeProject.name}
+          userFacing={managedTargets.find((target) => target.userFacing) ?? null}
+          hasStopped={managedStoppedCount > 0}
+          isPending={runAction.isPending}
+          onOpen={() => void runOnAll('start')}
+        />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">

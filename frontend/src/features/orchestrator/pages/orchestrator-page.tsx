@@ -84,9 +84,7 @@ export default function UorchestratorPage() {
   const workflowQuery = useProjectWorkflow(projectId);
   const modelBinding = chief ? resolveModelBindingSource(chief, definition) : 'none';
   const chiefIsRunning = chief
-    ? projectAttempts.some(
-        (attempt) => attempt.agentId === chief.id && attempt.state === 'running',
-      )
+    ? projectAttempts.some((attempt) => attempt.agentId === chief.id && attempt.state === 'running')
     : false;
   const budgets = activeProject
     ? chiefBudgets(data.budgets, activeProject.id, account?.id ?? null)
@@ -94,7 +92,9 @@ export default function UorchestratorPage() {
   // A grade mostra os especialistas orquestrados — o chefe tem card próprio.
   const gridAgents = projectAgents.filter((agent) => {
     const agentDefinition = data.definitions.find((entry) => entry.id === agent.definitionId);
-    return agentDefinition ? agentDefinition.role !== 'chief' : agent.id !== activeProject?.chiefAgentId;
+    return agentDefinition
+      ? agentDefinition.role !== 'chief'
+      : agent.id !== activeProject?.chiefAgentId;
   });
 
   function selectTab(tab: 'overview' | 'definitions') {
@@ -200,7 +200,13 @@ export default function UorchestratorPage() {
                 {t('orchestrator.projectAgents.invokedHelp')}
               </p>
             </div>
-          <AgentGrid agents={gridAgents} tasks={data.tasks} attempts={projectAttempts} now={now} />
+            <AgentGrid
+              agents={gridAgents}
+              tasks={data.tasks}
+              attempts={projectAttempts}
+              now={now}
+              definitions={data.definitions}
+            />
           </section>
         </>
       )}

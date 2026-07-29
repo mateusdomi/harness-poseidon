@@ -10,10 +10,10 @@ namespace Harness.Persistence.Postgres;
 public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTargetStore
 {
     private const string SelectPublic =
-        "SELECT id,project_id,name,kind,url,port,state,detected_at,last_check_at FROM harness.run_targets";
+        "SELECT id,project_id,name,kind,url,port,state,user_facing,detected_at,last_check_at FROM harness.run_targets";
 
     private const string SelectLaunch =
-        "SELECT id,project_id,name,kind,url,port,state,detected_at,last_check_at,working_directory,executable,arguments_json::text,environment_json::text FROM harness.run_targets";
+        "SELECT id,project_id,name,kind,url,port,state,user_facing,detected_at,last_check_at,working_directory,executable,arguments_json::text,environment_json::text FROM harness.run_targets";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> States = ["running", "stopped", "unknown"];
@@ -60,10 +60,10 @@ public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTa
         var target = ReadPublic(reader);
         return new RunTargetLaunchRecord(
             target,
-            reader.GetString(9),
             reader.GetString(10),
-            JsonSerializer.Deserialize<string[]>(reader.GetString(11), JsonOptions) ?? [],
-            JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(12), JsonOptions)
+            reader.GetString(11),
+            JsonSerializer.Deserialize<string[]>(reader.GetString(12), JsonOptions) ?? [],
+            JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(13), JsonOptions)
                 ?? new Dictionary<string, string>(StringComparer.Ordinal));
     }
 
@@ -127,12 +127,12 @@ public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTa
                 """
                 INSERT INTO harness.run_targets
                     (tenant_id,id,project_id,fingerprint,name,kind,url,port,state,working_directory,
-                     executable,arguments_json,environment_json,detected_at,last_check_at)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'stopped',$9,$10,$11,$12,$13,$13)
+                     executable,arguments_json,environment_json,detected_at,last_check_at,user_facing)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'stopped',$9,$10,$11,$12,$13,$13,$14)
                 ON CONFLICT (tenant_id,project_id,fingerprint) DO UPDATE SET
                     name=excluded.name,kind=excluded.kind,
                     working_directory=excluded.working_directory,executable=excluded.executable,
-                    last_check_at=excluded.last_check_at;
+                    last_check_at=excluded.last_check_at,user_facing=excluded.user_facing;
                 """,
                 cancellationToken,
                 Text(command.TenantId),
@@ -147,7 +147,8 @@ public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTa
                 Text(definition.Executable),
                 Json(JsonSerializer.Serialize(definition.Arguments, JsonOptions)),
                 Json(JsonSerializer.Serialize(definition.Environment, JsonOptions)),
-                Timestamp(command.OccurredAt));
+                Timestamp(command.OccurredAt),
+                Boolean(definition.UserFacing));
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -366,8 +367,9 @@ public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTa
         reader.IsDBNull(4) ? null : reader.GetString(4),
         reader.IsDBNull(5) ? null : reader.GetInt32(5),
         reader.GetString(6),
-        reader.GetFieldValue<DateTimeOffset>(7),
-        reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8));
+        reader.GetFieldValue<DateTimeOffset>(8),
+        reader.IsDBNull(9) ? null : reader.GetFieldValue<DateTimeOffset>(9),
+        reader.GetBoolean(7));
 
     private static async Task AppendLedgerAsync(
         NpgsqlConnection connection,
@@ -461,6 +463,8 @@ public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTa
     private static NpgsqlParameter<string> Text(string value) => new() { TypedValue = value };
 
     private static NpgsqlParameter<int> Integer(int value) => new() { TypedValue = value };
+
+    private static NpgsqlParameter<bool> Boolean(bool value) => new() { TypedValue = value };
 
     private static NpgsqlParameter<long> Bigint(long value) => new() { TypedValue = value };
 

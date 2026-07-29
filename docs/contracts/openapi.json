@@ -32919,7 +32919,8 @@
                     "port",
                     "state",
                     "detectedAt",
-                    "lastCheckAt"
+                    "lastCheckAt",
+                    "userFacing"
                 ],
                 "type": "object",
                 "properties": {
@@ -32963,6 +32964,9 @@
                             "string"
                         ],
                         "format": "date-time"
+                    },
+                    "userFacing": {
+                        "type": "boolean"
                     }
                 }
             },

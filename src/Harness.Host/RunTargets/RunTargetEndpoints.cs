@@ -182,10 +182,15 @@ public static class RunTargetEndpoints
         var keyed = Path.Combine(root, project.Key); return Directory.Exists(keyed) ? keyed : root;
     }
 
-    private static RunTargetContract ToContract(RunTargetRecord value) => new(value.Id, value.ProjectId, value.Name, value.Kind, value.Url, value.Port, value.State, value.DetectedAt, value.LastCheckAt);
+    private static RunTargetContract ToContract(RunTargetRecord value) => new(value.Id, value.ProjectId, value.Name, value.Kind, value.Url, value.Port, value.State, value.DetectedAt, value.LastCheckAt, value.UserFacing);
     private static IResult InvalidId() => Invalid("invalid_run_target_id", "Run target ID must be a ULID."); private static IResult Unauthorized() => Problem(401, "local_session_required", "A local profile session is required."); private static IResult Missing(string resource) => Problem(404, $"{resource}_not_found", $"The {resource} does not exist."); private static IResult Invalid(string title, string detail) => Problem(400, title, detail); private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
 }
 
-public sealed record RunTargetContract(string Id, string ProjectId, string Name, string Kind, string? Url, int? Port, string State, DateTimeOffset DetectedAt, DateTimeOffset? LastCheckAt);
+/// <summary>
+/// Serviço do ambiente do projeto. <paramref name="UserFacing"/> marca a tela que o CLIENTE
+/// abre: é o único serviço revelado no modo Negócio (D8), enquanto a lista completa continua
+/// disponível no modo Técnico.
+/// </summary>
+public sealed record RunTargetContract(string Id, string ProjectId, string Name, string Kind, string? Url, int? Port, string State, DateTimeOffset DetectedAt, DateTimeOffset? LastCheckAt, bool UserFacing);
 public sealed record RunTargetPage(IReadOnlyList<RunTargetContract> Items, string? NextCursor);
 public sealed record RunTargetHealthContract(string TargetId, string? Url, bool Healthy, int? StatusCode, string Detail, DateTimeOffset CheckedAt);

@@ -100,6 +100,39 @@ public sealed class RunTargetDetector(RunTargetAgentFallback? agentFallback = nu
             });
     }
 
+    /// <summary>
+    /// Pacotes que EXISTEM para servir interface web. É a evidência de que este serviço é a
+    /// tela que o cliente abre — não uma adivinhação por nome de pasta.
+    /// </summary>
+    private static readonly HashSet<string> UserInterfacePackages = new(
+        [
+            "vite", "next", "react-scripts", "@angular/cli", "nuxt", "astro",
+            "@sveltejs/kit", "@vue/cli-service", "parcel", "expo", "remix",
+            "@remix-run/dev", "gatsby",
+        ],
+        StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Verdadeiro quando o MANIFESTO prova que o serviço entrega interface ao usuário: declara
+    /// um framework de tela (<see cref="UserInterfacePackages"/>) ou serve um `index.html`
+    /// próprio. Sem prova, devolve falso — e o modo Negócio prefere dizer que não sabe qual é a
+    /// tela do cliente a eleger uma ao acaso (D8).
+    /// </summary>
+    private static bool ServesUserInterface(JsonElement packageRoot, string directory)
+    {
+        foreach (var section in new[] { "dependencies", "devDependencies" })
+        {
+            if (packageRoot.TryGetProperty(section, out var node) &&
+                node.ValueKind == JsonValueKind.Object &&
+                node.EnumerateObject().Any(property => UserInterfacePackages.Contains(property.Name)))
+            {
+                return true;
+            }
+        }
+
+        return File.Exists(Path.Combine(directory, "index.html"));
+    }
+
     private static bool TryNode(string packageFile, out RunTargetDefinition definition)
     {
         try
@@ -115,6 +148,32 @@ public sealed class RunTargetDetector(RunTargetAgentFallback? agentFallback = nu
             {
                 ["PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
             };
+            var servesUi = ServesUserInterface(root, directory);
+            var hasScript = root.TryGetProperty("scripts", out var scripts) &&
+                scripts.ValueKind == JsonValueKind.Object;
+
+            // Uma tela de cliente sobe pelo script de desenvolvimento: é o caminho que serve a
+            // interface sem exigir build prévio. Só entra aqui com evidência de interface — o
+            // `dev` de um pacote de backend continua fora do manifesto.
+            if (servesUi && hasScript &&
+                scripts.TryGetProperty("dev", out var dev) &&
+                dev.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(dev.GetString()))
+            {
+                definition = new(
+                    Fingerprint("npm-dev", packageFile),
+                    $"{name} (npm run dev)",
+                    "http",
+                    $"http://127.0.0.1:{port}",
+                    port,
+                    directory,
+                    "/usr/bin/env",
+                    ["npm", "run", "dev"],
+                    environment,
+                    UserFacing: true);
+                return true;
+            }
+
             var entry = root.TryGetProperty("main", out var main) && main.ValueKind == JsonValueKind.String
                 ? main.GetString()
                 : null;
@@ -132,12 +191,12 @@ public sealed class RunTargetDetector(RunTargetAgentFallback? agentFallback = nu
                     directory,
                     "/usr/bin/env",
                     ["node", entryPath],
-                    environment);
+                    environment,
+                    UserFacing: servesUi);
                 return true;
             }
 
-            if (root.TryGetProperty("scripts", out var scripts) &&
-                scripts.ValueKind == JsonValueKind.Object &&
+            if (hasScript &&
                 scripts.TryGetProperty("start", out var start) &&
                 start.ValueKind == JsonValueKind.String &&
                 !string.IsNullOrWhiteSpace(start.GetString()))
@@ -151,7 +210,8 @@ public sealed class RunTargetDetector(RunTargetAgentFallback? agentFallback = nu
                     directory,
                     "/usr/bin/env",
                     ["npm", "start"],
-                    environment);
+                    environment,
+                    UserFacing: servesUi);
                 return true;
             }
 

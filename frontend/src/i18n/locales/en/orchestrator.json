@@ -302,15 +302,15 @@
         "toggle": "Advanced diagnostics",
         "fencingToken": "Concurrency lock",
         "fencingTokenHint": "Concurrency lock (fencing token): prevents two coordination instances from taking the same work at the same time. The number grows with each new lease, and the system rejects anyone acting with an old number.",
-      "leaseExpiresAt": "Lease expires at",
-      "leaseHint": "Lease: how long this instance holds the right to run the turn. If it expires without renewal, another instance can safely take over the work.",
-      "noLease": "No active lease",
-      "healthReason": "Health reason",
-      "healthOk": "Recent heartbeat and normal operational state.",
-      "healthReadiness": "The process responds, but operational readiness needs attention: “{{state}}”.",
-      "healthState": "The current operational state is “{{state}}”.",
-      "healthMissingHeartbeat": "The agent has not published a heartbeat yet.",
-      "healthStaleHeartbeat": "The last heartbeat was {{time}} and exceeded the 2-minute operational window."
+        "leaseExpiresAt": "Lease expires at",
+        "leaseHint": "Lease: how long this instance holds the right to run the turn. If it expires without renewal, another instance can safely take over the work.",
+        "noLease": "No active lease",
+        "healthReason": "Health reason",
+        "healthOk": "Recent heartbeat and normal operational state.",
+        "healthReadiness": "The process responds, but operational readiness needs attention: “{{state}}”.",
+        "healthState": "The current operational state is “{{state}}”.",
+        "healthMissingHeartbeat": "The agent has not published a heartbeat yet.",
+        "healthStaleHeartbeat": "The last heartbeat was {{time}} and exceeded the 2-minute operational window."
       },
       "bindingPending": "Binding pending"
     },
@@ -329,7 +329,15 @@
       "attempts_other": "{{count}} work rounds",
       "cost": "Accumulated cost",
       "open": "Open",
-      "noAttempts": "No work rounds"
+      "noAttempts": "No work rounds",
+      "openProfile": "View profile"
+    },
+    "person": {
+      "doingNow": "What they are doing now",
+      "doingNothing": "No task at the moment.",
+      "competencies": "Competencies",
+      "competenciesEmpty": "No competencies on file for this person yet.",
+      "provenance": "Where this profile comes from"
     },
     "attempt": {
       "title": "Work round #{{number}}",
@@ -343,10 +351,10 @@
       "noResults": "No events match the filters."
     },
     "actions": {
-      "pause": "Pause",
-      "resume": "Resume",
-      "drain": "Drain tasks",
-      "handoff": "Hand off"
+      "pause": "Pause work",
+      "resume": "Resume work",
+      "drain": "Finish pending work and pause",
+      "handoff": "Transfer leadership"
     },
     "profile": {
       "title": "Bruna's profile and personalization",
@@ -363,7 +371,7 @@
       "personality": "Personality",
       "hobbies": "Hobbies and personal details",
       "listHint": "One item per line or comma-separated.",
-      "communicationTitle": "Communication layer",
+      "communicationTitle": "How Bruna communicates",
       "communicationHelp": "Only affects how Bruna talks to you. It does not modify technical instructions, governance, permissions, approvals or execution.",
       "communicationInstructions": "Communication instructions",
       "routingTitle": "Global routing",
@@ -382,24 +390,24 @@
       "invokedHelp": "People and work rounds effectively linked to the current project. When empty, no work has been assigned yet."
     },
     "drain": {
-      "title": "Drain tasks",
+      "title": "Finish pending work and pause",
       "description": "In-progress tasks return to the Ready column, running work rounds are cancelled and the team becomes available.",
       "noteLabel": "Note (optional)",
-      "confirm": "Drain tasks",
-      "success_one": "{{count}} task drained.",
-      "success_other": "{{count}} tasks drained."
+      "confirm": "Finish pending work and pause",
+      "success_one": "{{count}} task went back to the queue.",
+      "success_other": "{{count}} tasks went back to the queue."
     },
     "handoff": {
-      "title": "Leadership handoff",
+      "title": "Transfer leadership",
       "stepChoice": "Step 1 of 2 — choose the new leadership route",
       "stepConfirm": "Step 2 of 2 — confirmation",
       "modelLabel": "New leadership working mode",
       "keepCurrentModel": "Keep the current working mode",
       "reasonLabel": "Reason",
-      "reasonRequired": "Enter the reason for the handoff.",
+      "reasonRequired": "Tell us why leadership is being transferred.",
       "summaryModel": "Working mode",
       "summaryReason": "Reason",
-      "confirm": "Confirm leadership handoff"
+      "confirm": "Confirm transfer"
     },
     "mutation": {
       "error": "The action could not be completed. Try again."

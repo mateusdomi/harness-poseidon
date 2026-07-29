@@ -44,7 +44,17 @@ public sealed record RunTargetRecord(
     int? Port,
     string State,
     DateTimeOffset DetectedAt,
-    DateTimeOffset? LastCheckAt);
+    DateTimeOffset? LastCheckAt,
+
+    /// <summary>
+    /// Serviço VOLTADO AO USUÁRIO: a tela que o cliente do projeto abre (D8). É o único
+    /// serviço que o modo Negócio revela — o resto do ambiente (APIs, workers, bancos) é
+    /// dependência técnica que sobe junto e não interessa a quem só quer usar o produto.
+    ///
+    /// Falso por padrão, de propósito: marcar exige EVIDÊNCIA no manifesto do projeto. Sem
+    /// evidência, o produto diz que não sabe qual é a tela do cliente em vez de eleger uma.
+    /// </summary>
+    bool UserFacing = false);
 
 public sealed record RunTargetLaunchRecord(
     RunTargetRecord Target,
@@ -62,7 +72,13 @@ public sealed record RunTargetDefinition(
     string WorkingDirectory,
     string Executable,
     IReadOnlyList<string> Arguments,
-    IReadOnlyDictionary<string, string> Environment);
+    IReadOnlyDictionary<string, string> Environment,
+
+    /// <summary>
+    /// Marcação do manifesto: este serviço é a tela do cliente (ver
+    /// <see cref="RunTargetRecord.UserFacing"/>). Só o detector decide, e só com evidência.
+    /// </summary>
+    bool UserFacing = false);
 
 public sealed record RunTargetSynchronizationCommand(
     string TenantId,

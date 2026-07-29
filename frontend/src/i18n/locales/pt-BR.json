@@ -263,10 +263,17 @@
     },
     "agentState": {
       "working": "Trabalhando",
-      "idle": "Ocioso",
+      "idle": "Disponível",
       "waiting": "Aguardando",
-      "error": "Em erro",
+      "error": "Indisposto",
       "outOfQuota": "Jornada esgotada"
+    },
+    "agentStateHint": {
+      "working": "está em uma tarefa agora",
+      "idle": "pode receber trabalho",
+      "waiting": "esperando algo para continuar",
+      "error": "deve voltar em breve",
+      "outOfQuota": "a jornada desta pessoa terminou por agora"
     },
     "approvalState": {
       "pending": "Pendente",

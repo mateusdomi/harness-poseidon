@@ -29,6 +29,8 @@ import {
 } from '@/features/orchestrator/lib/orchestrator-derive';
 import OrchestratorPage from '@/features/orchestrator/pages/orchestrator-page';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 const fixtures = buildFixtures(42);
 const project = fixtures.data.projects[0];
@@ -170,7 +172,17 @@ describe('orchestrator-derive', () => {
   });
 });
 
-function renderOrchestrator(bundle: TestBundle = createTestBundle()) {
+/**
+ * Saúde, modo de trabalho, conta e jornada são leitura TÉCNICA desde a F8/§2 —
+ * o cliente leigo vê a pessoa, o estado dela e as ações em português.
+ */
+function renderOrchestrator(
+  bundle: TestBundle = createTestBundle(),
+  mode: 'business' | 'technical' = 'technical',
+) {
+  const profileId = bundle.fixtures.meta.currentProfileId;
+  useSessionStore.setState({ activeProfileId: profileId });
+  usePresentationStore.getState().requestMode(profileId, mode);
   return renderWithApi(
     <MemoryRouter>
       <OrchestratorPage />
@@ -178,6 +190,11 @@ function renderOrchestrator(bundle: TestBundle = createTestBundle()) {
     bundle,
   );
 }
+
+beforeEach(() => {
+  usePresentationStore.setState({ modeByProfile: {} });
+  useSessionStore.setState({ activeProfileId: null });
+});
 
 /** Bundle com um evento contendo segredo na tentativa em execução. */
 function createBundleWithSecretEvent(): TestBundle {
@@ -217,9 +234,35 @@ describe('OrchestratorPage', () => {
     expect(screen.getByText('Atenção')).toBeInTheDocument();
     expect(screen.getByText('Ainda não começou')).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Drenar tarefas' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Passar bastão' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pausar trabalhos' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Concluir pendências e pausar' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Transferir liderança' })).toBeInTheDocument();
+  });
+
+  it('modo Negócio apresenta a pessoa e as ações, sem saúde, conta ou jornada', async () => {
+    renderOrchestrator(createTestBundle(), 'business');
+
+    // A pessoa, o cargo e o estado dela em português — com a frase de apoio do léxico.
+    expect((await screen.findAllByText('Bruna Magalhães')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Como a Bruna se comunica')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pausar trabalhos' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Concluir pendências e pausar' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Transferir liderança' })).toBeInTheDocument();
+
+    // O que era operação de máquina sai de cena: saúde, modelo, conta, jornada e
+    // o diagnóstico (lease/fencing) só existem no modo Técnico.
+    expect(screen.queryByText('Saúde')).not.toBeInTheDocument();
+    expect(screen.queryByText('Atenção')).not.toBeInTheDocument();
+    expect(screen.queryByText('Modo de trabalho em uso')).not.toBeInTheDocument();
+    expect(screen.queryByText('Conta em uso')).not.toBeInTheDocument();
+    expect(screen.queryByText('Jornada')).not.toBeInTheDocument();
+    expect(screen.queryByText('GPT-4o')).not.toBeInTheDocument();
+    expect(screen.queryByText('Diagnóstico avançado')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/lease|fencing|heartbeat/i);
   });
 
   it('agrupa os agentes por estado com tarefa, tentativas e custo', async () => {
@@ -317,11 +360,11 @@ describe('OrchestratorPage', () => {
     const user = userEvent.setup();
     renderOrchestrator();
 
-    await user.click(await screen.findByRole('button', { name: 'Pausar' }));
-    expect(await screen.findByRole('button', { name: 'Retomar' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Pausar trabalhos' }));
+    expect(await screen.findByRole('button', { name: 'Retomar trabalhos' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Retomar' }));
-    expect(await screen.findByRole('button', { name: 'Pausar' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retomar trabalhos' }));
+    expect(await screen.findByRole('button', { name: 'Pausar trabalhos' })).toBeInTheDocument();
   });
 
   it('abre o editor de enquadramento ao selecionar uma nova foto da Bruna', async () => {
@@ -353,13 +396,13 @@ describe('OrchestratorPage', () => {
     const user = userEvent.setup();
     renderOrchestrator();
 
-    await user.click(await screen.findByRole('button', { name: 'Passar bastão' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Passagem de bastão' });
+    await user.click(await screen.findByRole('button', { name: 'Transferir liderança' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Transferir liderança' });
 
     // Motivo obrigatório: avançar sem preencher mostra o erro.
     await user.click(within(dialog).getByRole('button', { name: 'Avançar' }));
     expect(
-      await within(dialog).findByText('Informe o motivo da passagem de bastão.'),
+      await within(dialog).findByText('Informe o motivo da transferência.'),
     ).toBeInTheDocument();
 
     await user.selectOptions(within(dialog).getByLabelText('Modo de trabalho da nova liderança'), [
@@ -371,7 +414,7 @@ describe('OrchestratorPage', () => {
     // Etapa 2: resumo das escolhas + confirmação final.
     expect(within(dialog).getByText('Etapa 2 de 2 — confirmação')).toBeInTheDocument();
     expect(within(dialog).getByText('Teste de passagem de bastão')).toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: 'Confirmar passagem de bastão' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Confirmar transferência' }));
 
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Passagem de bastão' })).not.toBeInTheDocument(),
@@ -386,8 +429,8 @@ describe('OrchestratorPage', () => {
     const bundle = createTestBundle();
     renderOrchestrator(bundle);
 
-    await user.click(await screen.findByRole('button', { name: 'Drenar tarefas' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Drenar tarefas' });
+    await user.click(await screen.findByRole('button', { name: 'Concluir pendências e pausar' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Concluir pendências e pausar' });
     expect(within(dialog).getByText(/voltam para a coluna Pronta/)).toBeInTheDocument();
 
     await user.type(within(dialog).getByLabelText(/Observação/), 'Drenar para manutenção');
@@ -395,10 +438,10 @@ describe('OrchestratorPage', () => {
     const expected = bundle.fixtures.data.tasks.filter(
       (task) => task.projectId === project.id && activeStates.has(task.state),
     ).length;
-    await user.click(within(dialog).getByRole('button', { name: 'Drenar tarefas' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Concluir pendências e pausar' }));
 
     await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Drenar tarefas' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('dialog', { name: 'Concluir pendências e pausar' })).not.toBeInTheDocument(),
     );
     let drained = -1;
     await act(async () => {

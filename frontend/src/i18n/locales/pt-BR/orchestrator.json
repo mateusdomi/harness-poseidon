@@ -302,15 +302,15 @@
         "toggle": "Diagnóstico avançado",
         "fencingToken": "Trava de concorrência",
         "fencingTokenHint": "Trava de concorrência (fencing token): impede que duas instâncias de coordenação assumam o mesmo trabalho ao mesmo tempo. O número cresce a cada nova concessão, e o sistema recusa quem tentar agir com um número antigo.",
-      "leaseExpiresAt": "Concessão expira em",
-      "leaseHint": "Concessão (lease): por quanto tempo esta instância tem o direito de executar o turno. Se expirar sem renovação, outra instância pode assumir o trabalho com segurança.",
-      "noLease": "Sem concessão ativa",
-      "healthReason": "Causa da saúde",
-      "healthOk": "Heartbeat recente e estado operacional normal.",
-      "healthReadiness": "O processo responde, mas a prontidão operacional exige atenção: “{{state}}”.",
-      "healthState": "O estado operacional atual é “{{state}}”.",
-      "healthMissingHeartbeat": "O agente ainda não publicou um heartbeat.",
-      "healthStaleHeartbeat": "O último heartbeat foi {{time}} e ultrapassou a janela operacional de 2 minutos."
+        "leaseExpiresAt": "Concessão expira em",
+        "leaseHint": "Concessão (lease): por quanto tempo esta instância tem o direito de executar o turno. Se expirar sem renovação, outra instância pode assumir o trabalho com segurança.",
+        "noLease": "Sem concessão ativa",
+        "healthReason": "Causa da saúde",
+        "healthOk": "Heartbeat recente e estado operacional normal.",
+        "healthReadiness": "O processo responde, mas a prontidão operacional exige atenção: “{{state}}”.",
+        "healthState": "O estado operacional atual é “{{state}}”.",
+        "healthMissingHeartbeat": "O agente ainda não publicou um heartbeat.",
+        "healthStaleHeartbeat": "O último heartbeat foi {{time}} e ultrapassou a janela operacional de 2 minutos."
       },
       "bindingPending": "Binding pendente"
     },
@@ -329,7 +329,15 @@
       "attempts_other": "{{count}} rodadas de trabalho",
       "cost": "Custo acumulado",
       "open": "Abrir",
-      "noAttempts": "Sem rodadas de trabalho"
+      "noAttempts": "Sem rodadas de trabalho",
+      "openProfile": "Ver perfil"
+    },
+    "person": {
+      "doingNow": "O que está fazendo agora",
+      "doingNothing": "Sem tarefa no momento.",
+      "competencies": "Competências",
+      "competenciesEmpty": "Nenhuma competência cadastrada para esta pessoa ainda.",
+      "provenance": "De onde vem este perfil"
     },
     "attempt": {
       "title": "Rodada de trabalho nº {{number}}",
@@ -343,10 +351,10 @@
       "noResults": "Nenhum evento corresponde aos filtros."
     },
     "actions": {
-      "pause": "Pausar",
-      "resume": "Retomar",
-      "drain": "Drenar tarefas",
-      "handoff": "Passar bastão"
+      "pause": "Pausar trabalhos",
+      "resume": "Retomar trabalhos",
+      "drain": "Concluir pendências e pausar",
+      "handoff": "Transferir liderança"
     },
     "profile": {
       "title": "Perfil e personalização de Bruna",
@@ -363,7 +371,7 @@
       "personality": "Personalidade",
       "hobbies": "Hobbies e curiosidades",
       "listHint": "Um item por linha ou separado por vírgulas.",
-      "communicationTitle": "Camada de comunicação",
+      "communicationTitle": "Como a Bruna se comunica",
       "communicationHelp": "Afeta somente como a Bruna conversa com você. Não modifica instruções técnicas, governança, permissões, aprovações ou execução.",
       "communicationInstructions": "Instruções de comunicação",
       "routingTitle": "Roteamento global",
@@ -382,24 +390,24 @@
       "invokedHelp": "Pessoas e rodadas de trabalho efetivamente vinculadas ao projeto atual. Quando vazio, nenhum trabalho foi atribuído ainda."
     },
     "drain": {
-      "title": "Drenar tarefas",
+      "title": "Concluir pendências e pausar",
       "description": "As tarefas em andamento voltam para a coluna Pronta, as rodadas de trabalho em execução são canceladas e a equipe fica disponível.",
       "noteLabel": "Observação (opcional)",
-      "confirm": "Drenar tarefas",
-      "success_one": "{{count}} tarefa drenada.",
-      "success_other": "{{count}} tarefas drenadas."
+      "confirm": "Concluir pendências e pausar",
+      "success_one": "{{count}} tarefa voltou para a fila.",
+      "success_other": "{{count}} tarefas voltaram para a fila."
     },
     "handoff": {
-      "title": "Passagem de bastão",
+      "title": "Transferir liderança",
       "stepChoice": "Etapa 1 de 2 — escolha da nova liderança",
       "stepConfirm": "Etapa 2 de 2 — confirmação",
       "modelLabel": "Modo de trabalho da nova liderança",
       "keepCurrentModel": "Manter o modo de trabalho atual",
       "reasonLabel": "Motivo",
-      "reasonRequired": "Informe o motivo da passagem de bastão.",
+      "reasonRequired": "Informe o motivo da transferência.",
       "summaryModel": "Modo de trabalho",
       "summaryReason": "Motivo",
-      "confirm": "Confirmar passagem de bastão"
+      "confirm": "Confirmar transferência"
     },
     "mutation": {
       "error": "Não foi possível concluir a ação. Tente novamente."

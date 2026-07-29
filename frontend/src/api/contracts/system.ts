@@ -57,6 +57,12 @@ export const runTargetSchema = z.object({
   state: runTargetStateSchema,
   detectedAt: isoDateTimeSchema,
   lastCheckAt: isoDateTimeSchema.nullable(),
+  /**
+   * A tela que o CLIENTE abre (D8): único serviço revelado no modo Negócio. O
+   * backend só marca com evidência no manifesto do projeto — sem evidência,
+   * nada é marcado e a tela diz que não sabe qual é, em vez de eleger uma.
+   */
+  userFacing: z.boolean(),
 });
 export type RunTarget = z.infer<typeof runTargetSchema>;
 

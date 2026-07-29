@@ -11,9 +11,19 @@ import {
 } from '@/features/run-project/lib/run-project-derive';
 import RunProjectPage from '@/features/run-project/pages/run-project-page';
 import { renderWithApi } from '@/test/render-with-providers';
+import { useActiveProjectStore } from '@/stores/active-project-store';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
-function renderPage() {
+/**
+ * O ambiente completo — serviços, portas, pilha, logs, limpeza — é leitura
+ * TÉCNICA desde a F8/D8. O modo Negócio tem um botão e um endereço.
+ */
+function renderPage(mode: 'business' | 'technical' = 'technical') {
   const bundle = createTestBundle();
+  const profileId = bundle.fixtures.meta.currentProfileId;
+  useSessionStore.setState({ activeProfileId: profileId });
+  usePresentationStore.getState().requestMode(profileId, mode);
   return renderWithApi(
     <MemoryRouter initialEntries={['/run-project']}>
       <Routes>
@@ -23,6 +33,12 @@ function renderPage() {
     bundle,
   );
 }
+
+beforeEach(() => {
+  usePresentationStore.setState({ modeByProfile: {} });
+  useActiveProjectStore.setState({ selectionsByProfile: {} });
+  useSessionStore.setState({ activeProfileId: null });
+});
 
 function entry(seq: number, line: string): RunLogEntry {
   return { seq, line, occurredAt: '2026-07-17T12:00:00Z' };
@@ -82,7 +98,7 @@ describe('RunProjectPage', () => {
   });
 
   it('não revela credenciais que não vieram do backend autorizado', async () => {
-    renderPage();
+    renderPage('technical');
 
     expect(await screen.findByText('Credenciais de demonstração')).toBeInTheDocument();
     expect(screen.queryByText('demo@poseidon.local')).not.toBeInTheDocument();
@@ -93,7 +109,7 @@ describe('RunProjectPage', () => {
   });
 
   it('card de modo local exibe estado do ambiente, diretório de dados e link de diagnóstico', async () => {
-    renderPage();
+    renderPage('technical');
 
     expect(await screen.findByText('Modo local')).toBeInTheDocument();
     // Host/frontend observado + Frontend Vite (running) + Backend API (stopped).
@@ -105,5 +121,48 @@ describe('RunProjectPage', () => {
     expect(screen.getByRole('link', { name: 'Verificação do ambiente' })).toHaveAttribute('href', '/settings');
     // Instrução estática de atalho — texto informativo, sem botão.
     expect(screen.getByText(/Instrução: para abrir este ambiente fora do app/)).toBeInTheDocument();
+  });
+
+  /* ---- F8/D8: "Abrir <projeto>" no modo Negócio ---- */
+
+  it('modo Negócio mostra um botão e o endereço do produto, sem o ambiente', async () => {
+    renderPage('business');
+
+    // A fixture tem o front marcado como a tela do cliente e já em execução.
+    expect(
+      await screen.findByRole('link', { name: 'Abrir Poseidon Frontend' }),
+    ).toHaveAttribute('href', 'http://localhost:5173');
+    expect(screen.getByText('No ar')).toBeInTheDocument();
+
+    // O resto do ambiente não é assunto do dono: nem serviço interno, nem porta,
+    // nem pilha, nem logs, nem limpeza de ambiente.
+    expect(screen.queryByText('Backend API (.NET)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Modo local')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Limpar ambiente' })).not.toBeInTheDocument();
+    expect(screen.queryByText('5001')).not.toBeInTheDocument();
+  });
+
+  it('modo Negócio não elege serviço quando nenhum está marcado como tela do cliente', async () => {
+    const bundle = createTestBundle();
+    const profileId = bundle.fixtures.meta.currentProfileId;
+    useSessionStore.setState({ activeProfileId: profileId });
+    usePresentationStore.getState().requestMode(profileId, 'business');
+    // Projeto cuja fixture só tem serviço interno (worker), nenhum voltado ao usuário.
+    const semTela = bundle.fixtures.data.projects[1];
+    useActiveProjectStore.getState().selectProject(profileId, semTela.id);
+
+    renderWithApi(
+      <MemoryRouter initialEntries={['/run-project']}>
+        <Routes>
+          <Route path="/run-project" element={<RunProjectPage />} />
+        </Routes>
+      </MemoryRouter>,
+      bundle,
+    );
+
+    expect(
+      await screen.findByText(/Ainda não sabemos qual serviço deste projeto entrega a tela/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Abrir/ })).not.toBeInTheDocument();
   });
 });

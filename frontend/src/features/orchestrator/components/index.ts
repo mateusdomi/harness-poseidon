@@ -6,3 +6,4 @@ export { DefinitionFormDialog } from './definition-form';
 export { DefinitionsTab } from './definitions-tab';
 export { DrainDialog } from './drain-dialog';
 export { HandoffWizard } from './handoff-wizard';
+export { PersonProfileDialog } from './person-profile-dialog';

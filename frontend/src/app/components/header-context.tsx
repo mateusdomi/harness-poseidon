@@ -94,7 +94,11 @@ export function HeaderContext() {
           <span className="sr-only">{t('shell.project.unavailableHelp')}</span>
         </span>
       )}
-      {activeProject && (
+      {/* Só existe quando TEM contexto para mostrar: um `div` vazio carregando
+          `aria-label` é um grupo sem conteúdo para quem usa leitor de tela (e
+          `aria-prohibited-attr` no axe). Antes ele nascia sempre que havia projeto
+          ativo, mesmo sem etapa e sem ninguém trabalhando. */}
+      {activeProject && (activePhase !== null || workingCount > 0) && (
         <div
           aria-label={t('shell.context.label')}
           className="hidden min-w-0 items-center gap-2 text-xs text-foreground-muted lg:flex"

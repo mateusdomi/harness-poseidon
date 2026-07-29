@@ -13,6 +13,7 @@ import type {
   OperationMode,
   Project,
 } from '@/api';
+import { usePresentationMode } from '@/app/presentation';
 import {
   Badge,
   Button,
@@ -155,6 +156,7 @@ export function ChiefCard({
   lastActivityAt,
 }: ChiefCardProps) {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const pauseMutation = usePauseChief(project.id);
   const resumeMutation = useResumeChief(project.id);
   const [dialog, setDialog] = useState<'drain' | 'handoff' | 'profile' | null>(null);
@@ -210,6 +212,9 @@ export function ChiefCard({
           <Badge variant={agentStateVariant(chief.state)}>
             {t(`status.agentState.${chief.state}`)}
           </Badge>
+          <span className="text-xs text-foreground-muted">
+            {t(`status.agentStateHint.${chief.state}`)}
+          </span>
           <Badge variant={turnState === null ? 'outline' : chiefTurnStateVariant(turnState)}>
             {turnState === null
               ? t('status.chiefTurnState.notStarted')
@@ -254,9 +259,12 @@ export function ChiefCard({
         </div>
 
         <dl className="flex flex-col gap-2">
-          <InfoRow label={t('orchestrator.chief.health')}>
-            <Badge variant={HEALTH_VARIANTS[health]}>{t(`orchestrator.health.${health}`)}</Badge>
-          </InfoRow>
+          {/* Saúde é leitura de processo (heartbeat, lease): o dono não opera isso. */}
+          {showTechnicalDetails ? (
+            <InfoRow label={t('orchestrator.chief.health')}>
+              <Badge variant={HEALTH_VARIANTS[health]}>{t(`orchestrator.health.${health}`)}</Badge>
+            </InfoRow>
+          ) : null}
           <InfoRow label={t('orchestrator.profile.communicationTitle')}>
             <span className="max-w-xl text-right text-xs font-normal text-foreground-muted">
               {leadershipProfile.data?.communicationInstructions ??
@@ -268,81 +276,89 @@ export function ChiefCard({
               {t(`status.operationMode.${operationMode}`)}
             </Badge>
           </InfoRow>
-          <InfoRow label={t('orchestrator.chief.model')}>
-            {model ? (
-              <span className="flex flex-wrap items-center justify-end gap-2">
-                <span>{model.displayName}</span>
-                {/* Padrão da definição ainda não exercido pela instância não é
+          {/* Modo de trabalho, conta e jornada por baixo: internals de assinatura
+              e de modelo nunca aparecem para o cliente leigo (§2). */}
+          {showTechnicalDetails ? (
+            <>
+              <InfoRow label={t('orchestrator.chief.model')}>
+                {model ? (
+                  <span className="flex flex-wrap items-center justify-end gap-2">
+                    <span>{model.displayName}</span>
+                    {/* Padrão da definição ainda não exercido pela instância não é
                     "em uso": rotulamos como binding pendente (§15/§17). */}
-                {modelBinding === 'definitionDefault' ? (
-                  <Badge variant="outline">{t('orchestrator.chief.bindingPending')}</Badge>
-                ) : null}
-              </span>
-            ) : (
-              t('orchestrator.chief.noModel')
-            )}
-          </InfoRow>
-          <InfoRow label={t('orchestrator.chief.account')}>
-            {account ? account.label : t('orchestrator.chief.noAccount')}
-          </InfoRow>
-          <InfoRow label={t('orchestrator.chief.quota')}>
-            {budgets.length === 0 ? (
-              t('orchestrator.chief.noBudget')
-            ) : (
-              <span className="flex flex-col items-end gap-1">
-                {budgets.map((budget) => (
-                  <span key={budget.id}>
-                    {t(`status.budgetScope.${budget.scope}`)} ·{' '}
-                    {t(`status.budgetPeriod.${budget.period}`)}:{' '}
-                    {t('orchestrator.chief.quotaUsage', {
-                      used: formatCurrencyUSD(budget.spentUsd),
-                      limit: formatCurrencyUSD(budget.limitUsd),
-                    })}
+                    {modelBinding === 'definitionDefault' ? (
+                      <Badge variant="outline">{t('orchestrator.chief.bindingPending')}</Badge>
+                    ) : null}
                   </span>
-                ))}
-              </span>
-            )}
-          </InfoRow>
+                ) : (
+                  t('orchestrator.chief.noModel')
+                )}
+              </InfoRow>
+              <InfoRow label={t('orchestrator.chief.account')}>
+                {account ? account.label : t('orchestrator.chief.noAccount')}
+              </InfoRow>
+              <InfoRow label={t('orchestrator.chief.quota')}>
+                {budgets.length === 0 ? (
+                  t('orchestrator.chief.noBudget')
+                ) : (
+                  <span className="flex flex-col items-end gap-1">
+                    {budgets.map((budget) => (
+                      <span key={budget.id}>
+                        {t(`status.budgetScope.${budget.scope}`)} ·{' '}
+                        {t(`status.budgetPeriod.${budget.period}`)}:{' '}
+                        {t('orchestrator.chief.quotaUsage', {
+                          used: formatCurrencyUSD(budget.spentUsd),
+                          limit: formatCurrencyUSD(budget.limitUsd),
+                        })}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </InfoRow>
+            </>
+          ) : null}
         </dl>
 
-        <details className="rounded-md border border-border bg-surface-elevated p-3">
-          <summary className="cursor-pointer text-sm font-medium">
-            {t('orchestrator.chief.diagnostics.toggle')}
-          </summary>
-          <dl className="mt-2 flex flex-col gap-2">
-            <InfoRow label={t('orchestrator.chief.diagnostics.healthReason')}>
-              <span className="max-w-sm text-right font-normal">{healthReason}</span>
-            </InfoRow>
-            {chief.lease ? (
-              <>
-                <InfoRow
-                  label={
-                    <DiagnosticLabel
-                      text={t('orchestrator.chief.diagnostics.fencingToken')}
-                      hint={t('orchestrator.chief.diagnostics.fencingTokenHint')}
-                    />
-                  }
-                >
-                  {formatNumber(chief.lease.fencingToken)}
-                </InfoRow>
-                <InfoRow
-                  label={
-                    <DiagnosticLabel
-                      text={t('orchestrator.chief.diagnostics.leaseExpiresAt')}
-                      hint={t('orchestrator.chief.diagnostics.leaseHint')}
-                    />
-                  }
-                >
-                  {formatDateTime(chief.lease.expiresAt)}
-                </InfoRow>
-              </>
-            ) : (
-              <p className="text-sm text-foreground-muted">
-                {t('orchestrator.chief.diagnostics.noLease')}
-              </p>
-            )}
-          </dl>
-        </details>
+        {showTechnicalDetails ? (
+          <details className="rounded-md border border-border bg-surface-elevated p-3">
+            <summary className="cursor-pointer text-sm font-medium">
+              {t('orchestrator.chief.diagnostics.toggle')}
+            </summary>
+            <dl className="mt-2 flex flex-col gap-2">
+              <InfoRow label={t('orchestrator.chief.diagnostics.healthReason')}>
+                <span className="max-w-sm text-right font-normal">{healthReason}</span>
+              </InfoRow>
+              {chief.lease ? (
+                <>
+                  <InfoRow
+                    label={
+                      <DiagnosticLabel
+                        text={t('orchestrator.chief.diagnostics.fencingToken')}
+                        hint={t('orchestrator.chief.diagnostics.fencingTokenHint')}
+                      />
+                    }
+                  >
+                    {formatNumber(chief.lease.fencingToken)}
+                  </InfoRow>
+                  <InfoRow
+                    label={
+                      <DiagnosticLabel
+                        text={t('orchestrator.chief.diagnostics.leaseExpiresAt')}
+                        hint={t('orchestrator.chief.diagnostics.leaseHint')}
+                      />
+                    }
+                  >
+                    {formatDateTime(chief.lease.expiresAt)}
+                  </InfoRow>
+                </>
+              ) : (
+                <p className="text-sm text-foreground-muted">
+                  {t('orchestrator.chief.diagnostics.noLease')}
+                </p>
+              )}
+            </dl>
+          </details>
+        ) : null}
 
         {controlMutation.isError ? (
           <p role="alert" className="text-sm text-error">
