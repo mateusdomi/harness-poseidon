@@ -56,34 +56,34 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
             }
         }
 
-        var alreadyMatches =
-            stored is not null &&
-            stored.ConsecutiveFailures == snapshot.ConsecutiveFailures &&
-            stored.IsOpen == (snapshot.State == CardCircuitState.Open);
-        if (alreadyMatches)
+        var persisted = stored?.ConsecutiveFailures ?? 0;
+        if (persisted == snapshot.ConsecutiveFailures &&
+            (stored?.IsOpen ?? false) == (snapshot.State == CardCircuitState.Open))
         {
             return snapshot;
         }
 
-        if (snapshot.State == CardCircuitState.Open)
-        {
-            // O limiar é aplicado de novo pela persistência, atomicamente. Como a contagem
-            // derivada já atingiu o limiar, uma única chamada com limiar 1 grava o estado aberto
-            // sem reinterpretar a sequência.
-            await _store.RecordFailureAsync(
-                tenantId, projectId, taskId,
-                lastFailureAt ?? DateTimeOffset.UtcNow,
-                consecutiveFailureThreshold: 1,
-                lastReason,
-                cancellationToken);
-            return snapshot;
-        }
-
-        if (snapshot.ConsecutiveFailures == 0)
+        // A sequência derivada é MENOR que a persistida quando houve sucesso: zera e sai.
+        if (snapshot.ConsecutiveFailures < persisted)
         {
             await _store.RecordSuccessAsync(
                 tenantId, projectId, taskId,
                 lastFailureAt ?? DateTimeOffset.UtcNow, cancellationToken);
+            return snapshot;
+        }
+
+        // Uma chamada por falha ainda não contabilizada, sempre com o limiar real: assim a
+        // contagem gravada é idêntica à derivada e a abertura acontece na falha certa — em vez de
+        // um atalho que gravaria "1" para uma sequência de três e reescreveria o mesmo estado a
+        // cada ciclo do laço.
+        for (var pending = persisted; pending < snapshot.ConsecutiveFailures; pending++)
+        {
+            await _store.RecordFailureAsync(
+                tenantId, projectId, taskId,
+                lastFailureAt ?? DateTimeOffset.UtcNow,
+                CardCircuitBreakerPolicy.ConsecutiveFailureThreshold,
+                lastReason,
+                cancellationToken);
         }
 
         return snapshot;
