@@ -1,9 +1,24 @@
 import type { z } from 'zod';
 
-import { agentDefinitionSchema, agentSchema, mcpServerSchema, pluginSchema, skillSchema, toolSchema } from './agents';
+import {
+  agentDefinitionSchema,
+  agentSchema,
+  mcpServerSchema,
+  pluginSchema,
+  skillSchema,
+  toolSchema,
+} from './agents';
 import type { Agent, AgentDefinition, McpServer, Plugin, Skill, Tool } from './agents';
 import type { Document, DocumentVersion, Prototype, VisualReference } from './content';
-import type { Conversation, Demand, Message, Organization, Profile, Project, Solicitation } from './core';
+import type {
+  Conversation,
+  Demand,
+  Message,
+  Organization,
+  Profile,
+  Project,
+  Solicitation,
+} from './core';
 import type {
   Approval,
   Attempt,
@@ -19,8 +34,21 @@ import type {
 } from './delivery';
 import type { Account, Budget, Model, Provider, RoutingPolicy } from './providers';
 import type { AuditEvent, Entitlement, License, Notification, RunTarget, Settings } from './system';
-import { documentSchema, documentVersionSchema, prototypeSchema, visualReferenceSchema } from './content';
-import { conversationSchema, demandSchema, messageSchema, organizationSchema, profileSchema, projectSchema, solicitationSchema } from './core';
+import {
+  documentSchema,
+  documentVersionSchema,
+  prototypeSchema,
+  visualReferenceSchema,
+} from './content';
+import {
+  conversationSchema,
+  demandSchema,
+  messageSchema,
+  organizationSchema,
+  profileSchema,
+  projectSchema,
+  solicitationSchema,
+} from './core';
 import {
   approvalSchema,
   attemptEventSchema,
@@ -34,8 +62,21 @@ import {
   workflowTemplateSchema,
   workflowVersionSchema,
 } from './delivery';
-import { accountSchema, budgetSchema, modelSchema, providerSchema, routingPolicySchema } from './providers';
-import { auditEventSchema, entitlementSchema, licenseSchema, notificationSchema, runTargetSchema, settingsSchema } from './system';
+import {
+  accountSchema,
+  budgetSchema,
+  modelSchema,
+  providerSchema,
+  routingPolicySchema,
+} from './providers';
+import {
+  auditEventSchema,
+  entitlementSchema,
+  licenseSchema,
+  notificationSchema,
+  runTargetSchema,
+  settingsSchema,
+} from './system';
 
 /**
  * Registro central de recursos REST (base `/api/v1`).
@@ -128,8 +169,7 @@ export const RESOURCE_KINDS: ResourceKind[] = [
 
 /** Entradas de criação por recurso (recursos fora da lista são read-only via API). */
 export interface CreateInputMap {
-  profiles: Pick<Profile, 'displayName' | 'locale'> &
-    Partial<Pick<Profile, 'email' | 'avatarUrl'>>;
+  profiles: Pick<Profile, 'displayName' | 'locale'> & Partial<Pick<Profile, 'email' | 'avatarUrl'>>;
   organizations: Pick<Organization, 'name' | 'slug'> &
     Partial<Pick<Organization, 'plan' | 'brand'>>;
   projects: Pick<Project, 'organizationId' | 'name' | 'key' | 'description'> &
@@ -143,6 +183,7 @@ export interface CreateInputMap {
         | 'technologies'
         | 'brand'
         | 'memberProfileIds'
+        | 'targetDeadline'
       >
     > & { workflowTemplateId?: string };
   conversations: Pick<Conversation, 'projectId' | 'title'>;
@@ -159,8 +200,9 @@ export interface CreateInputMap {
   'task-instructions': Pick<TaskInstruction, 'taskId' | 'body'>;
   approvals: Pick<Approval, 'projectId' | 'title' | 'description' | 'requestedByAgentId'> &
     Partial<Pick<Approval, 'gateId' | 'taskId' | 'documentId' | 'priority' | 'dueAt'>>;
-  documents: Pick<Document, 'projectId' | 'title' | 'kind'> & { body: string } &
-    Partial<Pick<Document, 'classifications' | 'phaseName'>>;
+  documents: Pick<Document, 'projectId' | 'title' | 'kind'> & { body: string } & Partial<
+      Pick<Document, 'classifications' | 'phaseName'>
+    >;
   'document-versions': Pick<DocumentVersion, 'documentId' | 'body'>;
   prototypes: Pick<Prototype, 'projectId' | 'name'> &
     Partial<Pick<Prototype, 'description' | 'sourceDocumentId'>>;
@@ -194,6 +236,7 @@ export interface UpdateInputMap {
       | 'brand'
       | 'memberProfileIds'
       | 'prototyping'
+      | 'targetDeadline'
     >
   >;
   /** Renomear e arquivar/desarquivar — as únicas mutações permitidas. */
@@ -223,11 +266,7 @@ export type UpdatableResource = keyof UpdateInputMap;
 
 /** Recursos removíveis (DELETE). */
 export type RemovableResource =
-  | 'projects'
-  | 'conversations'
-  | 'documents'
-  | 'prototypes'
-  | 'visual-references';
+  'projects' | 'conversations' | 'documents' | 'prototypes' | 'visual-references';
 
 /** Schema Zod de cada recurso — validação de payloads e round-trip de fixtures. */
 export const RESOURCE_SCHEMAS: { [K in ResourceKind]: z.ZodType<ResourceMap[K]> } = {

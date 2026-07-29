@@ -163,15 +163,21 @@ const DEFAULT_CHAT_REPLY_CHUNKS = [
   'Atualizo você quando houver um resultado ou uma decisão que realmente precise de você.',
 ];
 
-function businessChatReply(
-  content: string,
-  project: Project,
-  store: Store,
-): string[] {
+function businessChatReply(content: string, project: Project, store: Store): string[] {
   const normalized = content.trim().toLocaleLowerCase();
   const inEnglish =
     normalized.includes('how the project is progressing') ||
     normalized.includes('plan a new delivery');
+  if (CHIEF_PLAN_TRIGGER.test(content)) {
+    const deadline = project.targetDeadline
+      ? project.targetDeadline.slice(0, 10).split('-').reverse().join('/')
+      : 'sem prazo definido';
+    return [
+      `Vou abrir o primeiro plano com este objetivo: ${project.description}. `,
+      `Prazo desejado: ${deadline}. `,
+      'Também vou estimar a prioridade e organizar com a equipe o que precisa ser feito primeiro.',
+    ];
+  }
   if (
     normalized.includes('como o projeto está avançando') ||
     normalized.includes('how the project is progressing')
@@ -291,13 +297,76 @@ const RUN_LOG_STEP_MS = 400;
  * REDIGIDO por construção: só alias/provider/executor/papéis/estado, nunca credencial.
  */
 const MOCK_AGENT_ROSTER: readonly AgentAccountRoster[] = [
-  { alias: 'chief-claude-primary', providerKind: 'anthropic', executorId: 'claude-code', roles: ['chief-orchestrator'], concurrencyLimit: 1, priority: 100, enabled: true, state: 'authentication-required' },
-  { alias: 'worker-claude-secondary', providerKind: 'anthropic', executorId: 'claude-code', roles: ['backend-specialist'], concurrencyLimit: 1, priority: 100, enabled: true, state: 'authentication-required' },
-  { alias: 'worker-codex-frontend', providerKind: 'openai', executorId: 'codex', roles: ['frontend-specialist'], concurrencyLimit: 1, priority: 100, enabled: true, state: 'authentication-required' },
-  { alias: 'worker-codex-critic', providerKind: 'openai', executorId: 'codex', roles: ['critic'], concurrencyLimit: 1, priority: 80, enabled: true, state: 'authentication-required' },
-  { alias: 'worker-antigravity-review', providerKind: 'antigravity', executorId: 'antigravity', roles: ['critic'], concurrencyLimit: 1, priority: 90, enabled: true, state: 'authentication-required' },
-  { alias: 'worker-glm-general', providerKind: 'zhipu', executorId: 'glm', roles: ['backend-specialist'], concurrencyLimit: 1, priority: 60, enabled: true, state: 'authentication-required' },
-  { alias: 'worker-kimi-ui', providerKind: 'moonshot', executorId: 'kimi-code', roles: ['frontend-specialist'], concurrencyLimit: 1, priority: 70, enabled: true, state: 'authentication-required' },
+  {
+    alias: 'chief-claude-primary',
+    providerKind: 'anthropic',
+    executorId: 'claude-code',
+    roles: ['chief-orchestrator'],
+    concurrencyLimit: 1,
+    priority: 100,
+    enabled: true,
+    state: 'authentication-required',
+  },
+  {
+    alias: 'worker-claude-secondary',
+    providerKind: 'anthropic',
+    executorId: 'claude-code',
+    roles: ['backend-specialist'],
+    concurrencyLimit: 1,
+    priority: 100,
+    enabled: true,
+    state: 'authentication-required',
+  },
+  {
+    alias: 'worker-codex-frontend',
+    providerKind: 'openai',
+    executorId: 'codex',
+    roles: ['frontend-specialist'],
+    concurrencyLimit: 1,
+    priority: 100,
+    enabled: true,
+    state: 'authentication-required',
+  },
+  {
+    alias: 'worker-codex-critic',
+    providerKind: 'openai',
+    executorId: 'codex',
+    roles: ['critic'],
+    concurrencyLimit: 1,
+    priority: 80,
+    enabled: true,
+    state: 'authentication-required',
+  },
+  {
+    alias: 'worker-antigravity-review',
+    providerKind: 'antigravity',
+    executorId: 'antigravity',
+    roles: ['critic'],
+    concurrencyLimit: 1,
+    priority: 90,
+    enabled: true,
+    state: 'authentication-required',
+  },
+  {
+    alias: 'worker-glm-general',
+    providerKind: 'zhipu',
+    executorId: 'glm',
+    roles: ['backend-specialist'],
+    concurrencyLimit: 1,
+    priority: 60,
+    enabled: true,
+    state: 'authentication-required',
+  },
+  {
+    alias: 'worker-kimi-ui',
+    providerKind: 'moonshot',
+    executorId: 'kimi-code',
+    roles: ['frontend-specialist'],
+    concurrencyLimit: 1,
+    priority: 70,
+    enabled: true,
+    state: 'authentication-required',
+  },
 ];
 
 /**
@@ -316,10 +385,31 @@ export class MockApiClient implements ApiClient {
   /** Vínculos de canal criados via UI (mock in-memory, além do Telegram semente). */
   readonly #channelLinks: ChannelLink[] = [];
   readonly #governanceDocs = new Map<string, { content: string; modifiedAt: string }>([
-    ['governance/core.md', { content: '# Núcleo da governança\n\nRegras canônicas do sistema.\n', modifiedAt: '2026-07-01T09:00:00Z' }],
-    ['governance/rules/frontend.md', { content: '# Regras de frontend\n\nGates verdes obrigatórios.\n', modifiedAt: '2026-07-05T10:00:00Z' }],
-    ['governance/manifest.yaml', { content: 'version: 1\ndocuments: []\n', modifiedAt: '2026-07-02T11:00:00Z' }],
-    ['docs/INDEX.md', { content: '# Índice da documentação\n\nMapa dos documentos.\n', modifiedAt: '2026-07-03T12:00:00Z' }],
+    [
+      'governance/core.md',
+      {
+        content: '# Núcleo da governança\n\nRegras canônicas do sistema.\n',
+        modifiedAt: '2026-07-01T09:00:00Z',
+      },
+    ],
+    [
+      'governance/rules/frontend.md',
+      {
+        content: '# Regras de frontend\n\nGates verdes obrigatórios.\n',
+        modifiedAt: '2026-07-05T10:00:00Z',
+      },
+    ],
+    [
+      'governance/manifest.yaml',
+      { content: 'version: 1\ndocuments: []\n', modifiedAt: '2026-07-02T11:00:00Z' },
+    ],
+    [
+      'docs/INDEX.md',
+      {
+        content: '# Índice da documentação\n\nMapa dos documentos.\n',
+        modifiedAt: '2026-07-03T12:00:00Z',
+      },
+    ],
   ]);
 
   constructor(fixtures: FixtureData, options: MockApiClientOptions) {
@@ -350,7 +440,10 @@ export class MockApiClient implements ApiClient {
 
   /* ---- CRUD genérico ---- */
 
-  async list<K extends ResourceKind>(resource: K, query?: ListQuery): Promise<Page<ResourceMap[K]>> {
+  async list<K extends ResourceKind>(
+    resource: K,
+    query?: ListQuery,
+  ): Promise<Page<ResourceMap[K]>> {
     await this.#simulate();
     let items = [...this.#table(resource).values()];
     const filter = query?.filter ?? {};
@@ -726,7 +819,11 @@ export class MockApiClient implements ApiClient {
         .map((workflow) => workflow.projectId),
     );
     for (const projectId of projectIds) {
-      this.#options.realtime?.emit(streams.project(projectId), 'workflow.versionPublished', payload);
+      this.#options.realtime?.emit(
+        streams.project(projectId),
+        'workflow.versionPublished',
+        payload,
+      );
     }
     return structuredClone(version);
   }
@@ -758,7 +855,11 @@ export class MockApiClient implements ApiClient {
     const parsed = workflowDraftInputSchema.parse(input ?? {});
     const template = this.#require('workflow-templates', templateId);
     if (template.state === 'archived') {
-      throw ApiError.of(409, 'Template arquivado', 'Não é possível criar rascunho em template arquivado.');
+      throw ApiError.of(
+        409,
+        'Template arquivado',
+        'Não é possível criar rascunho em template arquivado.',
+      );
     }
     const current = template.currentVersionId
       ? this.#table('workflow-versions').get(template.currentVersionId)
@@ -771,12 +872,15 @@ export class MockApiClient implements ApiClient {
       phases: parsed.phases ?? structuredClone(current?.phases ?? []),
       gatesByPhase: parsed.gatesByPhase ?? structuredClone(current?.gatesByPhase ?? {}),
       phaseConfigs:
-        parsed.phaseConfigs ?? (current?.phaseConfigs ? structuredClone(current.phaseConfigs) : undefined),
+        parsed.phaseConfigs ??
+        (current?.phaseConfigs ? structuredClone(current.phaseConfigs) : undefined),
       defaultOperationMode:
         parsed.defaultOperationMode !== undefined
           ? parsed.defaultOperationMode
           : (current?.defaultOperationMode ?? null),
-      transitions: parsed.transitions ?? (current?.transitions ? structuredClone(current.transitions) : undefined),
+      transitions:
+        parsed.transitions ??
+        (current?.transitions ? structuredClone(current.transitions) : undefined),
       changelog: parsed.changelog ?? null,
       state: 'draft',
       publishedAt: null,
@@ -796,7 +900,8 @@ export class MockApiClient implements ApiClient {
     if (parsed.phases !== undefined) draft.phases = parsed.phases;
     if (parsed.gatesByPhase !== undefined) draft.gatesByPhase = parsed.gatesByPhase;
     if (parsed.phaseConfigs !== undefined) draft.phaseConfigs = parsed.phaseConfigs;
-    if (parsed.defaultOperationMode !== undefined) draft.defaultOperationMode = parsed.defaultOperationMode;
+    if (parsed.defaultOperationMode !== undefined)
+      draft.defaultOperationMode = parsed.defaultOperationMode;
     if (parsed.transitions !== undefined) draft.transitions = parsed.transitions;
     if (parsed.changelog !== undefined) draft.changelog = parsed.changelog ?? null;
     return structuredClone(draft);
@@ -820,9 +925,16 @@ export class MockApiClient implements ApiClient {
       transitions: draft.transitions,
     };
     try {
-      publishWorkflowVersionInputSchema.parse({ ...content, changelog: draft.changelog ?? undefined });
+      publishWorkflowVersionInputSchema.parse({
+        ...content,
+        changelog: draft.changelog ?? undefined,
+      });
     } catch {
-      throw ApiError.of(422, 'Versão inválida', 'O rascunho não passou na validação do Harness (schema).');
+      throw ApiError.of(
+        422,
+        'Versão inválida',
+        'O rascunho não passou na validação do Harness (schema).',
+      );
     }
     const issues = validateWorkflowVersionContent(content);
     if (issues.length > 0) {
@@ -848,7 +960,11 @@ export class MockApiClient implements ApiClient {
         .map((workflow) => workflow.projectId),
     );
     for (const projectId of projectIds) {
-      this.#options.realtime?.emit(streams.project(projectId), 'workflow.versionPublished', payload);
+      this.#options.realtime?.emit(
+        streams.project(projectId),
+        'workflow.versionPublished',
+        payload,
+      );
     }
     return structuredClone(draft);
   }
@@ -982,7 +1098,11 @@ export class MockApiClient implements ApiClient {
     }
     const version = this.#require('workflow-versions', versionId);
     if (version.templateId !== template.id || version.state !== 'published') {
-      throw ApiError.of(409, 'Versão inválida', 'A versão precisa estar publicada e pertencer ao template.');
+      throw ApiError.of(
+        409,
+        'Versão inválida',
+        'A versão precisa estar publicada e pertencer ao template.',
+      );
     }
     const workflow: Workflow = {
       id: this.#options.nextId(),
@@ -1152,7 +1272,14 @@ export class MockApiClient implements ApiClient {
         currentTaskId: chief.currentTaskId,
       });
     }
-    this.#appendAudit('user', this.#options.currentProfileId, 'chief.paused', 'project', project.id, `Orquestração do projeto ${project.key} pausada.`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'chief.paused',
+      'project',
+      project.id,
+      `Orquestração do projeto ${project.key} pausada.`,
+    );
     return structuredClone(project);
   }
 
@@ -1171,7 +1298,14 @@ export class MockApiClient implements ApiClient {
         currentTaskId: chief.currentTaskId,
       });
     }
-    this.#appendAudit('user', this.#options.currentProfileId, 'chief.resumed', 'project', project.id, `Orquestração do projeto ${project.key} retomada.`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'chief.resumed',
+      'project',
+      project.id,
+      `Orquestração do projeto ${project.key} retomada.`,
+    );
     return structuredClone(project);
   }
 
@@ -1207,7 +1341,10 @@ export class MockApiClient implements ApiClient {
       state: 'idle',
       currentTaskId: null,
       modelId: parsed.targetModelId ?? null,
-      lease: { fencingToken: nextFencing, expiresAt: new Date(Date.parse(now) + 60_000).toISOString() },
+      lease: {
+        fencingToken: nextFencing,
+        expiresAt: new Date(Date.parse(now) + 60_000).toISOString(),
+      },
       metrics: { tasksCompleted: 0, tokensInput: 0, tokensOutput: 0, costUsd: 0, uptimeMs: 0 },
       lastHeartbeatAt: now,
     };
@@ -1220,7 +1357,14 @@ export class MockApiClient implements ApiClient {
       to: 'idle',
       currentTaskId: null,
     });
-    this.#appendAudit('user', this.#options.currentProfileId, 'chief.handedOff', 'project', project.id, `Bastão passado para nova instância (fencing ${nextFencing}). Motivo: ${parsed.note}`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'chief.handedOff',
+      'project',
+      project.id,
+      `Bastão passado para nova instância (fencing ${nextFencing}). Motivo: ${parsed.note}`,
+    );
     return structuredClone(newChief);
   }
 
@@ -1265,7 +1409,14 @@ export class MockApiClient implements ApiClient {
         currentTaskId: null,
       });
     }
-    this.#appendAudit('user', this.#options.currentProfileId, 'chief.tasksDrained', 'project', project.id, `${drained} tarefa(s) drenadas para "ready".${note ? ` Nota: ${note}` : ''}`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'chief.tasksDrained',
+      'project',
+      project.id,
+      `${drained} tarefa(s) drenadas para "ready".${note ? ` Nota: ${note}` : ''}`,
+    );
     return drained;
   }
 
@@ -1328,7 +1479,14 @@ export class MockApiClient implements ApiClient {
       { projectId: project.id },
       `Cleanup do ambiente concluído — ${stopped} serviço(s) parado(s).`,
     );
-    this.#appendAudit('user', this.#options.currentProfileId, 'run.environmentCleaned', 'project', project.id, `Cleanup do ambiente: ${stopped} serviço(s) parado(s).`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'run.environmentCleaned',
+      'project',
+      project.id,
+      `Cleanup do ambiente: ${stopped} serviço(s) parado(s).`,
+    );
     return stopped;
   }
 
@@ -1350,7 +1508,14 @@ export class MockApiClient implements ApiClient {
         limitUsd: account.quotaLimitUsd,
       });
     }
-    this.#appendAudit('user', this.#options.currentProfileId, 'provider.catalogSynced', 'provider', providerId, `Catálogo sincronizado: ${models.length} modelo(s).`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'provider.catalogSynced',
+      'provider',
+      providerId,
+      `Catálogo sincronizado: ${models.length} modelo(s).`,
+    );
     return structuredClone(models);
   }
 
@@ -1376,7 +1541,14 @@ export class MockApiClient implements ApiClient {
       capabilities: parsed.capabilities,
     };
     this.#table('accounts').set(account.id, account);
-    this.#appendAudit('user', this.#options.currentProfileId, 'account.created', 'account', account.id, `Conta "${account.label}" criada.`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'account.created',
+      'account',
+      account.id,
+      `Conta "${account.label}" criada.`,
+    );
     return structuredClone(account);
   }
 
@@ -1394,7 +1566,14 @@ export class MockApiClient implements ApiClient {
     if (parsed.quotaWindow !== undefined) account.quotaWindow = parsed.quotaWindow;
     if (parsed.quotaResetsAt !== undefined) account.quotaResetsAt = parsed.quotaResetsAt;
     if (parsed.capabilities !== undefined) account.capabilities = parsed.capabilities;
-    this.#appendAudit('user', this.#options.currentProfileId, 'account.updated', 'account', account.id, `Conta "${account.label}" atualizada.`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'account.updated',
+      'account',
+      account.id,
+      `Conta "${account.label}" atualizada.`,
+    );
     return structuredClone(account);
   }
 
@@ -1416,11 +1595,7 @@ export class MockApiClient implements ApiClient {
     await this.#simulate();
     const account = this.#require('accounts', id);
     if (account.state !== 'disabled') {
-      throw ApiError.of(
-        409,
-        'Conta ativa',
-        'Somente uma conta desabilitada pode ser removida.',
-      );
+      throw ApiError.of(409, 'Conta ativa', 'Somente uma conta desabilitada pode ser removida.');
     }
     const blockingBudget = [...this.#table('budgets').values()].find(
       (budget) => budget.scope === 'account' && budget.scopeId === id,
@@ -1445,7 +1620,14 @@ export class MockApiClient implements ApiClient {
     // Nota: políticas de roteamento referenciam MODELOS (não contas) — não há
     // vínculo direto conta↔roteamento no contrato atual (documentado no HANDOFF).
     this.#table('accounts').delete(id);
-    this.#appendAudit('user', this.#options.currentProfileId, 'account.deleted', 'account', id, `Conta "${account.label}" removida.`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'account.deleted',
+      'account',
+      id,
+      `Conta "${account.label}" removida.`,
+    );
   }
 
   /* ---- definições de agente (FR-5) ---- */
@@ -1481,7 +1663,14 @@ export class MockApiClient implements ApiClient {
       history: [],
     };
     this.#table('agent-definitions').set(definition.id, definition);
-    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.created', 'agent-definition', definition.id, `Definição "${definition.name}" criada (v1).`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'agentDefinition.created',
+      'agent-definition',
+      definition.id,
+      `Definição "${definition.name}" criada (v1).`,
+    );
     return structuredClone(definition);
   }
 
@@ -1493,7 +1682,11 @@ export class MockApiClient implements ApiClient {
     const parsed = updateAgentDefinitionInputSchema.parse(input);
     const definition = this.#require('agent-definitions', id);
     if (definition.state === 'archived') {
-      throw ApiError.of(409, 'Definição arquivada', 'Definições arquivadas não podem ser editadas.');
+      throw ApiError.of(
+        409,
+        'Definição arquivada',
+        'Definições arquivadas não podem ser editadas.',
+      );
     }
     if (
       parsed.expectedVersion !== undefined &&
@@ -1526,7 +1719,14 @@ export class MockApiClient implements ApiClient {
         },
       ];
     }
-    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.updated', 'agent-definition', definition.id, `Definição "${definition.name}" atualizada (v${definition.version ?? 1}).`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'agentDefinition.updated',
+      'agent-definition',
+      definition.id,
+      `Definição "${definition.name}" atualizada (v${definition.version ?? 1}).`,
+    );
     return structuredClone(definition);
   }
 
@@ -1546,7 +1746,14 @@ export class MockApiClient implements ApiClient {
       history: [],
     };
     this.#table('agent-definitions').set(copy.id, copy);
-    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.duplicated', 'agent-definition', copy.id, `Definição "${source.name}" duplicada como "${copy.name}".`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'agentDefinition.duplicated',
+      'agent-definition',
+      copy.id,
+      `Definição "${source.name}" duplicada como "${copy.name}".`,
+    );
     return structuredClone(copy);
   }
 
@@ -1568,7 +1775,14 @@ export class MockApiClient implements ApiClient {
     await this.#simulate();
     const definition = this.#require('agent-definitions', id);
     definition.state = 'archived';
-    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.archived', 'agent-definition', definition.id, `Definição "${definition.name}" arquivada.`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'agentDefinition.archived',
+      'agent-definition',
+      definition.id,
+      `Definição "${definition.name}" arquivada.`,
+    );
     return structuredClone(definition);
   }
 
@@ -1584,7 +1798,14 @@ export class MockApiClient implements ApiClient {
       );
     }
     this.#table('agent-definitions').delete(id);
-    this.#appendAudit('user', this.#options.currentProfileId, 'agentDefinition.deleted', 'agent-definition', id, `Definição "${definition.name}" excluída (nunca utilizada).`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'agentDefinition.deleted',
+      'agent-definition',
+      id,
+      `Definição "${definition.name}" excluída (nunca utilizada).`,
+    );
   }
 
   /* ---- PO Assistant ---- */
@@ -1676,20 +1897,44 @@ export class MockApiClient implements ApiClient {
       expires.setFullYear(expires.getFullYear() + 1);
       license.expiresAt = expires.toISOString();
     }
-    this.#appendAudit('user', this.#options.currentProfileId, 'license.activated', 'license', license.id, `Licença ${license.plan} ativada neste dispositivo (chave ${parsed.key.slice(0, 4)}-****-****-****).`);
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'license.activated',
+      'license',
+      license.id,
+      `Licença ${license.plan} ativada neste dispositivo (chave ${parsed.key.slice(0, 4)}-****-****-****).`,
+    );
     return structuredClone(license);
   }
 
   async createBackup(): Promise<BackupHandle> {
     await this.#simulate();
-    const handle: BackupHandle = { backupId: this.#options.nextId(), createdAt: this.#options.now() };
-    this.#appendAudit('user', this.#options.currentProfileId, 'backup.created', 'backup', handle.backupId, 'Backup local criado.');
+    const handle: BackupHandle = {
+      backupId: this.#options.nextId(),
+      createdAt: this.#options.now(),
+    };
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'backup.created',
+      'backup',
+      handle.backupId,
+      'Backup local criado.',
+    );
     return handle;
   }
 
   async restoreBackup(backupId: Ulid): Promise<void> {
     await this.#simulate();
-    this.#appendAudit('user', this.#options.currentProfileId, 'backup.restored', 'backup', backupId, 'Backup local restaurado (mock: dados permanecem como estão).');
+    this.#appendAudit(
+      'user',
+      this.#options.currentProfileId,
+      'backup.restored',
+      'backup',
+      backupId,
+      'Backup local restaurado (mock: dados permanecem como estão).',
+    );
   }
 
   /**
@@ -1777,9 +2022,7 @@ export class MockApiClient implements ApiClient {
     const phaseOrder = Number.parseInt(phaseKey.replace(/^phase-/, ''), 10);
     const phase = [...this.#table('phases').values()].find(
       (candidate) =>
-        candidate.runId === runId &&
-        Number.isInteger(phaseOrder) &&
-        candidate.order === phaseOrder,
+        candidate.runId === runId && Number.isInteger(phaseOrder) && candidate.order === phaseOrder,
     );
     if (!phase) {
       throw ApiError.of(404, 'phase_plan_not_found', 'The phase has no obligation plan.');
@@ -1826,7 +2069,9 @@ export class MockApiClient implements ApiClient {
         {
           key: 'license',
           state: license?.state === 'active' ? 'ok' : 'warning',
-          detail: license ? `Licença ${license.plan}: ${license.state}.` : 'Nenhuma licença ativada.',
+          detail: license
+            ? `Licença ${license.plan}: ${license.state}.`
+            : 'Nenhuma licença ativada.',
         },
         {
           key: 'sandbox',
@@ -2147,7 +2392,8 @@ export class MockApiClient implements ApiClient {
   }
 
   /** Registro de auditoria + evento realtime (ações do chefe e afins). */
-  #appendAudit(    actorKind: 'user' | 'chief' | 'agent' | 'system',
+  #appendAudit(
+    actorKind: 'user' | 'chief' | 'agent' | 'system',
     actorId: Ulid | null,
     action: string,
     targetType: string,
@@ -2251,7 +2497,7 @@ export class MockApiClient implements ApiClient {
           createdAt: now,
         };
         this.#table('task-instructions').set(instruction.id, instruction);
-        return ({
+        return {
           id,
           projectId: i.projectId,
           demandId: i.demandId ?? null,
@@ -2266,11 +2512,11 @@ export class MockApiClient implements ApiClient {
           updatedAt: now,
           dueAt: i.dueAt ?? null,
           archivedAt: null,
-        } satisfies Task) as unknown as ResourceMap[K];
+        } satisfies Task as unknown as ResourceMap[K];
       }
       case 'solicitations': {
         const i = input as CreateInputMap['solicitations'];
-        return ({
+        return {
           id,
           projectId: i.projectId,
           authorProfileId: this.#options.currentProfileId,
@@ -2280,7 +2526,7 @@ export class MockApiClient implements ApiClient {
           state: 'open',
           supersedesId: i.supersedesId ?? null,
           createdAt: now,
-        } satisfies Solicitation) as unknown as ResourceMap[K];
+        } satisfies Solicitation as unknown as ResourceMap[K];
       }
       case 'messages': {
         const i = input as CreateInputMap['messages'];
@@ -2297,7 +2543,7 @@ export class MockApiClient implements ApiClient {
       }
       case 'notifications': {
         const i = input as CreateInputMap['notifications'];
-        return ({
+        return {
           id,
           profileId: i.profileId,
           severity: i.severity,
@@ -2310,11 +2556,11 @@ export class MockApiClient implements ApiClient {
           link: i.link ?? null,
           createdAt: now,
           readAt: null,
-        } satisfies Notification) as unknown as ResourceMap[K];
+        } satisfies Notification as unknown as ResourceMap[K];
       }
       case 'approvals': {
         const i = input as CreateInputMap['approvals'];
-        return ({
+        return {
           id,
           projectId: i.projectId,
           gateId: i.gateId ?? null,
@@ -2332,7 +2578,7 @@ export class MockApiClient implements ApiClient {
           resolutionNote: null,
           businessTitle: null,
           businessDescription: null,
-        } satisfies Approval) as unknown as ResourceMap[K];
+        } satisfies Approval as unknown as ResourceMap[K];
       }
       case 'conversations': {
         const i = input as CreateInputMap['conversations'];
@@ -2479,7 +2725,12 @@ export class MockApiClient implements ApiClient {
           name: i.name,
           slug: i.slug,
           plan: i.plan ?? 'free',
-          brand: i.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+          brand: i.brand ?? {
+            logoUrl: null,
+            primaryColor: null,
+            secondaryColor: null,
+            typography: null,
+          },
           defaultWorkflowTemplateIds: [],
           templateKeys: [],
           policies: [],
@@ -2500,13 +2751,19 @@ export class MockApiClient implements ApiClient {
           repositoryProvider: i.repositoryProvider ?? 'other',
           defaultBranch: i.defaultBranch ?? 'main',
           technologies: i.technologies ?? [],
-          brand: i.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+          brand: i.brand ?? {
+            logoUrl: null,
+            primaryColor: null,
+            secondaryColor: null,
+            typography: null,
+          },
           memberProfileIds: i.memberProfileIds ?? [this.#options.currentProfileId],
           configVersion: 1,
           configHistory: [],
           chiefAgentId: id, // placeholder: backend vincula o chefe provisionado
           operationMode: 'manual',
           prototyping: { mode: 'autonomousGeneration', waiver: null },
+          targetDeadline: i.targetDeadline ?? null,
           createdAt: now,
           lastActivityAt: now,
         } as unknown as ResourceMap[K];

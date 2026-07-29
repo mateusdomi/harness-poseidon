@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
 
 import type { Project } from '@/api';
+import { usePresentationMode } from '@/app/presentation';
 import { Badge } from '@/design-system';
 import type { ProjectOperationalSummary } from '@/features/projects/lib/project-operational';
-import { usePresentationMode } from '@/features/shared/hooks/use-presentation-mode';
 import { formatRelativeTime } from '@/lib/format';
 import { priorityVariant, projectStateVariant } from '@/lib/status';
 
@@ -15,7 +15,12 @@ export interface ProjectCardProps {
 }
 
 /** Card do projeto: estado, criticidade, organização e última atividade. */
-export function ProjectCard({ project, organizationName, operational, onSelect }: ProjectCardProps) {
+export function ProjectCard({
+  project,
+  organizationName,
+  operational,
+  onSelect,
+}: ProjectCardProps) {
   const { t } = useTranslation();
   const { isBusiness } = usePresentationMode();
   const description =

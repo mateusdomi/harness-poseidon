@@ -32,6 +32,7 @@ public static class ProjectApplicationService
             patch.BrandSpecified ? ToDomain(patch.Brand ?? throw new ArgumentException("Brand cannot be null.")) : project.Brand,
             patch.MemberProfileIdsSpecified ? patch.MemberProfileIds ?? throw new ArgumentException("Members cannot be null.") : current.MemberProfileIds,
             patch.PrototypingSpecified ? ToDomain(patch.Prototyping ?? throw new ArgumentException("Prototyping cannot be null.")) : project.Prototyping,
+            patch.TargetDeadlineSpecified ? patch.TargetDeadline : current.TargetDeadline,
             patch.ConfigurationSpecified, now));
     }
 

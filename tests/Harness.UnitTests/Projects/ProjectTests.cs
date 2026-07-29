@@ -39,6 +39,39 @@ public sealed class ProjectTests
     }
 
     [Fact]
+    public void FourBusinessFieldsCreateProjectWithAutomaticTechnicalDefaults()
+    {
+        var deadline = Initial.AddDays(45);
+        var project = ProjectApplicationService.Create(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+            new CreateProjectRequest
+            {
+                Name = "Portal do Cliente",
+                Description = "Permitir que clientes acompanhem seus pedidos.",
+                TargetDeadline = deadline,
+                Brand = new ProjectBrandContract(
+                    "https://example.com/portal.png",
+                    null,
+                    null,
+                    null),
+            },
+            Initial);
+
+        Assert.Equal("PORTAL-DO-CLIENTE", project.Key);
+        Assert.Equal("local://repositories/portal-do-cliente", project.RepositoryUrl);
+        Assert.Equal("local", project.RepositoryProvider);
+        Assert.Equal("main", project.DefaultBranch);
+        Assert.Empty(project.Technologies);
+        Assert.Equal("medium", project.Criticality);
+        Assert.Equal(["01ARZ3NDEKTSV4RRFFQ69G5FAX"], project.MemberProfileIds);
+        Assert.Equal(deadline, project.TargetDeadline);
+        Assert.Equal("https://example.com/portal.png", project.Brand.LogoUrl);
+    }
+
+    [Fact]
     public void PatchOnlyAdvancesConfigVersionForVersionedConfiguration()
     {
         var project = ProjectApplicationService.Create(
@@ -79,6 +112,38 @@ public sealed class ProjectTests
             project,
             new UpdateProjectRequest { State = "unknown" },
             Initial.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void PatchUpdatesAndClearsTargetDeadlineWithoutVersioningTechnicalConfiguration()
+    {
+        var project = ProjectApplicationService.Create(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAX",
+            new CreateProjectRequest
+            {
+                OrganizationId = "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+                Name = "Poseidon",
+                Description = "Backend principal",
+            },
+            Initial);
+        var deadline = Initial.AddDays(30);
+
+        var scheduled = ProjectApplicationService.Patch(
+            project,
+            new UpdateProjectRequest { TargetDeadline = deadline },
+            Initial.AddMinutes(1));
+        var cleared = ProjectApplicationService.Patch(
+            scheduled,
+            new UpdateProjectRequest { TargetDeadline = null },
+            Initial.AddMinutes(2));
+
+        Assert.Equal(deadline, scheduled.TargetDeadline);
+        Assert.Null(cleared.TargetDeadline);
+        Assert.Equal(1, scheduled.ConfigVersion);
+        Assert.Equal(1, cleared.ConfigVersion);
     }
 
     [Fact]

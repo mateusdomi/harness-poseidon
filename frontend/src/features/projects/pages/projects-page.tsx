@@ -8,10 +8,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/de
 import { useApi } from '@/app/api-context';
 import { useOrganizations } from '@/features/organizations/hooks/use-organizations';
 import { ProjectList } from '@/features/projects/components/project-list';
-import {
-  ProjectForm,
-  type ProjectFormValues,
-} from '@/features/projects/components/project-form';
+import { ProjectForm, type ProjectFormValues } from '@/features/projects/components/project-form';
 import { BackLink } from '@/features/shared/components/back-link';
 import { Breadcrumb } from '@/features/shared/components/breadcrumb';
 import {
@@ -25,6 +22,10 @@ import {
 import { deriveProjectOperationalSummary } from '@/features/projects/lib/project-operational';
 
 type View = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; project: Project };
+
+function toDeadline(value: string): string | null {
+  return value ? `${value}T00:00:00.000Z` : null;
+}
 
 export default function ProjectsPage() {
   const { t } = useTranslation();
@@ -67,6 +68,7 @@ export default function ProjectsPage() {
       technologies: values.technologies,
       brand: values.brand,
       memberProfileIds: values.memberProfileIds,
+      targetDeadline: toDeadline(values.targetDeadline ?? ''),
     };
   }
 
@@ -82,11 +84,7 @@ export default function ProjectsPage() {
     setView({ kind: 'edit', project });
   }
 
-  async function handleUpdate(
-    project: Project,
-    values: ProjectFormValues,
-    logoFile?: File | null,
-  ) {
+  async function handleUpdate(project: Project, values: ProjectFormValues, logoFile?: File | null) {
     let updated = await updateProject.mutateAsync({
       id: project.id,
       input: { ...toInput(values), state: values.state },
@@ -164,10 +162,7 @@ export default function ProjectsPage() {
             <p className="max-w-prose text-sm text-foreground-muted">
               {t('projects.precondition.body')}
             </p>
-            <Button
-              type="button"
-              onClick={() => navigate('/organizations?new=1&return=project')}
-            >
+            <Button type="button" onClick={() => navigate('/organizations?new=1&return=project')}>
               {t('projects.precondition.cta')}
             </Button>
           </CardContent>
@@ -193,7 +188,11 @@ export default function ProjectsPage() {
       ) : view.kind === 'edit' ? (
         <div className="flex flex-col gap-3">
           <Breadcrumb
-            items={[breadcrumbBase, { label: view.project.name }, { label: t('projects.form.editTitle') }]}
+            items={[
+              breadcrumbBase,
+              { label: view.project.name },
+              { label: t('projects.form.editTitle') },
+            ]}
           />
           <BackLink
             label={t('projects.back')}
@@ -212,9 +211,7 @@ export default function ProjectsPage() {
               )?.templateId
             }
             submitting={updateProject.isPending}
-            onSubmit={(values, logoFile) =>
-              void handleUpdate(view.project, values, logoFile)
-            }
+            onSubmit={(values, logoFile) => void handleUpdate(view.project, values, logoFile)}
             onCancel={() => setView({ kind: 'list' })}
           />
         </div>

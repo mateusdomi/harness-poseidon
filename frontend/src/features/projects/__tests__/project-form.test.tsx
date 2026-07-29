@@ -5,10 +5,19 @@ import userEvent from '@testing-library/user-event';
 import { buildFixtures } from '@/api';
 import { ApiContext } from '@/app/api-context';
 import { ProjectForm } from '@/features/projects/components/project-form';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 import { renderWithApi } from '@/test/render-with-providers';
 
 const fixtures = buildFixtures(42);
 const organizations = fixtures.data.organizations;
+
+beforeEach(() => {
+  const profileId = fixtures.meta.currentProfileId;
+  useSessionStore.setState({ activeProfileId: profileId });
+  usePresentationStore.setState({ modeByProfile: {} });
+  usePresentationStore.getState().requestMode(profileId, 'technical');
+});
 
 function renderForm(onSubmit = vi.fn()) {
   return {
@@ -25,6 +34,49 @@ function renderForm(onSubmit = vi.fn()) {
 }
 
 describe('ProjectForm', () => {
+  it('mostra somente os quatro campos do modo Negócio e submete defaults automáticos', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    usePresentationStore.getState().requestMode(fixtures.meta.currentProfileId, 'business');
+    renderForm(onSubmit);
+
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/título/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/objetivo e contexto/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/prazo desejado/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/enviar arquivo de logo/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/sigla/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/provedor do repositório/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/workflow do projeto/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/selecione pelo menos uma pessoa/i)).not.toBeInTheDocument();
+
+    const logo = new File([new Uint8Array([137, 80, 78, 71])], 'produto.png', {
+      type: 'image/png',
+    });
+    await user.type(screen.getByLabelText(/título/i), 'Portal do Cliente');
+    await user.type(
+      screen.getByLabelText(/objetivo e contexto/i),
+      'Permitir que clientes acompanhem seus pedidos.',
+    );
+    await user.type(screen.getByLabelText(/prazo desejado/i), '2026-09-30');
+    await user.upload(screen.getByLabelText(/enviar arquivo de logo/i), logo);
+    await user.click(screen.getByRole('button', { name: /criar projeto/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const [values, logoFile] = onSubmit.mock.calls[0];
+    expect(values).toMatchObject({
+      name: 'Portal do Cliente',
+      key: 'PORTALDOCLIE',
+      description: 'Permitir que clientes acompanhem seus pedidos.',
+      targetDeadline: '2026-09-30',
+      memberProfileIds: [],
+      repositoryProvider: 'local',
+      repositoryUrl: '',
+      technologies: [],
+    });
+    expect(logoFile).toBe(logo);
+  });
+
   it('exibe somente o painel da aba selecionada', async () => {
     const user = userEvent.setup();
     renderForm();
@@ -71,9 +123,7 @@ describe('ProjectForm', () => {
     await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Descrição do projeto.');
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
 
-    expect(
-      await screen.findByText(/2 a 12 letras maiúsculas ou números/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/2 a 12 letras maiúsculas ou números/i)).toBeInTheDocument();
   });
 
   it('gera a sigla automaticamente a partir do título e para ao ser editada', async () => {
@@ -106,10 +156,7 @@ describe('ProjectForm', () => {
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
 
     expect(await screen.findByText(/selecione pelo menos uma pessoa/i)).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /pessoas/i })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(screen.getByRole('tab', { name: /pessoas/i })).toHaveAttribute('aria-selected', 'true');
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -201,9 +248,7 @@ describe('ProjectForm', () => {
     );
 
     await user.click(screen.getByRole('tab', { name: /^workflow$/i }));
-    await waitFor(() =>
-      expect(screen.getByLabelText(/workflow do projeto/i)).not.toHaveValue(''),
-    );
+    await waitFor(() => expect(screen.getByLabelText(/workflow do projeto/i)).not.toHaveValue(''));
     expect(screen.getByText('Recomendado')).toBeInTheDocument();
   });
 
@@ -263,9 +308,7 @@ describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
     renderEditForm();
 
     expect(screen.getByText('Configuração v3')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Histórico de configuração' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Histórico de configuração' })).toBeInTheDocument();
     expect(screen.getByText(/Campos alterados: defaultBranch/)).toBeInTheDocument();
     expect(screen.getByText(/Campos alterados: technologies/)).toBeInTheDocument();
   });
@@ -302,9 +345,7 @@ describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(
-      screen.queryByRole('dialog', { name: 'Impacto da alteração' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Impacto da alteração' })).not.toBeInTheDocument();
   });
 
   it('campo operacional em projeto iniciado abre o painel de impacto com confirmação', async () => {
@@ -319,13 +360,17 @@ describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
 
     // Painel de impacto ANTES de salvar; confirmação reforçada por checkbox.
     const dialog = await screen.findByRole('dialog', { name: 'Impacto da alteração' });
-    expect(within(dialog).getByText(/execução de fluxo de trabalho em andamento/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/execução de fluxo de trabalho em andamento/i),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText('Branch padrão')).toBeInTheDocument();
     const confirm = within(dialog).getByRole('button', { name: 'Salvar mesmo assim' });
     expect(confirm).toBeDisabled();
     expect(onSubmit).not.toHaveBeenCalled();
 
-    await user.click(within(dialog).getByRole('checkbox', { name: /Entendo que a execução ativa/i }));
+    await user.click(
+      within(dialog).getByRole('checkbox', { name: /Entendo que a execução ativa/i }),
+    );
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
@@ -343,8 +388,6 @@ describe('ProjectForm — FR-4 (impacto e versionamento)', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(
-      screen.queryByRole('dialog', { name: 'Impacto da alteração' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Impacto da alteração' })).not.toBeInTheDocument();
   });
 });

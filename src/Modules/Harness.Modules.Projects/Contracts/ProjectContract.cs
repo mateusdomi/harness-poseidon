@@ -55,6 +55,7 @@ public sealed class UpdateProjectRequest
     private IReadOnlyList<string>? _technologies; private ProjectBrandContract? _brand;
     private IReadOnlyList<string>? _memberProfileIds;
     private PrototypingConfigContract? _prototyping;
+    private DateTimeOffset? _targetDeadline;
 
     public string? Name { get => _name; init { _name = value; NameSpecified = true; } }
     public string? Description { get => _description; init { _description = value; DescriptionSpecified = true; } }
@@ -67,6 +68,7 @@ public sealed class UpdateProjectRequest
     public ProjectBrandContract? Brand { get => _brand; init { _brand = value; BrandSpecified = true; } }
     public IReadOnlyList<string>? MemberProfileIds { get => _memberProfileIds; init { _memberProfileIds = value; MemberProfileIdsSpecified = true; } }
     public PrototypingConfigContract? Prototyping { get => _prototyping; init { _prototyping = value; PrototypingSpecified = true; } }
+    public DateTimeOffset? TargetDeadline { get => _targetDeadline; init { _targetDeadline = value; TargetDeadlineSpecified = true; } }
 
     [JsonIgnore] public bool NameSpecified { get; private set; }
     [JsonIgnore] public bool DescriptionSpecified { get; private set; }
@@ -79,11 +81,12 @@ public sealed class UpdateProjectRequest
     [JsonIgnore] public bool BrandSpecified { get; private set; }
     [JsonIgnore] public bool MemberProfileIdsSpecified { get; private set; }
     [JsonIgnore] public bool PrototypingSpecified { get; private set; }
+    [JsonIgnore] public bool TargetDeadlineSpecified { get; private set; }
 
     [JsonIgnore]
     public bool AnySpecified => NameSpecified || DescriptionSpecified || StateSpecified || CriticalitySpecified ||
         RepositoryUrlSpecified || RepositoryProviderSpecified || DefaultBranchSpecified || TechnologiesSpecified ||
-        BrandSpecified || MemberProfileIdsSpecified || PrototypingSpecified;
+        BrandSpecified || MemberProfileIdsSpecified || PrototypingSpecified || TargetDeadlineSpecified;
 
     [JsonIgnore]
     public bool ConfigurationSpecified => RepositoryUrlSpecified || RepositoryProviderSpecified ||

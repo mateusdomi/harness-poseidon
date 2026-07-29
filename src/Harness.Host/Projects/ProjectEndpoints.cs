@@ -157,7 +157,7 @@ public static class ProjectEndpoints
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Design", "CA1031:Do not catch general exception types",
         Justification = "O projeto já está persistido quando a convergência do chefe roda; qualquer falha dela vira log e converge no boot, jamais derruba a criação.")]
-    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IWorkflowCatalogStore workflows, WorkflowTemplateSeeder seeder, IClock clock, ILoggerFactory loggers, IServiceProvider services, CancellationToken token)
+    private static async Task<IResult> CreateAsync(CreateProjectRequest request, HttpRequest http, ILocalProfileStore profiles, IProjectStore store, IWorkflowCatalogStore workflows, WorkflowTemplateSeeder seeder, ProjectRepositoryStorage repositories, IClock clock, ILoggerFactory loggers, IServiceProvider services, CancellationToken token)
     {
         var profile = await LocalProfileSession.ResolveAsync(http, profiles, token); if (profile is null) return SessionRequired();
         ArgumentNullException.ThrowIfNull(request);
@@ -201,6 +201,16 @@ public static class ProjectEndpoints
                 TargetDeadline = request.TargetDeadline,
             };
             var value = ProjectApplicationService.Create(UlidValue.New(now).ToString(), orgId, UlidValue.New(now.AddTicks(1)).ToString(), profile.Id, reqWithOrg, now);
+            if (string.IsNullOrWhiteSpace(request.RepositoryUrl))
+            {
+                value = value with
+                {
+                    RepositoryUrl = await repositories.EnsureInitializedAsync(
+                        profile.TenantId,
+                        value.Key,
+                        token)
+                };
+            }
             var record = ToRecord(profile.TenantId, value);
             var result = await store.CreateAsync(new(profile.TenantId, record, now), token);
             if (result.Status != ProjectMutationStatus.Applied)

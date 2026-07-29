@@ -1,13 +1,17 @@
 using System.Globalization;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
+using Harness.Host.Workers;
+using Harness.Host.Workflows;
 using Harness.IntegrationTests.Persistence;
+using Harness.Modules.Governance.Context;
 using Harness.Modules.Projects.Application;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Organizations;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Time;
 
 namespace Harness.IntegrationTests.Projects;
 
@@ -43,6 +47,7 @@ public sealed class ProjectBindingAuditTests
             // dois primeiros o store devolve OrganizationNotFound e a auditoria
             // de binding nem comeca.
             await InsertTenantAsync(dispatcher, tenantId, now, timeout.Token);
+            await InsertProfileAsync(dispatcher, tenantId, ownerId, now, timeout.Token);
             var organizationResult = await organizations.CreateAsync(
                 new OrganizationCreateCommand(
                     tenantId, orgId, "Organizacao da auditoria", "org-auditoria", "personal",
@@ -94,6 +99,55 @@ public sealed class ProjectBindingAuditTests
             Assert.NotNull(fetched.TargetDeadline);
             Assert.Equal(targetDeadline.ToUniversalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                          fetched.TargetDeadline.Value.ToUniversalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+
+            var workflowCatalog = new SqliteWorkflowCatalogStore(dispatcher);
+            var workflowAuthority = new SqliteWorkflowStore(dispatcher);
+            var clock = new FixedClock(now.AddMinutes(1));
+            var workflowSeeder = new WorkflowTemplateSeeder(
+                workflowAuthority,
+                workflowCatalog,
+                clock);
+            var workflowConvergence = new ProjectWorkflowConvergenceSeeder(
+                store,
+                workflowCatalog,
+                workflowSeeder,
+                workflowAuthority,
+                clock);
+            Assert.Equal(
+                1,
+                await workflowConvergence.EnsureBoundAsync(
+                    tenantId,
+                    ownerId,
+                    timeout.Token));
+
+            var composer = new ChiefContextComposer(
+                new SqliteConversationStore(dispatcher),
+                new DefaultContextStrategy(),
+                new SqliteChiefContextNoteStore(dispatcher),
+                clock,
+                new ChiefContextStrategyOptions(
+                    false,
+                    new ContextStrategyBudget(2_000, 20, 4),
+                    200),
+                store,
+                workflowCatalog);
+            var chiefContext = await composer.ComposeProjectAsync(
+                tenantId,
+                projectId,
+                timeout.Token);
+
+            Assert.NotNull(chiefContext);
+            Assert.Equal("Project Audit Test", chiefContext.Title);
+            Assert.Equal("Auditing all persisted project fields.", chiefContext.Objective);
+            Assert.Equal(
+                targetDeadline.ToUniversalTime().ToString(
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture),
+                chiefContext.TargetDeadline);
+            Assert.Equal("https://example.com/logo.png", chiefContext.Brand.LogoUrl);
+            Assert.Equal(["C#", "SQLite"], chiefContext.Technologies);
+            Assert.NotNull(chiefContext.WorkflowTemplateId);
+            Assert.False(string.IsNullOrWhiteSpace(chiefContext.WorkflowName));
         }
         finally
         {
@@ -116,4 +170,32 @@ public sealed class ProjectBindingAuditTests
             await command.ExecuteNonQueryAsync(ct);
             return 0;
         }, token);
+
+    private static async Task InsertProfileAsync(
+        SqliteWriteDispatcher dispatcher,
+        string tenantId,
+        string profileId,
+        DateTimeOffset now,
+        CancellationToken token) =>
+        await dispatcher.ExecuteAsync<int>(async (connection, ct) =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                "INSERT INTO local_users(id,tenant_id,display_name,version,created_at) " +
+                "VALUES($id,$tenant,$name,0,$at);";
+            command.Parameters.AddWithValue("$id", profileId);
+            command.Parameters.AddWithValue("$tenant", tenantId);
+            command.Parameters.AddWithValue("$name", "Owner");
+            command.Parameters.AddWithValue(
+                "$at",
+                now.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+            await command.ExecuteNonQueryAsync(ct);
+            return 0;
+        }, token);
+
+    private sealed class FixedClock(DateTimeOffset now) : IClock
+    {
+        private long _tick;
+        public DateTimeOffset UtcNow => now.AddTicks(Interlocked.Increment(ref _tick));
+    }
 }

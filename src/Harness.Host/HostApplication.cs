@@ -579,6 +579,8 @@ public static class HostApplication
             new FileSystemDocumentContentCatalog(documentCatalogPath));
         builder.Services.AddSingleton(new SolicitationAttachmentStorage(
             Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "attachments")));
+        builder.Services.AddSingleton(new ProjectRepositoryStorage(
+            Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "repositories")));
         if (serverMode)
         {
             builder.Services.AddSingleton<ISolicitationAttachmentStore, PostgresSolicitationAttachmentStore>();
@@ -646,7 +648,9 @@ public static class HostApplication
             services.GetRequiredService<IContextStrategy>(),
             services.GetRequiredService<IChiefContextNoteStore>(),
             services.GetRequiredService<IClock>(),
-            services.GetRequiredService<ChiefContextStrategyOptions>()));
+            services.GetRequiredService<ChiefContextStrategyOptions>(),
+            services.GetRequiredService<IProjectStore>(),
+            services.GetRequiredService<IWorkflowCatalogStore>()));
         var governanceRoot = ResolveGovernanceRoot(builder.Environment.ContentRootPath)
             ?? throw new DirectoryNotFoundException("governance/manifest.yaml is required by the Chief runtime.");
         // Raiz do repositório para leitura/escrita dos docs de governança pela UI.

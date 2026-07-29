@@ -107,6 +107,7 @@ public sealed record Project(
         ProjectBrand brand,
         IReadOnlyList<string> memberProfileIds,
         ProjectPrototyping prototyping,
+        DateTimeOffset? targetDeadline,
         bool configurationChanged,
         DateTimeOffset occurredAt) =>
         this with
@@ -122,6 +123,7 @@ public sealed record Project(
             Brand = NormalizeBrand(brand),
             MemberProfileIds = NormalizeIds(memberProfileIds),
             Prototyping = NormalizePrototyping(prototyping, occurredAt),
+            TargetDeadline = targetDeadline.HasValue ? RequireUtc(targetDeadline.Value) : null,
             ConfigVersion = configurationChanged ? checked(ConfigVersion + 1) : ConfigVersion,
             LastActivityAt = RequireUtc(occurredAt),
             Version = checked(Version + 1),

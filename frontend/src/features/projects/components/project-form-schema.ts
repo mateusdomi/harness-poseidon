@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-import {
-  prioritySchema,
-  projectStateSchema,
-  repositoryProviderSchema,
-  type Project,
-} from '@/api';
+import { prioritySchema, projectStateSchema, repositoryProviderSchema, type Project } from '@/api';
 
 /* ---- schemas por aba (mensagens = CHAVES i18n, traduzidas na render) ---- */
 
@@ -15,7 +10,10 @@ export const organizationSchema = z.object({
 
 export const identitySchema = z.object({
   name: z.string().trim().min(2, 'common.validation.min2'),
-  key: z.string().trim().regex(/^[A-Z0-9-]{1,30}$/, 'common.validation.key'),
+  key: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9-]{1,30}$/, 'common.validation.key'),
   targetDeadline: z.string().optional(),
 });
 
@@ -93,6 +91,16 @@ export const projectFormSchema = organizationSchema
 
 export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
+/**
+ * O modo Negócio mantém os defaults técnicos no payload, mas não obriga o
+ * dono a selecionar pessoas: o backend vincula automaticamente o perfil que
+ * criou o projeto. Os quatro campos visíveis continuam validados pelo schema
+ * completo (título, objetivo, prazo opcional e marca/logo opcional).
+ */
+export const businessProjectFormSchema = projectFormSchema.extend({
+  memberProfileIds: z.array(z.string()),
+});
+
 export const PROJECT_FORM_TABS = [
   'organization',
   'identity',
@@ -146,7 +154,7 @@ export function projectToFormValues(project: Project): ProjectFormValues {
     name: project.name,
     key: project.key,
     description: project.description,
-    targetDeadline: project.targetDeadline ?? '',
+    targetDeadline: project.targetDeadline?.slice(0, 10) ?? '',
     criticality: project.criticality,
     state: project.state,
     repositoryProvider: project.repositoryProvider,
@@ -154,7 +162,12 @@ export function projectToFormValues(project: Project): ProjectFormValues {
     defaultBranch: project.defaultBranch,
     workflowTemplateId: '',
     technologies: project.technologies ?? [],
-    brand: project.brand ?? { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+    brand: project.brand ?? {
+      logoUrl: null,
+      primaryColor: null,
+      secondaryColor: null,
+      typography: null,
+    },
     memberProfileIds: project.memberProfileIds ?? [],
   };
 }

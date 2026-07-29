@@ -125,6 +125,10 @@ public sealed partial class ChiefTurnBackgroundService(
             var digest = await digests.ReadAsync(
                 lease.Turn.TenantId, lease.Turn.ProjectId, 20, cancellationToken);
             var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
+            var projectContext = await contextComposer.ComposeProjectAsync(
+                lease.Turn.TenantId,
+                lease.Turn.ProjectId,
+                cancellationToken);
             IReadOnlyList<RagContextSlice> memory = options.ContextBundlesEnabled
                 ? await ragContext.SearchAsync(
                     lease.Turn.TenantId,
@@ -232,6 +236,7 @@ public sealed partial class ChiefTurnBackgroundService(
                         digestJson,
                         bundle.RenderedContext,
                         bundle.BundleChecksum,
+                        projectContext,
                         composition.RenderedContext,
                         composition.PersistedNoteCount),
                     JsonOptions);
@@ -239,7 +244,11 @@ public sealed partial class ChiefTurnBackgroundService(
             else
             {
                 governedDigestJson = JsonSerializer.Serialize(
-                    new ChiefGovernanceContext(digestJson, bundle.RenderedContext, bundle.BundleChecksum),
+                    new ChiefGovernanceContext(
+                        digestJson,
+                        bundle.RenderedContext,
+                        bundle.BundleChecksum,
+                        projectContext),
                     JsonOptions);
             }
             await ReportAsync(ChiefTurnActivity.Thinking);
@@ -744,12 +753,14 @@ public sealed partial class ChiefTurnBackgroundService(
     private sealed record ChiefGovernanceContext(
         string StatusDigestJson,
         string ContextBundle,
-        string BundleChecksum);
+        string BundleChecksum,
+        ChiefProjectContext? Project);
 
     private sealed record ChiefGovernanceContextWithMemory(
         string StatusDigestJson,
         string ContextBundle,
         string BundleChecksum,
+        ChiefProjectContext? Project,
         string ChiefContext,
         int PersistedNoteCount);
 
