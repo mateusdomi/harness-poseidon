@@ -32,6 +32,9 @@
       "unread": "{{count}} não lidas",
       "unread_one": "{{count}} não lida"
     },
+    "project": {
+      "label": "Projeto"
+    },
     "context": {
       "label": "Contexto do projeto",
       "phase": "Etapa {{name}}",
@@ -70,7 +73,7 @@
     "orchestrator": "Equipe",
     "agents": "Agentes",
     "tools": "Ferramentas",
-    "run-project": "Executar projeto",
+    "run-project": "Executar Projeto",
     "notifications": "Notificações",
     "providers": "Provedores",
     "channels": "Canais",

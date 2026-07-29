@@ -135,7 +135,7 @@ test.describe('Golden path — UX transversal', () => {
 
   test('o orquestrador mostra prontidão real e sinaliza modo simulado', async ({ page }) => {
     await signIn(page);
-    await navTo(page, 'Orquestrador');
+    await navTo(page, 'Equipe');
 
     // Estado de prontidão explícito + aviso honesto de dado simulado (§15).
     await expect(page.getByText('Modo simulado').first()).toBeVisible();

@@ -32,6 +32,9 @@
       "unread": "{{count}} unread",
       "unread_one": "{{count}} unread"
     },
+    "project": {
+      "label": "Project"
+    },
     "context": {
       "label": "Project context",
       "phase": "Stage {{name}}",
@@ -70,7 +73,7 @@
     "orchestrator": "Team",
     "agents": "Agents",
     "tools": "Tools",
-    "run-project": "Run project",
+    "run-project": "Run Project",
     "notifications": "Notifications",
     "providers": "Providers",
     "channels": "Channels",

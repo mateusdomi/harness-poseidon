@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 
-import { NAV_GROUPS } from '@/app/navigation';
+import { navGroupsFor } from '@/app/navigation';
+import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
 import {
   matchPaletteEntries,
   normalizeSearchText,
@@ -31,6 +32,7 @@ export function CommandPalette() {
   const navigate = useNavigate();
   const isMac = useIsMacPlatform();
   const shortcutHint = isMac ? '⌘K' : 'Ctrl+K';
+  const { mode } = usePresentationPolicy();
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -50,10 +52,12 @@ export function CommandPalette() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Entradas com metadados i18n (nome + palavras-chave), reconstruídas ao trocar o idioma.
+  // Entradas com metadados i18n (nome + palavras-chave), reconstruídas ao trocar
+  // o idioma. A busca indexa só o que o modo de apresentação mostra no menu:
+  // quem está em Negócio não encontra tela técnica pela lupa.
   const entries = useMemo(
     () =>
-      NAV_GROUPS.flatMap((group) =>
+      navGroupsFor(mode).flatMap((group) =>
         group.items.map((item) => {
           const label = t(`nav.${item.key}`);
           const name = normalizeSearchText(label);
@@ -62,7 +66,7 @@ export function CommandPalette() {
         }),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, i18n.language],
+    [t, i18n.language, mode],
   );
 
   const results = useMemo(() => matchPaletteEntries(entries, query), [entries, query]);

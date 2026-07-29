@@ -11,7 +11,6 @@ const ROUTES = [
   '/documents',
   '/prototypes',
   '/architecture',
-  '/approvals',
   '/orchestrator',
   '/agents',
   '/tools',

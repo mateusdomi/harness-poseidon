@@ -23,16 +23,27 @@ function featurePage(key: string) {
  * Rotas lazy por feature: cada página é importada sob demanda e o AppShell
  * envolve o <Outlet /> com <Suspense> (fallback = RouteSkeleton).
  * `onboarding` fica fora do shell (tela cheia) e fora do guard de perfil.
+ *
+ * As rotas vêm do registro completo (`NAV_ITEMS`, todos os modos): o modo de
+ * apresentação decide o que aparece no menu, não o que existe — um endereço
+ * salvo continua abrindo depois de trocar de modo.
  */
-const featureRoutes: RouteObject[] = NAV_ITEMS.filter((item) => item.key !== 'onboarding').map(
-  (item) => ({
-    path: item.path,
-    Component: featurePage(item.key),
-    // Um crash de render numa feature é contido aqui — o shell permanece de pé
-    // e a tela crua do react-router nunca aparece (BUG-01).
-    errorElement: <RouteError />,
-  }),
-);
+const featureRoutes: RouteObject[] = NAV_ITEMS.map((item) => ({
+  path: item.path,
+  Component: featurePage(item.key),
+  // Um crash de render numa feature é contido aqui — o shell permanece de pé
+  // e a tela crua do react-router nunca aparece (BUG-01).
+  errorElement: <RouteError />,
+}));
+
+/**
+ * Aprovações deixou de ser tela: aprovar acontece dentro de Documentos, ao
+ * lado do documento (D9). O endereço antigo continua válido e cai na aba.
+ */
+const APPROVALS_REDIRECT: RouteObject = {
+  path: '/approvals',
+  element: <Navigate to="/documents?tab=approvals" replace />,
+};
 
 const OnboardingPage = featurePage('onboarding');
 const ChatPage = featurePage('chat');
@@ -64,6 +75,7 @@ export const router = createBrowserRouter(
           Component: ChatPage,
           errorElement: <RouteError />,
         },
+        APPROVALS_REDIRECT,
       ],
     },
   ],

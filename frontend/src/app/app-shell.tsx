@@ -8,7 +8,8 @@ import { Button } from '@/design-system';
 import { cn } from '@/lib/utils';
 import { product } from '@/config/product';
 import { useUiStore } from '@/stores/ui-store';
-import { MOBILE_PRIMARY_ITEMS, NAV_GROUPS } from '@/app/navigation';
+import { MOBILE_PRIMARY_ITEMS, navGroupsFor } from '@/app/navigation';
+import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
 import { AppNavLink } from '@/app/components/app-nav-link';
 import { CommandPalette } from '@/app/components/command-palette';
 import { HeaderContext } from '@/app/components/header-context';
@@ -80,10 +81,14 @@ function NavGroupHeader({
 function NavMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const collapsedGroups = useUiStore((s) => s.collapsedNavGroups);
   const toggleNavGroup = useUiStore((s) => s.toggleNavGroup);
+  // D7: o menu é o do modo de apresentação. Negócio é o padrão e não lista
+  // nenhuma tela técnica; Técnico e Administrador somam as suas.
+  const { mode } = usePresentationPolicy();
+  const groups = navGroupsFor(mode);
 
   return (
     <ul className="flex flex-col gap-1">
-      {NAV_GROUPS.map((group, groupIndex) => {
+      {groups.map((group, groupIndex) => {
         // Sidebar recolhida (só ícones): sem rótulos nem grupos recolhíveis —
         // apenas um separador sutil entre grupos (nunca antes do primeiro).
         if (collapsed) {

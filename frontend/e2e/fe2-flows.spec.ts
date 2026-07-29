@@ -101,7 +101,7 @@ test.describe('Gate FE-2 — aprovação de documento', () => {
 test.describe('Gate FE-2 — passagem de bastão', () => {
   test('trocar o modelo do chefe pelo wizard e o card reflete sem reload', async ({ page }) => {
     await completeOnboarding(page);
-    await navTo(page, 'Orquestrador');
+    await navTo(page, 'Equipe');
     await expect(page).toHaveURL(/\/orchestrator$/);
     await expect(page.getByRole('heading', { name: 'Orquestrador' })).toBeVisible();
 

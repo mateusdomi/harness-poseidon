@@ -4,6 +4,9 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 import i18n from '@/i18n';
 import { CommandPalette } from '@/app/components/command-palette';
+import { createTestBundle } from '@/api/__tests__/test-utils';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 function RoutesLocation() {
   const location = useLocation();
@@ -31,6 +34,13 @@ function renderPalette() {
 describe('CommandPalette', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('pt-BR');
+    // A busca indexa só o que o modo de apresentação mostra no menu (F4). Estes
+    // testes exercitam a mecânica da paleta com telas técnicas (Governança,
+    // Agentes), então rodam no modo Técnico; a filtragem por modo em si é
+    // coberta em `navigation-modes.test.tsx`.
+    const profileId = createTestBundle().fixtures.meta.currentProfileId;
+    useSessionStore.setState({ activeProfileId: profileId });
+    usePresentationStore.setState({ modeByProfile: { [profileId]: 'technical' } });
   });
 
   it('abre pelo botão de lupa e fecha com Esc', async () => {
