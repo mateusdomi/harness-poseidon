@@ -95,6 +95,9 @@ export function ProjectTimeline({
             {orderedPhases.map((phase, index) => {
               const selected = phase.id === selectedPhase.id;
               const completed = phase.state === 'completed' || phase.state === 'skipped';
+              const previousPhase = orderedPhases[index - 1];
+              const previousCompleted =
+                previousPhase?.state === 'completed' || previousPhase?.state === 'skipped';
               return (
                 <li key={phase.id} className="relative flex min-w-36 flex-col items-center px-2">
                   {index > 0 && (
@@ -102,7 +105,7 @@ export function ProjectTimeline({
                       aria-hidden="true"
                       className={cn(
                         'absolute right-1/2 top-4 h-0.5 w-full',
-                        completed || phase.state === 'active' ? 'bg-success' : 'bg-border',
+                        previousCompleted ? 'bg-success' : 'bg-border',
                       )}
                     />
                   )}
@@ -153,7 +156,7 @@ export function ProjectTimeline({
             </h3>
             <Badge
               variant={
-                selectedPhase.state === 'completed'
+                selectedPhase.state === 'completed' || selectedPhase.state === 'skipped'
                   ? 'success'
                   : selectedPhase.state === 'active'
                     ? 'brand'
