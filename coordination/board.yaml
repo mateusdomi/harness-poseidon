@@ -7,7 +7,7 @@ fases:
   F3:  { estado: em_andamento, agente: codex-b, iniciado_em: "2026-07-29T17:12:44Z", atualizado_em: "2026-07-29T17:12:44Z", nota: "dashboard de negocio: quadro da equipe, timeline, progresso unificado e aprovacoes pendentes" }
   F4:  { estado: em_andamento, agente: claude-opus, iniciado_em: "2026-07-29T17:10:00Z", atualizado_em: "2026-07-29T17:52:00Z", nota: "gates verdes na worktree; RECONCILIANDO com o presentation-policy que ja existia no develop (19 commits do dono publicados hoje) antes de integrar" }
   F5:  { estado: em_andamento, agente: kimi-a, iniciado_em: "2026-07-29T17:15:35Z", atualizado_em: "2026-07-29T17:40:58Z", nota: "backend (prazo+intake+ZIP+tracking) e frontend (tela rastreamento) em implementacao paralela na worktree poseidon-kimi-a" }
-  F6:  { estado: em_andamento, agente: antigravity-a, iniciado_em: "2026-07-29T17:18:17Z", atualizado_em: "2026-07-29T17:18:17Z", nota: "projetos: criacao por modo + bindings auditados; migrations 0092-0093" }
+  F6:  { estado: concluida, agente: antigravity-a, iniciado_em: "2026-07-29T17:18:17Z", concluido_em: "2026-07-29T17:57:00Z", atualizado_em: "2026-07-29T17:57:00Z", nota: "projetos: criacao por modo + bindings auditados; migrations 0092-0093; 100% verificado" }
   F7:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F8:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F9:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
