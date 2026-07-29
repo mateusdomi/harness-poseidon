@@ -4,6 +4,7 @@ using Harness.Modules.Documents.Contracts;
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -348,7 +349,8 @@ public static class DocumentEndpoints
 
     private static async Task<IResult> ResolveApprovalAsync(
         string id, ResolveApprovalRequest input, HttpRequest request, ILocalProfileStore profiles,
-        IDocumentStore authority, IDocumentCatalogStore store, IClock clock, CancellationToken token)
+        IDocumentStore authority, IDocumentCatalogStore store, IWorkflowCatalogStore workflows,
+        IWorkflowStore runs, IClock clock, CancellationToken token)
     {
         if (!Valid(id)) return InvalidId();
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
@@ -367,6 +369,18 @@ public static class DocumentEndpoints
                     $"api:approval-resolution:{UlidValue.New(now.AddTicks(1))}", now), token);
                 if (receipt.Status is not (DocumentMutationStatus.Applied or DocumentMutationStatus.IdempotentReplay))
                     return MutationProblem(receipt.Status);
+
+                // O DEGRAU HUMANO: aprovar o documento aqui é a decisão que o condutor de fase se
+                // recusa a dar sozinho — e que até agora nenhuma tela dava. A aprovação já está
+                // durável acima; se a esteira não tiver objetivo correspondente, ou se o objetivo
+                // ainda não estiver conferido, nada é inventado e a decisão do dono não se perde.
+                if (string.Equals(value.Decision, "approved", StringComparison.Ordinal))
+                {
+                    _ = await DocumentApprovalPhaseLink.ApproveAsync(
+                        workflows, runs, clock, profile.TenantId, document.ProjectId,
+                        document.DocumentId, document.Title, document.PhaseName, token);
+                }
+
                 row = await store.GetApprovalAsync(profile.TenantId, id, token);
             }
             else
