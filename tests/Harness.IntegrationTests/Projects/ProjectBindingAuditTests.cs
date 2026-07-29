@@ -30,10 +30,10 @@ public sealed class ProjectBindingAuditTests
             var store = new SqliteProjectStore(dispatcher);
 
             var tenantId = "01ARZ3NDEKTSV4RRFFQ69G5FQ0";
-            var projectId = UlidValue.New().ToString();
-            var orgId = UlidValue.New().ToString();
-            var chiefId = UlidValue.New().ToString();
-            var ownerId = UlidValue.New().ToString();
+            var projectId = UlidValue.New(DateTimeOffset.UtcNow).ToString();
+            var orgId = UlidValue.New(DateTimeOffset.UtcNow).ToString();
+            var chiefId = UlidValue.New(DateTimeOffset.UtcNow).ToString();
+            var ownerId = UlidValue.New(DateTimeOffset.UtcNow).ToString();
             var now = DateTimeOffset.UtcNow;
             var targetDeadline = now.AddDays(30);
 
