@@ -26,6 +26,7 @@ import {
   type Model,
   type MoveTaskInput,
   type Page,
+  type PhaseObligationProgress,
   type Profile,
   type Project,
   type PublishWorkflowDraftInput,
@@ -110,6 +111,7 @@ import {
   type GovernanceDocContent,
   chatTurnHandleSchema,
   projectReadinessSnapshotSchema,
+  phaseObligationProgressSchema,
   governanceDocTreeSchema,
   governanceDocContentSchema,
   agentAccountRosterSchema,
@@ -483,6 +485,17 @@ export class HttpApiClient implements ApiClient {
     const response = await this.#request<unknown>('GET', `/projects/${projectId}/readiness`);
     // Valida na fronteira: prontidão dirige bloqueio de execução na UI.
     return projectReadinessSnapshotSchema.parse(response);
+  }
+
+  async getPhaseObligationProgress(
+    runId: Ulid,
+    phaseKey: string,
+  ): Promise<PhaseObligationProgress> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/workflow-runs/${encodeURIComponent(runId)}/phases/${encodeURIComponent(phaseKey)}/progress`,
+    );
+    return phaseObligationProgressSchema.parse(response);
   }
 
   async listGovernanceReceipts(query?: GovernanceReceiptQuery): Promise<GovernanceReceipt[]> {

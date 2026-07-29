@@ -150,6 +150,36 @@ describe('HttpApiClient — turnos do chat', () => {
   });
 });
 
+describe('HttpApiClient — progresso canônico da fase', () => {
+  it('consulta phase_obligations e preserva trabalho em voo separado do percentual', async () => {
+    const runId = '01ARZ3NDEKTSV4RRFFQ69G5FH2';
+    const response = {
+      runId,
+      phaseKey: 'phase-3',
+      planVersion: 2,
+      percentage: 50,
+      requiredTotal: 4,
+      requiredAccepted: 2,
+      inProgress: 1,
+      inReview: 1,
+      blocked: 0,
+      pending: 0,
+      optionalTotal: 1,
+      optionalAccepted: 0,
+      technicallyComplete: false,
+      obligations: [],
+    };
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(response));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+
+    await expect(client.getPhaseObligationProgress(runId, 'phase-3')).resolves.toEqual(response);
+    expect(fetchFn).toHaveBeenCalledWith(
+      `https://api.example.test/api/v1/workflow-runs/${runId}/phases/phase-3/progress`,
+      expect.objectContaining({ method: 'GET', credentials: 'include' }),
+    );
+  });
+});
+
 describe('HttpApiClient — definições de agentes V3', () => {
   it('adapta campos editoriais ao write contract e envia versão esperada', async () => {
     const response = {

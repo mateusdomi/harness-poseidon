@@ -28,6 +28,7 @@ import type {
   Model,
   MoveTaskInput,
   Page,
+  PhaseObligationProgress,
   Profile,
   Project,
   PublishWorkflowDraftInput,
@@ -329,6 +330,15 @@ export interface ApiClient {
    * não recalcula. 404 quando o projeto não existe.
    */
   getProjectReadiness(projectId: Ulid): Promise<ProjectReadinessSnapshot>;
+
+  /**
+   * Progresso aceito de uma fase derivado de `phase_obligations`.
+   * Trabalho em voo e aprovação humana são retornados em campos separados.
+   */
+  getPhaseObligationProgress(
+    runId: Ulid,
+    phaseKey: string,
+  ): Promise<PhaseObligationProgress>;
 
   /* ---- governança de agentes P1 ---- */
 

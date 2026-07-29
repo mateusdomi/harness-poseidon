@@ -18,6 +18,7 @@ import {
   recommendNextAction,
   tasksOfPhase,
 } from '@/features/cockpit/lib/cockpit-derive';
+import { workflowPhaseKey } from '@/features/cockpit/hooks/use-cockpit';
 import { isMeaningfulActivity } from '@/features/cockpit/lib/activity-humanize';
 import { renderWithApi } from '@/test/render-with-providers';
 import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
@@ -67,6 +68,18 @@ describe('cockpit-derive', () => {
     expect(phaseTasks.every((t) => ['review', 'corrections', 'testsGates'].includes(t.state))).toBe(
       true,
     );
+  });
+
+  it('mapeia a ordem persistida para a chave do plano de obrigações', async () => {
+    const phase = phases[2];
+    expect(workflowPhaseKey(phase)).toBe(`phase-${phase.order}`);
+
+    const bundle = createTestBundle();
+    const progress = await bundle.api.getPhaseObligationProgress(phase.runId, workflowPhaseKey(phase));
+    expect(progress.runId).toBe(phase.runId);
+    expect(progress.percentage).toBe(phase.progress.percent);
+    expect(progress.requiredAccepted).toBe(phase.progress.completed);
+    expect(progress.pending).toBe(phase.progress.total - phase.progress.completed);
   });
 
   it('recomenda ação por prioridade: aprovações > bloqueios > agentes > quotas', () => {

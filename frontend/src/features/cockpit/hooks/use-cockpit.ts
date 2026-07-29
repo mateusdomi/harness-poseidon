@@ -1,6 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 
-import { streams, type Phase, type Task, type Ulid } from '@/api';
+import {
+  ApiError,
+  streams,
+  type Phase,
+  type PhaseObligationProgress,
+  type Task,
+  type Ulid,
+} from '@/api';
 import { useApi } from '@/app/api-context';
 import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
 
@@ -9,13 +16,76 @@ export const cockpitKeys = {
   tasks: (projectId: Ulid) => ['cockpit', 'tasks', projectId] as const,
   approvals: (projectId: Ulid) => ['cockpit', 'approvals', projectId] as const,
   agents: (projectId: Ulid) => ['cockpit', 'agents', projectId] as const,
+  agentDefinitions: ['cockpit', 'agent-definitions'] as const,
   budgets: ['cockpit', 'budgets'] as const,
   workflows: (projectId: Ulid) => ['cockpit', 'workflows', projectId] as const,
   runs: (workflowId: Ulid) => ['cockpit', 'runs', workflowId] as const,
   phases: (runId: Ulid) => ['cockpit', 'phases', runId] as const,
+  phaseObligationProgress: (runId: Ulid, phaseKey: string) =>
+    ['cockpit', 'phase-obligation-progress', runId, phaseKey] as const,
   gates: (runId: Ulid) => ['cockpit', 'gates', runId] as const,
   audit: ['cockpit', 'audit-events'] as const,
 };
+
+/** Chaves publicadas pelo WorkflowCatalogApplicationService (`phase-1..N`). */
+export function workflowPhaseKey(phase: Pick<Phase, 'order'>): string {
+  return `phase-${phase.order}`;
+}
+
+export interface CockpitPhaseProgressResult {
+  byPhaseId: ReadonlyMap<Ulid, PhaseObligationProgress | null>;
+  isPending: boolean;
+  isError: boolean;
+  refetch: () => void;
+}
+
+/**
+ * Carrega o progresso canônico de cada fase. Plano ainda não materializado
+ * (404) é estado esperado para fase futura e vira `null`, não erro global.
+ */
+export function useCockpitPhaseProgress(
+  runId: Ulid | null,
+  phases: readonly Phase[],
+): CockpitPhaseProgressResult {
+  const api = useApi();
+  const queries = useQueries({
+    queries: phases.map((phase) => {
+      const phaseKey = workflowPhaseKey(phase);
+      return {
+        queryKey:
+          runId === null
+            ? (['cockpit', 'phase-obligation-progress', 'none', phaseKey] as const)
+            : cockpitKeys.phaseObligationProgress(runId, phaseKey),
+        queryFn: async (): Promise<PhaseObligationProgress | null> => {
+          try {
+            return await api.getPhaseObligationProgress(runId!, phaseKey);
+          } catch (error) {
+            if (
+              error instanceof ApiError &&
+              error.problem.status === 404 &&
+              error.problem.title === 'phase_plan_not_found'
+            ) {
+              return null;
+            }
+            throw error;
+          }
+        },
+        enabled: runId !== null,
+      };
+    }),
+  });
+
+  return {
+    byPhaseId: new Map(
+      phases.map((phase, index) => [phase.id, queries[index]?.data ?? null]),
+    ),
+    isPending: queries.some((query) => query.isLoading),
+    isError: queries.some((query) => query.isError),
+    refetch: () => {
+      for (const query of queries) void query.refetch();
+    },
+  };
+}
 
 /** Eventos do stream do projeto/global que derrubam o cache do cockpit. */
 const COCKPIT_EVENT_TYPES = [
@@ -56,6 +126,15 @@ export function useCockpitAgents(projectId: Ulid | null) {
     queryKey: cockpitKeys.agents(projectId ?? 'none'),
     queryFn: async () => (await api.list('agents', { filter: { projectId: projectId! } })).items,
     enabled: projectId !== null,
+  });
+}
+
+/** Catálogo de especialidades usado somente para agrupar a equipe por núcleo. */
+export function useCockpitAgentDefinitions() {
+  const api = useApi();
+  return useQuery({
+    queryKey: cockpitKeys.agentDefinitions,
+    queryFn: async () => (await api.list('agent-definitions')).items,
   });
 }
 
@@ -149,9 +228,11 @@ export function useCockpitRealtime(projectId: Ulid | null) {
           cockpitKeys.tasks(projectId),
           cockpitKeys.approvals(projectId),
           cockpitKeys.agents(projectId),
+          cockpitKeys.agentDefinitions,
           cockpitKeys.budgets,
           cockpitKeys.workflows(projectId),
           ['cockpit', 'phases'],
+          ['cockpit', 'phase-obligation-progress'],
           ['cockpit', 'gates'],
           cockpitKeys.audit,
         ]

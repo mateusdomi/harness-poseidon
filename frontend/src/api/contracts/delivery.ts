@@ -228,6 +228,45 @@ export const phaseProgressSchema = z.object({
   gates: phaseProgressBreakdownSchema,
 });
 
+/** Obrigação materializada que compõe o progresso aceito de uma fase. */
+export const phaseObligationSchema = z.object({
+  obligationKey: z.string(),
+  kind: z.string(),
+  description: z.string(),
+  required: z.boolean(),
+  weight: z.number().nonnegative(),
+  state: z.string(),
+  source: z.string(),
+  cardId: ulidSchema.nullable(),
+  objectiveKey: z.string().nullable(),
+  artifactRef: z.string().nullable(),
+  evidence: z.array(z.string()),
+  reason: z.string().nullable(),
+});
+export type PhaseObligation = z.infer<typeof phaseObligationSchema>;
+
+/**
+ * Fonte canônica do Dashboard: mede somente obrigações aceitas no percentual.
+ * Trabalho em voo e decisão humana permanecem eixos independentes.
+ */
+export const phaseObligationProgressSchema = z.object({
+  runId: ulidSchema,
+  phaseKey: z.string(),
+  planVersion: z.number().int().positive(),
+  percentage: z.coerce.number().min(0).max(100),
+  requiredTotal: z.number().int().nonnegative(),
+  requiredAccepted: z.number().int().nonnegative(),
+  inProgress: z.number().int().nonnegative(),
+  inReview: z.number().int().nonnegative(),
+  blocked: z.number().int().nonnegative(),
+  pending: z.number().int().nonnegative(),
+  optionalTotal: z.number().int().nonnegative(),
+  optionalAccepted: z.number().int().nonnegative(),
+  technicallyComplete: z.boolean(),
+  obligations: z.array(phaseObligationSchema),
+});
+export type PhaseObligationProgress = z.infer<typeof phaseObligationProgressSchema>;
+
 export const phaseDeliverableSchema = z.object({
   name: z.string(),
   status: z.enum(['planned', 'notStarted', 'inProduction', 'inReview', 'approved', 'rejected']),

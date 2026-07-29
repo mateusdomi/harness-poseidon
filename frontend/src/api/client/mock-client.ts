@@ -55,6 +55,7 @@ import {
   type MoveTaskInput,
   type Notification,
   type Page,
+  type PhaseObligationProgress,
   type ProblemDetails,
   type Profile,
   type Project,
@@ -1667,6 +1668,41 @@ export class MockApiClient implements ApiClient {
       chiefHealthy,
       chiefModelResolves,
     });
+  }
+
+  async getPhaseObligationProgress(
+    runId: Ulid,
+    phaseKey: string,
+  ): Promise<PhaseObligationProgress> {
+    await this.#simulate();
+    const phaseOrder = Number.parseInt(phaseKey.replace(/^phase-/, ''), 10);
+    const phase = [...this.#table('phases').values()].find(
+      (candidate) =>
+        candidate.runId === runId &&
+        Number.isInteger(phaseOrder) &&
+        candidate.order === phaseOrder,
+    );
+    if (!phase) {
+      throw ApiError.of(404, 'phase_plan_not_found', 'The phase has no obligation plan.');
+    }
+    const requiredTotal = phase.progress.total;
+    const requiredAccepted = phase.progress.completed;
+    return {
+      runId,
+      phaseKey,
+      planVersion: 1,
+      percentage: phase.progress.percent,
+      requiredTotal,
+      requiredAccepted,
+      inProgress: 0,
+      inReview: 0,
+      blocked: 0,
+      pending: Math.max(0, requiredTotal - requiredAccepted),
+      optionalTotal: 0,
+      optionalAccepted: 0,
+      technicallyComplete: requiredTotal > 0 && requiredAccepted === requiredTotal,
+      obligations: [],
+    };
   }
 
   async getDiagnostics(): Promise<Diagnostics> {
