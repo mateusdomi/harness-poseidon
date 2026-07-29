@@ -66,7 +66,7 @@ describe('ChannelsPage', () => {
 
     expect(await screen.findByText(/Bot configurado ≠ canal vinculado/i)).toBeInTheDocument();
     expect(await screen.findByText(/Harness__Channels__Telegram__BotToken/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Conversa unificada/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Conversa unificada/i)).toBeInTheDocument();
   });
 
   it('links a new channel through the form and shows it in the list', async () => {
