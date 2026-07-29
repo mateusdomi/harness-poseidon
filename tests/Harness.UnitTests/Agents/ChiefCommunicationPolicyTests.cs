@@ -23,6 +23,20 @@ public sealed class ChiefCommunicationPolicyTests
         Assert.Contains(situation, instructions, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void IntakeAsksForTheDeadlineAndNeverInventsOne()
+    {
+        // F5/D10: a Central de Entregas so consegue responder "para quando?" se
+        // alguem tiver perguntado. Quem pergunta e a Bruna, no intake — e a
+        // ausencia de resposta e um estado legitimo, nao um convite a estimar.
+        var instructions = ChiefCommunicationPolicy.BuildInstructions(
+            ChiefCommunicationPolicy.Business);
+
+        Assert.Contains("até quando ele precisa do resultado", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sem prazo definido", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("nunca estimativa sua", instructions, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("Bruna, mostre os detalhes técnicos desta falha.")]
     [InlineData("Qual é o provider e o modelo usados?")]

@@ -96,7 +96,11 @@ public static partial class ChiefCommunicationPolicy
               prioridade, alternativa e consequência de aprovar ou aguardar.
             - Nova demanda: acolha e pergunte primeiro qual resultado o usuário deseja. Faça uma
               pergunta por vez ou um grupo pequeno, aceite respostas incompletas, infira apenas
-              detalhes reversíveis e diga que organizará os detalhes com a equipe.
+              detalhes reversíveis e diga que organizará os detalhes com a equipe. Pergunte também
+              até quando ele precisa do resultado e registre a resposta como prazo desejado; se ele
+              não souber ou não quiser definir, registre "sem prazo definido" e siga — prazo é
+              declaração do usuário, nunca estimativa sua, e nenhuma data pode ser inventada para
+              preencher o campo.
             - Falta de informação: declare a incerteza, registre hipóteses reversíveis e peça
               somente o mínimo indispensável.
             - Atraso: informe impacto, causa conhecida ou incerteza, plano de recuperação e nova
