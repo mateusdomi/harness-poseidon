@@ -83,3 +83,32 @@ export const visualReferenceSchema = z.object({
   createdAt: isoDateTimeSchema,
 });
 export type VisualReference = z.infer<typeof visualReferenceSchema>;
+
+export const prototypingStageSchema = z.object({
+  projectId: ulidSchema,
+  state: z.enum(['NotApplicable', 'Pending', 'SatisfiedByInheritance', 'SatisfiedByApproval']),
+  blocksAdvance: z.boolean(),
+  reasonCode: z.string(),
+  businessMessage: z.string(),
+  entryPath: z.enum(['Prose', 'RequirementsDocument', 'ReactBundle']),
+  inherited: z.array(z.string()),
+  questions: z.array(z.string()),
+  bundleReferenceId: ulidSchema.nullable(),
+  prototypingMode: z.string(),
+  waiverReason: z.string().nullable(),
+});
+export type PrototypingStage = z.infer<typeof prototypingStageSchema>;
+
+export const designSystemBundleSchema = z.object({
+  referenceId: ulidSchema,
+  assetId: ulidSchema,
+  projectId: ulidSchema,
+  title: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  sha256: z.string(),
+  businessMessage: z.string(),
+  createdAt: isoDateTimeSchema,
+});
+export type DesignSystemBundle = z.infer<typeof designSystemBundleSchema>;

@@ -1,4 +1,5 @@
 using Harness.Modules.Workflows.Contracts;
+using Harness.Modules.Coordination.Application;
 
 namespace Harness.Host.Workflows;
 
@@ -21,6 +22,10 @@ public sealed record CanonicalWorkflowTemplate(
 
 public static class CanonicalWorkflowTemplates
 {
+    public const string PrototypingPhase = "Prototipação";
+    public const string PrototypingGate =
+        "Identidade visual e protótipo aprovados ou herdados";
+
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> NoDocuments =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> NoTransitions =
@@ -38,7 +43,11 @@ public static class CanonicalWorkflowTemplates
         phases,
         gatedPhases.ToDictionary(
             phase => phase,
-            phase => (IReadOnlyList<string>)[$"Aprovação de {phase}"],
+            phase => (IReadOnlyList<string>)[
+                string.Equals(phase, PrototypingPhase, StringComparison.Ordinal)
+                    ? PrototypingGate
+                    : $"Aprovação de {phase}"
+            ],
             StringComparer.Ordinal),
         NoDocuments,
         NoTransitions);
@@ -72,15 +81,19 @@ public static class CanonicalWorkflowTemplates
             "Entrega padrão (Triagem → Sustentação)",
             "Fluxo canônico completo: triagem da solicitação, análise de requisitos, arquitetura, " +
             "implementação em fatias verificáveis, verificação independente, homologação humana e sustentação.",
-            ["Triagem", "Análise", "Arquitetura", "Implementação", "Verificação", "Homologação", "Sustentação"],
-            "Análise", "Arquitetura", "Implementação", "Verificação", "Homologação"),
+            PrototypingStagePolicy.InsertStage(
+                ["Triagem", "Análise", "Arquitetura", "Implementação", "Verificação", "Homologação", "Sustentação"],
+                developmentStage: "Implementação"),
+            "Análise", "Arquitetura", PrototypingPhase, "Implementação", "Verificação", "Homologação"),
         Build(
             "variant-new-project",
             "Variante: projeto novo",
             "Nascimento de produto: descoberta de escopo, fundação técnica, incrementos de MVP, " +
             "verificação e homologação antes da sustentação.",
-            ["Triagem", "Descoberta", "Fundação", "Incrementos", "Verificação", "Homologação", "Sustentação"],
-            "Fundação", "Incrementos", "Verificação", "Homologação"),
+            PrototypingStagePolicy.InsertStage(
+                ["Triagem", "Descoberta", "Fundação", "Incrementos", "Verificação", "Homologação", "Sustentação"],
+                developmentStage: "Incrementos"),
+            "Fundação", PrototypingPhase, "Incrementos", "Verificação", "Homologação"),
         Build(
             "variant-bug",
             "Variante: correção de bug",

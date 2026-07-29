@@ -58,6 +58,8 @@ import type {
   WorkflowVersion,
   Approval,
   Document,
+  DesignSystemBundle,
+  PrototypingStage,
   Solicitation,
   AgentExecutor,
   EvaluationResult,
@@ -123,6 +125,14 @@ export interface ApiClient {
 
   /** Armazena uma logo PNG/JPEG no data dir gerenciado e atualiza a marca do projeto. */
   uploadProjectLogo(projectId: Ulid, file: File): Promise<Project>;
+  /** Estado explicável da etapa opcional de Prototipação. */
+  getPrototypingStage(projectId: Ulid): Promise<PrototypingStage>;
+  /** Valida e armazena um ZIP React como design system do projeto. */
+  uploadDesignSystemBundle(
+    projectId: Ulid,
+    file: File,
+    title?: string,
+  ): Promise<DesignSystemBundle>;
 
   /** Move tarefa entre colunas do quadro → emite `task.stateChanged`. */
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task>;
@@ -171,7 +181,10 @@ export interface ApiClient {
    * Cria versão em RASCUNHO de um template (cópia da versão vigente quando
    * `input` é omitido). Rascunhos são editáveis até publicar.
    */
-  createWorkflowDraftVersion(templateId: Ulid, input?: WorkflowDraftInput): Promise<WorkflowVersion>;
+  createWorkflowDraftVersion(
+    templateId: Ulid,
+    input?: WorkflowDraftInput,
+  ): Promise<WorkflowVersion>;
   /** Edita uma versão em rascunho (409 se não for rascunho). */
   updateWorkflowDraftVersion(versionId: Ulid, input: WorkflowDraftInput): Promise<WorkflowVersion>;
   /**
@@ -340,10 +353,7 @@ export interface ApiClient {
    * Progresso aceito de uma fase derivado de `phase_obligations`.
    * Trabalho em voo e aprovação humana são retornados em campos separados.
    */
-  getPhaseObligationProgress(
-    runId: Ulid,
-    phaseKey: string,
-  ): Promise<PhaseObligationProgress>;
+  getPhaseObligationProgress(runId: Ulid, phaseKey: string): Promise<PhaseObligationProgress>;
 
   /* ---- governança de agentes P1 ---- */
 
@@ -373,11 +383,26 @@ export interface ApiClient {
   listLearningCandidateEvidence(candidateId: string): Promise<LearningEvidenceRecord[]>;
   compareLearningCandidate(candidateId: string): Promise<LearningCandidateComparison>;
   listLearningCandidateHistory(candidateId: string): Promise<LearningCandidateHistoryRecord[]>;
-  getLearningCandidateMetrics(query?: Pick<LearningCandidateQuery, 'organizationId' | 'projectId'>): Promise<LearningCandidateMetrics>;
-  transitionLearningCandidate(candidateId: string, transition: LearningTransition, input: LearningTransitionInput): Promise<LearningCandidate>;
-  evaluateLearningCandidate(candidateId: string, input: LearningEvaluationInput): Promise<LearningCandidate>;
-  shadowLearningCandidate(candidateId: string, input: LearningShadowInput): Promise<LearningCandidate>;
-  decideLearningCandidate(candidateId: string, input: LearningDecisionInput): Promise<LearningCandidate>;
+  getLearningCandidateMetrics(
+    query?: Pick<LearningCandidateQuery, 'organizationId' | 'projectId'>,
+  ): Promise<LearningCandidateMetrics>;
+  transitionLearningCandidate(
+    candidateId: string,
+    transition: LearningTransition,
+    input: LearningTransitionInput,
+  ): Promise<LearningCandidate>;
+  evaluateLearningCandidate(
+    candidateId: string,
+    input: LearningEvaluationInput,
+  ): Promise<LearningCandidate>;
+  shadowLearningCandidate(
+    candidateId: string,
+    input: LearningShadowInput,
+  ): Promise<LearningCandidate>;
+  decideLearningCandidate(
+    candidateId: string,
+    input: LearningDecisionInput,
+  ): Promise<LearningCandidate>;
 
   /* ---- documentos de governança em disco (working tree) ---- */
 

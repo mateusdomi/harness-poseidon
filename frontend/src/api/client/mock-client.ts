@@ -44,6 +44,8 @@ import {
   type Demand,
   type Diagnostics,
   type Document,
+  type DesignSystemBundle,
+  type PrototypingStage,
   type DocumentVersion,
   type DrainChiefTasksInput,
   type HandoffChiefInput,
@@ -487,6 +489,74 @@ export class MockApiClient implements ApiClient {
     return this.update('projects', projectId, {
       brand: { ...project.brand, logoUrl },
     });
+  }
+
+  async getPrototypingStage(projectId: Ulid): Promise<PrototypingStage> {
+    await this.#simulate();
+    const project = await this.get('projects', projectId);
+    const references = [...this.#table('visual-references').values()].filter(
+      (item) => item.projectId === projectId,
+    );
+    const bundle = references.find((item) => item.tags.includes('design-system'));
+    if (project.prototyping.mode === 'notApplicable') {
+      return {
+        projectId,
+        state: 'NotApplicable',
+        blocksAdvance: false,
+        reasonCode: 'prototyping.stage_not_applicable',
+        businessMessage: 'Este projeto não precisa de telas.',
+        entryPath: 'Prose',
+        inherited: [],
+        questions: [],
+        bundleReferenceId: null,
+        prototypingMode: project.prototyping.mode,
+        waiverReason: project.prototyping.waiver?.reason ?? null,
+      };
+    }
+    return {
+      projectId,
+      state: bundle ? 'SatisfiedByInheritance' : 'Pending',
+      blocksAdvance: bundle === undefined && project.prototyping.waiver === null,
+      reasonCode: bundle
+        ? 'prototyping.gate_satisfied_by_inheritance'
+        : 'prototyping.gate_pending_identity',
+      businessMessage: bundle
+        ? 'Aproveitei o pacote de telas que já estava cadastrado.'
+        : 'Ainda preciso da identidade visual ou das telas do projeto.',
+      entryPath: bundle ? 'ReactBundle' : 'Prose',
+      inherited: bundle ? ['design system extraído do pacote anexado'] : [],
+      questions: bundle ? [] : ['Qual é a identidade visual? (logo e cores)'],
+      bundleReferenceId: bundle?.id ?? null,
+      prototypingMode: project.prototyping.mode,
+      waiverReason: project.prototyping.waiver?.reason ?? null,
+    };
+  }
+
+  async uploadDesignSystemBundle(
+    projectId: Ulid,
+    file: File,
+    title?: string,
+  ): Promise<DesignSystemBundle> {
+    await this.get('projects', projectId);
+    const reference = await this.create('visual-references', {
+      projectId,
+      title: title?.trim() || file.name.replace(/\.zip$/i, ''),
+      imageUrl: `zip:${file.name}`,
+      source: 'upload',
+      tags: ['design-system'],
+    });
+    return {
+      referenceId: reference.id,
+      assetId: this.#options.nextId(),
+      projectId,
+      title: reference.title,
+      fileName: file.name,
+      contentType: file.type || 'application/zip',
+      sizeBytes: file.size,
+      sha256: 'mock',
+      businessMessage: 'Pacote recebido e validado.',
+      createdAt: reference.createdAt,
+    };
   }
 
   async create<K extends CreatableResource>(

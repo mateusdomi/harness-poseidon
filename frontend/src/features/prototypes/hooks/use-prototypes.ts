@@ -6,6 +6,7 @@ import {
   type Organization,
   type Project,
   type Prototype,
+  type PrototypingStage,
   type Ulid,
   type VisualReference,
 } from '@/api';
@@ -16,6 +17,7 @@ import { useRealtimeStream } from '@/features/shared/hooks/use-realtime-stream';
 export const prototypeKeys = {
   list: (projectId: Ulid) => ['prototypes', 'list', projectId] as const,
   references: (projectId: Ulid) => ['prototypes', 'references', projectId] as const,
+  stage: (projectId: Ulid) => ['prototypes', 'stage', projectId] as const,
   organizations: ['prototypes', 'organizations'] as const,
 };
 
@@ -44,6 +46,16 @@ export function useVisualReferences(projectId: Ulid | null) {
   });
 }
 
+/** Leitura explicável do portão da etapa opcional de Prototipação. */
+export function usePrototypingStage(projectId: Ulid | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: prototypeKeys.stage(projectId ?? 'none'),
+    queryFn: async (): Promise<PrototypingStage> => api.getPrototypingStage(projectId!),
+    enabled: projectId !== null,
+  });
+}
+
 /** Organizações (marca herdável pelo projeto). */
 export function useOrganizations() {
   const api = useApi();
@@ -64,13 +76,29 @@ export function useCreateVisualReference() {
   });
 }
 
+/** Upload com intenção explícita: o ZIP React vira o design system do projeto. */
+export function useUploadDesignSystemBundle() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, file, title }: { projectId: Ulid; file: File; title?: string }) =>
+      api.uploadDesignSystemBundle(projectId, file, title),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROTOTYPES_PREFIX }),
+  });
+}
+
 /** Seleção do cenário de prototipação do projeto (com waiver quando aplicável). */
 export function useUpdatePrototyping() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ projectId, prototyping }: { projectId: Ulid; prototyping: Project['prototyping'] }) =>
-      api.update('projects', projectId, { prototyping }),
+    mutationFn: ({
+      projectId,
+      prototyping,
+    }: {
+      projectId: Ulid;
+      prototyping: Project['prototyping'];
+    }) => api.update('projects', projectId, { prototyping }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PROTOTYPES_PREFIX });
       void queryClient.invalidateQueries({ queryKey: ['projects'] });

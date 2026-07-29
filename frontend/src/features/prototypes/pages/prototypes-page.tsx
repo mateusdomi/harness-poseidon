@@ -2,7 +2,16 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileArchive, ImageIcon, Pencil, Upload } from 'lucide-react';
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton } from '@/design-system';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Select,
+  Skeleton,
+} from '@/design-system';
 import { prototypeStateVariant } from '@/lib/status';
 import { formatDate } from '@/lib/format';
 import { PrototypingModeDialog } from '@/features/prototypes/components/prototyping-mode-dialog';
@@ -11,6 +20,7 @@ import { UploadReferenceDialog } from '@/features/prototypes/components/upload-r
 import {
   useOrganizations,
   usePrototypes,
+  usePrototypingStage,
   usePrototypesRealtime,
   useVisualReferences,
 } from '@/features/prototypes/hooks/use-prototypes';
@@ -40,6 +50,7 @@ export default function UprototypesPage() {
 
   const prototypesQuery = usePrototypes(projectId);
   const referencesQuery = useVisualReferences(projectId);
+  const stageQuery = usePrototypingStage(projectId);
   const organizationsQuery = useOrganizations();
   usePrototypesRealtime(projectId);
 
@@ -55,8 +66,10 @@ export default function UprototypesPage() {
     isPending ||
     prototypesQuery.isLoading ||
     referencesQuery.isLoading ||
+    stageQuery.isLoading ||
     organizationsQuery.isLoading;
-  const errored = isError || prototypesQuery.isError || referencesQuery.isError;
+  const errored =
+    isError || prototypesQuery.isError || referencesQuery.isError || stageQuery.isError;
 
   // Galerias paginadas independentemente; reset ao trocar de projeto.
   const prototypesPagination = usePagination((prototypesQuery.data ?? []).length, {
@@ -114,6 +127,7 @@ export default function UprototypesPage() {
               refetch();
               void prototypesQuery.refetch();
               void referencesQuery.refetch();
+              void stageQuery.refetch();
             }}
           >
             {t('common.actions.retry')}
@@ -188,6 +202,44 @@ export default function UprototypesPage() {
             </CardContent>
           </Card>
 
+          {stageQuery.data && (
+            <Card>
+              <CardHeader className="flex-row flex-wrap items-center gap-3">
+                <CardTitle>{t('prototypes.stage.title')}</CardTitle>
+                <Badge variant={stageQuery.data.blocksAdvance ? 'warning' : 'success'}>
+                  {t(`prototypes.stage.states.${stageQuery.data.state}`)}
+                </Badge>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <p className="text-sm">{stageQuery.data.businessMessage}</p>
+                <p className="text-xs text-foreground-muted">
+                  {t('prototypes.stage.entryPath')}:{' '}
+                  {t(`prototypes.stage.paths.${stageQuery.data.entryPath}`)}
+                </p>
+                {stageQuery.data.inherited.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium">{t('prototypes.stage.inherited')}</p>
+                    <ul className="list-disc pl-5 text-sm text-foreground-muted">
+                      {stageQuery.data.inherited.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {stageQuery.data.questions.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium">{t('prototypes.stage.missing')}</p>
+                    <ul className="list-disc pl-5 text-sm text-foreground-muted">
+                      {stageQuery.data.questions.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {notApplicable ? (
             <Card>
               <CardContent className="flex flex-col items-start gap-3 p-6">
@@ -206,51 +258,62 @@ export default function UprototypesPage() {
                   {t('prototypes.sections.prototypes')}
                 </h2>
                 {(prototypesQuery.data ?? []).length === 0 ? (
-                  <p className="text-sm text-foreground-muted">{t('prototypes.empty.prototypes')}</p>
+                  <p className="text-sm text-foreground-muted">
+                    {t('prototypes.empty.prototypes')}
+                  </p>
                 ) : (
                   <>
-                    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {prototypesPagination.paginate(prototypesQuery.data ?? []).map((prototype) => (
-                      <li key={prototype.id}>
-                        <Card className="h-full">
-                          <CardContent className="flex h-full flex-col gap-2 p-4">
-                            {prototype.thumbnailUrl ? (
-                              <img
-                                src={prototype.thumbnailUrl}
-                                alt=""
-                                className="h-28 w-full rounded object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-28 items-center justify-center rounded border border-border bg-surface-elevated">
-                                <ImageIcon aria-hidden="true" className="size-8 text-foreground-muted" />
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{prototype.name}</span>
-                              <Badge variant={prototypeStateVariant(prototype.state)}>
-                                {t(`status.prototypeState.${prototype.state}`)}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-foreground-muted">{prototype.description}</p>
-                            {prototype.url && (
-                              <a
-                                href={prototype.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-auto inline-flex min-h-11 items-center text-sm text-brand-strong underline-offset-4 hover:underline"
-                              >
-                                {t('prototypes.openExternal')}
-                              </a>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </li>
-                      ))}
+                    <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {prototypesPagination
+                        .paginate(prototypesQuery.data ?? [])
+                        .map((prototype) => (
+                          <li key={prototype.id}>
+                            <Card className="h-full">
+                              <CardContent className="flex h-full flex-col gap-2 p-4">
+                                {prototype.thumbnailUrl ? (
+                                  <img
+                                    src={prototype.thumbnailUrl}
+                                    alt=""
+                                    className="h-28 w-full rounded object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-28 items-center justify-center rounded border border-border bg-surface-elevated">
+                                    <ImageIcon
+                                      aria-hidden="true"
+                                      className="size-8 text-foreground-muted"
+                                    />
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{prototype.name}</span>
+                                  <Badge variant={prototypeStateVariant(prototype.state)}>
+                                    {t(`status.prototypeState.${prototype.state}`)}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-foreground-muted">
+                                  {prototype.description}
+                                </p>
+                                {prototype.url && (
+                                  <a
+                                    href={prototype.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-auto inline-flex min-h-11 items-center text-sm text-brand-strong underline-offset-4 hover:underline"
+                                  >
+                                    {t('prototypes.openExternal')}
+                                  </a>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </li>
+                        ))}
                     </ul>
                     <PaginationBar pagination={prototypesPagination} />
                   </>
                 )}
-                <p className="text-xs text-foreground-muted">{t('prototypes.versions.unavailable')}</p>
+                <p className="text-xs text-foreground-muted">
+                  {t('prototypes.versions.unavailable')}
+                </p>
               </section>
 
               <section className="flex flex-col gap-3" aria-labelledby="references-gallery">
@@ -258,59 +321,66 @@ export default function UprototypesPage() {
                   {t('prototypes.sections.references')}
                 </h2>
                 {(referencesQuery.data ?? []).length === 0 ? (
-                  <p className="text-sm text-foreground-muted">{t('prototypes.empty.references')}</p>
+                  <p className="text-sm text-foreground-muted">
+                    {t('prototypes.empty.references')}
+                  </p>
                 ) : (
                   <>
-                    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                      {referencesPagination.paginate(referencesQuery.data ?? []).map((reference) => {
-                      const briefing = prefixedTagValue(reference.tags, BRIEFING_TAG_PREFIX);
-                      const flowMoment = prefixedTagValue(reference.tags, FLOW_MOMENT_TAG_PREFIX);
-                      return (
-                        <li key={reference.id}>
-                          <Card className="h-full">
-                            <CardContent className="flex h-full flex-col gap-2 p-4">
-                              {isZipReference(reference) ? (
-                                <div className="flex h-24 items-center justify-center gap-2 rounded border border-border bg-surface-elevated text-foreground-muted">
-                                  <FileArchive aria-hidden="true" className="size-6" />
-                                  <span className="text-xs">{t('prototypes.zipBadge')}</span>
-                                </div>
-                              ) : (
-                                <ReferenceImage
-                                  src={reference.imageUrl}
-                                  alt={reference.title}
-                                  className="h-24 w-full rounded object-cover"
-                                />
-                              )}
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-medium">{reference.title}</span>
-                                <Badge variant="outline">
-                                  {t(`status.visualReferenceSource.${reference.source}`)}
-                                </Badge>
-                              </div>
-                              {briefing && (
-                                <p className="text-xs text-foreground-muted">
-                                  {t('prototypes.metadata.briefing')}: {briefing}
-                                </p>
-                              )}
-                              {flowMoment && (
-                                <p className="text-xs text-foreground-muted">
-                                  {t('prototypes.metadata.flowMoment')}: {flowMoment}
-                                </p>
-                              )}
-                              {plainTags(reference.tags).length > 0 && (
-                                <div className="mt-auto flex flex-wrap gap-1">
-                                  {plainTags(reference.tags).map((tag) => (
-                                    <Badge key={tag} variant="outline">
-                                      {tag}
+                    <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      {referencesPagination
+                        .paginate(referencesQuery.data ?? [])
+                        .map((reference) => {
+                          const briefing = prefixedTagValue(reference.tags, BRIEFING_TAG_PREFIX);
+                          const flowMoment = prefixedTagValue(
+                            reference.tags,
+                            FLOW_MOMENT_TAG_PREFIX,
+                          );
+                          return (
+                            <li key={reference.id}>
+                              <Card className="h-full">
+                                <CardContent className="flex h-full flex-col gap-2 p-4">
+                                  {isZipReference(reference) ? (
+                                    <div className="flex h-24 items-center justify-center gap-2 rounded border border-border bg-surface-elevated text-foreground-muted">
+                                      <FileArchive aria-hidden="true" className="size-6" />
+                                      <span className="text-xs">{t('prototypes.zipBadge')}</span>
+                                    </div>
+                                  ) : (
+                                    <ReferenceImage
+                                      src={reference.imageUrl}
+                                      alt={reference.title}
+                                      className="h-24 w-full rounded object-cover"
+                                    />
+                                  )}
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-medium">{reference.title}</span>
+                                    <Badge variant="outline">
+                                      {t(`status.visualReferenceSource.${reference.source}`)}
                                     </Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        </li>
-                      );
-                      })}
+                                  </div>
+                                  {briefing && (
+                                    <p className="text-xs text-foreground-muted">
+                                      {t('prototypes.metadata.briefing')}: {briefing}
+                                    </p>
+                                  )}
+                                  {flowMoment && (
+                                    <p className="text-xs text-foreground-muted">
+                                      {t('prototypes.metadata.flowMoment')}: {flowMoment}
+                                    </p>
+                                  )}
+                                  {plainTags(reference.tags).length > 0 && (
+                                    <div className="mt-auto flex flex-wrap gap-1">
+                                      {plainTags(reference.tags).map((tag) => (
+                                        <Badge key={tag} variant="outline">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </li>
+                          );
+                        })}
                     </ul>
                     <PaginationBar pagination={referencesPagination} />
                   </>

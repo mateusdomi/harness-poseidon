@@ -847,6 +847,7 @@ public static class HostApplication
         app.MapLearningCandidates();
         app.MapPrototypes();
         app.MapPrototypingStage();
+        app.MapDesignSystemBundles();
         app.MapVisualReferenceAssets();
         app.MapRunTargets();
         app.MapLicensing();

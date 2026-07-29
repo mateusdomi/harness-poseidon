@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { Ulid } from '@/api';
+import { ApiError, type Ulid } from '@/api';
 import { Button, Input, Textarea } from '@/design-system';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
-import { useCreateVisualReference } from '@/features/prototypes/hooks/use-prototypes';
+import {
+  useCreateVisualReference,
+  useUploadDesignSystemBundle,
+} from '@/features/prototypes/hooks/use-prototypes';
 import { buildReferenceTags } from '@/features/prototypes/lib/prototypes-derive';
 
 export interface UploadReferenceDialogProps {
@@ -19,6 +22,7 @@ export interface UploadReferenceDialogProps {
 export function UploadReferenceDialog({ projectId, onClose }: UploadReferenceDialogProps) {
   const { t } = useTranslation();
   const createReference = useCreateVisualReference();
+  const uploadBundle = useUploadDesignSystemBundle();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
@@ -38,17 +42,24 @@ export function UploadReferenceDialog({ projectId, onClose }: UploadReferenceDia
       return;
     }
     try {
-      await createReference.mutateAsync({
-        projectId,
-        title: title.trim(),
-        // Mock: a imagem usa object URL; ZIP guarda só o nome (nunca executado).
-        imageUrl: isZip ? `zip:${file.name}` : URL.createObjectURL(file),
-        source: 'upload',
-        tags: buildReferenceTags({ tags, briefing, flowMoment }),
-      });
+      if (isZip) {
+        await uploadBundle.mutateAsync({ projectId, file, title: title.trim() });
+      } else {
+        await createReference.mutateAsync({
+          projectId,
+          title: title.trim(),
+          imageUrl: URL.createObjectURL(file),
+          source: 'upload',
+          tags: buildReferenceTags({ tags, briefing, flowMoment }),
+        });
+      }
       onClose();
-    } catch {
-      setError(t('prototypes.upload.error'));
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError && cause.problem.detail
+          ? cause.problem.detail
+          : t('prototypes.upload.error'),
+      );
     }
   }
 
@@ -130,7 +141,7 @@ export function UploadReferenceDialog({ projectId, onClose }: UploadReferenceDia
           <Button type="button" variant="outline" onClick={onClose}>
             {t('common.actions.cancel')}
           </Button>
-          <Button type="submit" disabled={createReference.isPending}>
+          <Button type="submit" disabled={createReference.isPending || uploadBundle.isPending}>
             {t('prototypes.upload.submit')}
           </Button>
         </div>

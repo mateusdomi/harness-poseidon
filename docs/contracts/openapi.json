@@ -256,6 +256,65 @@
                 }
             }
         },
+        "/api/v1/projects/{id}/design-system-bundle": {
+            "post": {
+                "tags": [
+                    "prototyping"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DesignSystemBundleContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectId}/run-environment/cleanup": {
             "post": {
                 "tags": [
@@ -26503,6 +26562,59 @@
                         "items": {
                             "$ref": "#/components/schemas/PlanDependencyIssueContract"
                         }
+                    }
+                }
+            },
+            "DesignSystemBundleContract": {
+                "required": [
+                    "referenceId",
+                    "assetId",
+                    "projectId",
+                    "title",
+                    "fileName",
+                    "contentType",
+                    "sizeBytes",
+                    "sha256",
+                    "businessMessage",
+                    "createdAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "referenceId": {
+                        "type": "string"
+                    },
+                    "assetId": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "fileName": {
+                        "type": "string"
+                    },
+                    "contentType": {
+                        "type": "string"
+                    },
+                    "sizeBytes": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "sha256": {
+                        "type": "string"
+                    },
+                    "businessMessage": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 }
             },

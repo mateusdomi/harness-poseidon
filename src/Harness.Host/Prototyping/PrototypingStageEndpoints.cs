@@ -1,9 +1,11 @@
 using Harness.Host.Profiles;
 using Harness.Modules.Coordination.Application;
+using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Organizations;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Prototyping;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 
 namespace Harness.Host.Prototyping;
@@ -65,6 +67,8 @@ public static class PrototypingStageEndpoints
         IProjectStore projects,
         IOrganizationStore organizations,
         IPrototypeStore prototypes,
+        IWorkBoardStore board,
+        ISolicitationAttachmentStore solicitationAttachments,
         CancellationToken token)
     {
         if (!UlidValue.TryParse(id, out _))
@@ -95,8 +99,11 @@ public static class PrototypingStageEndpoints
         var references = await prototypes.ListReferencesAsync(profile.TenantId, id, null, 200, token);
         var projectPrototypes = await prototypes.ListPrototypesAsync(profile.TenantId, id, null, 200, token);
 
-        var bundle = references.FirstOrDefault(reference =>
-            reference.Tags.Contains(DesignSystemTag, StringComparer.OrdinalIgnoreCase));
+        var bundle = references
+            .Where(reference =>
+                reference.Tags.Contains(DesignSystemTag, StringComparer.OrdinalIgnoreCase))
+            .OrderByDescending(reference => reference.CreatedAt)
+            .FirstOrDefault();
         // O PACOTE DE TELAS CONTA COMO IDENTIDADE. A política de intake trata o pacote como
         // resposta visual completa (não pergunta nada depois dele), mas a do portão pede marca à
         // parte — quem anexou as telas ficaria preso num portão pedindo cor primária que já veio
@@ -107,11 +114,29 @@ public static class PrototypingStageEndpoints
             HasDesignSystem: bundle is not null,
             HasScreenTemplates: organization?.TemplateKeys.Count > 0);
 
-        // O acervo faz o papel do anexo: pacote armazenado é a mesma evidência que o anexo do
-        // intake trouxe, e é o que sustenta o caminho "pacote React" depois da conversa.
-        var attachments = bundle is null
-            ? Array.Empty<IntakeAttachment>()
-            : [new IntakeAttachment($"{bundle.Title}.zip", "application/zip", 1)];
+        // O acervo faz o papel do anexo: um pacote já promovido a design system tem prioridade.
+        // Sem ele, os anexos reais das solicitações do projeto preservam o caminho de entrada
+        // "documento de requisitos" em vez de o read model rebaixá-lo silenciosamente a prosa.
+        IReadOnlyList<IntakeAttachment> attachments;
+        if (bundle is not null)
+        {
+            attachments = [new IntakeAttachment($"{bundle.Title}.zip", "application/zip", 1)];
+        }
+        else
+        {
+            var solicitations = await board.ListSolicitationsAsync(
+                profile.TenantId, id, null, 200, token);
+            var collected = new List<IntakeAttachment>();
+            foreach (var solicitation in solicitations)
+            {
+                var stored = await solicitationAttachments.ListAsync(
+                    profile.TenantId, solicitation.Id, token);
+                collected.AddRange(stored.Select(item =>
+                    new IntakeAttachment(item.FileName, item.ContentType, item.SizeBytes)));
+            }
+
+            attachments = collected;
+        }
 
         var reading = PrototypingIntakePolicy.Read(attachments, assets);
         var applies = !string.Equals(

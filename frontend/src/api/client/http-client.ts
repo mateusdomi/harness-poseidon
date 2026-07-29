@@ -56,9 +56,12 @@ import {
   type WorkflowVersion,
   type Approval,
   type Document,
+  type DesignSystemBundle,
+  type PrototypingStage,
   type Solicitation,
   agentExecutorSchema,
   activeConversationSelectionSchema,
+  designSystemBundleSchema,
   evaluationRecommendationsResponseSchema,
   evaluationResultSchema,
   ledgerReconciliationSchema,
@@ -113,6 +116,7 @@ import {
   chatTurnHandleSchema,
   projectReadinessSnapshotSchema,
   phaseObligationProgressSchema,
+  prototypingStageSchema,
   governanceDocTreeSchema,
   governanceDocContentSchema,
   agentAccountRosterSchema,
@@ -231,6 +235,30 @@ export class HttpApiClient implements ApiClient {
     return this.#request('POST', `/projects/${projectId}/logo`, form);
   }
 
+  async getPrototypingStage(projectId: Ulid): Promise<PrototypingStage> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/projects/${projectId}/prototyping-stage`,
+    );
+    return prototypingStageSchema.parse(response);
+  }
+
+  async uploadDesignSystemBundle(
+    projectId: Ulid,
+    file: File,
+    title?: string,
+  ): Promise<DesignSystemBundle> {
+    const form = new FormData();
+    form.append('file', file);
+    if (title?.trim()) form.append('title', title.trim());
+    const response = await this.#request<unknown>(
+      'POST',
+      `/projects/${projectId}/design-system-bundle`,
+      form,
+    );
+    return designSystemBundleSchema.parse(response);
+  }
+
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task> {
     return this.#request('POST', `/tasks/${taskId}/moves`, input);
   }
@@ -284,7 +312,10 @@ export class HttpApiClient implements ApiClient {
     return this.#request('POST', '/workflow-templates', input);
   }
 
-  createWorkflowDraftVersion(templateId: Ulid, input?: WorkflowDraftInput): Promise<WorkflowVersion> {
+  createWorkflowDraftVersion(
+    templateId: Ulid,
+    input?: WorkflowDraftInput,
+  ): Promise<WorkflowVersion> {
     return this.#request('POST', `/workflow-templates/${templateId}/drafts`, input ?? {});
   }
 
@@ -292,7 +323,10 @@ export class HttpApiClient implements ApiClient {
     return this.#request('PATCH', `/workflow-versions/${versionId}`, input);
   }
 
-  publishWorkflowDraft(versionId: Ulid, input?: PublishWorkflowDraftInput): Promise<WorkflowVersion> {
+  publishWorkflowDraft(
+    versionId: Ulid,
+    input?: PublishWorkflowDraftInput,
+  ): Promise<WorkflowVersion> {
     return this.#request('POST', `/workflow-versions/${versionId}/publish`, input ?? {});
   }
 
@@ -626,53 +660,100 @@ export class HttpApiClient implements ApiClient {
     if (query?.cursor) params.set('cursor', query.cursor);
     if (query?.limit !== undefined) params.set('limit', String(query.limit));
     const suffix = params.size > 0 ? `?${params.toString()}` : '';
-    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates${suffix}`);
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/learning-candidates${suffix}`,
+    );
     return learningCandidatePageSchema.parse(response);
   }
 
   async getLearningCandidate(candidateId: string): Promise<LearningCandidate> {
-    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}`);
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}`,
+    );
     return learningCandidateSchema.parse(response);
   }
 
   async listLearningCandidateEvidence(candidateId: string): Promise<LearningEvidenceRecord[]> {
-    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/evidence`);
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/evidence`,
+    );
     return learningEvidenceRecordSchema.array().parse(response);
   }
 
   async compareLearningCandidate(candidateId: string): Promise<LearningCandidateComparison> {
-    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/compare`);
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/compare`,
+    );
     return learningCandidateComparisonSchema.parse(response);
   }
 
-  async listLearningCandidateHistory(candidateId: string): Promise<LearningCandidateHistoryRecord[]> {
-    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/history`);
+  async listLearningCandidateHistory(
+    candidateId: string,
+  ): Promise<LearningCandidateHistoryRecord[]> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/learning-candidates/${encodeURIComponent(candidateId)}/history`,
+    );
     return learningCandidateHistoryRecordSchema.array().parse(response);
   }
 
-  async getLearningCandidateMetrics(query?: Pick<LearningCandidateQuery, 'organizationId' | 'projectId'>): Promise<LearningCandidateMetrics> {
+  async getLearningCandidateMetrics(
+    query?: Pick<LearningCandidateQuery, 'organizationId' | 'projectId'>,
+  ): Promise<LearningCandidateMetrics> {
     const params = new URLSearchParams();
     if (query?.organizationId) params.set('organizationId', query.organizationId);
     if (query?.projectId) params.set('projectId', query.projectId);
     const suffix = params.size > 0 ? `?${params.toString()}` : '';
-    const response = await this.#request<unknown>('GET', `/governance-runtime/learning-candidates/metrics${suffix}`);
+    const response = await this.#request<unknown>(
+      'GET',
+      `/governance-runtime/learning-candidates/metrics${suffix}`,
+    );
     return learningCandidateMetricsSchema.parse(response);
   }
 
-  async transitionLearningCandidate(candidateId: string, transition: LearningTransition, input: LearningTransitionInput): Promise<LearningCandidate> {
-    return this.#learningMutation(candidateId, transition, learningTransitionInputSchema.parse(input));
+  async transitionLearningCandidate(
+    candidateId: string,
+    transition: LearningTransition,
+    input: LearningTransitionInput,
+  ): Promise<LearningCandidate> {
+    return this.#learningMutation(
+      candidateId,
+      transition,
+      learningTransitionInputSchema.parse(input),
+    );
   }
 
-  async evaluateLearningCandidate(candidateId: string, input: LearningEvaluationInput): Promise<LearningCandidate> {
-    return this.#learningMutation(candidateId, 'evaluations', learningEvaluationInputSchema.parse(input));
+  async evaluateLearningCandidate(
+    candidateId: string,
+    input: LearningEvaluationInput,
+  ): Promise<LearningCandidate> {
+    return this.#learningMutation(
+      candidateId,
+      'evaluations',
+      learningEvaluationInputSchema.parse(input),
+    );
   }
 
-  async shadowLearningCandidate(candidateId: string, input: LearningShadowInput): Promise<LearningCandidate> {
+  async shadowLearningCandidate(
+    candidateId: string,
+    input: LearningShadowInput,
+  ): Promise<LearningCandidate> {
     return this.#learningMutation(candidateId, 'shadow', learningShadowInputSchema.parse(input));
   }
 
-  async decideLearningCandidate(candidateId: string, input: LearningDecisionInput): Promise<LearningCandidate> {
-    return this.#learningMutation(candidateId, 'decision', learningDecisionInputSchema.parse(input));
+  async decideLearningCandidate(
+    candidateId: string,
+    input: LearningDecisionInput,
+  ): Promise<LearningCandidate> {
+    return this.#learningMutation(
+      candidateId,
+      'decision',
+      learningDecisionInputSchema.parse(input),
+    );
   }
 
   async listAgentAccounts(): Promise<AgentAccountRoster[]> {
@@ -710,7 +791,11 @@ export class HttpApiClient implements ApiClient {
     return channelMessagePageSchema.parse(response);
   }
 
-  async #learningMutation(candidateId: string, action: string, body: unknown): Promise<LearningCandidate> {
+  async #learningMutation(
+    candidateId: string,
+    action: string,
+    body: unknown,
+  ): Promise<LearningCandidate> {
     const key = `ui-${action}-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
     const response = await this.#request<unknown>(
       'POST',
@@ -744,18 +829,38 @@ export class HttpApiClient implements ApiClient {
     await this.#request<unknown>('DELETE', `/governance-docs/${encodeDocPath(path)}`);
   }
 
-  async #request<T>(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
+  async #request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T> {
     const url = `${this.#baseUrl}${path}`;
     const requestId = globalThis.crypto?.randomUUID?.() ?? `request-${Date.now()}-${Math.random()}`;
     const requestPath = safeRequestPath(url);
     const startedAt = performance.now();
     const controller = method === 'GET' ? new AbortController() : null;
     let status: number | undefined;
-    publishApiRequestTelemetry({ requestId, method, path: requestPath, phase: 'started', durationMs: 0 });
-    const slowTimer = setTimeout(() => publishApiRequestTelemetry({
-      requestId, method, path: requestPath, phase: 'slow', durationMs: performance.now() - startedAt,
-    }), this.#slowRequestMs);
-    const timeoutTimer = controller === null ? null : setTimeout(() => controller.abort(), this.#readTimeoutMs);
+    publishApiRequestTelemetry({
+      requestId,
+      method,
+      path: requestPath,
+      phase: 'started',
+      durationMs: 0,
+    });
+    const slowTimer = setTimeout(
+      () =>
+        publishApiRequestTelemetry({
+          requestId,
+          method,
+          path: requestPath,
+          phase: 'slow',
+          durationMs: performance.now() - startedAt,
+        }),
+      this.#slowRequestMs,
+    );
+    const timeoutTimer =
+      controller === null ? null : setTimeout(() => controller.abort(), this.#readTimeoutMs);
 
     try {
       const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
@@ -781,16 +886,29 @@ export class HttpApiClient implements ApiClient {
     } catch (error) {
       if (controller?.signal.aborted) {
         status = 504;
-        throw ApiError.of(504, 'Tempo limite da API', 'A leitura excedeu o limite seguro e pode ser tentada novamente.');
+        throw ApiError.of(
+          504,
+          'Tempo limite da API',
+          'A leitura excedeu o limite seguro e pode ser tentada novamente.',
+        );
       }
       if (error instanceof ApiError) throw error;
       status = 503;
-      throw ApiError.of(503, 'API indisponível', error instanceof Error ? error.message : undefined);
+      throw ApiError.of(
+        503,
+        'API indisponível',
+        error instanceof Error ? error.message : undefined,
+      );
     } finally {
       clearTimeout(slowTimer);
       if (timeoutTimer !== null) clearTimeout(timeoutTimer);
       publishApiRequestTelemetry({
-        requestId, method, path: requestPath, phase: 'settled', durationMs: performance.now() - startedAt, status,
+        requestId,
+        method,
+        path: requestPath,
+        phase: 'settled',
+        durationMs: performance.now() - startedAt,
+        status,
       });
     }
   }

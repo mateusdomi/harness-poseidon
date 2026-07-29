@@ -180,6 +180,68 @@ describe('HttpApiClient — progresso canônico da fase', () => {
   });
 });
 
+describe('HttpApiClient — etapa de Prototipação', () => {
+  const projectId = '01ARZ3NDEKTSV4RRFFQ69G5FH2';
+  const referenceId = '01ARZ3NDEKTSV4RRFFQ69G5FH3';
+  const assetId = '01ARZ3NDEKTSV4RRFFQ69G5FH4';
+
+  it('lê o estado tipado e envia o ZIP React como multipart', async () => {
+    const stage = {
+      projectId,
+      state: 'Pending',
+      blocksAdvance: true,
+      reasonCode: 'prototyping.gate_pending_identity',
+      businessMessage: 'Ainda preciso das telas.',
+      entryPath: 'Prose',
+      inherited: [],
+      questions: ['Quais telas o projeto precisa ter?'],
+      bundleReferenceId: null,
+      prototypingMode: 'autonomousGeneration',
+      waiverReason: null,
+    };
+    const bundle = {
+      referenceId,
+      assetId,
+      projectId,
+      title: 'Telas',
+      fileName: 'telas.zip',
+      contentType: 'application/zip',
+      sizeBytes: 3,
+      sha256: 'ABC',
+      businessMessage: 'Pacote recebido e validado.',
+      createdAt: '2026-07-29T20:00:00Z',
+    };
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(stage))
+      .mockResolvedValueOnce(jsonResponse(bundle, 201));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+
+    await expect(client.getPrototypingStage(projectId)).resolves.toEqual(stage);
+    await expect(
+      client.uploadDesignSystemBundle(
+        projectId,
+        new File(['zip'], 'telas.zip', { type: 'application/zip' }),
+        'Telas',
+      ),
+    ).resolves.toEqual(bundle);
+
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      `https://api.example.test/api/v1/projects/${projectId}/prototyping-stage`,
+    );
+    const upload = fetchFn.mock.calls[1];
+    expect(upload[0]).toBe(
+      `https://api.example.test/api/v1/projects/${projectId}/design-system-bundle`,
+    );
+    expect(upload[1]).toEqual(
+      expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+    );
+    const form = upload[1]!.body as FormData;
+    expect(form.get('title')).toBe('Telas');
+    expect((form.get('file') as File).name).toBe('telas.zip');
+  });
+});
+
 describe('HttpApiClient — definições de agentes V3', () => {
   it('adapta campos editoriais ao write contract e envia versão esperada', async () => {
     const response = {

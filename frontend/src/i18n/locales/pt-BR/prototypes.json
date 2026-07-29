@@ -23,6 +23,23 @@
       "logoAlt": "Logo do projeto",
       "noLogo": "Sem logo definido"
     },
+    "stage": {
+      "title": "Etapa de Prototipação",
+      "entryPath": "Como as informações chegaram",
+      "inherited": "O que foi aproveitado",
+      "missing": "O que ainda preciso perguntar",
+      "states": {
+        "NotApplicable": "Não se aplica",
+        "Pending": "Aguardando informações",
+        "SatisfiedByInheritance": "Pronta com itens já cadastrados",
+        "SatisfiedByApproval": "Protótipo aprovado"
+      },
+      "paths": {
+        "Prose": "descrição em palavras",
+        "RequirementsDocument": "documento de requisitos",
+        "ReactBundle": "pacote React"
+      }
+    },
     "sections": {
       "prototypes": "Protótipos",
       "references": "Referências visuais"
@@ -49,7 +66,7 @@
       "open": "Enviar referência",
       "title": "Enviar referência visual",
       "file": "Arquivo (imagem ou ZIP)",
-      "zipNotice": "Imagens e arquivos ZIP são usados apenas como referência visual. Um ZIP NUNCA é executado automaticamente.",
+      "zipNotice": "Imagens entram como referência visual. Um ZIP React é validado e guardado como o pacote de telas do projeto; ele nunca é executado automaticamente.",
       "name": "Título",
       "tags": "Tags",
       "tagsPlaceholder": "Separadas por vírgula (ex.: tema, painel)",
@@ -57,7 +74,7 @@
       "flowMoment": "Momento do fluxo (opcional)",
       "flowMomentPlaceholder": "Ex.: onboarding, checkout, pós-venda",
       "submit": "Enviar referência",
-      "fileRequired": "Selecione um arquivo de imagem ou ZIP.",
+      "fileRequired": "Selecione uma imagem ou o pacote ZIP das telas.",
       "titleRequired": "Informe um título para a referência.",
       "error": "Não foi possível enviar a referência. Tente novamente."
     }

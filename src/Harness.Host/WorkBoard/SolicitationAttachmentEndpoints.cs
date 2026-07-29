@@ -1,10 +1,12 @@
 using Harness.Host.Profiles;
+using Harness.Host.Prototyping;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Coordination.Domain;
 using Harness.Modules.Governance.Memory;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Prototyping;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Memory;
@@ -115,6 +117,8 @@ public static class SolicitationAttachmentEndpoints
         ISolicitationAttachmentStore store,
         SolicitationAttachmentStorage storage,
         IMultimodalIntakeService intake,
+        IPrototypeStore prototypes,
+        IVisualReferenceAssetStore visualAssets,
         IVectorIndex vectors,
         IAuditEventStore audit,
         IClock clock,
@@ -270,6 +274,18 @@ public static class SolicitationAttachmentEndpoints
                     $"{file.FileName} ({content.Length} bytes, sha256 {sha256}); " +
                     $"scan={processed.SecurityScanStatus}; preview={processed.PreviewSnippet}"),
                 occurredAt),
+            token);
+        _ = await DesignSystemBundleEndpoints.TryPromoteIntakeBundleAsync(
+            profile,
+            solicitation.ProjectId,
+            file.FileName,
+            file.ContentType,
+            content,
+            storagePath,
+            prototypes,
+            visualAssets,
+            audit,
+            occurredAt,
             token);
         return Results.Created(
             $"/api/v1/solicitations/{solicitationId}/attachments/{record.Id}",

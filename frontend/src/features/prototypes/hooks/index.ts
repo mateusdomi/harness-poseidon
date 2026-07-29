@@ -6,4 +6,6 @@ export {
   usePrototypesRealtime,
   useUpdatePrototyping,
   useVisualReferences,
+  usePrototypingStage,
+  useUploadDesignSystemBundle,
 } from './use-prototypes';

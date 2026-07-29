@@ -23,6 +23,23 @@
       "logoAlt": "Project logo",
       "noLogo": "No logo defined"
     },
+    "stage": {
+      "title": "Prototyping stage",
+      "entryPath": "How the information arrived",
+      "inherited": "What was reused",
+      "missing": "What I still need to ask",
+      "states": {
+        "NotApplicable": "Not applicable",
+        "Pending": "Waiting for information",
+        "SatisfiedByInheritance": "Ready with existing assets",
+        "SatisfiedByApproval": "Prototype approved"
+      },
+      "paths": {
+        "Prose": "written description",
+        "RequirementsDocument": "requirements document",
+        "ReactBundle": "React bundle"
+      }
+    },
     "sections": {
       "prototypes": "Prototypes",
       "references": "Visual references"
@@ -49,7 +66,7 @@
       "open": "Upload reference",
       "title": "Upload visual reference",
       "file": "File (image or ZIP)",
-      "zipNotice": "Images and ZIP files are used as visual reference only. A ZIP is NEVER executed automatically.",
+      "zipNotice": "Images are stored as visual references. A React ZIP is validated and stored as the project's screen bundle; it is never executed automatically.",
       "name": "Title",
       "tags": "Tags",
       "tagsPlaceholder": "Comma separated (e.g. theme, dashboard)",
@@ -57,7 +74,7 @@
       "flowMoment": "Flow moment (optional)",
       "flowMomentPlaceholder": "E.g.: onboarding, checkout, post-sale",
       "submit": "Upload reference",
-      "fileRequired": "Select an image or ZIP file.",
+      "fileRequired": "Select an image or the ZIP bundle containing the screens.",
       "titleRequired": "Enter a title for the reference.",
       "error": "Could not upload the reference. Please try again."
     }

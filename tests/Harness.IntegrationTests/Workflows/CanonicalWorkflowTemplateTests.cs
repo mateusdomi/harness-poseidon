@@ -54,10 +54,13 @@ public sealed class CanonicalWorkflowTemplateTests
                     var version = (await client.GetFromJsonAsync<WorkflowVersionContract>(
                         $"/api/v1/workflow-versions/{standard.CurrentVersionId}", timeout.Token))!;
                     Assert.Equal(
-                        ["Triagem", "Análise", "Arquitetura", "Implementação", "Verificação",
-                         "Homologação", "Sustentação"],
+                        ["Triagem", "Análise", "Arquitetura", "Prototipação", "Implementação",
+                         "Verificação", "Homologação", "Sustentação"],
                         version.Phases);
-                    Assert.Equal(5, version.GatesByPhase.Count);
+                    Assert.Equal(6, version.GatesByPhase.Count);
+                    Assert.Equal(
+                        [CanonicalWorkflowTemplates.PrototypingGate],
+                        version.GatesByPhase[CanonicalWorkflowTemplates.PrototypingPhase]);
                     Assert.Contains("Homologação", version.GatesByPhase.Keys);
 
                     var organization = await CreateOrganizationAsync(client, timeout.Token);

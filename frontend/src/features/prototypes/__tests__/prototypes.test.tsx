@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
@@ -36,7 +37,11 @@ describe('prototypes-derive', () => {
       briefing: 'Visual denso para telemetria',
       flowMoment: '',
     });
-    expect(tags).toEqual(['tema', 'dashboard', `${BRIEFING_TAG_PREFIX}Visual denso para telemetria`]);
+    expect(tags).toEqual([
+      'tema',
+      'dashboard',
+      `${BRIEFING_TAG_PREFIX}Visual denso para telemetria`,
+    ]);
   });
 
   it('lê metadados prefixados e separa as tags visíveis', () => {
@@ -68,15 +73,36 @@ describe('PrototypesPage', () => {
     renderPage();
 
     expect(await screen.findByText('Geração autônoma')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Etapa de Prototipação' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Aguardando informações')).toBeInTheDocument();
+    expect(screen.getByText(/descrição em palavras/)).toBeInTheDocument();
     // Fixtures: 3 protótipos e 4 referências do projeto Poseidon.
     expect(await screen.findByText('Cockpit v1')).toBeInTheDocument();
     expect(screen.getByText('Board v2')).toBeInTheDocument();
     expect(screen.getByText('Referência de kanban denso')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'Protótipos' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Protótipos' })).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: 'Referências visuais' }),
     ).toBeInTheDocument();
+  });
+
+  it('envia ZIP pelo caminho de design system e atualiza a etapa', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Enviar referência' }));
+    const dialog = screen.getByRole('dialog', { name: 'Enviar referência visual' });
+    await user.upload(
+      within(dialog).getByLabelText('Arquivo (imagem ou ZIP)'),
+      new File(['zip'], 'telas-loja.zip', { type: 'application/zip' }),
+    );
+    await user.type(within(dialog).getByLabelText('Título'), 'Telas da loja');
+    await user.click(within(dialog).getByRole('button', { name: 'Enviar referência' }));
+
+    expect(await screen.findByText('Telas da loja')).toBeInTheDocument();
+    expect(await screen.findByText('Pronta com itens já cadastrados')).toBeInTheDocument();
+    expect(screen.getByText(/pacote React/)).toBeInTheDocument();
   });
 });
