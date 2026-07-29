@@ -18,7 +18,8 @@ internal static class RunnerMessageStoreBehavior
             1,
             "dual:1",
             RunnerMessageTypes.Heartbeat,
-            new { observedAt = occurredAt });
+            new { observedAt = occurredAt },
+            fencingToken: 5);
         var first = await store.ApplyAsync(heartbeat, occurredAt, cancellationToken);
         Assert.True(first.Receipt?.Applied);
         Assert.Equal(RunnerMessageRejection.None, first.Rejection);
@@ -40,7 +41,8 @@ internal static class RunnerMessageStoreBehavior
             2,
             "dual:2",
             RunnerMessageTypes.Checkpoint,
-            new { checkpointId = "commit-dual" });
+            new { checkpointId = "commit-dual" },
+            fencingToken: 5);
         var concurrentCheckpoint = await Task.WhenAll(
             store.ApplyAsync(checkpoint, occurredAt.AddSeconds(1), cancellationToken),
             store.ApplyAsync(checkpoint, occurredAt.AddSeconds(1), cancellationToken));
@@ -60,26 +62,35 @@ internal static class RunnerMessageStoreBehavior
         Assert.Equal(RunnerMessageRejection.SequenceGap, gap.Rejection);
         Assert.Equal(3, gap.ExpectedSequence);
 
-        var wrongOwner = await store.ApplyAsync(
+        // B5 — a posse da tentativa NÃO é do processo. Este bloco descrevia a regra antiga
+        // (`runner_owner_conflict`), que recusava a mensagem quando o identificador do processo
+        // mudava. Era justamente o agente REINICIADO que ela punia: identificador novo, trabalho
+        // feito, conclusão jogada fora. Agora o identificador é roteamento e quem decide é o
+        // fencing — e é ele que continua barrando o resultado tardio de uma tentativa superada.
+        var staleFencing = await store.ApplyAsync(
             Message(
                 "runner-other",
                 attemptId,
                 3,
-                "dual:wrong-owner",
+                "dual:stale-fencing",
                 RunnerMessageTypes.Completion,
-                new { outcome = "completed" }),
+                new { outcome = "completed" },
+                fencingToken: 1),
             occurredAt.AddSeconds(2),
             cancellationToken);
-        Assert.Equal(RunnerMessageRejection.RunnerOwnerConflict, wrongOwner.Rejection);
+        Assert.Equal(RunnerMessageRejection.StaleFencingToken, staleFencing.Rejection);
 
+        // Mesmo fencing, processo diferente: é o agente que voltou, e ele conclui a própria
+        // tentativa.
         var completion = await store.ApplyAsync(
             Message(
-                "runner-dual",
+                "runner-apos-reinicio",
                 attemptId,
                 3,
                 "dual:3",
                 RunnerMessageTypes.Completion,
-                new { outcome = "completed" }),
+                new { outcome = "completed" },
+                fencingToken: 5),
             occurredAt.AddSeconds(2),
             cancellationToken);
         Assert.True(completion.Receipt?.Applied);
@@ -98,7 +109,9 @@ internal static class RunnerMessageStoreBehavior
 
         var state = await store.ReadAttemptAsync(attemptId, cancellationToken);
         Assert.NotNull(state);
-        Assert.Equal("runner-dual", state.RunnerId);
+        // Roteamento, nao posse: o registro aponta para o processo que falou por ultimo.
+        Assert.Equal("runner-apos-reinicio", state.RunnerId);
+        Assert.Equal(5, state.FencingToken);
         Assert.Equal(3, state.LastSequence);
         Assert.Equal(1, state.HeartbeatCount);
         Assert.Equal(["commit-dual"], state.CheckpointIds);
@@ -114,11 +127,13 @@ internal static class RunnerMessageStoreBehavior
         long sequence,
         string idempotencyKey,
         string type,
-        object payload) => new(
+        object payload,
+        long fencingToken = 0) => new(
             runnerId,
             attemptId,
             sequence,
             idempotencyKey,
             type,
-            JsonSerializer.SerializeToElement(payload));
+            JsonSerializer.SerializeToElement(payload),
+            fencingToken);
 }
