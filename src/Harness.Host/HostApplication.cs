@@ -253,6 +253,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAgentRequestStore, PostgresAgentRequestStore>();
             builder.Services.AddSingleton<IExecutionCheckpointStore, PostgresExecutionCheckpointStore>();
             builder.Services.AddSingleton<ICardCircuitBreakerStore, PostgresCardCircuitBreakerStore>();
+            builder.Services.AddSingleton<IProfileActiveConversationStore, PostgresProfileActiveConversationStore>();
             builder.Services.AddSingleton<IChiefLoopGuardStore, PostgresChiefLoopGuardStore>();
             builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
@@ -289,6 +290,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAgentRequestStore, SqliteAgentRequestStore>();
             builder.Services.AddSingleton<IExecutionCheckpointStore, SqliteExecutionCheckpointStore>();
             builder.Services.AddSingleton<ICardCircuitBreakerStore, SqliteCardCircuitBreakerStore>();
+            builder.Services.AddSingleton<IProfileActiveConversationStore, SqliteProfileActiveConversationStore>();
             builder.Services.AddSingleton<IChiefLoopGuardStore, SqliteChiefLoopGuardStore>();
             builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
