@@ -22,6 +22,9 @@ public static partial class ChiefCommunicationPolicy
 {
     private const string TechnicalEntitlementKey = "presentation.technical";
 
+    public const string PublicName = "Bruna Magalhães";
+    public const string PublicTitle = "Diretora de Engenharia e Operações de IA";
+
     public static string RequiredTechnicalEntitlement => TechnicalEntitlementKey;
 
     public static ChiefCommunicationContext Business { get; } = new();
@@ -56,21 +59,26 @@ public static partial class ChiefCommunicationPolicy
               """
             : """
               Você está na experiência de negócio. Não exponha provider, modelo, executor, conta,
-              cota, token, worktree, branch, SQL, digest, UTC, IDs, logs, nomes internos de estado,
-              cards, risk tier, gates ou regras internas. Traduza fatos técnicos para impacto,
-              andamento, qualidade, pendência e próxima ação. Se o usuário pedir detalhes técnicos
-              sem autorização confirmada, diga apenas que eles não estão disponíveis neste perfil.
+              cota, token, worktree, branch, lease, fencing, heartbeat, tenant, slug, SQL, digest,
+              UTC, IDs, logs, nomes internos de estado, cards, risk tier, gates, reason codes ou
+              regras internas. Traduza fatos técnicos para impacto, andamento, qualidade,
+              pendência e próxima ação. Se o usuário pedir detalhes técnicos sem autorização
+              confirmada, diga apenas que eles não estão disponíveis neste perfil.
               """;
 
         var preferences = string.IsNullOrWhiteSpace(userPreferences)
-            ? "Use português do Brasil, com tom profissional, sereno, acolhedor e direto."
+            ? "Use português do Brasil, com tom profissional, sereno, caloroso, acolhedor e direto."
             : userPreferences.Trim();
 
         return $$"""
+            Você se apresenta sempre como {{PublicName}} — {{PublicTitle}}.
+            Você é a voz de uma equipe de agentes de IA. Se perguntarem diretamente se você é
+            uma IA ou um sistema, responda com honestidade; nunca afirme ser uma pessoa física.
+
             {{projection}}
 
             Regras invariantes:
-            - Você é a voz de uma equipe virtual; nunca afirme ser humana, funcionária humana ou
+            - Você é a voz de uma equipe de agentes de IA; nunca afirme ser humana, funcionária humana ou
               possuir vínculo empregatício real.
             - Distingua fato, inferência, incerteza e decisão pendente. Não invente progresso,
               aprovação, prazo, capacidade, causa, evidência ou conclusão.
@@ -138,9 +146,27 @@ public static partial class ChiefCommunicationPolicy
             return false;
         }
 
-        if (FalseHumanIdentityPattern().IsMatch(response))
+        if (CanonicalIdentityDenialPattern().IsMatch(response) ||
+            CanonicalAiDenialPattern().IsMatch(response))
         {
-            violation = "A resposta atribui identidade humana ou vínculo real à equipe virtual.";
+            violation = "A resposta nega a identidade pública fixa de Bruna ou sua natureza de IA.";
+            return false;
+        }
+
+        var affirmativeIdentityClaims = NegatedIdentityClaimPattern().Replace(response, string.Empty);
+        var nonCanonicalIdentityClaims =
+            CanonicalIdentityIntroductionPattern().Replace(
+                affirmativeIdentityClaims,
+                string.Empty);
+        if (FalseHumanIdentityPattern().IsMatch(affirmativeIdentityClaims))
+        {
+            violation = "A resposta atribui identidade humana ou vínculo real à equipe de agentes.";
+            return false;
+        }
+
+        if (ConflictingPublicIdentityPattern().IsMatch(nonCanonicalIdentityClaims))
+        {
+            violation = "A resposta apresenta nome ou função diferente da identidade pública de Bruna.";
             return false;
         }
 
@@ -156,8 +182,16 @@ public static partial class ChiefCommunicationPolicy
             return false;
         }
 
+        var referenceSafeSurface = UrlAuthorityPattern().Replace(response, string.Empty);
+        referenceSafeSurface = EmailAddressPattern().Replace(referenceSafeSurface, string.Empty);
+        referenceSafeSurface = FileReferencePattern().Replace(referenceSafeSurface, string.Empty);
+        var reasonCodeSurface =
+            BarePublicDomainPattern().Replace(referenceSafeSurface, string.Empty);
         if (!context.CanExposeTechnicalDetails &&
-            (TechnicalVocabularyPattern().IsMatch(response) || InternalIdentifierPattern().IsMatch(response)))
+            (TechnicalVocabularyPattern().IsMatch(response) ||
+             InternalIdentifierPattern().IsMatch(response) ||
+             RecognizableReasonCodePattern().IsMatch(referenceSafeSurface) ||
+             RawReasonCodePattern().IsMatch(reasonCodeSurface)))
         {
             violation = "A resposta contém detalhe técnico não autorizado para a experiência de negócio.";
             return false;
@@ -199,9 +233,9 @@ public static partial class ChiefCommunicationPolicy
         @"(?ix)\b(
             provider|provedor|modelo(?!\s+de\s+neg[oó]cio)|executor|
             conta\s+(?:t[eé]cnica|configurada|do\s+provider|do\s+provedor|openai|anthropic|kimi|glm)|
-            cota|quota|tokens?|
-            worktrees?|branches?|sql|digest|utc|backlog|ready|cards?|risk\s*tier|
-            gates?|projection\s*mismatch|stack\s*trace|logs?|c[oó]digo\s+t[eé]cnico|
+            cotas?|quotas?|tokens?|worktrees?|branches?|leases?|fencing|heartbeat|tenant|slug|
+            sql|digest|utc|backend|frontend|backlog|ready|cards?|risk\s*tier|gates?|
+            projection\s*mismatch|stack\s*trace|logs?|c[oó]digo\s+t[eé]cnico|
             claude|openai|anthropic|kimi|glm
         )\b",
         RegexOptions.CultureInvariant)]
@@ -218,15 +252,190 @@ public static partial class ChiefCommunicationPolicy
     private static partial Regex InternalIdentifierPattern();
 
     [GeneratedRegex(
+        @"(?ix)\bhttps?://(?:[^@\s/?#]+@)?[^/\s?#]+",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex UrlAuthorityPattern();
+
+    [GeneratedRegex(
+        @"(?ix)\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex EmailAddressPattern();
+
+    [GeneratedRegex(
+        @"(?ix)\b[\p{L}0-9][\p{L}0-9_-]*\.
+            (?:pdf|docx?|xlsx?|pptx?|csv|zip|7z|rar|png|jpe?g|webp|gif|svg|
+               md|txt|rtf|json|xml|ya?ml|html?|mp4|mov|mp3|wav)\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex FileReferencePattern();
+
+    [GeneratedRegex(
+        @"(?ix)
+        (?:
+            \b(?:
+                acesse|consulte|visite|site|dom[ií]nio|endere[cç]o |
+                (?:(?:o|a)\s+)?(?:
+                    site|projeto|portal|p[aá]gina|aplica[cç][aã]o|produto|
+                    prot[oó]tipo|documenta[cç][aã]o|material|servi[cç]o
+                )\s+(?:
+                    (?:est[aá]|fica|segue|encontra-se)\s+
+                        (?:dispon[ií]vel\s+)?(?:em|no|na) |
+                    foi\s+(?:publicad[oa]|hospedad[oa])\s+(?:em|no|na)
+                ) |
+                acompanhe\s+(?:(?:o|a)\s+)?(?:
+                    projeto|site|portal|p[aá]gina|aplica[cç][aã]o|produto|
+                    prot[oó]tipo|documenta[cç][aã]o|servi[cç]o
+                )\s+(?:em|no|na)
+            )\s+ |
+            \bwww\.
+        )
+        (?:[a-z0-9-]+\.)+[a-z]{2,63}\b(?![a-z0-9-]|\.[a-z0-9-]) |
+        \b(?:[a-z0-9-]+\.)+
+        (?:
+            aero|agency|ai|app|art|biz|br|cafe|cat|cloud|co|com|company|coop|de|
+            design|dev|digital|edu|email|fr|gov|info|io|jobs|link|live|me|media|
+            mobi|museum|name|net|network|news|online|one|org|pro|pt|shop|site|
+            software|solutions|space|store|studio|systems|team|tech|tools|top|
+            travel|uk|us|vip|website|work|world|xyz
+        )\b(?![a-z0-9-]|\.[a-z0-9-])",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex BarePublicDomainPattern();
+
+    [GeneratedRegex(
+        @"(?ix)\b(?:
+            account|agent|agents|app|approval|approve|archive|attempt|audit|auth|availability|
+            backlog|backup|board|build|canon|capability|channel|chief|com|component|compose|
+            context|continuation|conversation|core|credentials|critic|decision|demand|delivery|
+            document|dor|dotnet|durable|error|exception|execution|executor|gate|gen_ai|global|
+            gov|governance|guardrails|harness|http|hub|identity|index|item|judge|launcher|
+            license|licensing|main|manifest|message|messaging|model|model_router|notification|
+            org|organization|outbox|package|persona|policy|pom|poseidon|presentation|profile|
+            progress|project|projects|prototype|provider|provider_account|providers|quota|
+            readiness|request|response|resume|run|runner|scheduler|scope|secrets|self|server|
+            session|settings|signal|smba|solicitation|sso|task|team|thread|timer|tool|turn|
+            url|user|wait|workflow|tail|chief_loop
+        )\.(?:[a-z][a-z0-9_]*\.)*(?:
+            acquired|allowed|approved|archived|available|blocked|cancelled|checkpointed|
+            circuit_open|completed|conflict|created|degraded|deleted|denied|disabled|
+            dispatched|eligible(?:_degraded|_near_limit|_degraded_near_limit)?|error|
+            exhausted|failed|forbidden|invalid|limited|loaded|mismatch|missing|
+            not_allowed|not_available|not_found|not_implemented|orphaned_by_host_restart|
+            open|reached|reconciled|recovered|required|requested|resolved|restored|
+            running|selected|slow|started|stuck|timeout|unauthorized|unavailable|unknown|
+            unsupported|updated
+        )\b(?!\.[a-z0-9-])",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex RecognizableReasonCodePattern();
+
+    [GeneratedRegex(
+        @"(?ix)\b(?:
+            (?:
+                account|agent|agents|app|approval|approve|archive|attempt|audit|auth|availability|
+                backlog|backup|board|build|canon|capability|channel|chief|com|component|compose|
+                context|continuation|conversation|core|credentials|critic|decision|demand|delivery|
+                document|dor|dotnet|durable|error|exception|execution|executor|gate|gen_ai|global|
+                gov|governance|guardrails|harness|http|hub|identity|index|item|judge|launcher|
+                license|licensing|main|manifest|message|messaging|model|model_router|notification|
+                org|organization|outbox|package|persona|policy|pom|poseidon|presentation|profile|
+                progress|project|projects|prototype|provider|provider_account|providers|quota|
+                readiness|request|response|resume|run|runner|scheduler|scope|secrets|self|server|
+                session|settings|signal|smba|solicitation|sso|task|team|thread|timer|tool|turn|
+                url|user|wait|workflow|tail|chief_loop
+            )\.[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)* |
+            [a-z][a-z0-9_]*\.[a-z][a-z0-9_]*_[a-z0-9_]*(?:\.[a-z][a-z0-9_]*)* |
+            [a-z][a-z0-9]*(?:_[a-z0-9]+)+(?!\.[a-z0-9]{2,10}\b)
+        )\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex RawReasonCodePattern();
+
+    [GeneratedRegex(
+        @"(?ix)\b(?:
+            n[aã]o\s+sou\s+(?:a\s+)?Bruna(?:\s+Magalh[aã]es)? |
+            n[aã]o\s+sou\s+(?:a\s+)?Diretora\s+de\s+Engenharia\s+e\s+
+                Opera[cç][oõ]es\s+de\s+IA |
+            meu\s+nome\s+n[aã]o\s+[eé]\s+Bruna(?:\s+Magalh[aã]es)?
+        )\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex CanonicalIdentityDenialPattern();
+
+    [GeneratedRegex(
+        @"(?ix)\b(?:
+            n[aã]o\s+sou\s+(?:uma?\s+)?(?:
+                IA |
+                intelig[eê]ncia\s+artificial |
+                agente\s+de\s+IA |
+                sistema(?:\s+de\s+IA)?
+            ) |
+            n[aã]o\s+sou\s+(?:uma?\s+)?sistema
+        )\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex CanonicalAiDenialPattern();
+
+    [GeneratedRegex(
+        @"\b(?:
+            (?i:n[aã]o\s+sou\s+)(?:
+                (?i:(?:uma\s+)?(?:pessoa\s+(?:real|f[ií]sica)|human[oa]|
+                    funcion[aá]ri[oa]\s+human[oa]|empregad[oa]\s+human[oa])) |
+                (?i:(?:(?:a|o|uma|um)\s+)?(?:
+                    chief|chefe|orquestrador[ae]?|gerente|gestor[ae]?|diretor[ae]?|
+                    coordenador[ae]?|l[ií]der|respons[aá]vel|head|
+                    product\s+owner|scrum\s+master|arquitet[oa]|engenheir[oa]|
+                    analista|consultor[ae]?|assistente
+                )) |
+                (?:a\s+|o\s+)?[\p{Lu}][\p{L}'-]*(?:\s+[\p{Lu}][\p{L}'-]*)?
+            ) |
+            (?i:n[aã]o\s+(?:tenho|possuo)\s+(?:um\s+)?v[ií]nculo\s+empregat[ií]cio\s+real)
+        )\b",
+        RegexOptions.IgnorePatternWhitespace | RegexOptions.CultureInvariant)]
+    private static partial Regex NegatedIdentityClaimPattern();
+
+    [GeneratedRegex(
         @"(?ix)\b(
-            funcion[aá]ri[oa]\s+human[oa] |
-            empregad[oa]\s+human[oa] |
-            pessoa\s+real |
-            v[ií]nculo\s+empregat[ií]cio |
-            sou\s+(?:uma\s+)?(?:pessoa|humana)
+            (?:eu\s+)?sou\s+(?:uma\s+)?(?:
+                pessoa\s+(?:real|f[ií]sica) |
+                human[oa] |
+                funcion[aá]ri[oa]\s+human[oa] |
+                empregad[oa]\s+human[oa]
+            ) |
+            (?:eu\s+)?(?:tenho|possuo)\s+(?:um\s+)?v[ií]nculo\s+empregat[ií]cio\s+real
         )\b",
         RegexOptions.CultureInvariant)]
     private static partial Regex FalseHumanIdentityPattern();
+
+    [GeneratedRegex(
+        @"\b(?:
+            (?i:meu\s+nome\s+[eé]|eu\s+me\s+chamo|(?:eu\s+)?sou)\s+
+                (?:
+                    (?:a\s+)?Bruna(?:\s+Magalh[aã]es)?
+                        (?!\s+(?:(?:da|de|do|das|dos)\s+)?[\p{Lu}][\p{Ll}]) |
+                    (?:a\s+)?Diretora\s+de\s+Engenharia\s+e\s+Opera[cç][oõ]es\s+de\s+IA |
+                    IA |
+                    (?:a|uma?)\s+IA |
+                    (?:uma?\s+)?agente\s+de\s+IA |
+                    (?:uma?\s+)?sistema(?:\s+de\s+IA)?
+                ) |
+            (?i:aqui\s+[eé]\s+(?:a\s+)?)Bruna(?:\s+Magalh[aã]es)?
+                (?!\s+(?:(?:da|de|do|das|dos)\s+)?[\p{Lu}][\p{Ll}])
+        )",
+        RegexOptions.IgnorePatternWhitespace | RegexOptions.CultureInvariant)]
+    private static partial Regex CanonicalIdentityIntroductionPattern();
+
+    [GeneratedRegex(
+        @"\b(?:
+            (?i:meu\s+nome\s+[eé]|eu\s+me\s+chamo)\s+
+                [\p{Lu}][\p{L}'-]*(?:\s+[\p{Lu}][\p{L}'-]*)? |
+            (?i:(?:eu\s+)?sou\s+(?:(?:a|o|uma|um)\s+)?(?:
+                chief|chefe|orquestrador[ae]?|gerente|gestor[ae]?|diretor[ae]?|
+                coordenador[ae]?|l[ií]der|respons[aá]vel|head|
+                product\s+owner|scrum\s+master|arquitet[oa]|engenheir[oa]|
+                analista|consultor[ae]?|assistente
+            ))\b |
+            (?i:(?:eu\s+)?sou\s+)(?:a\s+|o\s+)?
+                [\p{Lu}][\p{L}'-]*(?:\s+[\p{Lu}][\p{L}'-]*)? |
+            (?i:aqui\s+[eé]\s+)(?:a\s+|o\s+)?
+                [\p{Lu}][\p{L}'-]*(?:\s+[\p{Lu}][\p{L}'-]*)?
+        )",
+        RegexOptions.IgnorePatternWhitespace | RegexOptions.CultureInvariant)]
+    private static partial Regex ConflictingPublicIdentityPattern();
 
     [GeneratedRegex(
         @"(?ix)\b(

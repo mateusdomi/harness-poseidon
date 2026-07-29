@@ -70,7 +70,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         // O perfil da conta é o config home isolado do alias.
         Assert.Equal("chief-claude-primary", captured.Profile.Alias);
         // O prompt carrega persona, contexto (digest) e a mensagem — nesta ordem de intenção.
-        Assert.Contains("Chief Orchestrator", captured.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Bruna Magalhães", captured.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Diretora de Engenharia e Operações de IA", captured.Prompt, StringComparison.Ordinal);
         Assert.Contains("Como está o projeto?", captured.Prompt, StringComparison.Ordinal);
         Assert.Contains("\"cards\":7", captured.Prompt, StringComparison.Ordinal);
         Assert.Contains("Formato de saída OBRIGATÓRIO", captured.Prompt, StringComparison.Ordinal);

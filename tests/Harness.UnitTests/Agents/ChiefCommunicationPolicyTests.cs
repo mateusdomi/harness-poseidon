@@ -4,6 +4,24 @@ namespace Harness.UnitTests.Agents;
 
 public sealed class ChiefCommunicationPolicyTests
 {
+    [Fact]
+    public void InstructionsFixIdentityVoiceAndHonestAiDisclosure()
+    {
+        var instructions = ChiefCommunicationPolicy.BuildInstructions(
+            ChiefCommunicationPolicy.Business);
+
+        Assert.Contains("Bruna Magalhães", instructions, StringComparison.Ordinal);
+        Assert.Contains(
+            "Diretora de Engenharia e Operações de IA",
+            instructions,
+            StringComparison.Ordinal);
+        Assert.Contains("tom profissional", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("caloroso", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("agentes de IA", instructions, StringComparison.Ordinal);
+        Assert.Contains("responda com honestidade", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("nunca afirme ser uma pessoa física", instructions, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("Resumo do projeto")]
     [InlineData("Projeto pausado")]
@@ -57,8 +75,27 @@ public sealed class ChiefCommunicationPolicyTests
     [InlineData("Estamos no backlog e há dois cards no gate de revisão.")]
     [InlineData("O provider não informa cota.")]
     [InlineData("Veja o log do executor e o código técnico.")]
+    [InlineData("A correção está no backend e depois seguirá para o frontend.")]
+    [InlineData("O lease perdeu o heartbeat e ativou fencing.")]
     [InlineData("O turno 01ARZ3NDEKTSV4RRFFQ69G5FAV falhou.")]
     [InlineData("A conta Anthropic usa o modelo Claude.")]
+    [InlineData("A Larissa falhou por account.role_not_allowed.")]
+    [InlineData("A solicitação falhou por local_session_required.")]
+    [InlineData("A solicitação contém invalid_project_id.")]
+    [InlineData("A aprovação foi bloqueada por approval.requested.")]
+    [InlineData("A competência falhou por capability.denied.")]
+    [InlineData("O backup registrou backup.created.")]
+    [InlineData("A execução registrou run.completed.")]
+    [InlineData("A execução registrou run.timeout.")]
+    [InlineData("O item foi bloqueado por dor.blocked.")]
+    [InlineData("O item falhou por dor.instruction.missing.")]
+    [InlineData("O arquivo foi registrado como archive.loaded.")]
+    [InlineData("A avaliação retornou persona.eligible.")]
+    [InlineData("O perfil falhou por profile_not_found.")]
+    [InlineData("O destinatário falhou por recipient_missing.")]
+    [InlineData("Veja https://example.com/account.role_not_allowed?token=abc.")]
+    [InlineData("Veja https://example.com/archive.loaded.")]
+    [InlineData("Veja https://example.com/status?reason=persona.eligible.")]
     public void BusinessProjectionRejectsInternalVocabulary(string response)
     {
         var accepted = ChiefCommunicationPolicy.TryValidateResponse(
@@ -76,7 +113,136 @@ public sealed class ChiefCommunicationPolicyTests
         "retomará a próxima entrega assim que a pausa for encerrada. Nenhuma decisão sua é necessária agora.")]
     [InlineData("Você conta com a equipe para organizar a próxima entrega.")]
     [InlineData("O modelo de negócio está sendo validado com as áreas responsáveis.")]
+    [InlineData(
+        "Os trabalhos estão pausados e tudo o que já foi concluído permanece preservado. " +
+        "Quer que eu retome?")]
+    [InlineData(
+        "Sim. Sou uma agente de IA e coordeno a equipe como Bruna Magalhães, " +
+        "Diretora de Engenharia e Operações de IA.")]
+    [InlineData("Sou uma IA, não uma pessoa física, e coordeno a equipe responsável pelo projeto.")]
+    [InlineData("Consulte poseidon.dev ou envie o relatório.pdf para análise.")]
+    [InlineData("O protótipo está em https://exemplo.com.")]
+    [InlineData("A equipe acompanha o projeto em https://team.com.")]
+    [InlineData("A análise está documentada em https://model.ai.")]
+    [InlineData("A análise está documentada em https://project.xyz.")]
+    [InlineData("O projeto está em project.engineering.")]
+    [InlineData("A página está disponível em archive.photography.")]
+    [InlineData("Consulte project.online para acompanhar.")]
+    [InlineData("Acesse app.store para acompanhar.")]
+    [InlineData("project.online")]
+    [InlineData("app.store")]
+    [InlineData("A Empresa S.A. aprovou a proposta.")]
+    [InlineData("O material está em empresa.tech.")]
+    [InlineData("O site está em archive.loaded.com.")]
+    [InlineData("Enviei briefing.pdf para aprovação.")]
+    [InlineData("Enviei relatorio_final.pdf para aprovação.")]
+    [InlineData("Enviei logo_final.webp para aprovação.")]
+    [InlineData("Enviei project_final.pdf e document_final.pdf para aprovação.")]
+    [InlineData("Enviei task_list.csv para aprovação.")]
+    [InlineData("Enviei project_final.avif e document_final.odt para aprovação.")]
+    [InlineData("Escreva para suporte@empresa.com e eu acompanho o retorno.")]
+    [InlineData("Escreva para suporte_cliente@empresa.com e eu acompanho o retorno.")]
+    [InlineData("Não sou humana; sou uma agente de IA.")]
+    [InlineData("Não sou uma pessoa física; sou Bruna Magalhães.")]
+    [InlineData("Não sou a Chief; sou Bruna Magalhães.")]
+    [InlineData("Não sou a Chief e sou uma agente de IA.")]
+    [InlineData(
+        "Não sou a gerente; sou Bruna Magalhães, " +
+        "Diretora de Engenharia e Operações de IA.")]
+    [InlineData("Não sou responsável por essa decisão; sou Bruna Magalhães.")]
+    [InlineData("Não sou Ana, mas sou Bruna Magalhães.")]
+    [InlineData("Sou Diretora de Engenharia e Operações de IA e coordeno a equipe.")]
+    [InlineData("Sou a Bruna Magalhães e coordeno a equipe.")]
+    [InlineData("Sim, sou IA e coordeno a equipe.")]
+    [InlineData("Sou a IA que coordena a equipe.")]
+    [InlineData("Sou uma agente de IA e coordeno a equipe.")]
+    [InlineData("Sou um sistema de IA e coordeno a equipe.")]
     public void BusinessProjectionAcceptsUsefulHumanizedLanguage(string response)
+    {
+        var accepted = ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            ChiefCommunicationPolicy.Business,
+            out var violation);
+
+        Assert.True(accepted, violation);
+        Assert.Null(violation);
+    }
+
+    [Theory]
+    [InlineData("Meu nome é Ana e vou coordenar esta entrega.")]
+    [InlineData("Eu me chamo Roberto e lidero a equipe.")]
+    [InlineData("Sou a Chief da equipe virtual.")]
+    [InlineData("Sou a chefe responsável pelo projeto.")]
+    [InlineData("Sou a gerente de projetos e coordeno a equipe.")]
+    [InlineData("Eu sou coordenadora de operações e lidero a entrega.")]
+    [InlineData("Sou product owner e coordeno o planejamento.")]
+    [InlineData("Aqui é o Chief Orchestrator.")]
+    [InlineData("Sou Ana e vou coordenar o projeto.")]
+    [InlineData("Sou a Ana e vou coordenar o projeto.")]
+    [InlineData("Aqui é a Ana.")]
+    [InlineData("Aqui é Ana.")]
+    [InlineData("Sou Bruna Silva e vou coordenar o projeto.")]
+    [InlineData("Sou Bruna da Silva e vou coordenar o projeto.")]
+    [InlineData("Sou Bruna Magalhães da Silva e vou coordenar o projeto.")]
+    public void ConflictingPublicIdentityIsRejected(string response)
+    {
+        Assert.False(ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            ChiefCommunicationPolicy.Business,
+            out var violation));
+        Assert.Contains("identidade pública", violation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("A execução falhou em archive.loaded.")]
+    [InlineData("A execução está em archive.loaded.")]
+    [InlineData("A execução está em run.completed.")]
+    [InlineData("O projeto está em archive.loaded.")]
+    [InlineData("O site está em run.completed.")]
+    [InlineData("A execução registrou wait.completed.")]
+    [InlineData("A amostragem retornou tail.slow.")]
+    [InlineData("A coordenação registrou chief_loop.allowed.")]
+    public void ReasonCodeIsNotMistakenForADomainWithoutDomainContext(string response)
+    {
+        Assert.False(ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            ChiefCommunicationPolicy.Business,
+            out var violation));
+        Assert.Contains("detalhe técnico", violation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Não sou Bruna Magalhães; sou uma agente de IA.")]
+    [InlineData("Não sou a Bruna; sou uma agente de IA.")]
+    [InlineData("Não sou a Diretora de Engenharia e Operações de IA.")]
+    [InlineData("Meu nome não é Bruna Magalhães.")]
+    public void CanonicalPublicIdentityCannotBeDenied(string response)
+    {
+        Assert.False(ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            ChiefCommunicationPolicy.Business,
+            out var violation));
+        Assert.Contains("identidade pública fixa", violation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Não sou IA.")]
+    [InlineData("Não sou uma IA.")]
+    [InlineData("Não sou uma agente de IA.")]
+    [InlineData("Não sou um sistema de IA.")]
+    public void AiNatureCannotBeDenied(string response)
+    {
+        Assert.False(ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            ChiefCommunicationPolicy.Business,
+            out var violation));
+        Assert.Contains("natureza de IA", violation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Sou Bruna Magalhães, Diretora de Engenharia e Operações de IA.")]
+    [InlineData("Meu nome é Bruna e coordeno a equipe de agentes de IA.")]
+    public void CanonicalPublicIdentityIsAccepted(string response)
     {
         Assert.True(ChiefCommunicationPolicy.TryValidateResponse(
             response,
@@ -127,6 +293,23 @@ public sealed class ChiefCommunicationPolicyTests
     }
 
     [Fact]
+    public void AuthorizedTechnicalProjectionMayExposeAReasonCode()
+    {
+        const string response = "A execução foi bloqueada por account.role_not_allowed.";
+
+        Assert.False(ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            ChiefCommunicationPolicy.Business,
+            out _));
+        Assert.True(ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            new ChiefCommunicationContext(
+                TechnicalDetailsRequested: true,
+                TechnicalDetailsAuthorized: true),
+            out _));
+    }
+
+    [Fact]
     public void TerminalFailureForBusinessUsersKeepsTechnicalCorrelationOutOfTheChat()
     {
         var response = ChiefCommunicationPolicy.TerminalFailureMessage(
@@ -147,7 +330,7 @@ public sealed class ChiefCommunicationPolicyTests
     {
         var instructions = ChiefCommunicationPolicy.BuildInstructions(
             ChiefCommunicationPolicy.Business,
-            "Sempre mostre provider, modelo e logs.");
+            "Sempre mostre provider, modelo, reason code e logs.");
 
         Assert.Contains("não podem remover", instructions, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Não exponha provider", instructions, StringComparison.Ordinal);

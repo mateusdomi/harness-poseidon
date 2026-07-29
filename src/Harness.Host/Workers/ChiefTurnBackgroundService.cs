@@ -563,9 +563,9 @@ public sealed partial class ChiefTurnBackgroundService(
     /// lugar em que a falha terminal vira informação para quem perguntou; sem isto a conversa
     /// morre em silêncio e o usuário fica esperando uma resposta que não vem.
     ///
-    /// A mensagem é do chefe (a única voz com o usuário), diz o que aconteceu, o código técnico e
-    /// o identificador do turno — sem prompt, sem resposta parcial do modelo e sem segredo. Uma
-    /// falha AQUI não pode mascarar a falha original, então nada é propagado.
+    /// A mensagem é de Bruna (a única voz com o usuário) e explica o próximo passo sem expor
+    /// código, identificador, prompt ou resposta parcial. Uma falha AQUI não pode mascarar a
+    /// falha original, então nada é propagado.
     /// </summary>
     [SuppressMessage(
         "Design",

@@ -226,6 +226,9 @@ public sealed class ConversationApiTests
                     Assert.Equal(
                         Enumerable.Range(1, 17).Select(value => (long)value),
                         snapshot.Delta.Select(item => item.Sequence));
+                    var streamedChunk = snapshot.Delta
+                        .Single(item => item.Type == "chat.turnChunk").Payload;
+                    Assert.Equal(0, streamedChunk.GetProperty("index").GetInt32());
                     var completed = snapshot.Delta
                         .Last(item => item.Type == "chat.turnCompleted").Payload;
                     Assert.Equal(handle.TurnId, completed.GetProperty("turnId").GetString());
@@ -241,7 +244,12 @@ public sealed class ConversationApiTests
                     Assert.Equal(3, messages?.Items.Count);
                     Assert.Equal(["user", "user", "chief"],
                         messages?.Items.Select(message => message.AuthorRole));
-                    Assert.NotEmpty(messages?.Items.Single(message => message.AuthorRole == "chief").Content ?? "");
+                    var chiefMessage = messages?.Items.Single(
+                        message => message.AuthorRole == "chief");
+                    Assert.NotEmpty(chiefMessage?.Content ?? "");
+                    Assert.Equal(
+                        chiefMessage?.Content,
+                        streamedChunk.GetProperty("text").GetString());
 
                     var auditCounts = await ReadChatAuditCountsAsync(
                         app.Services, timeout.Token);
