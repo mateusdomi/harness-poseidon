@@ -24,6 +24,7 @@ import { summarizeTeamActivity } from '@/features/cockpit/lib/dashboard-presenta
 import { renderWithApi } from '@/test/render-with-providers';
 import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
 import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 const fixtures = buildFixtures(42);
 const tasks = fixtures.data.tasks;
@@ -254,6 +255,11 @@ function ChatMarker() {
 }
 
 function renderCockpit(bundle?: TestBundle) {
+  const testBundle = bundle ?? createTestBundle();
+  useSessionStore.setState({
+    activeProfileId: testBundle.fixtures.meta.currentProfileId,
+  });
+
   return renderWithApi(
     <MemoryRouter initialEntries={['/cockpit']}>
       <Routes>
@@ -264,13 +270,14 @@ function renderCockpit(bundle?: TestBundle) {
         <Route path="/projects" element={<p>PROJECTS</p>} />
       </Routes>
     </MemoryRouter>,
-    bundle,
+    testBundle,
   );
 }
 
 describe('CockpitPage', () => {
   beforeEach(() => {
     usePresentationStore.setState({ modeByProfile: {} });
+    useSessionStore.setState({ activeProfileId: null });
   });
 
   it('encerra o loading e orienta criar projeto quando a base está vazia', async () => {

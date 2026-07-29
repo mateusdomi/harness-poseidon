@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
-import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
+import { usePresentationMode } from '@/app/presentation';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
 import {
@@ -41,7 +41,7 @@ import { featureFlags } from '@/config/features';
 
 export default function CockpitPage() {
   const { t } = useTranslation();
-  const presentation = usePresentationPolicy();
+  const presentation = usePresentationMode();
   const technical = presentation.showTechnicalDetails;
   const presentationMode = technical ? 'technical' : 'business';
   const { activeProject, isPending, isError, refetch } = useActiveProject();
@@ -67,7 +67,8 @@ export default function CockpitPage() {
     agentsQuery.isLoading ||
     (technical && budgetsQuery.isLoading) ||
     activityQuery.isLoading ||
-    workflowData.isPending;
+    workflowData.isPending ||
+    phaseProgress.isPending;
   const errored =
     isError ||
     tasksQuery.isError ||
