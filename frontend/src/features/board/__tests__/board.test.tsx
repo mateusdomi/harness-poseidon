@@ -150,7 +150,7 @@ describe('BoardPage', () => {
     expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Prioridade')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Coluna')).toBeInTheDocument();
-    expect(screen.getByLabelText('Fase')).toBeInTheDocument();
+    expect(screen.getByLabelText('Etapa')).toBeInTheDocument();
     expect(screen.getByLabelText('Última atividade')).toBeInTheDocument();
     expect(screen.getByLabelText('Arquivamento')).toBeInTheDocument();
     expect(screen.queryByText('Tarefa de agente')).not.toBeInTheDocument();

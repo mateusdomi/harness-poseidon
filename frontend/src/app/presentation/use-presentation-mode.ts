@@ -2,12 +2,11 @@ import { useCallback, useMemo } from 'react';
 
 import {
   PRESENTATION_MODES,
-  presentationProfileKey,
   resolvePresentationProjection,
   type PresentationMode,
   type PresentationProjection,
 } from '@/app/presentation/presentation-mode';
-import { usePresentationModeStore } from '@/stores/presentation-mode-store';
+import { usePresentationStore } from '@/stores/presentation-store';
 import { useSessionStore } from '@/stores/session-store';
 
 export interface PresentationModeResult extends PresentationProjection {
@@ -15,28 +14,35 @@ export interface PresentationModeResult extends PresentationProjection {
 }
 
 /**
- * Fronteira única do modo de apresentação (F1 da campanha): toda tela que
- * precisa decidir "isto aparece para o cliente leigo?" chama este hook e lê
- * `isBusiness` / `showTechnicalDetails` / `showAdministrativeActions`.
- * Nenhuma tela repete a condição, e o padrão — inclusive sem perfil e com
+ * Fronteira única do modo de apresentação (F1): toda tela que precisa decidir
+ * "isto aparece para o cliente leigo?" chama este hook e lê `isBusiness` /
+ * `showTechnicalDetails` / `showAdministrativeActions`. Nenhuma tela repete a
+ * condição, e o padrão — sem perfil escolhido, sem preferência salva ou com
  * valor persistido corrompido — é sempre Negócio.
+ *
+ * Leitura síncrona e barata: lê a escolha persistida, sem consultar a API.
+ * Quem precisa saber **quais modos o perfil pode escolher** (papel e
+ * direitos) usa `usePresentationPolicy()`, que escreve no mesmo store — a
+ * escolha do modo tem uma fonte só.
  */
 export function usePresentationMode(): PresentationModeResult {
   const profileId = useSessionStore((state) => state.activeProfileId);
-  const modeByProfile = usePresentationModeStore((state) => state.modeByProfile);
-  const requestMode = usePresentationModeStore((state) => state.requestMode);
+  const modeByProfile = usePresentationStore((state) => state.modeByProfile);
+  const requestMode = usePresentationStore((state) => state.requestMode);
 
   const projection = useMemo(
     () =>
       resolvePresentationProjection(
-        modeByProfile[presentationProfileKey(profileId)],
+        profileId ? modeByProfile[profileId] : undefined,
         PRESENTATION_MODES,
       ),
     [modeByProfile, profileId],
   );
 
   const setMode = useCallback(
-    (mode: PresentationMode) => requestMode(profileId, mode),
+    (mode: PresentationMode) => {
+      if (profileId) requestMode(profileId, mode);
+    },
     [profileId, requestMode],
   );
 

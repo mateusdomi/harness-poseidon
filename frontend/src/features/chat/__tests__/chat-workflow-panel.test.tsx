@@ -392,7 +392,7 @@ describe('ChatPage — painel de workflow responsivo', () => {
     const aside = await screen.findByRole('complementary', { name: 'Workflow do projeto' });
     expect(await within(aside).findByRole('button', { name: /Validação/ })).toBeInTheDocument();
     expect(
-      within(aside).getByRole('progressbar', { name: 'Progresso da fase Validação' }),
+      within(aside).getByRole('progressbar', { name: 'Progresso da etapa Validação' }),
     ).toBeInTheDocument();
   });
 });

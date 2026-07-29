@@ -835,14 +835,14 @@
     },
     "workflow": {
       "title": "Jornada do projeto",
-      "subtitle": "Nove fases do início à sustentação. O percentual conta apenas obrigações aceitas.",
-      "timelineLabel": "Timeline das nove fases do projeto",
-      "phaseNumber": "Fase {{number}}",
-      "currentPhase": "Fase em curso",
-      "openPhase": "Abrir detalhes da fase {{phase}}",
-      "acceptedProgress": "Progresso aceito da fase {{phase}}",
+      "subtitle": "Nove etapas do início à sustentação. O percentual conta apenas obrigações aceitas.",
+      "timelineLabel": "Linha do tempo das nove etapas do projeto",
+      "phaseNumber": "Etapa {{number}}",
+      "currentPhase": "Etapa em curso",
+      "openPhase": "Abrir detalhes da etapa {{phase}}",
+      "acceptedProgress": "Progresso aceito da etapa {{phase}}",
       "acceptedFraction": "{{accepted}} de {{total}} obrigações obrigatórias aceitas",
-      "planUnavailable": "O plano canônico desta fase ainda não foi materializado.",
+      "planUnavailable": "O plano desta etapa ainda não foi preparado.",
       "progressError": "Não foi possível consultar o progresso canônico.",
       "signals": {
         "inProgress": "Em andamento",
@@ -910,10 +910,10 @@
       }
     },
     "fleet": {
-      "title": "Quadro da Equipe",
+      "title": "Fleet operacional",
       "subtitle": "Bruna e as identidades globais disponíveis para executar trabalho em qualquer projeto.",
       "identities": "{{count}} identidades",
-      "error": "Não foi possível consultar o quadro da equipe.",
+      "error": "Não foi possível consultar o estado da fleet.",
       "empty": "Nenhuma identidade de execução foi configurada nesta instalação.",
       "kpis": {
         "online": "Online",
@@ -930,15 +930,15 @@
         "attention": "Saúde: atenção",
         "unhealthy": "Saúde: crítica"
       },
-      "quotaUnavailable": "Jornada: não temos essa informação para esta pessoa.",
-      "quotaReturns": "Jornada esgotada. Deve voltar às {{time}}.",
-      "quotaNoReturn": "Jornada esgotada. Ainda não sabemos quando ela volta.",
+      "quotaUnavailable": "Cota: o provedor não informa cota.",
+      "quotaReturns": "Sem cota. Retorno informado para {{time}}.",
+      "quotaNoReturn": "Sem cota. O provedor não informou quando ela retorna.",
       "cooldownReturns": "Cooldown até {{time}}.",
       "productivity": {
         "title": "Produtividade por assinatura",
-        "source": "Fonte prevista: tarefas e rodadas de trabalho registradas, atribuídas a cada pessoa. Nenhuma rodada atribuível foi publicada nesta instalação.",
+        "source": "Fonte prevista: tarefas e tentativas persistidas, atribuídas à conta de execução. Nenhuma tentativa atribuível foi publicada nesta instalação.",
         "columns": {
-          "provider": "Pessoa da equipe",
+          "provider": "Assinatura / provedor",
           "completed": "Concluídas",
           "success": "Sucesso",
           "rework": "Retrabalho",
@@ -946,7 +946,7 @@
           "duration": "Duração média"
         },
         "unavailable": "Não disponível",
-        "zeroExplanation": "Os zeros são reais para o período disponível. A duração fica indisponível porque não há rodada de trabalho registrada atribuível a uma pessoa."
+        "zeroExplanation": "Os zeros são reais para o recorte disponível. A duração fica indisponível porque não há tentativa persistida atribuível a uma assinatura."
       }
     },
     "tasksChart": {
@@ -1011,8 +1011,8 @@
       "problemState": "sem capacidade"
     },
     "quotas": {
-      "title": "Capacidade da equipe",
-      "empty": "Ainda não há histórico de jornada publicado. Quando houver observações reais, este bloco mostrará consumo e retorno da jornada ao longo do tempo; até lá, consulte o estado honesto de cada pessoa no Quadro da Equipe.",
+      "title": "Cotas críticas",
+      "empty": "Nenhuma série temporal de cota foi publicada pelos provedores. Quando houver observações reais, este card mostrará consumo e retorno da cota em uma timeline; até lá, consulte o estado honesto de cada assinatura na Fleet.",
       "severity": {
         "warning": "Atenção: {{pct}}% do budget consumido.",
         "critical": "Limite atingido: {{pct}}% do budget consumido."
@@ -1328,7 +1328,7 @@
     "authors": {
       "user": "Você",
       "chief": "Bruna Magalhães",
-      "agent": "Agente",
+      "agent": "Pessoa da equipe",
       "system": "Sistema",
       "virtualTeam": "Equipe virtual"
     },
@@ -1350,7 +1350,7 @@
     },
     "messagesLabel": "Mensagens da conversa",
     "workflowPanel": {
-      "title": "Fluxo de trabalho do projeto",
+      "title": "Workflow do projeto",
       "open": "Abrir painel do fluxo de trabalho",
       "close": "Fechar painel do fluxo de trabalho",
       "phaseProgress": "Progresso da etapa {{phase}}",
@@ -1490,11 +1490,11 @@
       "removeAttachment": "Remover anexo {{name}}",
       "model": "Modelo",
       "modelDefault": "Padrão de Bruna",
-      "effort": "Modo de trabalho",
+      "effort": "Esforço",
       "effortOptions": {
-        "low": "Rápido",
-        "medium": "Equilibrado",
-        "high": "Aprofundado",
+        "low": "Baixo",
+        "medium": "Médio",
+        "high": "Alto",
         "max": "Máximo"
       },
       "workProfile": "Perfil de trabalho",
@@ -1548,10 +1548,10 @@
       },
       "actions": {
         "reviewConfiguration": "Revisar configuração",
-        "provider": "Configurar provedor",
-        "model": "Escolher modelo",
-        "workflow": "Vincular workflow",
-        "diagnostics": "Ver diagnóstico"
+        "provider": "Concluir contratação",
+        "model": "Escolher modo de trabalho",
+        "workflow": "Vincular fluxo de trabalho",
+        "diagnostics": "Ver verificação do ambiente"
       }
     }
   },

@@ -190,6 +190,14 @@ export const EXEMPTIONS = new Map([
   ['delivery.daily.*', 'migra para o Assistente de PO (Administrador) na F5 (D10)'],
   ['delivery.sources.*', 'migra para o Assistente de PO (Administrador) na F5 (D10)'],
   ['delivery.charts.*', 'migra para o Assistente de PO (Administrador) na F5 (D10)'],
+  // Blocos que a propria tela so renderiza com `showTechnicalDetails`
+  // (verificado no codigo): o termo tecnico e correto la, e nunca chega ao
+  // cliente leigo. Nao e perdao — e onde o texto aparece.
+  ['cockpit.fleet.*', 'card renderizado so no modo Tecnico (cockpit-page.tsx)'],
+  ['cockpit.quotas.*', 'card renderizado so no modo Tecnico (cockpit-page.tsx)'],
+  ['chat.composer.effort', 'seletor renderizado so no modo Tecnico (composer.tsx)'],
+  ['chat.composer.effortOptions.*', 'seletor renderizado so no modo Tecnico (composer.tsx)'],
+  ['chat.workflowPanel.title', 'titulo tecnico; o Negocio usa chat.projectPanel.title'],
   // D1/F8: a definição de agente (modelo, conta, esforço, risco) é configuração
   // técnica; no Negócio a pessoa aparece com nome, cargo e competências.
   ['orchestrator.definitions.*', 'definição de agente — só no modo Técnico (D1, F8)'],
@@ -226,16 +234,37 @@ export function mergedCatalog(lang, root = LOCALES_ROOT) {
   return catalog;
 }
 
-function* leaves(node, prefix) {
+function* leaves(node, prefix, siblings = []) {
   if (typeof node === 'string') {
-    yield [prefix, node];
+    yield [prefix, node, siblings];
     return;
   }
   if (node && typeof node === 'object') {
+    const keys = Object.keys(node);
     for (const [key, child] of Object.entries(node)) {
-      yield* leaves(child, prefix ? `${prefix}.${key}` : key);
+      yield* leaves(child, prefix ? `${prefix}.${key}` : key, keys);
     }
   }
+}
+
+/**
+ * Convenção de par de chaves já publicada no código: a tela escolhe
+ * `showTechnicalDetails ? <chave tecnica> : <chave de negocio>`. A variante
+ * técnica nunca chega ao cliente leigo, então fica fora da varredura:
+ *
+ *  - caminho com segmento `technical` (`board.flow.technical.stages.ready`);
+ *  - folha terminada em `Technical` (`board.hintTechnical`);
+ *  - folha com irmã de negócio (`title` ao lado de `businessTitle`).
+ *
+ * Não é exceção: é o gate entendendo onde cada texto aparece.
+ */
+export function isTechnicalOnlyKey(key, siblingKeys = []) {
+  const segments = key.split('.');
+  if (segments.includes('technical')) return true;
+  const leaf = segments.at(-1) ?? '';
+  if (/Technical$/.test(leaf)) return true;
+  const capitalized = leaf.charAt(0).toUpperCase() + leaf.slice(1);
+  return siblingKeys.includes(`business${capitalized}`) || siblingKeys.includes(`${leaf}Business`);
 }
 
 /**
@@ -253,8 +282,9 @@ export function collectVocabularyViolations(
     for (const namespace of Object.keys(catalog)) {
       // Default-FAIL: namespace desconhecido é Negócio até prova em contrário.
       if (technical.has(namespace)) continue;
-      for (const [key, text] of leaves(catalog[namespace], namespace)) {
+      for (const [key, text, siblings] of leaves(catalog[namespace], namespace)) {
         if (isExempt(key, exemptions)) continue;
+        if (isTechnicalOnlyKey(key, siblings)) continue;
         // `{{variavel}}` é nome de interpolação, não texto lido pelo dono.
         const visible = text.replace(/\{\{[^}]*\}\}/g, ' ');
         for (const [pattern, hint] of rules) {

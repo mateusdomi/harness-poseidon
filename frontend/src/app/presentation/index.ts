@@ -1,11 +1,20 @@
 export {
-  ANONYMOUS_PRESENTATION_PROFILE,
+  TECHNICAL_PRESENTATION_ENTITLEMENT,
+  allowedPresentationModes,
+  resolvePresentationPolicy,
+  type PresentationMode,
+  type PresentationPolicy,
+} from './presentation-policy';
+export {
+  usePresentationPolicy,
+  presentationKeys,
+  type PresentationPolicyResult,
+} from './use-presentation-policy';
+export {
   DEFAULT_PRESENTATION_MODE,
   PRESENTATION_MODES,
   isPresentationMode,
-  presentationProfileKey,
   resolvePresentationProjection,
-  type PresentationMode,
   type PresentationProjection,
 } from './presentation-mode';
 export {

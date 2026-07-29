@@ -7,6 +7,7 @@ import {
   TECHNICAL_NAMESPACES,
   collectVocabularyViolations,
   isExempt,
+  isTechnicalOnlyKey,
   loadCatalogs,
   staleClassification,
 } from '../../../scripts/check-business-vocabulary.mjs';
@@ -70,6 +71,39 @@ describe('gate de vocabulário — Default-FAIL', () => {
     expect(isExempt('settings.diagnostics.title', exemptions)).toBe(true);
     expect(isExempt('settings.diagnostics.keys.api', exemptions)).toBe(true);
     expect(isExempt('settings.workspace.hint', exemptions)).toBe(false);
+  });
+
+  it('reconhece a variante técnica de um par de chaves (convenção do código)', () => {
+    // `showTechnicalDetails ? title : businessTitle` — `title` é a técnica.
+    expect(isTechnicalOnlyKey('board.detail.approvals.title', ['title', 'businessTitle'])).toBe(
+      true,
+    );
+    expect(isTechnicalOnlyKey('board.hintTechnical', ['hint', 'hintTechnical'])).toBe(true);
+    expect(isTechnicalOnlyKey('board.flow.technical.stages.ready', ['ready'])).toBe(true);
+    // A variante de negócio continua varrida — é o que o leigo lê.
+    expect(isTechnicalOnlyKey('board.hint', ['hint', 'hintTechnical'])).toBe(false);
+    expect(isTechnicalOnlyKey('board.flow.business.intro', ['intro'])).toBe(false);
+    expect(isTechnicalOnlyKey('board.detail.approvals.businessTitle', ['title', 'businessTitle'])).toBe(
+      false,
+    );
+  });
+
+  it('variante técnica sai da varredura; a de negócio, não', () => {
+    const violations = collectVocabularyViolations({
+      'pt-BR': {
+        board: {
+          hint: 'O quadro organiza o trabalho por etapa.',
+          hintTechnical: 'Os gates do workflow bloqueiam o card.',
+          flow: { technical: { intro: 'O card avança por gates.' } },
+        },
+      },
+    });
+    expect(violations).toEqual([]);
+
+    const dirtyBusiness = collectVocabularyViolations({
+      'pt-BR': { board: { hint: 'Os gates do workflow bloqueiam o card.', hintTechnical: 'x' } },
+    });
+    expect(dirtyBusiness.length).toBeGreaterThan(0);
   });
 
   it('toda exceção declara um motivo (dívida explícita, não perdão mudo)', () => {

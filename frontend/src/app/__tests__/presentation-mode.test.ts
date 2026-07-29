@@ -6,7 +6,7 @@ import {
   resolvePresentationProjection,
   usePresentationMode,
 } from '@/app/presentation';
-import { usePresentationModeStore } from '@/stores/presentation-mode-store';
+import { usePresentationStore } from '@/stores/presentation-store';
 import { useSessionStore } from '@/stores/session-store';
 
 describe('modo de apresentação — projeção pura', () => {
@@ -45,7 +45,7 @@ describe('modo de apresentação — projeção pura', () => {
 describe('usePresentationMode — fronteira única das telas', () => {
   beforeEach(() => {
     localStorage.clear();
-    usePresentationModeStore.setState({ modeByProfile: {} });
+    usePresentationStore.setState({ modeByProfile: {} });
     useSessionStore.setState({ activeProfileId: null });
   });
 
@@ -73,7 +73,7 @@ describe('usePresentationMode — fronteira única das telas', () => {
     const first = renderHook(() => usePresentationMode());
     act(() => first.result.current.setMode('admin'));
     first.unmount();
-    expect(localStorage.getItem('poseidon-presentation-mode')).toContain('admin');
+    expect(localStorage.getItem('poseidon-presentation')).toContain('admin');
 
     // Recarregar a aplicação: módulos zerados, localStorage intacto.
     vi.resetModules();

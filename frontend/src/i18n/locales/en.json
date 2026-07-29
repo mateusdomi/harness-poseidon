@@ -835,14 +835,14 @@
     },
     "workflow": {
       "title": "Project journey",
-      "subtitle": "Nine phases from intake through support. The percentage counts accepted obligations only.",
-      "timelineLabel": "Project nine-phase timeline",
-      "phaseNumber": "Phase {{number}}",
-      "currentPhase": "Current phase",
-      "openPhase": "Open details for the {{phase}} phase",
-      "acceptedProgress": "Accepted progress for phase {{phase}}",
+      "subtitle": "Nine stages from intake through support. The percentage counts accepted obligations only.",
+      "timelineLabel": "Project nine-stage timeline",
+      "phaseNumber": "Stage {{number}}",
+      "currentPhase": "Current stage",
+      "openPhase": "Open details for the {{phase}} stage",
+      "acceptedProgress": "Accepted progress for stage {{phase}}",
       "acceptedFraction": "{{accepted}} of {{total}} required obligations accepted",
-      "planUnavailable": "The canonical plan for this phase has not been materialized yet.",
+      "planUnavailable": "The plan for this stage has not been prepared yet.",
       "progressError": "Canonical progress could not be loaded.",
       "signals": {
         "inProgress": "In progress",
@@ -910,10 +910,10 @@
       }
     },
     "fleet": {
-      "title": "Team board",
+      "title": "Operational fleet",
       "subtitle": "Bruna and the global identities available to execute work in any project.",
       "identities": "{{count}} identities",
-      "error": "The team board could not be loaded.",
+      "error": "The fleet state could not be loaded.",
       "empty": "No execution identity is configured in this installation.",
       "kpis": {
         "online": "Online",
@@ -930,15 +930,15 @@
         "attention": "Health: attention",
         "unhealthy": "Health: critical"
       },
-      "quotaUnavailable": "Workload: we do not have that information for this person.",
-      "quotaReturns": "Workload exhausted. Should be back at {{time}}.",
-      "quotaNoReturn": "Workload exhausted. We do not know yet when it comes back.",
+      "quotaUnavailable": "Quota: provider does not report quota.",
+      "quotaReturns": "Out of quota. Reported return at {{time}}.",
+      "quotaNoReturn": "Out of quota. The provider did not report when it returns.",
       "cooldownReturns": "Cooldown until {{time}}.",
       "productivity": {
         "title": "Productivity by subscription",
-        "source": "Intended source: recorded tasks and work rounds attributed to each person. This installation has not published attributable rounds.",
+        "source": "Intended source: persisted tasks and attempts attributed to the execution account. This installation has not published attributable attempts.",
         "columns": {
-          "provider": "Team member",
+          "provider": "Subscription / provider",
           "completed": "Completed",
           "success": "Success",
           "rework": "Rework",
@@ -946,7 +946,7 @@
           "duration": "Average duration"
         },
         "unavailable": "Unavailable",
-        "zeroExplanation": "Zeros are real for the available period. Duration is unavailable because there is no recorded work round attributable to a person."
+        "zeroExplanation": "Zeros are real for the available slice. Duration is unavailable because there is no persisted attempt attributable to a subscription."
       }
     },
     "tasksChart": {
@@ -1011,8 +1011,8 @@
       "problemState": "no capacity"
     },
     "quotas": {
-      "title": "Team capacity",
-      "empty": "No workload history has been published yet. Once real observations exist, this block will show workload consumption and reset over time; until then, see each person's honest state on the Team board.",
+      "title": "Critical quotas",
+      "empty": "Providers have not published a quota time series. Once real observations exist, this card will show consumption and quota reset on a timeline; until then, see each subscription's honest state in Fleet.",
       "severity": {
         "warning": "Warning: {{pct}}% of the budget consumed.",
         "critical": "Limit reached: {{pct}}% of the budget consumed."
@@ -1328,7 +1328,7 @@
     "authors": {
       "user": "You",
       "chief": "Bruna Magalhães",
-      "agent": "Agent",
+      "agent": "Team member",
       "system": "System",
       "virtualTeam": "Virtual team"
     },
@@ -1490,7 +1490,7 @@
       "removeAttachment": "Remove attachment {{name}}",
       "model": "Model",
       "modelDefault": "Bruna's default",
-      "effort": "Working mode",
+      "effort": "Effort",
       "effortOptions": {
         "low": "Low",
         "medium": "Medium",
@@ -1548,10 +1548,10 @@
       },
       "actions": {
         "reviewConfiguration": "Review setup",
-        "provider": "Configure provider",
-        "model": "Choose model",
+        "provider": "Finish hiring",
+        "model": "Choose working mode",
         "workflow": "Link workflow",
-        "diagnostics": "View diagnostics"
+        "diagnostics": "View environment check"
       }
     }
   },

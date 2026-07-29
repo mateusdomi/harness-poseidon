@@ -239,7 +239,7 @@ describe('CockpitPage', () => {
     renderCockpit();
 
     expect(
-      await screen.findByRole('progressbar', { name: 'Progresso aceito da fase Validação' }),
+      await screen.findByRole('progressbar', { name: 'Progresso aceito da etapa Validação' }),
     ).toHaveAttribute('aria-valuenow', '0');
     expect(screen.getAllByRole('progressbar')).toHaveLength(1);
     expect(screen.queryByRole('progressbar', { name: 'Executado' })).not.toBeInTheDocument();
@@ -247,7 +247,7 @@ describe('CockpitPage', () => {
     expect(screen.getByText('Em revisão')).toBeInTheDocument();
     expect(screen.getAllByText('Bloqueios').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Decisões humanas').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Timeline das nove fases do projeto')).toBeInTheDocument();
+    expect(screen.getByLabelText('Linha do tempo das nove etapas do projeto')).toBeInTheDocument();
     expect(screen.getByText('Sustentação')).toBeInTheDocument();
   });
 

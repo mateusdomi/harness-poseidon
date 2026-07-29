@@ -16,6 +16,7 @@ export declare const EXEMPTIONS: Map<string, string>;
 export declare function loadCatalogs(root?: string): Catalogs;
 export declare function mergedCatalog(lang: string, root?: string): Record<string, unknown>;
 export declare function isExempt(key: string, exemptions: Map<string, string>): boolean;
+export declare function isTechnicalOnlyKey(key: string, siblingKeys?: string[]): boolean;
 export declare function collectVocabularyViolations(
   catalogs: Catalogs,
   options?: { technicalNamespaces?: string[]; exemptions?: Map<string, string> },

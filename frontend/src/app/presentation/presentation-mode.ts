@@ -1,22 +1,18 @@
-import type { Ulid } from '@/api';
+import type { PresentationMode } from '@/app/presentation/presentation-policy';
+
+export type { PresentationMode };
 
 /**
- * Modo de apresentação do produto (decisão D7 da homologação).
+ * Projeção do modo de apresentação lida pelas telas (decisão D7).
  *
- * - `business`: o cliente leigo. Só vocabulário de negócio; nenhuma superfície
- *   técnica. É o padrão e o fallback de qualquer valor inválido (fail-closed:
- *   na dúvida, mostra menos, nunca mais).
- * - `technical`: soma as telas de operação (Agentes, Governança, Provedores…).
- * - `admin`: soma Arquitetura e Assistente de PO.
+ * O tipo `PresentationMode` e a política de quais modos o perfil pode
+ * escolher vivem em `presentation-policy.ts`. Aqui fica só a projeção que as
+ * telas consomem, para que nenhuma delas reimplemente a condição
+ * `mode === 'technical' || mode === 'admin'`.
  */
 export const PRESENTATION_MODES = ['business', 'technical', 'admin'] as const;
 
-export type PresentationMode = (typeof PRESENTATION_MODES)[number];
-
 export const DEFAULT_PRESENTATION_MODE: PresentationMode = 'business';
-
-/** Chave de persistência quando não há perfil escolhido ainda. */
-export const ANONYMOUS_PRESENTATION_PROFILE = '__anonymous__';
 
 export function isPresentationMode(value: unknown): value is PresentationMode {
   return (
@@ -25,13 +21,10 @@ export function isPresentationMode(value: unknown): value is PresentationMode {
   );
 }
 
-/**
- * Projeção lida pelas telas. Os campos `show*` existem para que nenhuma tela
- * reimplemente a condição `mode === 'technical' || mode === 'admin'`.
- */
 export interface PresentationProjection {
   mode: PresentationMode;
   allowedModes: readonly PresentationMode[];
+  /** O cliente leigo: só vocabulário e superfícies de negócio. */
   isBusiness: boolean;
   /** Detalhe técnico (saúde, provedor, modelo, identificadores) pode aparecer. */
   showTechnicalDetails: boolean;
@@ -39,7 +32,10 @@ export interface PresentationProjection {
   showAdministrativeActions: boolean;
 }
 
-/** Resolve a projeção a partir de um valor persistido, que pode ser lixo. */
+/**
+ * Resolve a projeção a partir de um valor persistido, que pode ser lixo.
+ * Fail-closed: na dúvida, Negócio — mostra menos, nunca mais.
+ */
 export function resolvePresentationProjection(
   requestedMode: unknown,
   allowedModes: readonly PresentationMode[] = PRESENTATION_MODES,
@@ -55,9 +51,4 @@ export function resolvePresentationProjection(
     showTechnicalDetails: mode === 'technical' || mode === 'admin',
     showAdministrativeActions: mode === 'admin',
   };
-}
-
-/** Chave de persistência do modo por perfil (o modo é preferência de pessoa). */
-export function presentationProfileKey(profileId: Ulid | null): string {
-  return profileId ?? ANONYMOUS_PRESENTATION_PROFILE;
 }
