@@ -29,6 +29,11 @@ public sealed record CreateConversationRequest(string ProjectId, string Title);
 public sealed record CreateMessageRequest(string ConversationId, string Content);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record RememberActiveConversationRequest(string ConversationId);
+
+public sealed record ActiveConversationResponse(string ConversationId);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record StartChatTurnRequest(
     string Content, string? AccountId = null, string? ModelId = null, string? Effort = null,
     IReadOnlyList<string>? FallbackModelIds = null, string? SelectionReason = null);

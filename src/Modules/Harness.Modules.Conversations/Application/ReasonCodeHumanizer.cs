@@ -76,6 +76,23 @@ public static class ReasonCodeHumanizer
             "Quem fez o trabalho não pode ser quem confere — a conferência é sempre de um colega.",
             "Já escolhi outra pessoa para revisar."),
 
+        // --- Configuração inicial da conversa ---
+        ["provider_account.missing"] = new(
+            "Ainda falta concluir a contratação de uma pessoa da equipe.",
+            "Posso te levar à configuração inicial para resolver isso agora."),
+        ["model.none_chat_enabled"] = new(
+            "A equipe ainda não tem um modo de trabalho habilitado para conversar.",
+            "Escolha um modo na configuração inicial e eu continuo daqui."),
+        ["workflow.unbound"] = new(
+            "Este projeto ainda não tem as etapas de trabalho definidas.",
+            "Vincule um fluxo de trabalho e eu organizo a entrega a partir dele."),
+        ["chief.model_unresolved"] = new(
+            "Meu modo de trabalho ainda não está definido para este projeto.",
+            "Conclua essa escolha na configuração inicial e eu retomo sua mensagem."),
+        ["execution.not_ready"] = new(
+            "A equipe ainda está concluindo a preparação necessária para começar.",
+            "Sua mensagem ficou salva; assim que a preparação terminar, seguimos por aqui."),
+
         // --- Prontidão da tarefa ---
         ["dor.card_type.not_dispatchable"] = new(
             "Esse item precisa de uma decisão sua antes de virar trabalho da equipe.",

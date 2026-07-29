@@ -5,11 +5,9 @@ import { Loader2, Paperclip, SendHorizonal, X } from 'lucide-react';
 import type { ChatTurnEffort, Model } from '@/api';
 import { Button, Select, Textarea } from '@/design-system';
 import {
-  BUSINESS_DEDICATION_LEVELS,
-  BUSINESS_WORK_PROFILES,
+  BUSINESS_WORK_MODES,
   resolveBusinessTurnSelection,
-  type BusinessDedicationLevel,
-  type BusinessWorkProfile,
+  type BusinessWorkMode,
 } from '@/features/chat/lib/chat-turn-presentation';
 import { formatNumber } from '@/lib/format';
 
@@ -80,8 +78,7 @@ export function Composer({
   const [content, setContent] = useState('');
   const [modelId, setModelId] = useState('');
   const [effort, setEffort] = useState<EffortLevel>('medium');
-  const [workProfile, setWorkProfile] = useState<BusinessWorkProfile>('balanced');
-  const [dedication, setDedication] = useState<BusinessDedicationLevel>('complete');
+  const [workMode, setWorkMode] = useState<BusinessWorkMode>('balanced');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentSeq = useRef(0);
@@ -139,7 +136,7 @@ export function Composer({
     if (text === '' || sending || disabled) return;
     const selection = showTechnicalDetails
       ? { modelId, effort }
-      : resolveBusinessTurnSelection(models, workProfile, dedication);
+      : resolveBusinessTurnSelection(models, workMode);
     onSend(text, attachments.filter((a) => a.progress >= 100), selection);
     setContent('');
     setAttachments([]);
@@ -248,7 +245,7 @@ export function Composer({
       </div>
 
       <div
-        className="grid gap-2 sm:grid-cols-2"
+        className={showTechnicalDetails ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2'}
         role="group"
         aria-label={t('chat.composer.preferences')}
       >
@@ -293,46 +290,24 @@ export function Composer({
             </div>
           </>
         ) : (
-          <>
-            <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="chat-work-profile" className="text-xs text-foreground-muted">
-                {t('chat.composer.workProfile')}
-              </label>
-              <Select
-                id="chat-work-profile"
-                className="h-9 min-h-touch w-full rounded-full border-border bg-surface-elevated text-xs"
-                value={workProfile}
-                onChange={(event) => setWorkProfile(event.target.value as BusinessWorkProfile)}
-                disabled={disabled}
-              >
-                {BUSINESS_WORK_PROFILES.map((profile) => (
-                  <option key={profile} value={profile}>
-                    {t(`chat.composer.workProfiles.${profile}`)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="chat-dedication" className="text-xs text-foreground-muted">
-                {t('chat.composer.dedication')}
-              </label>
-              <Select
-                id="chat-dedication"
-                className="h-9 min-h-touch w-full rounded-full border-border bg-surface-elevated text-xs"
-                value={dedication}
-                onChange={(event) =>
-                  setDedication(event.target.value as BusinessDedicationLevel)
-                }
-                disabled={disabled}
-              >
-                {BUSINESS_DEDICATION_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {t(`chat.composer.dedicationLevels.${level}`)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </>
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="chat-work-mode" className="text-xs text-foreground-muted">
+              {t('chat.composer.workMode')}
+            </label>
+            <Select
+              id="chat-work-mode"
+              className="h-9 min-h-touch w-full rounded-full border-border bg-surface-elevated text-xs"
+              value={workMode}
+              onChange={(event) => setWorkMode(event.target.value as BusinessWorkMode)}
+              disabled={disabled}
+            >
+              {BUSINESS_WORK_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {t(`chat.composer.workModes.${mode}`)}
+                </option>
+              ))}
+            </Select>
+          </div>
         )}
       </div>
     </div>

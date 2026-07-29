@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { ClipboardCheck, ListChecks, OctagonAlert, Route, Sparkles } from 'lucide-react';
+import { ClipboardCheck, ListChecks, OctagonAlert, Play, Route, Sparkles } from 'lucide-react';
 
 import { Button } from '@/design-system';
 import type { QuickActionKey } from '@/features/chat/lib/chat-derive';
@@ -16,6 +16,7 @@ const ACTION_ICONS = {
   summarizeProgress: ListChecks,
   blockedStatus: OctagonAlert,
   approvalStatus: ClipboardCheck,
+  resumeProject: Play,
   planNewDemand: Route,
 } as const;
 
@@ -23,6 +24,7 @@ const ACTION_TONES: Record<QuickActionKey, string> = {
   summarizeProgress: 'text-info',
   blockedStatus: 'text-warning',
   approvalStatus: 'text-warning',
+  resumeProject: 'text-success',
   planNewDemand: 'text-brand-strong',
 };
 

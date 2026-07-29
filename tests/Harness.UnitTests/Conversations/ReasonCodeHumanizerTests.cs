@@ -51,6 +51,20 @@ public sealed class ReasonCodeHumanizerTests
         Assert.Contains("verificando", reason.Phrase, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("provider_account.missing")]
+    [InlineData("model.none_chat_enabled")]
+    [InlineData("workflow.unbound")]
+    [InlineData("chief.model_unresolved")]
+    [InlineData("execution.not_ready")]
+    public void EveryBlockerExposedByTheChatHasAnExplicitOwnerTranslation(string code)
+    {
+        Assert.True(ReasonCodeHumanizer.HasExplicitTranslation(code));
+        var reason = ReasonCodeHumanizer.Humanize(code);
+        Assert.False(string.IsNullOrWhiteSpace(reason.Phrase));
+        Assert.False(string.IsNullOrWhiteSpace(reason.NextStep));
+    }
+
     /// <summary>Gate da fase: toda frase traduzida está em linguagem de negócio.</summary>
     [Fact]
     public void EveryTranslationIsFreeOfTechnicalVocabulary()

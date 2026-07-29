@@ -7,4 +7,6 @@ public sealed record ChiefTurnWorkerOptions(
     public bool ContextBundlesEnabled { get; init; } = true;
 
     public int ContextTokenBudget { get; init; } = 12000;
+
+    public TimeSpan ActivityHeartbeatInterval { get; init; } = TimeSpan.FromSeconds(30);
 }

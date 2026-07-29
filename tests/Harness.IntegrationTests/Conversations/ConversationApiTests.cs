@@ -28,6 +28,98 @@ namespace Harness.IntegrationTests.Conversations;
 public sealed class ConversationApiTests
 {
     [Fact]
+    public async Task ActiveConversationIsRestoredByProfileAndProjectAcrossHostRestart()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "integration-artifacts",
+            $"active-conversation-{Guid.NewGuid():N}");
+        var databasePath = Path.Combine(artifactRoot, "active-conversation.db");
+        Directory.CreateDirectory(artifactRoot);
+        string profileId;
+        string projectId;
+        string selectedConversationId;
+
+        try
+        {
+            await using (var app = CreateHost(databasePath))
+            {
+                await app.StartAsync(timeout.Token);
+                try
+                {
+                    using var client = new HttpClient { BaseAddress = GetBaseAddress(app.Services) };
+                    var profile = await CreateProfileAsync(client, "Continuity", timeout.Token);
+                    profileId = profile.Id;
+                    client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
+                    var organization = await CreateOrganizationAsync(client, timeout.Token);
+                    var project = await CreateProjectAsync(
+                        client, organization.Id, timeout.Token);
+                    projectId = project.Id;
+                    using var first = await client.PostAsJsonAsync(
+                        "/api/v1/conversations",
+                        new CreateConversationRequest(projectId, "Primeira"),
+                        timeout.Token);
+                    first.EnsureSuccessStatusCode();
+                    using var second = await client.PostAsJsonAsync(
+                        "/api/v1/conversations",
+                        new CreateConversationRequest(projectId, "Selecionada"),
+                        timeout.Token);
+                    second.EnsureSuccessStatusCode();
+                    selectedConversationId = (await second.Content
+                        .ReadFromJsonAsync<ConversationResponse>(timeout.Token))!.Id;
+
+                    using var remembered = await client.PutAsJsonAsync(
+                        $"/api/v1/projects/{projectId}/conversations/active",
+                        new RememberActiveConversationRequest(selectedConversationId),
+                        timeout.Token);
+                    Assert.Equal(HttpStatusCode.NoContent, remembered.StatusCode);
+                    var recalled = await client.GetFromJsonAsync<ActiveConversationResponse>(
+                        $"/api/v1/projects/{projectId}/conversations/active",
+                        timeout.Token);
+                    Assert.Equal(selectedConversationId, recalled!.ConversationId);
+                }
+                finally
+                {
+                    await app.StopAsync(timeout.Token);
+                }
+            }
+
+            await using var restarted = CreateHost(databasePath);
+            await restarted.StartAsync(timeout.Token);
+            try
+            {
+                using var client = new HttpClient { BaseAddress = GetBaseAddress(restarted.Services) };
+                client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profileId}");
+                var recalled = await client.GetFromJsonAsync<ActiveConversationResponse>(
+                    $"/api/v1/projects/{projectId}/conversations/active",
+                    timeout.Token);
+                Assert.Equal(selectedConversationId, recalled!.ConversationId);
+
+                using var archived = await client.DeleteAsync(
+                    $"/api/v1/conversations/{selectedConversationId}",
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.NoContent, archived.StatusCode);
+                using var staleSelection = await client.GetAsync(
+                    $"/api/v1/projects/{projectId}/conversations/active",
+                    timeout.Token);
+                Assert.Equal(HttpStatusCode.NoContent, staleSelection.StatusCode);
+            }
+            finally
+            {
+                await restarted.StopAsync(timeout.Token);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ExpiredChiefLeaseIsReacquiredAfterRestartAndOldFencingIsRejected()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -461,8 +553,9 @@ public sealed class ConversationApiTests
                 $"/api/v1/event-streams/snapshot?stream=conversation:{conversationId}",
                 cancellationToken);
             if (snapshot is not null && snapshot.Delta.Any(item =>
-                    item.Type == "chat.turnCompleted" &&
-                    item.Payload.GetProperty("turnId").GetString() == turnId))
+                    item.Type == "chief.turnStateChanged" &&
+                    item.Payload.GetProperty("turnId").GetString() == turnId &&
+                    item.Payload.GetProperty("state").GetString() == "completed"))
             {
                 return snapshot;
             }

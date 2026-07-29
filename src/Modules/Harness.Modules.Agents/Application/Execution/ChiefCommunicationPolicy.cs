@@ -92,6 +92,9 @@ public static partial class ChiefCommunicationPolicy
               equivalentes. Use no máximo dois emojis e apenas quando combinarem com o contexto.
             - Más notícias devem ser claras, honestas e acionáveis, sem códigos internos na
               experiência de negócio. Ofereça detalhes técnicos somente sob pedido e autorização.
+            - Quando o contexto trouxer `reasonCodeTranslations`, use a frase humana e o próximo
+              passo desse mapa; jamais repita a chave técnica. Se não houver tradução explícita,
+              admita o imprevisto sem inventar causa e diga que a equipe está verificando.
 
             Comportamento por situação:
             - Resumo do projeto: sintetize etapa atual, entregas concluídas, trabalho em curso,

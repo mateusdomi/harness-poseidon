@@ -86,27 +86,36 @@ describe('chat-derive', () => {
   });
 
   it('deriva ações rápidas do contexto do projeto', () => {
-    expect(deriveQuickActions({ blockedTasks: 0, pendingApprovals: 0 })).toEqual([
+    expect(deriveQuickActions({
+      blockedTasks: 0,
+      pendingApprovals: 0,
+      projectPaused: false,
+    })).toEqual([
       'summarizeProgress',
       'planNewDemand',
     ]);
-    expect(deriveQuickActions({ blockedTasks: 2, pendingApprovals: 1 })).toEqual([
+    expect(deriveQuickActions({
+      blockedTasks: 2,
+      pendingApprovals: 1,
+      projectPaused: true,
+    })).toEqual([
       'summarizeProgress',
       'blockedStatus',
       'approvalStatus',
+      'resumeProject',
       'planNewDemand',
     ]);
   });
 
   it('mapeia perfis de negócio sem depender de provider ou posição no catálogo', () => {
     const models = fixtures.data.models;
-    expect(resolveBusinessTurnSelection(models, 'balanced', 'complete')).toEqual({
+    expect(resolveBusinessTurnSelection(models, 'balanced')).toEqual({
       modelId: '',
       effort: 'medium',
     });
 
-    const analytical = resolveBusinessTurnSelection(models, 'analytical', 'deep');
-    const selected = models.find((model) => model.id === analytical.modelId);
+    const deep = resolveBusinessTurnSelection(models, 'deep');
+    const selected = models.find((model) => model.id === deep.modelId);
     expect(selected?.capabilities).toContain('chat');
     expect(selected?.contextWindow).toBe(
       Math.max(
@@ -120,9 +129,10 @@ describe('chat-derive', () => {
 
 describe('MessageBubble', () => {
   it('humaniza referências históricas à liderança sem alterar o dado persistido', () => {
-    const persisted = 'Olá! Chief operacional e pronto. O Chefe acompanhará o fluxo.';
+    const persisted =
+      'Olá! Chief operacional e pronto. O Chefe acompanhará a Equipe virtual.';
     expect(publicLeadershipContent(persisted)).toBe(
-      'Olá! Bruna Magalhães está pronta. Bruna Magalhães acompanhará o fluxo.',
+      'Olá! Bruna Magalhães está pronta. Bruna Magalhães acompanhará a Equipe de IA.',
     );
     expect(persisted).toContain('Chief');
   });
@@ -205,9 +215,16 @@ describe('ChatPage', () => {
       'href',
       expect.stringContaining('/board?task='),
     );
-    expect(screen.getByRole('combobox', { name: 'Perfil de trabalho' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Nível de dedicação' })).toBeInTheDocument();
+    const mode = screen.getByRole('combobox', { name: 'Modo de trabalho' });
+    expect(mode).toBeInTheDocument();
+    expect(within(mode).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Rápido',
+      'Equilibrado',
+      'Aprofundado',
+    ]);
     expect(screen.queryByRole('combobox', { name: 'Modelo' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/equipe virtual/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText('Equipe de IA').length).toBeGreaterThan(0);
   });
 
   it('mantém modelo e esforço reais disponíveis no modo técnico autorizado', async () => {
@@ -224,7 +241,7 @@ describe('ChatPage', () => {
 
     expect(await screen.findByRole('combobox', { name: 'Modelo' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Esforço' })).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: 'Perfil de trabalho' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Modo de trabalho' })).not.toBeInTheDocument();
   });
 
   it('restaura deep link canônico e persiste a conversa por projeto', async () => {
@@ -253,6 +270,51 @@ describe('ChatPage', () => {
         ][project.id];
       expect(stored.conversationId).toBe(target.id);
     });
+  });
+
+  it('serializa trocas rápidas e persiste somente na ordem da intenção mais recente', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    const projectConversations = bundle.fixtures.data.conversations.filter(
+      (conversation) => conversation.projectId === project.id && conversation.state === 'active',
+    );
+    const original = projectConversations[0].id;
+    const other = projectConversations[1].id;
+    await bundle.api.rememberActiveConversation(project.id, original);
+
+    let releaseFirst!: () => void;
+    const firstWrite = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const remember = vi
+      .spyOn(bundle.api, 'rememberActiveConversation')
+      .mockImplementationOnce(() => firstWrite)
+      .mockResolvedValue(undefined);
+    renderWithApi(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>,
+      bundle,
+    );
+    const selector = await screen.findByLabelText('Conversa');
+    await waitFor(() =>
+      expect(
+        useConversationPreferencesStore.getState().selectionsByProfileAndProject[
+          bundle.fixtures.meta.currentProfileId
+        ]?.[project.id],
+      ).toBeDefined(),
+    );
+    expect(selector).toHaveValue(original);
+
+    await user.selectOptions(selector, other);
+    await waitFor(() => expect(screen.getByLabelText('Conversa')).toHaveValue(other));
+    await user.selectOptions(screen.getByLabelText('Conversa'), original);
+    expect(remember).toHaveBeenCalledTimes(1);
+    expect(remember).toHaveBeenNthCalledWith(1, project.id, other);
+
+    releaseFirst();
+    await waitFor(() => expect(remember).toHaveBeenCalledTimes(2));
+    expect(remember).toHaveBeenNthCalledWith(2, project.id, original);
   });
 
   it('falha de forma segura em deep link sem acesso, sem abrir outra conversa', async () => {
@@ -389,5 +451,21 @@ describe('ChatPage', () => {
         selector: 'article p, article div',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('retoma os trabalhos pausados em um clique, sem pedir priorização operacional', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    await bundle.api.pauseChief(project.id);
+    const resume = vi.spyOn(bundle.api, 'resumeChief');
+    renderWithApi(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Retomar trabalhos' }));
+    await waitFor(() => expect(resume).toHaveBeenCalledWith(project.id));
   });
 });

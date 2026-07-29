@@ -48,6 +48,11 @@ public sealed partial class ChiefTurnBackgroundService(
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly IReadOnlyDictionary<string, string> ReasonCodeTranslations =
+        ReasonCodeHumanizer.KnownCodes.ToDictionary(
+            code => code,
+            code => ReasonCodeHumanizer.Humanize(code).Compose(),
+            StringComparer.Ordinal);
     private readonly string _ownerId = $"chief-worker:{Environment.ProcessId}:{Guid.NewGuid():N}";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -109,14 +114,59 @@ public sealed partial class ChiefTurnBackgroundService(
         // eventos chief.turnStateChanged (com heartbeat lastActivityAt), para o
         // balão da conversa distinguir "trabalhando" de "travado". Observabilidade
         // honesta: só reporta fases que de fato acontecem, nunca resposta fabricada.
-        async Task ReportAsync(ChiefTurnActivity activity, string? detail = null)
+        async Task ReportAsync(
+            ChiefTurnActivity activity,
+            string? detail = null,
+            DateTimeOffset? activityStartedAt = null,
+            CancellationToken? reportToken = null)
         {
+            var occurredAt = clock.UtcNow;
             await turns.RecordActivityAsync(
                 new ChiefTurnActivityCommand(
                     lease.Turn.TenantId, lease.Turn.ProjectId, lease.Turn.ConversationId,
-                    lease.Turn.TurnId, ChiefTurnActivityState.Wire(activity), clock.UtcNow,
-                    AgentName: null, ActivityStartedAt: clock.UtcNow, Detail: detail),
-                cancellationToken);
+                    lease.Turn.TurnId, ChiefTurnActivityState.Wire(activity), occurredAt,
+                    AgentName: null,
+                    ActivityStartedAt: activityStartedAt ?? occurredAt,
+                    Detail: detail),
+                reportToken ?? cancellationToken);
+        }
+
+        async Task MaintainActivityHeartbeatAsync(
+            ChiefTurnActivity activity,
+            DateTimeOffset activityStartedAt,
+            CancellationToken heartbeatToken)
+        {
+            using var timer = new PeriodicTimer(options.ActivityHeartbeatInterval);
+            try
+            {
+                while (await timer.WaitForNextTickAsync(heartbeatToken))
+                {
+                    try
+                    {
+                        await ReportAsync(
+                            activity,
+                            activityStartedAt: activityStartedAt,
+                            reportToken: heartbeatToken);
+                    }
+                    catch (OperationCanceledException) when (heartbeatToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        // Telemetria de liveness é importante, mas uma falha transitória ao
+                        // gravá-la não invalida a resposta já calculada nem deve duplicar custo.
+                        LogActivityHeartbeatFailure(
+                            logger,
+                            lease.Turn.TurnId,
+                            exception.GetType().Name);
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (heartbeatToken.IsCancellationRequested)
+            {
+                // A chamada terminou ou o host está encerrando; não há mais liveness a renovar.
+            }
         }
 
         try
@@ -237,6 +287,7 @@ public sealed partial class ChiefTurnBackgroundService(
                         bundle.RenderedContext,
                         bundle.BundleChecksum,
                         projectContext,
+                        ReasonCodeTranslations,
                         composition.RenderedContext,
                         composition.PersistedNoteCount),
                     JsonOptions);
@@ -248,10 +299,14 @@ public sealed partial class ChiefTurnBackgroundService(
                         digestJson,
                         bundle.RenderedContext,
                         bundle.BundleChecksum,
-                        projectContext),
+                        projectContext,
+                        ReasonCodeTranslations),
                     JsonOptions);
             }
-            await ReportAsync(ChiefTurnActivity.Thinking);
+            var thinkingStartedAt = clock.UtcNow;
+            await ReportAsync(
+                ChiefTurnActivity.Thinking,
+                activityStartedAt: thinkingStartedAt);
             var communicationInstructions =
                 (await leadershipProfile.ReadAsync(cancellationToken)).CommunicationInstructions;
             var specialists = await ReadSpecialistCatalogAsync(lease.Turn.TenantId, cancellationToken);
@@ -261,22 +316,36 @@ public sealed partial class ChiefTurnBackgroundService(
                        lease.Turn.Selection?.Source,
                        lease.Turn.Selection?.ModelName))
             {
-                execution = await executor.ExecuteAsync(
-                    new AgentExecutionRequest(
-                        lease.Turn.TenantId,
-                        lease.Turn.ProjectId,
-                        lease.Turn.ConversationId,
-                        lease.ChiefAgentId,
-                        lease.Instruction,
-                        governedDigestJson,
-                        AppContext.BaseDirectory,
-                        lease.SessionId,
-                        lease.Turn.Selection?.ModelName,
-                        lease.Turn.Selection?.ProviderEffortValue,
-                        communicationInstructions,
-                        specialists,
-                        communicationContext),
-                    cancellationToken);
+                using var heartbeatCancellation =
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var heartbeat = MaintainActivityHeartbeatAsync(
+                    ChiefTurnActivity.Thinking,
+                    thinkingStartedAt,
+                    heartbeatCancellation.Token);
+                try
+                {
+                    execution = await executor.ExecuteAsync(
+                        new AgentExecutionRequest(
+                            lease.Turn.TenantId,
+                            lease.Turn.ProjectId,
+                            lease.Turn.ConversationId,
+                            lease.ChiefAgentId,
+                            lease.Instruction,
+                            governedDigestJson,
+                            AppContext.BaseDirectory,
+                            lease.SessionId,
+                            lease.Turn.Selection?.ModelName,
+                            lease.Turn.Selection?.ProviderEffortValue,
+                            communicationInstructions,
+                            specialists,
+                            communicationContext),
+                        cancellationToken);
+                }
+                finally
+                {
+                    await heartbeatCancellation.CancelAsync();
+                    await heartbeat;
+                }
                 invocationActivity?.SetTag("gen_ai.response.model", lease.Turn.Selection?.ModelName);
                 invocationActivity?.SetTag("gen_ai.client.operation.duration_ms", execution.DurationMs);
                 invocationActivity?.SetTag("agent.executor", execution.Executor);
@@ -754,15 +823,26 @@ public sealed partial class ChiefTurnBackgroundService(
         string StatusDigestJson,
         string ContextBundle,
         string BundleChecksum,
-        ChiefProjectContext? Project);
+        ChiefProjectContext? Project,
+        IReadOnlyDictionary<string, string> ReasonCodeTranslations);
 
     private sealed record ChiefGovernanceContextWithMemory(
         string StatusDigestJson,
         string ContextBundle,
         string BundleChecksum,
         ChiefProjectContext? Project,
+        IReadOnlyDictionary<string, string> ReasonCodeTranslations,
         string ChiefContext,
         int PersistedNoteCount);
+
+    [LoggerMessage(
+        EventId = 2109,
+        Level = LogLevel.Warning,
+        Message = "Chief: heartbeat de atividade do turno {TurnId} falhou com {ErrorType}; a execução continua.")]
+    private static partial void LogActivityHeartbeatFailure(
+        ILogger logger,
+        string turnId,
+        string errorType);
 
     [LoggerMessage(
         EventId = 2101,

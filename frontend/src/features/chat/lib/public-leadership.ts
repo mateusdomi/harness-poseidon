@@ -1,6 +1,8 @@
 /** Humaniza referências antigas à liderança apenas na projeção pública da resposta. */
 export function publicLeadershipContent(content: string): string {
   return content
+    .replace(/\bEquipe virtual\b/gu, 'Equipe de IA')
+    .replace(/\bequipe virtual\b/gu, 'equipe de IA')
     .replace(/\bChief operacional e pronto\b/giu, 'Bruna Magalhães está pronta')
     .replace(/\bdo (?:Chief|Chefe)\b/giu, 'de Bruna Magalhães')
     .replace(/\bao (?:Chief|Chefe)\b/giu, 'à Bruna Magalhães')

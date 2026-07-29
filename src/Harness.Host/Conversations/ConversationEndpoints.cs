@@ -38,6 +38,13 @@ public static class ConversationEndpoints
             .WithTags("conversations")
             .Produces<ConversationResponse>(200).Produces<ConversationResponse>(201)
             .ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        endpoints.MapGet("/api/v1/projects/{projectId}/conversations/active", RecallActiveAsync)
+            .WithTags("conversations")
+            .Produces<ActiveConversationResponse>().Produces(204)
+            .ProducesProblem(400).ProducesProblem(401);
+        endpoints.MapPut("/api/v1/projects/{projectId}/conversations/active", RememberActiveAsync)
+            .WithTags("conversations")
+            .Produces(204).ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         conversations.MapPost("/{conversationId}/turns", StartTurnAsync)
             .Produces<ChatTurnHandle>(202).ProducesProblem(400).ProducesProblem(401)
             .ProducesProblem(404).ProducesProblem(409);
@@ -189,6 +196,83 @@ public static class ConversationEndpoints
         }
     }
 
+    private static async Task<IResult> RecallActiveAsync(
+        string projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProfileActiveConversationStore activeConversations,
+        IConversationStore conversations,
+        CancellationToken cancellationToken)
+    {
+        if (!UlidValue.TryParse(projectId, out _))
+        {
+            return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
+        }
+
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, cancellationToken);
+        if (profile is null) return SessionRequired();
+        var active = await activeConversations.RecallAsync(
+            profile.TenantId, profile.Id, projectId, cancellationToken);
+        if (active is null) return Results.NoContent();
+
+        // A conversa pode ter sido arquivada desde a última visita. Nunca restaure uma seleção
+        // obsoleta: esqueça-a e deixe a UI escolher uma conversa ativa do projeto.
+        var conversation = await conversations.GetConversationAsync(
+            profile.TenantId, active.ConversationId, cancellationToken);
+        if (conversation is null ||
+            !string.Equals(conversation.ProjectId, projectId, StringComparison.Ordinal) ||
+            !string.Equals(conversation.State, "active", StringComparison.Ordinal))
+        {
+            await activeConversations.ForgetAsync(
+                profile.TenantId, profile.Id, projectId, cancellationToken);
+            return Results.NoContent();
+        }
+
+        return Results.Ok(new ActiveConversationResponse(active.ConversationId));
+    }
+
+    private static async Task<IResult> RememberActiveAsync(
+        string projectId,
+        RememberActiveConversationRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProfileActiveConversationStore activeConversations,
+        IConversationStore conversations,
+        IClock clock,
+        CancellationToken cancellationToken)
+    {
+        if (!UlidValue.TryParse(projectId, out _) ||
+            input is null ||
+            !UlidValue.TryParse(input.ConversationId, out _))
+        {
+            return Problem(
+                400,
+                "invalid_active_conversation",
+                "Project and conversation IDs must be ULIDs.");
+        }
+
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, cancellationToken);
+        if (profile is null) return SessionRequired();
+        var conversation = await conversations.GetConversationAsync(
+            profile.TenantId, input.ConversationId, cancellationToken);
+        if (conversation is null ||
+            !string.Equals(conversation.ProjectId, projectId, StringComparison.Ordinal) ||
+            !string.Equals(conversation.State, "active", StringComparison.Ordinal))
+        {
+            return ConversationNotFound();
+        }
+
+        await activeConversations.RememberAsync(
+            new ProfileActiveConversationRecord(
+                profile.TenantId,
+                profile.Id,
+                projectId,
+                conversation.Id,
+                clock.UtcNow),
+            cancellationToken);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> RenameConversationAsync(
         string conversationId,
         RenameConversationRequest input,
@@ -240,6 +324,7 @@ public static class ConversationEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         IConversationStore store,
+        IProfileActiveConversationStore activeConversations,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -251,9 +336,20 @@ public static class ConversationEndpoints
         if (current is null) return ConversationNotFound();
         var result = await store.DeleteConversationAsync(
             profile.TenantId, conversationId, current.Version, clock.UtcNow, cancellationToken);
+        if (result.Status == ConversationMutationStatus.Applied)
+        {
+            var active = await activeConversations.RecallAsync(
+                profile.TenantId, profile.Id, current.ProjectId, cancellationToken);
+            if (string.Equals(active?.ConversationId, conversationId, StringComparison.Ordinal))
+            {
+                await activeConversations.ForgetAsync(
+                    profile.TenantId, profile.Id, current.ProjectId, cancellationToken);
+            }
+            return Results.NoContent();
+        }
+
         return result.Status switch
         {
-            ConversationMutationStatus.Applied => Results.NoContent(),
             ConversationMutationStatus.NotFound => ConversationNotFound(),
             ConversationMutationStatus.Inactive => Problem(
                 409, "conversation_inactive", "The conversation is not active."),

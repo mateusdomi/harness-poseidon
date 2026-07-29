@@ -58,6 +58,7 @@ import {
   type Document,
   type Solicitation,
   agentExecutorSchema,
+  activeConversationSelectionSchema,
   evaluationRecommendationsResponseSchema,
   evaluationResultSchema,
   ledgerReconciliationSchema,
@@ -207,6 +208,21 @@ export class HttpApiClient implements ApiClient {
 
   getCurrentProfile(): Promise<Profile> {
     return this.#request('GET', '/profiles/current');
+  }
+
+  async recallActiveConversation(projectId: Ulid): Promise<Ulid | null> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/projects/${projectId}/conversations/active`,
+    );
+    if (response === undefined) return null;
+    return activeConversationSelectionSchema.parse(response).conversationId;
+  }
+
+  async rememberActiveConversation(projectId: Ulid, conversationId: Ulid): Promise<void> {
+    await this.#request('PUT', `/projects/${projectId}/conversations/active`, {
+      conversationId,
+    });
   }
 
   uploadProjectLogo(projectId: Ulid, file: File): Promise<Project> {

@@ -382,6 +382,7 @@ export class MockApiClient implements ApiClient {
     realtime?: MockRealtimeClient;
   };
   readonly #errorQueue: ProblemDetails[] = [];
+  readonly #activeConversationByProject = new Map<Ulid, Ulid>();
   /** Vínculos de canal criados via UI (mock in-memory, além do Telegram semente). */
   readonly #channelLinks: ChannelLink[] = [];
   readonly #governanceDocs = new Map<string, { content: string; modifiedAt: string }>([
@@ -576,6 +577,28 @@ export class MockApiClient implements ApiClient {
     const profile = this.#table('profiles').get(this.#options.currentProfileId);
     if (!profile) throw this.#notFound('profiles', this.#options.currentProfileId);
     return structuredClone(profile);
+  }
+
+  async recallActiveConversation(projectId: Ulid): Promise<Ulid | null> {
+    await this.#simulate();
+    const conversationId = this.#activeConversationByProject.get(projectId);
+    const conversation = conversationId
+      ? this.#table('conversations').get(conversationId)
+      : undefined;
+    if (!conversation || conversation.projectId !== projectId || conversation.state !== 'active') {
+      this.#activeConversationByProject.delete(projectId);
+      return null;
+    }
+    return conversationId ?? null;
+  }
+
+  async rememberActiveConversation(projectId: Ulid, conversationId: Ulid): Promise<void> {
+    await this.#simulate();
+    const conversation = this.#require('conversations', conversationId);
+    if (conversation.projectId !== projectId || conversation.state !== 'active') {
+      throw ApiError.of(404, 'Conversa indisponível');
+    }
+    this.#activeConversationByProject.set(projectId, conversationId);
   }
 
   /* ---- comandos de domínio ---- */

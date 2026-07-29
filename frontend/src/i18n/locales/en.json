@@ -1411,9 +1411,9 @@
       "chief": "Bruna Magalhães",
       "agent": "Team member",
       "system": "System",
-      "virtualTeam": "Virtual team"
+      "virtualTeam": "AI team"
     },
-    "intro": "Talk to {{name}}, who coordinates this project's virtual team.",
+    "intro": "Talk to {{name}}, who coordinates this project's AI team.",
     "leadership": {
       "name": "Bruna Magalhães",
       "title": "Director of AI Engineering and Operations",
@@ -1497,7 +1497,7 @@
     },
     "empty": {
       "title": "Talk to {{name}}",
-      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. {{name}} coordinates the virtual team and replies here.",
+      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. {{name}} coordinates the AI team and replies here.",
       "blockedBody": "The team is waiting for the project's initial setup. See what needs attention below.",
       "cta": "Start conversation"
     },
@@ -1546,6 +1546,10 @@
           "label": "What needs me?",
           "message": "Which decisions are waiting for my approval and what is the impact of each one?"
         },
+        "resumeProject": {
+          "label": "Resume work",
+          "message": "I want to resume work on this project."
+        },
         "planNewDemand": {
           "label": "Plan a delivery",
           "message": "I would like to plan a new delivery."
@@ -1578,21 +1582,15 @@
         "high": "High",
         "max": "Max"
       },
-      "workProfile": "Work profile",
-      "workProfiles": {
+      "workMode": "Working mode",
+      "workModes": {
         "quick": "Quick",
         "balanced": "Balanced",
-        "analytical": "Analytical",
-        "maximumDepth": "Maximum depth"
-      },
-      "dedication": "Dedication level",
-      "dedicationLevels": {
-        "essential": "Essential",
-        "complete": "Complete",
-        "deep": "Deep"
+        "deep": "In-depth"
       }
     },
     "sendError": "Could not send the message. Please try again.",
+    "resumeError": "I could not resume the work right now. Please try again in a moment.",
     "turnBlocked": {
       "businessTitle": "The team cannot start yet",
       "businessBody": "Your message was saved. Review the initial setup and the team will continue here as soon as it is ready.",

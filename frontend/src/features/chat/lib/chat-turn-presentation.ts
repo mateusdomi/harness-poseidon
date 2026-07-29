@@ -1,26 +1,12 @@
 import type { ChatTurnEffort, Model } from '@/api';
 
-export const BUSINESS_WORK_PROFILES = [
-  'quick',
-  'balanced',
-  'analytical',
-  'maximumDepth',
-] as const;
-export type BusinessWorkProfile = (typeof BUSINESS_WORK_PROFILES)[number];
-
-export const BUSINESS_DEDICATION_LEVELS = ['essential', 'complete', 'deep'] as const;
-export type BusinessDedicationLevel = (typeof BUSINESS_DEDICATION_LEVELS)[number];
+export const BUSINESS_WORK_MODES = ['quick', 'balanced', 'deep'] as const;
+export type BusinessWorkMode = (typeof BUSINESS_WORK_MODES)[number];
 
 export interface BusinessTurnSelection {
   modelId: string;
   effort: ChatTurnEffort;
 }
-
-const DEDICATION_EFFORT: Record<BusinessDedicationLevel, ChatTurnEffort> = {
-  essential: 'low',
-  complete: 'medium',
-  deep: 'high',
-};
 
 function eligibleChatModels(models: readonly Model[]): Model[] {
   return models.filter((model) => model.enabled && model.capabilities.includes('chat'));
@@ -52,32 +38,33 @@ function largestContext(models: readonly Model[]): Model | undefined {
 
 /**
  * De/para central da experiência de negócio. A UI não conhece provider nem
- * nomes de modelos: escolhe por capacidades publicadas no catálogo. O perfil
+ * nomes de modelos: escolhe por capacidades publicadas no catálogo. O modo
  * equilibrado preserva o roteamento padrão do backend.
  */
 export function resolveBusinessTurnSelection(
   models: readonly Model[],
-  profile: BusinessWorkProfile,
-  dedication: BusinessDedicationLevel,
+  mode: BusinessWorkMode,
 ): BusinessTurnSelection {
   const eligible = eligibleChatModels(models);
   const selected =
-    profile === 'quick'
+    mode === 'quick'
       ? lowestKnownCost(eligible)
-      : profile === 'analytical'
-        ? largestContext(eligible)
-        : profile === 'maximumDepth'
-          ? largestContext(
-              eligible.filter((model) =>
-                model.effortMappings.some((mapping) => mapping.effort === 'max'),
-              ),
-            ) ?? largestContext(eligible)
-          : undefined;
+      : mode === 'deep'
+        ? largestContext(
+            eligible.filter((model) =>
+              model.effortMappings.some((mapping) => mapping.effort === 'max'),
+            ),
+          ) ?? largestContext(eligible)
+        : undefined;
   const requestedEffort =
-    profile === 'maximumDepth' &&
+    mode === 'deep' &&
     selected?.effortMappings.some((mapping) => mapping.effort === 'max')
       ? 'max'
-      : DEDICATION_EFFORT[dedication];
+      : mode === 'quick'
+        ? 'low'
+        : mode === 'deep'
+          ? 'high'
+          : 'medium';
   const supportedEfforts = selected?.effortMappings.map((mapping) => mapping.effort) ?? [];
   const effort =
     selected && supportedEfforts.length > 0 && !supportedEfforts.includes(requestedEffort)

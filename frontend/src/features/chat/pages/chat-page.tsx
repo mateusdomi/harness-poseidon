@@ -33,6 +33,7 @@ import {
   type QuickActionKey,
 } from '@/features/chat/lib/chat-derive';
 import { useGoldenPath } from '@/features/onboarding/hooks/use-golden-path';
+import { useResumeChief } from '@/features/orchestrator/hooks/use-orchestrator';
 import { BrunaProfileAvatar } from '@/features/chat/components/bruna-profile-avatar';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useActiveProjectStore } from '@/stores/active-project-store';
@@ -53,6 +54,7 @@ export default function ChatPage() {
     conversation,
     selectConversation,
     requestedConversationUnavailable,
+    restoring: conversationRestoring,
   } = useActiveConversation(
     profileId,
     projectId,
@@ -193,11 +195,9 @@ export default function ChatPage() {
   const canExecute = goldenPath.state.canExecute;
 
   const turnActive = isTurnActive(turn);
-  const chiefName = useMemo(() => {
-    const registered = agents.find((agent) => agent.id === activeProject?.chiefAgentId)?.name;
-    const publicName = registered?.split(/\s+[—–]\s+/u)[0]?.trim();
-    return publicName || t('chat.leadership.name');
-  }, [activeProject?.chiefAgentId, agents, t]);
+  // A identidade pública é fixa. O nome técnico da instância responsável pelo projeto pode
+  // mudar por handoff, mas nunca substitui Bruna na conversa com o dono.
+  const chiefName = t('chat.leadership.name');
   const agentNames = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
     [agents],
@@ -205,10 +205,13 @@ export default function ChatPage() {
   const quickActions = deriveQuickActions({
     blockedTasks: tasks.filter((task) => task.state === 'blocked').length,
     pendingApprovals: approvals.filter((approval) => approval.state === 'pending').length,
+    projectPaused: activeProject?.state === 'paused',
   });
+  const resumeChief = useResumeChief(projectId);
 
   const loading =
     projectsPending ||
+    conversationRestoring ||
     conversationsQuery.isLoading ||
     (conversationId !== null && messagesQuery.isLoading);
   const errored = conversationsQuery.isError || messagesQuery.isError;
@@ -487,6 +490,11 @@ export default function ChatPage() {
             {t('chat.sendError')}
           </p>
         )}
+        {resumeChief.isError && (
+          <p role="alert" className="text-sm text-error">
+            {t('chat.resumeError')}
+          </p>
+        )}
 
         {blockedTurn && (
           <Card role="status" className="border-warning/40">
@@ -566,8 +574,14 @@ export default function ChatPage() {
         {conversation && !turnActive && (
           <QuickActions
             actions={quickActions}
-            disabled={sendMessage.isPending}
-            onSelect={(key: QuickActionKey) => send(t(`chat.quickActions.actions.${key}.message`))}
+            disabled={sendMessage.isPending || resumeChief.isPending}
+            onSelect={(key: QuickActionKey) => {
+              if (key === 'resumeProject') {
+                resumeChief.mutate();
+                return;
+              }
+              void send(t(`chat.quickActions.actions.${key}.message`));
+            }}
           />
         )}
 

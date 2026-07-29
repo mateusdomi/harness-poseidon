@@ -188,11 +188,13 @@ export type QuickActionKey =
   | 'summarizeProgress'
   | 'blockedStatus'
   | 'approvalStatus'
+  | 'resumeProject'
   | 'planNewDemand';
 
 export interface QuickActionContext {
   blockedTasks: number;
   pendingApprovals: number;
+  projectPaused: boolean;
 }
 
 /**
@@ -203,6 +205,7 @@ export function deriveQuickActions(context: QuickActionContext): QuickActionKey[
   const actions: QuickActionKey[] = ['summarizeProgress'];
   if (context.blockedTasks > 0) actions.push('blockedStatus');
   if (context.pendingApprovals > 0) actions.push('approvalStatus');
+  if (context.projectPaused) actions.push('resumeProject');
   actions.push('planNewDemand');
   return actions;
 }

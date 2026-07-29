@@ -330,6 +330,118 @@
                 }
             }
         },
+        "/api/v1/projects/{projectId}/conversations/active": {
+            "get": {
+                "tags": [
+                    "conversations"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActiveConversationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "conversations"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RememberActiveConversationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/channels/teams/activities": {
             "post": {
                 "tags": [
@@ -19873,6 +19985,17 @@
                 },
                 "additionalProperties": false
             },
+            "ActiveConversationResponse": {
+                "required": [
+                    "conversationId"
+                ],
+                "type": "object",
+                "properties": {
+                    "conversationId": {
+                        "type": "string"
+                    }
+                }
+            },
             "AdvanceWorkflowObjectiveRequest": {
                 "required": [
                     "phaseKey",
@@ -32463,6 +32586,18 @@
                         "$ref": "#/components/schemas/JsonElement"
                     }
                 }
+            },
+            "RememberActiveConversationRequest": {
+                "required": [
+                    "conversationId"
+                ],
+                "type": "object",
+                "properties": {
+                    "conversationId": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
             },
             "RenameConversationRequest": {
                 "required": [

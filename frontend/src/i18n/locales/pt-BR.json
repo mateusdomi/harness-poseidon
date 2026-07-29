@@ -1411,9 +1411,9 @@
       "chief": "Bruna Magalhães",
       "agent": "Pessoa da equipe",
       "system": "Sistema",
-      "virtualTeam": "Equipe virtual"
+      "virtualTeam": "Equipe de IA"
     },
-    "intro": "Converse com {{name}}, que coordena a equipe virtual deste projeto.",
+    "intro": "Converse com {{name}}, que coordena a equipe de IA deste projeto.",
     "leadership": {
       "name": "Bruna Magalhães",
       "title": "Diretora de Engenharia e Operações de IA",
@@ -1497,7 +1497,7 @@
     },
     "empty": {
       "title": "Converse com {{name}}",
-      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. {{name}} coordena a equipe virtual e responde por aqui.",
+      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. {{name}} coordena a equipe de IA e responde por aqui.",
       "blockedBody": "A equipe está aguardando a configuração inicial do projeto. Veja o que precisa de atenção logo abaixo.",
       "cta": "Iniciar conversa"
     },
@@ -1546,6 +1546,10 @@
           "label": "O que precisa de mim?",
           "message": "Quais decisões estão aguardando minha aprovação e qual é o impacto de cada uma?"
         },
+        "resumeProject": {
+          "label": "Retomar trabalhos",
+          "message": "Quero retomar os trabalhos deste projeto."
+        },
         "planNewDemand": {
           "label": "Planejar uma entrega",
           "message": "Gostaria de planejar uma nova entrega."
@@ -1578,21 +1582,15 @@
         "high": "Alto",
         "max": "Máximo"
       },
-      "workProfile": "Perfil de trabalho",
-      "workProfiles": {
+      "workMode": "Modo de trabalho",
+      "workModes": {
         "quick": "Rápido",
         "balanced": "Equilibrado",
-        "analytical": "Analítico",
-        "maximumDepth": "Máxima profundidade"
-      },
-      "dedication": "Nível de dedicação",
-      "dedicationLevels": {
-        "essential": "Essencial",
-        "complete": "Completo",
-        "deep": "Profundo"
+        "deep": "Aprofundado"
       }
     },
     "sendError": "Não foi possível enviar a mensagem. Tente novamente.",
+    "resumeError": "Não consegui retomar os trabalhos agora. Tente novamente em instantes.",
     "turnBlocked": {
       "businessTitle": "A equipe ainda não pode iniciar",
       "businessBody": "Sua mensagem foi salva. Revise a configuração inicial e a equipe continuará por aqui assim que estiver pronta.",

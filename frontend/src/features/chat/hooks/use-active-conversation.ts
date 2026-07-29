@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import type { Conversation, Ulid } from '@/api';
+import { useApi } from '@/app/api-context';
 import {
   isConversationSelectionCurrent,
   useConversationPreferencesStore,
@@ -14,6 +16,7 @@ export interface ActiveConversationResult {
     options?: { replace?: boolean },
   ) => void;
   requestedConversationUnavailable: boolean;
+  restoring: boolean;
 }
 
 /**
@@ -27,6 +30,8 @@ export function useActiveConversation(
   conversations: Conversation[],
   loading: boolean,
 ): ActiveConversationResult {
+  const api = useApi();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { conversationId: routeConversationId } = useParams<{ conversationId?: string }>();
   const selections = useConversationPreferencesStore(
@@ -34,6 +39,70 @@ export function useActiveConversation(
   );
   const remember = useConversationPreferencesStore((state) => state.selectConversation);
   const clear = useConversationPreferencesStore((state) => state.clearConversation);
+  const persistenceQueues = useRef(
+    new Map<
+      Ulid,
+      {
+        pending: Ulid | null;
+        running: boolean;
+      }
+    >(),
+  );
+  const persistSelection = useCallback(
+    (targetProjectId: Ulid, conversationId: Ulid, queryKey: readonly unknown[]) => {
+      // Atualização otimista impede o efeito de emitir um PUT duplicado.
+      queryClient.setQueryData(queryKey, conversationId);
+      const queue = persistenceQueues.current.get(targetProjectId) ?? {
+        pending: null,
+        running: false,
+      };
+      queue.pending = conversationId;
+      persistenceQueues.current.set(targetProjectId, queue);
+      if (queue.running) return;
+      queue.running = true;
+
+      void (async () => {
+        try
+        {
+          while (queue.pending !== null)
+          {
+            const next = queue.pending;
+            queue.pending = null;
+            try
+            {
+              await api.rememberActiveConversation(targetProjectId, next);
+            }
+            catch
+            {
+              // O cache local continua sendo fallback offline. Se houver uma intenção mais
+              // recente, ela ainda será gravada na próxima volta do laço.
+            }
+          }
+        }
+        finally
+        {
+          queue.running = false;
+        }
+      })();
+    },
+    [api, queryClient],
+  );
+  const serverSelectionKey = useMemo(
+    () =>
+      [
+        'chat',
+        'active-conversation',
+        profileId ?? 'none',
+        projectId ?? 'none',
+      ] as const,
+    [profileId, projectId],
+  );
+  const serverSelection = useQuery({
+    queryKey: serverSelectionKey,
+    queryFn: () => api.recallActiveConversation(projectId!),
+    enabled: profileId !== null && projectId !== null,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
   const routeConversation = routeConversationId
     ? conversations.find((conversation) => conversation.id === routeConversationId)
@@ -45,13 +114,19 @@ export function useActiveConversation(
         (conversation) => conversation.id === storedSelection.conversationId,
       )
     : undefined;
+  const serverConversation = serverSelection.data
+    ? conversations.find(
+        (conversation) =>
+          conversation.id === serverSelection.data && conversation.state === 'active',
+      )
+    : undefined;
   const principalConversation =
     conversations.find((conversation) => conversation.state === 'active') ?? null;
   const requestedConversationUnavailable =
     !loading && routeConversationId !== undefined && routeConversation === undefined;
   const conversation = requestedConversationUnavailable
     ? null
-    : (routeConversation ?? storedConversation ?? principalConversation);
+    : (routeConversation ?? serverConversation ?? storedConversation ?? principalConversation);
 
   const selectConversation = useCallback(
     (nextConversation: Ulid | Conversation, options?: { replace?: boolean }) => {
@@ -67,13 +142,22 @@ export function useActiveConversation(
             : undefined;
       if (!target) return;
       remember(profileId, projectId, target.id);
+      persistSelection(projectId, target.id, serverSelectionKey);
       navigate(`/chat/${target.id}`, { replace: options?.replace ?? false });
     },
-    [conversations, navigate, profileId, projectId, remember],
+    [
+      conversations,
+      navigate,
+      profileId,
+      projectId,
+      persistSelection,
+      remember,
+      serverSelectionKey,
+    ],
   );
 
   useEffect(() => {
-    if (loading || !profileId || !projectId) return;
+    if (loading || serverSelection.isLoading || !profileId || !projectId) return;
     if (requestedConversationUnavailable) return;
 
     if (storedSelection && !storedConversation) {
@@ -90,6 +174,9 @@ export function useActiveConversation(
     ) {
       remember(profileId, projectId, conversation.id);
     }
+    if (serverSelection.data !== conversation.id) {
+      persistSelection(projectId, conversation.id, serverSelectionKey);
+    }
     if (routeConversationId !== conversation.id) {
       navigate(`/chat/${conversation.id}`, { replace: true });
     }
@@ -100,15 +187,29 @@ export function useActiveConversation(
     navigate,
     profileId,
     projectId,
+    persistSelection,
     remember,
     routeConversationId,
     requestedConversationUnavailable,
+    serverSelection.data,
+    serverSelection.isLoading,
+    serverSelectionKey,
     storedConversation,
     storedSelection,
   ]);
 
   return useMemo(
-    () => ({ conversation, selectConversation, requestedConversationUnavailable }),
-    [conversation, requestedConversationUnavailable, selectConversation],
+    () => ({
+      conversation,
+      selectConversation,
+      requestedConversationUnavailable,
+      restoring: serverSelection.isLoading,
+    }),
+    [
+      conversation,
+      requestedConversationUnavailable,
+      selectConversation,
+      serverSelection.isLoading,
+    ],
   );
 }

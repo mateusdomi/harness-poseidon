@@ -116,6 +116,11 @@ export interface ApiClient {
   /** Perfil da sessão local (modo pessoal; cookie de sessão). */
   getCurrentProfile(): Promise<Profile>;
 
+  /** Última conversa aberta pelo perfil corrente naquele projeto, persistida no servidor. */
+  recallActiveConversation(projectId: Ulid): Promise<Ulid | null>;
+  /** Atualiza a conversa a restaurar quando o perfil voltar ao projeto. */
+  rememberActiveConversation(projectId: Ulid, conversationId: Ulid): Promise<void>;
+
   /** Armazena uma logo PNG/JPEG no data dir gerenciado e atualiza a marca do projeto. */
   uploadProjectLogo(projectId: Ulid, file: File): Promise<Project>;
 

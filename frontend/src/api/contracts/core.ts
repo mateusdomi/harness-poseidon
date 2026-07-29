@@ -148,6 +148,11 @@ export const conversationSchema = z.object({
 });
 export type Conversation = z.infer<typeof conversationSchema>;
 
+export const activeConversationSelectionSchema = z.object({
+  conversationId: ulidSchema,
+});
+export type ActiveConversationSelection = z.infer<typeof activeConversationSelectionSchema>;
+
 export const messageSchema = z.object({
   id: ulidSchema,
   conversationId: ulidSchema,
