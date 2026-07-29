@@ -4,6 +4,7 @@ using Harness.Host.Projects;
 using Harness.IntegrationTests.Persistence;
 using Harness.Modules.Projects.Application;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Organizations;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Identifiers;
@@ -28,6 +29,7 @@ public sealed class ProjectBindingAuditTests
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
             await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
             var store = new SqliteProjectStore(dispatcher);
+            var organizations = new SqliteOrganizationStore(dispatcher);
 
             var tenantId = "01ARZ3NDEKTSV4RRFFQ69G5FQ0";
             var projectId = UlidValue.New(DateTimeOffset.UtcNow).ToString();
@@ -36,6 +38,17 @@ public sealed class ProjectBindingAuditTests
             var ownerId = UlidValue.New(DateTimeOffset.UtcNow).ToString();
             var now = DateTimeOffset.UtcNow;
             var targetDeadline = now.AddDays(30);
+
+            // A cadeia de posse e real: tenant -> organizacao -> projeto. Sem os
+            // dois primeiros o store devolve OrganizationNotFound e a auditoria
+            // de binding nem comeca.
+            await InsertTenantAsync(dispatcher, tenantId, now, timeout.Token);
+            var organizationResult = await organizations.CreateAsync(
+                new OrganizationCreateCommand(
+                    tenantId, orgId, "Organizacao da auditoria", "org-auditoria", "personal",
+                    new OrganizationBrandRecord(null, null, null, null), now),
+                timeout.Token);
+            Assert.Equal(OrganizationMutationStatus.Applied, organizationResult.Status);
 
             var createReq = new CreateProjectRequest
             {
@@ -90,4 +103,17 @@ public sealed class ProjectBindingAuditTests
             }
         }
     }
+
+    private static async Task InsertTenantAsync(
+        SqliteWriteDispatcher dispatcher, string tenantId, DateTimeOffset now, CancellationToken token) =>
+        await dispatcher.ExecuteAsync<int>(async (connection, ct) =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO tenants(id,name,version,created_at) VALUES($id,$name,0,$at);";
+            command.Parameters.AddWithValue("$id", tenantId);
+            command.Parameters.AddWithValue("$name", "Tenant " + tenantId);
+            command.Parameters.AddWithValue("$at", now.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+            await command.ExecuteNonQueryAsync(ct);
+            return 0;
+        }, token);
 }

@@ -23,7 +23,7 @@ public sealed class DocumentContractDriftTests
         var documentFields = new[] { "id", "projectId", "title", "kind", "state", "currentVersion", "classifications", "phaseName", "inconsistent", "waiver", "createdAt", "updatedAt" };
         var versionFields = new[] { "id", "documentId", "version", "body", "authorKind", "authorId", "createdAt" };
         Schema(api, "DocumentContract", documentFields); Schema(api, "DocumentVersionContract", versionFields);
-        var approvalFields = new[] { "id", "projectId", "gateId", "taskId", "documentId", "title", "description", "priority", "dueAt", "state", "requestedByAgentId", "requestedAt", "resolvedByProfileId", "resolvedAt", "resolutionNote" };
+        var approvalFields = new[] { "id", "projectId", "gateId", "taskId", "documentId", "title", "description", "priority", "dueAt", "state", "requestedByAgentId", "requestedAt", "resolvedByProfileId", "resolvedAt", "resolutionNote", "businessTitle", "businessDescription" };
         Schema(api, "ApprovalContract", approvalFields);
         var frontend = File.ReadAllText(Path.Combine(root, "frontend", "src", "api", "contracts", "content.ts"));
         Frontend(frontend, "documentSchema", "Document", documentFields);

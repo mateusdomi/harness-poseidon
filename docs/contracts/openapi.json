@@ -31118,11 +31118,7 @@
                         "type": "string"
                     },
                     "role": {
-                        "type": "string",
-                        "enum": [
-                            "admin",
-                            "member"
-                        ]
+                        "type": "string"
                     },
                     "createdAt": {
                         "type": "string",
