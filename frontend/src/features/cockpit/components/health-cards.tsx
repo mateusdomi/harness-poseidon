@@ -1,11 +1,17 @@
-import { Info } from 'lucide-react';
+import { Gauge, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { type Agent, type Budget, type TaskState } from '@/api';
+import { type Agent, type AgentAccountRoster, type Budget, type TaskState } from '@/api';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Tooltip } from '@/design-system';
 import { formatCurrencyUSD, formatNumber } from '@/lib/format';
-import { budgetSeverity, budgetUsagePct, factoryAgentMetrics } from '@/features/cockpit/lib/cockpit-derive';
+import {
+  budgetSeverity,
+  budgetUsagePct,
+  factoryAgentMetrics,
+} from '@/features/cockpit/lib/cockpit-derive';
 import { cn } from '@/lib/utils';
+import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
+import { AgentIdentity } from '@/features/shared/components/agent-identity';
 
 /** KPI da fábrica: rótulo, número e explicação (tooltip). */
 function FactoryKpi({
@@ -144,6 +150,79 @@ const SEVERITY_BAR = {
   warning: 'bg-warning',
   critical: 'bg-error',
 } as const;
+
+function capacityVariant(
+  state: AgentAccountRoster['state'],
+): 'success' | 'info' | 'warning' | 'error' | 'outline' {
+  if (state === 'idle') return 'success';
+  if (state === 'working') return 'info';
+  if (state === 'authentication-required') return 'warning';
+  return 'error';
+}
+
+function capacityKey(
+  state: AgentAccountRoster['state'],
+): 'available' | 'working' | 'admission' | 'unavailable' {
+  if (state === 'idle') return 'available';
+  if (state === 'working') return 'working';
+  if (state === 'authentication-required') return 'admission';
+  return 'unavailable';
+}
+
+/** Capacidade da equipe por pessoa, sem expor séries ou diagnósticos técnicos. */
+export function TeamCapacityCard() {
+  const { t } = useTranslation();
+  const rosterQuery = useAgentRoster();
+  const accounts = rosterQuery.data ?? [];
+  const attention = accounts.filter(
+    (account) => !['idle', 'working'].includes(account.state),
+  ).length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <Gauge aria-hidden="true" className="size-5" />
+            {t('cockpit.capacity.title')}
+          </CardTitle>
+          {!rosterQuery.isLoading && !rosterQuery.isError && (
+            <Badge variant={attention > 0 ? 'warning' : 'success'}>
+              {attention > 0
+                ? t('cockpit.capacity.attention', { count: attention })
+                : t('cockpit.capacity.healthy')}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {rosterQuery.isLoading ? (
+          <p className="text-sm text-foreground-muted">{t('common.states.loading')}</p>
+        ) : rosterQuery.isError ? (
+          <p role="alert" className="text-sm text-error">
+            {t('cockpit.capacity.error')}
+          </p>
+        ) : accounts.length === 0 ? (
+          <p className="text-sm text-foreground-muted">{t('cockpit.capacity.empty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {accounts.map((account) => (
+              <li
+                key={account.alias}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"
+              >
+                <AgentIdentity alias={account.alias} technicalLabel={null} size={34} />
+                <Badge variant={capacityVariant(account.state)}>
+                  {t(`cockpit.capacity.state.${capacityKey(account.state)}`)}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /** Cotas críticas: budgets no limiar de alerta ou estourados. */
 export function QuotaCard({ budgets }: { budgets: Budget[] }) {

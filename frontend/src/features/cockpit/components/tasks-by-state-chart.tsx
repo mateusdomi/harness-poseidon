@@ -47,7 +47,7 @@ export function TasksByStateChart({ counts }: { counts: Record<TaskState, number
           <ul className="flex flex-col gap-2.5">
             {TASK_STATES.map((state) => {
               const value = counts[state];
-              const label = t(`status.taskState.${state}`);
+              const label = t(`cockpit.tasksChart.state.${state}`);
               return (
                 <li key={state}>
                   <button
@@ -56,11 +56,7 @@ export function TasksByStateChart({ counts }: { counts: Record<TaskState, number
                     aria-label={t('cockpit.tasksByState.open', { state: label, count: value })}
                     className="grid min-h-11 w-full grid-cols-[8rem_1fr_2rem] items-center gap-3 rounded-md px-1 text-left hover:bg-surface-elevated/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
-                    <span
-                      className="truncate text-xs text-foreground-muted"
-                    >
-                      {label}
-                    </span>
+                    <span className="truncate text-xs text-foreground-muted">{label}</span>
                     <span
                       aria-hidden="true"
                       className="flex h-4 items-center overflow-hidden rounded-full bg-surface-elevated"

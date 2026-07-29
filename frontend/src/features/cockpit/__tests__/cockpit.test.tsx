@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 
 import { buildFixtures, type Agent, type AuditEvent } from '@/api';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
+import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
 import CockpitPage from '@/features/cockpit/pages/cockpit-page';
 import {
   aggregateProgress,
@@ -56,6 +57,24 @@ describe('cockpit-derive', () => {
     expect(evidence.updatedAt).toBeTruthy();
   });
 
+  it('mantém fontes distintas para as três trilhas técnicas', () => {
+    const sample = [
+      { ...tasks[0], progress: { executed: 90, validated: 60, approved: 30 } },
+      { ...tasks[1], progress: { executed: 70, validated: 40, approved: 10 } },
+    ];
+
+    expect(aggregateProgress(sample)).toEqual({
+      executed: 80,
+      validated: 50,
+      approved: 20,
+    });
+    expect(progressEvidence(sample).tracks).toMatchObject({
+      executed: { numerator: 160, denominator: 200 },
+      validated: { numerator: 100, denominator: 200 },
+      approved: { numerator: 40, denominator: 200 },
+    });
+  });
+
   it('conta tarefas por estado com todas as 8 colunas presentes', () => {
     const counts = countTasksByState(tasks);
     expect(Object.keys(counts)).toHaveLength(8);
@@ -86,24 +105,56 @@ describe('cockpit-derive', () => {
 
   it('recomenda ação por prioridade: aprovações > bloqueios > agentes > quotas', () => {
     expect(
-      recommendNextAction({ pendingApprovals: 2, blockedTasks: 3, errorAgents: 1, criticalBudgets: 1 }),
+      recommendNextAction({
+        pendingApprovals: 2,
+        blockedTasks: 3,
+        errorAgents: 1,
+        criticalBudgets: 1,
+      }),
     ).toBe('resolveApprovals');
     expect(
-      recommendNextAction({ pendingApprovals: 0, blockedTasks: 3, errorAgents: 1, criticalBudgets: 0 }),
+      recommendNextAction({
+        pendingApprovals: 0,
+        blockedTasks: 3,
+        errorAgents: 1,
+        criticalBudgets: 0,
+      }),
     ).toBe('unblockTasks');
     expect(
-      recommendNextAction({ pendingApprovals: 0, blockedTasks: 0, errorAgents: 2, criticalBudgets: 0 }),
+      recommendNextAction({
+        pendingApprovals: 0,
+        blockedTasks: 0,
+        errorAgents: 2,
+        criticalBudgets: 0,
+      }),
     ).toBe('recoverAgents');
     expect(
-      recommendNextAction({ pendingApprovals: 0, blockedTasks: 0, errorAgents: 0, criticalBudgets: 1 }),
+      recommendNextAction({
+        pendingApprovals: 0,
+        blockedTasks: 0,
+        errorAgents: 0,
+        criticalBudgets: 1,
+      }),
     ).toBe('reviewQuotas');
     expect(
-      recommendNextAction({ pendingApprovals: 0, blockedTasks: 0, errorAgents: 0, criticalBudgets: 0 }),
+      recommendNextAction({
+        pendingApprovals: 0,
+        blockedTasks: 0,
+        errorAgents: 0,
+        criticalBudgets: 0,
+      }),
     ).toBe('reviewPhase');
   });
 
   it('métricas de fábrica: online, entregas, fila e capacidade parada', () => {
-    const base = { definitionId: 'd', projectId: 'p', currentTaskId: null, modelId: null, lease: null, lastHeartbeatAt: null } as const;
+    const base = {
+      definitionId: 'd',
+      projectId: 'p',
+      currentTaskId: null,
+      modelId: null,
+      lease: null,
+      lastHeartbeatAt: null,
+    } as const;
     const mk = (id: string, state: Agent['state'], done: number): Agent => ({
       ...base,
       id,
@@ -235,20 +286,50 @@ describe('CockpitPage', () => {
     expect(await screen.findByText(/crie o primeiro projeto/i)).toBeInTheDocument();
   });
 
-  it('usa um único progresso canônico e separa os sinais operacionais', async () => {
+  it('exibe só o progresso aceito e permite consultar as etapas no modo Negócio', async () => {
+    const user = userEvent.setup();
     renderCockpit();
 
-    expect(
-      await screen.findByRole('progressbar', { name: 'Progresso aceito da etapa Validação' }),
-    ).toHaveAttribute('aria-valuenow', '0');
-    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
+    expect(await screen.findAllByRole('progressbar', { name: 'Trabalho aceito' })).toHaveLength(1);
+    expect(screen.getByRole('progressbar', { name: 'Trabalho aceito' })).toHaveAttribute(
+      'aria-valuenow',
+      '0',
+    );
     expect(screen.queryByRole('progressbar', { name: 'Executado' })).not.toBeInTheDocument();
-    expect(screen.getAllByText('Em andamento').length).toBeGreaterThan(0);
-    expect(screen.getByText('Em revisão')).toBeInTheDocument();
-    expect(screen.getAllByText('Bloqueios').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Decisões humanas').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Linha do tempo das nove etapas do projeto')).toBeInTheDocument();
-    expect(screen.getByText('Sustentação')).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar', { name: 'Validado' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar', { name: 'Aprovado' })).not.toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'Ver detalhes da etapa Validação' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText('Qualidade')).toBeInTheDocument();
+    expect(screen.getByText('Relatório de testes')).toBeInTheDocument();
+    expect(screen.getByText('Evidências')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ver detalhes da etapa Planejamento' }));
+    expect(screen.getByText('Plano de testes')).toBeInTheDocument();
+  });
+
+  it('mantém as três fontes separadas na visão técnica', () => {
+    const progress = { executed: 80, validated: 50, approved: 20 };
+    const evidence = progressEvidence([
+      { ...tasks[0], progress: { executed: 80, validated: 50, approved: 20 } },
+    ]);
+    render(<ProgressTracks progress={progress} evidence={evidence} mode="technical" />);
+
+    expect(screen.getByRole('progressbar', { name: 'Executado' })).toHaveAttribute(
+      'aria-valuenow',
+      '80',
+    );
+    expect(screen.getByRole('progressbar', { name: 'Validado' })).toHaveAttribute(
+      'aria-valuenow',
+      '50',
+    );
+    expect(screen.getByRole('progressbar', { name: 'Aprovado' })).toHaveAttribute(
+      'aria-valuenow',
+      '20',
+    );
   });
 
   it('abre no quadro uma tarefa que está bloqueada', async () => {
@@ -265,28 +346,30 @@ describe('CockpitPage', () => {
     const user = userEvent.setup();
     renderCockpit();
 
-    expect(
-      await screen.findByText(/aprovações aguardando sua decisão/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/documentos aguardando sua decisão/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /executar no chat/i }));
     expect(await screen.findByText('CHAT')).toBeInTheDocument();
   });
 
-  it('começa pela equipe e mantém detalhes técnicos fora do modo negócio', async () => {
+  it('mostra o dashboard de negócio sem vocabulário técnico', async () => {
     renderCockpit();
 
-    expect(await screen.findByText('Deploy em staging (sem credencial)')).toBeInTheDocument();
-    expect(screen.getByText('Equipe em atividade')).toBeInTheDocument();
-    expect(screen.getByText('Única chefe e voz do projeto')).toBeInTheDocument();
-    expect(screen.getAllByText(/Bruna Magalhães/)).toHaveLength(1);
-    expect(screen.getByText('Aprovar Gate de Qualidade')).toBeInTheDocument();
-    expect(screen.getAllByText('Decisões humanas').length).toBeGreaterThan(0);
+    // Aguarda o carregamento completo (cards de bloqueio só existem no fim).
+    expect(await screen.findByText('publicação em preparação (sem acesso)')).toBeInTheDocument();
     expect(screen.queryByLabelText(/projeto ativo/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Fleet operacional')).not.toBeInTheDocument();
-    expect(screen.queryByText('Produtividade por assinatura')).not.toBeInTheDocument();
-    expect(screen.queryByText('Cotas críticas')).not.toBeInTheDocument();
+    expect(screen.getByText('Aprovar verificação de Qualidade')).toBeInTheDocument();
+    expect(screen.getByText('Quadro da Equipe')).toBeInTheDocument();
+    expect(screen.getByText('Disponíveis').tagName).toBe('DT');
+    expect(screen.getByText('58').tagName).toBe('DD');
+    expect((await screen.findAllByText('Em admissão')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Produtividade da equipe')).toBeInTheDocument();
+    expect(screen.getByText('Capacidade da equipe')).toBeInTheDocument();
     expect(screen.getByText('Atividade recente')).toBeInTheDocument();
+
+    expect(document.body.textContent).not.toMatch(
+      /\b(fleet|provedor|provider|modelo|model|token|tenant|slug|worktree|lease|fencing|heartbeat|gate|cota|deploy|staging|plugin)\b/iu,
+    );
   });
 
   it('revela diagnósticos de fleet e as trilhas antigas apenas no modo técnico', async () => {
@@ -342,11 +425,11 @@ describe('filterActivityByPeriod', () => {
 });
 
 describe('ActivityFeed', () => {
-  function renderFeed(events: AuditEvent[]) {
+  function renderFeed(events: AuditEvent[], mode: 'business' | 'technical' = 'business') {
     const sorted = [...events].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
     return render(
       <MemoryRouter>
-        <ActivityFeed events={sorted} />
+        <ActivityFeed events={sorted} mode={mode} />
       </MemoryRouter>,
     );
   }
@@ -387,12 +470,13 @@ describe('ActivityFeed', () => {
   });
 
   it('estado vazio do período orienta ampliar ou ir à Governança', () => {
-    renderFeed([makeEvent('e1', hoursAgo(50), 'Evento antigo')]);
+    renderFeed([makeEvent('e1', hoursAgo(50), 'Evento antigo')], 'technical');
 
     expect(screen.getByText(/nenhuma atividade nas últimas 24 horas/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: /ver histórico completo/i }),
-    ).toHaveAttribute('href', '/governance');
+    expect(screen.getByRole('link', { name: /ver histórico completo/i })).toHaveAttribute(
+      'href',
+      '/governance',
+    );
   });
 
   it('trocar o período reinicia o carregamento incremental', async () => {
@@ -413,7 +497,7 @@ describe('ActivityFeed', () => {
   /* ---- Humanização dos eventos (§12) ---- */
 
   it('mostra mensagem humana no lugar do código cru, mantendo o objeto', () => {
-    renderFeed([makeEvent('e1', hoursAgo(1), 'Projeto Poseidon')]);
+    renderFeed([makeEvent('e1', hoursAgo(1), 'Projeto Poseidon')], 'technical');
 
     // Rótulo humano da ação conhecida `task.created`…
     expect(screen.getByText('Tarefa criada')).toBeInTheDocument();
@@ -425,7 +509,7 @@ describe('ActivityFeed', () => {
 
   it('expõe o código técnico apenas no disclosure "Ver detalhes"', async () => {
     const user = userEvent.setup();
-    renderFeed([makeEvent('e1', hoursAgo(1), 'Projeto Poseidon')]);
+    renderFeed([makeEvent('e1', hoursAgo(1), 'Projeto Poseidon')], 'technical');
 
     const toggle = screen.getByRole('button', { name: 'Ver detalhes' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -437,7 +521,10 @@ describe('ActivityFeed', () => {
   });
 
   it('ação desconhecida degrada para o detalhe do servidor, sem inventar texto', () => {
-    const unknown = { ...makeEvent('e1', hoursAgo(1), 'Detalhe do servidor'), action: 'x.naoMapeado' };
+    const unknown = {
+      ...makeEvent('e1', hoursAgo(1), 'Detalhe do servidor'),
+      action: 'x.naoMapeado',
+    };
     renderFeed([unknown]);
 
     expect(screen.getByText('Detalhe do servidor')).toBeInTheDocument();

@@ -5,20 +5,22 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } fro
 import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
-import { BlockedTasksCard, PendingApprovalsCard } from '@/features/cockpit/components/attention-cards';
-import { QuotaCard } from '@/features/cockpit/components/health-cards';
+import {
+  BlockedTasksCard,
+  PendingApprovalsCard,
+} from '@/features/cockpit/components/attention-cards';
+import { QuotaCard, TeamCapacityCard } from '@/features/cockpit/components/health-cards';
 import { FleetOverview } from '@/features/cockpit/components/fleet-overview';
 import { NextActionCard } from '@/features/cockpit/components/next-action-card';
 import { GovernanceHealthCard } from '@/features/cockpit/components/governance-health-card';
-import { TeamActivity } from '@/features/cockpit/components/team-activity';
 import { WorkflowProgress } from '@/features/cockpit/components/workflow-progress';
 import { GoldenPathChecklist } from '@/features/onboarding/components/golden-path-checklist';
 import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
+import { ProjectTimeline } from '@/features/cockpit/components/project-timeline';
 import { TasksByStateChart } from '@/features/cockpit/components/tasks-by-state-chart';
 import {
   useCockpitActivity,
-  useCockpitAgentDefinitions,
   useCockpitAgents,
   useCockpitApprovals,
   useCockpitBudgets,
@@ -40,6 +42,8 @@ import { featureFlags } from '@/config/features';
 export default function CockpitPage() {
   const { t } = useTranslation();
   const presentation = usePresentationPolicy();
+  const technical = presentation.showTechnicalDetails;
+  const presentationMode = technical ? 'technical' : 'business';
   const { activeProject, isPending, isError, refetch } = useActiveProject();
 
   const projectId = activeProject?.id ?? null;
@@ -48,8 +52,7 @@ export default function CockpitPage() {
   const tasksQuery = useCockpitTasks(projectId);
   const approvalsQuery = useCockpitApprovals(projectId);
   const agentsQuery = useCockpitAgents(projectId);
-  const definitionsQuery = useCockpitAgentDefinitions();
-  const budgetsQuery = useCockpitBudgets();
+  const budgetsQuery = useCockpitBudgets(technical);
   const activityQuery = useCockpitActivity();
   const workflowData = useCockpitWorkflow(projectId);
   const phaseProgress = useCockpitPhaseProgress(
@@ -62,8 +65,7 @@ export default function CockpitPage() {
     tasksQuery.isLoading ||
     approvalsQuery.isLoading ||
     agentsQuery.isLoading ||
-    definitionsQuery.isLoading ||
-    budgetsQuery.isLoading ||
+    (technical && budgetsQuery.isLoading) ||
     activityQuery.isLoading ||
     workflowData.isPending;
   const errored =
@@ -71,8 +73,7 @@ export default function CockpitPage() {
     tasksQuery.isError ||
     approvalsQuery.isError ||
     agentsQuery.isError ||
-    definitionsQuery.isError ||
-    budgetsQuery.isError ||
+    (technical && budgetsQuery.isError) ||
     activityQuery.isError ||
     workflowData.isError;
 
@@ -81,8 +82,7 @@ export default function CockpitPage() {
     void tasksQuery.refetch();
     void approvalsQuery.refetch();
     void agentsQuery.refetch();
-    void definitionsQuery.refetch();
-    void budgetsQuery.refetch();
+    if (technical) void budgetsQuery.refetch();
     void activityQuery.refetch();
     workflowData.refetch();
     phaseProgress.refetch();
@@ -91,7 +91,6 @@ export default function CockpitPage() {
   const tasks = tasksQuery.data ?? [];
   const approvals = approvalsQuery.data ?? [];
   const agents = agentsQuery.data ?? [];
-  const definitions = definitionsQuery.data ?? [];
   const budgets = budgetsQuery.data ?? [];
   const events = activityQuery.data ?? [];
   const phase = currentPhase(workflowData.phases);
@@ -117,6 +116,11 @@ export default function CockpitPage() {
     errorAgents: agents.filter((a) => a.state === 'error' || a.state === 'outOfQuota').length,
     criticalBudgets: budgets.filter((b) => budgetSeverity(b) !== 'ok').length,
   });
+  const progress = aggregateProgress(tasks);
+  const acceptedProgress = canonicalProgress?.percentage ?? progress.approved;
+  const displayedProgress = technical
+    ? progress
+    : { ...progress, approved: acceptedProgress };
 
   return (
     <div className="flex flex-col gap-6">
@@ -176,48 +180,61 @@ export default function CockpitPage() {
         </>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <TeamActivity
-            agents={agents}
-            definitions={definitions}
-            chiefAgentId={activeProject.chiefAgentId}
-          />
-          <WorkflowProgress
-            phases={workflowData.phases}
-            currentPhase={phase}
-            progress={canonicalProgress}
-            progressByPhaseId={phaseProgress.byPhaseId}
-            gates={workflowData.gates}
-            humanGateCount={humanGateCount}
-            isPending={phaseProgress.isPending}
-            isError={phaseProgress.isError}
-          />
-          <NextActionCard actionKey={nextAction} />
-          <BlockedTasksCard tasks={tasks} />
-          <PendingApprovalsCard approvals={humanApprovals} />
-          {presentation.showTechnicalDetails && (
+          <FleetOverview agents={agents} taskCounts={counts} mode={presentationMode} />
+          {technical ? (
             <>
               {featureFlags.governanceContractUi && (
                 <GovernanceHealthCard projectId={activeProject.id} />
               )}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>{t('cockpit.progress.globalTitle')}</CardTitle>
-                  <p className="text-xs text-foreground-muted">{t('cockpit.progress.subtitle')}</p>
-                </CardHeader>
-                <CardContent>
-                  <ProgressTracks
-                    progress={aggregateProgress(tasks)}
-                    evidence={progressEvidence(tasks)}
-                  />
-                </CardContent>
-              </Card>
-              <TasksByStateChart counts={counts} />
-              <FleetOverview agents={agents} taskCounts={counts} />
-              <QuotaCard budgets={budgets} />
+              <WorkflowProgress
+                phases={workflowData.phases}
+                currentPhase={phase}
+                progress={canonicalProgress}
+                progressByPhaseId={phaseProgress.byPhaseId}
+                gates={workflowData.gates}
+                humanGateCount={humanGateCount}
+                isPending={phaseProgress.isPending}
+                isError={phaseProgress.isError}
+              />
+            </>
+          ) : (
+            <>
+              <ProjectTimeline
+                phases={workflowData.phases}
+                gates={workflowData.gates}
+                overallProgress={acceptedProgress}
+              />
+              <TeamCapacityCard />
+              <PendingApprovalsCard approvals={humanApprovals} />
             </>
           )}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>{t('cockpit.progress.globalTitle')}</CardTitle>
+              <p className="text-xs text-foreground-muted">
+                {t(
+                  technical
+                    ? 'cockpit.progress.technicalSubtitle'
+                    : 'cockpit.progress.businessSubtitle',
+                )}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ProgressTracks
+                progress={displayedProgress}
+                evidence={progressEvidence(tasks)}
+                mode={presentationMode}
+                currentPhaseName={phase?.name}
+              />
+            </CardContent>
+          </Card>
+          <NextActionCard actionKey={nextAction} />
+          <TasksByStateChart counts={counts} />
+          <BlockedTasksCard tasks={tasks} mode={presentationMode} />
+          {technical && <PendingApprovalsCard approvals={humanApprovals} mode="technical" />}
+          {technical && <QuotaCard budgets={budgets} />}
           <div className="lg:col-span-2">
-            <ActivityFeed events={events} />
+            <ActivityFeed events={events} mode={presentationMode} />
           </div>
         </div>
       )}

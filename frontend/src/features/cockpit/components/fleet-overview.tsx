@@ -41,23 +41,49 @@ function providerLabel(provider: string): string {
   return PROVIDER_LABELS[provider] ?? provider;
 }
 
+function businessStateKey(
+  state: AgentAccountRoster['state'],
+): 'available' | 'working' | 'unwell' | 'admission' {
+  if (state === 'idle') return 'available';
+  if (state === 'working') return 'working';
+  if (state === 'authentication-required') return 'admission';
+  return 'unwell';
+}
+
 /**
- * Fleet global no Dashboard. A origem é o roster redigido do Host; quando a
- * conta ainda não publicou cota ou tentativas atribuíveis, mostramos ausência e
- * zeros honestos.
+ * Quadro da Equipe. Cada conta é apresentada como uma pessoa real do quadro,
+ * com nome, competência, estado e jornada. Provedor e diagnóstico ficam
+ * restritos ao modo Técnico.
  */
 export function FleetOverview({
   agents,
   taskCounts,
+  mode = 'business',
 }: {
   agents: Agent[];
   taskCounts: Record<TaskState, number>;
+  mode?: 'business' | 'technical';
 }) {
   const { t } = useTranslation();
   const rosterQuery = useAgentRoster();
   const accounts = rosterQuery.data ?? [];
   const metrics = factoryAgentMetrics(agents, taskCounts);
-  const providers = [...new Set(accounts.map((account) => account.providerKind))].sort();
+  const technical = mode === 'technical';
+
+  function journeyLabel(account: AgentAccountRoster): string {
+    if (account.state === 'working') return t('cockpit.fleet.journey.working');
+    if (account.state === 'idle') return t('cockpit.fleet.journey.ready');
+    if (account.state === 'authentication-required') return t('cockpit.fleet.journey.admission');
+    if ((account.state === 'cooldown' || account.state === 'out-of-quota') && account.returnsAt) {
+      return t('cockpit.fleet.journey.returnsAt', {
+        time: formatDateTime(account.returnsAt),
+      });
+    }
+    if (account.state === 'cooldown' || account.state === 'out-of-quota') {
+      return t('cockpit.fleet.journey.pause');
+    }
+    return t('cockpit.fleet.journey.unavailable');
+  }
 
   return (
     <Card className="lg:col-span-2">
@@ -77,7 +103,7 @@ export function FleetOverview({
                 : 'success'
             }
           >
-            {t('cockpit.fleet.identities', { count: accounts.length })}
+            {t('cockpit.fleet.people', { count: accounts.length })}
           </Badge>
         )}
       </CardHeader>
@@ -86,25 +112,19 @@ export function FleetOverview({
           {[
             [
               'online',
-              accounts.filter(
-                (account) =>
-                  account.enabled && CAPACITY_STATES.has(account.state),
-              ).length,
+              accounts.filter((account) => account.enabled && CAPACITY_STATES.has(account.state))
+                .length,
             ],
             ['tasksDone', metrics.tasksDone],
             ['tasksTodo', metrics.tasksTodo],
             [
               'withoutCapacity',
-              accounts.filter(
-                (account) =>
-                  !account.enabled || !CAPACITY_STATES.has(account.state),
-              ).length,
+              accounts.filter((account) => !account.enabled || !CAPACITY_STATES.has(account.state))
+                .length,
             ],
           ].map(([key, value]) => (
             <div key={key} className="rounded-lg border border-border bg-surface-elevated/40 p-3">
-              <dt className="text-xs text-foreground-muted">
-                {t(`cockpit.fleet.kpis.${key}`)}
-              </dt>
+              <dt className="text-xs text-foreground-muted">{t(`cockpit.fleet.kpis.${key}`)}</dt>
               <dd className="font-heading text-2xl font-semibold tabular-nums">
                 {formatNumber(value as number)}
               </dd>
@@ -133,39 +153,46 @@ export function FleetOverview({
               >
                 <AgentIdentity
                   alias={account.alias}
-                  technicalLabel={providerLabel(account.providerKind)}
+                  technicalLabel={technical ? providerLabel(account.providerKind) : null}
                   size={44}
                 />
                 <div className="flex flex-wrap gap-2">
-                  <Badge
-                    variant={STATE_VARIANTS[account.state] ?? 'outline'}
-                  >
-                    {t(`agents.roster.state.${account.state}`)}
+                  <Badge variant={STATE_VARIANTS[account.state] ?? 'outline'}>
+                    {technical
+                      ? t(`agents.roster.state.${account.state}`)
+                      : t(`cockpit.fleet.businessState.${businessStateKey(account.state)}`)}
                   </Badge>
-                  <Badge
-                    variant={
-                      account.health === 'healthy'
-                        ? 'success'
-                        : account.health === 'unhealthy'
-                          ? 'error'
-                          : 'warning'
-                    }
-                  >
-                    {t(`cockpit.fleet.health.${account.health ?? 'attention'}`)}
-                  </Badge>
+                  {technical && (
+                    <Badge
+                      variant={
+                        account.health === 'healthy'
+                          ? 'success'
+                          : account.health === 'unhealthy'
+                            ? 'error'
+                            : 'warning'
+                      }
+                    >
+                      {t(`cockpit.fleet.health.${account.health ?? 'attention'}`)}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-foreground-muted">
-                  {account.state === 'out-of-quota'
-                    ? account.returnsAt
-                      ? t('cockpit.fleet.quotaReturns', {
-                          time: formatDateTime(account.returnsAt),
-                        })
-                      : t('cockpit.fleet.quotaNoReturn')
-                    : account.state === 'cooldown' && account.returnsAt
-                      ? t('cockpit.fleet.cooldownReturns', {
-                          time: formatDateTime(account.returnsAt),
-                        })
-                      : t('cockpit.fleet.quotaUnavailable')}
+                  <span className="font-medium text-foreground">
+                    {t('cockpit.fleet.journey.label')}:
+                  </span>{' '}
+                  {technical
+                    ? account.state === 'out-of-quota'
+                      ? account.returnsAt
+                        ? t('cockpit.fleet.quotaReturns', {
+                            time: formatDateTime(account.returnsAt),
+                          })
+                        : t('cockpit.fleet.quotaNoReturn')
+                      : account.state === 'cooldown' && account.returnsAt
+                        ? t('cockpit.fleet.cooldownReturns', {
+                            time: formatDateTime(account.returnsAt),
+                          })
+                        : t('cockpit.fleet.quotaUnavailable')
+                    : journeyLabel(account)}
                 </p>
               </li>
             ))}
@@ -195,7 +222,7 @@ export function FleetOverview({
             <table className="w-full min-w-[44rem] text-left text-sm">
               <thead className="text-xs text-foreground-muted">
                 <tr className="border-b border-border">
-                  {['provider', 'completed', 'success', 'rework', 'failures', 'duration'].map(
+                  {['person', 'completed', 'success', 'rework', 'failures', 'duration'].map(
                     (key) => (
                       <th key={key} scope="col" className="px-2 py-2 font-medium">
                         {t(`cockpit.fleet.productivity.columns.${key}`)}
@@ -205,10 +232,14 @@ export function FleetOverview({
                 </tr>
               </thead>
               <tbody>
-                {providers.map((provider) => (
-                  <tr key={provider} className="border-b border-border/70 last:border-0">
+                {accounts.map((account) => (
+                  <tr key={account.alias} className="border-b border-border/70 last:border-0">
                     <th scope="row" className="px-2 py-2 font-medium">
-                      {providerLabel(provider)}
+                      <AgentIdentity
+                        alias={account.alias}
+                        technicalLabel={technical ? providerLabel(account.providerKind) : null}
+                        size={32}
+                      />
                     </th>
                     <td className="px-2 py-2 tabular-nums">0</td>
                     <td className="px-2 py-2 tabular-nums">0%</td>

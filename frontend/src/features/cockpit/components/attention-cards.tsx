@@ -5,8 +5,26 @@ import type { Approval, Task } from '@/api';
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/design-system';
 import { priorityVariant } from '@/lib/status';
 
+function businessText(value: string): string {
+  return value
+    .replace(/\bdeploy\b/giu, 'publicação')
+    .replace(/\bstaging\b/giu, 'preparação')
+    .replace(/\bcredencia(?:l|is)\b/giu, 'acesso')
+    .replace(/\bmigraç(?:ão|ões)\b/giu, 'atualização')
+    .replace(/\bplugins?\b/giu, 'recurso')
+    .replace(/\bgates?\b/giu, 'verificação')
+    .replace(/\bworkflow\b/giu, 'fluxo de trabalho')
+    .replace(/\btestes?\s+de\s+contrato\b/giu, 'verificações do combinado');
+}
+
 /** Tarefas bloqueadas com motivo — clicáveis, abrem a tarefa no quadro. */
-export function BlockedTasksCard({ tasks }: { tasks: Task[] }) {
+export function BlockedTasksCard({
+  tasks,
+  mode = 'business',
+}: {
+  tasks: Task[];
+  mode?: 'business' | 'technical';
+}) {
   const { t } = useTranslation();
   const blocked = tasks.filter((task) => task.state === 'blocked');
 
@@ -30,12 +48,18 @@ export function BlockedTasksCard({ tasks }: { tasks: Task[] }) {
                   className="flex min-h-touch flex-col justify-center gap-1 rounded-md border border-border p-3 transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{task.title}</span>
+                    <span className="text-sm font-medium">
+                      {mode === 'technical' ? task.title : businessText(task.title)}
+                    </span>
                     <Badge variant={priorityVariant(task.priority)}>
                       {t(`status.priority.${task.priority}`)}
                     </Badge>
                   </span>
-                  <span className="text-xs text-error">{task.blockedReason}</span>
+                  <span className="text-xs text-error">
+                    {mode === 'technical'
+                      ? task.blockedReason
+                      : businessText(task.blockedReason ?? '')}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -46,8 +70,14 @@ export function BlockedTasksCard({ tasks }: { tasks: Task[] }) {
   );
 }
 
-/** Aprovações pendentes — cada item e o rodapé levam a /approvals. */
-export function PendingApprovalsCard({ approvals }: { approvals: Approval[] }) {
+/** Aprovações pendentes — cada item e o rodapé levam à aba de Documentos. */
+export function PendingApprovalsCard({
+  approvals,
+  mode = 'business',
+}: {
+  approvals: Approval[];
+  mode?: 'business' | 'technical';
+}) {
   const { t } = useTranslation();
   const pending = approvals.filter((approval) => approval.state === 'pending');
 
@@ -67,18 +97,24 @@ export function PendingApprovalsCard({ approvals }: { approvals: Approval[] }) {
             {pending.map((approval) => (
               <li key={approval.id}>
                 <Link
-                  to="/approvals"
+                  to="/documents?tab=approvals"
                   className="flex min-h-touch flex-col justify-center gap-1 rounded-md border border-border p-3 transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <span className="text-sm font-medium">{approval.title}</span>
-                  <span className="text-xs text-foreground-muted">{approval.description}</span>
+                  <span className="text-sm font-medium">
+                    {mode === 'technical' ? approval.title : businessText(approval.title)}
+                  </span>
+                  <span className="text-xs text-foreground-muted">
+                    {mode === 'technical'
+                      ? approval.description
+                      : businessText(approval.description)}
+                  </span>
                 </Link>
               </li>
             ))}
           </ul>
         )}
         <Link
-          to="/approvals"
+          to="/documents?tab=approvals"
           className="self-start text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {t('cockpit.approvals.viewAll')}

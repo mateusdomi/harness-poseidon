@@ -872,23 +872,28 @@
     },
     "empty": {
       "title": "Nenhum projeto ativo",
-      "body": "O Dashboard mostra o andamento de um projeto: etapa, progresso, bloqueios e equipe. Crie o primeiro projeto para começar.",
+      "body": "O Dashboard mostra a equipe, as etapas, o andamento e os bloqueios do projeto. Crie o primeiro projeto para começar.",
       "cta": "Criar projeto"
     },
     "phase": {
       "title": "Etapa atual",
-      "noRun": "Nenhum fluxo de trabalho em andamento neste projeto.",
+      "noRun": "Nenhum trabalho em andamento neste projeto.",
       "gate": "O que falta para avançar:",
       "noGate": "Nada pendente nesta etapa",
       "progressLabel": "Progresso da etapa {{phase}}",
       "progressFraction": "{{completed}} de {{total}} itens concluídos",
       "progressTooltip": "Fonte única: objetivos e conferências registrados no fluxo de trabalho.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nConferências: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
-      "deliverables": "Entregáveis esperados",
-      "deliverablesUnavailable": "Este trabalho não publicou entregáveis para a etapa."
+      "deliverables": "Entregas esperadas",
+      "deliverablesUnavailable": "Ainda não há entregas previstas para esta etapa."
     },
     "progress": {
-      "globalTitle": "Progresso global do projeto",
-      "subtitle": "Três trilhas independentes — nunca somadas. Passe o mouse em cada uma para entender o que ela mede.",
+      "globalTitle": "Andamento do projeto",
+      "businessSubtitle": "Mostra somente o trabalho já aceito como pronto.",
+      "technicalSubtitle": "Três trilhas independentes — nunca somadas. Passe o mouse em cada uma para entender o que ela mede.",
+      "businessLabel": "Trabalho aceito",
+      "businessExplanation": "Este número cresce quando uma entrega é conferida e aceita como pronta.",
+      "currentStage": "Etapa atual: {{stage}}",
+      "noCurrentStage": "O projeto ainda não iniciou uma etapa.",
       "tracks": {
         "executed": "Executado",
         "validated": "Validado",
@@ -910,16 +915,31 @@
       }
     },
     "fleet": {
-      "title": "Fleet operacional",
-      "subtitle": "Bruna e as identidades globais disponíveis para executar trabalho em qualquer projeto.",
-      "identities": "{{count}} identidades",
-      "error": "Não foi possível consultar o estado da fleet.",
-      "empty": "Nenhuma identidade de execução foi configurada nesta instalação.",
+      "title": "Quadro da Equipe",
+      "subtitle": "As pessoas que trabalham nos seus projetos e a competência que cada uma exerce.",
+      "people": "{{count}} pessoas",
+      "error": "Não foi possível consultar o quadro da equipe.",
+      "empty": "Nenhuma pessoa foi adicionada à equipe nesta instalação.",
       "kpis": {
-        "online": "Online",
+        "online": "Disponíveis",
         "tasksDone": "Tarefas concluídas",
         "tasksTodo": "Tarefas a fazer",
-        "withoutCapacity": "Sem capacidade"
+        "withoutCapacity": "Precisam de atenção"
+      },
+      "businessState": {
+        "available": "Disponível",
+        "working": "Trabalhando",
+        "unwell": "Indisposto(a)",
+        "admission": "Em admissão"
+      },
+      "journey": {
+        "label": "Jornada",
+        "working": "em trabalho agora",
+        "ready": "pronta para novas tarefas",
+        "admission": "aguardando você concluir a contratação",
+        "returnsAt": "deve voltar em {{time}}",
+        "pause": "deve voltar em breve",
+        "unavailable": "deve voltar em breve"
       },
       "states": {
         "authenticationRequired": "Autenticação necessária",
@@ -935,49 +955,104 @@
       "quotaNoReturn": "Sem cota. O provedor não informou quando ela retorna.",
       "cooldownReturns": "Cooldown até {{time}}.",
       "productivity": {
-        "title": "Produtividade por assinatura",
-        "source": "Fonte prevista: tarefas e tentativas persistidas, atribuídas à conta de execução. Nenhuma tentativa atribuível foi publicada nesta instalação.",
+        "title": "Produtividade da equipe",
+        "source": "Resultados das tarefas concluídas por cada pessoa da equipe.",
         "columns": {
-          "provider": "Assinatura / provedor",
+          "person": "Pessoa",
           "completed": "Concluídas",
           "success": "Sucesso",
           "rework": "Retrabalho",
           "failures": "Falhas",
           "duration": "Duração média"
         },
-        "unavailable": "Não disponível",
-        "zeroExplanation": "Os zeros são reais para o recorte disponível. A duração fica indisponível porque não há tentativa persistida atribuível a uma assinatura."
+        "unavailable": "Ainda sem histórico",
+        "zeroExplanation": "Os zeros refletem o histórico disponível até agora; nenhum resultado é estimado."
+      }
+    },
+    "timeline": {
+      "title": "Etapas do projeto",
+      "subtitle": "Selecione uma etapa para ver o que já foi concluído e o que falta.",
+      "overallProgress": "do projeto aceito",
+      "ariaLabel": "Linha do tempo das etapas do projeto",
+      "openStage": "Ver detalhes da etapa {{stage}}",
+      "empty": "As etapas aparecerão aqui quando o trabalho começar.",
+      "obligations": "O que falta para avançar de etapa",
+      "noObligations": "Nenhuma pendência publicada para esta etapa.",
+      "state": {
+        "pending": "Próxima",
+        "active": "Em andamento",
+        "completed": "Concluída",
+        "skipped": "Não necessária",
+        "failed": "Precisa de atenção"
+      },
+      "obligationState": {
+        "pending": "Pendente",
+        "approved": "Concluído",
+        "rejected": "Precisa de ajuste",
+        "waived": "Não necessário"
+      },
+      "deliverableState": {
+        "planned": "Planejada",
+        "notStarted": "Ainda não iniciada",
+        "inProduction": "Em produção",
+        "inReview": "Em conferência",
+        "approved": "Aceita",
+        "rejected": "Precisa de ajuste"
+      }
+    },
+    "capacity": {
+      "title": "Capacidade da equipe",
+      "healthy": "Equipe disponível",
+      "attention": "{{count}} pessoa precisa de atenção",
+      "attention_other": "{{count}} pessoas precisam de atenção",
+      "error": "Não foi possível consultar a capacidade da equipe.",
+      "empty": "A capacidade aparecerá quando a equipe for adicionada.",
+      "state": {
+        "available": "Disponível",
+        "working": "Trabalhando",
+        "admission": "Em admissão",
+        "unavailable": "Indisposto(a)"
       }
     },
     "tasksChart": {
       "title": "Distribuição de tarefas",
-      "subtitle": "Quantas tarefas há em cada estágio da fábrica agora.",
+      "subtitle": "Quantas tarefas há em cada momento do trabalho agora.",
       "empty": "Nenhuma tarefa neste projeto ainda.",
-      "bar": "{{state}}: {{count}} tarefas"
+      "bar": "{{state}}: {{count}} tarefas",
+      "state": {
+        "backlog": "A organizar",
+        "ready": "Prontas para começar",
+        "development": "Em produção",
+        "review": "Em conferência",
+        "corrections": "Em ajuste",
+        "testsGates": "Em verificação",
+        "blocked": "Bloqueadas",
+        "done": "Concluídas"
+      }
     },
     "nextAction": {
       "title": "Próxima ação recomendada",
       "runInChat": "Executar no chat",
       "actions": {
         "resolveApprovals": {
-          "label": "Há aprovações aguardando sua decisão. Resolver libera o avanço das etapas.",
-          "message": "Bruna, liste as aprovações pendentes do projeto e me ajude a decidir cada uma."
+          "label": "Há documentos aguardando sua decisão. Conferi-los permite que o trabalho avance.",
+          "message": "Bruna, liste os documentos aguardando minha aprovação e me ajude a decidir cada um."
         },
         "unblockTasks": {
           "label": "Há tarefas bloqueadas. Peça à Bruna um plano de desbloqueio.",
           "message": "Bruna, quais tarefas estão bloqueadas e o que falta para desbloquear cada uma?"
         },
         "recoverAgents": {
-          "label": "Há pessoas indispostas ou sem jornada. A Bruna pode redistribuir o trabalho.",
-          "message": "Bruna, tem gente indisposta ou sem jornada. Como recuperamos a capacidade do time?"
+          "label": "Há pessoas indispostas. Bruna pode reorganizar o trabalho.",
+          "message": "Bruna, há pessoas indispostas. Como podemos reorganizar o trabalho da equipe?"
         },
         "reviewQuotas": {
-          "label": "Há orçamentos perto do limite. Revise o consumo antes de esgotar a jornada.",
-          "message": "Bruna, como está o consumo de custo do projeto e o que podemos otimizar?"
+          "label": "A jornada de parte da equipe está perto do limite. Confira antes de continuar.",
+          "message": "Bruna, como está a jornada da equipe e o que podemos reorganizar?"
         },
         "reviewPhase": {
-          "label": "Tudo saudável. Peça um resumo do andamento da etapa atual.",
-          "message": "Bruna, me dê um resumo do progresso da etapa atual e dos próximos passos."
+          "label": "Tudo está seguindo bem. Peça um resumo da etapa atual.",
+          "message": "Bruna, me dê um resumo do andamento da etapa atual e dos próximos passos."
         }
       }
     },
@@ -1011,8 +1086,8 @@
       "problemState": "sem capacidade"
     },
     "quotas": {
-      "title": "Cotas críticas",
-      "empty": "Nenhuma série temporal de cota foi publicada pelos provedores. Quando houver observações reais, este card mostrará consumo e retorno da cota em uma timeline; até lá, consulte o estado honesto de cada assinatura na Fleet.",
+      "title": "Capacidade da equipe",
+      "empty": "Nenhuma limitação foi registrada para a equipe.",
       "severity": {
         "warning": "Atenção: {{pct}}% do budget consumido.",
         "critical": "Limite atingido: {{pct}}% do budget consumido."
@@ -1020,8 +1095,14 @@
     },
     "activity": {
       "title": "Atividade recente",
-      "empty": "Nenhuma atividade relevante ainda. Aqui aparecem tarefas que mudam de estágio, documentos criados ou aprovados e conversas — não o vaivém técnico interno.",
-      "noise": "Eventos técnicos internos foram ocultados para mostrar só o que muda a operação.",
+      "empty": "Nenhuma atividade relevante ainda. Aqui aparecem tarefas que mudam de momento, documentos criados ou aprovados e conversas.",
+      "noise": "Atualizações internas foram ocultadas para mostrar só o que muda o projeto.",
+      "actor": {
+        "user": "Você",
+        "chief": "Bruna",
+        "agent": "Equipe",
+        "system": "Poseidon"
+      },
       "period": {
         "label": "Período da atividade",
         "options": {
@@ -1031,7 +1112,7 @@
         }
       },
       "emptyPeriod": "Nenhuma atividade nas {{period}}.",
-      "emptyPeriodHint": "Amplie o período acima ou confira o histórico completo na Governança.",
+      "emptyPeriodHint": "Amplie o período acima para consultar atividades anteriores.",
       "showing": "Exibindo {{shown}} de {{total}}",
       "loadMore": "Carregar mais {{count}}",
       "fullHistory": "Ver histórico completo",
@@ -1570,7 +1651,7 @@
     },
     "cockpit": {
       "title": "Dashboard",
-      "description": "Acompanhe o avanço, a capacidade da equipe e as decisões que precisam de você."
+      "description": "Acompanhe sua equipe, as etapas do projeto e o que precisa da sua atenção."
     },
     "chat": {
       "title": "Chat",

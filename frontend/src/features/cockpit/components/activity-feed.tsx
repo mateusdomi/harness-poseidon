@@ -1,13 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Info,
-  XCircle,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from 'lucide-react';
 
 import type { AuditEvent } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/design-system';
@@ -54,7 +48,7 @@ const OUTCOME_CLASSES: Record<ActivityOutcome, string> = {
  * para o objeto e disclosure com o detalhe técnico (código cru + alvo), que é
  * a única superfície onde o código aparece literalmente.
  */
-function ActivityItem({ event }: { event: AuditEvent }) {
+function ActivityItem({ event, technical }: { event: AuditEvent; technical: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const humanized = humanizeActivity(event);
@@ -79,14 +73,14 @@ function ActivityItem({ event }: { event: AuditEvent }) {
         />
         <span className="sr-only">{t(`cockpit.activity.outcome.${humanized.outcome}`)}</span>
         <Badge variant={ACTOR_VARIANTS[event.actorKind]}>
-          {t(`status.auditActorKind.${event.actorKind}`)}
+          {technical
+            ? t(`status.auditActorKind.${event.actorKind}`)
+            : t(`cockpit.activity.actor.${event.actorKind}`)}
         </Badge>
         <time dateTime={event.occurredAt}>{formatRelativeTime(event.occurredAt)}</time>
       </span>
       <span className="text-sm">{message}</span>
-      {objectLine ? (
-        <span className="text-sm text-foreground-muted">{objectLine}</span>
-      ) : null}
+      {objectLine ? <span className="text-sm text-foreground-muted">{objectLine}</span> : null}
       <span className="flex flex-wrap items-center gap-3">
         {humanized.link ? (
           <Link
@@ -96,16 +90,18 @@ function ActivityItem({ event }: { event: AuditEvent }) {
             {t('cockpit.activity.openTarget')}
           </Link>
         ) : null}
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          className="text-xs text-foreground-muted underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          {open ? t('cockpit.activity.hideDetails') : t('cockpit.activity.showDetails')}
-        </button>
+        {technical && (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+            className="text-xs text-foreground-muted underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {open ? t('cockpit.activity.hideDetails') : t('cockpit.activity.showDetails')}
+          </button>
+        )}
       </span>
-      {open ? (
+      {technical && open ? (
         <dl className="mt-1 flex flex-col gap-1 rounded-md bg-surface-elevated p-2 text-xs">
           <div className="flex flex-wrap gap-2">
             <dt className="text-foreground-muted">{t('cockpit.activity.details.action')}</dt>
@@ -137,7 +133,13 @@ function ActivityItem({ event }: { event: AuditEvent }) {
  * paginação tradicional, porque o feed é realtime/timeline (D-070).
  * Quadro e Governança seguem como fontes históricas completas.
  */
-export function ActivityFeed({ events }: { events: AuditEvent[] }) {
+export function ActivityFeed({
+  events,
+  mode = 'business',
+}: {
+  events: AuditEvent[];
+  mode?: 'business' | 'technical';
+}) {
   const { t } = useTranslation();
   // Relógio compartilhado: a janela do período se move sozinha (30s).
   const now = useNow();
@@ -205,7 +207,7 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
           <>
             <ol className="flex flex-col gap-3">
               {visible.map((event) => (
-                <ActivityItem key={event.id} event={event} />
+                <ActivityItem key={event.id} event={event} technical={mode === 'technical'} />
               ))}
             </ol>
             <div className="flex flex-wrap items-center gap-3">
@@ -230,12 +232,14 @@ export function ActivityFeed({ events }: { events: AuditEvent[] }) {
         {hiddenNoise > 0 && (
           <p className="text-xs text-foreground-muted">{t('cockpit.activity.noise')}</p>
         )}
-        <Link
-          to="/governance"
-          className="self-start text-xs text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          {t('cockpit.activity.fullHistory')}
-        </Link>
+        {mode === 'technical' && (
+          <Link
+            to="/governance"
+            className="self-start text-xs text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {t('cockpit.activity.fullHistory')}
+          </Link>
+        )}
       </CardContent>
     </Card>
   );
