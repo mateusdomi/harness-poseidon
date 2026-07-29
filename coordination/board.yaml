@@ -14,7 +14,7 @@ fases:
   F10: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F11: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F12: { estado: concluida, agente: claude-b, iniciado_em: "2026-07-29T17:11:31Z", concluido_em: "2026-07-29T19:21:40Z", atualizado_em: "2026-07-29T19:21:40Z", nota: "B4+B9 entregues e integrados: espera (prazo=checkpoint, vivo!=concluido), circuito por card (3 falhas abrem, so replanejamento reabre), profundidade de plano em ondas, guardas de laco com deteccao de ciclo causal, amostragem de cauda. Migrations 0097-0098. Gate: format, build Release, frontend 718, unit 967, arquitetura 20, contrato 41, concorrencia 8, recuperacao 12 (inclui Postgres real) — todos verdes; unica reprovacao e VERMELHO HERDADO em Conversations, provado no develop puro" }
-  F13: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F13: { estado: em_andamento, agente: claude-b, iniciado_em: "2026-07-29T19:29:06Z", atualizado_em: "2026-07-29T19:29:06Z", nota: "backend B5: tipos completos de mensagem, conclusao exatamente-uma-vez inclusive em falha, autoridade por task+attempt+fencing (nao por id de processo) e honestidade de proveniencia; backend estava vazio de novo e eu venho da F12, modulo adjacente" }
   F14: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F15: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F16: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
