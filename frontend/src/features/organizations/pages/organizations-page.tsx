@@ -15,6 +15,7 @@ import {
   useOrganizations,
   useUpdateOrganization,
 } from '@/features/organizations/hooks/use-organizations';
+import { usePresentationMode } from '@/app/presentation';
 
 type View =
   | { kind: 'list' }
@@ -24,6 +25,7 @@ type View =
 
 export default function OrganizationsPage() {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const organizationsQuery = useOrganizations();
@@ -68,7 +70,11 @@ export default function OrganizationsPage() {
         <h1 className="font-heading text-2xl font-semibold">{t('features.organizations.title')}</h1>
       </div>
       <p className="max-w-prose text-foreground-muted">
-        {t('features.organizations.description')}
+        {t(
+          showTechnicalDetails
+            ? 'features.organizations.description'
+            : 'features.organizations.businessDescription',
+        )}
       </p>
 
       {view.kind === 'create' && (
@@ -76,7 +82,9 @@ export default function OrganizationsPage() {
           <Breadcrumb items={[breadcrumbBase, { label: t('organizations.form.createTitle') }]} />
           <BackLink
             label={t('organizations.back')}
-            onBack={() => (returnTo === 'project' ? navigate('/projects') : setView({ kind: 'list' }))}
+            onBack={() =>
+              returnTo === 'project' ? navigate('/projects') : setView({ kind: 'list' })
+            }
             fallbackTo="/organizations"
           />
           <OrganizationForm
@@ -126,7 +134,11 @@ export default function OrganizationsPage() {
       {view.kind === 'list' && (
         <>
           {organizationsQuery.isLoading ? (
-            <div className="flex flex-col gap-3" role="status" aria-label={t('common.states.loading')}>
+            <div
+              className="flex flex-col gap-3"
+              role="status"
+              aria-label={t('common.states.loading')}
+            >
               <Skeleton className="h-11 w-full" />
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />

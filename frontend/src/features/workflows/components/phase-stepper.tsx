@@ -7,6 +7,7 @@ import { Badge, Tooltip, type BadgeProps } from '@/design-system';
 import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { documentStateVariant, gateStateVariant, phaseStateVariant } from '@/lib/status';
+import { usePresentationMode } from '@/app/presentation';
 
 export interface PhaseStepperProps {
   phases: Phase[];
@@ -32,6 +33,7 @@ const DELIVERABLE_VARIANTS: Record<DeliverableStatus, BadgeProps['variant']> = {
  */
 export function PhaseStepper({ phases, gates, documents }: PhaseStepperProps) {
   const { t } = useTranslation();
+  const { isBusiness } = usePresentationMode();
 
   return (
     <ol
@@ -122,10 +124,16 @@ export function PhaseStepper({ phases, gates, documents }: PhaseStepperProps) {
                     aria-label={t('workflows.phases.gatesLabel', { phase: phase.name })}
                     className="mt-2 flex flex-col gap-1.5"
                   >
-                    {phaseGates.map((gate) => (
+                    {phaseGates.map((gate, gateIndex) => (
                       <li key={gate.id} className="flex flex-wrap items-center gap-2 text-xs">
                         <ShieldCheck aria-hidden="true" className="size-4 text-foreground-muted" />
-                        <span>{gate.name}</span>
+                        <span>
+                          {isBusiness
+                            ? t('workflows.phases.businessRequirement', {
+                                index: gateIndex + 1,
+                              })
+                            : gate.name}
+                        </span>
                         <Badge variant={gateStateVariant(gate.state)}>
                           {t(`status.gateState.${gate.state}`)}
                         </Badge>

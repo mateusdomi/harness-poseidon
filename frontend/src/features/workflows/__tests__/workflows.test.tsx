@@ -5,10 +5,15 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import WorkflowsPage from '@/features/workflows/pages/workflows-page';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
-function renderWorkflows() {
+function renderWorkflows(mode: 'business' | 'technical' = 'technical') {
   // Bundle novo por teste: o store do mock é mutável (modo, versões).
   const bundle = createTestBundle();
+  useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
+  usePresentationStore.setState({ modeByProfile: {} });
+  usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, mode);
   return renderWithApi(
     <MemoryRouter initialEntries={['/workflows']}>
       <Routes>
@@ -28,6 +33,23 @@ async function templateCard(name: string) {
 }
 
 describe('WorkflowsPage', () => {
+  it('mostra somente as etapas e o progresso no modo Negócio', async () => {
+    renderWorkflows('business');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Etapas do fluxo de trabalho' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Modelos de fluxo de trabalho' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Modo de operação' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/segue a versão v1/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Gate de Qualidade/)).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText('O que falta para avançar de etapa 1').length,
+    ).toBeGreaterThan(0);
+  });
+
   it('renderiza o stepper de fases com status, gates e documentos por fase', async () => {
     renderWorkflows();
 
@@ -59,10 +81,7 @@ describe('WorkflowsPage', () => {
     const docLink = within(faseValidacao).getByRole('link', {
       name: 'Nota de arquitetura realtime',
     });
-    expect(docLink).toHaveAttribute(
-      'href',
-      expect.stringContaining('/documents?doc='),
-    );
+    expect(docLink).toHaveAttribute('href', expect.stringContaining('/documents?doc='));
 
     // Explicação de que o run permanece na versão original.
     expect(screen.getByText(/segue a versão v1/)).toBeInTheDocument();
@@ -91,14 +110,15 @@ describe('WorkflowsPage', () => {
       await screen.findByText('Marque o aceite de risco e escreva a justificativa.'),
     ).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/Justificativa do aceite/), 'Sprint crítica, aceito o risco.');
+    await user.type(
+      screen.getByLabelText(/Justificativa do aceite/),
+      'Sprint crítica, aceito o risco.',
+    );
     await user.selectOptions(screen.getByLabelText('Novo modo'), 'manual');
     await user.click(screen.getByRole('button', { name: 'Confirmar troca' }));
 
     // Dialog fecha e o aceite fica registrado.
-    expect(
-      await screen.findByText(/aceite\(s\) de risco registrado\(s\)/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/aceite\(s\) de risco registrado\(s\)/)).toBeInTheDocument();
   });
 
   it('modo semiautônomo exige seleção de gates que pausam', async () => {
@@ -110,18 +130,25 @@ describe('WorkflowsPage', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Li e aceito os riscos deste modo de operação' }),
     );
-    await user.type(screen.getByLabelText(/Justificativa do aceite/), 'Confio nos agentes, com pausa no release.');
+    await user.type(
+      screen.getByLabelText(/Justificativa do aceite/),
+      'Confio nos agentes, com pausa no release.',
+    );
 
     // Sem gate selecionado → erro específico.
     await user.click(screen.getByRole('button', { name: 'Confirmar troca' }));
     expect(
-      await screen.findByText('Selecione ao menos um ponto de aprovação que pause para a sua decisão.'),
+      await screen.findByText(
+        'Selecione ao menos um ponto de aprovação que pause para a sua decisão.',
+      ),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('checkbox', { name: 'Gate de Release' }));
     await user.click(screen.getByRole('button', { name: 'Confirmar troca' }));
 
-    expect(await screen.findByText(/Pausa nos pontos de aprovação: Gate de Release/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Pausa nos pontos de aprovação: Gate de Release/),
+    ).toBeInTheDocument();
   });
 });
 

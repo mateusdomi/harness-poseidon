@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
@@ -11,11 +12,16 @@ import {
 } from '@/features/providers/lib/providers-derive';
 import ProvidersPage from '@/features/providers/pages/providers-page';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 const fixtures = createTestBundle().fixtures.data;
 
-function renderPage() {
+function renderPage(mode: 'business' | 'technical' = 'technical') {
   const bundle = createTestBundle();
+  useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
+  usePresentationStore.setState({ modeByProfile: {} });
+  usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, mode);
   return renderWithApi(
     <MemoryRouter initialEntries={['/providers']}>
       <Routes>
@@ -59,13 +65,19 @@ describe('providers-derive', () => {
 });
 
 describe('ProvidersPage', () => {
+  it('não expõe conexões e modelos no modo Negócio', () => {
+    renderPage('business');
+
+    expect(screen.getByText('Área disponível no modo Técnico')).toBeInTheDocument();
+    expect(screen.queryByText('OpenAI')).not.toBeInTheDocument();
+    expect(screen.queryByText('Conta principal')).not.toBeInTheDocument();
+  });
+
   it('renderiza providers, contas com barra de cota e catálogo somente leitura', async () => {
     renderPage();
 
     // Nome do provider (h2) e o badge do kind usam o mesmo texto.
-    expect(
-      await screen.findByRole('heading', { level: 2, name: 'OpenAI' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'OpenAI' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Anthropic' })).toBeInTheDocument();
     expect(screen.getByText('Conta principal')).toBeInTheDocument();
     expect(screen.getByText('GPT-4o')).toBeInTheDocument();
@@ -77,5 +89,40 @@ describe('ProvidersPage', () => {
 
     // Política de roteamento em visualização estruturada.
     expect(screen.getByText('Política padrão')).toBeInTheDocument();
+  });
+
+  it('sincroniza o catálogo e confirma quantos modelos foram atualizados', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const provider = await screen.findByRole('region', { name: 'OpenAI' });
+    await user.click(within(provider).getByRole('button', { name: 'Sincronizar' }));
+
+    expect(await within(provider).findByRole('status')).toHaveTextContent(
+      /Catálogo sincronizado: \d+ modelo/,
+    );
+  });
+
+  it('salva uma alteração estruturada na política de roteamento', async () => {
+    const user = userEvent.setup();
+    const { bundle } = renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Editar política' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Editar política de roteamento',
+    });
+    const preferred = within(dialog).getAllByLabelText('Modelo preferido')[0];
+    const target = bundle.fixtures.data.models.find(
+      (model) => model.id !== (preferred as HTMLSelectElement).value,
+    )!;
+
+    await user.selectOptions(preferred, target.id);
+    await user.click(within(dialog).getByRole('button', { name: 'Avançar' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Confirmar e salvar' }));
+
+    await waitFor(async () => {
+      const policies = (await bundle.api.list('routing-policies')).items;
+      expect(policies[0].rules[0].preferredModelId).toBe(target.id);
+    });
   });
 });

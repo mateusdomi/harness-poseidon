@@ -336,7 +336,10 @@ export function VersionDraftEditor({
                 </Button>
               </div>
 
-              <Field htmlFor={`phase-objective-${index}`} label={t('workflows.editor.objectiveLabel')}>
+              <Field
+                htmlFor={`phase-objective-${index}`}
+                label={t('workflows.editor.objectiveLabel')}
+              >
                 <Input id={`phase-objective-${index}`} {...register(`phases.${index}.objective`)} />
               </Field>
 
@@ -348,7 +351,7 @@ export function VersionDraftEditor({
                 />
               </Field>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 <Field
                   htmlFor={`phase-gates-${index}`}
                   label={t('workflows.templates.gatesLabel')}
@@ -390,9 +393,7 @@ export function VersionDraftEditor({
                         <label key={kind} className="flex min-h-11 items-center gap-2 text-xs">
                           <Checkbox
                             checked={kindField.value.includes(kind)}
-                            onChange={() =>
-                              kindField.onChange(toggleInList(kindField.value, kind))
-                            }
+                            onChange={() => kindField.onChange(toggleInList(kindField.value, kind))}
                           />
                           {t(`status.documentKind.${kind}`)}
                         </label>
@@ -543,7 +544,7 @@ export function VersionDraftEditor({
                 </>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 <Field
                   htmlFor={`phase-entry-${index}`}
                   label={t('workflows.editor.entryConditionsLabel')}

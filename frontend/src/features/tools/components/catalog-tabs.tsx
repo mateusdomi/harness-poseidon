@@ -12,7 +12,7 @@ export interface CatalogTabsProps {
 
 /**
  * Abas do catálogo com role=tablist acessível (setas esquerda/direita
- * navegam, roving tabindex). No mobile (<sm) viram um Select — os
+ * navegam, roving tabindex). No mobile (<md) viram um Select — os
  * painéis permanecem os mesmos.
  */
 export function CatalogTabs({ tabs, activeId, onChange }: CatalogTabsProps) {
@@ -35,7 +35,7 @@ export function CatalogTabs({ tabs, activeId, onChange }: CatalogTabsProps) {
     <>
       {/* Mobile: Select ocupa a largura toda e tem alvo de toque ≥44px. */}
       <Select
-        className="sm:hidden"
+        className="md:hidden"
         aria-label={t('tools.tabs.label')}
         value={activeId}
         onChange={(event) => onChange(event.target.value as CatalogTabId)}
@@ -50,7 +50,7 @@ export function CatalogTabs({ tabs, activeId, onChange }: CatalogTabsProps) {
       <div
         role="tablist"
         aria-label={t('tools.tabs.label')}
-        className="hidden flex-wrap gap-1 sm:flex"
+        className="hidden flex-wrap gap-1 md:flex"
         onKeyDown={handleKeyDown}
       >
         {tabs.map((tab) => (

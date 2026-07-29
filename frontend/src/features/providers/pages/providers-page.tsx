@@ -26,9 +26,18 @@ import {
 import { modelDisplayName } from '@/features/providers/lib/providers-derive';
 import { useNow } from '@/features/shared/hooks/use-now';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
+import { usePresentationMode } from '@/app/presentation';
 
 /** Tile de resumo (número em destaque + rótulo) para a visão geral da tela. */
-function OverviewTile({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
+function OverviewTile({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: LucideIcon;
+  value: number;
+  label: string;
+}) {
   return (
     <Card>
       <CardContent className="flex items-center gap-3 p-4">
@@ -57,6 +66,22 @@ function OverviewTile({ icon: Icon, value, label }: { icon: LucideIcon; value: n
  */
 export default function UprovidersPage() {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
+  if (!showTechnicalDetails) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col gap-2 p-6">
+          <h1 className="font-heading text-xl font-semibold">{t('providers.access.title')}</h1>
+          <p className="text-sm text-foreground-muted">{t('providers.access.body')}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  return <ProvidersTechnicalPage />;
+}
+
+function ProvidersTechnicalPage() {
+  const { t } = useTranslation();
   const providersQuery = useProviders();
   const accountsQuery = useAccounts();
   const modelsQuery = useModels();
@@ -71,9 +96,10 @@ export default function UprovidersPage() {
   useProvidersRealtime();
 
   const [editingPolicy, setEditingPolicy] = useState<RoutingPolicy | null>(null);
-  const [accountForm, setAccountForm] = useState<{ providerId: Ulid; account: Account | null } | null>(
-    null,
-  );
+  const [accountForm, setAccountForm] = useState<{
+    providerId: Ulid;
+    account: Account | null;
+  } | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<Account | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<{ providerId: Ulid; count: number } | null>(
     null,
@@ -200,9 +226,7 @@ export default function UprovidersPage() {
                   })
                 }
                 onNewAccount={() => setAccountForm({ providerId: provider.id, account: null })}
-                onEditAccount={(account) =>
-                  setAccountForm({ providerId: provider.id, account })
-                }
+                onEditAccount={(account) => setAccountForm({ providerId: provider.id, account })}
                 onEnableAccount={(account) => enableAccount.mutate(account.id)}
                 onDisableAccount={(account) => disableAccount.mutate(account.id)}
                 onDeleteAccount={(account) => {

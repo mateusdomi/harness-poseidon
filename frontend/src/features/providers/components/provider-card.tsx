@@ -85,7 +85,7 @@ export function ProviderCard({
       aria-labelledby={`provider-${provider.id}`}
       className="overflow-hidden rounded-lg border border-border bg-surface text-foreground shadow-card"
     >
-      <div className="flex flex-col gap-4 border-b border-border p-4 sm:p-6">
+      <div className="flex flex-col gap-4 border-b border-border p-4 md:p-6">
         <div className="flex flex-wrap items-start gap-3">
           <span
             aria-hidden="true"
@@ -95,10 +95,7 @@ export function ProviderCard({
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2
-                id={`provider-${provider.id}`}
-                className="font-heading text-lg font-semibold"
-              >
+              <h2 id={`provider-${provider.id}`} className="font-heading text-lg font-semibold">
                 {provider.name}
               </h2>
               <Badge variant="outline">{t(`status.providerKind.${provider.kind}`)}</Badge>
@@ -114,12 +111,12 @@ export function ProviderCard({
               </Badge>
             </p>
           </div>
-          <div className="flex w-full gap-2 sm:w-auto">
+          <div className="flex w-full gap-2 md:w-auto">
             <Button
               type="button"
               variant="primary"
               size="sm"
-              className="flex-1 sm:flex-none"
+              className="flex-1 md:flex-none"
               onClick={onNewAccount}
             >
               <Plus aria-hidden="true" />
@@ -144,7 +141,7 @@ export function ProviderCard({
         )}
       </div>
 
-      <div className="flex flex-col gap-4 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 p-4 md:p-6">
         <section aria-labelledby={`accounts-${provider.id}`} className="flex flex-col gap-3">
           <h3
             id={`accounts-${provider.id}`}
@@ -154,9 +151,7 @@ export function ProviderCard({
           </h3>
           {accounts.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-6 text-center">
-              <p className="text-sm text-foreground-muted">
-                {t('providers.accounts.emptyCta')}
-              </p>
+              <p className="text-sm text-foreground-muted">{t('providers.accounts.emptyCta')}</p>
               <Button type="button" variant="primary" size="sm" onClick={onNewAccount}>
                 <Plus aria-hidden="true" />
                 {t('providers.accounts.connect')}

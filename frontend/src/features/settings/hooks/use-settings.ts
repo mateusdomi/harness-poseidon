@@ -17,9 +17,7 @@ export function useCurrentSettings() {
     queryKey: settingsKeys.current,
     queryFn: async (): Promise<Settings | null> => {
       const profile = await api.getCurrentProfile();
-      return (
-        (await api.list('settings', { filter: { profileId: profile.id } })).items[0] ?? null
-      );
+      return (await api.list('settings', { filter: { profileId: profile.id } })).items[0] ?? null;
     },
   });
 }
@@ -36,11 +34,12 @@ export function useUpdateSettings() {
 }
 
 /** Diagnóstico da instalação (versões, saúde, conexões — dados do mock). */
-export function useDiagnostics() {
+export function useDiagnostics(enabled = true) {
   const api = useApi();
   return useQuery({
     queryKey: settingsKeys.diagnostics,
     queryFn: (): Promise<Diagnostics> => api.getDiagnostics(),
+    enabled,
   });
 }
 

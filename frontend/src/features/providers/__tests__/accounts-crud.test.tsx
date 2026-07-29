@@ -5,9 +5,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import ProvidersPage from '@/features/providers/pages/providers-page';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 function renderPage() {
   const bundle = createTestBundle();
+  useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
+  usePresentationStore.setState({ modeByProfile: {} });
+  usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
   return renderWithApi(
     <MemoryRouter initialEntries={['/providers']}>
       <Routes>
@@ -90,7 +95,9 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     const user = userEvent.setup();
     const { bundle } = renderPage();
 
-    const block = await screen.findByText('Conta principal').then(() => accountBlock('Conta principal'));
+    const block = await screen
+      .findByText('Conta principal')
+      .then(() => accountBlock('Conta principal'));
     await user.click(within(block).getByRole('button', { name: 'Editar' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Editar conta' });
@@ -117,7 +124,9 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     await user.click(within(block).getByRole('button', { name: 'Habilitar' }));
 
     await waitFor(() => {
-      expect(within(accountBlock('Ollama deste computador')).getByText('Ativa')).toBeInTheDocument();
+      expect(
+        within(accountBlock('Ollama deste computador')).getByText('Ativa'),
+      ).toBeInTheDocument();
     });
     const accounts = (await bundle.api.list('accounts')).items;
     expect(accounts.find((account) => account.label === 'Ollama deste computador')!.state).toBe(
@@ -129,7 +138,9 @@ describe('ProvidersPage — CRUD de contas (FR-5)', () => {
     const user = userEvent.setup();
     const { bundle } = renderPage();
 
-    const block = await screen.findByText('Conta principal').then(() => accountBlock('Conta principal'));
+    const block = await screen
+      .findByText('Conta principal')
+      .then(() => accountBlock('Conta principal'));
     await user.click(within(block).getByRole('button', { name: 'Desabilitar' }));
 
     await waitFor(() => {

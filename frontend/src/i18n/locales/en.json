@@ -614,6 +614,7 @@
     "empty": {
       "title": "No organizations yet",
       "body": "Organizations group projects, brand, policies and default workflows. Create the first one to get started.",
+      "businessBody": "Organizations bring together each business's brand and projects. Create the first one to get started.",
       "cta": "Create organization"
     },
     "emptySearch": "No organizations found for \"{{query}}\".",
@@ -1648,7 +1649,8 @@
     },
     "organizations": {
       "title": "Organizations",
-      "description": "Manage organizations, brand, policies and associated projects."
+      "description": "Manage organizations, brand, policies and associated projects.",
+      "businessDescription": "Organize each business's brand and projects."
     },
     "projects": {
       "title": "Projects",
@@ -1784,6 +1786,7 @@
       "title": "Workflow stages",
       "label": "Workflow stages",
       "gatesLabel": "Approval points of stage {{phase}}",
+      "businessRequirement": "What is needed to move past stage {{index}}",
       "progressLabel": "Progress of stage {{phase}}",
       "progressDetails": "View progress calculation for stage {{phase}}",
       "progressTooltip": "Single source: persisted workflow-run objectives and approval points.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nApproval points: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
@@ -1794,6 +1797,9 @@
     },
     "templates": {
       "title": "Workflow templates",
+      "description": "Create and publish versions without changing work that is already underway. Actions for each template and version are separated for easier review.",
+      "templateActions": "Actions for template {{name}}",
+      "versionActions": "Actions for version {{version}}",
       "newVersion": "New version",
       "version": "v{{version}}",
       "current": "Current",

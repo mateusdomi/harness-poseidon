@@ -4,12 +4,26 @@ import { z } from 'zod';
 import { Check, KeyRound, X } from 'lucide-react';
 
 import { ApiError, activateLicenseInputSchema } from '@/api';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Skeleton } from '@/design-system';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Skeleton,
+} from '@/design-system';
 import { FeatureIntro } from '@/features/shared/components/feature-intro';
 import { licenseStateVariant } from '@/lib/status';
 import { formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import { zodResolver } from '@/lib/form';
-import { useActivateLicense, useEntitlements, useLicense } from '@/features/licenses/hooks/use-licenses';
+import {
+  useActivateLicense,
+  useEntitlements,
+  useLicense,
+} from '@/features/licenses/hooks/use-licenses';
+import { usePresentationMode } from '@/app/presentation';
 
 /** Form local: mesmo formato do contrato (mensagens como chaves i18n). */
 const activationFormSchema = z.object({
@@ -17,13 +31,23 @@ const activationFormSchema = z.object({
 });
 type ActivationFormValues = z.infer<typeof activationFormSchema>;
 
+const BUSINESS_ENTITLEMENT_LABELS: Record<string, string> = {
+  'projects.max': 'licenses.business.entitlements.projects',
+  'agents.concurrent': 'licenses.business.entitlements.people',
+  'offline-mode': 'licenses.business.entitlements.offline',
+  'sso.oidc': 'licenses.business.entitlements.corporateLogin',
+  'audit.retention': 'licenses.business.entitlements.history',
+  'presentation.technical': 'licenses.business.entitlements.technicalMode',
+};
+
 /**
- * Licença do dispositivo: estado (enum do contrato), entitlements,
- * dispositivo, expiração, grace period, modo offline e ativação por chave.
+ * Licença: o modo Negócio mostra plano, validade e recursos em linguagem
+ * simples; identificadores do dispositivo e estado offline ficam no Técnico.
  * Aviso permanente: após a expiração, leitura e exportação continuam.
  */
 export default function UlicensesPage() {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const licenseQuery = useLicense();
   const entitlementsQuery = useEntitlements();
   const activate = useActivateLicense();
@@ -57,10 +81,12 @@ export default function UlicensesPage() {
 
       <FeatureIntro
         icon={KeyRound}
-        title={t('licenses.intro.title')}
-        note={t('licenses.intro.howToTest')}
+        title={t(showTechnicalDetails ? 'licenses.intro.title' : 'licenses.business.introTitle')}
+        note={
+          showTechnicalDetails ? t('licenses.intro.howToTest') : t('licenses.business.introNote')
+        }
       >
-        {t('licenses.intro.body')}
+        {t(showTechnicalDetails ? 'licenses.intro.body' : 'licenses.business.introBody')}
       </FeatureIntro>
 
       {loading ? (
@@ -99,17 +125,19 @@ export default function UlicensesPage() {
             </CardHeader>
             <CardContent>
               {license ? (
-                <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                <dl className="grid gap-2 text-sm md:grid-cols-2">
                   <div>
                     <dt className="font-medium">{t('licenses.state.plan')}</dt>
                     <dd className="text-foreground-muted">{license.plan}</dd>
                   </div>
-                  <div>
-                    <dt className="font-medium">{t('licenses.state.device')}</dt>
-                    <dd className="text-foreground-muted">
-                      {license.deviceName} ({license.deviceId})
-                    </dd>
-                  </div>
+                  {showTechnicalDetails && (
+                    <div>
+                      <dt className="font-medium">{t('licenses.state.device')}</dt>
+                      <dd className="text-foreground-muted">
+                        {license.deviceName} ({license.deviceId})
+                      </dd>
+                    </div>
+                  )}
                   <div>
                     <dt className="font-medium">{t('licenses.state.expiresAt')}</dt>
                     <dd className="text-foreground-muted">
@@ -126,22 +154,26 @@ export default function UlicensesPage() {
                       </dd>
                     </div>
                   )}
-                  <div>
-                    <dt className="font-medium">{t('licenses.state.offlineMode')}</dt>
-                    <dd>
-                      <Badge variant={license.offlineMode ? 'warning' : 'outline'}>
-                        {license.offlineMode
-                          ? t('licenses.state.offlineYes')
-                          : t('licenses.state.offlineNo')}
-                      </Badge>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium">{t('licenses.state.lastValidated')}</dt>
-                    <dd className="text-foreground-muted">
-                      {license.lastValidatedAt ? formatDateTime(license.lastValidatedAt) : '—'}
-                    </dd>
-                  </div>
+                  {showTechnicalDetails && (
+                    <>
+                      <div>
+                        <dt className="font-medium">{t('licenses.state.offlineMode')}</dt>
+                        <dd>
+                          <Badge variant={license.offlineMode ? 'warning' : 'outline'}>
+                            {license.offlineMode
+                              ? t('licenses.state.offlineYes')
+                              : t('licenses.state.offlineNo')}
+                          </Badge>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium">{t('licenses.state.lastValidated')}</dt>
+                        <dd className="text-foreground-muted">
+                          {license.lastValidatedAt ? formatDateTime(license.lastValidatedAt) : '—'}
+                        </dd>
+                      </div>
+                    </>
+                  )}
                 </dl>
               ) : (
                 <p className="text-sm text-foreground-muted">{t('licenses.state.none')}</p>
@@ -201,9 +233,7 @@ export default function UlicensesPage() {
             </CardHeader>
             <CardContent>
               {(entitlementsQuery.data ?? []).length === 0 ? (
-                <p className="text-sm text-foreground-muted">
-                  {t('licenses.entitlements.empty')}
-                </p>
+                <p className="text-sm text-foreground-muted">{t('licenses.entitlements.empty')}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {(entitlementsQuery.data ?? []).map((entitlement) => (
@@ -222,8 +252,21 @@ export default function UlicensesPage() {
                           : t('licenses.entitlements.notIncluded')}
                       </span>
                       <div className="flex-1">
-                        <p className="font-medium">{entitlement.key}</p>
-                        <p className="text-foreground-muted">{entitlement.description}</p>
+                        {showTechnicalDetails && <p className="font-medium">{entitlement.key}</p>}
+                        <p
+                          className={
+                            showTechnicalDetails
+                              ? 'text-foreground-muted'
+                              : 'font-medium text-foreground'
+                          }
+                        >
+                          {showTechnicalDetails
+                            ? entitlement.description
+                            : t(
+                                BUSINESS_ENTITLEMENT_LABELS[entitlement.key] ??
+                                  'licenses.business.entitlements.other',
+                              )}
+                        </p>
                       </div>
                       {entitlement.limit !== null && (
                         <Badge variant="outline">{formatNumber(entitlement.limit)}</Badge>

@@ -5,8 +5,13 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import ChannelsPage from '@/features/channels/pages/channels-page';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
-function renderChannels(bundle = createTestBundle()) {
+function renderChannels(bundle = createTestBundle(), mode: 'business' | 'technical' = 'business') {
+  useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
+  usePresentationStore.setState({ modeByProfile: {} });
+  usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, mode);
   return renderWithApi(
     <MemoryRouter initialEntries={['/channels']}>
       <Routes>
@@ -39,22 +44,29 @@ describe('ChannelsPage', () => {
     expect(await screen.findByText('Qual o status do golden path?')).toBeInTheDocument();
   });
 
-  it('renders an empty state that explains bot-configured vs linked and offers a link form', async () => {
+  it('orienta o vínculo em três passos no modo Negócio sem expor comandos', async () => {
     const bundle = createTestBundle();
     bundle.api.listChannelLinks = () => Promise.resolve([]);
     renderChannels(bundle);
 
     expect(await screen.findByText(/Nenhum canal vinculado/i)).toBeInTheDocument();
-    // A tela deixa explícita a diferença entre bot configurado e canal vinculado.
-    expect(screen.getByText(/Bot configurado ≠ canal vinculado/i)).toBeInTheDocument();
-    // E oferece o passo a passo exato via CLI/gateway.
-    expect(screen.getByText(/Harness__Channels__Telegram__BotToken/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Harness__Channels__Telegram__BotToken/)[0].closest('pre')).toHaveAttribute(
-      'tabindex',
-      '0',
-    );
+    expect(screen.getByText('Conecte um canal em três passos')).toBeInTheDocument();
+    expect(screen.getByText(/Envie “oi”/)).toBeInTheDocument();
+    expect(screen.queryByText(/Harness__Channels__Telegram__BotToken/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/curl -X POST/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Conversa unificada/i)).not.toBeInTheDocument();
     // O formulário de vínculo está disponível já no empty-state.
     expect(await screen.findByRole('button', { name: /Vincular canal/i })).toBeInTheDocument();
+  });
+
+  it('mantém comandos e opções avançadas somente no modo Técnico', async () => {
+    const bundle = createTestBundle();
+    bundle.api.listChannelLinks = () => Promise.resolve([]);
+    renderChannels(bundle, 'technical');
+
+    expect(await screen.findByText(/Bot configurado ≠ canal vinculado/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Harness__Channels__Telegram__BotToken/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Conversa unificada/i)).toBeInTheDocument();
   });
 
   it('links a new channel through the form and shows it in the list', async () => {
@@ -73,7 +85,7 @@ describe('ChannelsPage', () => {
       linked.push(link);
       return Promise.resolve(link);
     };
-    renderChannels(bundle);
+    renderChannels(bundle, 'technical');
 
     const identity = await screen.findByPlaceholderText('5774120296');
     await userEvent.type(identity, '5774120296');
@@ -88,8 +100,7 @@ describe('ChannelsPage', () => {
     const bundle = createTestBundle();
     const conversation = bundle.fixtures.data.conversations.find(
       (entry) =>
-        entry.state === 'active' &&
-        entry.projectId === bundle.fixtures.data.projects[0]?.id,
+        entry.state === 'active' && entry.projectId === bundle.fixtures.data.projects[0]?.id,
     );
     expect(conversation).toBeDefined();
 
@@ -105,16 +116,11 @@ describe('ChannelsPage', () => {
         linkedAt: '2026-07-24T10:00:00.000Z',
       });
     };
-    renderChannels(bundle);
+    renderChannels(bundle, 'technical');
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Vincular novo canal/i }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: /Vincular novo canal/i }));
     await userEvent.type(screen.getByPlaceholderText('5774120296'), '5511999999999');
-    await userEvent.selectOptions(
-      screen.getByLabelText(/Conversa unificada/i),
-      conversation!.id,
-    );
+    await userEvent.selectOptions(screen.getByLabelText(/Conversa unificada/i), conversation!.id);
     await userEvent.click(screen.getByRole('button', { name: /^Vincular canal$/i }));
 
     await waitFor(() => {
@@ -128,7 +134,9 @@ describe('ChannelsPage', () => {
     renderChannels(bundle);
 
     await waitFor(() => {
-      expect(screen.getByText(/Não foi possível carregar os canais/i)).toBeInTheDocument();
+      expect(
+        screen.getByText('Não foi possível carregar os canais', { exact: true }),
+      ).toBeInTheDocument();
     });
   });
 });

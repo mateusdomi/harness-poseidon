@@ -1,5 +1,18 @@
 {
   "tools": {
+    "access": {
+      "title": "Area available in Technical mode",
+      "body": "Change the presentation mode in Settings to manage the capabilities used by the team."
+    },
+    "registration": {
+      "title": "How to register a new item",
+      "intro": "The catalog is populated by the installation; this page changes the state of items that are already registered.",
+      "stepLabel": "Step {{step}}",
+      "step1": "Add the tool through an installed plugin or configure the MCP server that provides it.",
+      "step2": "Declare a unique key, input and output contracts, and the maximum risk level.",
+      "step3": "Restart the installation, confirm the item in this catalog, and link it to the definition of the person allowed to use it.",
+      "note": "There is no manual registration on this page. This prevents items without a contract or execution policy."
+    },
     "intro": {
       "title": "Catalog of what agents can use",
       "body": "This is where the tools, skills, plugins and MCP servers available to the agent team live. Enable or disable each item to control, by policy, what agents may use during runs.",

@@ -1,5 +1,19 @@
 {
   "licenses": {
+    "business": {
+      "introTitle": "Sua licença do Poseidon",
+      "introBody": "Veja o plano ativo, os recursos incluídos e até quando a licença é válida.",
+      "introNote": "Para ativar ou renovar, use a chave fornecida pelo responsável pela instalação.",
+      "entitlements": {
+        "projects": "Projetos ativos ao mesmo tempo",
+        "people": "Pessoas trabalhando ao mesmo tempo por projeto",
+        "offline": "Continuidade do trabalho sem internet",
+        "corporateLogin": "Acesso com conta corporativa",
+        "history": "Histórico de atividades disponível",
+        "technicalMode": "Modo Técnico disponível",
+        "other": "Recurso adicional do plano"
+      }
+    },
     "intro": {
       "title": "Licenciamento deste dispositivo",
       "body": "O Poseidon é liberado por uma chave de licença assinada. Esta tela não gera chaves — ela ativa uma chave emitida para você e mostra o estado atual, o plano, os recursos incluídos e a validade. Depois de ativar, os recursos do plano ficam disponíveis.",

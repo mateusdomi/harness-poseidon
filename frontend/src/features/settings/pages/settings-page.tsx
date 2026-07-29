@@ -47,13 +47,13 @@ const DIAGNOSTIC_VARIANTS = { ok: 'success', warning: 'warning', error: 'error' 
  */
 export default function UsettingsPage() {
   const { t, i18n } = useTranslation();
+  const presentation = usePresentationPolicy();
   const settingsQuery = useCurrentSettings();
-  const diagnosticsQuery = useDiagnostics();
+  const diagnosticsQuery = useDiagnostics(presentation.showTechnicalDetails);
   const licenseQuery = useLicenseSummary();
   const updateSettings = useUpdateSettings();
   const createBackup = useCreateBackup();
   const restoreBackup = useRestoreBackup();
-  const presentation = usePresentationPolicy();
 
   const themePreference = useThemeStore((s) => s.preference);
   const setThemePreference = useThemeStore((s) => s.setPreference);
@@ -145,7 +145,7 @@ export default function UsettingsPage() {
         <CardHeader>
           <CardTitle>{t('settings.preferences.title')}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1">
             <label htmlFor="settings-language" className="text-sm font-medium">
               {t('settings.preferences.language')}
@@ -205,77 +205,96 @@ export default function UsettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('settings.workspace.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="settings-workdir" className="text-sm font-medium">
-              {t('settings.workspace.directory')}
-            </label>
-            <Input
-              id="settings-workdir"
-              value={workingDirectory}
-              placeholder={t('settings.workspace.placeholder')}
-              onChange={(event) => setWorkingDirectory(event.target.value)}
-            />
-            <p className="text-xs text-foreground-muted">{t('settings.workspace.hint')}</p>
-            {settings?.workingDirectory ? (
-              <p className="text-xs text-foreground-muted">
-                {t('settings.workspace.current', { path: settings.workingDirectory })}
-              </p>
+      {presentation.showTechnicalDetails && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('settings.workspace.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="settings-workdir" className="text-sm font-medium">
+                {t('settings.workspace.directory')}
+              </label>
+              <Input
+                id="settings-workdir"
+                value={workingDirectory}
+                placeholder={t('settings.workspace.placeholder')}
+                onChange={(event) => setWorkingDirectory(event.target.value)}
+              />
+              <p className="text-xs text-foreground-muted">{t('settings.workspace.hint')}</p>
+              {settings?.workingDirectory ? (
+                <p className="text-xs text-foreground-muted">
+                  {t('settings.workspace.current', { path: settings.workingDirectory })}
+                </p>
+              ) : (
+                <p className="text-xs text-warning">{t('settings.workspace.empty')}</p>
+              )}
+            </div>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={updateSettings.isPending}
+                onClick={() => update({ workingDirectory: workingDirectory.trim() || null })}
+              >
+                {t('common.actions.save')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {presentation.showTechnicalDetails && (
+        <Card>
+          <CardHeader className="flex-row items-center gap-2">
+            <ShieldAlert aria-hidden="true" className="size-5 text-warning" />
+            <CardTitle>{t('settings.sandbox.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {settings?.unsafeModeAcceptedAt ? (
+              <>
+                <p className="text-sm">
+                  {t('settings.sandbox.acceptedAt', {
+                    date: formatDateTime(settings.unsafeModeAcceptedAt),
+                  })}
+                </p>
+                <div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setConfirmRevoke(true)}
+                  >
+                    {t('settings.sandbox.revoke')}
+                  </Button>
+                </div>
+              </>
             ) : (
-              <p className="text-xs text-warning">{t('settings.workspace.empty')}</p>
+              <p className="text-sm text-foreground-muted">{t('settings.sandbox.notAccepted')}</p>
             )}
-          </div>
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={updateSettings.isPending}
-              onClick={() => update({ workingDirectory: workingDirectory.trim() || null })}
-            >
-              {t('common.actions.save')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex-row items-center gap-2">
-          <ShieldAlert aria-hidden="true" className="size-5 text-warning" />
-          <CardTitle>{t('settings.sandbox.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {settings?.unsafeModeAcceptedAt ? (
-            <>
-              <p className="text-sm">
-                {t('settings.sandbox.acceptedAt', {
-                  date: formatDateTime(settings.unsafeModeAcceptedAt),
-                })}
-              </p>
-              <div>
-                <Button type="button" variant="destructive" size="sm" onClick={() => setConfirmRevoke(true)}>
-                  {t('settings.sandbox.revoke')}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-foreground-muted">{t('settings.sandbox.notAccepted')}</p>
-          )}
-        </CardContent>
-      </Card>
-
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>{t('settings.backup.title')}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <p className="text-sm text-foreground-muted">{t('settings.backup.description')}</p>
+          <p className="text-sm text-foreground-muted">
+            {t(
+              presentation.showTechnicalDetails
+                ? 'settings.backup.description'
+                : 'settings.backup.businessDescription',
+            )}
+          </p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setConfirmBackup(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmBackup(true)}
+            >
               {t('settings.backup.create')}
             </Button>
             <Button
@@ -296,64 +315,68 @@ export default function UsettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between gap-2">
-          <CardTitle>{t('settings.diagnostics.title')}</CardTitle>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => void diagnosticsQuery.refetch()}
-            aria-label={t('settings.diagnostics.refresh')}
-            title={t('settings.diagnostics.refresh')}
-          >
-            <RefreshCw aria-hidden="true" />
-          </Button>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {diagnosticsQuery.isLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : diagnosticsQuery.isError ? (
-            <p role="alert" className="text-sm text-error">
-              {t('common.states.errorBody')}
-            </p>
-          ) : (
-            <>
-              <dl className="grid gap-2 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="font-medium">{t('settings.diagnostics.apiMode')}</dt>
-                  <dd className="text-foreground-muted">
-                    {apiModeText(diagnosticsQuery.data!.apiMode)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium">{t('settings.diagnostics.realtime')}</dt>
-                  <dd className="text-foreground-muted">
-                    {realtimeText(diagnosticsQuery.data!.realtimeState)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium">{t('settings.diagnostics.generatedAt')}</dt>
-                  <dd className="text-foreground-muted">
-                    {formatDateTime(diagnosticsQuery.data!.generatedAt)}
-                  </dd>
-                </div>
-              </dl>
-              <ul className="flex flex-col gap-2">
-                {diagnosticsQuery.data!.checks.map((check) => (
-                  <li key={check.key} className="flex items-center gap-2 text-sm">
-                    <Badge variant={DIAGNOSTIC_VARIANTS[check.state]}>
-                      {t(`settings.diagnostics.states.${check.state}`)}
-                    </Badge>
-                    <span className="font-medium">{checkKeyLabel(check.key)}</span>
-                    <span className="text-foreground-muted">{checkDetailLabel(check.detail)}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {presentation.showTechnicalDetails && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-2">
+            <CardTitle>{t('settings.diagnostics.title')}</CardTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void diagnosticsQuery.refetch()}
+              aria-label={t('settings.diagnostics.refresh')}
+              title={t('settings.diagnostics.refresh')}
+            >
+              <RefreshCw aria-hidden="true" />
+            </Button>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {diagnosticsQuery.isLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : diagnosticsQuery.isError ? (
+              <p role="alert" className="text-sm text-error">
+                {t('common.states.errorBody')}
+              </p>
+            ) : (
+              <>
+                <dl className="grid gap-2 text-sm md:grid-cols-3">
+                  <div>
+                    <dt className="font-medium">{t('settings.diagnostics.apiMode')}</dt>
+                    <dd className="text-foreground-muted">
+                      {apiModeText(diagnosticsQuery.data!.apiMode)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">{t('settings.diagnostics.realtime')}</dt>
+                    <dd className="text-foreground-muted">
+                      {realtimeText(diagnosticsQuery.data!.realtimeState)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">{t('settings.diagnostics.generatedAt')}</dt>
+                    <dd className="text-foreground-muted">
+                      {formatDateTime(diagnosticsQuery.data!.generatedAt)}
+                    </dd>
+                  </div>
+                </dl>
+                <ul className="flex flex-col gap-2">
+                  {diagnosticsQuery.data!.checks.map((check) => (
+                    <li key={check.key} className="flex items-center gap-2 text-sm">
+                      <Badge variant={DIAGNOSTIC_VARIANTS[check.state]}>
+                        {t(`settings.diagnostics.states.${check.state}`)}
+                      </Badge>
+                      <span className="font-medium">{checkKeyLabel(check.key)}</span>
+                      <span className="text-foreground-muted">
+                        {checkDetailLabel(check.detail)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -373,9 +396,7 @@ export default function UsettingsPage() {
               ) : null}
             </>
           ) : (
-            <span className="text-sm text-foreground-muted">
-              {t('settings.license.none')}
-            </span>
+            <span className="text-sm text-foreground-muted">{t('settings.license.none')}</span>
           )}
           <Button asChild variant="outline" size="sm" className="ml-auto">
             <Link to="/licenses">{t('settings.license.open')}</Link>
@@ -399,7 +420,10 @@ export default function UsettingsPage() {
       </Card>
 
       {confirmRevoke && (
-        <ModalDialog label={t('settings.sandbox.revokeTitle')} onClose={() => setConfirmRevoke(false)}>
+        <ModalDialog
+          label={t('settings.sandbox.revokeTitle')}
+          onClose={() => setConfirmRevoke(false)}
+        >
           <div className="flex flex-col gap-4">
             <p className="text-sm">{t('settings.sandbox.revokeBody')}</p>
             <div className="flex justify-end gap-2">
@@ -423,9 +447,18 @@ export default function UsettingsPage() {
       )}
 
       {confirmBackup && (
-        <ModalDialog label={t('settings.backup.createTitle')} onClose={() => setConfirmBackup(false)}>
+        <ModalDialog
+          label={t('settings.backup.createTitle')}
+          onClose={() => setConfirmBackup(false)}
+        >
           <div className="flex flex-col gap-4">
-            <p className="text-sm">{t('settings.backup.createBody')}</p>
+            <p className="text-sm">
+              {t(
+                presentation.showTechnicalDetails
+                  ? 'settings.backup.createBody'
+                  : 'settings.backup.businessCreateBody',
+              )}
+            </p>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setConfirmBackup(false)}>
                 {t('common.actions.cancel')}
@@ -438,10 +471,15 @@ export default function UsettingsPage() {
                     onSuccess: (handle) => {
                       setLastBackup(handle);
                       setFeedback(
-                        t('settings.backup.created', {
-                          date: formatDateTime(handle.createdAt),
-                          id: handle.backupId,
-                        }),
+                        t(
+                          presentation.showTechnicalDetails
+                            ? 'settings.backup.created'
+                            : 'settings.backup.businessCreated',
+                          {
+                            date: formatDateTime(handle.createdAt),
+                            id: handle.backupId,
+                          },
+                        ),
                       );
                     },
                     onSettled: () => setConfirmBackup(false),
@@ -456,7 +494,10 @@ export default function UsettingsPage() {
       )}
 
       {confirmRestore && lastBackup && (
-        <ModalDialog label={t('settings.backup.restoreTitle')} onClose={() => setConfirmRestore(false)}>
+        <ModalDialog
+          label={t('settings.backup.restoreTitle')}
+          onClose={() => setConfirmRestore(false)}
+        >
           <div className="flex flex-col gap-4">
             <p className="text-sm">
               {t('settings.backup.restoreBody', { date: formatDateTime(lastBackup.createdAt) })}

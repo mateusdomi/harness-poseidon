@@ -614,6 +614,7 @@
     "empty": {
       "title": "Nenhuma organização ainda",
       "body": "Organizações agrupam projetos, marca, políticas e fluxos de trabalho padrão. Crie a primeira para começar.",
+      "businessBody": "Organizações reúnem a marca e os projetos de cada negócio. Crie a primeira para começar.",
       "cta": "Criar organização"
     },
     "emptySearch": "Nenhuma organização encontrada para \"{{query}}\".",
@@ -1648,7 +1649,8 @@
     },
     "organizations": {
       "title": "Organizações",
-      "description": "Gerencie organizações, marca, políticas e projetos associados."
+      "description": "Gerencie organizações, marca, políticas e projetos associados.",
+      "businessDescription": "Organize a marca e os projetos de cada negócio."
     },
     "projects": {
       "title": "Projetos",
@@ -1784,6 +1786,7 @@
       "title": "Etapas do fluxo de trabalho",
       "label": "Etapas do fluxo de trabalho",
       "gatesLabel": "Pontos de aprovação da etapa {{phase}}",
+      "businessRequirement": "O que falta para avançar de etapa {{index}}",
       "progressLabel": "Progresso da etapa {{phase}}",
       "progressDetails": "Ver cálculo do progresso da etapa {{phase}}",
       "progressTooltip": "Fonte única: objetivos e pontos de aprovação persistidos da execução do fluxo de trabalho.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nPontos de aprovação: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
@@ -1794,6 +1797,9 @@
     },
     "templates": {
       "title": "Modelos de fluxo de trabalho",
+      "description": "Crie e publique versões sem alterar os trabalhos que já estão em andamento. As ações de cada fluxo e de cada versão ficam separadas para facilitar a conferência.",
+      "templateActions": "Ações do fluxo {{name}}",
+      "versionActions": "Ações da versão {{version}}",
       "newVersion": "Nova versão",
       "version": "v{{version}}",
       "current": "Atual",

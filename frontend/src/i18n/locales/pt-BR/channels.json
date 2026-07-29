@@ -33,6 +33,22 @@
       "title": "Bot configurado ≠ canal vinculado",
       "body": "Configurar o bot no servidor apenas habilita o Telegram. Para que uma conversa vire trabalho, é preciso vincular o chat a um projeto — é isso que esta tela mostra. Se você já fala com o bot mas não vê nada aqui, o vínculo ainda não foi criado."
     },
+    "business": {
+      "title": "Conecte um canal em três passos",
+      "intro": "Use o número que o próprio canal envia para ligar a conversa ao projeto certo.",
+      "subtitle": "Converse com a Bruna pelo aplicativo que você já usa e mantenha cada conversa ligada ao projeto certo.",
+      "emptyBody": "Siga os passos abaixo para conectar sua primeira conversa a um projeto.",
+      "errorBody": "Não foi possível carregar os canais agora. Tente novamente em instantes.",
+      "formTitle": "Conectar outra conversa",
+      "formSubtitle": "Cole o número recebido no canal e escolha o projeto correspondente.",
+      "step1": "Abra o link do canal que recebeu do responsável pela instalação.",
+      "step2": "Envie “oi” e aguarde a resposta com o seu número.",
+      "step3": "Cole o número abaixo, escolha o projeto e confirme.",
+      "safety": "A senha de acesso fica protegida na instalação e nunca é solicitada aqui.",
+      "kindLabel": "Onde você quer conversar?",
+      "identityLabel": "Número enviado pelo canal",
+      "identityHint": "Cole somente o número recebido depois de enviar “oi”."
+    },
     "link": {
       "title": "Vincular um canal a um projeto",
       "subtitle": "Vincule a identidade de um chat (Telegram/Teams/WhatsApp/e-mail) a um projeto. O vínculo é idempotente: revincular a mesma identidade devolve o vínculo existente.",

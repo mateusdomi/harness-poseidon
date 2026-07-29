@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Info, MessagesSquare, Plus, Radio, Send, Terminal } from 'lucide-react';
+import { CircleCheck, Info, MessagesSquare, Plus, Radio, Send, Terminal } from 'lucide-react';
 
 import type { ChannelKind, Ulid } from '@/api';
+import { usePresentationMode } from '@/app/presentation';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { formatDateTime } from '@/lib/format';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
@@ -72,6 +73,43 @@ function CliGuide() {
   );
 }
 
+/** Orientação curta do modo Negócio; detalhes de API ficam no modo Técnico. */
+function BusinessGuide() {
+  const { t } = useTranslation();
+  const steps = [
+    t('channels.business.step1'),
+    t('channels.business.step2'),
+    t('channels.business.step3'),
+  ];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{t('channels.business.title')}</CardTitle>
+        <p className="text-sm text-foreground-muted">{t('channels.business.intro')}</p>
+      </CardHeader>
+      <CardContent>
+        <ol className="grid gap-3 md:grid-cols-3">
+          {steps.map((description, index) => (
+            <li
+              key={description}
+              className="flex min-w-0 items-start gap-3 rounded-lg border border-border bg-surface-elevated p-3"
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                {index + 1}
+              </span>
+              <span className="text-sm">{description}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-3 flex items-center gap-2 text-sm text-foreground-muted">
+          <CircleCheck aria-hidden="true" className="size-4 shrink-0 text-success" />
+          {t('channels.business.safety')}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /**
  * Canais externos: lista os vínculos (Telegram/Teams) com estado, permite
  * vincular novos canais a projetos (`POST /api/v1/channels/links`) e, ao
@@ -80,6 +118,7 @@ function CliGuide() {
  */
 export default function UchannelsPage() {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const linksQuery = useChannelLinks();
   const conversationsQuery = useConversations();
   const { projects } = useActiveProject();
@@ -93,13 +132,15 @@ export default function UchannelsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="flex items-center gap-2 text-2xl font-semibold">
             <Radio className="size-6" aria-hidden />
             {t('channels.title')}
           </h1>
-          <p className="max-w-3xl text-sm text-foreground-muted">{t('channels.subtitle')}</p>
+          <p className="max-w-3xl text-sm text-foreground-muted">
+            {t(showTechnicalDetails ? 'channels.subtitle' : 'channels.business.subtitle')}
+          </p>
         </div>
         {links.length > 0 && !formOpen ? (
           <Button variant="secondary" onClick={() => setFormOpen(true)}>
@@ -109,7 +150,7 @@ export default function UchannelsPage() {
         ) : null}
       </header>
 
-      <ConceptsNote />
+      {showTechnicalDetails ? <ConceptsNote /> : <BusinessGuide />}
 
       {linksQuery.isLoading ? (
         <div className="grid gap-3" aria-busy>
@@ -121,7 +162,9 @@ export default function UchannelsPage() {
           <CardContent className="flex flex-col items-start gap-3 py-8">
             <div>
               <p className="font-medium">{t('channels.error.title')}</p>
-              <p className="text-sm text-foreground-muted">{t('channels.error.body')}</p>
+              <p className="text-sm text-foreground-muted">
+                {t(showTechnicalDetails ? 'channels.error.body' : 'channels.business.errorBody')}
+              </p>
             </div>
             <Button variant="secondary" onClick={() => linksQuery.refetch()}>
               {t('channels.error.cta')}
@@ -129,31 +172,44 @@ export default function UchannelsPage() {
           </CardContent>
         </Card>
       ) : links.length === 0 ? (
-        <div className="grid min-w-0 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div
+          className={
+            showTechnicalDetails
+              ? 'grid min-w-0 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
+              : 'min-w-0'
+          }
+        >
           <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Radio className="size-5 text-foreground-muted" aria-hidden />
                 {t('channels.empty.title')}
               </CardTitle>
-              <p className="text-sm text-foreground-muted">{t('channels.empty.body')}</p>
+              <p className="text-sm text-foreground-muted">
+                {t(showTechnicalDetails ? 'channels.empty.body' : 'channels.business.emptyBody')}
+              </p>
             </CardHeader>
             <CardContent>
-              <LinkChannelForm
-                projects={projects}
-                conversations={conversationsQuery.data ?? []}
-              />
+              <LinkChannelForm projects={projects} conversations={conversationsQuery.data ?? []} />
             </CardContent>
           </Card>
-          <CliGuide />
+          {showTechnicalDetails && <CliGuide />}
         </div>
       ) : (
         <div className="flex flex-col gap-6">
           {formOpen ? (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">{t('channels.link.title')}</CardTitle>
-                <p className="text-sm text-foreground-muted">{t('channels.link.subtitle')}</p>
+                <CardTitle className="text-base">
+                  {t(showTechnicalDetails ? 'channels.link.title' : 'channels.business.formTitle')}
+                </CardTitle>
+                <p className="text-sm text-foreground-muted">
+                  {t(
+                    showTechnicalDetails
+                      ? 'channels.link.subtitle'
+                      : 'channels.business.formSubtitle',
+                  )}
+                </p>
               </CardHeader>
               <CardContent>
                 <LinkChannelForm
@@ -166,8 +222,8 @@ export default function UchannelsPage() {
             </Card>
           ) : null}
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <section className="flex flex-col gap-3" aria-label={t('channels.title')}>
+          <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <section className="flex min-w-0 flex-col gap-3" aria-label={t('channels.title')}>
               <p className="text-sm text-foreground-muted">
                 {t('channels.count', { count: links.length })}
               </p>
@@ -176,23 +232,29 @@ export default function UchannelsPage() {
                 return (
                   <Card
                     key={link.id}
-                    className={selected ? 'border-primary ring-1 ring-primary' : undefined}
+                    className={selected ? 'min-w-0 border-primary ring-1 ring-primary' : 'min-w-0'}
                   >
-                    <CardHeader className="flex flex-row items-center justify-between gap-2">
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <Send className="size-4" aria-hidden />
-                        {link.externalIdentity}
+                    <CardHeader className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
+                      <CardTitle className="flex min-w-0 max-w-full items-center gap-2 break-all text-base">
+                        <Send className="size-4 shrink-0" aria-hidden />
+                        <span>{link.externalIdentity}</span>
                       </CardTitle>
-                      <Badge variant={KIND_VARIANT[link.kind]}>{t(`channels.kind.${link.kind}`)}</Badge>
+                      <Badge variant={KIND_VARIANT[link.kind]}>
+                        {t(`channels.kind.${link.kind}`)}
+                      </Badge>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-2 text-sm">
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-foreground-muted">
+                      <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-foreground-muted">
                         <dt>{t('channels.columns.project')}</dt>
-                        <dd className="text-foreground">{projectName(link.projectId)}</dd>
+                        <dd className="break-words text-foreground">
+                          {projectName(link.projectId)}
+                        </dd>
                         <dt>{t('channels.columns.linkedAt')}</dt>
-                        <dd className="text-foreground">{formatDateTime(link.linkedAt)}</dd>
+                        <dd className="break-words text-foreground">
+                          {formatDateTime(link.linkedAt)}
+                        </dd>
                       </dl>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="success">{t('channels.status.active')}</Badge>
                         <Button
                           variant="ghost"
@@ -204,14 +266,18 @@ export default function UchannelsPage() {
                           {t('channels.messages.title')}
                         </Button>
                       </div>
-                      <p className="text-xs text-foreground-muted">{t('channels.manage.unlinkNote')}</p>
+                      {showTechnicalDetails && (
+                        <p className="text-xs text-foreground-muted">
+                          {t('channels.manage.unlinkNote')}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 );
               })}
             </section>
 
-            <section aria-label={t('channels.messages.title')}>
+            <section className="min-w-0" aria-label={t('channels.messages.title')}>
               <Card className="h-full">
                 <CardHeader>
                   <CardTitle className="text-base">{t('channels.messages.title')}</CardTitle>
@@ -242,7 +308,7 @@ export default function UchannelsPage() {
                               {formatDateTime(message.createdAt)}
                             </span>
                           </div>
-                          <p className="text-sm">{message.content}</p>
+                          <p className="break-words text-sm">{message.content}</p>
                         </li>
                       ))}
                     </ul>
@@ -252,7 +318,7 @@ export default function UchannelsPage() {
             </section>
           </div>
 
-          <CliGuide />
+          {showTechnicalDetails && <CliGuide />}
         </div>
       )}
     </div>

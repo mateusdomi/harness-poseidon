@@ -21,6 +21,7 @@ import {
 } from '@/features/workflows/hooks/use-workflows';
 import { useToolsCatalog } from '@/features/tools/hooks/use-tools';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
+import { usePresentationMode } from '@/app/presentation';
 
 /**
  * Workflows do projeto ativo: stepper das fases do run (com gates e
@@ -29,6 +30,7 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
  */
 export default function UworkflowsPage() {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const { projects, activeProject, setActiveProject, isPending, isError, refetch } =
     useActiveProject();
   const projectId = activeProject?.id ?? null;
@@ -137,7 +139,7 @@ export default function UworkflowsPage() {
         />
       ) : (
         <>
-          {run && runVersion && (
+          {showTechnicalDetails && run && runVersion && (
             <p className="flex items-start gap-2 rounded-lg border border-border bg-surface p-3 text-xs text-foreground-muted">
               <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
               <span>
@@ -152,7 +154,7 @@ export default function UworkflowsPage() {
             </p>
           )}
 
-          <OperationModeCard workflow={workflow} gateNames={gateNames} />
+          {showTechnicalDetails && <OperationModeCard workflow={workflow} gateNames={gateNames} />}
 
           {run && phases.length > 0 && (
             <section aria-labelledby="phases-title" className="flex min-w-0 flex-col gap-3">
@@ -163,18 +165,20 @@ export default function UworkflowsPage() {
             </section>
           )}
 
-          <TemplateAdmin
-            templates={templates}
-            versions={versions}
-            agentDefinitions={agentDefinitionsQuery.data ?? []}
-            skills={toolsCatalog.skills}
-            tools={toolsCatalog.tools}
-            usedTemplateIds={usage.usedTemplateIds}
-            usedVersionIds={usage.usedVersionIds}
-            activeProjectId={projectId}
-            activeProjectWorkflow={workflow}
-            activeRunVersion={runVersion}
-          />
+          {showTechnicalDetails && (
+            <TemplateAdmin
+              templates={templates}
+              versions={versions}
+              agentDefinitions={agentDefinitionsQuery.data ?? []}
+              skills={toolsCatalog.skills}
+              tools={toolsCatalog.tools}
+              usedTemplateIds={usage.usedTemplateIds}
+              usedVersionIds={usage.usedVersionIds}
+              activeProjectId={projectId}
+              activeProjectWorkflow={workflow}
+              activeRunVersion={runVersion}
+            />
+          )}
         </>
       )}
     </div>

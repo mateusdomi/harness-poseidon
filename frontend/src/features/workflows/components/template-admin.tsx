@@ -85,12 +85,20 @@ export function TemplateAdmin({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
-  const [editing, setEditing] = useState<{ template: WorkflowTemplate; draft: WorkflowVersion } | null>(null);
+  const [editing, setEditing] = useState<{
+    template: WorkflowTemplate;
+    draft: WorkflowVersion;
+  } | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<WorkflowTemplate | null>(null);
   const [deletingVersion, setDeletingVersion] = useState<WorkflowVersion | null>(null);
   const [compareIds, setCompareIds] = useState<Ulid[]>([]);
-  const [comparing, setComparing] = useState<{ from: WorkflowVersion; to: WorkflowVersion } | null>(null);
-  const [publishIssues, setPublishIssues] = useState<{ versionId: Ulid; issues: WorkflowValidationIssue[] } | null>(null);
+  const [comparing, setComparing] = useState<{ from: WorkflowVersion; to: WorkflowVersion } | null>(
+    null,
+  );
+  const [publishIssues, setPublishIssues] = useState<{
+    versionId: Ulid;
+    issues: WorkflowValidationIssue[];
+  } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   function versionsOf(template: WorkflowTemplate): WorkflowVersion[] {
@@ -175,263 +183,292 @@ export function TemplateAdmin({
   }
 
   return (
-    <section aria-labelledby="templates-title" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 id="templates-title" className="font-heading text-lg font-semibold">
-          {t('workflows.templates.title')}
-        </h2>
-        <Button
-          type="button"
-          size="sm"
-          className="ml-auto"
-          onClick={() => {
-            setCreating(true);
-            setActionError(null);
-          }}
-        >
-          {t('workflows.templates.create')}
-        </Button>
-      </div>
+    <section
+      aria-labelledby="templates-title"
+      className="min-w-0 rounded-xl border border-border bg-surface p-4 md:p-6"
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 id="templates-title" className="font-heading text-lg font-semibold">
+              {t('workflows.templates.title')}
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-foreground-muted">
+              {t('workflows.templates.description')}
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              setCreating(true);
+              setActionError(null);
+            }}
+          >
+            {t('workflows.templates.create')}
+          </Button>
+        </div>
 
-      {actionError && (
-        <p role="alert" className="text-xs text-error">
-          {actionError}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={compareIds.length !== 2}
-          onClick={openCompare}
-        >
-          {t('workflows.templates.compare')}
-        </Button>
-        {compareIds.length !== 2 && (
-          <span className="text-xs text-foreground-muted">{t('workflows.templates.compareHint')}</span>
+        {actionError && (
+          <p role="alert" className="text-xs text-error">
+            {actionError}
+          </p>
         )}
-      </div>
 
-      <ul className="flex flex-col gap-3">
-        {templates.map((template) => {
-          const templateVersions = versionsOf(template);
-          const deletable = canDeleteTemplate(template);
-          return (
-            <li
-              key={template.id}
-              className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold">{template.name}</h3>
-                <Badge variant={workflowContentStateVariant(template.state)}>
-                  {t(`status.workflowContentState.${template.state}`)}
-                </Badge>
-                {template.archivedAt && (
-                  <span className="text-xs text-foreground-muted">
-                    {t('workflows.templates.archivedAt', {
-                      date: formatDateTime(template.archivedAt, i18n.language),
-                    })}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-foreground-muted">{template.description}</p>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-elevated p-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={compareIds.length !== 2}
+            onClick={openCompare}
+          >
+            {t('workflows.templates.compare')}
+          </Button>
+          {compareIds.length !== 2 && (
+            <span className="text-xs text-foreground-muted">
+              {t('workflows.templates.compareHint')}
+            </span>
+          )}
+        </div>
 
-              <div className="flex flex-wrap gap-2">
-                {template.state !== 'archived' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={createDraft.isPending}
-                    onClick={() => void openNewDraft(template)}
-                  >
-                    {t('workflows.templates.newDraft')}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={duplicateTemplate.isPending}
-                  onClick={() => duplicateTemplate.mutate(template.id)}
+        <ul className="flex min-w-0 flex-col gap-4">
+          {templates.map((template) => {
+            const templateVersions = versionsOf(template);
+            const deletable = canDeleteTemplate(template);
+            return (
+              <li
+                key={template.id}
+                className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-background p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-semibold">{template.name}</h3>
+                  <Badge variant={workflowContentStateVariant(template.state)}>
+                    {t(`status.workflowContentState.${template.state}`)}
+                  </Badge>
+                  {template.archivedAt && (
+                    <span className="text-xs text-foreground-muted">
+                      {t('workflows.templates.archivedAt', {
+                        date: formatDateTime(template.archivedAt, i18n.language),
+                      })}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-foreground-muted">{template.description}</p>
+
+                <div
+                  className="flex flex-wrap gap-2"
+                  aria-label={t('workflows.templates.templateActions', { name: template.name })}
                 >
-                  {t('workflows.templates.duplicate')}
-                </Button>
-                {template.state !== 'archived' && (
+                  {template.state !== 'archived' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={createDraft.isPending}
+                      onClick={() => void openNewDraft(template)}
+                    >
+                      {t('workflows.templates.newDraft')}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={archiveTemplate.isPending}
-                    onClick={() => archiveTemplate.mutate(template.id)}
+                    disabled={duplicateTemplate.isPending}
+                    onClick={() => duplicateTemplate.mutate(template.id)}
                   >
-                    {t('workflows.templates.archive')}
+                    {t('workflows.templates.duplicate')}
                   </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!deletable}
-                  title={deletable ? undefined : t('workflows.templates.deleteBlocked')}
-                  onClick={() => setDeletingTemplate(template)}
-                >
-                  {t('workflows.templates.delete')}
-                </Button>
-                {activeProjectId !== null && (
+                  {template.state !== 'archived' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={archiveTemplate.isPending}
+                      onClick={() => archiveTemplate.mutate(template.id)}
+                    >
+                      {t('workflows.templates.archive')}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={!canLink(template) || linkTemplate.isPending}
-                    title={
-                      canLink(template)
-                        ? undefined
-                        : activeProjectWorkflow !== null
-                          ? t('workflows.templates.linkBlockedInUse')
-                          : t('workflows.templates.linkBlockedNoPublished')
-                    }
-                    onClick={() =>
-                      linkTemplate.mutate(
-                        { projectId: activeProjectId, templateId: template.id },
-                        { onError: (error) => setActionError(error.message) },
-                      )
-                    }
+                    disabled={!deletable}
+                    title={deletable ? undefined : t('workflows.templates.deleteBlocked')}
+                    onClick={() => setDeletingTemplate(template)}
                   >
-                    {t('workflows.templates.link')}
+                    {t('workflows.templates.delete')}
                   </Button>
-                )}
-              </div>
+                  {activeProjectId !== null && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!canLink(template) || linkTemplate.isPending}
+                      title={
+                        canLink(template)
+                          ? undefined
+                          : activeProjectWorkflow !== null
+                            ? t('workflows.templates.linkBlockedInUse')
+                            : t('workflows.templates.linkBlockedNoPublished')
+                      }
+                      onClick={() =>
+                        linkTemplate.mutate(
+                          { projectId: activeProjectId, templateId: template.id },
+                          { onError: (error) => setActionError(error.message) },
+                        )
+                      }
+                    >
+                      {t('workflows.templates.link')}
+                    </Button>
+                  )}
+                </div>
 
-              <ul className="flex flex-col gap-2">
-                {templateVersions.map((version) => {
-                  const versionDeletable = canDeleteVersion(version);
-                  const isCurrent = version.id === template.currentVersionId;
-                  return (
-                    <li key={version.id} className="flex flex-col gap-1">
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
-                        <Checkbox
-                          aria-label={t('workflows.templates.compareSelect', {
-                            version: version.version,
-                          })}
-                          checked={compareIds.includes(version.id)}
-                          onChange={() => toggleCompare(version.id)}
-                        />
-                        <Badge variant={isCurrent ? 'brand' : 'outline'}>
-                          {t('workflows.templates.version', { version: version.version })}
-                        </Badge>
-                        <Badge variant={workflowContentStateVariant(version.state)}>
-                          {t(`status.workflowContentState.${version.state}`)}
-                        </Badge>
-                        {isCurrent && (
-                          <span className="font-medium text-foreground">
-                            {t('workflows.templates.current')}
-                          </span>
-                        )}
-                        <span>
-                          {version.publishedAt
-                            ? formatDateTime(version.publishedAt, i18n.language)
-                            : t('workflows.templates.notPublished')}
-                        </span>
-                        <span>
-                          {t('workflows.templates.phaseCount', { count: version.phases.length })}
-                        </span>
-                        {version.changelog && <span>— {version.changelog}</span>}
-
-                        {version.state === 'draft' && (
-                          <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditing({ template, draft: version })}
-                            >
-                              {t('workflows.templates.editDraft')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={publishDraft.isPending}
-                              onClick={() => publishFromCard(version)}
-                            >
-                              {t('workflows.templates.publish')}
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={duplicateVersion.isPending}
-                          onClick={() => duplicateVersion.mutate(version.id)}
-                        >
-                          {t('workflows.templates.duplicate')}
-                        </Button>
-                        {version.state !== 'archived' && !isCurrent && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={archiveVersion.isPending}
-                            onClick={() => archiveVersion.mutate(version.id)}
+                <ul className="flex min-w-0 flex-col gap-3">
+                  {templateVersions.map((version) => {
+                    const versionDeletable = canDeleteVersion(version);
+                    const isCurrent = version.id === template.currentVersionId;
+                    return (
+                      <li
+                        key={version.id}
+                        className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-3"
+                      >
+                        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-foreground-muted">
+                            <Checkbox
+                              aria-label={t('workflows.templates.compareSelect', {
+                                version: version.version,
+                              })}
+                              checked={compareIds.includes(version.id)}
+                              onChange={() => toggleCompare(version.id)}
+                            />
+                            <Badge variant={isCurrent ? 'brand' : 'outline'}>
+                              {t('workflows.templates.version', { version: version.version })}
+                            </Badge>
+                            <Badge variant={workflowContentStateVariant(version.state)}>
+                              {t(`status.workflowContentState.${version.state}`)}
+                            </Badge>
+                            {isCurrent && (
+                              <span className="font-medium text-foreground">
+                                {t('workflows.templates.current')}
+                              </span>
+                            )}
+                            <span>
+                              {version.publishedAt
+                                ? formatDateTime(version.publishedAt, i18n.language)
+                                : t('workflows.templates.notPublished')}
+                            </span>
+                            <span>
+                              {t('workflows.templates.phaseCount', {
+                                count: version.phases.length,
+                              })}
+                            </span>
+                            {version.changelog && (
+                              <span className="min-w-0 break-words">— {version.changelog}</span>
+                            )}
+                          </div>
+                          <div
+                            className="flex shrink-0 flex-wrap gap-2"
+                            aria-label={t('workflows.templates.versionActions', {
+                              version: version.version,
+                            })}
                           >
-                            {t('workflows.templates.archive')}
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={!versionDeletable}
-                          title={
-                            versionDeletable
-                              ? undefined
-                              : version.state === 'draft'
-                                ? t('workflows.templates.deleteVersionInUse')
-                                : t('workflows.templates.deletePublishedBlocked')
-                          }
-                          onClick={() => setDeletingVersion(version)}
-                        >
-                          {t('workflows.templates.delete')}
-                        </Button>
-                      </div>
-
-                      {version.phases.length > 0 && (
-                        <ol
-                          aria-label={t('workflows.templates.phasesListLabel')}
-                          className="flex flex-wrap items-center gap-1"
-                        >
-                          {version.phases.map((phase, index) => (
-                            <li key={`${phase}-${index}`}>
-                              <Badge variant="outline">{phase}</Badge>
-                            </li>
-                          ))}
-                        </ol>
-                      )}
-
-                      {publishIssues?.versionId === version.id && (
-                        <div role="alert" className="rounded-md border border-error p-3">
-                          <p className="text-xs font-medium text-error">
-                            {t('workflows.templates.validationTitle')}
-                          </p>
-                          <ul className="mt-1 list-inside list-disc text-xs text-error">
-                            {publishIssues.issues.map((issue, index) => (
-                              <li key={`${issue.key}-${index}`}>{t(issue.key, issue.params)}</li>
-                            ))}
-                          </ul>
+                            {version.state === 'draft' && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditing({ template, draft: version })}
+                                >
+                                  {t('workflows.templates.editDraft')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={publishDraft.isPending}
+                                  onClick={() => publishFromCard(version)}
+                                >
+                                  {t('workflows.templates.publish')}
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={duplicateVersion.isPending}
+                              onClick={() => duplicateVersion.mutate(version.id)}
+                            >
+                              {t('workflows.templates.duplicate')}
+                            </Button>
+                            {version.state !== 'archived' && !isCurrent && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={archiveVersion.isPending}
+                                onClick={() => archiveVersion.mutate(version.id)}
+                              >
+                                {t('workflows.templates.archive')}
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={!versionDeletable}
+                              title={
+                                versionDeletable
+                                  ? undefined
+                                  : version.state === 'draft'
+                                    ? t('workflows.templates.deleteVersionInUse')
+                                    : t('workflows.templates.deletePublishedBlocked')
+                              }
+                              onClick={() => setDeletingVersion(version)}
+                            >
+                              {t('workflows.templates.delete')}
+                            </Button>
+                          </div>
                         </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </li>
-          );
-        })}
-      </ul>
+
+                        {version.phases.length > 0 && (
+                          <ol
+                            aria-label={t('workflows.templates.phasesListLabel')}
+                            className="flex flex-wrap items-center gap-1"
+                          >
+                            {version.phases.map((phase, index) => (
+                              <li key={`${phase}-${index}`}>
+                                <Badge variant="outline">{phase}</Badge>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+
+                        {publishIssues?.versionId === version.id && (
+                          <div role="alert" className="rounded-md border border-error p-3">
+                            <p className="text-xs font-medium text-error">
+                              {t('workflows.templates.validationTitle')}
+                            </p>
+                            <ul className="mt-1 list-inside list-disc text-xs text-error">
+                              {publishIssues.issues.map((issue, index) => (
+                                <li key={`${issue.key}-${index}`}>{t(issue.key, issue.params)}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
       {creating && (
         <ModalDialog
@@ -564,9 +601,7 @@ export function TemplateAdmin({
         <VersionCompare
           from={comparing.from}
           to={comparing.to}
-          fromTemplate={
-            templates.find((tpl) => tpl.id === comparing.from.templateId) ?? null
-          }
+          fromTemplate={templates.find((tpl) => tpl.id === comparing.from.templateId) ?? null}
           toTemplate={templates.find((tpl) => tpl.id === comparing.to.templateId) ?? null}
           onClose={() => setComparing(null)}
         />

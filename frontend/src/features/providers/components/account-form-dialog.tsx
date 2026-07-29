@@ -15,10 +15,7 @@ import {
 import { Button, Checkbox, Field, Input, Select } from '@/design-system';
 import { zodResolver } from '@/lib/form';
 import { ModalDialog } from '@/features/shared/components/modal-dialog';
-import {
-  useCreateAccount,
-  useUpdateAccount,
-} from '@/features/providers/hooks/use-providers';
+import { useCreateAccount, useUpdateAccount } from '@/features/providers/hooks/use-providers';
 
 const accountFormSchema = z.object({
   providerId: z.string().min(1),
@@ -133,17 +130,17 @@ export function AccountFormDialog({
 
   return (
     <ModalDialog
-      label={account ? t('providers.accounts.form.editTitle') : t('providers.accounts.form.createTitle')}
+      label={
+        account ? t('providers.accounts.form.editTitle') : t('providers.accounts.form.createTitle')
+      }
       onClose={onClose}
     >
       <h3 className="font-heading text-lg font-semibold">
-        {account ? t('providers.accounts.form.editTitle') : t('providers.accounts.form.createTitle')}
+        {account
+          ? t('providers.accounts.form.editTitle')
+          : t('providers.accounts.form.createTitle')}
       </h3>
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={handleSubmit(handleValidSubmit)}
-        noValidate
-      >
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit(handleValidSubmit)} noValidate>
         <Field htmlFor="account-provider" label={t('providers.accounts.form.provider')}>
           <Select id="account-provider" disabled={Boolean(account)} {...register('providerId')}>
             {providers.map((provider) => (
@@ -169,9 +166,7 @@ export function AccountFormDialog({
             hint={t('providers.accounts.form.credentialHint')}
             required
             requiredLabel={t('common.requiredMark')}
-            error={
-              errors.credentialReference ? t(errors.credentialReference.message!) : undefined
-            }
+            error={errors.credentialReference ? t(errors.credentialReference.message!) : undefined}
           >
             <Input
               id="account-credential-reference"
@@ -185,7 +180,7 @@ export function AccountFormDialog({
         <Field htmlFor="account-identity" label={t('providers.accounts.form.identity')}>
           <Input id="account-identity" type="email" {...register('identity')} />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <Field htmlFor="account-plan" label={t('providers.accounts.form.plan')}>
             <Select id="account-plan" {...register('plan')}>
               {accountPlanSchema.options.map((plan) => (
@@ -208,7 +203,7 @@ export function AccountFormDialog({
             </Select>
           </Field>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <Field htmlFor="account-quota-window" label={t('providers.accounts.form.quotaWindow')}>
             <Select id="account-quota-window" {...register('quotaWindow')}>
               {accountQuotaWindowSchema.options.map((window) => (
@@ -229,7 +224,9 @@ export function AccountFormDialog({
           </Field>
         </div>
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">{t('providers.accounts.form.capabilities')}</legend>
+          <legend className="text-sm font-medium">
+            {t('providers.accounts.form.capabilities')}
+          </legend>
           <Controller
             name="capabilities"
             control={control}

@@ -1,5 +1,18 @@
 {
   "tools": {
+    "access": {
+      "title": "Área disponível no modo Técnico",
+      "body": "Altere o modo de apresentação em Configurações para administrar os recursos usados pela equipe."
+    },
+    "registration": {
+      "title": "Como registrar um novo item",
+      "intro": "O catálogo é preenchido pela instalação; esta tela altera o estado dos itens já registrados.",
+      "stepLabel": "Passo {{step}}",
+      "step1": "Adicione a ferramenta por um plugin instalado ou configure o servidor MCP que a fornece.",
+      "step2": "Declare uma chave única, os contratos de entrada e saída e o nível máximo de risco.",
+      "step3": "Reinicie a instalação, confirme o item neste catálogo e vincule-o à definição da pessoa que poderá usá-lo.",
+      "note": "Não há cadastro manual nesta tela. Isso evita itens sem contrato ou sem política de execução."
+    },
     "intro": {
       "title": "Catálogo do que os agentes podem usar",
       "body": "Aqui ficam as ferramentas, skills, plugins e servidores MCP disponíveis para a equipe de agentes. Habilite ou desabilite cada item para controlar, por política, o que os agentes podem usar durante as execuções.",

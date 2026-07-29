@@ -33,6 +33,22 @@
       "title": "Configured bot ≠ linked channel",
       "body": "Configuring the bot on the server only enables Telegram. For a conversation to become work, you must link the chat to a project — that is what this screen shows. If you already talk to the bot but see nothing here, the link has not been created yet."
     },
+    "business": {
+      "title": "Connect a channel in three steps",
+      "intro": "Use the number sent by the channel itself to connect the conversation to the right project.",
+      "subtitle": "Talk to Bruna through the app you already use and keep each conversation connected to the right project.",
+      "emptyBody": "Follow the steps below to connect your first conversation to a project.",
+      "errorBody": "Channels could not be loaded right now. Try again in a moment.",
+      "formTitle": "Connect another conversation",
+      "formSubtitle": "Paste the number received in the channel and choose the matching project.",
+      "step1": "Open the channel link provided by the person who set up the application.",
+      "step2": "Send “hi” and wait for the reply with your number.",
+      "step3": "Paste the number below, choose the project, and confirm.",
+      "safety": "The access password stays protected in the installation and is never requested here.",
+      "kindLabel": "Where do you want to chat?",
+      "identityLabel": "Number sent by the channel",
+      "identityHint": "Paste only the number received after sending “hi”."
+    },
     "link": {
       "title": "Link a channel to a project",
       "subtitle": "Link a chat identity (Telegram/Teams/WhatsApp/email) to a project. Linking is idempotent: re-linking the same identity returns the existing link.",

@@ -1,5 +1,19 @@
 {
   "licenses": {
+    "business": {
+      "introTitle": "Your Poseidon license",
+      "introBody": "See the active plan, included features, and how long the license is valid.",
+      "introNote": "To activate or renew, use the key provided by the person who set up the application.",
+      "entitlements": {
+        "projects": "Projects active at the same time",
+        "people": "People working at the same time per project",
+        "offline": "Work continuity without internet",
+        "corporateLogin": "Access with a corporate account",
+        "history": "Activity history available",
+        "technicalMode": "Technical mode available",
+        "other": "Additional plan feature"
+      }
+    },
     "intro": {
       "title": "Licensing for this device",
       "body": "Poseidon is unlocked by a signed license key. This screen does not generate keys — it activates a key issued to you and shows the current state, plan, included features and validity. Once activated, the plan's features become available.",

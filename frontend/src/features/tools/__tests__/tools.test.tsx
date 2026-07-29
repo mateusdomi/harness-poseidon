@@ -12,12 +12,17 @@ import {
   toolOrigin,
 } from '@/features/tools/lib/tools-derive';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 const fixtures = createTestBundle().fixtures.data;
 
-function renderTools() {
+function renderTools(mode: 'business' | 'technical' = 'technical') {
   // Bundle novo por teste: o store do mock é mutável (estado dos itens).
   const bundle = createTestBundle();
+  useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
+  usePresentationStore.setState({ modeByProfile: {} });
+  usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, mode);
   return renderWithApi(<ToolsPage />, bundle);
 }
 
@@ -60,9 +65,18 @@ describe('tools-derive', () => {
 });
 
 describe('ToolsPage', () => {
+  it('reserva o catálogo ao modo Técnico', () => {
+    renderTools('business');
+
+    expect(screen.getByText('Área disponível no modo Técnico')).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  });
+
   it('lista ferramentas na aba inicial com estado, kind e origem', async () => {
     renderTools();
 
+    expect(screen.getByText('Como registrar um novo item')).toBeInTheDocument();
+    expect(screen.getByText(/Não há cadastro manual nesta tela/)).toBeInTheDocument();
     const tablist = await screen.findByRole('tablist', { name: 'Categorias do catálogo' });
     expect(within(tablist).getAllByRole('tab')).toHaveLength(4);
 
@@ -98,9 +112,7 @@ describe('ToolsPage', () => {
     const ponte = within(pluginList)
       .getAllByRole('listitem')
       .find((item) => within(item).queryByText('Ponte Figma') !== null)!;
-    expect(
-      within(ponte).getByText('Ferramentas providas: Exportar Figma'),
-    ).toBeInTheDocument();
+    expect(within(ponte).getByText('Ferramentas providas: Exportar Figma')).toBeInTheDocument();
   });
 
   it('mostra servidores MCP com transport, toolCount e endpoint mascarado', async () => {
@@ -115,9 +127,7 @@ describe('ToolsPage', () => {
     const github = items.find((item) => within(item).queryByText('github-mcp') !== null)!;
     expect(within(github).getByText('HTTP')).toBeInTheDocument();
     expect(within(github).getByText('6 ferramentas')).toBeInTheDocument();
-    expect(
-      within(github).getByText('Revelado somente com permissão.'),
-    ).toBeInTheDocument();
+    expect(within(github).getByText('Revelado somente com permissão.')).toBeInTheDocument();
     // Endpoint exibido sem credenciais (fixture não tem; a máscara é aplicada sempre).
     expect(within(github).getByText('https://mcp.github.local/sse')).toBeInTheDocument();
   });
@@ -141,9 +151,7 @@ describe('ToolsPage', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Desabilitar' }));
     expect(await within(terminal).findByText('Desabilitado')).toBeInTheDocument();
-    expect(
-      within(terminal).getByRole('button', { name: 'Habilitar' }),
-    ).toBeInTheDocument();
+    expect(within(terminal).getByRole('button', { name: 'Habilitar' })).toBeInTheDocument();
   });
 
   it('avisa no dialog quando o item está em erro (e permite habilitar)', async () => {
@@ -157,9 +165,7 @@ describe('ToolsPage', () => {
 
     await user.click(within(figma).getByRole('button', { name: 'Habilitar' }));
     const dialog = await screen.findByRole('dialog', { name: 'Habilitar Exportar Figma' });
-    expect(
-      within(dialog).getByText(/Este item está em estado de erro/),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/Este item está em estado de erro/)).toBeInTheDocument();
 
     await user.click(within(dialog).getByRole('button', { name: 'Habilitar' }));
     expect(await within(figma).findByText('Habilitado')).toBeInTheDocument();
@@ -181,9 +187,7 @@ describe('ToolsPage', () => {
 
     await waitFor(() => {
       expect(
-        invalidateSpy.mock.calls.some((call) =>
-          JSON.stringify(call[0]).includes('"catalog"'),
-        ),
+        invalidateSpy.mock.calls.some((call) => JSON.stringify(call[0]).includes('"catalog"')),
       ).toBe(true);
     });
   });

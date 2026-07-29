@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ApiError, type ChannelKind, type Conversation, type Project } from '@/api';
+import { usePresentationMode } from '@/app/presentation';
 import { Button, Field, Input, Select } from '@/design-system';
 import { useCreateChannelLink } from '@/features/channels/hooks/use-channels';
 
@@ -47,6 +48,7 @@ export function LinkChannelForm({
   onCancel,
 }: LinkChannelFormProps) {
   const { t } = useTranslation();
+  const { isBusiness } = usePresentationMode();
   const fieldId = useId();
   const kindId = `${fieldId}-kind`;
   const identityId = `${fieldId}-identity`;
@@ -99,7 +101,9 @@ export function LinkChannelForm({
     );
   };
 
-  const identityHint = t(IDENTITY_HINT_KEY[kind] ?? 'channels.link.fields.identityHintTelegram');
+  const identityHint = isBusiness
+    ? t('channels.business.identityHint')
+    : t(IDENTITY_HINT_KEY[kind] ?? 'channels.link.fields.identityHintTelegram');
 
   return (
     <form
@@ -107,7 +111,12 @@ export function LinkChannelForm({
       onSubmit={handleSubmit}
       aria-label={t('channels.link.title')}
     >
-      <Field htmlFor={kindId} label={t('channels.link.fields.kind')} required requiredLabel={t('channels.link.required')}>
+      <Field
+        htmlFor={kindId}
+        label={isBusiness ? t('channels.business.kindLabel') : t('channels.link.fields.kind')}
+        required
+        requiredLabel={t('channels.link.required')}
+      >
         <Select
           id={kindId}
           value={kind}
@@ -123,7 +132,9 @@ export function LinkChannelForm({
 
       <Field
         htmlFor={identityId}
-        label={t('channels.link.fields.identity')}
+        label={
+          isBusiness ? t('channels.business.identityLabel') : t('channels.link.fields.identity')
+        }
         hint={identityHint}
         required
         requiredLabel={t('channels.link.required')}
@@ -138,7 +149,12 @@ export function LinkChannelForm({
         />
       </Field>
 
-      <Field htmlFor={projectId} label={t('channels.link.fields.project')} required requiredLabel={t('channels.link.required')}>
+      <Field
+        htmlFor={projectId}
+        label={t('channels.link.fields.project')}
+        required
+        requiredLabel={t('channels.link.required')}
+      >
         <Select
           id={projectId}
           value={selectedProject}
@@ -158,24 +174,26 @@ export function LinkChannelForm({
         </Select>
       </Field>
 
-      <Field
-        htmlFor={conversationId}
-        label={t('channels.link.fields.conversation')}
-        hint={t('channels.link.fields.conversationHint')}
-      >
-        <Select
-          id={conversationId}
-          value={conversation}
-          onChange={(event) => setConversation(event.target.value)}
+      {!isBusiness && (
+        <Field
+          htmlFor={conversationId}
+          label={t('channels.link.fields.conversation')}
+          hint={t('channels.link.fields.conversationHint')}
         >
-          <option value="">{t('channels.link.fields.newConversation')}</option>
-          {availableConversations.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.title}
-            </option>
-          ))}
-        </Select>
-      </Field>
+          <Select
+            id={conversationId}
+            value={conversation}
+            onChange={(event) => setConversation(event.target.value)}
+          >
+            <option value="">{t('channels.link.fields.newConversation')}</option>
+            {availableConversations.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.title}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
 
       {errorKey ? (
         <p role="alert" className="text-sm text-error">

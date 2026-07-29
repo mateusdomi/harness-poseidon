@@ -92,19 +92,22 @@ test.describe('Golden path — UX transversal', () => {
     await expect(page.getByRole('button', { name: 'Criar organização' })).toHaveCount(0);
   });
 
-  test('o plano da organização não é escolha do usuário no formulário', async ({ page }) => {
+  test('plano e identificador interno não são escolhas do usuário no formulário', async ({
+    page,
+  }) => {
     await signIn(page);
     await navTo(page, 'Organizações');
     await page.getByRole('button', { name: 'Nova organização' }).click();
 
-    // Sem seletor de plano (§8) e slug fora do fluxo comum (§7).
+    // Sem seletor de plano (§8) e identificador interno fora do modo Negócio (§7).
     await expect(page.getByLabel('Plano')).toHaveCount(0);
     await expect(page.getByLabel('Identificador da URL')).toHaveCount(0);
 
     await page.getByLabel('Nome').fill('Organização Golden Path');
-    // A primeira seção avançada é a da identidade (a outra pertence à marca).
-    await page.getByRole('button', { name: 'Opções avançadas' }).first().click();
-    await expect(page.getByLabel('Identificador da URL')).toHaveValue('organizacao-golden-path');
+    await expect(page.getByLabel('Cor primária', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Opções avançadas' }).click();
+    await expect(page.getByLabel('URL do logo')).toBeVisible();
+    await expect(page.getByLabel('Identificador da URL')).toHaveCount(0);
   });
 
   test('projeto novo recebe workflow recomendado e o Chat expõe o ciclo sem bloqueio', async ({
