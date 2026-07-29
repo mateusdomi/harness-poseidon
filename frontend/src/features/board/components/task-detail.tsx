@@ -141,9 +141,9 @@ export function TaskDetail({
               <Badge variant="info">{t('board.card.archived')}</Badge>
             )}
           </div>
-          <dl className="grid gap-2 text-xs text-foreground-muted sm:grid-cols-2">
+          <dl className="grid gap-2 text-xs text-foreground-muted md:grid-cols-2">
             {presentation.showInternalId && (
-              <div className="flex items-center gap-1.5 sm:col-span-2">
+              <div className="flex items-center gap-1.5 md:col-span-2">
                 <dt>{t('board.detail.id')}:</dt>
                 <dd className="flex min-w-0 items-center gap-1.5">
                   <code className="min-w-0 break-all rounded bg-surface-elevated px-1.5 py-0.5 font-mono text-[0.7rem] text-foreground">
@@ -216,7 +216,7 @@ export function TaskDetail({
           </div>
           {showTechnicalDetails && (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <dt className="text-xs font-medium text-foreground-muted">
                     {t('board.detail.scope.included')}
@@ -346,7 +346,7 @@ export function TaskDetail({
                       {agentNames.get(attempt.agentId) ?? t('board.card.unassigned')}
                     </span>
                   </div>
-                  <dl className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <dl className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
                     <div>
                       <dt className="text-foreground-muted">{t('board.detail.attempts.duration')}</dt>
                       <dd className="tabular-nums">

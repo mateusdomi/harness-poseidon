@@ -130,8 +130,8 @@ export default function UconversationsPage() {
         </div>
       ) : (
         <>
-          <div className="grid items-end gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex min-w-48 flex-col gap-1 sm:col-span-2">
+          <div className="grid items-end gap-3 rounded-xl border border-border bg-surface p-3 md:grid-cols-2 lg:grid-cols-4">
+            <div className="flex min-w-48 flex-col gap-1 md:col-span-2">
               <label htmlFor="filter-search" className="text-xs font-medium">
                 {t('conversations.filters.search')}
               </label>
@@ -216,7 +216,7 @@ export default function UconversationsPage() {
           ) : (
             <>
               <ul
-                className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                 aria-label={t('conversations.listLabel')}
                 data-testid="conversation-grid"
               >

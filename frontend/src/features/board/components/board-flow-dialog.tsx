@@ -78,7 +78,7 @@ export function BoardFlowDialog({
         </span>
       </p>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         <section aria-labelledby="board-flow-human" className="flex flex-col gap-1.5">
           <h3 id="board-flow-human" className="text-sm font-semibold">
             {t(`board.flow.${flowMode}.humanTitle`)}

@@ -30,6 +30,15 @@ export const DEFAULT_BOARD_FILTERS: BoardFilters = {
 
 const PERIODS: readonly BoardPeriod[] = ['today', '7d', '30d', 'all'];
 const ARCHIVE_FILTERS: readonly BoardArchiveFilter[] = ['active', 'archived', 'all'];
+const RETIRED_FILTER_KEYS = [
+  'q',
+  'agent',
+  'signature',
+  'specialty',
+  'type',
+  'priority',
+] as const;
+
 function parseEnum<T extends string>(value: string | null, options: readonly T[], fallback: T): T {
   return value !== null && (options as readonly string[]).includes(value) ? (value as T) : fallback;
 }
@@ -55,6 +64,7 @@ export function boardFiltersToSearchParams(
   filters: BoardFilters,
 ): URLSearchParams {
   const next = new URLSearchParams(previous);
+  for (const key of RETIRED_FILTER_KEYS) next.delete(key);
   const setOrDelete = (key: string, value: string, isDefault: boolean) => {
     if (isDefault || value === '') next.delete(key);
     else next.set(key, value);

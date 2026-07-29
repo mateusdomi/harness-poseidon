@@ -37,7 +37,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
       data-state={state}
       data-highlighted={highlighted || undefined}
       className={cn(
-        'flex w-72 shrink-0 snap-start flex-col gap-2 rounded-lg bg-surface-elevated p-2 sm:w-80',
+        'flex w-72 shrink-0 snap-start flex-col gap-2 rounded-lg bg-surface-elevated p-2 md:w-80',
         highlighted && 'bg-surface ring-2 ring-accent',
       )}
     >

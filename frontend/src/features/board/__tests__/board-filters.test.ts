@@ -39,10 +39,18 @@ describe('board-filters: parse e serialização da URL', () => {
   });
 
   it('serializa só valores fora do padrão e preserva ?task=', () => {
-    const previous = new URLSearchParams('task=t1&state=blocked');
+    const previous = new URLSearchParams(
+      'task=t1&state=blocked&q=legado&agent=a1&signature=front&specialty=Frontend&type=agent_task&priority=high',
+    );
     const next = boardFiltersToSearchParams(previous, DEFAULT_BOARD_FILTERS);
     expect(next.get('task')).toBe('t1');
     expect(next.get('state')).toBeNull();
+    expect(next.get('q')).toBeNull();
+    expect(next.get('agent')).toBeNull();
+    expect(next.get('signature')).toBeNull();
+    expect(next.get('specialty')).toBeNull();
+    expect(next.get('type')).toBeNull();
+    expect(next.get('priority')).toBeNull();
     expect(next.toString()).toBe('task=t1');
 
     const filled = boardFiltersToSearchParams(new URLSearchParams(), {

@@ -52,7 +52,7 @@ export function BoardFiltersBar({
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3">
-      <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-2 lg:grid-cols-5">
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="board-filter-state" className="text-xs font-medium">
             {t('board.filters.state')}
@@ -124,7 +124,7 @@ export function BoardFiltersBar({
           type="button"
           variant="ghost"
           size="sm"
-          className="w-full sm:w-auto"
+          className="w-full md:w-auto"
           disabled={!hasActiveBoardFilters(filters)}
           onClick={onClear}
         >
@@ -137,7 +137,7 @@ export function BoardFiltersBar({
         <p className="text-xs text-foreground-muted" role="status">
           {t('board.filters.results', { count: filteredCount, total: totalCount })}
         </p>
-        <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+        <div className="flex w-full flex-wrap gap-2 md:ml-auto md:w-auto">
           <Button type="button" variant="outline" size="sm" onClick={onShowFlow}>
             <Route aria-hidden="true" />
             {t('board.flow.open')}

@@ -169,7 +169,7 @@ export default function UboardPage() {
           aria-label={t('common.states.loading')}
         >
           {Array.from({ length: 8 }, (_, index) => (
-            <Skeleton key={index} className="h-64 w-72 shrink-0 sm:w-80" />
+            <Skeleton key={index} className="h-64 w-72 shrink-0 md:w-80" />
           ))}
         </div>
       ) : errored ? (
