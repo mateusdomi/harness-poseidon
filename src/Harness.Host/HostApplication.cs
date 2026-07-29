@@ -70,6 +70,7 @@ using Harness.Persistence.Abstractions.Workflows;
 using Harness.Persistence.Abstractions.Tools;
 using Harness.Persistence.Postgres;
 using Harness.Persistence.Sqlite;
+using Harness.SharedKernel.CodeGraph;
 using Harness.SharedKernel.Time;
 using Microsoft.Extensions.FileProviders;
 using Npgsql;
@@ -255,6 +256,7 @@ public static class HostApplication
             builder.Services.AddSingleton<ICardCircuitBreakerStore, PostgresCardCircuitBreakerStore>();
             builder.Services.AddSingleton<IProfileActiveConversationStore, PostgresProfileActiveConversationStore>();
             builder.Services.AddSingleton<IChiefLoopGuardStore, PostgresChiefLoopGuardStore>();
+            builder.Services.AddSingleton<ICodeGraphStore, PostgresCodeGraphStore>();
             builder.Services.AddSingleton<IPrototypeStore, PostgresPrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, PostgresRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, PostgresLicenseStore>();
@@ -292,6 +294,7 @@ public static class HostApplication
             builder.Services.AddSingleton<ICardCircuitBreakerStore, SqliteCardCircuitBreakerStore>();
             builder.Services.AddSingleton<IProfileActiveConversationStore, SqliteProfileActiveConversationStore>();
             builder.Services.AddSingleton<IChiefLoopGuardStore, SqliteChiefLoopGuardStore>();
+            builder.Services.AddSingleton<ICodeGraphStore, SqliteCodeGraphStore>();
             builder.Services.AddSingleton<IPrototypeStore, SqlitePrototypeStore>();
             builder.Services.AddSingleton<IRunTargetStore, SqliteRunTargetStore>();
             builder.Services.AddSingleton<ILicenseStore, SqliteLicenseStore>();
@@ -459,6 +462,11 @@ public static class HostApplication
             // deixe de nascer vazia e o dono abra o projeto e veja o produto já mapeado.
             builder.Services.AddSingleton<Architecture.ArchitectureSelfMapSeeder>();
             builder.Services.AddHostedService<Architecture.ArchitectureSelfMapSeedHostedService>();
+
+            // B6/F15: o índice de grafo de código. Registrado como singleton porque derivar é caro e
+            // sem estado — a reconstrução é explícita, nunca no caminho de uma requisição.
+            builder.Services.AddSingleton<ICodeGraphIndex, Architecture.RoslynCodeGraphIndex>();
+            builder.Services.AddSingleton<Architecture.CodeGraphDerivationService>();
         }
 
         // O roster público existe também quando a execução externa está desabilitada. O ledger
