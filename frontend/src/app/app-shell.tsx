@@ -8,7 +8,7 @@ import { Button } from '@/design-system';
 import { cn } from '@/lib/utils';
 import { product } from '@/config/product';
 import { useUiStore } from '@/stores/ui-store';
-import { MOBILE_PRIMARY_ITEMS, navGroupsFor } from '@/app/navigation';
+import { isMultiProjectPath, MOBILE_PRIMARY_ITEMS, navGroupsFor } from '@/app/navigation';
 import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
 import { AppNavLink } from '@/app/components/app-nav-link';
 import { CommandPalette } from '@/app/components/command-palette';
@@ -244,7 +244,11 @@ function BottomNav() {
 
 function Header() {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
   const setOpen = useUiStore((s) => s.setMobileNavOpen);
+  // Telas que existem para comparar projetos ignoram a selecao global (D4):
+  // exibir o seletor nelas sugeriria um recorte que a tela nao aplica.
+  const showProjectContext = !isMultiProjectPath(pathname);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-background/80 px-4 shadow-sm backdrop-blur-xl lg:px-6">
@@ -260,7 +264,7 @@ function Header() {
       <div className="hidden sm:block lg:hidden">
         <BrandMark />
       </div>
-      <HeaderContext />
+      {showProjectContext && <HeaderContext />}
       <div className="ml-auto flex items-center gap-1">
         <div className="hidden sm:block">
           <CommandPalette />

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -6,6 +6,7 @@ import i18n from '@/i18n';
 import { CommandPalette } from '@/app/components/command-palette';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { usePresentationStore } from '@/stores/presentation-store';
+import { renderWithApi } from '@/test/render-with-providers';
 import { useSessionStore } from '@/stores/session-store';
 
 function RoutesLocation() {
@@ -14,7 +15,7 @@ function RoutesLocation() {
 }
 
 function renderPalette() {
-  return render(
+  return renderWithApi(
     <MemoryRouter initialEntries={['/cockpit']}>
       <Routes>
         <Route
