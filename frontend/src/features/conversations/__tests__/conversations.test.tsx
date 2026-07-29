@@ -9,7 +9,9 @@ import {
   periodStart,
   sortByRecentActivity,
 } from '@/features/conversations/lib/conversations-derive';
-import ConversationsPage from '@/features/conversations/pages/conversations-page';
+import ConversationsPage, {
+  CONVERSATIONS_PAGE_SIZE,
+} from '@/features/conversations/pages/conversations-page';
 import { renderWithApi } from '@/test/render-with-providers';
 
 const NOW = new Date('2026-07-17T12:00:00Z');
@@ -18,13 +20,12 @@ const fixtures = bundle.fixtures.data;
 const conversaAtiva = fixtures.conversations.find((c) => c.state === 'active')!;
 const conversaArquivada = fixtures.conversations.find((c) => c.state === 'archived')!;
 
-function renderPage() {
-  const testBundle = createTestBundle();
+function renderPage(testBundle = createTestBundle()) {
   return renderWithApi(
     <MemoryRouter initialEntries={['/conversations']}>
       <Routes>
         <Route path="/conversations" element={<ConversationsPage />} />
-        <Route path="/chat" element={<p>chat destino</p>} />
+        <Route path="/chat/:conversationId" element={<p>chat destino</p>} />
       </Routes>
     </MemoryRouter>,
     testBundle,
@@ -33,28 +34,37 @@ function renderPage() {
 
 describe('conversations-derive', () => {
   it('lista padrão mostra só ativas; showArchived mostra só arquivadas', () => {
-    const ativas = filterConversations(fixtures.conversations, EMPTY_CONVERSATION_FILTERS, NOW);
+    const ativas = filterConversations(
+      fixtures.conversations,
+      EMPTY_CONVERSATION_FILTERS,
+      conversaAtiva.projectId,
+      NOW,
+    );
     expect(ativas.every((c) => c.state === 'active')).toBe(true);
+    expect(ativas.every((c) => c.projectId === conversaAtiva.projectId)).toBe(true);
 
     const arquivadas = filterConversations(
       fixtures.conversations,
       { ...EMPTY_CONVERSATION_FILTERS, showArchived: true },
+      conversaArquivada.projectId,
       NOW,
     );
     expect(arquivadas.map((c) => c.id)).toEqual([conversaArquivada.id]);
   });
 
-  it('filtra por projeto, autor e busca textual (case-insensitive)', () => {
-    const porProjeto = filterConversations(
+  it('segue o projeto ativo e filtra por autor e busca textual (case-insensitive)', () => {
+    const semProjeto = filterConversations(
       fixtures.conversations,
-      { ...EMPTY_CONVERSATION_FILTERS, projectId: conversaArquivada.projectId, showArchived: true },
+      EMPTY_CONVERSATION_FILTERS,
+      null,
       NOW,
     );
-    expect(porProjeto).toHaveLength(1);
+    expect(semProjeto).toHaveLength(0);
 
     const porAutor = filterConversations(
       fixtures.conversations,
       { ...EMPTY_CONVERSATION_FILTERS, authorId: '01JAVAZADOQUENAODEAUTOR' },
+      conversaAtiva.projectId,
       NOW,
     );
     expect(porAutor).toHaveLength(0);
@@ -62,6 +72,7 @@ describe('conversations-derive', () => {
     const busca = filterConversations(
       fixtures.conversations,
       { ...EMPTY_CONVERSATION_FILTERS, search: 'SPRINT' },
+      conversaAtiva.projectId,
       NOW,
     );
     expect(busca.map((c) => c.id)).toEqual([conversaAtiva.id]);
@@ -80,6 +91,7 @@ describe('conversations-derive', () => {
     const resultado = filterConversations(
       fixtures.conversations,
       { ...EMPTY_CONVERSATION_FILTERS, period: 'custom', from: dia, to: dia },
+      conversaAtiva.projectId,
       NOW,
     );
     expect(resultado.map((c) => c.id)).toContain(conversaAtiva.id);
@@ -87,6 +99,7 @@ describe('conversations-derive', () => {
     const fora = filterConversations(
       fixtures.conversations,
       { ...EMPTY_CONVERSATION_FILTERS, period: 'custom', from: '2020-01-01', to: '2020-01-02' },
+      conversaAtiva.projectId,
       NOW,
     );
     expect(fora).toHaveLength(0);
@@ -109,6 +122,8 @@ describe('ConversationsPage', () => {
 
     const titulo = await screen.findByText(conversaAtiva.title);
     expect(titulo).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-grid')).toHaveClass('grid', 'xl:grid-cols-4');
+    expect(screen.queryByRole('combobox', { name: 'Projeto' })).not.toBeInTheDocument();
     // Arquivadas ficam fora da lista padrão.
     expect(screen.queryByText(conversaArquivada.title)).not.toBeInTheDocument();
 
@@ -125,6 +140,25 @@ describe('ConversationsPage', () => {
     expect(atualizada.title).toBe('Sprint 12 — replanejamento');
   });
 
+  it('limita a grade a 20 cards por página', async () => {
+    const pageBundle = createTestBundle();
+    const activeProjectId = pageBundle.fixtures.data.projects[0].id;
+    await Promise.all(
+      Array.from({ length: CONVERSATIONS_PAGE_SIZE + 1 }, (_, index) =>
+        pageBundle.api.create('conversations', {
+          projectId: activeProjectId,
+          title: `Conversa adicional ${String(index + 1).padStart(2, '0')}`,
+        }),
+      ),
+    );
+
+    renderPage(pageBundle);
+
+    const grid = await screen.findByTestId('conversation-grid');
+    expect(within(grid).getAllByRole('listitem')).toHaveLength(CONVERSATIONS_PAGE_SIZE);
+    expect(screen.getByRole('navigation', { name: 'Paginação' })).toBeInTheDocument();
+  });
+
   it('arquiva pela lista e exibe no filtro de arquivadas', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -132,12 +166,10 @@ describe('ConversationsPage', () => {
     const titulo = await screen.findByText(conversaAtiva.title);
     await user.click(within(titulo.closest('li')!).getByRole('button', { name: 'Arquivar' }));
 
-    await waitFor(() =>
-      expect(screen.queryByText(conversaAtiva.title)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText(conversaAtiva.title)).not.toBeInTheDocument());
 
     await user.click(screen.getByRole('checkbox', { name: 'Mostrar arquivadas' }));
     await screen.findByText(conversaAtiva.title);
-    expect(screen.getByText(conversaArquivada.title)).toBeInTheDocument();
+    expect(screen.queryByText(conversaArquivada.title)).not.toBeInTheDocument();
   });
 });

@@ -4,8 +4,6 @@ import type { Conversation } from '@/api';
 export type PeriodFilter = '' | 'today' | '7d' | '30d' | 'custom';
 
 export interface ConversationFilters {
-  /** '' = todos os projetos. */
-  projectId: string;
   period: PeriodFilter;
   /** Intervalo personalizado (yyyy-mm-dd, inclusivo) — só quando period='custom'. */
   from: string;
@@ -19,7 +17,6 @@ export interface ConversationFilters {
 }
 
 export const EMPTY_CONVERSATION_FILTERS: ConversationFilters = {
-  projectId: '',
   period: '',
   from: '',
   to: '',
@@ -62,16 +59,20 @@ export function periodStart(period: PeriodFilter, now: Date): number | null {
 export function filterConversations(
   conversations: Conversation[],
   filters: ConversationFilters,
+  activeProjectId: string | null,
   now: Date = new Date(),
 ): Conversation[] {
   const search = filters.search.trim().toLowerCase();
   const customFrom = filters.from !== '' ? startOfDay(new Date(`${filters.from}T00:00:00`)) : null;
-  const customTo = filters.to !== '' ? startOfDay(new Date(`${filters.to}T00:00:00`)) + DAY_MS : null;
+  const customTo =
+    filters.to !== '' ? startOfDay(new Date(`${filters.to}T00:00:00`)) + DAY_MS : null;
   const presetStart = periodStart(filters.period, now);
+
+  if (activeProjectId === null) return [];
 
   return conversations.filter((conversation) => {
     if (filters.showArchived !== (conversation.state === 'archived')) return false;
-    if (filters.projectId !== '' && conversation.projectId !== filters.projectId) return false;
+    if (conversation.projectId !== activeProjectId) return false;
     if (filters.authorId !== '' && conversation.createdByProfileId !== filters.authorId) {
       return false;
     }
