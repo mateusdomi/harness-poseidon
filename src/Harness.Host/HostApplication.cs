@@ -559,6 +559,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IWorkflowCatalogStore, PostgresWorkflowCatalogStore>();
             builder.Services.AddSingleton<IDocumentStore, PostgresDocumentStore>();
             builder.Services.AddSingleton<IDocumentCatalogStore, PostgresDocumentCatalogStore>();
+            builder.Services.AddSingleton<IDocumentExportStore, PostgresDocumentExportStore>();
         }
         else
         {
@@ -566,6 +567,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IWorkflowCatalogStore, SqliteWorkflowCatalogStore>();
             builder.Services.AddSingleton<IDocumentStore, SqliteDocumentStore>();
             builder.Services.AddSingleton<IDocumentCatalogStore, SqliteDocumentCatalogStore>();
+            builder.Services.AddSingleton<IDocumentExportStore, SqliteDocumentExportStore>();
         }
         var documentCatalogPath = builder.Configuration["Harness:DocumentCatalogPath"];
         if (string.IsNullOrWhiteSpace(documentCatalogPath))
@@ -847,6 +849,7 @@ public static class HostApplication
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
         app.MapDocumentCatalog();
+        app.MapDocumentExport();
         if (serverMode)
         {
             app.MapServerOperationsUnavailable();
