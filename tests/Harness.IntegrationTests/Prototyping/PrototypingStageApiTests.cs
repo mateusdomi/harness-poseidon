@@ -26,12 +26,16 @@ namespace Harness.IntegrationTests.Prototyping;
 public sealed class PrototypingStageApiTests
 {
     [Fact]
-    public async Task ProseWithoutBrandAsksTheOwnerInsteadOfInventing()
+    public async Task EachEntryPathSatisfiesTheStageInItsOwnWay()
     {
-        await using var host = await StartAsync("prose");
-        var project = await host.CreateProjectAsync(withBrand: false);
+        // UM host para os tres caminhos: cada cenario e um projeto distinto. Tres hosts
+        // completos custavam o triplo e sobrecarregavam vizinhos sensiveis a tempo na
+        // mesma suite (o POC de Postgres perdia a conexao).
+        await using var host = await StartAsync("entry-paths");
 
-        var stage = await host.ReadStageAsync(project.Id);
+        /* ---- caminho 1: prosa, sem nada herdado ---- */
+        var prose = await host.CreateProjectAsync(withBrand: false);
+        var stage = await host.ReadStageAsync(prose.Id);
 
         // Caminho prosa, sem nada herdado: a etapa pende e a Bruna tem o que perguntar.
         Assert.Equal(nameof(PrototypingEntryPath.Prose), stage.EntryPath);
@@ -42,16 +46,11 @@ public sealed class PrototypingStageApiTests
         Assert.Empty(stage.Inherited);
         // A mensagem é do dono, não do sistema.
         Assert.Contains("identidade visual", stage.BusinessMessage, StringComparison.OrdinalIgnoreCase);
-    }
 
-    [Fact]
-    public async Task OrganizationBrandPlusStoredBundleSatisfiesByInheritanceAndSaysWhatItInherited()
-    {
-        await using var host = await StartAsync("inherit");
-        var project = await host.CreateProjectAsync(withBrand: true);
-        await host.StoreBundleReferenceAsync(project.Id);
-
-        var stage = await host.ReadStageAsync(project.Id);
+        /* ---- caminho 2: marca da organizacao + pacote armazenado ---- */
+        var inherited = await host.CreateProjectAsync(withBrand: true);
+        await host.StoreBundleReferenceAsync(inherited.Id);
+        stage = await host.ReadStageAsync(inherited.Id);
 
         // Continuidade: quem já tem identidade não é interrogado de novo...
         Assert.Equal(nameof(PrototypingStageState.SatisfiedByInheritance), stage.State);
@@ -61,16 +60,11 @@ public sealed class PrototypingStageApiTests
         // ...e a herança é declarada, nunca silenciosa.
         Assert.Contains(PrototypingIntakePolicy.InheritedBrand, stage.Inherited);
         Assert.Contains(PrototypingIntakePolicy.InheritedFromBundle, stage.Inherited);
-    }
 
-    [Fact]
-    public async Task StoredReactBundleBecomesTheDesignSystemOfTheProject()
-    {
-        await using var host = await StartAsync("bundle");
-        var project = await host.CreateProjectAsync(withBrand: false);
-        var reference = await host.StoreBundleReferenceAsync(project.Id);
-
-        var stage = await host.ReadStageAsync(project.Id);
+        /* ---- caminho 3: pacote React sozinho vira o design system do projeto ---- */
+        var bundleOnly = await host.CreateProjectAsync(withBrand: false);
+        var reference = await host.StoreBundleReferenceAsync(bundleOnly.Id);
+        stage = await host.ReadStageAsync(bundleOnly.Id);
 
         // O pacote de telas responde a pergunta visual inteira: nada a perguntar.
         Assert.Equal(nameof(PrototypingEntryPath.ReactBundle), stage.EntryPath);
