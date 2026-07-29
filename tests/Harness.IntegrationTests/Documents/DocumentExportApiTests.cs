@@ -73,8 +73,10 @@ public sealed class DocumentExportApiTests
                 using (var response = await client.PostAsJsonAsync("/api/v1/projects",
                     new CreateProjectRequest
                     {
-                        OrganizationId = organizationId, Name = "Loja da Ana",
-                        Key = "LOJA", Description = "Catalogo online",
+                        OrganizationId = organizationId,
+                        Name = "Loja da Ana",
+                        Key = "LOJA",
+                        Description = "Catalogo online",
                     }, timeout.Token))
                 {
                     response.EnsureSuccessStatusCode();
