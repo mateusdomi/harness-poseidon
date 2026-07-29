@@ -143,6 +143,18 @@ public sealed record StartAgentRunCommand
     public IReadOnlyList<string> AcceptanceCriteria { get; init; } = [];
 
     /// <summary>
+    /// Ferramentas declaradas pela persona que executará este trabalho. O orquestrador
+    /// resolve cada id no catálogo imediatamente antes de adquirir recursos e recusa o run
+    /// quando qualquer item está ausente ou desabilitado.
+    /// </summary>
+    /// <remarks>
+    /// <see langword="null"/> significa que o produtor não resolveu uma persona e deve ser
+    /// recusado em fail-closed. Uma coleção vazia é diferente: a persona foi resolvida e declarou
+    /// explicitamente não precisar de ferramentas.
+    /// </remarks>
+    public IReadOnlyList<string>? RequiredToolIds { get; init; }
+
+    /// <summary>
     /// Contexto de continuação governada, quando esta tentativa retoma o trabalho de uma
     /// tentativa anterior reprovada. Nulo para um run do zero.
     /// </summary>

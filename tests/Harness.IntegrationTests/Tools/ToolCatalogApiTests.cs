@@ -68,6 +68,7 @@ public sealed class ToolCatalogApiTests
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/tools/{toolId}",
                         new ComponentPatchRequest("disabled", null), timeout.Token))
                     { patch.EnsureSuccessStatusCode(); Assert.Equal("disabled", (await patch.Content.ReadFromJsonAsync<ToolContract>(timeout.Token))?.State); }
+
                     mcpId = servers.Items.Single(x => x.Name == "filesystem-mcp").Id;
                     using (var patch = await client.PatchAsJsonAsync($"/api/v1/mcp-servers/{mcpId}",
                         new ComponentPatchRequest("disabled", "harness-mcp-filesystem --workspace /safe"), timeout.Token))
@@ -106,7 +107,8 @@ public sealed class ToolCatalogApiTests
         throw new TimeoutException("Tool catalog events were not dispatched.");
     }
 
-    private static WebApplication CreateHost(string database) => HostApplication.Build(["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
+    private static WebApplication CreateHost(string database) =>
+        HostApplication.Build(["--urls", "http://127.0.0.1:0", "--Harness:DatabasePath", database]);
     private static Uri Address(IServiceProvider services)
     {
         var values = services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses ?? throw new InvalidOperationException("No address.");

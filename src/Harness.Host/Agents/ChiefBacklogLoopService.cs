@@ -1541,6 +1541,9 @@ public sealed partial class ChiefBacklogLoopService(
                 Model = model,
                 RiskTier = resolution.Card.RiskTier,
                 AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
+                // null é deliberadamente fail-closed no orquestrador: uma persona resolvida que
+                // declara zero ferramentas é diferente de não ter resolvido persona alguma.
+                RequiredToolIds = persona?.ToolIds,
                 ChiefReinforcement = chiefReinforcement,
             },
             token);

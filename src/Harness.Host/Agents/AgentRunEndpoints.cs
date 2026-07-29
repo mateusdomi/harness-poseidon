@@ -5,6 +5,7 @@ using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Governance.Coordination;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -190,6 +191,28 @@ public static class AgentRunEndpoints
             return Problem(
                 409, "card_not_dispatchable",
                 $"The card is not in a dispatchable state: {string.Join(", ", readiness.Blockers)}.");
+        }
+
+        // A API pública não aceita ids de ferramenta fornecidos pelo cliente. Resolve a persona
+        // no catálogo do servidor a partir do próprio card e só então transporta o conjunto
+        // autorizado ao orquestrador. Ausência de persona é fail-closed; coleção vazia continua
+        // válida quando foi declarada explicitamente por uma persona existente.
+        var catalog = services.GetRequiredService<IAgentCatalogStore>();
+        var personaResolution = ChiefCardResolver.Resolve(
+            task.Title,
+            input.Instruction,
+            input.AcceptanceCriteria ?? [],
+            input.RiskTier ?? "medium",
+            explicitRole: input.Role);
+        var definitions = await catalog.ListDefinitionsForTenantAsync(
+            profile.TenantId, null, 100, false, token);
+        var persona = FindExecutablePersona(definitions, personaResolution.PersonaKey)
+            ?? FindExecutablePersona(definitions, personaResolution.InferredPersonaKey);
+        if (persona is null)
+        {
+            return Problem(
+                409, "persona_tools_unresolved",
+                "No executable persona could be resolved for this agent run.");
         }
 
         // Continuação governada: recupera o artifact arquivado da tentativa reprovada e o
@@ -380,6 +403,7 @@ public static class AgentRunEndpoints
                 AcceptanceCriteria = continuation is null
                     ? input.AcceptanceCriteria ?? []
                     : [.. continuation.PriorFindings, .. input.AcceptanceCriteria ?? []],
+                RequiredToolIds = persona.ToolIds,
                 Continuation = continuation,
             },
             token);
@@ -706,6 +730,17 @@ public static class AgentRunEndpoints
         Problem(
             409, "agent_runs_disabled",
             "Governed agent runs are not configured for this installation.");
+
+    private static AgentDefinitionRecord? FindExecutablePersona(
+        IReadOnlyList<AgentDefinitionRecord> definitions,
+        string? key) =>
+        string.IsNullOrWhiteSpace(key)
+            ? null
+            : definitions.FirstOrDefault(definition =>
+                definition.Enabled &&
+                definition.ArchivedAt is null &&
+                string.Equals(definition.Role, "specialist", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(definition.Key, key.Trim(), StringComparison.OrdinalIgnoreCase));
 
     private static IResult InvalidId(string resource) =>
         Problem(400, $"invalid_{resource}_id", $"{resource} ID must be a ULID.");

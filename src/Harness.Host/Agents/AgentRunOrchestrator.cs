@@ -13,9 +13,11 @@ using Harness.Modules.Governance.Coordination;
 using Harness.Modules.Governance.Memory;
 using Harness.Modules.Providers.Application;
 using Harness.Modules.Tools.Application;
+using Harness.Modules.Tools.Domain;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Providers;
+using Harness.Persistence.Abstractions.Tools;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Providers;
 using Harness.SharedKernel.Time;
@@ -47,7 +49,8 @@ public sealed class AgentRunOrchestrator(
     AccountAvailabilityLedger availability,
     CapacityManager capacity,
     IModelInvocationStore invocations,
-    SecurityPolicyEnforcementPoint pep)
+    SecurityPolicyEnforcementPoint pep,
+    IToolCatalogStore toolCatalog)
 {
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
 
@@ -118,6 +121,12 @@ public sealed class AgentRunOrchestrator(
         if (!ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
         {
             return Rejected(runId, command, "executor.adapter_not_implemented", account.ExecutorId);
+        }
+
+        var toolDecision = await AuthorizeRequiredToolsAsync(command, cancellationToken);
+        if (!toolDecision.Allowed)
+        {
+            return Rejected(runId, command, toolDecision.Code, account.ExecutorId);
         }
 
         // 2b. Disponibilidade DURÁVEL: uma conta em cota/cooldown/login não recebe trabalho até
@@ -879,6 +888,56 @@ public sealed class AgentRunOrchestrator(
         {
             throw new CapabilityDeniedException(decision);
         }
+    }
+
+    /// <summary>
+    /// Liga o catálogo mutável ao caminho real do agente: ids vêm da persona escolhida pelo
+    /// despachante e o estado persistido é avaliado antes de perfil, claim, worktree ou processo.
+    /// Desabilitar no catálogo passa a impedir a próxima execução daquela persona.
+    /// </summary>
+    private async Task<ToolPolicyDecision> AuthorizeRequiredToolsAsync(
+        StartAgentRunCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (command.RequiredToolIds is null)
+        {
+            return ToolPolicyDecision.Deny(
+                "persona_tools_unresolved",
+                "The producer did not resolve the executing persona and its tool set.");
+        }
+
+        var allowlist = command.RequiredToolIds.ToHashSet(StringComparer.Ordinal);
+        foreach (var toolId in allowlist)
+        {
+            var tool = await toolCatalog.GetToolAsync(toolId, cancellationToken);
+            if (tool is null)
+            {
+                return ToolPolicyDecision.Deny(
+                    "tool_not_found",
+                    "A required tool is not registered in the catalog.");
+            }
+
+            var decision = ToolExecutionPolicy.Evaluate(new ToolInvocationPolicyRequest(
+                new ToolPolicyDescriptor(
+                    tool.Id,
+                    string.Equals(tool.State, "enabled", StringComparison.Ordinal),
+                    ToolRiskTier.Critical,
+                    "{}",
+                    "{}"),
+                new ToolPolicyContext(
+                    command.Role,
+                    ToolRiskTier.Critical,
+                    allowlist,
+                    SandboxActive: true,
+                    UnsafeModeAccepted: false),
+                ToolRiskTier.Critical));
+            if (!decision.Allowed)
+            {
+                return decision;
+            }
+        }
+
+        return ToolPolicyDecision.Permit();
     }
 
     /// <summary>

@@ -546,7 +546,8 @@ public static class HostApplication
                 services.GetRequiredService<AccountAvailabilityLedger>(),
                 services.GetRequiredService<Harness.Modules.Providers.Application.CapacityManager>(),
                 services.GetRequiredService<IModelInvocationStore>(),
-                services.GetRequiredService<Harness.Modules.Tools.Application.SecurityPolicyEnforcementPoint>()));
+                services.GetRequiredService<Harness.Modules.Tools.Application.SecurityPolicyEnforcementPoint>(),
+                services.GetRequiredService<IToolCatalogStore>()));
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Harness.Host;
 using Harness.Host.Agents;
+using Harness.Host.Tools;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Coordination.Contracts;
@@ -184,6 +185,67 @@ public sealed class AgentRunHappyPathTests : IDisposable
 
         // Nenhum processo `codex` órfão sobreviveu ao run.
         Assert.False(final.ProcessId is > 0 && IsAlive(final.ProcessId.Value));
+
+        await app.StopAsync(timeout.Token);
+    }
+
+    [Fact]
+    public async Task PublicStartResolvesPersonaToolsServerSideAndStopsBeforeExternalProcessWhenDisabled()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        CreateRepository();
+
+        await using var app = HostApplication.Build([
+            "--urls", "http://127.0.0.1:0",
+            "--Harness:DatabasePath", Path.Combine(_root, "harness.db"),
+            "--Harness:AgentRuns:Enabled", "true",
+            "--Harness:AgentRuns:ControlledRoot", ControlledRoot,
+            "--Harness:AgentRuns:AvailabilityLedgerPath",
+                Path.Combine(Path.GetTempPath(), $"harness-availability-{Guid.NewGuid():N}.json"),
+            "--Harness:AgentRuns:ProfilesRoot", Path.Combine(_root, "profiles"),
+        ]);
+        await app.StartAsync(timeout.Token);
+
+        using var handler = new HttpClientHandler { CookieContainer = new CookieContainer() };
+        using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
+        var projectId = await SeedProjectAsync(client, timeout.Token);
+        var (taskId, attemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
+
+        // O card de documentação resolve a persona technical-writer no servidor. Ela declara
+        // filesystem; desabilitar esse item pela API deve bloquear o POST real de agent-runs.
+        using var toolsDocument = JsonDocument.Parse(
+            await client.GetStringAsync("/api/v1/tools", timeout.Token));
+        var filesystemId = toolsDocument.RootElement.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("key").GetString() == "filesystem")
+            .GetProperty("id").GetString()!;
+        using (var disabled = await client.PatchAsJsonAsync(
+            $"/api/v1/tools/{filesystemId}",
+            new ComponentPatchRequest("disabled", null),
+            timeout.Token))
+        {
+            disabled.EnsureSuccessStatusCode();
+        }
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/agent-runs",
+            new
+            {
+                projectId,
+                taskId,
+                attemptId,
+                role = "frontend-specialist",
+                account = "worker-codex-frontend",
+                instruction = "Documente o frontend sem iniciar processo quando a ferramenta estiver desabilitada.",
+            },
+            timeout.Token);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            "tool_disabled",
+            await response.Content.ReadAsStringAsync(timeout.Token),
+            StringComparison.Ordinal);
+        Assert.Null(app.Services.GetRequiredService<AgentRunOrchestrator>().WaitAsync(attemptId));
+        Assert.False(Directory.Exists(Path.Combine(ControlledRoot, "worktrees", attemptId)));
 
         await app.StopAsync(timeout.Token);
     }

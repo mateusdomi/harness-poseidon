@@ -42,6 +42,28 @@ public sealed class ToolExecutionPolicyTests
     }
 
     [Fact]
+    public async Task TypedDecoratorNeverInvokesInnerWhenCatalogMarksToolDisabled()
+    {
+        var executor = new RecordingExecutor();
+        var pep = new SecurityPolicyEnforcementPoint(new RecordingCapabilityAuditSink());
+        var token = pep.Issue(Grant());
+        var sut = new PolicyCheckedToolExecutor<string, string>(executor, pep);
+        var invocation = new PolicyCheckedToolInvocation<string>(
+            "disabled",
+            Descriptor with { Enabled = false },
+            new("Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId }, true, false),
+            ToolRiskTier.High,
+            token,
+            Authorization());
+
+        var error = await Assert.ThrowsAsync<ToolPolicyDeniedException>(
+            () => sut.ExecuteAsync(invocation));
+
+        Assert.Equal("tool_disabled", error.Decision.Code);
+        Assert.Equal(0, executor.CallCount);
+    }
+
+    [Fact]
     public async Task TypedDecoratorDeniesChiefExecutionBeforeInvokingToolAndAuditsDecision()
     {
         var executor = new RecordingExecutor();
