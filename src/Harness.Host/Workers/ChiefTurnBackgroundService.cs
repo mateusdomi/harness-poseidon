@@ -18,6 +18,7 @@ using Harness.Persistence.Abstractions.Cockpit;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Licensing;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
@@ -42,6 +43,7 @@ public sealed partial class ChiefTurnBackgroundService(
     DemandPlanMaterializer demandPlans,
     IAgentCatalogStore agentCatalog,
     IConversationStore conversations,
+    ILicenseStore licenses,
     ChiefTeamManager teamManager,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
@@ -101,6 +103,7 @@ public sealed partial class ChiefTurnBackgroundService(
             lease.ChiefAgentId);
         var turnStartedAt = Stopwatch.GetTimestamp();
         GovernanceTurnReceiptRecord? receipt = null;
+        var communicationContext = ChiefCommunicationPolicy.Business;
 
         // C3+: reporta as fases granulares reais pelas quais o turno passa como
         // eventos chief.turnStateChanged (com heartbeat lastActivityAt), para o
@@ -243,6 +246,7 @@ public sealed partial class ChiefTurnBackgroundService(
             var communicationInstructions =
                 (await leadershipProfile.ReadAsync(cancellationToken)).CommunicationInstructions;
             var specialists = await ReadSpecialistCatalogAsync(lease.Turn.TenantId, cancellationToken);
+            communicationContext = await ResolveCommunicationContextAsync(lease, cancellationToken);
             AgentExecutionResult execution;
             using (var invocationActivity = PoseidonTelemetry.StartChiefInvocation(
                        lease.Turn.Selection?.Source,
@@ -261,13 +265,20 @@ public sealed partial class ChiefTurnBackgroundService(
                         lease.Turn.Selection?.ModelName,
                         lease.Turn.Selection?.ProviderEffortValue,
                         communicationInstructions,
-                        specialists),
+                        specialists,
+                        communicationContext),
                     cancellationToken);
                 invocationActivity?.SetTag("gen_ai.response.model", lease.Turn.Selection?.ModelName);
                 invocationActivity?.SetTag("gen_ai.client.operation.duration_ms", execution.DurationMs);
                 invocationActivity?.SetTag("agent.executor", execution.Executor);
             }
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
+            if (!ChiefCommunicationPolicy.TryValidateResponse(
+                    output.Response, communicationContext, out var communicationViolation))
+            {
+                throw new AgentOutputValidationException(
+                    communicationViolation ?? "Chief communication policy rejected the response.");
+            }
             await ReportAsync(ChiefTurnActivity.Planning);
             var evaluation = evaluator.Evaluate(
                 new FreshContextEvaluationRequest(
@@ -292,7 +303,9 @@ public sealed partial class ChiefTurnBackgroundService(
             {
                 throw new AgentOutputValidationException("Independent evaluator returned Default-FAIL.");
             }
-            var chunks = execution.Chunks.Count == 0 ? new[] { output.Response } : execution.Chunks;
+            // A única projeção que pode chegar ao canal é a resposta já validada. Chunks do
+            // adapter são dados não confiáveis e não podem contornar a policy de apresentação.
+            var chunks = new[] { output.Response };
             var occurredAt = clock.UtcNow;
             var message = ConversationApplicationService.CreateChiefMessage(
                 UlidValue.New(occurredAt).ToString(),
@@ -421,7 +434,7 @@ public sealed partial class ChiefTurnBackgroundService(
             if (outcome.Terminal)
             {
                 await AnnounceTerminalFailureAsync(
-                    lease, exception.GetType().Name, cancellationToken);
+                    lease, communicationContext, cancellationToken);
             }
             var result = retryable ? "retryable_failure" : "terminal_failure";
             turnActivity?.SetTag("chief.result", result);
@@ -551,18 +564,13 @@ public sealed partial class ChiefTurnBackgroundService(
         Justification = "Announcing the failure must never mask the failure being announced.")]
     private async Task AnnounceTerminalFailureAsync(
         ChiefTurnLease lease,
-        string errorCode,
+        ChiefCommunicationContext communicationContext,
         CancellationToken cancellationToken)
     {
         try
         {
             var occurredAt = clock.UtcNow;
-            var content =
-                "Não consegui processar sua última mensagem. Tentei três vezes e parei — nenhuma " +
-                "delas chegou a uma resposta, então prefiro dizer isso a deixar você esperando.\n\n" +
-                $"Código técnico: `{errorCode}` · turno `{lease.Turn.TurnId}`.\n\n" +
-                "Nada foi decidido nem delegado a partir dessa mensagem. Pode reenviá-la que eu " +
-                "retomo do zero; se falhar de novo, o código acima é o fio para investigar.";
+            var content = ChiefCommunicationPolicy.TerminalFailureMessage(communicationContext);
             var message = ConversationApplicationService.CreateChiefMessage(
                 UlidValue.New(occurredAt).ToString(),
                 lease.Turn.ConversationId,
@@ -587,6 +595,54 @@ public sealed partial class ChiefTurnBackgroundService(
         {
             LogTerminalAnnouncementFailure(logger, lease.Turn.TurnId, exception.GetType().Name);
         }
+    }
+
+    /// <summary>
+    /// Resolve a projeção fora do modelo. A mensagem pode pedir detalhes, mas só um perfil do
+    /// mesmo tenant com papel administrativo ou entitlement explícito os libera.
+    /// </summary>
+    private async Task<ChiefCommunicationContext> ResolveCommunicationContextAsync(
+        ChiefTurnLease lease,
+        CancellationToken cancellationToken)
+    {
+        var requested = ChiefCommunicationPolicy.RequestsTechnicalDetails(lease.Instruction);
+        if (!requested)
+        {
+            return ChiefCommunicationPolicy.Business;
+        }
+
+        var userMessage = await conversations.GetMessageAsync(
+            lease.Turn.TenantId, lease.Turn.UserMessageId, cancellationToken);
+        if (userMessage?.AuthorProfileId is not { Length: > 0 } profileId)
+        {
+            return new ChiefCommunicationContext(TechnicalDetailsRequested: true);
+        }
+
+        var profile = await localProfiles.GetAsync(profileId, cancellationToken);
+        if (profile is null ||
+            !string.Equals(profile.TenantId, lease.Turn.TenantId, StringComparison.Ordinal))
+        {
+            return new ChiefCommunicationContext(TechnicalDetailsRequested: true);
+        }
+
+        if (profile.Role == LocalProfileRole.Admin)
+        {
+            return new ChiefCommunicationContext(
+                TechnicalDetailsRequested: true,
+                TechnicalDetailsAuthorized: true);
+        }
+
+        var entitlements = await licenses.ListEntitlementsAsync(
+            lease.Turn.TenantId, null, 100, cancellationToken);
+        var authorized = entitlements.Any(entitlement =>
+            entitlement.Included &&
+            string.Equals(
+                entitlement.Key,
+                ChiefCommunicationPolicy.RequiredTechnicalEntitlement,
+                StringComparison.Ordinal));
+        return new ChiefCommunicationContext(
+            TechnicalDetailsRequested: true,
+            TechnicalDetailsAuthorized: authorized);
     }
 
     /// <summary>

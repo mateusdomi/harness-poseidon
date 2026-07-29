@@ -1343,19 +1343,19 @@
       "actions": {
         "summarizeProgress": {
           "label": "Summarize progress",
-          "message": "Bruna, summarize the project's current progress across the three tracks (executed, validated, approved)."
+          "message": "Can you tell me how the project is progressing?"
         },
         "blockedStatus": {
           "label": "View blockers",
-          "message": "Bruna, which tasks are blocked and what is the plan to unblock them?"
+          "message": "Is anything preventing the project from moving forward? How will the team resolve it?"
         },
         "approvalStatus": {
           "label": "View pending approvals",
-          "message": "Bruna, which approvals are pending and what do I need to decide?"
+          "message": "Which decisions are waiting for my approval and what is the impact of each one?"
         },
         "planNewDemand": {
           "label": "Plan new demand",
-          "message": "Bruna, I want to plan a new demand. Shall we detail the scope?"
+          "message": "I would like to plan a new delivery."
         }
       }
     },
@@ -1383,10 +1383,26 @@
         "medium": "Medium",
         "high": "High",
         "max": "Max"
+      },
+      "workProfile": "Work profile",
+      "workProfiles": {
+        "quick": "Quick",
+        "balanced": "Balanced",
+        "analytical": "Analytical",
+        "maximumDepth": "Maximum depth"
+      },
+      "dedication": "Dedication level",
+      "dedicationLevels": {
+        "essential": "Essential",
+        "complete": "Complete",
+        "deep": "Deep"
       }
     },
     "sendError": "Could not send the message. Please try again.",
     "turnBlocked": {
+      "businessTitle": "The team cannot start yet",
+      "businessBody": "Your message was saved. Review the initial setup and the team will continue here as soon as it is ready.",
+      "reviewConfiguration": "Review setup",
       "title": "Turn registered, execution blocked",
       "body": "The message was saved. Resolve the blockers below to allow execution.",
       "readiness": "Overall readiness: {{overall}} · execution: {{execution}}",
@@ -1407,6 +1423,8 @@
       }
     },
     "readiness": {
+      "businessTitle": "The team is waiting for initial setup",
+      "businessBody": "You can keep writing. Execution starts as soon as the required setup is ready.",
       "title": "Bruna's execution is blocked",
       "body": "You can write, but Bruna only runs once these dependencies are ready:",
       "additionalBlocker": "The basic dependencies are ready, but the read model reports another operational blocker. Open diagnostics to see the cause.",
@@ -1416,6 +1434,7 @@
         "workflow": "Workflow linked to the project"
       },
       "actions": {
+        "reviewConfiguration": "Review setup",
         "provider": "Configure provider",
         "model": "Choose model",
         "workflow": "Link workflow",

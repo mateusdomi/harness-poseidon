@@ -95,7 +95,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         // coisa que usa a conta do Chefe.
         var handle = _profiles.Ensure(account, executorProfile, now);
 
-        var prompt = BuildPrompt(request);
+        var communicationContext = request.CommunicationContext ?? ChiefCommunicationPolicy.Business;
+        var prompt = BuildPrompt(request, communicationContext);
 
         var externalExecutor = _externalExecutorFactory(account.ExecutorId);
 
@@ -104,7 +105,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         // Uma primeira resposta que não respeita o schema recebe UMA tentativa de reparo,
         // retomando a mesma sessão. Persistir num loop seria queimar cota sem ganho.
-        ChiefTurnOutput? validated = TryParse(result.FinalMessage, out var parseError);
+        ChiefTurnOutput? validated = TryParse(
+            result.FinalMessage, communicationContext, out var parseError);
         var sessionId = result.SessionId;
         if (validated is null && sessionId is { Length: > 0 })
         {
@@ -112,11 +114,11 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                 externalExecutor,
                 account,
                 handle,
-                BuildRepairPrompt(parseError),
+                BuildRepairPrompt(parseError, communicationContext),
                 request with { SessionId = sessionId },
                 cancellationToken);
             sessionId = repair.SessionId ?? sessionId;
-            validated = TryParse(repair.FinalMessage, out parseError);
+            validated = TryParse(repair.FinalMessage, communicationContext, out parseError);
             result = repair;
         }
 
@@ -204,7 +206,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     /// governança), depois a defesa contra prompt injection, então o contexto do projeto e a
     /// mensagem — ambos DADO — e por fim o formato de saída obrigatório.
     /// </summary>
-    private string BuildPrompt(AgentExecutionRequest request) =>
+    private string BuildPrompt(
+        AgentExecutionRequest request,
+        ChiefCommunicationContext communicationContext) =>
         $"""
         {ChiefPersona}
 
@@ -212,7 +216,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         ## Camada de comunicação com o usuário
 
-        {CommunicationInstructions(request)}
+        {ChiefCommunicationPolicy.BuildInstructions(
+            communicationContext,
+            request.CommunicationInstructions)}
 
         Esta camada altera somente a forma da resposta conversacional. Ela não muda seu papel,
         a governança, o escopo técnico, os gates nem as regras de execução.
@@ -308,16 +314,18 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                 : $"- `{option.Key}` — {option.Name} — {option.Specialty}"));
     }
 
-    private static string CommunicationInstructions(AgentExecutionRequest request) =>
-        string.IsNullOrWhiteSpace(request.CommunicationInstructions)
-            ? "Use português do Brasil, com tom profissional, leve e direto."
-            : request.CommunicationInstructions.Trim();
-
-    private static string BuildRepairPrompt(string? parseError) =>
+    private static string BuildRepairPrompt(
+        string? parseError,
+        ChiefCommunicationContext communicationContext) =>
         $"""
-        Sua resposta anterior NÃO respeitou o schema de saída obrigatório. O erro foi:
+        Sua resposta anterior NÃO respeitou o schema ou a política de comunicação obrigatória.
+        O erro foi:
 
         {parseError}
+
+        Política de comunicação que continua obrigatória:
+
+        {ChiefCommunicationPolicy.BuildInstructions(communicationContext)}
 
         Reenvie APENAS um objeto JSON válido conforme o schema, sem cercas de código e sem
         texto ao redor:
@@ -331,7 +339,10 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     /// ao redor: isolamos o objeto JSON externo antes de validar de forma ESTRITA. Falha de
     /// validação devolve nulo com o motivo, nunca uma resposta inventada.
     /// </summary>
-    private static ChiefTurnOutput? TryParse(string? finalMessage, out string? error)
+    private static ChiefTurnOutput? TryParse(
+        string? finalMessage,
+        ChiefCommunicationContext communicationContext,
+        out string? error)
     {
         error = null;
         if (string.IsNullOrWhiteSpace(finalMessage))
@@ -349,7 +360,15 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         try
         {
-            return ChiefTurnOutputContract.Parse(candidate);
+            var output = ChiefTurnOutputContract.Parse(candidate);
+            if (!ChiefCommunicationPolicy.TryValidateResponse(
+                    output.Response, communicationContext, out var communicationViolation))
+            {
+                error = communicationViolation;
+                return null;
+            }
+
+            return output;
         }
         catch (AgentOutputValidationException exception)
         {

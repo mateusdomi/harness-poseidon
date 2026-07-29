@@ -7,6 +7,7 @@ import { createTestBundle } from '@/api/__tests__/test-utils';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
 import { MessageBubble } from '@/features/chat/components/message-bubble';
 import { publicLeadershipContent } from '@/features/chat/lib/public-leadership';
+import { resolveBusinessTurnSelection } from '@/features/chat/lib/chat-turn-presentation';
 import {
   deriveQuickActions,
   extractReferences,
@@ -15,6 +16,7 @@ import {
 } from '@/features/chat/lib/chat-derive';
 import ChatPage from '@/features/chat/pages/chat-page';
 import { useConversationPreferencesStore } from '@/stores/conversation-preferences-store';
+import { usePresentationStore } from '@/stores/presentation-store';
 import { renderWithApi } from '@/test/render-with-providers';
 
 const fixtures = buildFixtures(42);
@@ -95,6 +97,25 @@ describe('chat-derive', () => {
       'planNewDemand',
     ]);
   });
+
+  it('mapeia perfis de negócio sem depender de provider ou posição no catálogo', () => {
+    const models = fixtures.data.models;
+    expect(resolveBusinessTurnSelection(models, 'balanced', 'complete')).toEqual({
+      modelId: '',
+      effort: 'medium',
+    });
+
+    const analytical = resolveBusinessTurnSelection(models, 'analytical', 'deep');
+    const selected = models.find((model) => model.id === analytical.modelId);
+    expect(selected?.capabilities).toContain('chat');
+    expect(selected?.contextWindow).toBe(
+      Math.max(
+        ...models
+          .filter((model) => model.enabled && model.capabilities.includes('chat'))
+          .map((model) => model.contextWindow),
+      ),
+    );
+  });
 });
 
 describe('MessageBubble', () => {
@@ -151,6 +172,7 @@ describe('MarkdownContent', () => {
 describe('ChatPage', () => {
   beforeEach(() => {
     useConversationPreferencesStore.setState({ selectionsByProfileAndProject: {} });
+    usePresentationStore.setState({ modeByProfile: {} });
   });
 
   function renderChat() {
@@ -183,6 +205,26 @@ describe('ChatPage', () => {
       'href',
       expect.stringContaining('/board?task='),
     );
+    expect(screen.getByRole('combobox', { name: 'Perfil de trabalho' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Nível de dedicação' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Modelo' })).not.toBeInTheDocument();
+  });
+
+  it('mantém modelo e esforço reais disponíveis no modo técnico autorizado', async () => {
+    const bundle = createTestBundle();
+    usePresentationStore
+      .getState()
+      .requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+    renderWithApi(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    expect(await screen.findByRole('combobox', { name: 'Modelo' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Esforço' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Perfil de trabalho' })).not.toBeInTheDocument();
   });
 
   it('restaura deep link canônico e persiste a conversa por projeto', async () => {
@@ -285,7 +327,7 @@ describe('ChatPage', () => {
     const input = await screen.findByLabelText(/mensagem para bruna/i);
     await user.type(input, 'Execute sem configuração.');
     await user.click(screen.getByRole('button', { name: /enviar mensagem/i }));
-    expect(await screen.findByText('Turno registrado, execução bloqueada')).toBeInTheDocument();
+    expect(await screen.findByText('A equipe ainda não pode iniciar')).toBeInTheDocument();
 
     act(() => {
       bundle.realtime.emit(streams.conversation(conversation.id), 'chief.turnStateChanged', {
@@ -296,11 +338,12 @@ describe('ChatPage', () => {
       });
     });
 
-    expect(screen.getByText('Turno registrado, execução bloqueada')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Vincular workflow' })).toHaveAttribute(
+    expect(screen.getByText('A equipe ainda não pode iniciar')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Revisar configuração' })).toHaveAttribute(
       'href',
-      '/workflows',
+      '/onboarding',
     );
+    expect(screen.queryByText(/workflow/i)).not.toBeInTheDocument();
   });
 
   it('abre o perfil acessível de Bruna pela foto e fecha por Escape, botão e área externa', async () => {
@@ -342,7 +385,7 @@ describe('ChatPage', () => {
     await user.click(action);
 
     expect(
-      await screen.findByText(/quais tarefas estão bloqueadas/i, {
+      await screen.findByText(/existe algo impedindo o avanço/i, {
         selector: 'article p, article div',
       }),
     ).toBeInTheDocument();

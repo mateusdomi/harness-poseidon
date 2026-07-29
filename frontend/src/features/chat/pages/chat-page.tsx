@@ -38,9 +38,11 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { useActiveProjectStore } from '@/stores/active-project-store';
 import { useUiStore } from '@/stores/ui-store';
+import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
 
 export default function ChatPage() {
   const { t } = useTranslation();
+  const presentation = usePresentationPolicy();
   const { profileId, activeProject, isPending: projectsPending } = useActiveProject();
   const projectId = activeProject?.id ?? null;
 
@@ -99,7 +101,7 @@ export default function ChatPage() {
   } | null>(null);
   const turn = useChatTurnStream(conversationId);
   const modelsQuery = useChatModels();
-  const { tasks, documents, agents } = useChatReferences(projectId);
+  const { tasks, documents, agents, approvals } = useChatReferences(projectId);
 
   // Painel lateral de workflow (FR-2): aside recolhível no desktop (lg+,
   // estado persistido na ui-store) e drawer no mobile — nunca as duas
@@ -198,7 +200,7 @@ export default function ChatPage() {
   );
   const quickActions = deriveQuickActions({
     blockedTasks: tasks.filter((task) => task.state === 'blocked').length,
-    pendingApprovals: 0,
+    pendingApprovals: approvals.filter((approval) => approval.state === 'pending').length,
   });
 
   const loading =
@@ -441,6 +443,7 @@ export default function ChatPage() {
             hasModel={hasModel}
             hasWorkflow={hasWorkflow}
             executionBlocked
+            showTechnicalDetails={presentation.showTechnicalDetails}
           />
         )}
 
@@ -454,49 +457,73 @@ export default function ChatPage() {
           <Card role="status" className="border-warning/40">
             <CardContent className="flex flex-col gap-3 p-4">
               <div>
-                <p className="font-medium">{t('chat.turnBlocked.title')}</p>
-                <p className="text-sm text-foreground-muted">{t('chat.turnBlocked.body')}</p>
-                <p className="mt-1 text-xs text-foreground-muted">
-                  {t('chat.turnBlocked.readiness', {
-                    overall: blockedTurn.readiness.overallState,
-                    execution: blockedTurn.readiness.executionState,
-                  })}
+                <p className="font-medium">
+                  {t(
+                    presentation.showTechnicalDetails
+                      ? 'chat.turnBlocked.title'
+                      : 'chat.turnBlocked.businessTitle',
+                  )}
                 </p>
-              </div>
-              <ul className="space-y-1 text-sm">
-                {blockedTurn.blockers.map((blocker) => (
-                  <li key={`${blocker.code}:${blocker.relatedIds.join(',')}`}>
-                    {t(`chat.turnBlocked.blockers.${blocker.code}`, {
-                      defaultValue: t('chat.turnBlocked.blockers.unknown'),
+                <p className="text-sm text-foreground-muted">
+                  {t(
+                    presentation.showTechnicalDetails
+                      ? 'chat.turnBlocked.body'
+                      : 'chat.turnBlocked.businessBody',
+                  )}
+                </p>
+                {presentation.showTechnicalDetails && (
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    {t('chat.turnBlocked.readiness', {
+                      overall: blockedTurn.readiness.overallState,
+                      execution: blockedTurn.readiness.executionState,
                     })}
-                  </li>
-                ))}
-              </ul>
-              <div className="flex flex-wrap gap-2">
-                {blockedTurn.nextActions.map((action) => (
-                  <Button
-                    key={`${action.code}:${action.route}`}
-                    asChild
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Link to={action.route}>
-                      {t(`chat.turnBlocked.actions.${action.code}`, {
-                        defaultValue: t('chat.turnBlocked.actions.unknown'),
-                      })}
-                    </Link>
-                  </Button>
-                ))}
+                  </p>
+                )}
               </div>
-              <details className="text-xs text-foreground-muted">
-                <summary>{t('chat.turnBlocked.technicalDetails')}</summary>
-                <code>
-                  {[
-                    ...blockedTurn.blockers.map((item) => item.code),
-                    ...blockedTurn.nextActions.map((item) => item.code),
-                  ].join(', ')}
-                </code>
-              </details>
+              {presentation.showTechnicalDetails ? (
+                <>
+                  <ul className="space-y-1 text-sm">
+                    {blockedTurn.blockers.map((blocker) => (
+                      <li key={`${blocker.code}:${blocker.relatedIds.join(',')}`}>
+                        {t(`chat.turnBlocked.blockers.${blocker.code}`, {
+                          defaultValue: t('chat.turnBlocked.blockers.unknown'),
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    {blockedTurn.nextActions.map((action) => (
+                      <Button
+                        key={`${action.code}:${action.route}`}
+                        asChild
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Link to={action.route}>
+                          {t(`chat.turnBlocked.actions.${action.code}`, {
+                            defaultValue: t('chat.turnBlocked.actions.unknown'),
+                          })}
+                        </Link>
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <Button asChild variant="outline" size="sm" className="self-start">
+                  <Link to="/onboarding">{t('chat.turnBlocked.reviewConfiguration')}</Link>
+                </Button>
+              )}
+              {presentation.showTechnicalDetails && (
+                <details className="text-xs text-foreground-muted">
+                  <summary>{t('chat.turnBlocked.technicalDetails')}</summary>
+                  <code>
+                    {[
+                      ...blockedTurn.blockers.map((item) => item.code),
+                      ...blockedTurn.nextActions.map((item) => item.code),
+                    ].join(', ')}
+                  </code>
+                </details>
+              )}
             </CardContent>
           </Card>
         )}
@@ -513,6 +540,7 @@ export default function ChatPage() {
           informa `state`, bloqueios e próximas ações. */}
         <Composer
           models={modelsQuery.data ?? []}
+          showTechnicalDetails={presentation.showTechnicalDetails}
           sending={sendMessage.isPending || turnActive || createConversation.isPending}
           draft={draft}
           onDraftConsumed={() => setDraft('')}

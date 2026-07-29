@@ -27,7 +27,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     public ConversationChiefAgentExecutorTests() => Directory.CreateDirectory(_repositoryRoot);
 
     private const string ValidChiefJson =
-        """{"response":"Plano definido. Vou delegar a fatia ao backend.","demands":[]}""";
+        """{"response":"Plano definido. Vou organizar a próxima entrega com a equipe.","demands":[]}""";
 
     [Fact]
     public async Task WithoutAChiefAccountItFailsHonestlyLikeUnavailable()
@@ -87,9 +87,9 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Equal("conversation-chief", result.Executor);
         Assert.Equal("session-nova", result.SessionId);
         var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        Assert.Equal("Plano definido. Vou delegar a fatia ao backend.", output.Response);
+        Assert.Equal("Plano definido. Vou organizar a próxima entrega com a equipe.", output.Response);
         Assert.Empty(output.Demands);
-        Assert.Equal(["Plano definido. Vou delegar a fatia ao backend."], result.Chunks);
+        Assert.Equal(["Plano definido. Vou organizar a próxima entrega com a equipe."], result.Chunks);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
 
         var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        Assert.Equal("Plano definido. Vou delegar a fatia ao backend.", output.Response);
+        Assert.Equal("Plano definido. Vou organizar a próxima entrega com a equipe.", output.Response);
     }
 
     [Fact]
@@ -143,7 +143,68 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         // A segunda chamada retoma a sessão emitida pela primeira.
         Assert.Equal("session-reparo", fake.Requests[1].ResumeSessionId);
         var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        Assert.Equal("Plano definido. Vou delegar a fatia ao backend.", output.Response);
+        Assert.Equal("Plano definido. Vou organizar a próxima entrega com a equipe.", output.Response);
+    }
+
+    [Fact]
+    public async Task BusinessCommunicationLeakReceivesOneRepairBeforePublication()
+    {
+        const string leaked =
+            """{"response":"O provider OpenAI falhou; veja o log e o turno 01ARZ3NDEKTSV4RRFFQ69G5FAV.","demands":[]}""";
+        var fake = new FakeExternalExecutor(leaked)
+        {
+            SessionId = "session-policy-repair",
+            NextMessages = new Queue<string>(
+            [
+                """{"response":"Houve uma falha temporária, mas nada foi perdido. Vou retomar com segurança.","demands":[]}""",
+            ]),
+        };
+        var executor = Build(ChiefRegistry(), fake);
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.Contains(
+            "política de comunicação obrigatória",
+            fake.Requests[1].Prompt,
+            StringComparison.OrdinalIgnoreCase);
+        var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
+        Assert.Equal(
+            "Houve uma falha temporária, mas nada foi perdido. Vou retomar com segurança.",
+            output.Response);
+    }
+
+    [Fact]
+    public async Task TechnicalDetailsRequireBothExplicitRequestAndServerAuthorization()
+    {
+        const string technical =
+            """{"response":"O provider OpenAI selecionou o modelo de análise.","demands":[]}""";
+
+        var unauthorized = Build(ChiefRegistry(), new FakeExternalExecutor(technical)
+        {
+            SessionId = "session-unauthorized",
+            NextMessages = new Queue<string>([technical]),
+        });
+        await Assert.ThrowsAsync<AgentOutputValidationException>(() =>
+            unauthorized.ExecuteAsync(
+                Request(
+                    instruction: "Mostre os detalhes técnicos.",
+                    communicationContext: new ChiefCommunicationContext(
+                        TechnicalDetailsRequested: true)),
+                CancellationToken.None));
+
+        var authorized = Build(ChiefRegistry(), new FakeExternalExecutor(technical));
+        var result = await authorized.ExecuteAsync(
+            Request(
+                instruction: "Mostre os detalhes técnicos.",
+                communicationContext: new ChiefCommunicationContext(
+                    TechnicalDetailsRequested: true,
+                    TechnicalDetailsAuthorized: true)),
+            CancellationToken.None);
+
+        Assert.Equal(
+            "O provider OpenAI selecionou o modelo de análise.",
+            ChiefTurnOutputContract.Parse(result.StructuredOutput).Response);
     }
 
     [Fact]
@@ -277,7 +338,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         string instruction = "Continue com segurança",
         string? sessionId = null,
         string? communicationInstructions = null,
-        IReadOnlyList<AgentSpecialistOption>? specialists = null) =>
+        IReadOnlyList<AgentSpecialistOption>? specialists = null,
+        ChiefCommunicationContext? communicationContext = null) =>
         new(
             "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "01ARZ3NDEKTSV4RRFFQ69G5FAW",
@@ -288,7 +350,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             "/unused/by/this/executor",
             sessionId,
             CommunicationInstructions: communicationInstructions,
-            Specialists: specialists);
+            Specialists: specialists,
+            CommunicationContext: communicationContext);
 
     private static AgentAccountRegistry ChiefRegistry()
     {

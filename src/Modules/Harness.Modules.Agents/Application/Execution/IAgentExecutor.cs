@@ -19,7 +19,8 @@ public sealed record AgentExecutionRequest(
     string? Model = null,
     string? Effort = null,
     string? CommunicationInstructions = null,
-    IReadOnlyList<AgentSpecialistOption>? Specialists = null);
+    IReadOnlyList<AgentSpecialistOption>? Specialists = null,
+    ChiefCommunicationContext? CommunicationContext = null);
 
 /// <summary>
 /// Uma opção do catálogo de especialistas apresentada ao Chefe para que ele possa DELEGAR a quem

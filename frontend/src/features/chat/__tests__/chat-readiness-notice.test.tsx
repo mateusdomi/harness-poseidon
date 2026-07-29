@@ -14,10 +14,11 @@ function renderNotice(props: {
   hasModel: boolean;
   hasWorkflow: boolean;
   executionBlocked?: boolean;
+  showTechnicalDetails?: boolean;
 }) {
   return renderWithApi(
     <MemoryRouter>
-      <ChatReadinessNotice {...props} />
+      <ChatReadinessNotice showTechnicalDetails {...props} />
     </MemoryRouter>,
   );
 }
@@ -73,6 +74,24 @@ describe('ChatReadinessNotice', () => {
     expect(screen.getByRole('link', { name: /ver diagnóstico/i })).toHaveAttribute(
       'href',
       '/orchestrator',
+    );
+  });
+
+  it('oculta provider, modelo e workflow na experiência de negócio', () => {
+    renderNotice({
+      hasProvider: false,
+      hasModel: false,
+      hasWorkflow: false,
+      showTechnicalDetails: false,
+    });
+
+    expect(screen.getByRole('heading', { name: /configuração inicial/i })).toBeInTheDocument();
+    expect(screen.queryByText(/provedor conectado/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/modelo habilitado/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/workflow vinculado/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /revisar configuração/i })).toHaveAttribute(
+      'href',
+      '/onboarding',
     );
   });
 });

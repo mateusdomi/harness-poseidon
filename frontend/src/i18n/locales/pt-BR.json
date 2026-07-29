@@ -1343,19 +1343,19 @@
       "actions": {
         "summarizeProgress": {
           "label": "Resumir progresso",
-          "message": "Bruna, resuma o progresso atual do projeto nas três trilhas (executado, validado, aprovado)."
+          "message": "Pode me contar como o projeto está avançando?"
         },
         "blockedStatus": {
           "label": "Ver bloqueios",
-          "message": "Bruna, quais tarefas estão bloqueadas e qual o plano para desbloqueá-las?"
+          "message": "Existe algo impedindo o avanço do projeto? Como a equipe vai resolver?"
         },
         "approvalStatus": {
           "label": "Ver aprovações pendentes",
-          "message": "Bruna, quais aprovações estão pendentes e o que preciso decidir?"
+          "message": "Quais decisões estão aguardando minha aprovação e qual é o impacto de cada uma?"
         },
         "planNewDemand": {
           "label": "Planejar nova demanda",
-          "message": "Bruna, quero planejar uma nova demanda. Vamos detalhar o escopo?"
+          "message": "Gostaria de planejar uma nova entrega."
         }
       }
     },
@@ -1383,10 +1383,26 @@
         "medium": "Médio",
         "high": "Alto",
         "max": "Máximo"
+      },
+      "workProfile": "Perfil de trabalho",
+      "workProfiles": {
+        "quick": "Rápido",
+        "balanced": "Equilibrado",
+        "analytical": "Analítico",
+        "maximumDepth": "Máxima profundidade"
+      },
+      "dedication": "Nível de dedicação",
+      "dedicationLevels": {
+        "essential": "Essencial",
+        "complete": "Completo",
+        "deep": "Profundo"
       }
     },
     "sendError": "Não foi possível enviar a mensagem. Tente novamente.",
     "turnBlocked": {
+      "businessTitle": "A equipe ainda não pode iniciar",
+      "businessBody": "Sua mensagem foi salva. Revise a configuração inicial e a equipe continuará por aqui assim que estiver pronta.",
+      "reviewConfiguration": "Revisar configuração",
       "title": "Turno registrado, execução bloqueada",
       "body": "A mensagem foi salva. Resolva os bloqueios abaixo para permitir a execução.",
       "readiness": "Prontidão geral: {{overall}} · execução: {{execution}}",
@@ -1407,6 +1423,8 @@
       }
     },
     "readiness": {
+      "businessTitle": "A equipe aguarda a configuração inicial",
+      "businessBody": "Você pode continuar escrevendo. A execução começa assim que a configuração necessária estiver pronta.",
       "title": "Execução de Bruna bloqueada",
       "body": "Você pode escrever, mas Bruna só executa quando estas dependências estiverem prontas:",
       "additionalBlocker": "As dependências básicas estão prontas, mas o read model reporta outro bloqueio operacional. Consulte o diagnóstico para ver a causa.",
@@ -1416,6 +1434,7 @@
         "workflow": "Workflow vinculado ao projeto"
       },
       "actions": {
+        "reviewConfiguration": "Revisar configuração",
         "provider": "Configurar provedor",
         "model": "Escolher modelo",
         "workflow": "Vincular workflow",

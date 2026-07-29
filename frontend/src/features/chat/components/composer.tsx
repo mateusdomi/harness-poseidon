@@ -4,6 +4,13 @@ import { Loader2, Paperclip, SendHorizonal, X } from 'lucide-react';
 
 import type { ChatTurnEffort, Model } from '@/api';
 import { Button, Select, Textarea } from '@/design-system';
+import {
+  BUSINESS_DEDICATION_LEVELS,
+  BUSINESS_WORK_PROFILES,
+  resolveBusinessTurnSelection,
+  type BusinessDedicationLevel,
+  type BusinessWorkProfile,
+} from '@/features/chat/lib/chat-turn-presentation';
 import { formatNumber } from '@/lib/format';
 
 export type EffortLevel = ChatTurnEffort;
@@ -26,6 +33,7 @@ interface ComposerProps {
   models: Model[];
   sending: boolean;
   disabled?: boolean;
+  showTechnicalDetails: boolean;
   /** Valor inicial (rascunho vindo do cockpit, sugestões, ações rápidas). */
   draft: string;
   onDraftConsumed: () => void;
@@ -61,6 +69,7 @@ export function Composer({
   models,
   sending,
   disabled = false,
+  showTechnicalDetails,
   draft,
   onDraftConsumed,
   onSend,
@@ -69,6 +78,8 @@ export function Composer({
   const [content, setContent] = useState('');
   const [modelId, setModelId] = useState('');
   const [effort, setEffort] = useState<EffortLevel>('medium');
+  const [workProfile, setWorkProfile] = useState<BusinessWorkProfile>('balanced');
+  const [dedication, setDedication] = useState<BusinessDedicationLevel>('complete');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentSeq = useRef(0);
@@ -124,7 +135,10 @@ export function Composer({
   function send() {
     const text = content.trim();
     if (text === '' || sending || disabled) return;
-    onSend(text, attachments.filter((a) => a.progress >= 100), { modelId, effort });
+    const selection = showTechnicalDetails
+      ? { modelId, effort }
+      : resolveBusinessTurnSelection(models, workProfile, dedication);
+    onSend(text, attachments.filter((a) => a.progress >= 100), selection);
     setContent('');
     setAttachments([]);
   }
@@ -232,39 +246,80 @@ export function Composer({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="chat-model" className="text-xs text-foreground-muted">
-          {t('chat.composer.model')}
-        </label>
-        <Select
-          id="chat-model"
-          className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
-          value={modelId}
-          onChange={(event) => setModelId(event.target.value)}
-          disabled={disabled}
-        >
-          <option value="">{t('chat.composer.modelDefault')}</option>
-          {models.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.displayName}
-            </option>
-          ))}
-        </Select>
-        <label htmlFor="chat-effort" className="text-xs text-foreground-muted">
-          {t('chat.composer.effort')}
-        </label>
-        <Select
-          id="chat-effort"
-          className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
-          value={effort}
-          onChange={(event) => setEffort(event.target.value as EffortLevel)}
-          disabled={disabled}
-        >
-          {effortOptions.map((level) => (
-            <option key={level} value={level}>
-              {t(`chat.composer.effortOptions.${level}`)}
-            </option>
-          ))}
-        </Select>
+        {showTechnicalDetails ? (
+          <>
+            <label htmlFor="chat-model" className="text-xs text-foreground-muted">
+              {t('chat.composer.model')}
+            </label>
+            <Select
+              id="chat-model"
+              className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
+              value={modelId}
+              onChange={(event) => setModelId(event.target.value)}
+              disabled={disabled}
+            >
+              <option value="">{t('chat.composer.modelDefault')}</option>
+              {models.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.displayName}
+                </option>
+              ))}
+            </Select>
+            <label htmlFor="chat-effort" className="text-xs text-foreground-muted">
+              {t('chat.composer.effort')}
+            </label>
+            <Select
+              id="chat-effort"
+              className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
+              value={effort}
+              onChange={(event) => setEffort(event.target.value as EffortLevel)}
+              disabled={disabled}
+            >
+              {effortOptions.map((level) => (
+                <option key={level} value={level}>
+                  {t(`chat.composer.effortOptions.${level}`)}
+                </option>
+              ))}
+            </Select>
+          </>
+        ) : (
+          <>
+            <label htmlFor="chat-work-profile" className="text-xs text-foreground-muted">
+              {t('chat.composer.workProfile')}
+            </label>
+            <Select
+              id="chat-work-profile"
+              className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
+              value={workProfile}
+              onChange={(event) => setWorkProfile(event.target.value as BusinessWorkProfile)}
+              disabled={disabled}
+            >
+              {BUSINESS_WORK_PROFILES.map((profile) => (
+                <option key={profile} value={profile}>
+                  {t(`chat.composer.workProfiles.${profile}`)}
+                </option>
+              ))}
+            </Select>
+            <label htmlFor="chat-dedication" className="text-xs text-foreground-muted">
+              {t('chat.composer.dedication')}
+            </label>
+            <Select
+              id="chat-dedication"
+              className="h-9 min-h-touch w-auto rounded-full border-border bg-surface-elevated text-xs"
+              value={dedication}
+              onChange={(event) =>
+                setDedication(event.target.value as BusinessDedicationLevel)
+              }
+              disabled={disabled}
+            >
+              {BUSINESS_DEDICATION_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {t(`chat.composer.dedicationLevels.${level}`)}
+                </option>
+              ))}
+            </Select>
+          </>
+        )}
       </div>
     </div>
   );

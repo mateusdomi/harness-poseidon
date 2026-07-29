@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   streams,
+  type Approval,
   type ChatTurnEffort,
   type CreateInputMap,
   type Document,
@@ -20,6 +21,7 @@ export const chatKeys = {
   models: ['chat', 'models'] as const,
   tasks: (projectId: Ulid) => ['chat', 'tasks', projectId] as const,
   documents: (projectId: Ulid) => ['chat', 'documents', projectId] as const,
+  approvals: (projectId: Ulid) => ['chat', 'approvals', projectId] as const,
 };
 
 export function useConversations(projectId: Ulid | null) {
@@ -75,10 +77,17 @@ export function useChatReferences(projectId: Ulid | null) {
     queryFn: async () => (await api.list('agents', { filter: { projectId: projectId! } })).items,
     enabled: projectId !== null,
   });
+  const approvalsQuery = useQuery({
+    queryKey: chatKeys.approvals(projectId ?? 'none'),
+    queryFn: async (): Promise<Approval[]> =>
+      (await api.list('approvals', { filter: { projectId: projectId! } })).items,
+    enabled: projectId !== null,
+  });
   return {
     tasks: tasksQuery.data ?? [],
     documents: documentsQuery.data ?? [],
     agents: agentsQuery.data ?? [],
+    approvals: approvalsQuery.data ?? [],
   };
 }
 

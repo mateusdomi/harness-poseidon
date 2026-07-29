@@ -10,6 +10,7 @@ export interface ChatReadinessNoticeProps {
   hasWorkflow: boolean;
   /** O read model canônico pode bloquear por outros motivos, como agente degradado. */
   executionBlocked?: boolean;
+  showTechnicalDetails: boolean;
 }
 
 const ROUTES = {
@@ -28,6 +29,7 @@ export function ChatReadinessNotice({
   hasModel,
   hasWorkflow,
   executionBlocked = false,
+  showTechnicalDetails,
 }: ChatReadinessNoticeProps) {
   const { t } = useTranslation();
   const items = [
@@ -37,6 +39,29 @@ export function ChatReadinessNotice({
   ];
   const firstMissing = items.find((item) => !item.done);
   if (!firstMissing && !executionBlocked) return null;
+
+  if (!showTechnicalDetails) {
+    return (
+      <section
+        aria-labelledby="chat-readiness-title"
+        className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning/5 p-4"
+      >
+        <div className="flex items-center gap-2">
+          <AlertTriangle aria-hidden="true" className="size-4 shrink-0 text-warning" />
+          <h2 id="chat-readiness-title" className="text-sm font-semibold">
+            {t('chat.readiness.businessTitle')}
+          </h2>
+        </div>
+        <p className="text-sm text-foreground-muted">{t('chat.readiness.businessBody')}</p>
+        <Button asChild size="sm" className="self-start">
+          <Link to="/onboarding">
+            {t('chat.readiness.actions.reviewConfiguration')}
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </Link>
+        </Button>
+      </section>
+    );
+  }
 
   return (
     <section
