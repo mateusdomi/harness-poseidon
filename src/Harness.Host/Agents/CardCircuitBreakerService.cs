@@ -1,0 +1,118 @@
+using Harness.Modules.Coordination.Application;
+using Harness.Persistence.Abstractions.Coordination;
+
+namespace Harness.Host.Agents;
+
+/// <summary>
+/// Compõe a política pura do circuito por card com o estado durável.
+///
+/// A contagem de falhas é DERIVADA do histórico de tentativas do card, não incrementada em cada
+/// ponto de falha. Duas razões: derivar é idempotente — reprocessar o mesmo histórico dá o mesmo
+/// resultado, e um reinício no meio de uma rodada não perde nem duplica contagem; e não exige um
+/// gancho em cada lugar que pode falhar, que é justamente onde um gancho seria esquecido.
+///
+/// O replanejamento é a exceção: ele não está no histórico de tentativas, é um ato da Bruna, e por
+/// isso vive no estado durável e prevalece sobre as falhas anteriores a ele.
+/// </summary>
+internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
+{
+    private readonly ICardCircuitBreakerStore _store =
+        store ?? throw new ArgumentNullException(nameof(store));
+
+    /// <summary>
+    /// Recalcula o circuito a partir das tentativas e persiste. As tentativas devem vir em ordem
+    /// cronológica; <paramref name="failedStates"/> define o que conta como falha.
+    /// </summary>
+    public async Task<CardCircuitSnapshot> SynchronizeAsync(
+        string tenantId,
+        string projectId,
+        string taskId,
+        IReadOnlyList<(string State, DateTimeOffset OccurredAt)> attempts,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attempts);
+        var stored = await _store.GetAsync(tenantId, taskId, cancellationToken);
+
+        // Falha anterior ao replanejamento não conta: o card que a Bruna reescreveu é outro card
+        // do ponto de vista do enunciado, mesmo mantendo o id.
+        var horizon = stored?.ReplannedAt;
+        var snapshot = CardCircuitSnapshot.Closed(taskId);
+        var lastFailureAt = default(DateTimeOffset?);
+        string? lastReason = null;
+        foreach (var attempt in attempts.Where(item => horizon is null || item.OccurredAt > horizon))
+        {
+            if (IsFailure(attempt.State))
+            {
+                snapshot = CardCircuitBreakerPolicy.RecordFailure(
+                    snapshot, attempt.OccurredAt, attempt.State);
+                lastFailureAt = attempt.OccurredAt;
+                lastReason = attempt.State;
+            }
+            else if (IsSuccess(attempt.State))
+            {
+                snapshot = CardCircuitBreakerPolicy.RecordSuccess(snapshot);
+                lastFailureAt = null;
+                lastReason = null;
+            }
+        }
+
+        var alreadyMatches =
+            stored is not null &&
+            stored.ConsecutiveFailures == snapshot.ConsecutiveFailures &&
+            stored.IsOpen == (snapshot.State == CardCircuitState.Open);
+        if (alreadyMatches)
+        {
+            return snapshot;
+        }
+
+        if (snapshot.State == CardCircuitState.Open)
+        {
+            // O limiar é aplicado de novo pela persistência, atomicamente. Como a contagem
+            // derivada já atingiu o limiar, uma única chamada com limiar 1 grava o estado aberto
+            // sem reinterpretar a sequência.
+            await _store.RecordFailureAsync(
+                tenantId, projectId, taskId,
+                lastFailureAt ?? DateTimeOffset.UtcNow,
+                consecutiveFailureThreshold: 1,
+                lastReason,
+                cancellationToken);
+            return snapshot;
+        }
+
+        if (snapshot.ConsecutiveFailures == 0)
+        {
+            await _store.RecordSuccessAsync(
+                tenantId, projectId, taskId,
+                lastFailureAt ?? DateTimeOffset.UtcNow, cancellationToken);
+        }
+
+        return snapshot;
+    }
+
+    /// <summary>Cards com circuito aberto: saem do despacho e entram na fila de replanejamento.</summary>
+    public async Task<IReadOnlySet<string>> ListOpenCardsAsync(
+        string tenantId, string projectId, CancellationToken cancellationToken = default)
+    {
+        var open = await _store.ListOpenAsync(tenantId, projectId, cancellationToken);
+        return open.Select(record => record.TaskId).ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>Fecha o circuito por replanejamento — o único caminho de reabertura.</summary>
+    public Task ReplanAsync(
+        string tenantId,
+        string projectId,
+        string taskId,
+        DateTimeOffset occurredAt,
+        string? note = null,
+        CancellationToken cancellationToken = default) =>
+        _store.ReplanAsync(tenantId, projectId, taskId, occurredAt, note, cancellationToken);
+
+    private static bool IsFailure(string state) =>
+        string.Equals(state, "failed", StringComparison.Ordinal) ||
+        string.Equals(state, "rejected", StringComparison.Ordinal);
+
+    private static bool IsSuccess(string state) =>
+        string.Equals(state, "completed", StringComparison.Ordinal) ||
+        string.Equals(state, "merged", StringComparison.Ordinal) ||
+        string.Equals(state, "approved", StringComparison.Ordinal);
+}

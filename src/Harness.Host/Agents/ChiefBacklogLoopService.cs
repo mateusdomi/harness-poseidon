@@ -7,6 +7,7 @@ using Harness.Modules.Providers.Application;
 using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -99,6 +100,9 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} (card_type={CardType}) NÃO despachável — pulado por prontidão (DoR): {Blockers}")]
     private static partial void LogCardNotDispatchable(ILogger logger, string taskId, string cardType, string blockers);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} com CIRCUITO ABERTO ({Failures} falhas consecutivas) — não é redespachado; só o replanejamento da Bruna o reabre.")]
+    private static partial void LogCardCircuitOpen(ILogger logger, string taskId, int failures);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: a especialidade '{PersonaKey}' pedida pelo card {TaskId} não existe como especialista habilitado no catálogo; usando o fallback inferido.")]
     private static partial void LogPersonaNotInCatalog(ILogger logger, string taskId, string personaKey);
 
@@ -187,6 +191,8 @@ public sealed partial class ChiefBacklogLoopService(
         var board = scope.ServiceProvider.GetRequiredService<IWorkBoardStore>();
         var chain = scope.ServiceProvider.GetRequiredService<IWorkChainStore>();
         var catalog = scope.ServiceProvider.GetRequiredService<IAgentCatalogStore>();
+        var circuits = new CardCircuitBreakerService(
+            scope.ServiceProvider.GetRequiredService<ICardCircuitBreakerStore>());
 
         var profileList = await profiles.ListAsync(token);
         if (profileList.Count == 0)
@@ -283,6 +289,25 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     LogCardNotDispatchable(
                         logger, task.Id, task.CardType, string.Join(",", readiness.Blockers));
+                    continue;
+                }
+
+                // CIRCUITO DO CARD (B4): quando o mesmo card falha três vezes seguidas, o defeito
+                // está no enunciado, não no agente — redespachar é repetir o fracasso queimando
+                // cota. O circuito é recalculado do histórico de tentativas (idempotente, imune a
+                // reinício) e só o replanejamento da Bruna o reabre. Sem isto, o único freio era a
+                // escalação por ciclos de review, que não cobre falha de execução.
+                var attemptHistory = await board.ListAttemptsAsync(profile.TenantId, task.Id, null, 100, token);
+                var circuit = await circuits.SynchronizeAsync(
+                    profile.TenantId,
+                    project.Id,
+                    task.Id,
+                    [.. attemptHistory.Select(attempt =>
+                        (attempt.State, attempt.FinishedAt ?? attempt.StartedAt))],
+                    token);
+                if (!circuit.IsDispatchable)
+                {
+                    LogCardCircuitOpen(logger, task.Id, circuit.ConsecutiveFailures);
                     continue;
                 }
 
