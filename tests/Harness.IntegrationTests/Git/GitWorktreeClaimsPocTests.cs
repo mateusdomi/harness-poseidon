@@ -58,6 +58,9 @@ public sealed class GitWorktreeClaimsPocTests
         var worktreeBPath = Path.Combine(scenarioRoot, "worktrees", "attempt-b");
         await CreateFixtureRepositoryAsync(repositoryPath, cancellationToken);
         using var manager = await GitWorktreeManager.OpenAsync(repositoryPath, scenarioRoot, cancellationToken);
+        var publishedRevision = await manager.ResolveCommitAsync(
+            cancellationToken: cancellationToken);
+        Assert.Equal(40, publishedRevision.Length);
 
         var creationA = manager.CreateTaskWorktreeAsync(
             "task/a",

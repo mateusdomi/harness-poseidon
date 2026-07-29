@@ -181,6 +181,32 @@ public sealed class GitWorktreeManager : IDisposable
             .ToArray();
     }
 
+    /// <summary>
+    /// Resolve uma referência para o commit exato que ela representa. O consumidor grava essa
+    /// revisão junto do índice derivado para não recompilar a mesma árvore em todo ciclo.
+    /// </summary>
+    public async Task<string> ResolveCommitAsync(
+        string reference = "HEAD",
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference);
+        if (reference[0] == '-')
+        {
+            throw new ArgumentException("Git references cannot start with '-'.", nameof(reference));
+        }
+
+        var result = await RunGitAsync(
+            _repositoryRoot,
+            ["rev-parse", "--verify", $"{reference}^{{commit}}"],
+            cancellationToken);
+        if (result.ExitCode != 0)
+        {
+            throw CreateGitException("resolve the Git reference", result);
+        }
+
+        return result.StandardOutput.Trim();
+    }
+
     public async Task<bool> RemoveTaskWorktreeAsync(
         string branchName,
         string worktreePath,

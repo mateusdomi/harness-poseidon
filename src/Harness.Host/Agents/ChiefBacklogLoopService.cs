@@ -1,3 +1,4 @@
+using Harness.Host.Architecture;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
@@ -12,6 +13,7 @@ using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.CodeGraph;
 using Harness.SharedKernel.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -40,6 +42,7 @@ public sealed partial class ChiefBacklogLoopService(
     IClock clock,
     CapacityManager capacity,
     ProviderRoutingCoordinator providerRouting,
+    CodeGraphDerivationService codeGraph,
     ILogger<ChiefBacklogLoopService> logger) : BackgroundService
 {
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
@@ -102,6 +105,30 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} com CIRCUITO ABERTO ({Failures} falhas consecutivas) — não é redespachado; só o replanejamento da Bruna o reabre.")]
     private static partial void LogCardCircuitOpen(ILogger logger, string taskId, int failures);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: índice de código indisponível para o projeto {ProjectId} neste ciclo ({ErrorType}); impacto permanece não medido.")]
+    private static partial void LogCodeGraphUnavailable(ILogger logger, string projectId, string errorType);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: despacho do projeto {ProjectId} bloqueado por {ErrorCount} erro(s) de compilação no índice.")]
+    private static partial void LogCodeDiagnosticsBlocked(ILogger logger, string projectId, int errorCount);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} não despachado por divergência {Code} com {RelatedCardId}: {Explanation} (evidências={EvidenceCount}).")]
+    private static partial void LogPlanGraphBlocked(
+        ILogger logger,
+        string taskId,
+        string code,
+        string relatedCardId,
+        string explanation,
+        int evidenceCount);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: impacto do card {TaskId}: risco {DeclaredRisk}->{EffectiveRisk}, revisão {ReviewDepth}, medido={Measured}.")]
+    private static partial void LogBlastRadiusAssessed(
+        ILogger logger,
+        string taskId,
+        RiskTier declaredRisk,
+        RiskTier effectiveRisk,
+        int reviewDepth,
+        bool measured);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: a especialidade '{PersonaKey}' pedida pelo card {TaskId} não existe como especialista habilitado no catálogo; usando o fallback inferido.")]
     private static partial void LogPersonaNotInCatalog(ILogger logger, string taskId, string personaKey);
@@ -312,7 +339,7 @@ public sealed partial class ChiefBacklogLoopService(
                 }
 
                 var resolution = ChiefCardResolver.Resolve(
-                    task.Title, instructions[^1].Body, [], "medium", surfaceMap: surfaceMap);
+                    task.Title, instructions[^1].Body, [], task.Priority, surfaceMap: surfaceMap);
 
                 // Defesa em profundidade: um papel SEM escopo de escrita (o crítico, por exemplo)
                 // produz claim vazia, e a política de path rejeita a tentativa com
@@ -335,6 +362,146 @@ public sealed partial class ChiefBacklogLoopService(
             if (cards.Count == 0)
             {
                 continue;
+            }
+
+            // B6/F15 em PRODUÇÃO: a árvore publicada é reindexada antes do despacho, alimenta o
+            // self-map e passa pelos três consumidores. Erro do índice não vira "impacto zero":
+            // o card segue explicitamente não medido. Erro de sintaxe medido, por outro lado,
+            // bloqueia antes de gastar conta; divergência plano×grafo bloqueia só os cards
+            // envolvidos; o raio recalcula risco e profundidade e entra no briefing auditável.
+            CodeGraph? currentGraph = null;
+            try
+            {
+                var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl!);
+                string? sourceRevision = null;
+                try
+                {
+                    using var manager = await GitWorktreeManager.OpenAsync(
+                        repositoryRoot, controlledRoot, token);
+                    sourceRevision = await manager.ResolveCommitAsync(
+                        cancellationToken: token);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // Repositório sem Git ainda pode ser indexado, mas não oferece revisão estável
+                    // para cache. A derivação abaixo permanece a fonte da verdade desse ciclo.
+                }
+
+                var cached = sourceRevision is null
+                    ? null
+                    : await codeGraph.LoadCurrentAsync(
+                        profile.TenantId, project.Id, sourceRevision, token);
+                if (cached is not null)
+                {
+                    currentGraph = cached.Graph;
+                    if (cached.Snapshot.ErrorCount > 0)
+                    {
+                        LogCodeDiagnosticsBlocked(
+                            logger, project.Id, cached.Snapshot.ErrorCount);
+                        deferred += cards.Count;
+                        continue;
+                    }
+                }
+                else
+                {
+                    var derivation = await codeGraph.DeriveAndStoreAsync(
+                        profile.TenantId,
+                        project.Id,
+                        repositoryRoot,
+                        sourceRevision,
+                        token);
+                    await codeGraph.SyncSelfMapAsync(
+                        profile.TenantId, project.Id, derivation.Graph, token);
+                    currentGraph = derivation.Graph;
+
+                    var diagnostics = CodeDiagnosticsGate.Inspect(
+                        derivation.Diagnostics, CodeGraphDiagnosticScope.SyntaxOnly);
+                    var deterministic = CodeDiagnosticsGate.ApplyTo(
+                        new LayerResult(
+                            VerificationLayer.Deterministic,
+                            LayerVerdict.Pass,
+                            CodeDiagnosticsGate.ReasonClean),
+                        diagnostics);
+                    if (!LayeredVerificationPolicy.MayOccupyReviewer([deterministic]))
+                    {
+                        LogCodeDiagnosticsBlocked(
+                            logger, project.Id, diagnostics.ErrorCount);
+                        deferred += cards.Count;
+                        continue;
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                LogCodeGraphUnavailable(logger, project.Id, exception.GetType().Name);
+            }
+
+            if (currentGraph is not null)
+            {
+                var validation = await ValidatePlanAgainstGraphAsync(
+                    profile.TenantId, cards, plans, currentGraph, token);
+                if (!validation.DispatchAllowed)
+                {
+                    var blocked = validation.Blocking
+                        .SelectMany(divergence => divergence.RelatedCardId is null
+                            ? [divergence.CardId]
+                            : new[] { divergence.CardId, divergence.RelatedCardId })
+                        .ToHashSet(StringComparer.Ordinal);
+                    foreach (var divergence in validation.Blocking)
+                    {
+                        LogPlanGraphBlocked(
+                            logger,
+                            divergence.CardId,
+                            divergence.Code,
+                            divergence.RelatedCardId ?? "-",
+                            divergence.Explanation,
+                            divergence.Evidence.Count);
+                    }
+
+                    var before = cards.Count;
+                    cards.RemoveAll(candidate => blocked.Contains(candidate.Card.TaskId));
+                    deferred += before - cards.Count;
+                    if (cards.Count == 0)
+                    {
+                        continue;
+                    }
+                }
+
+                for (var index = 0; index < cards.Count; index++)
+                {
+                    var candidate = cards[index];
+                    var declaredRisk = ParseRisk(candidate.Task.Priority);
+                    var expandedPaths = ExpandScopeClaims(
+                        candidate.Resolution.ScopeClaims, currentGraph);
+                    var assessment = BlastRadiusPolicy.Assess(
+                        declaredRisk, currentGraph.MeasureBlastRadius(expandedPaths));
+                    var effectiveRisk = RiskName(assessment.EffectiveRisk);
+                    var auditedScope =
+                        $"{candidate.Resolution.Card.Scope}\n\n" +
+                        "## Impacto calculado antes do despacho\n\n" +
+                        $"{assessment.Justification}\n" +
+                        $"Profundidade de revisão exigida: {assessment.ReviewDepth}.";
+                    var adjustedResolution = candidate.Resolution with
+                    {
+                        Card = candidate.Resolution.Card with
+                        {
+                            Scope = auditedScope,
+                            RiskTier = effectiveRisk
+                        }
+                    };
+                    cards[index] = (
+                        candidate.Card,
+                        adjustedResolution,
+                        candidate.Task,
+                        candidate.InstructionVersionId);
+                    LogBlastRadiusAssessed(
+                        logger,
+                        candidate.Task.Id,
+                        assessment.DeclaredRisk,
+                        assessment.EffectiveRisk,
+                        assessment.ReviewDepth,
+                        assessment.Measured);
+                }
             }
 
             // Fase 10 — despacho em ESCALA: antes de escolher contas, a fila priorizada corta
@@ -424,6 +591,122 @@ public sealed partial class ChiefBacklogLoopService(
 
         return (dispatched, deferred);
     }
+
+    private static async Task<PlanGraphValidation> ValidatePlanAgainstGraphAsync(
+        string tenantId,
+        IReadOnlyList<(
+            ChiefCard Card,
+            ChiefCardResolution Resolution,
+            BoardTaskRecord Task,
+            string InstructionVersionId)> cards,
+        IDemandPlanStore plans,
+        CodeGraph graph,
+        CancellationToken token)
+    {
+        var scopes = cards
+            .Select(candidate => new CardScope(
+                candidate.Card.TaskId,
+                candidate.Task.Title,
+                ExpandScopeClaims(candidate.Resolution.ScopeClaims, graph)))
+            .ToArray();
+        var edges = new List<CardDependencyEdge>();
+        foreach (var demandGroup in cards
+                     .Where(candidate => candidate.Task.DemandId is not null)
+                     .GroupBy(candidate => candidate.Task.DemandId!, StringComparer.Ordinal))
+        {
+            var plan = await plans.GetByDemandAsync(tenantId, demandGroup.Key, token);
+            if (plan?.MaterializedAt is null)
+            {
+                continue;
+            }
+
+            var taskByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var candidate in demandGroup)
+            {
+                taskByCode.TryAdd(
+                    DemandDecompositionPlanner.CodeOf(candidate.Task.Title),
+                    candidate.Task.Id);
+            }
+
+            foreach (var card in plan.Cards)
+            {
+                if (!taskByCode.TryGetValue(
+                        DemandDecompositionPlanner.CodeOf(card.ProposedTitle),
+                        out var consumerId))
+                {
+                    continue;
+                }
+
+                foreach (var dependency in card.Dependencies)
+                {
+                    if (taskByCode.TryGetValue(dependency, out var providerId))
+                    {
+                        edges.Add(new CardDependencyEdge(
+                            providerId, consumerId, dependency));
+                    }
+                }
+            }
+        }
+
+        return PlanGraphValidationPolicy.Validate(scopes, edges, graph);
+    }
+
+    /// <summary>
+    /// O executor recebe claims (arquivo ou prefixo/**), enquanto o grafo mede arquivos concretos.
+    /// Expandir contra os paths que o índice realmente conhece evita tanto impacto-zero por glob
+    /// quanto inventar cobertura para frontend/arquivos que o índice C# não viu.
+    /// </summary>
+    private static IReadOnlyList<string> ExpandScopeClaims(
+        IReadOnlyList<string> claims,
+        CodeGraph graph)
+    {
+        var indexedFiles = graph.Nodes
+            .Select(node => node.FilePath)
+            .Where(path => path.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var expanded = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rawClaim in claims)
+        {
+            var claim = rawClaim.Trim().Replace('\\', '/').TrimStart('/');
+            if (claim.EndsWith("/**", StringComparison.Ordinal))
+            {
+                var prefix = claim[..^3].TrimEnd('/');
+                var matched = indexedFiles
+                    .Where(path =>
+                        string.Equals(path, prefix, StringComparison.OrdinalIgnoreCase) ||
+                        path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (matched.Length > 0)
+                {
+                    expanded.UnionWith(matched);
+                }
+                else
+                {
+                    // O claim continua visível como NÃO indexado; jamais vira impacto zero.
+                    expanded.Add(claim);
+                }
+
+                continue;
+            }
+
+            expanded.Add(claim);
+        }
+
+        return [.. expanded];
+    }
+
+    private static RiskTier ParseRisk(string risk) =>
+        risk.Trim().ToLowerInvariant() switch
+        {
+            "low" => RiskTier.Low,
+            "high" => RiskTier.High,
+            "critical" => RiskTier.Critical,
+            _ => RiskTier.Medium
+        };
+
+    private static string RiskName(RiskTier risk) =>
+        risk.ToString().ToLowerInvariant();
 
     /// <summary>
     /// Vereditos de review que representam uma REVISÃO real executada (e portanto podem ser
@@ -615,7 +898,8 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
-            var resolution = ChiefCardResolver.Resolve(task.Title, instructions[^1].Body, [], "medium");
+            var resolution = ChiefCardResolver.Resolve(
+                task.Title, instructions[^1].Body, [], task.Priority);
             var producerAlias = awaiting.AgentId;
             var criticAlias = SelectCriticAlias(producerAlias, now);
             if (criticAlias is null)
@@ -628,17 +912,77 @@ public sealed partial class ChiefBacklogLoopService(
             var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl!);
             var branch = $"task/agent-run-{awaiting.Id.ToLowerInvariant()}";
             string diff;
+            CodeGraphBuildResult? branchInspection = null;
             try
             {
                 using var manager = await GitWorktreeManager.OpenAsync(
                     repositoryRoot, controlledRoot, token);
                 diff = await manager.DiffBranchAsync("HEAD", branch, token);
+
+                // Gate determinístico PRÉ-REVIEW sobre a branch real. A branch pode já estar numa
+                // worktree viva; se não estiver, criamos uma worktree efêmera governada e a
+                // removemos sem apagar a branch. O índice transitório nunca substitui o grafo
+                // publicado do projeto.
+                var registered = await manager.ListWorktreesAsync(token);
+                var existing = registered.FirstOrDefault(item =>
+                    string.Equals(item.BranchName, branch, StringComparison.Ordinal));
+                var inspectionPath = existing?.WorktreePath ??
+                    System.IO.Path.Combine(controlledRoot, "code-graph-review", awaiting.Id);
+                var ownsInspectionWorktree = existing is null;
+                if (ownsInspectionWorktree)
+                {
+                    System.IO.Directory.CreateDirectory(
+                        System.IO.Path.GetDirectoryName(inspectionPath)!);
+                    _ = await manager.CreateTaskWorktreeAsync(
+                        branch, awaiting.Id, inspectionPath, cancellationToken: token);
+                }
+
+                try
+                {
+                    branchInspection = await codeGraph.InspectAsync(
+                        project.Id, inspectionPath, token);
+                }
+                finally
+                {
+                    if (ownsInspectionWorktree)
+                    {
+                        _ = await manager.RemoveTaskWorktreeAsync(
+                            branch, inspectionPath, deleteBranch: false, token);
+                    }
+                }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 LogReviewInfrastructureFailure(
-                    logger, task.Id, awaiting.Id, $"diff:{exception.GetType().Name}");
+                    logger,
+                    task.Id,
+                    awaiting.Id,
+                    $"review-preflight:{exception.GetType().Name}");
                 _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                continue;
+            }
+
+            var diagnosticVerdict = CodeDiagnosticsGate.Inspect(
+                branchInspection!.Diagnostics, branchInspection.DiagnosticScope);
+            var diagnosticLayer = CodeDiagnosticsGate.ApplyTo(
+                new LayerResult(
+                    VerificationLayer.Deterministic,
+                    LayerVerdict.Pass,
+                    CodeDiagnosticsGate.ReasonClean),
+                diagnosticVerdict);
+            if (!LayeredVerificationPolicy.MayOccupyReviewer([diagnosticLayer]))
+            {
+                if (await ApplyCodeDiagnosticsFailureAsync(
+                        tenantId, task, awaiting.Id, diagnosticVerdict, chain, token))
+                {
+                    reviewed++;
+                    _reviewBackoff.Remove(awaiting.Id);
+                }
+                else
+                {
+                    _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                }
+
                 continue;
             }
 
@@ -743,6 +1087,42 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         LogReviewInfrastructureFailure(logger, task.Id, attemptId, $"chain:{applied.Status}");
+        return false;
+    }
+
+    private async Task<bool> ApplyCodeDiagnosticsFailureAsync(
+        string tenantId,
+        BoardTaskRecord task,
+        string attemptId,
+        CodeDiagnosticsVerdict verdict,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        var reviewId = UlidValue.New(clock.UtcNow).ToString();
+        var applied = await chain.ReviewAttemptAsync(
+            new WorkAttemptReviewCommand(
+                tenantId,
+                task.BackingSolicitationId,
+                task.Id,
+                attemptId,
+                reviewId,
+                "code-diagnostics-gate",
+                "rejected",
+                $"{verdict.ReasonCode}: {verdict.Detail}",
+                task.Version,
+                $"chief-loop-code-diagnostics:{attemptId}",
+                clock.UtcNow),
+            token);
+        if (applied.Status is WorkChainMutationStatus.Applied
+            or WorkChainMutationStatus.IdempotentReplay)
+        {
+            LogReviewApplied(
+                logger, task.Id, attemptId, "code-diagnostics-gate", "rejected");
+            return true;
+        }
+
+        LogReviewInfrastructureFailure(
+            logger, task.Id, attemptId, $"chain:{applied.Status}");
         return false;
     }
 

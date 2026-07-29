@@ -10,6 +10,7 @@ using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Providers.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Architecture;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Providers;
@@ -161,6 +162,14 @@ public sealed class ChiefBacklogDispatchTests
             // UM ciclo do loop do Chefe, disparado deterministicamente.
             var service = app.Services.GetServices<IHostedService>().OfType<ChiefBacklogLoopService>().Single();
             var (dispatched, deferred) = await service.RunCycleAsync(cts.Token);
+
+            // F15/B6 está no caminho de PRODUÇÃO do loop: antes de despachar, o projeto foi
+            // reindexado e o snapshot durável existe mesmo para um repositório C# vazio.
+            var graphSnapshot = await app.Services
+                .GetRequiredService<ICodeGraphStore>()
+                .GetSnapshotAsync(tenantId, projectId, "csharp", cts.Token);
+            Assert.NotNull(graphSnapshot);
+            Assert.Equal(0, graphSnapshot!.FilesIndexed);
 
             // A contagem GLOBAL do ciclo deixou de ser exata: o mesmo ciclo também conduz a esteira
             // do projeto e pode criar o card do artefato da fase ativa. O que este teste prova é o

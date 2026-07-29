@@ -16,6 +16,9 @@ public sealed record CodeGraphDerivation(
     public bool Compiles => Snapshot.ErrorCount == 0;
 }
 
+/// <summary>Grafo durável cuja revisão ainda coincide com a árvore publicada.</summary>
+public sealed record CurrentCodeGraph(CodeGraph Graph, CodeGraphSnapshot Snapshot);
+
 /// <summary>
 /// Deriva o grafo de código, guarda-o por projeto e alimenta o self-map de arquitetura com o que a
 /// derivação cobre (B6/F15).
@@ -54,6 +57,22 @@ public sealed class CodeGraphDerivationService(
         architecture ?? throw new ArgumentNullException(nameof(architecture));
 
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+
+    /// <summary>
+    /// Deriva um grafo transitório sem substituir o índice durável. É usado pelo gate pré-review
+    /// sobre a branch da tentativa: código ainda não integrado não pode se passar pelo estado
+    /// publicado do projeto.
+    /// </summary>
+    public Task<CodeGraphBuildResult> InspectAsync(
+        string projectId,
+        string rootPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectId);
+        return _index.BuildAsync(
+            new CodeGraphBuildRequest(projectId, rootPath),
+            cancellationToken);
+    }
 
     /// <summary>
     /// Deriva do zero e substitui o índice guardado do par projeto+linguagem.
@@ -120,9 +139,36 @@ public sealed class CodeGraphDerivationService(
     }
 
     /// <summary>
-    /// Escreve no self-map as dependências entre módulos que a derivação apurou. Idempotente: o id de
-    /// cada relação é determinístico a partir do par, então rodar duas vezes não duplica. Devolve
-    /// quantas relações passaram a existir.
+    /// Reusa o índice somente quando a revisão gravada coincide exatamente com a revisão publicada.
+    /// Nulo exige reconstrução; um índice velho nunca é apresentado como atual.
+    /// </summary>
+    public async Task<CurrentCodeGraph?> LoadCurrentAsync(
+        string tenantId,
+        string projectId,
+        string sourceRevision,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceRevision);
+        var snapshot = await _store
+            .GetSnapshotAsync(tenantId, projectId, _index.Language, cancellationToken)
+            .ConfigureAwait(false);
+        if (snapshot is null ||
+            !string.Equals(
+                snapshot.SourceRevision, sourceRevision, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var graph = await LoadAsync(tenantId, projectId, cancellationToken)
+            .ConfigureAwait(false);
+        return graph is null ? null : new CurrentCodeGraph(graph, snapshot);
+    }
+
+    /// <summary>
+    /// Sincroniza no self-map as dependências entre módulos que a derivação apurou. Idempotente: o id
+    /// de cada relação é determinístico a partir do par, então rodar duas vezes não duplica.
+    /// Relações de uma derivação anterior que já não existem no grafo são removidas; relações manuais
+    /// permanecem intocadas. Devolve quantas relações passaram a existir.
     /// </summary>
     public async Task<int> SyncSelfMapAsync(
         string tenantId,
@@ -144,8 +190,7 @@ public sealed class CodeGraphDerivationService(
             byName.TryAdd(element.Name, element.Id);
         }
 
-        var created = 0;
-        var now = _clock.UtcNow;
+        var desired = new Dictionary<string, (string SourceId, string TargetId)>(StringComparer.Ordinal);
         foreach (var (fromModule, toModule, _) in graph.DeriveModuleDependencies())
         {
             if (!TryResolve(byName, fromModule, out var sourceId) ||
@@ -157,6 +202,26 @@ public sealed class CodeGraphDerivationService(
             }
 
             var id = DeterministicId(sourceId, targetId);
+            desired.TryAdd(id, (sourceId, targetId));
+        }
+
+        var existing = await _architecture
+            .ListRelationshipsAsync(
+                tenantId, projectId, ArchitectureKinds.Implemented, null, 1000, cancellationToken)
+            .ConfigureAwait(false);
+        foreach (var relationship in existing)
+        {
+            if (IsCodeGraphDerived(relationship) && !desired.ContainsKey(relationship.Id))
+            {
+                await _architecture.DeleteRelationshipAsync(
+                    tenantId, relationship.Id, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        var created = 0;
+        var now = _clock.UtcNow;
+        foreach (var (id, endpoints) in desired)
+        {
             if (await _architecture.GetRelationshipAsync(tenantId, id, cancellationToken)
                     .ConfigureAwait(false) is not null)
             {
@@ -168,8 +233,8 @@ public sealed class CodeGraphDerivationService(
                     tenantId,
                     id,
                     projectId,
-                    sourceId,
-                    targetId,
+                    endpoints.SourceId,
+                    endpoints.TargetId,
                     "depends-on",
                     DerivedProperties,
                     ArchitectureKinds.Implemented,
@@ -185,6 +250,10 @@ public sealed class CodeGraphDerivationService(
 
         return created;
     }
+
+    private static bool IsCodeGraphDerived(ArchitectureRelationshipRecord relationship) =>
+        relationship.Properties.TryGetValue("derivedFrom", out var source) &&
+        string.Equals(source, "code-graph", StringComparison.Ordinal);
 
     /// <summary>
     /// Casa o módulo do código com o elemento do mapa. O nome do módulo é o do csproj

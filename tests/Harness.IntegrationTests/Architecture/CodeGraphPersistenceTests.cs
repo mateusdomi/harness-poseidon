@@ -98,6 +98,18 @@ public sealed class CodeGraphPersistenceTests
             // Igualdade de digest é a prova de que a ida e a volta não perderam nem inventaram nada.
             Assert.Equal(derived.Digest, reloaded.Digest);
             Assert.Equal(["T:App.Borda"], reloaded.DependentsOf("T:App.Nucleo"));
+
+            var service = new CodeGraphDerivationService(
+                new RoslynCodeGraphIndex(),
+                store,
+                new SqliteArchitectureStore(dispatcher),
+                new FixedClock(Now));
+            var current = await service.LoadCurrentAsync(
+                Tenant, Project, "abc1234", timeout.Token);
+            Assert.NotNull(current);
+            Assert.Equal(derived.Digest, current!.Graph.Digest);
+            Assert.Null(await service.LoadCurrentAsync(
+                Tenant, Project, "outra-revisao", timeout.Token));
         }
         finally
         {
@@ -170,6 +182,75 @@ public sealed class CodeGraphPersistenceTests
             var afterResync = await architecture.ListRelationshipsAsync(
                 Tenant, Project, ArchitectureKinds.Implemented, null, 100, timeout.Token);
             Assert.Single(afterResync);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task TheSelfMapRemovesAStaleDerivedDependencyButPreservesManualRelationships()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var (root, dispatcher) = await CreateDatabaseAsync(timeout.Token);
+        try
+        {
+            var architecture = new SqliteArchitectureStore(dispatcher);
+            await SeedElementsAsync(architecture, timeout.Token);
+            await architecture.CreateRelationshipAsync(
+                new ArchitectureRelationshipRecord(
+                    Tenant,
+                    "01ARZ3NDEKTSV4RRFFQ69G5FR0",
+                    Project,
+                    ProjectsElement,
+                    CoordinationElement,
+                    "uses",
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["declaredBy"] = "owner"
+                    },
+                    ArchitectureKinds.Implemented,
+                    1,
+                    null,
+                    null,
+                    null,
+                    Now,
+                    Now),
+                timeout.Token);
+            var service = new CodeGraphDerivationService(
+                new RoslynCodeGraphIndex(),
+                new SqliteCodeGraphStore(dispatcher),
+                architecture,
+                new FixedClock(Now));
+            var withDependency = CodeGraph.Create(
+                [
+                    new CodeGraphNode(
+                        "T:Coord.Politica", "Coord.Politica", CodeGraphNodeKind.Type,
+                        "src/coord.cs", "Harness.Modules.Coordination"),
+                    new CodeGraphNode(
+                        "T:Proj.Projeto", "Proj.Projeto", CodeGraphNodeKind.Type,
+                        "src/project.cs", "Harness.Modules.Projects")
+                ],
+                [new CodeGraphEdge(
+                    "T:Coord.Politica", "T:Proj.Projeto", CodeGraphEdgeKind.References)]);
+
+            Assert.Equal(
+                1,
+                await service.SyncSelfMapAsync(
+                    Tenant, Project, withDependency, timeout.Token));
+
+            var withoutDependency = CodeGraph.Create(withDependency.Nodes, []);
+            Assert.Equal(
+                0,
+                await service.SyncSelfMapAsync(
+                    Tenant, Project, withoutDependency, timeout.Token));
+
+            var relationships = await architecture.ListRelationshipsAsync(
+                Tenant, Project, ArchitectureKinds.Implemented, null, 100, timeout.Token);
+            var manual = Assert.Single(relationships);
+            Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FR0", manual.Id);
+            Assert.Equal("owner", manual.Properties["declaredBy"]);
         }
         finally
         {
