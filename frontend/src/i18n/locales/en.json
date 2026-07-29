@@ -1923,6 +1923,20 @@
       "body": "Select or create a project to see its documents.",
       "cta": "View projects"
     },
+    "intro": "These are the documents your team produced for this project: what is ready, what is still being written, and what is waiting for your approval.",
+    "tabs": {
+      "label": "Document sections",
+      "catalog": "Project documents",
+      "approvals": "Waiting for your approval"
+    },
+    "approvalsTab": {
+      "intro": "These are the decisions only you can make. Approving lets the team move to the next stage; rejecting sends the work back with your note."
+    },
+    "export": {
+      "open": "Download all",
+      "pending": "Preparing the package…",
+      "failed": "The package could not be prepared right now. Please try again shortly."
+    },
     "empty": {
       "title": "No documents in this project yet",
       "body": "Documents are the versioned project artifacts (product vision, specification, design, operations manual, notes and reports). Bruna and the team produce them along the work — each correction becomes a new version, with history and comparison.",
@@ -1953,13 +1967,13 @@
       "kind": "Category",
       "phase": "Stage",
       "state": "State",
-      "inconsistent": "Inconsistent",
-      "waiver": "With waiver",
+      "inconsistentTechnical": "Inconsistent",
+      "waiverTechnical": "With recorded exemption",
       "all": "All"
     },
     "flags": {
       "inconsistent": "Inconsistent",
-      "waiver": "Waiver"
+      "waiver": "Recorded exemption"
     },
     "catalog": {
       "label": "Document catalog",
@@ -1978,7 +1992,7 @@
       "version": "v{{version}}",
       "phase": "Stage: {{phase}}",
       "inconsistent": "Document marked as inconsistent: it conflicts with another artifact or with the project state.",
-      "waiver": "Waiver: {{reason}} (granted on {{date}})",
+      "waiver": "Recorded exemption: {{reason}} (granted on {{date}})",
       "contentTitle": "Content",
       "noContent": "Current version not found.",
       "startElaboration": "Start elaboration",

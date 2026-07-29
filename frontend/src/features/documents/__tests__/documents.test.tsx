@@ -6,6 +6,9 @@ import { createTestBundle } from '@/api/__tests__/test-utils';
 import DocumentsPage from '@/features/documents/pages/documents-page';
 import { diffLines } from '@/features/documents/lib/diff';
 import { renderWithApi } from '@/test/render-with-providers';
+import { useActiveProjectStore } from '@/stores/active-project-store';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 const fixtures = createTestBundle().fixtures.data;
 const specApi = fixtures.documents.find((doc) => doc.title === 'Spec da API v1')!;
@@ -23,6 +26,16 @@ function renderDocuments(initialEntry = '/documents') {
     bundle,
   );
 }
+
+// Modo de apresentação e seleção de projeto são estado de MÓDULO, persistido
+// entre testes: sem reset, o teste que sobe para Técnico contaminaria os
+// seguintes (o padrão do produto é Negócio), e a seleção de um projeto criado
+// num bundle anterior deixaria os próximos sem projeto ativo.
+beforeEach(() => {
+  usePresentationStore.setState({ modeByProfile: {} });
+  useActiveProjectStore.setState({ selectionsByProfile: {} });
+  useSessionStore.setState({ activeProfileId: null });
+});
 
 describe('diffLines', () => {
   it('marca linhas adicionadas, removidas e mantidas com numeração', () => {
@@ -328,13 +341,173 @@ describe('DocumentsPage', () => {
     expect(
       await screen.findByText('Ainda não há documentos neste projeto'),
     ).toBeInTheDocument();
-    // Orienta sobre a diferença da tela de Governança e sobre como surgem.
+    // Orienta sobre como os documentos surgem.
     expect(screen.getByText(/artefatos versionados do projeto/)).toBeInTheDocument();
+    // Os arquivos internos do sistema são assunto técnico (D9): no modo
+    // Negócio o atalho para Documentos de Governança não existe.
     expect(
-      screen.getByRole('link', { name: 'Ir para Documentos de Governança' }),
-    ).toHaveAttribute('href', '/governance-docs');
+      screen.queryByRole('link', { name: 'Ir para Documentos de Governança' }),
+    ).not.toBeInTheDocument();
     // E expõe as ações de criar/enviar o primeiro documento.
     expect(screen.getByRole('button', { name: 'Enviar arquivo' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Criar documento' }).length).toBeGreaterThan(0);
+  });
+
+  it('modo técnico recupera o atalho para os documentos de governança', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    const empty = await bundle.api.create('projects', {
+      organizationId: bundle.fixtures.data.organizations[0].id,
+      name: 'Projeto Vazio',
+      key: 'VAZIO',
+      description: 'Sem documentos ainda.',
+    });
+    useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
+    usePresentationStore
+      .getState()
+      .requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+
+    renderWithApi(
+      <MemoryRouter initialEntries={['/documents']}>
+        <Routes>
+          <Route path="/documents" element={<DocumentsPage />} />
+        </Routes>
+      </MemoryRouter>,
+      bundle,
+    );
+
+    await screen.findByLabelText('Projeto ativo');
+    await user.selectOptions(screen.getByLabelText('Projeto ativo'), empty.id);
+
+    expect(
+      await screen.findByRole('link', { name: 'Ir para Documentos de Governança' }),
+    ).toHaveAttribute('href', '/governance-docs');
+  });
+});
+
+/* ---- D9: a tela única e a aba onde a decisão do dono acontece ---- */
+
+describe('DocumentsPage — aba "Aguardando sua aprovação"', () => {
+  it('abre pela URL ?tab=approvals com a fila ordenada por prazo', async () => {
+    renderDocuments('/documents?tab=approvals');
+
+    const queue = await screen.findByRole('list', { name: 'Fila de aprovações' });
+    const items = within(queue).getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+    expect(within(items[0]).getByText('Aprovar publicação da suíte E2E')).toBeInTheDocument();
+    expect(within(items[1]).getByText('Aprovar Gate de Qualidade')).toBeInTheDocument();
+    expect(within(items[2]).getByText('Aprovar Spec da API v1')).toBeInTheDocument();
+
+    // A fila continua trazendo TODO tipo de decisão do projeto, com impacto e
+    // evidências — nada se perdeu na fusão das telas.
+    await userEvent.setup().click(
+      within(items[0]).getByRole('button', { name: 'Ver impacto e evidências' }),
+    );
+    expect(await within(items[0]).findByText('Impacto e evidências')).toBeInTheDocument();
+    expect(within(items[0]).getByText(/Suíte E2E do fluxo de aprovação/)).toBeInTheDocument();
+  });
+
+  it('a aba é alcançável por clique e o catálogo é o padrão', async () => {
+    const user = userEvent.setup();
+    renderDocuments();
+
+    // Padrão: catálogo selecionado, e a aba de aprovação anuncia 3 pendências.
+    const catalogTab = await screen.findByRole('tab', { name: /Documentos do projeto/ });
+    const approvalsTab = screen.getByRole('tab', { name: /Aguardando sua aprovação/ });
+    expect(catalogTab).toHaveAttribute('aria-selected', 'true');
+    expect(approvalsTab).toHaveAttribute('aria-selected', 'false');
+    expect(within(approvalsTab).getByText('3')).toBeInTheDocument();
+
+    await user.click(approvalsTab);
+    expect(await screen.findByRole('list', { name: 'Fila de aprovações' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: /Aguardando sua aprovação/ }),
+    ).toHaveAttribute('aria-selected', 'true');
+    // O catálogo sai de cena: uma tela, dois painéis.
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('aprova na própria aba e o item sai da fila; reprovar exige observação', async () => {
+    const user = userEvent.setup();
+    renderDocuments('/documents?tab=approvals');
+
+    let queue = await screen.findByRole('list', { name: 'Fila de aprovações' });
+    expect(within(queue).getAllByRole('listitem')).toHaveLength(3);
+
+    const firstItem = within(queue).getAllByRole('listitem')[0];
+    await user.click(within(firstItem).getByRole('button', { name: 'Reprovar' }));
+    await user.click(within(firstItem).getByRole('button', { name: 'Confirmar reprovação' }));
+    expect(
+      await within(firstItem).findByText('A observação é obrigatória para reprovar.'),
+    ).toBeInTheDocument();
+
+    await user.click(within(firstItem).getByRole('button', { name: 'Cancelar' }));
+    queue = screen.getByRole('list', { name: 'Fila de aprovações' });
+    await user.click(
+      within(within(queue).getAllByRole('listitem')[0]).getByRole('button', { name: 'Aprovar' }),
+    );
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('list', { name: 'Fila de aprovações' })).getAllByRole('listitem'),
+      ).toHaveLength(2);
+    });
+  });
+
+  it('filtra a fila por criticidade e mostra "Nada pendente" quando esvazia', async () => {
+    const user = userEvent.setup();
+    renderDocuments('/documents?tab=approvals');
+
+    await screen.findByRole('list', { name: 'Fila de aprovações' });
+    await user.selectOptions(screen.getByLabelText('Criticidade'), 'critical');
+
+    const queue = screen.getByRole('list', { name: 'Fila de aprovações' });
+    expect(within(queue).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(queue).getByText('Aprovar publicação da suíte E2E')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Prazo'), 'none');
+    expect(await screen.findByText('Nada pendente')).toBeInTheDocument();
+  });
+
+  it('approval.requested aparece na aba em tempo real e resolved remove', async () => {
+    const { bundle } = renderDocuments('/documents?tab=approvals');
+
+    const queue = await screen.findByRole('list', { name: 'Fila de aprovações' });
+    expect(within(queue).getAllByRole('listitem')).toHaveLength(3);
+
+    const project = bundle.fixtures.data.projects[0];
+    let createdId = '';
+    await act(async () => {
+      const created = await bundle.api.create('approvals', {
+        projectId: project.id,
+        title: 'Aprovar mudança de modo para autônomo',
+        description: 'A Bruna pediu confirmação para operar sem supervisão.',
+        requestedByAgentId: project.chiefAgentId,
+        priority: 'high',
+      });
+      createdId = created.id;
+    });
+
+    expect(
+      await screen.findByText('Aprovar mudança de modo para autônomo'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await bundle.api.resolveApproval(createdId, { decision: 'approved' });
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Aprovar mudança de modo para autônomo'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('inconsistência e dispensa são leitura técnica: não existem no modo Negócio', async () => {
+    renderDocuments();
+
+    expect((await screen.findAllByText('Spec da API v1')).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Inconsistentes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Com dispensa registrada')).not.toBeInTheDocument();
+    // E a palavra crua nunca chega ao dono.
+    expect(document.body.textContent).not.toMatch(/waiver/i);
   });
 });

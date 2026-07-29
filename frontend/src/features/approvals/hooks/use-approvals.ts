@@ -24,6 +24,9 @@ export const approvalKeys = {
 
 const APPROVALS_PREFIX = ['approvals'] as const;
 
+/** Prefixo das queries da tela de Documentos, que hospeda a fila (D9). */
+const DOCUMENTS_PREFIX = ['documents'] as const;
+
 /**
  * Fila consolidada: todas as aprovações + projetos e entidades de
  * contexto (gates, documentos, tarefas) para exibir impacto/evidências.
@@ -101,6 +104,12 @@ export function useResolveQueueApproval() {
   return useMutation({
     mutationFn: ({ approvalId, input }: { approvalId: Ulid; input: ResolveApprovalInput }) =>
       api.resolveApproval(approvalId, input),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: APPROVALS_PREFIX }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: APPROVALS_PREFIX });
+      // A fila agora vive DENTRO de Documentos (D9): aprovar muda o estado do
+      // documento, e o catálogo da aba vizinha tem de refletir isso na hora —
+      // sem isso o dono aprova e continua vendo "aguardando aprovação" ao lado.
+      void queryClient.invalidateQueries({ queryKey: DOCUMENTS_PREFIX });
+    },
   });
 }

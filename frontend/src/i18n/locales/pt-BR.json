@@ -1923,6 +1923,20 @@
       "body": "Selecione ou crie um projeto para ver os documentos.",
       "cta": "Ver projetos"
     },
+    "intro": "Aqui ficam os documentos que a equipe produziu para este projeto: o que já está pronto, o que ainda está sendo escrito e o que aguarda a sua aprovação.",
+    "tabs": {
+      "label": "Seções de documentos",
+      "catalog": "Documentos do projeto",
+      "approvals": "Aguardando sua aprovação"
+    },
+    "approvalsTab": {
+      "intro": "Estas são as decisões que só você pode tomar. Aprovar libera a equipe para avançar de etapa; reprovar devolve o trabalho com a sua observação."
+    },
+    "export": {
+      "open": "Baixar todos",
+      "pending": "Preparando o pacote…",
+      "failed": "Não foi possível preparar o pacote agora. Tente de novo em instantes."
+    },
     "empty": {
       "title": "Ainda não há documentos neste projeto",
       "body": "Documentos são os artefatos versionados do projeto (visão do produto, especificação, design, manual de operação, notas e relatórios). A Bruna e a equipe os produzem ao longo do trabalho — cada correção vira uma nova versão, com histórico e comparação.",
@@ -1953,13 +1967,13 @@
       "kind": "Categoria",
       "phase": "Etapa",
       "state": "Estado",
-      "inconsistent": "Inconsistentes",
-      "waiver": "Com waiver",
+      "inconsistentTechnical": "Inconsistentes",
+      "waiverTechnical": "Com dispensa registrada",
       "all": "Todas"
     },
     "flags": {
       "inconsistent": "Inconsistente",
-      "waiver": "Waiver"
+      "waiver": "Dispensa registrada"
     },
     "catalog": {
       "label": "Catálogo de documentos",
@@ -1978,7 +1992,7 @@
       "version": "v{{version}}",
       "phase": "Etapa: {{phase}}",
       "inconsistent": "Documento marcado como inconsistente: há conflito com outro artefato ou com o estado do projeto.",
-      "waiver": "Waiver: {{reason}} (concedido em {{date}})",
+      "waiver": "Dispensa registrada: {{reason}} (concedida em {{date}})",
       "contentTitle": "Conteúdo",
       "noContent": "Versão vigente não encontrada.",
       "startElaboration": "Iniciar elaboração",
