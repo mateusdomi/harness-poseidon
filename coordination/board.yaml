@@ -5,7 +5,7 @@ fases:
   F1:  { estado: em_andamento, agente: claude-a, iniciado_em: "2026-07-29T17:06:55Z", atualizado_em: "2026-07-29T17:06:55Z", nota: "lexico + modo de apresentacao + gate de vocabulario" }
   F2:  { estado: em_andamento, agente: codex-a, iniciado_em: "2026-07-29T17:11:59Z", atualizado_em: "2026-07-29T17:11:59Z", nota: "voz da Bruna e experiencia de chat full-stack; sem tocar planner nem guardas de turno" }
   F3:  { estado: em_andamento, agente: codex-b, iniciado_em: "2026-07-29T17:12:44Z", atualizado_em: "2026-07-29T17:12:44Z", nota: "dashboard de negocio: quadro da equipe, timeline, progresso unificado e aprovacoes pendentes" }
-  F4:  { estado: em_andamento, agente: claude-opus, iniciado_em: "2026-07-29T17:10:00Z", atualizado_em: "2026-07-29T17:10:00Z", nota: "shell de navegacao por modo + useActiveProject; vai tocar frontend/src/shared (navegacao) e rotas" }
+  F4:  { estado: em_andamento, agente: claude-opus, iniciado_em: "2026-07-29T17:10:00Z", atualizado_em: "2026-07-29T17:52:00Z", nota: "menu por modo + seletor global + redirect de aprovacoes prontos e verdes (689 unit + 81 playwright/axe); falta verify.sh completo e integrar" }
   F5:  { estado: em_andamento, agente: kimi-a, iniciado_em: "2026-07-29T17:15:35Z", atualizado_em: "2026-07-29T17:15:35Z", nota: "central de entregas (rastreamento) + prazo no intake + ZIP de documentos; migrations 0088-0089" }
   F6:  { estado: em_andamento, agente: antigravity-a, iniciado_em: "2026-07-29T17:18:17Z", atualizado_em: "2026-07-29T17:18:17Z", nota: "projetos: criacao por modo + bindings auditados; migrations 0092-0093" }
   F7:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
@@ -19,5 +19,10 @@ fases:
   F15: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F16: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F17: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
-achados: []
+achados:
+  - "F4/claude-opus: o modo de apresentacao (Negocio|Tecnico|Administrador) NAO existia no codigo — a arquitetura (secao 1) o supunha pronto em Configuracoes. A F4 entregou o fallback no formato que a F1 pediu: hook `usePresentationMode()` (frontend/src/features/shared/hooks) sobre `stores/presentation-mode-store.ts`, por perfil, padrao Negocio, com a troca no menu do perfil do shell. F1 (dona) pode absorver ou substituir; manter a assinatura do hook e os ids business|technical|administrator, que o menu, a busca global e os testes ja consomem."
+  - "F4/claude-opus: telas escondidas do modo Negocio continuam com rota registrada — esconder do menu nao invalida deep-link. Bloqueio duro por modo, se for desejado, e decisao de F1/F11; nao inventei."
+  - "F4/claude-opus: o redirect de /approvals aponta para /documents?tab=approvals; a aba ainda nao existe. F9 precisa ler o parametro `tab` ao unificar Documentos, senao o endereco antigo cai na tela sem abrir a aba."
+  - "F4/claude-opus: o Dashboard mantem seletor de projeto proprio ('Projeto ativo', #cockpit-project) alem do global do cabecalho. Migrar a tela e da F3 (a fronteira da F4 proibe): trocar por `useActiveProject()` e remover o seletor local."
+  - "F4/claude-opus: a rota raiz continua indo para /cockpit. D6 poe o Chat como primeiro item do menu (feito), mas mudar a aterrissagem para /chat mexe no fluxo de onboarding e em varios specs — recomendado, deixado fora do escopo minimo da fase."
 migrations_extra: {}
