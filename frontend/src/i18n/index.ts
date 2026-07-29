@@ -50,6 +50,14 @@ export function persistLanguage(language: SupportedLanguage): void {
   }
 }
 
+/**
+ * Chave ausente é defeito de produto: o i18next renderiza a própria chave e o
+ * dono lê `status.chiefTurnState.delegating` na tela. Em desenvolvimento ela
+ * estoura na hora; no build ela nem chega, porque o gate estático
+ * (`src/i18n/__tests__/i18n-missing-keys.test.ts`) quebra antes.
+ */
+const failFastOnMissingKey = import.meta.env.DEV && import.meta.env.MODE !== 'test';
+
 void i18n.use(initReactI18next).init({
   resources: {
     'pt-BR': { translation: mergeFeatureModules(ptBR, 'pt-BR') },
@@ -61,6 +69,14 @@ void i18n.use(initReactI18next).init({
     escapeValue: false, // React já faz escaping
   },
   returnNull: false,
+  saveMissing: failFastOnMissingKey,
+  missingKeyHandler: failFastOnMissingKey
+    ? (_languages, _namespace, key) => {
+        throw new Error(
+          `Chave i18n ausente: "${key}". Adicione-a nos dois idiomas antes de usar.`,
+        );
+      }
+    : undefined,
 });
 
 i18n.on('languageChanged', (language) => {

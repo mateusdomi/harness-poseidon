@@ -8,7 +8,7 @@
     "dev:real": "vite --config vite.real.config.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "check": "npm run lint && npm run typecheck && npm run test -- --run",
+    "check": "npm run lint && npm run typecheck && npm run gate:vocabulary && npm run test -- --run",
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "test": "vitest",
@@ -18,7 +18,8 @@
     "test:a11y": "playwright test e2e/a11y.spec.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "gate:vocabulary": "node scripts/check-business-vocabulary.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.1.0",

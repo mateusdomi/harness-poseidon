@@ -103,9 +103,9 @@ describe('CommandPalette', () => {
     renderPalette();
 
     await user.click(screen.getByRole('button', { name: /buscar telas/i }));
-    await user.type(screen.getByRole('combobox'), 'agentes');
+    await user.type(screen.getByRole('combobox'), 'equipe');
 
-    // Dois resultados: "Agentes" (nome) primeiro, "Orquestrador" (palavra-chave) depois.
+    // Dois resultados: "Equipe" (nome) primeiro, "Agentes" (palavra-chave) depois.
     const options = screen.getAllByRole('option');
     expect(options).toHaveLength(2);
     expect(options[0]).toHaveAttribute('aria-selected', 'true');
@@ -121,7 +121,7 @@ describe('CommandPalette', () => {
     await user.keyboard('{ArrowDown}');
     await user.keyboard('{Enter}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByTestId('location')).toHaveTextContent('/orchestrator');
+    expect(screen.getByTestId('location')).toHaveTextContent('/agents');
   });
 
   it('navega ao clicar em uma opção', async () => {
