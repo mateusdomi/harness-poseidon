@@ -34,3 +34,7 @@ src/Harness.Host/wwwroot/
 
 # SDK .NET e caches hermeticos baixados por tools/backend/install-dotnet.sh (~1 GB)
 tools/backend/.tooling/
+# Tambem na forma de SYMLINK: worktree nova aponta o SDK vendorizado para um clone
+# existente, e a regra com barra no fim NAO pega symlink (foi como um link com
+# caminho absoluto de uma maquina entrou no repositorio por um `git add -A`).
+tools/backend/.tooling
