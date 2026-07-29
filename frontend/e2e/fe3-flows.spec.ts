@@ -36,24 +36,14 @@ async function navTo(page: Page, name: string) {
 }
 
 /**
- * Troca o modo de apresentação pelo menu do perfil (F4). Telas técnicas e
- * administrativas só existem no menu fora do modo Negócio.
+ * Troca o modo de apresentacao em Configuracoes (F4/D7): telas tecnicas e
+ * administrativas so aparecem no menu fora do modo Negocio.
  */
-async function setPresentationMode(page: Page, label: RegExp) {
-  const viewport = page.viewportSize();
-  if (viewport && viewport.width < 1024) {
-    await page.getByRole('button', { name: 'Mais' }).click();
-  }
-  await page
-    .getByRole('button', { name: /perfil de/i })
-    .first()
-    .click();
-  await page.getByRole('menuitemradio', { name: label }).first().click();
-  await page.keyboard.press('Escape');
-  if (viewport && viewport.width < 1024) {
-    // O drawer tem dois "Fechar menu": o overlay e o X do cabeçalho.
-    await page.getByRole('button', { name: 'Fechar menu' }).last().click();
-  }
+async function setPresentationMode(page: Page, label: string) {
+  await page.goto('/settings');
+  const select = page.locator('#settings-presentation');
+  await expect(select).toBeEnabled();
+  await select.selectOption({ label });
 }
 
 /** Onboarding pela UI: sem perfil na sessão, o guard redireciona. */
@@ -100,7 +90,7 @@ test.describe('Gate FE-3 — PO Assistant', () => {
   test('analisar texto, ver painéis e criar demanda estruturada', async ({ page }) => {
     await completeOnboarding(page);
     // Assistente de PO só existe no modo Administrador (D7).
-    await setPresentationMode(page, /Administrador/);
+    await setPresentationMode(page, 'Administrador');
     await navTo(page, 'Assistente de PO');
     await expect(page.getByRole('heading', { name: 'Assistente de PO' })).toBeVisible();
 
