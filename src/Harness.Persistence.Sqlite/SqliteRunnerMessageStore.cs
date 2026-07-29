@@ -203,12 +203,13 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
         command.CommandText =
             """
             INSERT INTO runner_attempts
-                (attempt_id, runner_id, last_sequence, heartbeat_count, completed, inbox_count, version, updated_at)
+                (attempt_id, runner_id, last_sequence, heartbeat_count, completed, inbox_count, version, updated_at, fencing_token)
             VALUES
-                ($attemptId, $runnerId, $sequence, $heartbeatCount, $completed, $inboxCount, 1, $updatedAt);
+                ($attemptId, $runnerId, $sequence, $heartbeatCount, $completed, $inboxCount, 1, $updatedAt, $fencingToken);
             """;
         Add(command, "$attemptId", message.AttemptId);
         Add(command, "$runnerId", message.RunnerId);
+        Add(command, "$fencingToken", message.FencingToken);
         Add(command, "$sequence", message.Sequence);
         Add(command, "$heartbeatCount", heartbeatCount);
         Add(command, "$completed", completed ? 1 : 0);
@@ -233,7 +234,9 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
         command.CommandText =
             """
             UPDATE runner_attempts
-            SET last_sequence = $sequence,
+            SET runner_id = $runnerId,
+                fencing_token = MAX(fencing_token, $fencingToken),
+                last_sequence = $sequence,
                 heartbeat_count = $heartbeatCount,
                 completed = $completed,
                 inbox_count = $inboxCount,
@@ -242,6 +245,8 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
             WHERE attempt_id = $attemptId;
             """;
         Add(command, "$attemptId", message.AttemptId);
+        Add(command, "$runnerId", message.RunnerId);
+        Add(command, "$fencingToken", message.FencingToken);
         Add(command, "$sequence", message.Sequence);
         Add(command, "$heartbeatCount", heartbeatCount);
         Add(command, "$completed", completed ? 1 : 0);
@@ -314,6 +319,7 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
     {
         string runnerId;
         long lastSequence;
+        long fencingToken;
         int heartbeatCount;
         bool completed;
         int inboxCount;
@@ -323,7 +329,7 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
             command.Transaction = transaction;
             command.CommandText =
                 """
-                SELECT runner_id, last_sequence, heartbeat_count, completed, inbox_count, version
+                SELECT runner_id, last_sequence, heartbeat_count, completed, inbox_count, version, fencing_token
                 FROM runner_attempts
                 WHERE attempt_id = $attemptId;
                 """;
@@ -340,6 +346,7 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
             completed = reader.GetBoolean(3);
             inboxCount = reader.GetInt32(4);
             version = reader.GetInt64(5);
+            fencingToken = reader.GetInt64(6);
         }
 
         var checkpoints = new List<string>();
@@ -379,7 +386,8 @@ public sealed class SqliteRunnerMessageStore : IRunnerMessageStore, IAsyncDispos
             completed,
             inboxCount,
             outboxCount,
-            version);
+            version,
+            fencingToken);
     }
 
     private static void Add(SqliteCommand command, string name, object value) =>

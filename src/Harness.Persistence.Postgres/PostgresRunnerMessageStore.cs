@@ -56,8 +56,8 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
                 transaction,
                 """
                 INSERT INTO harness.runner_attempts
-                    (attempt_id, runner_id, last_sequence, heartbeat_count, completed, inbox_count, version, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, 1, $7);
+                    (attempt_id, runner_id, last_sequence, heartbeat_count, completed, inbox_count, version, updated_at, fencing_token)
+                VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8);
                 """,
                 cancellationToken,
                 Text(message.AttemptId),
@@ -66,7 +66,8 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
                 Integer(heartbeatCount),
                 Boolean(completed),
                 Integer(inboxCount),
-                Timestamp(occurredAt));
+                Timestamp(occurredAt),
+                Bigint(message.FencingToken));
         }
         else
         {
@@ -80,7 +81,9 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
                     completed = $3,
                     inbox_count = $4,
                     version = $5,
-                    updated_at = $6
+                    updated_at = $6,
+                    runner_id = $8,
+                    fencing_token = GREATEST(fencing_token, $9)
                 WHERE attempt_id = $7;
                 """,
                 cancellationToken,
@@ -90,7 +93,9 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
                 Integer(inboxCount),
                 Bigint(version),
                 Timestamp(occurredAt),
-                Text(message.AttemptId));
+                Text(message.AttemptId),
+                Text(message.RunnerId),
+                Bigint(message.FencingToken));
         }
 
         if (message.Type == RunnerMessageTypes.Checkpoint)
@@ -193,6 +198,7 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
     {
         string runnerId;
         long lastSequence;
+        long fencingToken;
         int heartbeatCount;
         bool completed;
         int inboxCount;
@@ -202,7 +208,7 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
             command.Transaction = transaction;
             command.CommandText =
                 """
-                SELECT runner_id, last_sequence, heartbeat_count, completed, inbox_count, version
+                SELECT runner_id, last_sequence, heartbeat_count, completed, inbox_count, version, fencing_token
                 FROM harness.runner_attempts
                 WHERE attempt_id = $1;
                 """;
@@ -219,6 +225,7 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
             completed = reader.GetBoolean(3);
             inboxCount = reader.GetInt32(4);
             version = reader.GetInt64(5);
+            fencingToken = reader.GetInt64(6);
         }
 
         var checkpoints = new List<string>();
@@ -258,7 +265,8 @@ public sealed class PostgresRunnerMessageStore(NpgsqlDataSource dataSource) : IR
             completed,
             inboxCount,
             outboxCount,
-            version);
+            version,
+            fencingToken);
     }
 
     private static async Task ExecuteAsync(

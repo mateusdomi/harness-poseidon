@@ -9,4 +9,6 @@ public sealed record RunnerAttemptState(
     bool Completed,
     int InboxCount,
     int OutboxCount,
-    long Version);
+    long Version,
+    /// <summary>Fencing do despacho que autoriza esta tentativa. 0 = tentativa anterior ao B5.</summary>
+    long FencingToken = 0);

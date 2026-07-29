@@ -115,6 +115,9 @@ public sealed class RunnerIpcMessageProcessor(IRunnerMessageStore store, IClock 
         RunnerMessageRejection.RunnerOwnerConflict => Conflict(
             "runner_owner_conflict",
             "The attempt is already owned by a different runner."),
+        RunnerMessageRejection.StaleFencingToken => Conflict(
+            "stale_fencing_token",
+            "The message carries a fencing token superseded by the active dispatch."),
         _ => throw new ArgumentOutOfRangeException(
             nameof(result),
             result.Rejection,
