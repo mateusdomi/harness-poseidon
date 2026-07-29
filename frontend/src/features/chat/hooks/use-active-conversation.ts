@@ -9,7 +9,10 @@ import {
 
 export interface ActiveConversationResult {
   conversation: Conversation | null;
-  selectConversation: (conversationId: Ulid, options?: { replace?: boolean }) => void;
+  selectConversation: (
+    conversation: Ulid | Conversation,
+    options?: { replace?: boolean },
+  ) => void;
   requestedConversationUnavailable: boolean;
 }
 
@@ -51,12 +54,17 @@ export function useActiveConversation(
     : (routeConversation ?? storedConversation ?? principalConversation);
 
   const selectConversation = useCallback(
-    (nextConversationId: Ulid, options?: { replace?: boolean }) => {
+    (nextConversation: Ulid | Conversation, options?: { replace?: boolean }) => {
       if (!profileId || !projectId) return;
-      const target = conversations.find(
-        (candidate) =>
-          candidate.id === nextConversationId && candidate.projectId === projectId,
-      );
+      const target =
+        typeof nextConversation === 'string'
+          ? conversations.find(
+              (candidate) =>
+                candidate.id === nextConversation && candidate.projectId === projectId,
+            )
+          : nextConversation.projectId === projectId
+            ? nextConversation
+            : undefined;
       if (!target) return;
       remember(profileId, projectId, target.id);
       navigate(`/chat/${target.id}`, { replace: options?.replace ?? false });

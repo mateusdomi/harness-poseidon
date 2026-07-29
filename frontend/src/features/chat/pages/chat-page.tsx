@@ -164,7 +164,7 @@ export default function ChatPage() {
         projectId,
         title: t('chat.conversation.newTitle'),
       });
-      selectConversation(created.id);
+      selectConversation(created);
       // A mutation de envio é ligada ao id da conversa; para a recém-criada
       // enviamos direto pelo cliente, mantendo o mesmo contrato (modelo/esforço).
       setPendingSend({ conversationId: created.id, content: withAttachments, selection });
@@ -179,7 +179,7 @@ export default function ChatPage() {
       projectId,
       title: t('chat.conversation.newTitle'),
     });
-    selectConversation(created.id);
+    selectConversation(created);
   }
 
   // Prontidão para EXECUTAR vem do read model canônico (§13): quem decide se

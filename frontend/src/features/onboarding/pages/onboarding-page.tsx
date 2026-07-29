@@ -25,7 +25,7 @@ export default function OnboardingPage() {
   const profilesQuery = useProfiles();
   const [creating, setCreating] = useState(false);
 
-  const from = (location.state as { from?: string } | null)?.from ?? '/cockpit';
+  const from = (location.state as { from?: string } | null)?.from ?? '/chat';
 
   function handleProfileReady(profile: Profile) {
     setActiveProfile(profile.id);

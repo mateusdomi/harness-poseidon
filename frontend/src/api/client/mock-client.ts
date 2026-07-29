@@ -157,11 +157,109 @@ export function createMockStore(fixtures: FixtureData): Store {
   return store;
 }
 
-const CHAT_REPLY_CHUNKS = [
-  'Entendi o contexto. ',
-  'Vou quebrar isso em tarefas e delegar aos especialistas. ',
-  'Assim que houver evidências nas tentativas, te atualizo por aqui.',
+const DEFAULT_CHAT_REPLY_CHUNKS = [
+  'Entendi. ',
+  'Vou organizar o pedido com a equipe e priorizar o próximo passo. ',
+  'Atualizo você quando houver um resultado ou uma decisão que realmente precise de você.',
 ];
+
+function businessChatReply(
+  content: string,
+  project: Project,
+  store: Store,
+): string[] {
+  const normalized = content.trim().toLocaleLowerCase();
+  const inEnglish =
+    normalized.includes('how the project is progressing') ||
+    normalized.includes('plan a new delivery');
+  if (
+    normalized.includes('como o projeto está avançando') ||
+    normalized.includes('how the project is progressing')
+  ) {
+    const workflow = [...store.workflows.values()].find(
+      (candidate) => candidate.projectId === project.id,
+    );
+    const run = workflow
+      ? [...store['workflow-runs'].values()]
+          .filter((candidate) => candidate.workflowId === workflow.id)
+          .sort((left, right) => right.startedAt.localeCompare(left.startedAt))[0]
+      : undefined;
+    const phase = run
+      ? [...store.phases.values()].find(
+          (candidate) => candidate.runId === run.id && candidate.state === 'active',
+        )
+      : undefined;
+    const tasks = [...store.tasks.values()].filter(
+      (candidate) => candidate.projectId === project.id,
+    );
+    const completed = tasks.filter((task) => task.state === 'done').length;
+    const inProgress = tasks.filter((task) =>
+      ['development', 'review', 'corrections', 'testsGates'].includes(task.state),
+    ).length;
+    const blocked = tasks.filter((task) => task.state === 'blocked').length;
+    const decisions = [...store.approvals.values()].filter(
+      (approval) => approval.projectId === project.id && approval.state === 'pending',
+    ).length;
+    if (inEnglish) {
+      const situation =
+        project.state === 'paused'
+          ? `${project.name} is paused${phase ? ` at the ${phase.name} stage` : ''}. `
+          : phase
+            ? `${project.name} is at the ${phase.name} stage. `
+            : `${project.name} is still preparing the first stage overview. `;
+      const activity =
+        `The team has completed ${completed} activit${completed === 1 ? 'y' : 'ies'} and has ` +
+        `${inProgress} in progress. `;
+      const attention =
+        blocked > 0
+          ? `${blocked} impediment${blocked === 1 ? '' : 's'} need${blocked === 1 ? 's' : ''} attention. `
+          : 'No impediment requires action now. ';
+      const decision =
+        decisions > 0
+          ? `${decisions} decision${decisions === 1 ? '' : 's'} ${decisions === 1 ? 'is' : 'are'} waiting for your approval.`
+          : 'No decision from you is pending right now.';
+      return [situation, activity, attention + decision];
+    }
+    const situation =
+      project.state === 'paused'
+        ? `O projeto ${project.name} está pausado${phase ? ` na etapa de ${phase.name}` : ''}. `
+        : phase
+          ? `O projeto ${project.name} está na etapa de ${phase.name}. `
+          : `O projeto ${project.name} ainda está preparando o acompanhamento da primeira etapa. `;
+    const activity =
+      `A equipe já concluiu ${completed} atividade${completed === 1 ? '' : 's'} e mantém ` +
+      `${inProgress} em andamento. `;
+    const attention =
+      blocked > 0
+        ? `${blocked} impedimento${blocked === 1 ? '' : 's'} precisa${blocked === 1 ? '' : 'm'} de atenção. `
+        : 'Nenhum impedimento exige ação agora. ';
+    const decision =
+      decisions > 0
+        ? `${decisions} decisão${decisions === 1 ? '' : 'ões'} aguarda${decisions === 1 ? '' : 'm'} sua aprovação.`
+        : 'Nenhuma decisão sua está pendente neste momento.';
+    return [situation, activity, attention + decision];
+  }
+
+  if (
+    normalized.includes('planejar uma nova entrega') ||
+    normalized.includes('plan a new delivery')
+  ) {
+    if (inEnglish) {
+      return [
+        'Of course. ',
+        'Tell me, in your own words, what outcome you would like to achieve. ',
+        'You do not need to work out the technical details — I will organize the rest with the team and return with a clear proposal. ✨',
+      ];
+    }
+    return [
+      'Claro. ',
+      'Me conte, com suas palavras, qual resultado você gostaria de alcançar. ',
+      'Não precisa pensar nos detalhes técnicos — eu organizo o restante com a equipe e volto com uma proposta clara. ✨',
+    ];
+  }
+
+  return DEFAULT_CHAT_REPLY_CHUNKS;
+}
 
 /**
  * Gatilho determinístico (mock/E2E): mensagem contendo `[plan]` faz o chefe
@@ -989,13 +1087,14 @@ export class MockApiClient implements ApiClient {
     });
 
     const turnId = this.#options.nextId();
+    const replyChunks = businessChatReply(parsed.content, project, this.#store);
     const replyMessage = {
       id: this.#options.nextId(),
       conversationId: conversation.id,
       authorRole: 'chief' as const,
       authorProfileId: null,
       authorAgentId: project.chiefAgentId,
-      content: CHAT_REPLY_CHUNKS.join(''),
+      content: replyChunks.join(''),
       tokenCount: 128,
       createdAt: this.#options.now(),
     };
@@ -1004,7 +1103,7 @@ export class MockApiClient implements ApiClient {
       conversationId: conversation.id,
       turnId,
       agentId: project.chiefAgentId,
-      chunks: CHAT_REPLY_CHUNKS,
+      chunks: replyChunks,
       messageId: replyMessage.id,
       chunkDelayMs: this.#options.chatChunkDelayMs,
       onCompleted: () => {
@@ -1987,7 +2086,7 @@ export class MockApiClient implements ApiClient {
    * títulos fixos, intervalos fixos, sem aleatoriedade.
    */
   #scheduleChiefPlan(project: Project, content: string): void {
-    const baseDelayMs = this.#options.chatChunkDelayMs * (CHAT_REPLY_CHUNKS.length + 2);
+    const baseDelayMs = this.#options.chatChunkDelayMs * (DEFAULT_CHAT_REPLY_CHUNKS.length + 2);
     const objective = content.replace(CHIEF_PLAN_TRIGGER, '').trim() || content;
     const stepMs = 700;
 

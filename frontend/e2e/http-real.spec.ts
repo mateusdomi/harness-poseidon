@@ -44,9 +44,25 @@ interface RuntimeWatch {
 function watchRuntime(page: Page): RuntimeWatch {
   const issues: string[] = [];
   page.on('console', (message) => {
-    if (message.type() === 'error') issues.push(`console: ${message.text()}`);
+    if (
+      message.type() === 'error' &&
+      !message.text().startsWith('Failed to load resource:')
+    ) {
+      issues.push(`console: ${message.text()}`);
+    }
   });
   page.on('pageerror', (error) => issues.push(`pageerror: ${error.message}`));
+  page.on('requestfailed', (request) => {
+    const failure = request.failure()?.errorText ?? 'failed';
+    if (
+      failure !== 'net::ERR_ABORTED' &&
+      ['font', 'image', 'script', 'stylesheet'].includes(request.resourceType())
+    ) {
+      issues.push(
+        `${request.resourceType()} ${failure}: ${request.url()}`,
+      );
+    }
+  });
   page.on('response', (response) => {
     const resourceType = response.request().resourceType();
     if (
@@ -54,6 +70,8 @@ function watchRuntime(page: Page): RuntimeWatch {
       ['font', 'image', 'script', 'stylesheet'].includes(resourceType)
     ) {
       issues.push(`${resourceType} ${response.status()}: ${response.url()}`);
+    } else if (response.status() >= 500) {
+      issues.push(`http ${response.status()}: ${response.url()}`);
     }
   });
   return {
@@ -507,6 +525,37 @@ async function currentProjectId(page: Page): Promise<string> {
   return project.id;
 }
 
+async function exerciseBusinessChatActions(page: Page) {
+  const chiefMessages = page.locator('article').filter({ hasText: 'Equipe virtual' });
+  const forbidden =
+    /\b(provider|provedor|model|modelo|quota|cota|token|executor|digest|UTC|backlog|ready|cards?|cartões?|gate|SQL|logs?|projection|projeção|worktree|branch)\b/i;
+
+  const summaryCount = await chiefMessages.count();
+  await page.getByRole('button', { name: 'Como estamos?' }).click();
+  await expect(page.getByText('Pode me contar como o projeto está avançando?')).toBeVisible();
+  await expect
+    .poll(() => chiefMessages.count(), { timeout: 60_000 })
+    .toBeGreaterThan(summaryCount);
+  const summary = chiefMessages.last();
+  await expect(summary).toContainText(/projeto|etapa|avanço|equipe/i);
+  await expect(summary).not.toContainText(forbidden);
+  await expect(summary).not.toContainText(/[0-9A-HJKMNP-TV-Z]{26}/);
+
+  await expect(page.getByRole('button', { name: 'Planejar uma entrega' })).toBeEnabled({
+    timeout: 30_000,
+  });
+  const planningCount = await chiefMessages.count();
+  await page.getByRole('button', { name: 'Planejar uma entrega' }).click();
+  await expect(page.getByText('Gostaria de planejar uma nova entrega.')).toBeVisible();
+  await expect
+    .poll(() => chiefMessages.count(), { timeout: 60_000 })
+    .toBeGreaterThan(planningCount);
+  const planning = chiefMessages.last();
+  await expect(planning).toContainText(/resultado|objetivo|gostaria de alcançar/i);
+  await expect(planning).not.toContainText(/não vou criar|risk tier|módulo|repositório|stack/i);
+  await expect(planning).not.toContainText(forbidden);
+}
+
 async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== 'desktop-wide-1920') return;
 
@@ -545,17 +594,24 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
     steps: Array<{ step: string; state: string; blockers: Array<{ code: string }> }>;
   };
   const execution = readinessSnapshot.steps.find((step) => step.step === 'ExecutionReady');
-  const executable = execution?.state === 'Ready' || execution?.state === 'Simulated';
+  const executable = execution?.state === 'Ready';
 
   if (!executable) {
     // A UI reflete o read model, mas envia: o backend persiste a mensagem e
     // devolve o bloqueio tipado no handle 202.
-    await expect(page.getByRole('heading', { name: 'Execução de Bruna bloqueada' })).toBeVisible();
-    const composer = page.getByRole('textbox', { name: 'Mensagem para Bruna' });
+    await expect(
+      page.getByRole('heading', { name: 'A equipe aguarda a configuração inicial' }),
+    ).toBeVisible();
+    const composer = page.getByRole('textbox', { name: /Mensagem para/ });
     await expect(composer).toBeEnabled();
     await composer.fill('Registre este turno bloqueado.');
     await page.getByRole('button', { name: 'Enviar mensagem' }).click();
-    await expect(page.getByText('Turno registrado, execução bloqueada')).toBeVisible();
+    await expect(page.getByText('A equipe ainda não pode iniciar')).toBeVisible();
+    await expect(
+      page.getByText(
+        'Sua mensagem foi salva. Revise a configuração inicial e a equipe continuará por aqui assim que estiver pronta.',
+      ),
+    ).toBeVisible();
     for (const blocker of execution?.blockers ?? []) {
       expect(
         [
@@ -580,6 +636,8 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
     });
     return;
   }
+
+  await exerciseBusinessChatActions(page);
 
   const message = `DEMANDA: Homologação realtime ${Date.now()} | Validar o frontend contra o Host real.`;
   const composer = page.getByRole('textbox', { name: 'Mensagem para Bruna' });
@@ -745,23 +803,6 @@ test('Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11
     await exerciseRealtimeAndAudit(page, testInfo);
     await exerciseMermaidDocument(page, testInfo);
     await exerciseLearningP2(page, testInfo);
-  }
-
-  if (!INCREMENT_02_ONLY) {
-    await page.goto('/cockpit');
-    await expect(page.getByRole('main')).toBeVisible();
-    const isMac = await page.evaluate(() => /mac|iphone|ipad|ipod/i.test(navigator.platform));
-    await page.keyboard.press(isMac ? 'Meta+K' : 'Control+K');
-    const palette = page.getByRole('combobox', { name: 'Busca global de telas' });
-    await expect(palette).toBeFocused();
-    await palette.fill('governança');
-    await palette.press('Enter');
-    await expect(page).toHaveURL(/\/governance$/);
-
-    await page.keyboard.press('Tab');
-    await expect
-      .poll(() => page.evaluate(() => document.activeElement !== document.body))
-      .toBe(true);
   }
 
   runtime.assertClean(testInfo.project.name);

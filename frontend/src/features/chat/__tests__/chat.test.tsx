@@ -287,7 +287,7 @@ describe('ChatPage', () => {
     await waitFor(
       () => {
         expect(
-          screen.getByText(/Entendi o contexto\. Vou quebrar isso em tarefas/),
+          screen.getByText(/Entendi\. Vou organizar o pedido com a equipe/),
         ).toBeInTheDocument();
         // Turno encerrado: indicador some.
         expect(screen.queryByText(/bruna está coordenando/i)).not.toBeInTheDocument();
