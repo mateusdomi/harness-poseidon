@@ -1,0 +1,23 @@
+# Quadro de coordenacao da campanha multiagente (poseidon-arquitetura-FINAL-v6).
+# O push do Git e o lock: reivindique editando SO este arquivo e empurrando para develop.
+# estados: livre | em_andamento | concluida | bloqueada
+fases:
+  F1:  { estado: em_andamento, agente: claude-a, iniciado_em: "2026-07-29T17:06:55Z", atualizado_em: "2026-07-29T17:06:55Z", nota: "lexico + modo de apresentacao + gate de vocabulario" }
+  F2:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F3:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F4:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F5:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F6:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F7:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F8:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F9:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F10: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F11: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F12: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F13: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F14: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F15: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F16: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F17: { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+achados: []
+migrations_extra: {}
