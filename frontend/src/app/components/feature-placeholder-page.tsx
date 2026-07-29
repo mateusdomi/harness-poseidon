@@ -24,7 +24,7 @@ export function FeaturePlaceholderPage({ featureKey }: { featureKey: string }) {
           <CardTitle>{t('placeholder.statesTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {PLANNED_STATES.map((state) => (
               <li
                 key={state}

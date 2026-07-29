@@ -261,12 +261,12 @@ function Header() {
       >
         <Menu aria-hidden="true" />
       </Button>
-      <div className="hidden sm:block lg:hidden">
+      <div className="hidden md:block lg:hidden">
         <BrandMark />
       </div>
       {showProjectContext && <HeaderContext />}
       <div className="ml-auto flex items-center gap-1">
-        <div className="hidden sm:block">
+        <div className="hidden md:block">
           <CommandPalette />
         </div>
         <div className="hidden md:block">

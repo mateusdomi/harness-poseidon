@@ -132,7 +132,7 @@ export function CommandPalette() {
         <ModalDialog
           label={t('shell.search.label')}
           onClose={close}
-          className="max-w-xl gap-3 self-start mt-[12vh] p-4 sm:p-4"
+          className="mt-[12vh] max-w-xl self-start gap-3 p-4"
           initialFocusRef={inputRef}
         >
           <div className="flex items-center gap-2">
@@ -160,7 +160,7 @@ export function CommandPalette() {
               autoComplete="off"
               className="h-11 w-full rounded-md border border-border-strong bg-surface px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             />
-            <kbd className="hidden shrink-0 rounded border border-border bg-surface-elevated px-1.5 py-0.5 text-xs text-foreground-muted sm:inline">
+            <kbd className="hidden shrink-0 rounded border border-border bg-surface-elevated px-1.5 py-0.5 text-xs text-foreground-muted md:inline">
               {shortcutHint}
             </kbd>
           </div>

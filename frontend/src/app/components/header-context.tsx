@@ -34,7 +34,7 @@ export function HeaderContext() {
       <div
         role="status"
         aria-label={t('shell.project.loading')}
-        className="min-w-0 flex-1 sm:max-w-64"
+        className="min-w-0 flex-1 md:max-w-64"
       >
         <Skeleton className="h-9 w-full" />
       </div>
@@ -57,7 +57,7 @@ export function HeaderContext() {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xl">
+    <div className="flex min-w-0 flex-1 items-center gap-2 md:max-w-xl">
       <label htmlFor="global-project-selector" className="sr-only">
         {t('shell.project.label')}
       </label>
@@ -65,7 +65,7 @@ export function HeaderContext() {
         id="global-project-selector"
         aria-invalid={selectionUnavailable || undefined}
         aria-describedby={selectionUnavailable ? 'global-project-unavailable' : undefined}
-        className="min-w-0 flex-1 truncate sm:max-w-64"
+        className="min-w-0 flex-1 truncate md:max-w-64"
         value={activeProject?.id ?? ''}
         disabled={projects.length === 0}
         onChange={(event) => setActiveProject(event.target.value)}

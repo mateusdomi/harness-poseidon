@@ -29,7 +29,7 @@ export function RouteSkeleton() {
     <div className="flex flex-col gap-6" role="status" aria-busy="true">
       <Skeleton className="h-8 w-48" />
       <Skeleton className="h-4 w-full max-w-prose" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-24 w-full" />
