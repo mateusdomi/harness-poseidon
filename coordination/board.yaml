@@ -6,7 +6,7 @@ fases:
   F2:  { estado: em_andamento, agente: codex-a, iniciado_em: "2026-07-29T17:11:59Z", atualizado_em: "2026-07-29T17:11:59Z", nota: "voz da Bruna e experiencia de chat full-stack; sem tocar planner nem guardas de turno" }
   F3:  { estado: em_andamento, agente: codex-b, iniciado_em: "2026-07-29T17:12:44Z", atualizado_em: "2026-07-29T17:12:44Z", nota: "dashboard de negocio: quadro da equipe, timeline, progresso unificado e aprovacoes pendentes" }
   F4:  { estado: em_andamento, agente: claude-opus, iniciado_em: "2026-07-29T17:10:00Z", atualizado_em: "2026-07-29T17:10:00Z", nota: "shell de navegacao por modo + useActiveProject; vai tocar frontend/src/shared (navegacao) e rotas" }
-  F5:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
+  F5:  { estado: em_andamento, agente: kimi-a, iniciado_em: "2026-07-29T17:15:35Z", atualizado_em: "2026-07-29T17:15:35Z", nota: "central de entregas (rastreamento) + prazo no intake + ZIP de documentos; migrations 0088-0089" }
   F6:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F7:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
   F8:  { estado: livre, agente: null, iniciado_em: null, atualizado_em: null, nota: "" }
