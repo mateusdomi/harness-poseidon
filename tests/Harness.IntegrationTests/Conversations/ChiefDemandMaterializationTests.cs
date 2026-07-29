@@ -118,9 +118,12 @@ public sealed class ChiefDemandMaterializationTests
                         demand => demand.Title == "Exportar relatório de auditoria");
                     Assert.Equal("Exportar relatório de auditoria", export.Description);
 
-                    var projectStream = (await client.GetFromJsonAsync<EventStreamSnapshot>(
-                        $"/api/v1/event-streams/snapshot?stream=project:{projectId}",
-                        timeout.Token))!;
+                    // Esperar `chat.turnCompleted` NÃO garante `demand.created`: são dois
+                    // streams (conversation:… e project:…) despachados de forma independente.
+                    // Sem esta espera, a asserção corria contra o despacho e reprovava sob
+                    // contenção — com as duas demandas já duráveis no banco, acima.
+                    var projectStream = await WaitForProjectEventsAsync(
+                        client, projectId, "demand.created", 2, timeout.Token);
                     Assert.Equal(
                         2,
                         projectStream.Delta.Count(item => item.Type == "demand.created"));
@@ -155,6 +158,35 @@ public sealed class ChiefDemandMaterializationTests
                 Directory.Delete(root, true);
             }
         }
+    }
+
+    /// <summary>
+    /// Espera N eventos de um tipo no stream do PROJETO. O turno concluído chega no
+    /// stream da conversa; a materialização das demandas chega no do projeto, e a
+    /// ordem entre os dois não é garantida.
+    /// </summary>
+    private static async Task<EventStreamSnapshot> WaitForProjectEventsAsync(
+        HttpClient client,
+        string projectId,
+        string type,
+        int count,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 200; attempt++)
+        {
+            var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>(
+                $"/api/v1/event-streams/snapshot?stream=project:{projectId}",
+                cancellationToken);
+            if (snapshot is not null &&
+                snapshot.Delta.Count(item => item.Type == type) >= count)
+            {
+                return snapshot;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken);
+        }
+
+        throw new TimeoutException($"Project events {type} were not dispatched.");
     }
 
     private static async Task WaitForTurnAsync(
