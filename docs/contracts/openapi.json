@@ -197,6 +197,65 @@
                 }
             }
         },
+        "/api/v1/projects/{id}/prototyping-stage": {
+            "get": {
+                "tags": [
+                    "prototyping"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PrototypingStageContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{projectId}/run-environment/cleanup": {
             "post": {
                 "tags": [
@@ -32193,6 +32252,69 @@
                     }
                 }
             },
+            "PrototypingStageContract": {
+                "required": [
+                    "projectId",
+                    "state",
+                    "blocksAdvance",
+                    "reasonCode",
+                    "businessMessage",
+                    "entryPath",
+                    "inherited",
+                    "questions",
+                    "bundleReferenceId",
+                    "prototypingMode",
+                    "waiverReason"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "blocksAdvance": {
+                        "type": "boolean"
+                    },
+                    "reasonCode": {
+                        "type": "string"
+                    },
+                    "businessMessage": {
+                        "type": "string"
+                    },
+                    "entryPath": {
+                        "type": "string"
+                    },
+                    "inherited": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "bundleReferenceId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "prototypingMode": {
+                        "type": "string"
+                    },
+                    "waiverReason": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
             "PrototypingWaiverContract": {
                 "required": [
                     "reason",
@@ -36068,6 +36190,9 @@
             "name": "agent-runs"
         },
         {
+            "name": "prototyping"
+        },
+        {
             "name": "run-project"
         },
         {
@@ -36138,9 +36263,6 @@
         },
         {
             "name": "governance-learning"
-        },
-        {
-            "name": "prototyping"
         },
         {
             "name": "licenses"
