@@ -7,6 +7,9 @@ import type { SolicitationAnalysis } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton, Textarea } from '@/design-system';
 import { FeatureIntro } from '@/features/shared/components/feature-intro';
 import { AnalysisPanelCard } from '@/features/po-assistant/components/analysis-panel-card';
+import { DeliveryApiProvider } from '@/features/delivery/api/delivery-provider';
+import { DailyCopilot } from '@/features/po-assistant/components/daily-copilot';
+import { ReportsCenter } from '@/features/po-assistant/components/reports-center';
 import {
   useAnalyzeSolicitation,
   useCreateStructuredDemand,
@@ -284,6 +287,22 @@ export default function UpoAssistantPage() {
             </>
           )}
         </>
+      )}
+
+      {/*
+        D10: o acompanhamento de PO (relatórios e apoio à reunião diária) saiu
+        da Central de Entregas — que passou a ser rastreamento de encomenda
+        para o dono — e vive aqui, no modo Administrador, onde tem público.
+      */}
+      {projectId && (
+        <section className="flex flex-col gap-4" aria-label={t('poAssistant.delivery.title')}>
+          <h2 className="font-heading text-lg font-semibold">{t('poAssistant.delivery.title')}</h2>
+          <p className="text-sm text-foreground-muted">{t('poAssistant.delivery.subtitle')}</p>
+          <DeliveryApiProvider>
+            <ReportsCenter deliveryId={projectId} />
+            <DailyCopilot deliveryId={projectId} />
+          </DeliveryApiProvider>
+        </section>
       )}
     </div>
   );

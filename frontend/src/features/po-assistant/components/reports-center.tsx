@@ -14,17 +14,17 @@ import {
   Skeleton,
 } from '@/design-system';
 
-import { formatDate } from '../lib/format';
+import { formatDate } from '@/features/delivery/lib/format';
 import {
   useApproveReport,
   useGenerateReport,
   useReports,
   useSendReport,
-} from '../hooks/use-delivery';
-import { useDeliveryApi } from '../api/delivery-context';
-import { REPORT_FORMATS, REPORT_TYPES, type DeliveryReport } from '../api/types';
-import { useReportTypeLabel } from '../hooks/use-report-labels';
-import { ReportStatusBadge } from './status-badges';
+} from '@/features/delivery/hooks/use-delivery';
+import { useDeliveryApi } from '@/features/delivery/api/delivery-context';
+import { REPORT_FORMATS, REPORT_TYPES, type DeliveryReport } from '@/features/delivery/api/types';
+import { useReportTypeLabel } from '@/features/delivery/hooks/use-report-labels';
+import { ReportStatusBadge } from '@/features/delivery/components/status-badges';
 
 function ReportViewer({ report, onClose }: { report: DeliveryReport; onClose: () => void }) {
   const { t } = useTranslation();

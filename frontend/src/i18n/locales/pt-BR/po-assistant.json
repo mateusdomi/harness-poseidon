@@ -53,6 +53,10 @@
       "openChat": "Conversar no chat",
       "error": "Não foi possível criar a demanda. Tente novamente.",
       "fallbackTitle": "Demanda estruturada pelo assistente de PO"
+    },
+    "delivery": {
+      "title": "Acompanhamento das entregas",
+      "subtitle": "Relatórios e apoio à reunião diária do projeto ativo. A visão do dono, em linguagem de negócio, fica na Central de Entregas."
     }
   }
 }

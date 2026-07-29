@@ -7,13 +7,13 @@ import { DeliveryApiProvider } from '../api/delivery-provider';
 import { useDeliveryAgentDirectory, useDeliveryRealtime, usePortfolio } from '../hooks/use-delivery';
 import { PortfolioList } from '../components/portfolio-list';
 import { DeliveryOverview } from '../components/delivery-overview';
-import { ReportsCenter } from '../components/reports-center';
-import { DailyCopilot } from '../components/daily-copilot';
 import { DeliveryPlanningDialog } from '../components/delivery-planning-dialog';
 import type { DeliverySummary } from '../api/types';
 
-type Tab = 'overview' | 'reports' | 'daily';
-const TABS: Tab[] = ['overview', 'reports', 'daily'];
+// D10: a Central de Entregas responde "como esta minha encomenda?". Relatorios
+// e apoio a diaria migraram para o Assistente de PO (modo Administrador).
+type Tab = 'overview';
+const TABS: Tab[] = ['overview'];
 
 /**
  * Central de Entregas (DEL-01..10). Uma única área com duas visões: o
@@ -126,8 +126,6 @@ export function DeliveryCenter() {
           </div>
 
           {tab === 'overview' && <DeliveryOverview deliveryId={selected.id} />}
-          {tab === 'reports' && <ReportsCenter deliveryId={selected.id} />}
-          {tab === 'daily' && <DailyCopilot deliveryId={selected.id} />}
         </div>
       )}
       {planningDelivery && (

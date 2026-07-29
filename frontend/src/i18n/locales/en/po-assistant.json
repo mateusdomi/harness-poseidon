@@ -53,6 +53,10 @@
       "openChat": "Talk in the chat",
       "error": "Could not create the demand. Please try again.",
       "fallbackTitle": "Structured demand from the PO assistant"
+    },
+    "delivery": {
+      "title": "Delivery follow-up",
+      "subtitle": "Reports and daily meeting support for the active project. The owner's business view lives in the Delivery Center."
     }
   }
 }

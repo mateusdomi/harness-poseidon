@@ -14,10 +14,10 @@ import {
   Textarea,
 } from '@/design-system';
 
-import { formatDateTime } from '../lib/format';
-import { useCaptureDaily, useDailyBriefing, useDailySummary } from '../hooks/use-delivery';
-import { DAILY_CAPTURE_KINDS } from '../api/types';
-import { HealthBadge, PredictabilityBadge, SeverityBadge } from './status-badges';
+import { formatDateTime } from '@/features/delivery/lib/format';
+import { useCaptureDaily, useDailyBriefing, useDailySummary } from '@/features/delivery/hooks/use-delivery';
+import { DAILY_CAPTURE_KINDS } from '@/features/delivery/api/types';
+import { HealthBadge, PredictabilityBadge, SeverityBadge } from '@/features/delivery/components/status-badges';
 
 /**
  * Daily Copilot (DEL-03): briefing pré-daily (foto, mudanças, atenção,

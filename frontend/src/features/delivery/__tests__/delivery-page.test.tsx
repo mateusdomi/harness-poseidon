@@ -53,41 +53,4 @@ describe('DeliveryCenter (DEL-01..10)', () => {
     expect(screen.getAllByText('Sem sinal suficiente').length).toBeGreaterThan(0);
   });
 
-  it('gera, aprova e envia um relatório na Central de Relatórios', async () => {
-    const user = userEvent.setup();
-    renderCenter();
-    await openFirstDelivery(user);
-
-    await user.click(await screen.findByRole('tab', { name: 'Relatórios' }));
-    await user.click(await screen.findByRole('button', { name: 'Gerar' }));
-
-    // O relatório aparece como rascunho; aprova.
-    await user.click(await screen.findByRole('button', { name: 'Aprovar' }));
-
-    // Abre o formulário de envio externo (destinatário pré-preenchido com referência opaca).
-    await user.click(await screen.findByRole('button', { name: 'Enviar' }));
-    expect(await screen.findByText(/Envio externo/)).toBeInTheDocument();
-
-    // Submete o formulário: o último botão "Enviar" é o submit do formulário.
-    const sendButtons = screen.getAllByRole('button', { name: 'Enviar' });
-    await user.click(sendButtons[sendButtons.length - 1]!);
-
-    expect(await screen.findByText('Enviado')).toBeInTheDocument();
-  });
-
-  it('captura uma marcação tipada no copiloto da daily e a reflete no resumo', async () => {
-    const user = userEvent.setup();
-    renderCenter();
-    await openFirstDelivery(user);
-
-    await user.click(await screen.findByRole('tab', { name: 'Copiloto da daily' }));
-    expect(await screen.findByTestId('daily-copilot')).toBeInTheDocument();
-
-    await user.selectOptions(screen.getByLabelText('Tipo'), 'decision');
-    await user.type(screen.getByLabelText('Nota'), 'Definir provedor de e-mail transacional.');
-    await user.click(screen.getByRole('button', { name: 'Capturar' }));
-
-    const summary = await screen.findByText(/Definir provedor de e-mail transacional/);
-    expect(summary).toBeInTheDocument();
-  });
 });
