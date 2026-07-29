@@ -34,7 +34,7 @@ test('Quadro mantém a projeção de negócio enxuta e responsiva', async ({
   await expect(page.getByRole('combobox', { name: 'Projeto', exact: true })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Projeto ativo' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Coluna' })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Fase' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Etapa' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Última atividade' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Arquivamento' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Buscar' })).toHaveCount(0);
