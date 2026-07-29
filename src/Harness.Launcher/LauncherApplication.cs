@@ -149,8 +149,10 @@ public static class LauncherApplication
             [
                 "--urls",
                 urls,
-                    "--Harness:DatabasePath",
-                    Path.Combine(dataDirectory, "harness.db"),
+                "--Harness:DatabasePath",
+                Path.Combine(dataDirectory, "harness.db"),
+                "--Harness:DataDir",
+                dataDirectory,
             ], new RunnerIpcToken(tokenValue));
             await host.StartAsync(cancellationToken);
             var addresses = host.Services.GetRequiredService<IServer>()

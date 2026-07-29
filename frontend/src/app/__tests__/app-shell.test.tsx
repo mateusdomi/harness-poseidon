@@ -107,19 +107,19 @@ describe('AppShell', () => {
     const user = userEvent.setup();
     renderShell();
 
-    // "Conversas" só aparece na sidebar (não está na barra inferior mobile).
-    expect(screen.getByRole('link', { name: 'Conversas' })).toBeInTheDocument();
+    // "Projetos" só aparece na sidebar (não está na barra inferior mobile).
+    expect(screen.getByRole('link', { name: 'Projetos' })).toBeInTheDocument();
 
     const groupHeader = screen.getByRole('button', { name: /recolher seção operação/i });
     await user.click(groupHeader);
 
     // Grupo recolhido: seus itens somem e o cabeçalho vira "Expandir".
-    expect(screen.queryByRole('link', { name: 'Conversas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Projetos' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /expandir seção operação/i })).toBeInTheDocument();
 
     // Reabre para deixar o estado limpo (persistido em localStorage).
     await user.click(screen.getByRole('button', { name: /expandir seção operação/i }));
-    expect(screen.getByRole('link', { name: 'Conversas' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Projetos' })).toBeInTheDocument();
   });
 
   it('exibe o perfil ativo logado no shell e abre o menu do perfil', async () => {

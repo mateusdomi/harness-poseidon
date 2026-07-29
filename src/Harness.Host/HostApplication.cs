@@ -95,7 +95,10 @@ public static class HostApplication
         }
 
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
-        builder.Services.AddSingleton<LeadershipProfileStore>();
+        var dataDir = builder.Configuration["Harness:DataDir"];
+        builder.Services.AddSingleton(string.IsNullOrWhiteSpace(dataDir)
+            ? new LeadershipProfileStore()
+            : new LeadershipProfileStore(dataDir));
         builder.Services.AddSingleton(runnerIpcToken ?? RunnerIpcToken.Create());
         var databasePath = builder.Configuration["Harness:DatabasePath"];
         if (string.IsNullOrWhiteSpace(databasePath))
