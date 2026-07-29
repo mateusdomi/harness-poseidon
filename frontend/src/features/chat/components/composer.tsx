@@ -245,7 +245,7 @@ export function Composer({
       </div>
 
       <div
-        className={showTechnicalDetails ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2'}
+        className={showTechnicalDetails ? 'grid gap-2 md:grid-cols-2' : 'grid gap-2'}
         role="group"
         aria-label={t('chat.composer.preferences')}
       >

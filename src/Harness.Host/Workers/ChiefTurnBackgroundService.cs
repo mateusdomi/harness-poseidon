@@ -507,8 +507,8 @@ public sealed partial class ChiefTurnBackgroundService(
 
             // O turno morreu: o usuário perguntou e NINGUÉM ia responder. Até aqui o fato ficava
             // só no mailbox e no log — do lado de fora, a conversa simplesmente parava, sem
-            // resposta e sem erro. Quem responde pelo projeto é o chefe, então é ele quem conta a
-            // má notícia, com o código técnico e o id do turno para o caso ser reconstruído.
+            // resposta e sem erro. Quem responde pelo projeto é a Bruna, então é ela quem conta a
+            // má notícia em linguagem de negócio; o diagnóstico permanece somente na auditoria.
             if (outcome.Terminal)
             {
                 await AnnounceTerminalFailureAsync(
