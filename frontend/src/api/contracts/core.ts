@@ -131,6 +131,7 @@ export const projectSchema = z.object({
   operationMode: operationModeSchema,
   /** Cenário de prototipação do projeto (+ waiver quando não aplicável). */
   prototyping: prototypingConfigSchema,
+  targetDeadline: isoDateTimeSchema.nullable().optional(),
   createdAt: isoDateTimeSchema,
   lastActivityAt: isoDateTimeSchema,
 });

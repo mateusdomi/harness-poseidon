@@ -8,8 +8,8 @@ public sealed class ProjectContractDriftTests
     [
         "id", "organizationId", "name", "key", "description", "state", "criticality",
         "repositoryUrl", "repositoryProvider", "defaultBranch", "technologies", "brand",
-        "memberProfileIds", "configVersion", "chiefAgentId", "operationMode", "prototyping", "createdAt",
-        "lastActivityAt",
+        "memberProfileIds", "configVersion", "chiefAgentId", "operationMode", "prototyping",
+        "targetDeadline", "createdAt", "lastActivityAt",
     ];
 
     private static readonly string[] DigestFields =

@@ -43,6 +43,8 @@ import {
   type ProjectFormValues,
 } from '@/features/projects/components/project-form-schema';
 
+import { usePresentationMode } from '@/features/shared/hooks/use-presentation-mode';
+
 export type { ProjectFormTab, ProjectFormValues } from '@/features/projects/components/project-form-schema';
 
 /** Campos operacionais/versionados — mudança em projeto INICIADO exige painel de impacto. */
@@ -84,15 +86,6 @@ export interface ProjectFormProps {
   onCancel: () => void;
 }
 
-/**
- * Criação/edição de projeto em ABAS, com validação zod por aba.
- * Ao salvar, valida todas as abas e foca a primeira com erro.
- * Campos versionados (repositório, tecnologias, marca) têm badge próprio;
- * a marca mostra herança da organização vs sobrescrita.
- * FR-4: edição exibe a versão de config atual, alterações pendentes e o
- * histórico de versões; em projeto INICIADO, mudança em campo operacional
- * abre o painel de impacto com confirmação reforçada (checkbox).
- */
 export function ProjectForm({
   organizations,
   initial,
@@ -106,6 +99,7 @@ export function ProjectForm({
   onCancel,
 }: ProjectFormProps) {
   const { t, i18n } = useTranslation();
+  const { isBusiness } = usePresentationMode();
   const profilesQuery = useProfiles();
   const [activeTab, setActiveTab] = useState<ProjectFormTab>('organization');
   const panelClass = (tab: ProjectFormTab) =>
@@ -118,8 +112,6 @@ export function ProjectForm({
     logoFile: File | null;
   } | null>(null);
   const [impactAccepted, setImpactAccepted] = useState(false);
-  // Em edição a sigla já existe e é do usuário; em criação, geramos do nome
-  // até que ele a edite manualmente (§7 — sem exigir decisão manual).
   const keyEditedRef = useRef(Boolean(initial));
 
   const {
@@ -355,7 +347,20 @@ export function ProjectForm({
                   }}
                 />
               </Field>
+              <Field
+                htmlFor="project-deadline"
+                label={t('projects.form.identification.targetDeadline')}
+                hint={t('projects.form.identification.targetDeadlineHint')}
+              >
+                <Input id="project-deadline" type="date" {...register('targetDeadline')} />
+              </Field>
             </div>
+            {isBusiness && (
+              <div className="rounded-md border border-border bg-surface-elevated p-3 text-xs text-foreground-muted">
+                <strong>{t('projects.form.identification.criticality')}:</strong>{' '}
+                {t('projects.form.identification.criticalityEstimatedNote')}
+              </div>
+            )}
           </div>
 
           <div

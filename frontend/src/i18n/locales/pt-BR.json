@@ -721,9 +721,12 @@
       "identification": {
         "organization": "Organização",
         "name": "Título",
-        "key": "Slug (sigla)",
+        "key": "Sigla",
         "keyHint": "Sigla curta em maiúsculas usada em prefixos, ex.: POSEIDON.",
         "criticality": "Criticidade",
+        "criticalityEstimatedNote": "estimada automaticamente pela Bruna Magalhães no primeiro plano (editável no Modo Técnico).",
+        "targetDeadline": "Prazo desejado (opcional)",
+        "targetDeadlineHint": "Data limite estimada para conclusão.",
         "description": "Descrição",
         "state": "Estado",
         "criticalityHint": "Define o nível de risco do projeto. A partir de risco médio, a revisão por um agente crítico passa a ser obrigatória, gates humanos são exigidos e a auto-aprovação é recusada — isso aumenta o custo e o tempo de cada entrega."

@@ -23,6 +23,7 @@ public sealed record ProjectRecord(
     DateTimeOffset LastActivityAt, long Version)
 {
     public ProjectPrototypingRecord Prototyping { get; init; } = ProjectPrototypingRecord.Default;
+    public DateTimeOffset? TargetDeadline { get; init; }
 }
 public sealed record ProjectCreateCommand(string TenantId, ProjectRecord Project, DateTimeOffset OccurredAt);
 public sealed record ProjectUpdateCommand(ProjectRecord Project, long ExpectedVersion);

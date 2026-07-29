@@ -65,8 +65,8 @@ describe('ProjectForm', () => {
 
     await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
-    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
-    await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'minuscula');
+    await user.clear(screen.getByLabelText(/sigla/i));
+    await user.type(screen.getByLabelText(/sigla/i), 'minuscula');
     await user.click(screen.getByRole('tab', { name: /objetivo/i }));
     await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Descrição do projeto.');
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
@@ -81,7 +81,7 @@ describe('ProjectForm', () => {
     renderForm();
 
     await user.click(screen.getByRole('tab', { name: /identidade/i }));
-    const key = screen.getByLabelText(/slug \(sigla\)/i);
+    const key = screen.getByLabelText(/sigla/i);
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
     // Sem decisão manual no fluxo comum: a sigla vem do nome (§7).
     expect(key).toHaveValue('PROJETOTESTE');
@@ -99,8 +99,8 @@ describe('ProjectForm', () => {
 
     await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
-    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
-    await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'TESTE');
+    await user.clear(screen.getByLabelText(/sigla/i));
+    await user.type(screen.getByLabelText(/sigla/i), 'TESTE');
     await user.click(screen.getByRole('tab', { name: /objetivo/i }));
     await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Descrição do projeto.');
     await user.click(screen.getByRole('button', { name: /criar projeto/i }));
@@ -119,8 +119,8 @@ describe('ProjectForm', () => {
 
     await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), 'Projeto Teste');
-    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
-    await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'TESTE');
+    await user.clear(screen.getByLabelText(/sigla/i));
+    await user.type(screen.getByLabelText(/sigla/i), 'TESTE');
     await user.click(screen.getByRole('tab', { name: /objetivo/i }));
     await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Descrição do projeto.');
 
@@ -218,8 +218,8 @@ describe('ProjectForm', () => {
     await user.upload(screen.getByLabelText(/enviar arquivo de logo/i), file);
     await user.click(screen.getByRole('tab', { name: /identidade/i }));
     await user.type(screen.getByLabelText(/título/i), 'Projeto Logo');
-    await user.clear(screen.getByLabelText(/slug \(sigla\)/i));
-    await user.type(screen.getByLabelText(/slug \(sigla\)/i), 'LOGO');
+    await user.clear(screen.getByLabelText(/sigla/i));
+    await user.type(screen.getByLabelText(/sigla/i), 'LOGO');
     await user.click(screen.getByRole('tab', { name: /objetivo/i }));
     await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Projeto com marca.');
     await user.click(screen.getByRole('tab', { name: /pessoas/i }));

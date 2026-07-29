@@ -24128,21 +24128,25 @@
             },
             "CreateProjectRequest": {
                 "required": [
-                    "organizationId",
                     "name",
-                    "key",
                     "description"
                 ],
                 "type": "object",
                 "properties": {
                     "organizationId": {
-                        "type": "string"
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     },
                     "name": {
                         "type": "string"
                     },
                     "key": {
-                        "type": "string"
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     },
                     "description": {
                         "type": "string"
@@ -24204,6 +24208,13 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "targetDeadline": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
                     }
                 },
                 "additionalProperties": false
@@ -31483,6 +31494,13 @@
                     },
                     "lastActivityAt": {
                         "type": "string",
+                        "format": "date-time"
+                    },
+                    "targetDeadline": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
                         "format": "date-time"
                     }
                 }

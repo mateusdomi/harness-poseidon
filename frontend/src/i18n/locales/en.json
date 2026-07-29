@@ -721,9 +721,12 @@
       "identification": {
         "organization": "Organization",
         "name": "Title",
-        "key": "Slug (short code)",
+        "key": "Sigla (short code)",
         "keyHint": "Short uppercase code used in prefixes, e.g. POSEIDON.",
         "criticality": "Criticality",
+        "criticalityEstimatedNote": "automatically estimated by Bruna Magalhães in the first plan (editable in Technical Mode).",
+        "targetDeadline": "Desired deadline (optional)",
+        "targetDeadlineHint": "Estimated completion date.",
         "description": "Description",
         "state": "State",
         "criticalityHint": "Sets the project's risk tier. From medium risk on, review by a critic agent becomes mandatory, human gates are required and auto-approval is refused — which increases the cost and time of each delivery."

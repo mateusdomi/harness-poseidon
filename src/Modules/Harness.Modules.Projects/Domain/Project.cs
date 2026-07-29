@@ -28,12 +28,24 @@ public sealed record Project(
     long Version)
 {
     public ProjectPrototyping Prototyping { get; init; } = new("autonomousGeneration", null);
-    private static readonly IReadOnlySet<string> States =
-        new HashSet<string>(["active", "paused", "archived"], StringComparer.Ordinal);
-    private static readonly IReadOnlySet<string> Criticalities =
-        new HashSet<string>(["low", "medium", "high", "critical"], StringComparer.Ordinal);
-    private static readonly IReadOnlySet<string> RepositoryProviders =
-        new HashSet<string>(["github", "gitlab", "bitbucket", "local", "other"], StringComparer.Ordinal);
+    public DateTimeOffset? TargetDeadline { get; init; }
+    private static readonly HashSet<string> States =
+        new(new[] { "active", "paused", "archived" }, StringComparer.Ordinal);
+    private static readonly HashSet<string> Criticalities =
+        new(new[] { "low", "medium", "high", "critical" }, StringComparer.Ordinal);
+    private static readonly HashSet<string> RepositoryProviders =
+        new(new[] { "github", "gitlab", "bitbucket", "local", "other" }, StringComparer.Ordinal);
+
+    public static string GenerateKey(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "PROJ";
+        var clean = new string(name.Where(c => char.IsAsciiLetterOrDigit(c) || c == ' ' || c == '-').ToArray()).Trim();
+        var parts = clean.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var key = string.Join("-", parts).ToUpperInvariant();
+        if (key.Length > 30) key = key[..30];
+        if (string.IsNullOrWhiteSpace(key)) return "PROJ";
+        return key;
+    }
 
     public static Project Create(
         string id,
@@ -41,7 +53,7 @@ public sealed record Project(
         string chiefAgentId,
         string ownerProfileId,
         string name,
-        string key,
+        string? key,
         string description,
         string? criticality,
         string? repositoryUrl,
@@ -50,16 +62,23 @@ public sealed record Project(
         IReadOnlyList<string>? technologies,
         ProjectBrand brand,
         IReadOnlyList<string>? memberProfileIds,
-        DateTimeOffset occurredAt) =>
-        new(
+        DateTimeOffset occurredAt,
+        DateTimeOffset? targetDeadline = null)
+    {
+        var resolvedKey = NormalizeKey(string.IsNullOrWhiteSpace(key) ? GenerateKey(name) : key);
+        var resolvedRepoUrl = string.IsNullOrWhiteSpace(repositoryUrl)
+            ? $"local://repositories/{resolvedKey.ToLowerInvariant()}"
+            : Optional(repositoryUrl, 2_048, nameof(repositoryUrl));
+
+        return new(
             RequiredId(id, nameof(id)),
             RequiredId(organizationId, nameof(organizationId)),
             Required(name, 200, nameof(name)),
-            NormalizeKey(key),
+            resolvedKey,
             Required(description, 4_000, nameof(description)),
             "active",
             Choice(criticality ?? "medium", Criticalities, nameof(criticality)),
-            Optional(repositoryUrl, 2_048, nameof(repositoryUrl)),
+            resolvedRepoUrl,
             Choice(repositoryProvider ?? "local", RepositoryProviders, nameof(repositoryProvider)),
             Required(defaultBranch ?? "main", 200, nameof(defaultBranch)),
             NormalizeList(technologies ?? [], 50, 100, nameof(technologies)),
@@ -70,7 +89,11 @@ public sealed record Project(
             "manual",
             RequireUtc(occurredAt),
             occurredAt,
-            1);
+            1)
+        {
+            TargetDeadline = targetDeadline.HasValue ? RequireUtc(targetDeadline.Value) : null
+        };
+    }
 
     public Project Update(
         string name,
@@ -165,7 +188,7 @@ public sealed record Project(
         return values.Select(item => Required(item, maximumLength, name)).Distinct(StringComparer.Ordinal).ToArray();
     }
 
-    private static string Choice(string value, IReadOnlySet<string> choices, string name)
+    private static string Choice(string value, HashSet<string> choices, string name)
     {
         var normalized = Required(value, 100, name);
         return choices.Contains(normalized) ? normalized : throw new ArgumentException("Value is not supported.", name);

@@ -15,7 +15,7 @@ public sealed class PostgresProjectStore(NpgsqlDataSource dataSource) : IProject
                repository_url,repository_provider,default_branch,technologies_json::text,logo_url,
                primary_color,secondary_color,typography,member_profile_ids_json::text,config_version,
                chief_agent_id,operation_mode,created_at,COALESCE(last_activity_at,created_at),version,
-               prototyping_mode,prototyping_waiver_reason,prototyping_waiver_granted_at
+               prototyping_mode,prototyping_waiver_reason,prototyping_waiver_granted_at,target_deadline
         FROM harness.projects
         """;
 
@@ -133,9 +133,9 @@ public sealed class PostgresProjectStore(NpgsqlDataSource dataSource) : IProject
                          repository_url,repository_provider,default_branch,technologies_json,logo_url,
                          primary_color,secondary_color,typography,member_profile_ids_json,config_version,
                          chief_agent_id,operation_mode,prototyping_mode,prototyping_waiver_reason,
-                         prototyping_waiver_granted_at,version,created_at,last_activity_at)
+                         prototyping_waiver_granted_at,target_deadline,version,created_at,last_activity_at)
                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-                            $21,$22,$23,1,$24,$24);
+                            $21,$22,$23,$24,1,$25,$25);
                     """;
                 Bind(insert, command.TenantId, project);
                 insert.Parameters.Add(Timestamp(command.OccurredAt));
@@ -243,8 +243,8 @@ public sealed class PostgresProjectStore(NpgsqlDataSource dataSource) : IProject
                     repository_provider=$10,default_branch=$11,technologies_json=$12,logo_url=$13,
                     primary_color=$14,secondary_color=$15,typography=$16,member_profile_ids_json=$17,
                     config_version=$18,prototyping_mode=$21,prototyping_waiver_reason=$22,
-                    prototyping_waiver_granted_at=$23,last_activity_at=$24,version=version+1
-                WHERE tenant_id=$2 AND id=$1 AND deleted_at IS NULL AND version=$25;
+                    prototyping_waiver_granted_at=$23,target_deadline=$24,last_activity_at=$25,version=version+1
+                WHERE tenant_id=$2 AND id=$1 AND deleted_at IS NULL AND version=$26;
                 """;
             Bind(update, project.TenantId, project);
             update.Parameters.Add(Timestamp(project.LastActivityAt));
@@ -313,6 +313,7 @@ public sealed class PostgresProjectStore(NpgsqlDataSource dataSource) : IProject
                 reader.IsDBNull(24)
                     ? null
                     : new(reader.GetString(24), reader.GetFieldValue<DateTimeOffset>(25))),
+            TargetDeadline = reader.IsDBNull(26) ? null : reader.GetFieldValue<DateTimeOffset>(26),
         };
 
     private static void Bind(NpgsqlCommand command, string tenantId, ProjectRecord project)
@@ -340,6 +341,7 @@ public sealed class PostgresProjectStore(NpgsqlDataSource dataSource) : IProject
         command.Parameters.Add(Text(project.Prototyping.Mode));
         command.Parameters.Add(NullableText(project.Prototyping.Waiver?.Reason));
         command.Parameters.Add(NullableTimestamp(project.Prototyping.Waiver?.GrantedAt));
+        command.Parameters.Add(NullableTimestamp(project.TargetDeadline));
     }
 
     private static async Task<(long Sequence, string PreviousHash)> ReadLedgerTailAsync(

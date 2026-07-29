@@ -20,14 +20,15 @@ public sealed record ProjectContract(
     string OperationMode, DateTimeOffset CreatedAt, DateTimeOffset LastActivityAt, long Version)
 {
     public PrototypingConfigContract Prototyping { get; init; } = PrototypingConfigContract.Default;
+    public DateTimeOffset? TargetDeadline { get; init; }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed class CreateProjectRequest
 {
-    public required string OrganizationId { get; init; }
+    public string? OrganizationId { get; init; }
     public required string Name { get; init; }
-    public required string Key { get; init; }
+    public string? Key { get; init; }
     public required string Description { get; init; }
     public string? Criticality { get; init; }
     public string? RepositoryUrl { get; init; }
@@ -43,6 +44,7 @@ public sealed class CreateProjectRequest
     /// informado. Projetos operacionais não nascem sem workflow.
     /// </summary>
     public string? WorkflowTemplateId { get; init; }
+    public DateTimeOffset? TargetDeadline { get; init; }
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

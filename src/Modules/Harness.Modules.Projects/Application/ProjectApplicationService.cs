@@ -5,13 +5,14 @@ namespace Harness.Modules.Projects.Application;
 
 public static class ProjectApplicationService
 {
-    public static ProjectContract Create(string id, string chiefAgentId, string ownerProfileId, CreateProjectRequest request, DateTimeOffset now)
+    public static ProjectContract Create(string id, string organizationId, string chiefAgentId, string ownerProfileId, CreateProjectRequest request, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return ToContract(Project.Create(id, request.OrganizationId, chiefAgentId, ownerProfileId,
+        var orgId = string.IsNullOrWhiteSpace(request.OrganizationId) ? organizationId : request.OrganizationId;
+        return ToContract(Project.Create(id, orgId, chiefAgentId, ownerProfileId,
             request.Name, request.Key, request.Description, request.Criticality, request.RepositoryUrl,
             request.RepositoryProvider, request.DefaultBranch, request.Technologies,
-            ToDomain(request.Brand ?? ProjectBrandContract.Empty), request.MemberProfileIds, now));
+            ToDomain(request.Brand ?? ProjectBrandContract.Empty), request.MemberProfileIds, now, request.TargetDeadline));
     }
 
     public static ProjectContract Patch(ProjectContract current, UpdateProjectRequest patch, DateTimeOffset now)
@@ -39,7 +40,7 @@ public static class ProjectApplicationService
         value.Criticality, value.RepositoryUrl, value.RepositoryProvider, value.DefaultBranch,
         value.Technologies, ToDomain(value.Brand), value.MemberProfileIds, value.ConfigVersion,
         value.ChiefAgentId, value.OperationMode, value.CreatedAt, value.LastActivityAt, value.Version)
-    { Prototyping = ToDomain(value.Prototyping) };
+    { Prototyping = ToDomain(value.Prototyping), TargetDeadline = value.TargetDeadline };
 
     private static ProjectBrand ToDomain(ProjectBrandContract value) =>
         new(value.LogoUrl, value.PrimaryColor, value.SecondaryColor, value.Typography);
@@ -52,5 +53,5 @@ public static class ProjectApplicationService
             value.Brand.SecondaryColor, value.Brand.Typography), value.MemberProfileIds,
         value.ConfigVersion, value.ChiefAgentId, value.OperationMode, value.CreatedAt,
         value.LastActivityAt, value.Version)
-    { Prototyping = new(value.Prototyping.Mode, value.Prototyping.Waiver is null ? null : new(value.Prototyping.Waiver.Reason, value.Prototyping.Waiver.GrantedAt)) };
+    { Prototyping = new(value.Prototyping.Mode, value.Prototyping.Waiver is null ? null : new(value.Prototyping.Waiver.Reason, value.Prototyping.Waiver.GrantedAt)), TargetDeadline = value.TargetDeadline };
 }

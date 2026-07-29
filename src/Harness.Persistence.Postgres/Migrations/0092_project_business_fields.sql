@@ -1,0 +1,1 @@
+ALTER TABLE harness.projects ADD COLUMN target_deadline TIMESTAMP WITH TIME ZONE NULL;

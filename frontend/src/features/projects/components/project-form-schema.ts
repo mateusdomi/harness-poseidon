@@ -15,7 +15,8 @@ export const organizationSchema = z.object({
 
 export const identitySchema = z.object({
   name: z.string().trim().min(2, 'common.validation.min2'),
-  key: z.string().trim().regex(/^[A-Z0-9]{2,12}$/, 'common.validation.key'),
+  key: z.string().trim().regex(/^[A-Z0-9-]{1,30}$/, 'common.validation.key'),
+  targetDeadline: z.string().optional(),
 });
 
 export const objectiveSchema = z.object({
@@ -126,9 +127,10 @@ export function defaultProjectValues(organizationId = ''): ProjectFormValues {
     name: '',
     key: '',
     description: '',
+    targetDeadline: '',
     criticality: 'medium',
     state: 'active',
-    repositoryProvider: 'github',
+    repositoryProvider: 'local',
     repositoryUrl: '',
     defaultBranch: 'main',
     workflowTemplateId: '',
@@ -144,6 +146,7 @@ export function projectToFormValues(project: Project): ProjectFormValues {
     name: project.name,
     key: project.key,
     description: project.description,
+    targetDeadline: project.targetDeadline ?? '',
     criticality: project.criticality,
     state: project.state,
     repositoryProvider: project.repositoryProvider,

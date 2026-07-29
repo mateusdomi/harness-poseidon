@@ -8,8 +8,12 @@ readonly CLI_HOME="${TOOLS_DIR}/.tooling/cli-home"
 readonly NUGET_PACKAGES_LOCAL="${TOOLS_DIR}/.tooling/nuget/packages"
 
 if [[ ! -x "${DOTNET_BIN}" ]]; then
-  printf 'SDK local ausente. Execute tools/backend/install-dotnet.sh primeiro.\n' >&2
-  exit 1
+  if command -v dotnet >/dev/null 2>&1; then
+    exec dotnet "$@"
+  else
+    printf 'SDK local ausente. Execute tools/backend/install-dotnet.sh primeiro.\n' >&2
+    exit 1
+  fi
 fi
 
 export DOTNET_ROOT="${DOTNET_ROOT_LOCAL}"

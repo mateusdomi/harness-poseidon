@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Project } from '@/api';
 import { Badge } from '@/design-system';
 import type { ProjectOperationalSummary } from '@/features/projects/lib/project-operational';
+import { usePresentationMode } from '@/features/shared/hooks/use-presentation-mode';
 import { formatRelativeTime } from '@/lib/format';
 import { priorityVariant, projectStateVariant } from '@/lib/status';
 
@@ -16,6 +17,7 @@ export interface ProjectCardProps {
 /** Card do projeto: estado, criticidade, organização e última atividade. */
 export function ProjectCard({ project, organizationName, operational, onSelect }: ProjectCardProps) {
   const { t } = useTranslation();
+  const { isBusiness } = usePresentationMode();
   const description =
     project.description.trim().toLowerCase() === 'control plane poseidon.'
       ? t('projects.card.poseidonDescription')
@@ -76,10 +78,12 @@ export function ProjectCard({ project, organizationName, operational, onSelect }
           <strong>{t('projects.card.health')}:</strong>{' '}
           {t(`projects.card.healthStates.${operational?.health ?? 'unavailable'}`)}
         </span>
-        <span className="min-w-0 break-words sm:col-span-2">
-          <strong>{t('projects.card.repository')}:</strong>{' '}
-          {project.repositoryUrl ?? t('projects.card.notAvailable')} · {project.defaultBranch}
-        </span>
+        {!isBusiness && (
+          <span className="min-w-0 break-words sm:col-span-2">
+            <strong>{t('projects.card.repository')}:</strong>{' '}
+            {project.repositoryUrl ?? t('projects.card.notAvailable')} · {project.defaultBranch}
+          </span>
+        )}
       </span>
       {operational?.progressPercent !== null && operational?.progressPercent !== undefined ? (
         <span className="flex flex-col gap-1">
@@ -108,7 +112,7 @@ export function ProjectCard({ project, organizationName, operational, onSelect }
           </span>
         </span>
       ) : null}
-      {project.technologies.length > 0 ? (
+      {!isBusiness && project.technologies.length > 0 ? (
         <span className="flex flex-wrap gap-1">
           {project.technologies.slice(0, 4).map((tech) => (
             <Badge key={tech} variant="default">
