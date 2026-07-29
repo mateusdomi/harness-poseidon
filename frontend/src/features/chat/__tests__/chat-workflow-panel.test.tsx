@@ -15,6 +15,7 @@ import {
 import ChatPage from '@/features/chat/pages/chat-page';
 import { renderWithApi } from '@/test/render-with-providers';
 import { useUiStore } from '@/stores/ui-store';
+import { usePresentationStore } from '@/stores/presentation-store';
 
 const fixtures = buildFixtures(42);
 const project = fixtures.data.projects[0];
@@ -311,6 +312,7 @@ afterEach(() => {
   // jsdom não tem matchMedia: remove o stub entre testes.
   delete (window as { matchMedia?: unknown }).matchMedia;
   useUiStore.setState({ chatWorkflowPanelOpen: true });
+  usePresentationStore.setState({ modeByProfile: {} });
 });
 
 describe('ChatPage — painel de workflow responsivo', () => {
@@ -328,18 +330,29 @@ describe('ChatPage — painel de workflow responsivo', () => {
     const user = userEvent.setup();
     renderChat();
 
-    const aside = await screen.findByRole('complementary', { name: 'Workflow do projeto' });
-    expect(await within(aside).findByRole('button', { name: /Validação/ })).toBeInTheDocument();
+    const aside = await screen.findByRole('complementary', {
+      name: 'Acompanhamento do projeto',
+    });
+    expect(
+      await within(aside).findByRole('progressbar', { name: 'Andamento de Validação' }),
+    ).toBeInTheDocument();
+    expect(within(aside).getByText('Entregas')).toBeInTheDocument();
+    expect(within(aside).getByText('Pendências')).toBeInTheDocument();
+    expect(within(aside).queryByText(/gate/i)).not.toBeInTheDocument();
 
     // Recolhe e reabre pelo toggle (estado persistido na ui-store).
-    await user.click(screen.getByRole('button', { name: 'Fechar painel do workflow' }));
-    expect(screen.queryByRole('complementary', { name: 'Workflow do projeto' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Fechar acompanhamento do projeto' }));
+    expect(
+      screen.queryByRole('complementary', { name: 'Acompanhamento do projeto' }),
+    ).toBeNull();
     expect(useUiStore.getState().chatWorkflowPanelOpen).toBe(false);
 
-    await user.click(screen.getByRole('button', { name: 'Abrir painel do workflow' }));
-    expect(await screen.findByRole('complementary', { name: 'Workflow do projeto' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Abrir acompanhamento do projeto' }));
+    expect(
+      await screen.findByRole('complementary', { name: 'Acompanhamento do projeto' }),
+    ).toBeInTheDocument();
     // Sem drawer no desktop.
-    expect(screen.queryByRole('dialog', { name: 'Workflow do projeto' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Acompanhamento do projeto' })).toBeNull();
   });
 
   it('mobile (<lg): painel abre como drawer (dialog modal) e fecha com Esc', async () => {
@@ -350,14 +363,36 @@ describe('ChatPage — painel de workflow responsivo', () => {
     // Chat não é sacrificado: nenhum aside; o botão abre o drawer.
     expect(screen.queryByRole('complementary')).toBeNull();
     await user.click(
-      await screen.findByRole('button', { name: 'Abrir painel do workflow' }),
+      await screen.findByRole('button', { name: 'Abrir acompanhamento do projeto' }),
     );
 
-    const drawer = await screen.findByRole('dialog', { name: 'Workflow do projeto' });
+    const drawer = await screen.findByRole('dialog', { name: 'Acompanhamento do projeto' });
     expect(drawer).toHaveAttribute('aria-modal', 'true');
-    expect(await within(drawer).findByRole('button', { name: /Validação/ })).toBeInTheDocument();
+    expect(
+      await within(drawer).findByRole('progressbar', { name: 'Andamento de Validação' }),
+    ).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog', { name: 'Workflow do projeto' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Acompanhamento do projeto' })).toBeNull();
+  });
+
+  it('modo técnico preserva o workflow interno no painel', async () => {
+    stubMatchMedia(true);
+    const bundle = createTestBundle();
+    usePresentationStore
+      .getState()
+      .requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+    renderWithApi(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    const aside = await screen.findByRole('complementary', { name: 'Workflow do projeto' });
+    expect(await within(aside).findByRole('button', { name: /Validação/ })).toBeInTheDocument();
+    expect(
+      within(aside).getByRole('progressbar', { name: 'Progresso da fase Validação' }),
+    ).toBeInTheDocument();
   });
 });

@@ -22,6 +22,61 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   await expect(page).toHaveURL(/\/onboarding$/);
   await page.getByRole('button', { name: /Mateus/ }).click();
   await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
+
+  await page.goto('/chat');
+  await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Perfil de trabalho' })).toBeVisible();
+  await expect(page.getByText('Equipe virtual').first()).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Modelo' })).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+    )
+    .toBe(true);
+
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    const projectPanel = page.getByRole('complementary', {
+      name: 'Acompanhamento do projeto',
+    });
+    await expect(projectPanel).toBeVisible();
+    await expect(
+      projectPanel.getByRole('progressbar', { name: /Andamento de/ }),
+    ).toBeVisible();
+  } else {
+    await page.getByRole('button', { name: 'Abrir acompanhamento do projeto' }).click();
+    const projectDrawer = page.getByRole('dialog', {
+      name: 'Acompanhamento do projeto',
+    });
+    await expect(projectDrawer).toBeVisible();
+    await expect(
+      projectDrawer.getByRole('progressbar', { name: /Andamento de/ }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
+
+  await page.screenshot({
+    path: testInfo.outputPath('chat-dark.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+
+  if (testInfo.project.name === 'desktop-1440') {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      )
+      .toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath('chat-macbook-13-dark.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+
   await page.goto('/cockpit');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 });
@@ -52,6 +107,15 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 });
   await page.screenshot({
     path: testInfo.outputPath('cockpit-light.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+
+  await page.goto('/chat');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('chat-light.png'),
     fullPage: true,
     animations: 'disabled',
   });

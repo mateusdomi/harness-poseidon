@@ -17,7 +17,13 @@ import { chiefTurnStateVariant } from '@/lib/status';
  * "ativo". Rótulos 100% via i18n (pt-BR + en).
  */
 
-export function TurnStatusBadge({ turn }: { turn: TurnStream }) {
+export function TurnStatusBadge({
+  turn,
+  showTechnicalDetails = true,
+}: {
+  turn: TurnStream;
+  showTechnicalDetails?: boolean;
+}) {
   const { t } = useTranslation();
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -41,6 +47,31 @@ export function TurnStatusBadge({ turn }: { turn: TurnStream }) {
 
   const variant = status.stuck ? 'warning' : chiefTurnStateVariant(status.phase);
   const elapsedText = status.elapsedMs !== null ? formatElapsed(status.elapsedMs) : null;
+
+  if (!showTechnicalDetails) {
+    const businessState =
+      status.stuck || status.phase === 'blocked' || status.phase === 'failed'
+        ? 'attention'
+        : status.phase === 'awaiting_review'
+          ? 'review'
+          : status.phase === 'pending' || status.phase === 'received'
+            ? 'received'
+            : 'working';
+    const businessVariant = {
+      attention: 'warning',
+      review: 'warning',
+      received: 'info',
+      working: 'info',
+    } as const;
+
+    return (
+      <span role="status" aria-live="polite">
+        <Badge variant={businessVariant[businessState]}>
+          {t(`chat.turn.businessStates.${businessState}`)}
+        </Badge>
+      </span>
+    );
+  }
 
   return (
     <span className="inline-flex items-center gap-1.5" role="status" aria-live="polite">

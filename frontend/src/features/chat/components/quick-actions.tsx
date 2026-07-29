@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { ClipboardCheck, ListChecks, OctagonAlert, Route, Sparkles } from 'lucide-react';
 
+import { Button } from '@/design-system';
 import type { QuickActionKey } from '@/features/chat/lib/chat-derive';
+import { cn } from '@/lib/utils';
 
 interface QuickActionsProps {
   actions: QuickActionKey[];
@@ -16,6 +18,13 @@ const ACTION_ICONS = {
   approvalStatus: ClipboardCheck,
   planNewDemand: Route,
 } as const;
+
+const ACTION_TONES: Record<QuickActionKey, string> = {
+  summarizeProgress: 'text-info',
+  blockedStatus: 'text-warning',
+  approvalStatus: 'text-warning',
+  planNewDemand: 'text-brand-strong',
+};
 
 /**
  * Ações rápidas sugeridas pelo chefe (derivadas do contexto do projeto).
@@ -36,16 +45,20 @@ export function QuickActions({ actions, disabled, onSelect }: QuickActionsProps)
           const Icon = ACTION_ICONS[actionKey];
           return (
             <li key={actionKey}>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 disabled={disabled}
                 onClick={() => onSelect(actionKey)}
-                data-slot="tag"
-                className="inline-flex min-h-touch items-center gap-1.5 rounded-full border border-brand bg-primary/10 px-3 py-1.5 text-xs font-medium text-brand-strong motion-safe:transition-colors motion-safe:duration-fast hover:bg-primary/20 active:bg-primary/25 disabled:pointer-events-none disabled:opacity-50"
+                className="rounded-full bg-surface"
               >
-                <Icon aria-hidden="true" className="size-3.5 text-brand-strong" />
+                <Icon
+                  aria-hidden="true"
+                  className={cn('size-3.5', ACTION_TONES[actionKey])}
+                />
                 {t(`chat.quickActions.actions.${actionKey}.label`)}
-              </button>
+              </Button>
             </li>
           );
         })}

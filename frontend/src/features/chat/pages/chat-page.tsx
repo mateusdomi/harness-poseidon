@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { PanelRight, Plus } from 'lucide-react';
+import { PanelRight, Plus, Sparkles } from 'lucide-react';
 
 import type { ChatTurnHandle, ReadinessStep, Ulid } from '@/api';
 import { Badge, Button, Card, CardContent, Select, Skeleton } from '@/design-system';
@@ -35,7 +35,6 @@ import {
 import { useGoldenPath } from '@/features/onboarding/hooks/use-golden-path';
 import { BrunaProfileAvatar } from '@/features/chat/components/bruna-profile-avatar';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
-import { resolveAgentIdentity } from '@/lib/agent-persona';
 import { useActiveProjectStore } from '@/stores/active-project-store';
 import { useUiStore } from '@/stores/ui-store';
 import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
@@ -194,6 +193,11 @@ export default function ChatPage() {
   const canExecute = goldenPath.state.canExecute;
 
   const turnActive = isTurnActive(turn);
+  const chiefName = useMemo(() => {
+    const registered = agents.find((agent) => agent.id === activeProject?.chiefAgentId)?.name;
+    const publicName = registered?.split(/\s+[—–]\s+/u)[0]?.trim();
+    return publicName || t('chat.leadership.name');
+  }, [activeProject?.chiefAgentId, agents, t]);
   const agentNames = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
     [agents],
@@ -276,9 +280,20 @@ export default function ChatPage() {
 
   return (
     <div className="flex w-full gap-4 lg:h-[calc(100svh-7rem)] lg:min-h-0 lg:gap-6">
-      <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-4 lg:h-full lg:min-h-0">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-heading text-2xl font-semibold">{t('features.chat.title')}</h1>
+      <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-4 pb-24 lg:h-full lg:min-h-0 lg:pb-0">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-heading text-2xl font-semibold">{t('features.chat.title')}</h1>
+              <Badge variant="info">
+                <Sparkles aria-hidden="true" className="size-3" />
+                {t('chat.authors.virtualTeam')}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-foreground-muted">
+              {t('chat.intro', { name: chiefName })}
+            </p>
+          </div>
           <div className="ml-0 flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
             {conversations.length > 0 && (
               <>
@@ -320,8 +335,16 @@ export default function ChatPage() {
               aria-expanded={isDesktop ? panelOpen : drawerOpen}
               aria-label={
                 (isDesktop && panelOpen) || (!isDesktop && drawerOpen)
-                  ? t('chat.workflowPanel.close')
-                  : t('chat.workflowPanel.open')
+                  ? t(
+                      presentation.showTechnicalDetails
+                        ? 'chat.workflowPanel.close'
+                        : 'chat.projectPanel.close',
+                    )
+                  : t(
+                      presentation.showTechnicalDetails
+                        ? 'chat.workflowPanel.open'
+                        : 'chat.projectPanel.open',
+                    )
               }
               onClick={() => (isDesktop ? togglePanel() : setDrawerOpen(true))}
             >
@@ -332,7 +355,7 @@ export default function ChatPage() {
 
         <div
           ref={scrollRef}
-          className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 sm:p-5"
+          className="flex h-[30svh] min-h-52 flex-none flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 sm:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
           aria-live="polite"
           aria-label={t('chat.messagesLabel')}
         >
@@ -345,11 +368,17 @@ export default function ChatPage() {
               />
               <BrunaProfileAvatar size={64} className="relative" />
               <p className="relative text-sm text-foreground-muted">
-                {t('chat.leadership.name')} · {t('chat.leadership.title')}
+                {chiefName} · {t('chat.leadership.title')}
+                {' · '}
+                {t('chat.authors.virtualTeam')}
               </p>
-              <p className="relative font-heading text-lg font-semibold">{t('chat.empty.title')}</p>
+              <p className="relative font-heading text-lg font-semibold">
+                {t('chat.empty.title', { name: chiefName })}
+              </p>
               <p className="relative max-w-prose text-sm text-foreground-muted">
-                {canExecute ? t('chat.empty.body') : t('chat.empty.blockedBody')}
+                {canExecute
+                  ? t('chat.empty.body', { name: chiefName })
+                  : t('chat.empty.blockedBody')}
               </p>
               {/* Sem conversa: o composer abaixo já está pronto quando a
                 execução é possível (a conversa nasce no envio). A CTA explícita
@@ -376,6 +405,7 @@ export default function ChatPage() {
                   authorName={message.authorAgentId ? agentNames.get(message.authorAgentId) : null}
                   // O Chefe é a persona `chief-orchestrator`; humanizamos nome/foto.
                   authorAlias={message.authorRole === 'chief' ? 'chief-orchestrator' : null}
+                  chiefName={chiefName}
                   tasks={tasks}
                   documents={documents}
                 />
@@ -399,12 +429,17 @@ export default function ChatPage() {
                       ))}
                     </span>
                     <span>
-                      {turn.text === '' ? t('chat.turn.acknowledged') : t('chat.turn.coordinating')}
+                      {turn.text === ''
+                        ? t('chat.turn.businessAcknowledged')
+                        : t('chat.turn.businessWorking')}
                     </span>
                     {/* Tag de estado granular no balão: o usuário vê o que o Chefe
                       está fazendo agora (pensando, lendo contexto, delegando…),
                       o cronômetro para fases longas e o sinal de "travado". */}
-                    <TurnStatusBadge turn={turn} />
+                    <TurnStatusBadge
+                      turn={turn}
+                      showTechnicalDetails={presentation.showTechnicalDetails}
+                    />
                   </div>
                   {/* RESPOSTA REAL em streaming — só aparece quando há conteúdo
                     do chefe, aí sim como mensagem dele. */}
@@ -418,9 +453,9 @@ export default function ChatPage() {
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-semibold text-foreground">
-                              {resolveAgentIdentity('chief-orchestrator').humanName}
+                              {chiefName}
                             </span>
-                            <Badge variant="info">{t('chat.authors.chief')}</Badge>
+                            <Badge variant="info">{t('chat.authors.virtualTeam')}</Badge>
                           </div>
                           <span>{t('chat.turn.streamingLabel')}</span>
                         </div>
@@ -541,6 +576,7 @@ export default function ChatPage() {
         <Composer
           models={modelsQuery.data ?? []}
           showTechnicalDetails={presentation.showTechnicalDetails}
+          leaderName={chiefName}
           sending={sendMessage.isPending || turnActive || createConversation.isPending}
           draft={draft}
           onDraftConsumed={() => setDraft('')}
@@ -550,18 +586,35 @@ export default function ChatPage() {
 
       {isDesktop && panelOpen && (
         <aside
-          aria-label={t('chat.workflowPanel.title')}
+          aria-label={t(
+            presentation.showTechnicalDetails
+              ? 'chat.workflowPanel.title'
+              : 'chat.projectPanel.title',
+          )}
           className="hidden w-80 shrink-0 flex-col gap-3 lg:flex lg:h-full lg:min-h-0"
         >
-          <h2 className="font-heading text-lg font-semibold">{t('chat.workflowPanel.title')}</h2>
+          <h2 className="font-heading text-lg font-semibold">
+            {t(
+              presentation.showTechnicalDetails
+                ? 'chat.workflowPanel.title'
+                : 'chat.projectPanel.title',
+            )}
+          </h2>
           <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-surface p-3">
-            <WorkflowPanel projectId={projectId} />
+            <WorkflowPanel
+              projectId={projectId}
+              showTechnicalDetails={presentation.showTechnicalDetails}
+            />
           </div>
         </aside>
       )}
 
       {!isDesktop && drawerOpen && (
-        <WorkflowPanelDrawer projectId={projectId} onClose={() => setDrawerOpen(false)} />
+        <WorkflowPanelDrawer
+          projectId={projectId}
+          showTechnicalDetails={presentation.showTechnicalDetails}
+          onClose={() => setDrawerOpen(false)}
+        />
       )}
     </div>
   );

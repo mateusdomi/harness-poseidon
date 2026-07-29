@@ -381,7 +381,7 @@ describe('ChatPage', () => {
     const user = userEvent.setup();
     renderChat();
 
-    const action = await screen.findByRole('button', { name: 'Ver bloqueios' });
+    const action = await screen.findByRole('button', { name: 'O que está travando?' });
     await user.click(action);
 
     expect(

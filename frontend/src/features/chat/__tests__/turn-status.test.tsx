@@ -137,6 +137,22 @@ describe('TurnStatusBadge', () => {
     expect(screen.getByText(/\(12min\)/)).toBeInTheDocument();
   });
 
+  it('resume o andamento no modo business sem expor agente ou cronômetro', () => {
+    const turn: TurnStream = {
+      ...IDLE_TURN,
+      turnId: 't1',
+      phase: 'agent_working',
+      agentName: 'Iara',
+      activityStartedAt: new Date(Date.now() - 12 * 60_000).toISOString(),
+      lastActivityAt: new Date().toISOString(),
+    };
+    render(<TurnStatusBadge turn={turn} showTechnicalDetails={false} />);
+
+    expect(screen.getByText('Equipe trabalhando')).toBeInTheDocument();
+    expect(screen.queryByText(/Iara/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/12min/)).not.toBeInTheDocument();
+  });
+
   it('exibe o aviso de travado quando não há heartbeat', () => {
     const turn: TurnStream = {
       ...IDLE_TURN,

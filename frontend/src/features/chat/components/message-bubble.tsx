@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Check, ClipboardList, Copy, FileText } from 'lucide-react';
 
 import type { Document, Message, Task } from '@/api';
+import { Badge } from '@/design-system';
 import { extractReferences } from '@/features/chat/lib/chat-derive';
 import { publicLeadershipContent } from '@/features/chat/lib/public-leadership';
 import { MarkdownContent } from '@/features/chat/components/markdown-content';
@@ -19,6 +20,8 @@ interface MessageBubbleProps {
   authorName?: string | null;
   /** Alias técnico da persona autora (ex.: `chief-orchestrator`) para humanizar. */
   authorAlias?: string | null;
+  /** Nome público da chefe resolvido pelo projeto/catálogo. */
+  chiefName?: string | null;
   tasks: Task[];
   documents: Document[];
 }
@@ -34,6 +37,7 @@ export function MessageBubble({
   message,
   authorName,
   authorAlias,
+  chiefName,
   tasks,
   documents,
 }: MessageBubbleProps) {
@@ -100,9 +104,14 @@ export function MessageBubble({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="text-sm font-semibold text-foreground">
-              {identity?.humanName ?? authorName ?? roleLabel}
+              {message.authorRole === 'chief'
+                ? (chiefName ?? identity?.humanName ?? authorName ?? roleLabel)
+                : (identity?.humanName ?? authorName ?? roleLabel)}
             </span>
-            {(identity || authorName) && (
+            {isAgentAuthor && (
+              <Badge variant="info">{t('chat.authors.virtualTeam')}</Badge>
+            )}
+            {(identity || authorName) && message.authorRole !== 'chief' && (
               <span className="text-xs text-foreground-muted">
                 {identity?.roleLabel ?? roleLabel}
               </span>

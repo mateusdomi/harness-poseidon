@@ -1250,8 +1250,10 @@
       "user": "You",
       "chief": "Bruna Magalhães",
       "agent": "Agent",
-      "system": "System"
+      "system": "System",
+      "virtualTeam": "Virtual team"
     },
+    "intro": "Talk to {{name}}, who coordinates this project's virtual team.",
     "leadership": {
       "name": "Bruna Magalhães",
       "title": "Director of AI Engineering and Operations",
@@ -1306,18 +1308,49 @@
         "cta": "View workflows"
       }
     },
+    "projectPanel": {
+      "title": "Project overview",
+      "open": "Open project overview",
+      "close": "Close project overview",
+      "now": "Now",
+      "progressLabel": "Progress of {{name}}",
+      "progress": "{{percent}}% of this stage's work completed",
+      "deliveries": "Deliveries",
+      "noDeliveries": "No delivery has been published for this stage yet.",
+      "pending": "Needs attention",
+      "humanDecisions": "Decisions that need you",
+      "blockers": "Blockers",
+      "blockedHelp": "Ask the team how each blocker will be resolved.",
+      "notStartedTitle": "Project tracking has not started",
+      "noProgress": "Progress appears when the project's work starts.",
+      "states": {
+        "pending": "Future",
+        "active": "In progress",
+        "completed": "Completed",
+        "skipped": "Not needed",
+        "failed": "Needs attention"
+      }
+    },
     "noProject": {
       "body": "The chat talks to Bruna Magalhães, who coordinates the project. Create a project to get started.",
       "cta": "Create project"
     },
     "empty": {
-      "title": "Talk to Bruna Magalhães",
-      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. Bruna coordinates the agents and replies here.",
-      "blockedBody": "Bruna's execution is blocked until provider, model and workflow are configured. See what is missing below.",
+      "title": "Talk to {{name}}",
+      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. {{name}} coordinates the virtual team and replies here.",
+      "blockedBody": "The team is waiting for the project's initial setup. See what needs attention below.",
       "cta": "Start conversation"
     },
     "turn": {
       "coordinating": "Bruna is coordinating…",
+      "businessAcknowledged": "Request received.",
+      "businessWorking": "The team is preparing the response.",
+      "businessStates": {
+        "received": "Request received",
+        "working": "Team working",
+        "review": "In review",
+        "attention": "Needs attention"
+      },
       "states": {
         "pending": "📥 Received — queued",
         "received": "📥 Received",
@@ -1342,19 +1375,19 @@
       "title": "Quick actions",
       "actions": {
         "summarizeProgress": {
-          "label": "Summarize progress",
+          "label": "How are we doing?",
           "message": "Can you tell me how the project is progressing?"
         },
         "blockedStatus": {
-          "label": "View blockers",
+          "label": "What is blocking us?",
           "message": "Is anything preventing the project from moving forward? How will the team resolve it?"
         },
         "approvalStatus": {
-          "label": "View pending approvals",
+          "label": "What needs me?",
           "message": "Which decisions are waiting for my approval and what is the impact of each one?"
         },
         "planNewDemand": {
-          "label": "Plan new demand",
+          "label": "Plan a delivery",
           "message": "I would like to plan a new delivery."
         }
       }
@@ -1367,8 +1400,9 @@
       "copied": "Message copied"
     },
     "composer": {
-      "messageLabel": "Message to Bruna",
-      "placeholder": "Write to Bruna Magalhães…",
+      "messageLabel": "Message to {{name}}",
+      "placeholder": "Write to {{name}}…",
+      "preferences": "Response preferences",
       "send": "Send message",
       "attach": "Attach file",
       "attachments": "Attachments",

@@ -1250,8 +1250,10 @@
       "user": "Você",
       "chief": "Bruna Magalhães",
       "agent": "Agente",
-      "system": "Sistema"
+      "system": "Sistema",
+      "virtualTeam": "Equipe virtual"
     },
+    "intro": "Converse com {{name}}, que coordena a equipe virtual deste projeto.",
     "leadership": {
       "name": "Bruna Magalhães",
       "title": "Diretora de Engenharia e Operações de IA",
@@ -1306,18 +1308,49 @@
         "cta": "Ver workflows"
       }
     },
+    "projectPanel": {
+      "title": "Acompanhamento do projeto",
+      "open": "Abrir acompanhamento do projeto",
+      "close": "Fechar acompanhamento do projeto",
+      "now": "Agora",
+      "progressLabel": "Andamento de {{name}}",
+      "progress": "{{percent}}% do trabalho desta etapa concluído",
+      "deliveries": "Entregas",
+      "noDeliveries": "Nenhuma entrega publicada nesta etapa ainda.",
+      "pending": "Pendências",
+      "humanDecisions": "Decisões que precisam de você",
+      "blockers": "Impedimentos",
+      "blockedHelp": "Pergunte à equipe como cada impedimento será resolvido.",
+      "notStartedTitle": "Acompanhamento ainda não iniciado",
+      "noProgress": "O acompanhamento aparece quando o trabalho do projeto começar.",
+      "states": {
+        "pending": "Futura",
+        "active": "Em andamento",
+        "completed": "Concluída",
+        "skipped": "Não necessária",
+        "failed": "Precisa de atenção"
+      }
+    },
     "noProject": {
       "body": "O chat conversa com Bruna Magalhães, responsável pela coordenação do projeto. Crie um projeto para começar.",
       "cta": "Criar projeto"
     },
     "empty": {
-      "title": "Converse com Bruna Magalhães",
-      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. Bruna coordena os agentes e responde por aqui.",
-      "blockedBody": "A execução de Bruna está bloqueada até que provedor, modelo e workflow estejam configurados. Veja o que falta logo abaixo.",
+      "title": "Converse com {{name}}",
+      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. {{name}} coordena a equipe virtual e responde por aqui.",
+      "blockedBody": "A equipe está aguardando a configuração inicial do projeto. Veja o que precisa de atenção logo abaixo.",
       "cta": "Iniciar conversa"
     },
     "turn": {
       "coordinating": "Bruna está coordenando…",
+      "businessAcknowledged": "Pedido recebido.",
+      "businessWorking": "A equipe está preparando a resposta.",
+      "businessStates": {
+        "received": "Pedido recebido",
+        "working": "Equipe trabalhando",
+        "review": "Em revisão",
+        "attention": "Precisa de atenção"
+      },
       "states": {
         "pending": "📥 Recebido — na fila",
         "received": "📥 Recebido",
@@ -1342,19 +1375,19 @@
       "title": "Ações rápidas",
       "actions": {
         "summarizeProgress": {
-          "label": "Resumir progresso",
+          "label": "Como estamos?",
           "message": "Pode me contar como o projeto está avançando?"
         },
         "blockedStatus": {
-          "label": "Ver bloqueios",
+          "label": "O que está travando?",
           "message": "Existe algo impedindo o avanço do projeto? Como a equipe vai resolver?"
         },
         "approvalStatus": {
-          "label": "Ver aprovações pendentes",
+          "label": "O que precisa de mim?",
           "message": "Quais decisões estão aguardando minha aprovação e qual é o impacto de cada uma?"
         },
         "planNewDemand": {
-          "label": "Planejar nova demanda",
+          "label": "Planejar uma entrega",
           "message": "Gostaria de planejar uma nova entrega."
         }
       }
@@ -1367,8 +1400,9 @@
       "copied": "Mensagem copiada"
     },
     "composer": {
-      "messageLabel": "Mensagem para Bruna",
-      "placeholder": "Escreva para Bruna Magalhães…",
+      "messageLabel": "Mensagem para {{name}}",
+      "placeholder": "Escreva para {{name}}…",
+      "preferences": "Preferências da resposta",
       "send": "Enviar mensagem",
       "attach": "Anexar arquivo",
       "attachments": "Anexos",

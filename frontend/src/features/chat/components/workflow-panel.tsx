@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
+  Activity,
+  AlertTriangle,
+  ClipboardCheck,
   CircleCheck,
   CircleDashed,
   CircleMinus,
@@ -10,6 +13,7 @@ import {
   Hourglass,
   Info,
   TriangleAlert,
+  PackageCheck,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -154,6 +158,133 @@ interface PhaseAccordionProps {
   tasks: Task[];
   approvals: Approval[];
   defaultOpen: boolean;
+}
+
+function BusinessProjectSummary({
+  phases,
+  documents,
+  tasks,
+  approvals,
+}: {
+  phases: Phase[];
+  documents: Document[];
+  tasks: Task[];
+  approvals: Approval[];
+}) {
+  const { t } = useTranslation();
+  const ordered = [...phases].sort((left, right) => left.order - right.order);
+  const current =
+    ordered.find((phase) => phase.state === 'active') ??
+    ordered.find((phase) => phase.state === 'pending') ??
+    ordered.at(-1) ??
+    null;
+  const deliveries = current ? documentsOfPhase(documents, current) : [];
+  const visibleDeliveries = deliveries
+    .filter((document) => documentHealth(document) !== 'notApplicable')
+    .slice(0, 3);
+  const blocked = tasks.filter((task) => task.state === 'blocked').length;
+  const decisions = approvals.filter((approval) => approval.state === 'pending').length;
+
+  if (!current) {
+    return <p className="text-sm text-foreground-muted">{t('chat.projectPanel.noProgress')}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section className="rounded-xl border border-brand/30 bg-primary/5 p-4">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-strong">
+          <Activity aria-hidden="true" className="size-4" />
+          {t('chat.projectPanel.now')}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-heading text-lg font-semibold">{current.name}</h3>
+          <Badge variant={phaseStateVariant(current.state)}>
+            {t(`chat.projectPanel.states.${current.state}`)}
+          </Badge>
+        </div>
+        <div
+          role="progressbar"
+          aria-label={t('chat.projectPanel.progressLabel', { name: current.name })}
+          aria-valuenow={current.progress.percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="mt-3 h-2 overflow-hidden rounded-full bg-surface-elevated"
+        >
+          <div
+            className="h-full rounded-full bg-gradient-brand"
+            style={{ width: `${current.progress.percent}%` }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-foreground-muted">
+          {t('chat.projectPanel.progress', { percent: current.progress.percent })}
+        </p>
+      </section>
+
+      <section aria-labelledby="chat-project-deliveries" className="flex flex-col gap-2">
+        <h3 id="chat-project-deliveries" className="flex items-center gap-2 text-sm font-semibold">
+          <PackageCheck aria-hidden="true" className="size-4 text-info" />
+          {t('chat.projectPanel.deliveries')}
+        </h3>
+        {visibleDeliveries.length === 0 ? (
+          <p className="text-sm text-foreground-muted">
+            {t('chat.projectPanel.noDeliveries')}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {visibleDeliveries.map((document) => {
+              const health = documentHealth(document);
+              const { Icon, className } = HEALTH_META[health];
+              return (
+                <li key={document.id}>
+                  <Link
+                    to={`/documents?doc=${document.id}`}
+                    className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface-elevated/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <Icon aria-hidden="true" className={cn('size-4 shrink-0', className)} />
+                    <span className="min-w-0 flex-1 truncate font-medium">{document.title}</span>
+                    <span className={cn('shrink-0 text-xs', className)}>
+                      {t(`chat.workflowPanel.health.${health}`)}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="chat-project-pending" className="flex flex-col gap-2">
+        <h3 id="chat-project-pending" className="flex items-center gap-2 text-sm font-semibold">
+          <ClipboardCheck aria-hidden="true" className="size-4 text-warning" />
+          {t('chat.projectPanel.pending')}
+        </h3>
+        <dl className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-border bg-surface-elevated/40 p-3">
+            <dt className="text-xs text-foreground-muted">
+              {t('chat.projectPanel.humanDecisions')}
+            </dt>
+            <dd className="mt-1">
+              <Badge variant={decisions > 0 ? 'warning' : 'success'}>{decisions}</Badge>
+            </dd>
+          </div>
+          <div className="rounded-lg border border-border bg-surface-elevated/40 p-3">
+            <dt className="text-xs text-foreground-muted">
+              {t('chat.projectPanel.blockers')}
+            </dt>
+            <dd className="mt-1">
+              <Badge variant={blocked > 0 ? 'error' : 'success'}>{blocked}</Badge>
+            </dd>
+          </div>
+        </dl>
+        {blocked > 0 && (
+          <p className="flex items-start gap-2 text-xs text-foreground-muted">
+            <AlertTriangle aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warning" />
+            {t('chat.projectPanel.blockedHelp')}
+          </p>
+        )}
+      </section>
+    </div>
+  );
 }
 
 /** Fase como acordeão: nome + estado, barra de progresso e documentos. */
@@ -344,7 +475,13 @@ function PhaseAccordion({
  * acordeão com progresso derivado (D-069) e documentos por conceito
  * documental (D-068) com deep-link para o catálogo.
  */
-export function WorkflowPanel({ projectId }: { projectId: Ulid | null }) {
+export function WorkflowPanel({
+  projectId,
+  showTechnicalDetails = true,
+}: {
+  projectId: Ulid | null;
+  showTechnicalDetails?: boolean;
+}) {
   const { t } = useTranslation();
   const panel = useWorkflowPanel(projectId);
 
@@ -372,6 +509,15 @@ export function WorkflowPanel({ projectId }: { projectId: Ulid | null }) {
   }
 
   if (!panel.hasWorkflow) {
+    if (!showTechnicalDetails) {
+      return (
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-sm font-medium">{t('chat.projectPanel.notStartedTitle')}</p>
+          <p className="text-sm text-foreground-muted">{t('chat.projectPanel.noProgress')}</p>
+        </div>
+      );
+    }
+
     // RN-02: com vínculo mas sem run, o estado normal é "execução ainda não iniciada" — não pedimos
     // para vincular um workflow (o sistema já atribuiu o padrão). O texto de "sem vínculo" vira
     // orientação de exceção, mostrado só quando, atipicamente, nenhum workflow está vinculado.
@@ -384,6 +530,17 @@ export function WorkflowPanel({ projectId }: { projectId: Ulid | null }) {
           <Link to="/workflows">{t(`chat.workflowPanel.${scope}.cta`)}</Link>
         </Button>
       </div>
+    );
+  }
+
+  if (!showTechnicalDetails) {
+    return (
+      <BusinessProjectSummary
+        phases={panel.phases}
+        documents={panel.documents}
+        tasks={panel.tasks}
+        approvals={panel.approvals}
+      />
     );
   }
 
@@ -415,11 +572,16 @@ const FOCUSABLE =
 export function WorkflowPanelDrawer({
   projectId,
   onClose,
+  showTechnicalDetails = true,
 }: {
   projectId: Ulid | null;
   onClose: () => void;
+  showTechnicalDetails?: boolean;
 }) {
   const { t } = useTranslation();
+  const title = t(
+    showTechnicalDetails ? 'chat.workflowPanel.title' : 'chat.projectPanel.title',
+  );
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -473,13 +635,13 @@ export function WorkflowPanelDrawer({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={t('chat.workflowPanel.title')}
+        aria-label={title}
         tabIndex={-1}
         className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col gap-3 overflow-y-auto border-l border-border bg-background p-4 shadow-2xl"
       >
         <div className="flex items-center gap-2">
           <h2 className="flex-1 font-heading text-lg font-semibold">
-            {t('chat.workflowPanel.title')}
+            {title}
           </h2>
           <button
             type="button"
@@ -490,7 +652,10 @@ export function WorkflowPanelDrawer({
             <X aria-hidden="true" className="size-5" />
           </button>
         </div>
-        <WorkflowPanel projectId={projectId} />
+        <WorkflowPanel
+          projectId={projectId}
+          showTechnicalDetails={showTechnicalDetails}
+        />
       </div>
     </div>
   );
