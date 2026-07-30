@@ -1,3 +1,4 @@
+using Harness.Modules.Coordination.Application;
 using Harness.Host.Profiles;
 using Harness.Host.Projects;
 using Harness.Persistence.Abstractions.Agents;
@@ -150,7 +151,7 @@ public static class AgentEndpoints
             items, more ? items[^1].Version : null));
     }
 
-    private static async Task<IResult> CreateDefinitionAsync(AgentDefinitionWriteRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var content = await ResolveAutoKeyAsync(store, profile.TenantId, ToContent(input), token); var value = await store.CreateDefinitionAsync(new(profile.TenantId, profile.Id, id, content, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionCatalogMissingException e) { return MissingCatalog(e); } catch (AgentDefinitionAdminException e) { return Problem(400, "invalid_agent_definition", e.Message); } catch (Exception e) when (e is Microsoft.Data.Sqlite.SqliteException or Npgsql.PostgresException) { return Problem(409, "agent_definition_conflict", "Definition key already exists."); } }
+    private static async Task<IResult> CreateDefinitionAsync(AgentDefinitionWriteRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); if (LintPersona(input) is { } refusal) return refusal; var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var content = await ResolveAutoKeyAsync(store, profile.TenantId, ToContent(input), token); var value = await store.CreateDefinitionAsync(new(profile.TenantId, profile.Id, id, content, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionCatalogMissingException e) { return MissingCatalog(e); } catch (AgentDefinitionAdminException e) { return Problem(400, "invalid_agent_definition", e.Message); } catch (Exception e) when (e is Microsoft.Data.Sqlite.SqliteException or Npgsql.PostgresException) { return Problem(409, "agent_definition_conflict", "Definition key already exists."); } }
 
     // Auto-key P1: quando o cliente não informa a chave, ela é derivada do nome de forma
     // determinística e versionada, evitando as chaves já existentes do tenant. O UNIQUE do
@@ -166,7 +167,41 @@ public static class AgentEndpoints
     private static async Task<IResult> DuplicateDefinitionAsync(string definitionId, AgentDefinitionDuplicateRequest input, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); var now = clock.UtcNow; var id = UlidValue.New(now).ToString(); try { var value = await store.DuplicateDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, id, input.Key, input.Name, now), token); return Results.Created($"/api/v1/agent-definitions/{id}", ToContract(value)); } catch (AgentDefinitionCatalogMissingException e) { return MissingCatalog(e); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static async Task<IResult> SetDefinitionLifecycleAsync(string definitionId, string action, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { return Results.Ok(ToContract(await store.SetDefinitionLifecycleAsync(new(profile.TenantId, profile.Id, definitionId, action, clock.UtcNow), token))); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
     private static async Task<IResult> DeleteDefinitionAsync(string definitionId, HttpRequest request, ILocalProfileStore profiles, IAgentCatalogStore store, IClock clock, CancellationToken token) { if (!UlidValue.TryParse(definitionId, out _)) return InvalidId("definition"); var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired(); try { await store.DeleteDefinitionAsync(new(profile.TenantId, profile.Id, definitionId, clock.UtcNow), token); return Results.NoContent(); } catch (AgentDefinitionAdminException e) { return Problem(409, "agent_definition_conflict", e.Message); } }
-    private static AgentDefinitionContent ToContent(AgentDefinitionWriteRequest value) => new(value.Key, value.Name, value.Role, value.Specialty, value.Description, value.DefaultModelId, value.SkillIds, value.ToolIds, value.Persona, value.Mission, value.OperatingPrinciples, value.Deliverables, value.QualityCriteria, value.CommunicationStyle, value.Limitations, value.Stacks, value.DefaultEffort, value.PreferredAccountId, value.FallbackModelIds, value.Team, value.ActorCritic, value.Risk);
+    /// <summary>
+    /// B8/F17 — lint de persona, Default-FAIL na criação e na alteração.
+    ///
+    /// Uma persona é uma procuração: diz quais ferramentas o agente usa e ONDE ele escreve.
+    /// Definição perigosa não parece perigosa na hora de criar — parece conveniente ("dá acesso a
+    /// tudo para não travar"), e o custo aparece depois, como incidente. Recusar custa uma conversa.
+    ///
+    /// O lint só julga persona que DECLARA escopo de caminho. Uma definição sem escopo herda o do
+    /// papel (`AgentPathScopePolicy`), que já é restritivo — exigir denylist dela recusaria as
+    /// definições canônicas sem ganho de segurança, e uma guarda que barra o legítimo é pior que a
+    /// ausência dela.
+    /// </summary>
+    private static IResult? LintPersona(AgentDefinitionWriteRequest input)
+    {
+        if (input.AllowedScopes is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var result = PersonaDefinitionLint.Inspect(new PersonaDefinition(
+            string.IsNullOrWhiteSpace(input.Key) ? "auto" : input.Key,
+            input.Name,
+            input.ToolIds ?? [],
+            input.AllowedScopes,
+            input.DeniedScopes ?? []));
+
+        return result.Accepted
+            ? null
+            : Problem(
+                422,
+                "unsafe_agent_definition",
+                string.Join(" ", result.Findings.Select(finding => finding.Message)));
+    }
+
+    private static AgentDefinitionContent ToContent(AgentDefinitionWriteRequest value) => new(value.Key, value.Name, value.Role, value.Specialty, value.Description, value.DefaultModelId, value.SkillIds, value.ToolIds, value.Persona, value.Mission, value.OperatingPrinciples, value.Deliverables, value.QualityCriteria, value.CommunicationStyle, value.Limitations, value.Stacks, value.DefaultEffort, value.PreferredAccountId, value.FallbackModelIds, value.Team, value.ActorCritic, value.Risk, value.AllowedScopes, value.DeniedScopes);
 
     // CAT-06 — export/import portável. O export emite um envelope (único ou em lote) em JSON
     // ou YAML; o import valida, cria ou (por colisão de chave) atualiza a definição via o mesmo
@@ -502,5 +537,6 @@ public sealed record AgentDefinitionWriteRequest(
     IReadOnlyList<string>? Stacks = null, string? DefaultEffort = null,
     string? PreferredAccountId = null, IReadOnlyList<string>? FallbackModelIds = null,
     string? Team = null, string? ActorCritic = null, string? Risk = null,
+    IReadOnlyList<string>? AllowedScopes = null, IReadOnlyList<string>? DeniedScopes = null,
     int ExpectedVersion = 0);
 public sealed record AgentDefinitionDuplicateRequest(string Key, string Name);

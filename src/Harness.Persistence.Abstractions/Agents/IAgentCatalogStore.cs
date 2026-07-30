@@ -131,7 +131,16 @@ public sealed record AgentDefinitionRecord(
     string? ScopeProjectId = null,
 
     /// <summary>Por que a persona existe — a lacuna concreta que ela veio cobrir.</summary>
-    string? CreationReason = null);
+    string? CreationReason = null,
+
+    /// <summary>Caminhos que a persona pode tocar (B8/F17). Vazio = herda o escopo do papel.</summary>
+    IReadOnlyList<string>? AllowedScopes = null,
+
+    /// <summary>
+    /// Caminhos que ela NUNCA toca. A ausência é a omissão que deixa governança, segredo e o
+    /// próprio quadro abertos por esquecimento — e omissão não é decisão.
+    /// </summary>
+    IReadOnlyList<string>? DeniedScopes = null);
 
 public sealed record AgentDefinitionContent(
     string Key, string Name, string Role, string? Specialty, string Description,
@@ -141,7 +150,10 @@ public sealed record AgentDefinitionContent(
     string? CommunicationStyle, IReadOnlyList<string> Limitations,
     IReadOnlyList<string>? Stacks = null, string? DefaultEffort = null,
     string? PreferredAccountId = null, IReadOnlyList<string>? FallbackModelIds = null,
-    string? Team = null, string? ActorCritic = null, string? Risk = null);
+    string? Team = null, string? ActorCritic = null, string? Risk = null,
+    // B8/F17 — o que a persona pode e não pode TOCAR. `Stacks` diz tecnologia e `Limitations` é
+    // texto livre; nenhum dos dois é escopo de caminho, e o lint de persona julga caminho.
+    IReadOnlyList<string>? AllowedScopes = null, IReadOnlyList<string>? DeniedScopes = null);
 public sealed record AgentDefinitionVersionRecord(
     string Id, string DefinitionId, int Version, AgentDefinitionContent Snapshot,
     string ActorProfileId, DateTimeOffset CreatedAt);
