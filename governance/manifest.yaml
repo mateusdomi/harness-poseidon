@@ -7,7 +7,9 @@ knownOwners:
 - Product Security
 - Quality Engineering
 - Operations
-markdownAllowlist: []
+markdownAllowlist:
+- path: RELATORIO-VALIDACAO-POSEIDON.md
+  reason: Relatório de auditoria das 17 fases da campanha v6, solicitado pelo dono na raiz do repositório. É registro de validação com data fechada, não norma — por isso fica no allowlist e não entre os documentos canônicos.
 documents:
 - id: governance-core
   path: governance/core.md

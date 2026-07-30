@@ -1,0 +1,259 @@
+[WebServer] node_modules/@microsoft/signalr/dist/esm/Utils.js (189:0): A comment
+[WebServer] 
+[WebServer] "/*#__PURE__*/"
+[WebServer] 
+[WebServer] in "node_modules/@microsoft/signalr/dist/esm/Utils.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+[WebServer] node_modules/@microsoft/signalr/dist/esm/Utils.js (207:0): A comment
+[WebServer] 
+[WebServer] "/*#__PURE__*/"
+[WebServer] 
+[WebServer] in "node_modules/@microsoft/signalr/dist/esm/Utils.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+[WebServer] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+Running 15 tests using 5 workers
+
+  ✓   5 [desktop-1440] › e2e/fe2-flows.spec.ts:62:3 › Gate FE-2 — aprovação de documento › aprovar documento com aprovação pendente move o estado para Aprovado (4.0s)
+  ✓   4 [desktop-1440] › e2e/fe2-flows.spec.ts:77:3 › Gate FE-2 — aprovação de documento › reprovar exige observação e devolve o documento para elaboração (4.6s)
+  ✘   3 [desktop-1440] › e2e/chat-business-actions.spec.ts:31:3 › Chat — fluxos determinísticos da experiência de negócio › acolhe uma nova entrega e começa pelo resultado desejado (7.3s)
+  ✘   2 [desktop-1440] › e2e/chat-business-actions.spec.ts:13:3 › Chat — fluxos determinísticos da experiência de negócio › resume o projeto com dados atuais sem vazar a operação interna (7.8s)
+  ✘   6 [desktop-1440] › e2e/fe2-flows.spec.ts:102:3 › Gate FE-2 — passagem de bastão › trocar o modelo do chefe pelo wizard e o card reflete sem reload (6.2s)
+  ✓  10 [desktop-1440] › e2e/golden-path-ux.spec.ts:68:3 › Golden path — UX transversal › criação e edição expõem "Voltar" com rótulo específico (2.1s)
+  ✓   8 [desktop-1440] › e2e/fe3-flows.spec.ts:90:3 › Gate FE-3 — PO Assistant › analisar texto, ver painéis e criar demanda estruturada (5.3s)
+  ✓  12 [desktop-1440] › e2e/golden-path-ux.spec.ts:95:3 › Golden path — UX transversal › plano e identificador interno não são escolhas do usuário no formulário (1.4s)
+  ✓  11 [desktop-1440] › e2e/golden-path-ux.spec.ts:81:3 › Golden path — UX transversal › nenhuma ação primária aparece duplicada na mesma tela (2.5s)
+  ✘   7 [desktop-1440] › e2e/fe3-flows.spec.ts:58:3 › Gate FE-3 — rodar projeto › iniciar serviços mostra logs fluindo e parar encerra com logs de parada (10.5s)
+  ✘  14 [desktop-1440] › e2e/golden-path-ux.spec.ts:136:3 › Golden path — UX transversal › o orquestrador mostra prontidão real e sinaliza modo simulado (7.5s)
+  ✘  15 [desktop-1440] › e2e/visual-identity.spec.ts:3:1 › registra a identidade visual local nos temas escuro e claro (8.5s)
+  ✘   1 [desktop-1440] › e2e/fe1-flow.spec.ts:40:3 › Gate FE-1 › onboarding → criar projeto → chat → chefe planeja → cards se movem → aprovar gate (30.0s)
+  ✘   9 [desktop-1440] › e2e/golden-path-ux.spec.ts:57:3 › Golden path — UX transversal › a sigla do projeto é derivada do título, sem decisão manual (30.0s)
+  ✘  13 [desktop-1440] › e2e/golden-path-ux.spec.ts:113:3 › Golden path — UX transversal › projeto novo recebe workflow recomendado e o Chat expõe o ciclo sem bloqueio (30.0s)
+
+
+  1) [desktop-1440] › e2e/chat-business-actions.spec.ts:13:3 › Chat — fluxos determinísticos da experiência de negócio › resume o projeto com dados atuais sem vazar a operação interna 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Equipe virtual').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('Equipe virtual').first()
+
+
+       7 |   await page.goto('/chat');
+       8 |   await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
+    >  9 |   await expect(page.getByText('Equipe virtual').first()).toBeVisible();
+         |                                                          ^
+      10 | }
+      11 |
+      12 | test.describe('Chat — fluxos determinísticos da experiência de negócio', () => {
+        at enterBusinessChat (/Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/chat-business-actions.spec.ts:9:58)
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/chat-business-actions.spec.ts:14:5
+
+    Error Context: test-results/chat-business-actions-Chat-b55e5-em-vazar-a-operação-interna-desktop-1440/error-context.md
+
+  2) [desktop-1440] › e2e/chat-business-actions.spec.ts:31:3 › Chat — fluxos determinísticos da experiência de negócio › acolhe uma nova entrega e começa pelo resultado desejado 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Equipe virtual').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('Equipe virtual').first()
+
+
+       7 |   await page.goto('/chat');
+       8 |   await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
+    >  9 |   await expect(page.getByText('Equipe virtual').first()).toBeVisible();
+         |                                                          ^
+      10 | }
+      11 |
+      12 | test.describe('Chat — fluxos determinísticos da experiência de negócio', () => {
+        at enterBusinessChat (/Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/chat-business-actions.spec.ts:9:58)
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/chat-business-actions.spec.ts:32:5
+
+    Error Context: test-results/chat-business-actions-Chat-d5887-eça-pelo-resultado-desejado-desktop-1440/error-context.md
+
+  3) [desktop-1440] › e2e/fe1-flow.spec.ts:40:3 › Gate FE-1 › onboarding → criar projeto → chat → chefe planeja → cards se movem → aprovar gate 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('tab', { name: 'Identidade' })
+
+
+      50 |     await navTo(page, 'Projetos');
+      51 |     await page.getByRole('button', { name: 'Novo projeto' }).click();
+    > 52 |     await page.getByRole('tab', { name: 'Identidade' }).click();
+         |                                                         ^
+      53 |     await page.getByLabel(/Título/).fill(PROJECT_NAME);
+      54 |     // A sigla é derivada do nome; sobrescrevemos com um valor determinístico.
+      55 |     await page.getByLabel(/Slug \(sigla\)/).fill('E2EFE1');
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/fe1-flow.spec.ts:52:57
+
+    Error Context: test-results/fe1-flow-Gate-FE-1-onboard-b8b4b-rds-se-movem-→-aprovar-gate-desktop-1440/error-context.md
+
+  4) [desktop-1440] › e2e/fe2-flows.spec.ts:102:3 › Gate FE-2 — passagem de bastão › trocar o modelo do chefe pelo wizard e o card reflete sem reload 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Orquestrador' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Orquestrador' })
+
+
+      104 |     await navTo(page, 'Equipe');
+      105 |     await expect(page).toHaveURL(/\/orchestrator$/);
+    > 106 |     await expect(page.getByRole('heading', { name: 'Orquestrador' })).toBeVisible();
+          |                                                                       ^
+      107 |
+      108 |     // Card do chefe: modelo em uso é o default da definição (GPT-4o).
+      109 |     await expect(page.getByText('GPT-4o', { exact: true })).toBeVisible({ timeout: 10_000 });
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/fe2-flows.spec.ts:106:71
+
+    Error Context: test-results/fe2-flows-Gate-FE-2-—-pass-2a709-e-o-card-reflete-sem-reload-desktop-1440/error-context.md
+
+  5) [desktop-1440] › e2e/fe3-flows.spec.ts:58:3 › Gate FE-3 — rodar projeto › iniciar serviços mostra logs fluindo e parar encerra com logs de parada 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Frontend Vite (dev)').first()
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText('Frontend Vite (dev)').first()
+
+
+      64 |
+      65 |     // Serviços detectados da fixture do projeto ativo (Poseidon Frontend).
+    > 66 |     await expect(page.getByText('Frontend Vite (dev)').first()).toBeVisible({ timeout: 10_000 });
+         |                                                                 ^
+      67 |     await expect(page.getByText('Backend API (.NET)').first()).toBeVisible();
+      68 |
+      69 |     // Iniciar tudo: comandos start por serviço → run.logAppended no stream.
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/fe3-flows.spec.ts:66:65
+
+    Error Context: test-results/fe3-flows-Gate-FE-3-—-roda-b80b8--encerra-com-logs-de-parada-desktop-1440/error-context.md
+
+  6) [desktop-1440] › e2e/golden-path-ux.spec.ts:57:3 › Golden path — UX transversal › a sigla do projeto é derivada do título, sem decisão manual 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('tab', { name: 'Identidade' })
+
+
+      59 |     await navTo(page, 'Projetos');
+      60 |     await page.getByRole('button', { name: 'Novo projeto' }).click();
+    > 61 |     await page.getByRole('tab', { name: 'Identidade' }).click();
+         |                                                         ^
+      62 |
+      63 |     await page.getByLabel(/Título/).fill('Plataforma de Faturamento');
+      64 |     // Derivada: maiúsculas, sem acento/espaço, truncada em 12 (§7).
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/golden-path-ux.spec.ts:61:57
+
+    Error Context: test-results/golden-path-ux-Golden-path-c96fe-o-título-sem-decisão-manual-desktop-1440/error-context.md
+
+  7) [desktop-1440] › e2e/golden-path-ux.spec.ts:113:3 › Golden path — UX transversal › projeto novo recebe workflow recomendado e o Chat expõe o ciclo sem bloqueio 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('tab', { name: 'Identidade' })
+
+
+      42 |   await navTo(page, 'Projetos');
+      43 |   await page.getByRole('button', { name: 'Novo projeto' }).click();
+    > 44 |   await page.getByRole('tab', { name: 'Identidade' }).click();
+         |                                                       ^
+      45 |   await page.getByLabel(/Título/).fill(PROJECT_NAME);
+      46 |   await page.getByRole('tab', { name: 'Objetivo' }).click();
+      47 |   await page.getByLabel(/Objetivo e contexto/).fill('Projeto do gate de UX do golden path.');
+        at createProjectWithRecommendedWorkflow (/Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/golden-path-ux.spec.ts:44:55)
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/golden-path-ux.spec.ts:117:5
+
+    Error Context: test-results/golden-path-ux-Golden-path-6d714--expõe-o-ciclo-sem-bloqueio-desktop-1440/error-context.md
+
+  8) [desktop-1440] › e2e/golden-path-ux.spec.ts:136:3 › Golden path — UX transversal › o orquestrador mostra prontidão real e sinaliza modo simulado 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Binding pendente').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('Binding pendente').first()
+
+
+      140 |     // Estado de prontidão explícito + aviso honesto de dado simulado (§15).
+      141 |     await expect(page.getByText('Modo simulado').first()).toBeVisible();
+    > 142 |     await expect(page.getByText('Binding pendente').first()).toBeVisible();
+          |                                                              ^
+      143 |   });
+      144 | });
+      145 |
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/golden-path-ux.spec.ts:142:62
+
+    Error Context: test-results/golden-path-ux-Golden-path-1bddd-al-e-sinaliza-modo-simulado-desktop-1440/error-context.md
+
+  9) [desktop-1440] › e2e/visual-identity.spec.ts:3:1 › registra a identidade visual local nos temas escuro e claro 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('combobox', { name: 'Perfil de trabalho' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('combobox', { name: 'Perfil de trabalho' })
+
+
+      26 |   await page.goto('/chat');
+      27 |   await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
+    > 28 |   await expect(page.getByRole('combobox', { name: 'Perfil de trabalho' })).toBeVisible();
+         |                                                                            ^
+      29 |   await expect(page.getByText('Equipe virtual').first()).toBeVisible();
+      30 |   await expect(page.getByRole('combobox', { name: 'Modelo' })).toHaveCount(0);
+      31 |   await expect
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/visual-identity.spec.ts:28:76
+
+    Error Context: test-results/visual-identity-registra-a-5c4a0-al-nos-temas-escuro-e-claro-desktop-1440/error-context.md
+
+  9 failed
+    [desktop-1440] › e2e/chat-business-actions.spec.ts:13:3 › Chat — fluxos determinísticos da experiência de negócio › resume o projeto com dados atuais sem vazar a operação interna 
+    [desktop-1440] › e2e/chat-business-actions.spec.ts:31:3 › Chat — fluxos determinísticos da experiência de negócio › acolhe uma nova entrega e começa pelo resultado desejado 
+    [desktop-1440] › e2e/fe1-flow.spec.ts:40:3 › Gate FE-1 › onboarding → criar projeto → chat → chefe planeja → cards se movem → aprovar gate 
+    [desktop-1440] › e2e/fe2-flows.spec.ts:102:3 › Gate FE-2 — passagem de bastão › trocar o modelo do chefe pelo wizard e o card reflete sem reload 
+    [desktop-1440] › e2e/fe3-flows.spec.ts:58:3 › Gate FE-3 — rodar projeto › iniciar serviços mostra logs fluindo e parar encerra com logs de parada 
+    [desktop-1440] › e2e/golden-path-ux.spec.ts:57:3 › Golden path — UX transversal › a sigla do projeto é derivada do título, sem decisão manual 
+    [desktop-1440] › e2e/golden-path-ux.spec.ts:113:3 › Golden path — UX transversal › projeto novo recebe workflow recomendado e o Chat expõe o ciclo sem bloqueio 
+    [desktop-1440] › e2e/golden-path-ux.spec.ts:136:3 › Golden path — UX transversal › o orquestrador mostra prontidão real e sinaliza modo simulado 
+    [desktop-1440] › e2e/visual-identity.spec.ts:3:1 › registra a identidade visual local nos temas escuro e claro 
+  6 passed (56.4s)

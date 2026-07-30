@@ -38,3 +38,7 @@ tools/backend/.tooling/
 # existente, e a regra com barra no fim NAO pega symlink (foi como um link com
 # caminho absoluto de uma maquina entrou no repositorio por um `git add -A`).
 tools/backend/.tooling
+
+# Instrumentos de QA: dependências resolvidas por symlink e saídas voláteis
+artifacts/qa-poseidon/tools/node_modules
+artifacts/qa-poseidon/evidencias/*.tmp

@@ -1,0 +1,1370 @@
+
+Running 1 test using 1 worker
+
+  ✘  1 [notebook-1440] › e2e/http-real.spec.ts:770:1 › Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11y (5.8s)
+
+
+  1) [notebook-1440] › e2e/http-real.spec.ts:770:1 › Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11y 
+
+    Error: notebook-1440 /delivery: definition-list:8, dlitem:48
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -    1
+    + Received  + 1326
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "description": "Ensure <dl> elements are structured correctly",
+    +     "help": "<dl> elements must only directly contain properly-ordered <dt> and <dd> groups, <script>, <template> or <div> elements",
+    +     "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/definition-list?application=playwright",
+    +     "id": "definition-list",
+    +     "impact": "serious",
+    +     "nodes": Array [
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">26 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">Sem prazo definido</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">0 de 3 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">27 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">Sem prazo definido</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">1 de 14 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">26 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">Sem prazo definido</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">1 de 2 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">25 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">Sem prazo definido</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">0 de 0 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">26 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">Sem prazo definido</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">1 de 17 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">21 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">Sem prazo definido</dd></div>",
+    +                 "target": Array [
+    +                   ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">34 de 37 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">30 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">14 de set. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">0 de 0 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [],
+    +         "failureSummary": "Fix all of the following:
+    +   dl element has direct children that are not allowed: div > div",
+    +         "html": "<dl class=\"grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3\">",
+    +         "impact": "serious",
+    +         "none": Array [
+    +           Object {
+    +             "data": Object {
+    +               "values": "div > div",
+    +             },
+    +             "id": "only-dlitems",
+    +             "impact": "serious",
+    +             "message": "dl element has direct children that are not allowed: div > div",
+    +             "relatedNodes": Array [
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Começou em</dt><dd class=\"text-foreground\">30 de jul. de 2026</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt><dd class=\"text-foreground\">Sem prazo definido</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div",
+    +                 ],
+    +               },
+    +               Object {
+    +                 "html": "<div><dt class=\"text-xs text-foreground-muted\">Progresso</dt><dd class=\"text-foreground\">0 de 0 entregas concluídas</dd></div>",
+    +                 "target": Array [
+    +                   "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div",
+    +                 ],
+    +               },
+    +             ],
+    +           },
+    +         ],
+    +         "target": Array [
+    +           "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3",
+    +         ],
+    +       },
+    +     ],
+    +     "tags": Array [
+    +       "cat.structure",
+    +       "wcag2a",
+    +       "wcag131",
+    +       "EN-301-549",
+    +       "EN-9.1.3.1",
+    +       "RGAAv4",
+    +       "RGAA-9.3.3",
+    +     ],
+    +   },
+    +   Object {
+    +     "description": "Ensure <dt> and <dd> elements are contained by a <dl>",
+    +     "help": "<dt> and <dd> elements must be contained by a <dl>",
+    +     "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/dlitem?application=playwright",
+    +     "id": "dlitem",
+    +     "impact": "serious",
+    +     "nodes": Array [
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">26 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">Sem prazo definido</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">0 de 3 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(1) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">27 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">Sem prazo definido</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">1 de 14 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(2) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">26 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">Sem prazo definido</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">1 de 2 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(3) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">25 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">Sem prazo definido</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">0 de 0 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(4) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">26 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">Sem prazo definido</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">1 de 17 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(5) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">21 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">Sem prazo definido</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">34 de 37 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".bg-gradient-panel.shadow-card[aria-label=\"Abrir Entrega 360 de Poseidon\"] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">30 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">14 de set. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">0 de 0 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(7) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Começou em</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">30 de jul. de 2026</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(1) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Prazo combinado</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">Sem prazo definido</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(2) > div > dd",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dt class=\"text-xs text-foreground-muted\">Progresso</dt>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dt",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "dlitem",
+    +             "impact": "serious",
+    +             "message": "Description list item does not have a <dl> parent element",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Description list item does not have a <dl> parent element",
+    +         "html": "<dd class=\"text-foreground\">0 de 0 entregas concluídas</dd>",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(8) > .bg-gradient-panel.shadow-card.motion-safe\\:transition-\\[border-color\\,box-shadow\\,transform\\] > .p-6.py-4.flex-col > .p-4.bg-surface.rounded-xl > .grid-cols-1.gap-y-2.sm\\:grid-cols-3 > .items-start.gap-2.flex:nth-child(3) > div > dd",
+    +         ],
+    +       },
+    +     ],
+    +     "tags": Array [
+    +       "cat.structure",
+    +       "wcag2a",
+    +       "wcag131",
+    +       "EN-301-549",
+    +       "EN-9.1.3.1",
+    +       "RGAAv4",
+    +       "RGAA-9.3.3",
+    +     ],
+    +   },
+    + ]
+
+      238 |     blocking,
+      239 |     `${context}: ${blocking.map((violation) => `${violation.id}:${violation.nodes.length}`).join(', ')}`,
+    > 240 |   ).toEqual([]);
+          |     ^
+      241 | }
+      242 |
+      243 | async function assertNoPageHorizontalOverflow(page: Page, context: string) {
+        at assertA11y (/Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/http-real.spec.ts:240:5)
+        at /Users/mateus/Documents/harness-poseidon-backend/frontend/e2e/http-real.spec.ts:796:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/http-real/http-real-Host-real-—-onbo-5f48e-gnalR-responsividade-e-a11y-notebook-1440/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/http-real/http-real-Host-real-—-onbo-5f48e-gnalR-responsividade-e-a11y-notebook-1440/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/http-real/http-real-Host-real-—-onbo-5f48e-gnalR-responsividade-e-a11y-notebook-1440/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/http-real/http-real-Host-real-—-onbo-5f48e-gnalR-responsividade-e-a11y-notebook-1440/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [notebook-1440] › e2e/http-real.spec.ts:770:1 › Host real — onboarding, navegação, HTTP, SignalR, responsividade e a11y 
+exit=1
