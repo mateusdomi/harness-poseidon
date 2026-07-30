@@ -114,7 +114,7 @@ public sealed partial class ChiefTurnBackgroundService(
         // eventos chief.turnStateChanged (com heartbeat lastActivityAt), para o
         // balão da conversa distinguir "trabalhando" de "travado". Observabilidade
         // honesta: só reporta fases que de fato acontecem, nunca resposta fabricada.
-        async Task ReportAsync(
+        async Task<DateTimeOffset> ReportAsync(
             ChiefTurnActivity activity,
             string? detail = null,
             DateTimeOffset? activityStartedAt = null,
@@ -129,6 +129,7 @@ public sealed partial class ChiefTurnBackgroundService(
                     ActivityStartedAt: activityStartedAt ?? occurredAt,
                     Detail: detail),
                 reportToken ?? cancellationToken);
+            return occurredAt;
         }
 
         async Task MaintainActivityHeartbeatAsync(
@@ -409,12 +410,22 @@ public sealed partial class ChiefTurnBackgroundService(
                             demand.Surfaces.TechnicalUncertainty,
                             demand.Surfaces.Decision)))
                 .ToArray();
+            var lastProjectedActivityAt = occurredAt;
             if (demandSeeds.Length > 0)
             {
                 // O Chefe está delegando: demandas serão materializadas para agentes.
-                await ReportAsync(
+                lastProjectedActivityAt = await ReportAsync(
                     ChiefTurnActivity.Delegating,
                     demandSeeds.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            // O outbox ordena por timestamp. A conclusão precisa ser estritamente posterior à
+            // última atividade publicada; caso contrário, um relógio de baixa resolução pode
+            // entregar `delegating` depois de `completed` e reabrir o spinner no resync do chat.
+            var completionOccurredAt = clock.UtcNow;
+            if (completionOccurredAt <= lastProjectedActivityAt)
+            {
+                completionOccurredAt = lastProjectedActivityAt.AddTicks(1);
             }
 
             await turns.CompleteAsync(
@@ -427,7 +438,7 @@ public sealed partial class ChiefTurnBackgroundService(
                     chunks,
                     execution.SessionId,
                     digestJson,
-                    occurredAt,
+                    completionOccurredAt,
                     demandSeeds),
                 cancellationToken);
             receipt = await governance.CompleteReceiptAsync(

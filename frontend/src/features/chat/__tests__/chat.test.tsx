@@ -67,7 +67,10 @@ describe('chat-derive', () => {
         5,
       ),
     );
-    expect(turn).toEqual(IDLE_TURN);
+    expect(turn.turnId).toBeNull();
+    expect(turn.phase).toBeNull();
+    expect(turn.text).toBe('');
+    expect(turn.lastTerminalTurnId).toBe('t1');
   });
 
   it('extrai referências cruzadas de títulos citados na mensagem', () => {

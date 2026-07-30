@@ -127,6 +127,20 @@ public sealed class ChiefDemandMaterializationTests
                     Assert.Equal(
                         2,
                         projectStream.Delta.Count(item => item.Type == "demand.created"));
+
+                    var completedStream = await WaitForTerminalStateAfterDelegatingAsync(
+                        client, conversationId, handle.TurnId, timeout.Token);
+                    var turnStates = completedStream.Delta
+                        .Where(item =>
+                            item.Type == "chief.turnStateChanged" &&
+                            item.Payload.GetProperty("turnId").GetString() == handle.TurnId)
+                        .ToArray();
+                    Assert.Contains(
+                        turnStates,
+                        item => item.Payload.GetProperty("state").GetString() == "delegating");
+                    Assert.Equal(
+                        "completed",
+                        turnStates[^1].Payload.GetProperty("state").GetString());
                 }
                 finally
                 {
@@ -211,6 +225,36 @@ public sealed class ChiefDemandMaterializationTests
         }
 
         throw new TimeoutException("Chief turn events were not dispatched.");
+    }
+
+    private static async Task<EventStreamSnapshot> WaitForTerminalStateAfterDelegatingAsync(
+        HttpClient client,
+        string conversationId,
+        string turnId,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 200; attempt++)
+        {
+            var snapshot = await client.GetFromJsonAsync<EventStreamSnapshot>(
+                $"/api/v1/event-streams/snapshot?stream=conversation:{conversationId}",
+                cancellationToken);
+            var turnStates = snapshot?.Delta
+                .Where(item =>
+                    item.Type == "chief.turnStateChanged" &&
+                    item.Payload.GetProperty("turnId").GetString() == turnId)
+                .ToArray() ?? [];
+            if (turnStates.Any(item =>
+                    item.Payload.GetProperty("state").GetString() == "delegating") &&
+                turnStates[^1].Payload.GetProperty("state").GetString() == "completed")
+            {
+                return snapshot!;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken);
+        }
+
+        throw new TimeoutException(
+            "Chief turn terminal state was not dispatched after delegating.");
     }
 
     private static async Task<ProfileResponse> CreateProfileAsync(

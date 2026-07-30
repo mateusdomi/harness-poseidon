@@ -8,6 +8,8 @@ import type { ChiefTurnState, Document, EventEnvelope, Task } from '@/api';
 /** Estado do turno do chefe em andamento (acumulado dos eventos). */
 export interface TurnStream {
   turnId: string | null;
+  /** Último turno encerrado; impede que atividade atrasada o reabra no resync. */
+  lastTerminalTurnId: string | null;
   /** Texto parcial acumulado dos chunks (append incremental). */
   text: string;
   /** Fase de orquestração reportada pelo chefe, quando emitida. */
@@ -24,6 +26,7 @@ export interface TurnStream {
 
 export const IDLE_TURN: TurnStream = {
   turnId: null,
+  lastTerminalTurnId: null,
   text: '',
   phase: null,
   lastActivityAt: null,
@@ -44,9 +47,11 @@ export function isTurnActive(turn: TurnStream): boolean {
 export function reduceChatTurn(prev: TurnStream, event: EventEnvelope): TurnStream {
   switch (event.type) {
     case 'chat.turnStarted':
+      if (event.payload.turnId === prev.lastTerminalTurnId) return prev;
       return {
         ...IDLE_TURN,
         turnId: event.payload.turnId,
+        lastTerminalTurnId: prev.lastTerminalTurnId,
         phase: 'pending',
         lastActivityAt: event.occurredAt,
         activityStartedAt: event.occurredAt,
@@ -61,9 +66,18 @@ export function reduceChatTurn(prev: TurnStream, event: EventEnvelope): TurnStre
         lastActivityAt: event.occurredAt,
       };
     case 'chat.turnCompleted':
-      return IDLE_TURN;
+      return {
+        ...IDLE_TURN,
+        lastTerminalTurnId: event.payload.turnId,
+      };
     case 'chief.turnStateChanged': {
-      if (TERMINAL_STATES.includes(event.payload.state)) return IDLE_TURN;
+      if (TERMINAL_STATES.includes(event.payload.state)) {
+        return {
+          ...IDLE_TURN,
+          lastTerminalTurnId: event.payload.turnId,
+        };
+      }
+      if (event.payload.turnId === prev.lastTerminalTurnId) return prev;
       const startedAt =
         event.payload.activityStartedAt ??
         // Nova fase → reinicia o cronômetro; mesma fase → preserva o início.

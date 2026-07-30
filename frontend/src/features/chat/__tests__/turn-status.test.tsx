@@ -60,7 +60,35 @@ describe('reduceChatTurn — estados granulares', () => {
         state: 'completed',
       }),
     );
-    expect(turn).toEqual(IDLE_TURN);
+    expect(turn.turnId).toBeNull();
+    expect(turn.phase).toBeNull();
+    expect(turn.lastTerminalTurnId).toBe('t1');
+  });
+
+  it('não reabre o turno quando uma atividade atrasada chega depois da conclusão', () => {
+    const completed = reduceChatTurn(
+      { ...IDLE_TURN, turnId: 't1', phase: 'delegating' },
+      envelope('chief.turnStateChanged', {
+        turnId: 't1',
+        conversationId: 'c',
+        projectId: 'p',
+        state: 'completed',
+      }),
+    );
+
+    const delayedDelegating = reduceChatTurn(
+      completed,
+      envelope('chief.turnStateChanged', {
+        turnId: 't1',
+        conversationId: 'c',
+        projectId: 'p',
+        state: 'delegating',
+        detail: '4',
+      }),
+    );
+
+    expect(delayedDelegating).toEqual(completed);
+    expect(delayedDelegating.turnId).toBeNull();
   });
 
   it('renova o heartbeat a cada chunk', () => {
