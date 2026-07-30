@@ -1,3 +1,4 @@
+using Harness.Modules.Coordination.Application;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -164,6 +165,16 @@ public static class LearningCandidateEndpoints
         try
         {
             RejectSecrets(input);
+
+            // B10/F16 — promoção a skill exige aprovação humana IDENTIFICADA. O ciclo já restringe
+            // a ação ao admin; esta guarda acrescenta o que a fase pede e o papel não garante: um
+            // aprovador nomeado no registro. Sem ele a política lança, e é assim que se garante que
+            // não existe caminho de promoção silenciosa — nem por conveniência de teste.
+            if (action == LearningCandidateAction.Promote)
+            {
+                LearningPromotionPolicy.RequireHumanApproval(session.Id);
+            }
+
             var command = new LearningCandidateTransitionCommand(session.TenantId, current.CandidateId, action,
                 expectedVersion, session.Id, session.Role == LocalProfileRole.Admin, note, evaluatorId,
                 evaluatorProvider, evaluatorModel, verdict, shadow, $"learning:{action}:{idempotency}", Hash(input), clock.UtcNow);
