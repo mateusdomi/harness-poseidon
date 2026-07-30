@@ -211,7 +211,7 @@ export function LeadershipProfileDialog({
                   ) : null}
                 </div>
               </section>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 <Field htmlFor="leadership-name" label={t('orchestrator.profile.displayName')}>
                   <Input
                     id="leadership-name"
@@ -255,7 +255,7 @@ export function LeadershipProfileDialog({
                   onChange={(event) => setValues({ ...values, careerSummary: event.target.value })}
                 />
               </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 {(
                   [
                     ['specialties', 'specialties'],
@@ -312,8 +312,8 @@ export function LeadershipProfileDialog({
                 </Field>
               </section>
 
-              <section className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
+              <section className="grid gap-4 rounded-lg border border-border p-4 md:grid-cols-2">
+                <div className="md:col-span-2">
                   <h3 className="font-semibold">{t('orchestrator.profile.routingTitle')}</h3>
                   <p className="text-xs text-foreground-muted">
                     {t('orchestrator.profile.routingHelp')}

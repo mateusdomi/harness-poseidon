@@ -193,7 +193,7 @@ function MergeContentionCard() {
         {contention.isLoading ? (
           <Skeleton className="h-16 w-full" />
         ) : data ? (
-          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
             <Metric label={t('governance.runtime.operations.merge.enqueued')} value={data.enqueued} />
             <Metric
               label={t('governance.runtime.operations.merge.serialized')}

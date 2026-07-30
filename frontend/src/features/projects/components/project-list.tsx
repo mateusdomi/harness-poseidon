@@ -159,7 +159,7 @@ export function ProjectList({
         <p className="text-sm text-foreground-muted">{t('projects.emptySearch')}</p>
       ) : (
         <>
-          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {pagination.paginate(filtered).map((project) => (
               <li key={project.id} className="min-w-0">
                 <ProjectCard

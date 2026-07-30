@@ -97,7 +97,7 @@ export function ApprovalItem({ approval, project, gate, document, task, now }: A
                 </Badge>
                 <Link
                   to="/workflows"
-                  className="min-h-11 text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-0"
+                  className="min-h-11 text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:min-h-0"
                 >
                   {t('approvals.item.openWorkflow')}
                 </Link>
@@ -111,7 +111,7 @@ export function ApprovalItem({ approval, project, gate, document, task, now }: A
                 </Badge>
                 <Link
                   to={`/documents?doc=${document.id}`}
-                  className="min-h-11 text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-0"
+                  className="min-h-11 text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:min-h-0"
                 >
                   {t('approvals.item.openDocument')}
                 </Link>
@@ -125,7 +125,7 @@ export function ApprovalItem({ approval, project, gate, document, task, now }: A
                 </Badge>
                 <Link
                   to={`/board?task=${task.id}`}
-                  className="min-h-11 text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-0"
+                  className="min-h-11 text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:min-h-0"
                 >
                   {t('approvals.item.openTask')}
                 </Link>

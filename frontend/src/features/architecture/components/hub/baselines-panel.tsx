@@ -35,7 +35,7 @@ function ComparisonView({ baselineId }: { baselineId: string }) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="baseline-comparison">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="flex flex-col gap-1 py-4">
             <Badge variant={conformanceVariant(percent)}>

@@ -31,7 +31,7 @@ export function TeamActivity({
           <p className="text-sm text-foreground-muted">{t('cockpit.team.empty')}</p>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-xl border border-brand/30 bg-brand-soft/40 p-4">
                 <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-strong">
                   <Crown aria-hidden="true" className="size-4" />
@@ -63,7 +63,7 @@ export function TeamActivity({
               <h3 id="team-nuclei-title" className="text-sm font-semibold">
                 {t('cockpit.team.nuclei')}
               </h3>
-              <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                 {summary.nuclei.map((nucleus) => (
                   <li
                     key={nucleus.key}

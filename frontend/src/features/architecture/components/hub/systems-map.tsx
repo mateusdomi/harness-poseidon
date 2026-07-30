@@ -105,7 +105,7 @@ export function SystemsMap({ projectId, onSelectSystem }: {
       </div>
 
       {lens === 'catalog' ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="systems-catalog">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="systems-catalog">
           {filtered.map((system) => (
             <button
               key={system.id}

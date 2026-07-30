@@ -125,7 +125,7 @@ export default function CockpitPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="poseidon-hero flex flex-wrap items-center gap-4 rounded-xl border border-border p-5 shadow-glow sm:p-6">
+      <section className="poseidon-hero flex flex-wrap items-center gap-4 rounded-xl border border-border p-5 shadow-glow md:p-6">
         <span
           aria-hidden="true"
           className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-brand text-primary-foreground shadow-glow"

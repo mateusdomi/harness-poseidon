@@ -93,7 +93,7 @@ export function ModalDialog({
         aria-label={label}
         tabIndex={-1}
         className={cn(
-          'relative flex max-h-[85vh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-xl border border-border bg-background p-4 shadow-2xl sm:p-6',
+          'relative flex max-h-[85vh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-xl border border-border bg-background p-4 shadow-2xl md:p-6',
           className,
         )}
       >

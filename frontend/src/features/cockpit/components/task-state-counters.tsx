@@ -32,7 +32,7 @@ export function TaskStateCounters({ counts }: TaskStateCountersProps) {
         <CardTitle>{t('cockpit.tasksByState.title')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {TASK_STATES.map((state) => (
             <li key={state}>
               <button

@@ -66,7 +66,7 @@ export function ProjectCard({
         ) : null}
       </span>
       <span className="line-clamp-2 text-sm text-foreground-muted">{description}</span>
-      <span className="grid gap-2 text-xs sm:grid-cols-2">
+      <span className="grid gap-2 text-xs md:grid-cols-2">
         <span>
           <strong>{t('projects.card.phase')}:</strong>{' '}
           {operational?.phaseName ?? t('projects.card.notAvailable')}
@@ -84,7 +84,7 @@ export function ProjectCard({
           {t(`projects.card.healthStates.${operational?.health ?? 'unavailable'}`)}
         </span>
         {!isBusiness && (
-          <span className="min-w-0 break-words sm:col-span-2">
+          <span className="min-w-0 break-words md:col-span-2">
             <strong>{t('projects.card.repository')}:</strong>{' '}
             {project.repositoryUrl ?? t('projects.card.notAvailable')} · {project.defaultBranch}
           </span>

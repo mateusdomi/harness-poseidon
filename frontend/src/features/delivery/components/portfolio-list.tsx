@@ -101,7 +101,7 @@ export function PortfolioList({
                   </div>
                 </div>
 
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm md:grid-cols-4">
                   <div>
                     <dt className="text-xs text-foreground-muted">{t('delivery.portfolio.columns.owner')}</dt>
                     <dd className="text-foreground">{owner ?? t('delivery.portfolio.noOwner')}</dd>

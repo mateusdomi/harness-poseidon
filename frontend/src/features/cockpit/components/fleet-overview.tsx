@@ -108,7 +108,7 @@ export function FleetOverview({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {[
             [
               'online',

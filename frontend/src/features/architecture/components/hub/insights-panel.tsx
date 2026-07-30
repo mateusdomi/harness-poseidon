@@ -36,7 +36,7 @@ export function InsightsPanel({ projectId }: { projectId: string | null }) {
 
   return (
     <div className="flex flex-col gap-6" data-testid="insights-panel">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="flex flex-col gap-1 py-4">
             <span className="text-2xl font-semibold text-foreground">{report.systemCount}</span>
@@ -53,7 +53,7 @@ export function InsightsPanel({ projectId }: { projectId: string | null }) {
             </span>
           </CardContent>
         </Card>
-        <Card className="sm:col-span-2">
+        <Card className="md:col-span-2">
           <CardContent className="flex flex-wrap items-center gap-2 py-4">
             {Object.entries(report.byClassification).map(([classification, count]) => (
               <Badge key={classification} variant={classificationVariant(classification)}>

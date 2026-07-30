@@ -193,7 +193,7 @@ export function WorkflowProgress({
                     })
                   : t('cockpit.workflow.planUnavailable')}
             </p>
-            <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <dl className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
               <ProgressSignal
                 label={t('cockpit.workflow.signals.inProgress')}
                 value={progress?.inProgress ?? 0}

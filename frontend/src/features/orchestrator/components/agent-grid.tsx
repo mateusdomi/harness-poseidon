@@ -67,7 +67,7 @@ export function AgentGrid({ agents, tasks, attempts, now, definitions = [] }: Ag
             </Badge>
             <span className="text-sm text-foreground-muted">{group.agents.length}</span>
           </div>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {group.agents.map((agent) => {
               const task = tasks.find((entry) => entry.id === agent.currentTaskId) ?? null;
               const running = runningAttemptOf(attempts, agent.id);

@@ -77,7 +77,7 @@ export function AgentsHealthCard({
           <p className="text-sm text-foreground-muted">{t('cockpit.agents.empty')}</p>
         ) : (
           <>
-            <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
               <FactoryKpi
                 label={t('cockpit.agents.online')}
                 tooltip={t('cockpit.agents.onlineTooltip')}

@@ -34,7 +34,7 @@ export function DiscoveryPanel({ projectId }: { projectId: string | null }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="discovery-summary">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="discovery-summary">
         {(summary.data?.subjects ?? []).map((subject) => (
           <Card key={subject.subjectName}>
             <CardHeader>

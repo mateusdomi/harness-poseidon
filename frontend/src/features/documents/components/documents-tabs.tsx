@@ -18,9 +18,10 @@ export interface DocumentsTabsProps {
  * Abas da tela de Documentos com `role=tablist` acessível (setas navegam,
  * roving tabindex). Abaixo de `md` viram um Select — os painéis são os mesmos.
  *
- * O prefixo é `md` de propósito: este tema declara apenas md/lg/xl, então `sm:`
- * não gera CSS nenhum. É o defeito que mantém a lista de abas do catálogo de
- * Ferramentas invisível em QUALQUER largura (registrado no quadro para a F11).
+ * O prefixo é `md` de propósito: este tema declara apenas md/lg/xl
+ * (`tailwind.config.js`), então `sm:` não gera CSS nenhum e um `hidden md:flex`
+ * escrito como `hidden sm:flex` deixaria o elemento invisível em toda largura.
+ * A convenção vale para o frontend inteiro e é cobrada por teste.
  */
 export function DocumentsTabs({ tabs, activeId, onChange }: DocumentsTabsProps) {
   const { t } = useTranslation();

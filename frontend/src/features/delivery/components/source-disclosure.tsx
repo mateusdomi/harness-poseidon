@@ -35,7 +35,7 @@ export function SourceDisclosure({
       <summary className="cursor-pointer font-medium text-foreground">
         {t('delivery.sources.open')}
       </summary>
-      <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+      <dl className="mt-2 grid gap-2 md:grid-cols-2">
         <div>
           <dt className="font-medium text-foreground">{t('delivery.sources.source')}</dt>
           <dd>{source}</dd>

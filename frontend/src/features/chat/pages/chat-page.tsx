@@ -297,7 +297,7 @@ export default function ChatPage() {
               {t('chat.intro', { name: chiefName })}
             </p>
           </div>
-          <div className="ml-0 flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+          <div className="ml-0 flex w-full min-w-0 flex-wrap items-center gap-2 md:ml-auto md:w-auto">
             {conversations.length > 0 && (
               <>
                 <label htmlFor="chat-conversation" className="text-sm text-foreground-muted">
@@ -305,7 +305,7 @@ export default function ChatPage() {
                 </label>
                 <Select
                   id="chat-conversation"
-                  className="min-w-0 flex-1 sm:w-auto sm:min-w-48"
+                  className="min-w-0 flex-1 md:w-auto md:min-w-48"
                   value={conversation?.id ?? ''}
                   onChange={(event) => selectConversation(event.target.value)}
                 >
@@ -358,7 +358,7 @@ export default function ChatPage() {
 
         <div
           ref={scrollRef}
-          className="flex h-[30svh] min-h-52 flex-none flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 sm:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
+          className="flex h-[30svh] min-h-52 flex-none flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 md:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
           aria-live="polite"
           aria-label={t('chat.messagesLabel')}
         >

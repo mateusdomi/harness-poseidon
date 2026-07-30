@@ -162,7 +162,7 @@ export function ActivityFeed({
 
   return (
     <Card>
-      <CardHeader className="flex flex-wrap items-center gap-3 sm:flex-row">
+      <CardHeader className="flex flex-wrap items-center gap-3 md:flex-row">
         <CardTitle>{t('cockpit.activity.title')}</CardTitle>
         <div
           role="group"
@@ -176,7 +176,7 @@ export function ActivityFeed({
               aria-pressed={period === option}
               onClick={() => selectPeriod(option)}
               className={cn(
-                'min-h-11 rounded-md px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-0 sm:py-1.5',
+                'min-h-11 rounded-md px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:min-h-0 md:py-1.5',
                 period === option
                   ? 'bg-surface-elevated font-semibold text-foreground shadow-sm ring-1 ring-inset ring-border-strong'
                   : 'font-medium text-foreground-muted hover:text-foreground',

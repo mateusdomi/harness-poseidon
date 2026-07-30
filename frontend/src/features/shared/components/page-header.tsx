@@ -34,7 +34,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'poseidon-hero flex flex-col gap-3 rounded-xl border border-border px-5 py-5 shadow-glow sm:px-6',
+        'poseidon-hero flex flex-col gap-3 rounded-xl border border-border px-5 py-5 shadow-glow md:px-6',
         className,
       )}
     >

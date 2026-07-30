@@ -397,7 +397,7 @@ export function ProjectForm({
                     {...register('name')}
                   />
                 </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2">
                   <Field
                     htmlFor="project-key"
                     label={t('projects.form.identification.key')}

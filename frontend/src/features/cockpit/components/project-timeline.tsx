@@ -174,7 +174,7 @@ export function ProjectTimeline({
               {t('cockpit.timeline.noObligations')}
             </p>
           ) : (
-            <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+            <ul className="mt-2 grid gap-2 md:grid-cols-2">
               {phaseGates.map((gate) => (
                 <li
                   key={gate.id}

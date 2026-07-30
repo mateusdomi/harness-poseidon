@@ -214,7 +214,7 @@ export function DefinitionsTab() {
         </p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <Field htmlFor="definitions-filter-team" label={t('orchestrator.definitions.filters.team')}>
           <Select
             id="definitions-filter-team"
