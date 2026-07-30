@@ -902,7 +902,21 @@ public sealed partial class ChiefBacklogLoopService(
                 task.Title, instructions[^1].Body, [], task.Priority);
             var producerAlias = awaiting.AgentId;
             var criticAlias = SelectCriticAlias(producerAlias, now);
-            if (criticAlias is null)
+
+            // B7/F17 — revisão pareada como REGRA, não como disponibilidade. A política decide se
+            // esta rodada pode seguir para submissão: em risco alto e crítico o revisor é
+            // obrigatório, e revisor igual ao executor não conta como revisor — ele repete o
+            // raciocínio que o trouxe até aqui e o encontra correto. Em risco baixo a ausência é
+            // tolerada, e é a política que diz isso, não a sorte de haver conta livre.
+            var pairing = ContinuousReviewPolicy.Evaluate(
+                Enum.TryParse<RiskTier>(task.Priority, ignoreCase: true, out var taskRisk)
+                    ? taskRisk
+                    : RiskTier.Medium,
+                producerAlias,
+                criticAlias,
+                []);
+
+            if (criticAlias is null || !pairing.MaySubmit)
             {
                 LogNoCriticAvailable(logger, task.Id, producerAlias);
                 _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
@@ -1063,7 +1077,26 @@ public sealed partial class ChiefBacklogLoopService(
             return false;
         }
 
-        var decision = result.Approved ? "approved" : "rejected";
+        // B2/F14 — o veredito final é COMPOSTO pelas três camadas, e camada superior não compensa
+        // inferior. A determinística já passou (o `MayOccupyReviewer` acima é a condição para o
+        // revisor ter sido ocupado), e o crítico responde as duas de cima: comportamento × critérios
+        // de aceite e intenção × objetivo da demanda. Compor aqui é o que impede um "a intenção está
+        // ótima" de aprovar trabalho que falha o critério declarado.
+        var layers = new[]
+        {
+            new LayerResult(VerificationLayer.Deterministic, LayerVerdict.Pass, CodeDiagnosticsGate.ReasonClean),
+            new LayerResult(
+                VerificationLayer.Behavioral,
+                result.Approved ? LayerVerdict.Pass : LayerVerdict.Fail,
+                result.ReasonCode),
+            new LayerResult(
+                VerificationLayer.Intent,
+                result.Approved ? LayerVerdict.Pass : LayerVerdict.Fail,
+                result.ReasonCode),
+        };
+        var layered = LayeredVerificationPolicy.Evaluate(layers);
+
+        var decision = layered.Approved ? "approved" : "rejected";
         var findingsSummary = result.Findings.Count == 0
             ? string.Empty
             : $" Achados: {string.Join("; ", result.Findings.Select(finding => $"[{finding.Severity}] {finding.Summary}"))}";
