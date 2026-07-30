@@ -3889,6 +3889,67 @@
                 }
             }
         },
+        "/api/v1/projects/{projectId}/reliability": {
+            "get": {
+                "tags": [
+                    "agents"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "k",
+                        "in": "query",
+                        "schema": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectReliabilityContract"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/teams": {
             "get": {
                 "tags": [
@@ -21122,6 +21183,24 @@
                             "string"
                         ]
                     },
+                    "allowedScopes": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "deniedScopes": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "expectedVersion": {
                         "pattern": "^-?(?:0|[1-9]\\d*)$",
                         "type": [
@@ -23525,6 +23604,70 @@
                         "items": {
                             "type": "string"
                         }
+                    }
+                }
+            },
+            "CapabilityMeasurementContract": {
+                "required": [
+                    "accountAlias",
+                    "modelTier",
+                    "cardType",
+                    "k",
+                    "tasksObserved",
+                    "passAt1",
+                    "passAtK",
+                    "recommendedMaxRounds"
+                ],
+                "type": "object",
+                "properties": {
+                    "accountAlias": {
+                        "type": "string"
+                    },
+                    "modelTier": {
+                        "type": "string"
+                    },
+                    "cardType": {
+                        "type": "string"
+                    },
+                    "k": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "tasksObserved": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "passAt1": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "passAtK": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "recommendedMaxRounds": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
                     }
                 }
             },
@@ -31754,6 +31897,49 @@
                     }
                 }
             },
+            "ProjectReliabilityContract": {
+                "required": [
+                    "projectId",
+                    "classifiedAttempts",
+                    "failureModesByCategory",
+                    "advice",
+                    "capabilities"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "classifiedAttempts": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "failureModesByCategory": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "pattern": "^-?(?:0|[1-9]\\d*)$",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "format": "int32"
+                        }
+                    },
+                    "advice": {
+                        "type": "string"
+                    },
+                    "capabilities": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CapabilityMeasurementContract"
+                        }
+                    }
+                }
+            },
             "ProjectResponse": {
                 "required": [
                     "id",
@@ -31857,6 +32043,12 @@
                             "string"
                         ],
                         "format": "date-time"
+                    },
+                    "criticalityRationale": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },

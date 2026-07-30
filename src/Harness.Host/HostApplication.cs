@@ -254,6 +254,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAgentRequestStore, PostgresAgentRequestStore>();
             builder.Services.AddSingleton<IExecutionCheckpointStore, PostgresExecutionCheckpointStore>();
             builder.Services.AddSingleton<ICardCircuitBreakerStore, PostgresCardCircuitBreakerStore>();
+            builder.Services.AddSingleton<IMastClassificationStore, PostgresMastClassificationStore>();
             builder.Services.AddSingleton<IProfileActiveConversationStore, PostgresProfileActiveConversationStore>();
             builder.Services.AddSingleton<IChiefLoopGuardStore, PostgresChiefLoopGuardStore>();
             builder.Services.AddSingleton<ICodeGraphStore, PostgresCodeGraphStore>();
@@ -292,6 +293,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAgentRequestStore, SqliteAgentRequestStore>();
             builder.Services.AddSingleton<IExecutionCheckpointStore, SqliteExecutionCheckpointStore>();
             builder.Services.AddSingleton<ICardCircuitBreakerStore, SqliteCardCircuitBreakerStore>();
+            builder.Services.AddSingleton<IMastClassificationStore, SqliteMastClassificationStore>();
             builder.Services.AddSingleton<IProfileActiveConversationStore, SqliteProfileActiveConversationStore>();
             builder.Services.AddSingleton<IChiefLoopGuardStore, SqliteChiefLoopGuardStore>();
             builder.Services.AddSingleton<ICodeGraphStore, SqliteCodeGraphStore>();
@@ -555,7 +557,8 @@ public static class HostApplication
                 services.GetRequiredService<Harness.Modules.Providers.Application.CapacityManager>(),
                 services.GetRequiredService<IModelInvocationStore>(),
                 services.GetRequiredService<Harness.Modules.Tools.Application.SecurityPolicyEnforcementPoint>(),
-                services.GetRequiredService<IToolCatalogStore>()));
+                services.GetRequiredService<IToolCatalogStore>(),
+                services.GetRequiredService<IMastClassificationStore>()));
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para
@@ -835,6 +838,7 @@ public static class HostApplication
         app.MapProjectActivity();
         app.MapReadiness();
         app.MapAgents();
+        app.MapReliability();
         app.MapTeamSpecialtyCatalog();
         app.MapIsolatedExecutions();
         app.MapAgentRuns();
