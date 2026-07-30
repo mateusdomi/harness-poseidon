@@ -1076,9 +1076,9 @@
       "empty": "Nenhuma tarefa bloqueada."
     },
     "approvals": {
-      "title": "Decisões humanas",
-      "empty": "Nenhuma decisão humana pendente.",
-      "viewAll": "Ver todas as decisões"
+      "title": "Aprovações pendentes",
+      "empty": "Nada esperando sua aprovação.",
+      "viewAll": "Ver tudo que espera você"
     },
     "agents": {
       "title": "Equipe operacional",

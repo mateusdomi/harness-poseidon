@@ -1076,9 +1076,9 @@
       "empty": "No blocked tasks."
     },
     "approvals": {
-      "title": "Human decisions",
-      "empty": "No human decision is pending.",
-      "viewAll": "View all decisions"
+      "title": "Pending approvals",
+      "empty": "Nothing is waiting for your approval.",
+      "viewAll": "View everything waiting on you"
     },
     "agents": {
       "title": "Operations team",
