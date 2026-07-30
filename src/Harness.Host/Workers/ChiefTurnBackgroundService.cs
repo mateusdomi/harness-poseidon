@@ -15,6 +15,7 @@ using Harness.Modules.Governance.Evaluation;
 using Harness.Modules.Governance.Memory;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Cockpit;
+using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
@@ -41,6 +42,7 @@ public sealed partial class ChiefTurnBackgroundService(
     ILocalProfileStore localProfiles,
     IWorkBoardStore board,
     DemandPlanMaterializer demandPlans,
+    IChiefLoopGuardStore loopGuards,
     IAgentCatalogStore agentCatalog,
     IConversationStore conversations,
     ILicenseStore licenses,
@@ -576,6 +578,16 @@ public sealed partial class ChiefTurnBackgroundService(
                 var saved = await demandPlans.EnsurePlanAsync(
                     lease.Turn.TenantId, demand, seed.AcceptanceCriteria, ToHints(seed.Surfaces),
                     seed.Specialty, clock.UtcNow, cancellationToken);
+
+                // B9/F12: materializar um plano é a Bruna gerando trabalho a partir do próprio
+                // output — é aqui que o laço se fecha. Cada passo isolado é razoável (demanda →
+                // plano → cards → replanejamento → demanda), e por isso o laço só aparece na
+                // SEQUÊNCIA, que é o que as guardas leem do estado durável.
+                if (!await MayMaterializeAsync(lease, demand, saved.Plan.Id, cancellationToken))
+                {
+                    continue;
+                }
+
                 var outcome = await demandPlans.MaterializeAsync(
                     lease.Turn.TenantId, profile.Id, saved.Plan, demand,
                     clock.UtcNow, cancellationToken);
@@ -583,6 +595,8 @@ public sealed partial class ChiefTurnBackgroundService(
                 {
                     LogDemandMaterialized(
                         logger, seed.DemandId, lease.Turn.TurnId, outcome.Cards.Count);
+                    await RecordMaterializationCauseAsync(
+                        lease, demand, saved.Plan.Id, cancellationToken);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -595,6 +609,105 @@ public sealed partial class ChiefTurnBackgroundService(
                     logger, seed.DemandId, lease.Turn.TurnId, exception.GetType().Name);
             }
         }
+    }
+
+    /// <summary>
+    /// Consulta as guardas de laço antes de materializar. Barrar aqui é preferível a barrar depois:
+    /// uma vez materializados, os cards já ocuparam agentes e já geraram os eventos que realimentam
+    /// o ciclo.
+    ///
+    /// A interrupção é sempre auditada com a evidência — uma guarda que trava em silêncio é
+    /// indistinguível de um sistema quebrado, e quem paga a diferença é o dono.
+    /// </summary>
+    private async Task<bool> MayMaterializeAsync(
+        ChiefTurnLease lease,
+        BoardDemandRecord demand,
+        string planId,
+        CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        var limits = new ChiefLoopGuardLimits();
+        var causeKey = ChiefLoopGuardPolicy.PlanKey(planId);
+
+        var facts = new ChiefLoopGuardFacts(
+            SelfTriggeredTurnsForDemand: await loopGuards.CountSelfTriggeredTurnsAsync(
+                lease.Turn.TenantId, demand.Id, cancellationToken),
+            // A reentrância por plano é medida pelo grafo: um plano que já causou esta demanda
+            // antes está reentrando nela agora.
+            PlanTurnInFlight: false,
+            RecentSelfTriggeredTurns: await loopGuards.ListSelfTriggeredTurnsSinceAsync(
+                lease.Turn.TenantId, demand.Id, now - limits.Window, cancellationToken),
+            CausalEdges: (await loopGuards.ListCausalEdgesAsync(
+                    lease.Turn.TenantId, lease.Turn.ProjectId, cancellationToken))
+                .Select(edge => new CausalEdge(edge.CauseKey, edge.EffectKey))
+                .ToArray());
+
+        var verdict = ChiefLoopGuardPolicy.Evaluate(
+            new ChiefTurnTrigger(
+                demand.Id,
+                now,
+                // O trabalho que a Bruna cria a partir do próprio plano é autodisparado por
+                // definição: o dono pediu a demanda, não cada volta do ciclo.
+                SelfTriggered: true,
+                DemandPlanId: planId,
+                CauseKey: causeKey),
+            facts,
+            limits);
+
+        if (verdict.Allowed)
+        {
+            await loopGuards.RecordSelfTriggeredTurnAsync(
+                new ChiefSelfTriggeredTurnRecord(
+                    lease.Turn.TenantId,
+                    UlidValue.New(now).ToString(),
+                    lease.Turn.ProjectId,
+                    demand.Id,
+                    planId,
+                    lease.Turn.TurnId,
+                    causeKey,
+                    now),
+                cancellationToken);
+            return true;
+        }
+
+        await loopGuards.RecordInterruptionAsync(
+            new ChiefLoopInterruptionRecord(
+                lease.Turn.TenantId,
+                UlidValue.New(now).ToString(),
+                lease.Turn.ProjectId,
+                demand.Id,
+                planId,
+                verdict.ReasonCode,
+                verdict.Detail,
+                verdict.Cycle?.Path ?? [],
+                now),
+            cancellationToken);
+        LogLoopGuardInterruption(logger, demand.Id, verdict.ReasonCode, verdict.Detail ?? "-");
+        return false;
+    }
+
+    /// <summary>
+    /// Materializou: registra "este plano gerou esta demanda" no grafo causal. É esta aresta que
+    /// permite ao detector enxergar a volta quando ela se fechar — o ledger encadeado por hash diz
+    /// o que aconteceu e em que ordem, mas não diz o que causou o quê.
+    /// </summary>
+    private async Task RecordMaterializationCauseAsync(
+        ChiefTurnLease lease,
+        BoardDemandRecord demand,
+        string planId,
+        CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        await loopGuards.AddCausalEdgeAsync(
+            new ChiefCausalEdgeRecord(
+                lease.Turn.TenantId,
+                UlidValue.New(now).ToString(),
+                lease.Turn.ProjectId,
+                ChiefLoopGuardPolicy.DemandKey(demand.Id),
+                ChiefLoopGuardPolicy.PlanKey(planId),
+                "plan.materialized",
+                now),
+            cancellationToken);
     }
 
     /// <summary>
@@ -884,6 +997,16 @@ public sealed partial class ChiefTurnBackgroundService(
         string demandId,
         string turnId,
         string errorType);
+
+    [LoggerMessage(
+        EventId = 2104,
+        Level = LogLevel.Warning,
+        Message = "Chief: guarda de laço barrou a demanda {DemandId} ({ReasonCode}): {Detail}")]
+    private static partial void LogLoopGuardInterruption(
+        ILogger logger,
+        string demandId,
+        string reasonCode,
+        string detail);
 
     [LoggerMessage(
         EventId = 2104,

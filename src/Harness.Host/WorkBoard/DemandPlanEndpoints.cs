@@ -126,6 +126,16 @@ public static class DemandPlanEndpoints
                 [DemandDecompositionPlanner.CodeOf(card.ProposedTitle)],
                 card.Dependencies)).ToArray());
 
+        // B4/F12 — profundidade: cada nível topológico é uma BARREIRA de coordenação, e barreira
+        // faz agente pronto esperar o nível inteiro terminar. Quase sempre a profundidade é
+        // artefato da decomposição, não da natureza da demanda. O reagrupamento reduz barreiras
+        // preservando a ordem entre cards dependentes — e não afeta o despacho real, que continua
+        // liberando cada card assim que os provedores DELE concluem.
+        var depth = PlanDepthPolicy.Evaluate(dependencyPlan);
+        var dispatchWaves = depth.ExceedsLimit
+            ? depth.Groups.Select(group => group.CardIds).ToArray()
+            : dependencyPlan.DispatchWaves;
+
         return new DemandPlanContract(
             plan.Id, plan.ProjectId, plan.DemandId, plan.FeatureId, plan.Status,
             plan.Cards.Select(card => new ProposedCardContract(
@@ -133,7 +143,7 @@ public static class DemandPlanEndpoints
                 card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies,
                 card.Specialty)).ToArray(),
             plan.CreatedAt, plan.MaterializedAt,
-            dependencyPlan.DispatchWaves,
+            dispatchWaves,
             dependencyPlan.FanInBarriers.Select(barrier => new PlanFanInBarrierContract(
                 barrier.ConsumerCardId, barrier.ProviderCardIds)).ToArray(),
             dependencyPlan.Issues.Select(issue => new PlanDependencyIssueContract(

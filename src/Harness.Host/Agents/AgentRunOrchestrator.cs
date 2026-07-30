@@ -7,6 +7,7 @@ using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
+using Harness.Modules.Coordination.Application;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Coordination;
@@ -15,6 +16,7 @@ using Harness.Modules.Providers.Application;
 using Harness.Modules.Tools.Application;
 using Harness.Modules.Tools.Domain;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
+using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.Tools;
@@ -50,8 +52,11 @@ public sealed class AgentRunOrchestrator(
     CapacityManager capacity,
     IModelInvocationStore invocations,
     SecurityPolicyEnforcementPoint pep,
-    IToolCatalogStore toolCatalog)
+    IToolCatalogStore toolCatalog,
+    IMastClassificationStore mastClassifications)
 {
+    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
 
     /// <summary>
@@ -295,6 +300,41 @@ public sealed class AgentRunOrchestrator(
         var released = new List<string>();
         foreach (var workspace in expired)
         {
+            // B4/F12: lease expirada NÃO é licença para matar. `ListExpiredAsync` seleciona por
+            // prazo, e prazo é estimativa — quem estimou errado foi o estimador, não o agente.
+            // Um agente que segue batendo heartbeat está VIVO e produzindo; reivindicar a
+            // tentativa dele aqui marcaria como `failed` um trabalho em andamento e devolveria a
+            // worktree ao pool debaixo de quem está escrevendo nela. A política é a autoridade
+            // única sobre isso, e só ela concede `MayReclaim`.
+            var verdict = AgentWaitPolicy.Decide(new AgentWaitFacts(
+                Now: now,
+                LeaseExpiresAt: workspace.LeaseExpiresAt,
+                LastHeartbeatAt: workspace.LastHeartbeatAt,
+                // Sem PID no snapshot, a morte do processo não é observável daqui: assumimos vivo
+                // e deixamos o par lease+heartbeat decidir. Na dúvida, esperar é o erro barato.
+                ProcessAlive: true));
+
+            if (!verdict.MayReclaim)
+            {
+                // Auditado, não silencioso: quem investigar "por que esta tentativa não foi
+                // recuperada" precisa ver que a decisão foi deliberada e qual fato a sustentou.
+                await events.PublishAsync(
+                    tenantId,
+                    $"project:{workspace.ProjectId}",
+                    "agentRun.reclaimDeclined",
+                    new
+                    {
+                        attemptId = workspace.AttemptId,
+                        taskId = workspace.TaskId,
+                        reasonCode = verdict.ReasonCode,
+                        action = verdict.Action.ToString(),
+                        lastHeartbeatAt = workspace.LastHeartbeatAt,
+                        leaseExpiresAt = workspace.LeaseExpiresAt,
+                    },
+                    cancellationToken);
+                continue;
+            }
+
             var owner = $"agent-run-recovery:{Environment.ProcessId}";
             var reclaimed = await workspaces.ReclaimExpiredAsync(
                 new AttemptWorkspaceReclaimCommand(
@@ -632,6 +672,12 @@ public sealed class AgentRunOrchestrator(
                 current = await TransitionAsync(
                     command, current, AttemptWorkspaceState.Claimed, AttemptWorkspaceState.Prepared,
                     commitSha: descriptor.HeadCommit, cancellationToken: cancellationToken);
+
+                // B8/F17 — os hooks nascem COM a worktree. Regra que só existe no enunciado do card
+                // é cumprida por boa vontade: o agente lê "não toque em X", concorda, e três horas
+                // depois toca em X porque o defeito estava lá. O hook aplica a fronteira em tempo de
+                // edição, quando ainda é barato — e não uma rodada inteira depois, no portão.
+                await WriteWorktreeHooksAsync(command, cancellationToken);
             }
 
             // 5b. Continuação governada: aplica o patch arquivado sobre a base atual. Se o
@@ -737,6 +783,19 @@ public sealed class AgentRunOrchestrator(
             RecordAvailability(command.AccountAlias, runOutcome, clock.UtcNow);
             await RecordInvocationAsync(
                 command, account, execution, runOutcome, clock.UtcNow, cancellationToken);
+
+            // B1/F16 — o modo de falha, não só o veredito. "Falhou" basta para decidir retentativa e
+            // não serve para mais nada: duas tentativas que falharam podem ter falhado por motivos
+            // opostos (enunciado ambíguo × agente que terminou sem conferir), e a correção de uma é
+            // o contrário da correção da outra. Classificar é o que transforma histórico em decisão.
+            //
+            // Fora do caminho crítico de propósito: classificação é TELEMETRIA. Ela roda depois do
+            // desfecho e não pode decidi-lo — uma tentativa válida não pode ser perdida porque o
+            // registro do modo de falha esbarrou numa restrição do banco.
+            if (!succeeded)
+            {
+                await TryClassifyFailureModeAsync(command, execution, cancellationToken);
+            }
 
             current = await TransitionAsync(
                 command, current, AttemptWorkspaceState.Running,
@@ -1210,6 +1269,141 @@ public sealed class AgentRunOrchestrator(
                 command.TenantId, command.AttemptId, command.Owner,
                 current.FencingToken, clock.UtcNow),
             CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Gera a configuração de hooks DENTRO da worktree da tentativa (B8/F17).
+    ///
+    /// O rigor vem do risco do card: baixo não recebe hook além do essencial, crítico recebe todos.
+    /// Os escopos negados são as fronteiras dos irmãos — a mesma informação que o card já declara,
+    /// aqui em forma executável.
+    ///
+    /// Falha ao escrever não derruba a tentativa: o hook é uma camada a mais, e perder a camada
+    /// extra é muito melhor que perder o trabalho por causa dela.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A hook layer failure must not abort a valid attempt.")]
+    private static async Task WriteWorktreeHooksAsync(
+        StartAgentRunCommand command, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var risk = Enum.TryParse<RiskTier>(command.RiskTier, ignoreCase: true, out var parsed)
+                ? parsed
+                : RiskTier.Medium;
+            var plan = WorktreeHookPolicy.Generate(
+                risk,
+                // A linguagem sai do que o card declara tocar; sem declaração, o hook genérico vale.
+                command.ScopeClaims.Any(scope => scope.Contains("frontend", StringComparison.OrdinalIgnoreCase))
+                    ? "typescript"
+                    : "csharp",
+                command.ScopeClaims,
+                // Fronteiras negativas ainda não trafegam no comando do run; até chegarem, o hook de
+                // escopo protege pelo que o card declara possuir. Camada parcial vale mais que nenhuma.
+                []);
+
+            // AO LADO da worktree, não DENTRO dela. Arquivo não rastreado na árvore de trabalho
+            // impede a remoção da worktree no cleanup — medido: deixava processo órfão e reprovava
+            // o smoke do bootstrap. A configuração continua sendo por tentativa; só não mora onde
+            // o agente edita.
+            var directory = System.IO.Path.Combine(command.ControlledRoot, "hooks");
+            System.IO.Directory.CreateDirectory(directory);
+            await System.IO.File.WriteAllTextAsync(
+                System.IO.Path.Combine(directory, $"{command.AttemptId}.json"),
+                JsonSerializer.Serialize(
+                    new
+                    {
+                        attemptId = command.AttemptId,
+                        rigor = plan.Rigor.ToString().ToLowerInvariant(),
+                        deniedScopes = plan.DeniedScopes,
+                        hooks = plan.Hooks.Select(hook => new
+                        {
+                            @event = hook.Event,
+                            command = hook.Command,
+                            rationale = hook.Rationale,
+                        }),
+                    },
+                    IndentedJson),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // Silencioso por design: ver o resumo do método.
+        }
+    }
+
+    /// <summary>
+    /// Atribui o modo de falha MAST à tentativa encerrada (B1/F16).
+    ///
+    /// O mapeamento parte do código de falha que o executor reporta, que é o único sinal objetivo
+    /// disponível no encerramento. Onde o código não distingue o modo, a classificação é
+    /// <c>no_progress</c> — honesto: significa "encerrou sem entregar e sem dizer por quê", e não
+    /// um modo específico que ninguém apurou. Inventar precisão aqui envenenaria a distribuição, que
+    /// é justamente o insumo de decisão da Bruna.
+    /// </summary>
+    /// <summary>
+    /// Classifica sem nunca derrubar a tentativa. A classificação é registro sobre o trabalho, não
+    /// parte dele: falhar aqui e abortar o encerramento trocaria um dado de telemetria por trabalho
+    /// real perdido, que é o pior negócio possível.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Telemetry must never abort a completed attempt.")]
+    private async Task TryClassifyFailureModeAsync(
+        StartAgentRunCommand command,
+        ExternalAgentRunResult execution,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ClassifyFailureModeAsync(command, execution, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // Silencioso por design: ver o resumo do método.
+        }
+    }
+
+    private async Task ClassifyFailureModeAsync(
+        StartAgentRunCommand command,
+        ExternalAgentRunResult execution,
+        CancellationToken cancellationToken)
+    {
+        var code = execution.FailureCode ?? string.Empty;
+        var mode = code switch
+        {
+            // Escopo negado: o agente tentou agir fora do papel que recebeu.
+            var value when value.Contains("scope", StringComparison.OrdinalIgnoreCase)
+                => MastTaxonomy.DisobeyRoleSpecification,
+            // Ferramenta recusada: agiu fora do que a tarefa autorizava.
+            var value when value.Contains("tool", StringComparison.OrdinalIgnoreCase)
+                => MastTaxonomy.DisobeyTaskSpecification,
+            // Encerrou sem entregar — inclui timeout, cota e autenticação. O modo é o mesmo do
+            // ponto de vista do trabalho: parou antes de terminar. A causa fica na evidência.
+            _ => MastTaxonomy.PrematureTermination,
+        };
+
+        var descriptor = MastTaxonomy.Find(mode);
+        if (descriptor is null)
+        {
+            return;
+        }
+
+        await mastClassifications.ClassifyAsync(
+            new MastAttemptClassificationRecord(
+                command.TenantId,
+                command.AttemptId,
+                command.ProjectId,
+                command.TaskId,
+                descriptor.Code,
+                descriptor.Category.ToString().ToLowerInvariant(),
+                "agent-run-orchestrator",
+                string.IsNullOrWhiteSpace(execution.FailureCode) ? null : execution.FailureCode,
+                clock.UtcNow),
+            cancellationToken);
     }
 
     private async Task PublishStateAsync(
