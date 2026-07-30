@@ -99,6 +99,21 @@ public static class LearningPromotionPolicy
     }
 
     /// <summary>
+    /// Exige aprovador humano identificado antes de qualquer promoção. Existe como ponto de
+    /// verificação independente do agregado: quem promove por outro caminho (endpoint, importação,
+    /// migração) passa por aqui e recebe a mesma recusa. O invariante é "não existe promoção
+    /// silenciosa" — e um invariante que só vale num caminho não é invariante.
+    /// </summary>
+    public static void RequireHumanApproval(string? approvedBy)
+    {
+        if (string.IsNullOrWhiteSpace(approvedBy))
+        {
+            throw new InvalidOperationException(
+                "Promoção a skill exige aprovação humana identificada — não existe promoção automática.");
+        }
+    }
+
+    /// <summary>
     /// Promove — e SÓ com aprovação humana identificada. Sem aprovador, isto lança: não existe
     /// caminho de promoção silenciosa, nem por conveniência de teste.
     /// </summary>

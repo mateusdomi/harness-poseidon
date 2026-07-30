@@ -31,15 +31,21 @@ public static class RunnerMessageTransition
         // pronto, e o sistema jogando fora porque o processo que entregou não era o que começou.
         //
         // O que separa o agente reiniciado de um terceiro não é o identificador do processo: é o
-        // fencing token, que só o despacho emite. Fencing igual ao registrado é a MESMA tentativa,
-        // venha do processo que vier. Fencing antigo é resultado tardio de tentativa superada, e
-        // publicá-lo sobrescreveria o trabalho da tentativa vigente.
-        if (current is not null &&
-            message.FencingToken > 0 &&
-            current.FencingToken > 0 &&
-            message.FencingToken < current.FencingToken)
+        // fencing token, que só o despacho emite. Quem decide isso é a POLÍTICA, e ela é a fonte
+        // única: manter aqui uma segunda formulação da mesma regra foi o que deixou o produto
+        // aplicando um subconjunto dela — só o fencing superado — enquanto tentativa alheia e
+        // fencing à frente do despacho passavam sem exame.
+        if (current is not null && message.FencingToken > 0 && current.FencingToken > 0)
         {
-            return RunnerMessageStoreResult.Rejected(RunnerMessageRejection.StaleFencingToken);
+            var decision = DispatchAuthorityPolicy.Decide(
+                new ClaimedIdentity(
+                    current.AttemptId, current.AttemptId, message.FencingToken, message.RunnerId),
+                new ActiveDispatch(current.AttemptId, current.AttemptId, current.FencingToken));
+
+            if (!decision.IsAccepted)
+            {
+                return RunnerMessageStoreResult.Rejected(RunnerMessageRejection.StaleFencingToken);
+            }
         }
 
         return null;

@@ -380,7 +380,13 @@ public static class DemandDecompositionPlanner
         //
         // O que continua sendo gate humano nesta decomposição é o que exige o mundo externo:
         // provisionar credencial (acima) e escolher entre alternativas mutuamente exclusivas.
-        return new DemandPlanProposal(featureId, cards);
+        // B11/F14 — fronteira negativa: cada card recebe, no próprio enunciado, o que pertence aos
+        // IRMÃOS. Sem isso, um agente que encontra um defeito real fora do próprio escopo tende a
+        // consertá-lo — comportamento louvável isolado, e destrutivo em paralelo: dois agentes
+        // editam o mesmo arquivo, o merge serializado vira conflito e o trabalho do outro é
+        // sobrescrito. Declarar o limite é mais barato que arbitrar a colisão depois.
+        return NegativeBoundaryPolicy.EnrichWithSiblingBoundaries(
+            new DemandPlanProposal(featureId, cards));
     }
 
     private static string[] ImplementationCriteria(string[] criteria, string surface) =>

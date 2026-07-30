@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Harness.Modules.Coordination.Application;
 using Harness.Persistence.Abstractions.RunnerIpc;
 using Harness.SharedKernel.RunnerIpc;
 using Harness.SharedKernel.Time;
@@ -19,6 +20,23 @@ public sealed class RunnerIpcMessageProcessor(IRunnerMessageStore store, IClock 
         if (validationFailure is not null)
         {
             return RunnerIpcProcessResult.Failed(validationFailure);
+        }
+
+        // B5/F13 — conclusão EXATAMENTE UMA VEZ, inclusive em falha.
+        //
+        // O store já recusa mensagem para tentativa concluída, e essa garantia atômica continua
+        // sendo a última palavra. A política entra antes por dois motivos: ela distingue o REENVIO
+        // fiel (mesma chave, mesmo desfecho — a rede é falível e o agente tem direito de repetir
+        // sem medo) de uma segunda história diferente, e devolve o motivo em vez de um conflito
+        // genérico. Sem essa distinção, um agente que repetiu a conclusão por timeout de rede via
+        // a própria entrega recusada.
+        if (RunnerMessageTypes.EndsTurn(message.Type))
+        {
+            var completionFailure = await DecideCompletionAsync(message, cancellationToken);
+            if (completionFailure is not null)
+            {
+                return RunnerIpcProcessResult.Failed(completionFailure);
+            }
         }
 
         var result = await _store.ApplyAsync(message, _clock.UtcNow, cancellationToken);
@@ -76,6 +94,40 @@ public sealed class RunnerIpcMessageProcessor(IRunnerMessageStore store, IClock 
         }
 
         return ValidatePayload(message);
+    }
+
+    /// <summary>
+    /// Aplica a política de conclusão sobre o estado durável da tentativa. Devolve falha só quando
+    /// a tentativa já foi concluída por um desfecho DIFERENTE: aí a segunda versão da história não
+    /// pode reescrever a primeira. Reenvio idêntico segue adiante e o store o trata como repetição.
+    /// </summary>
+    private async Task<RunnerIpcFailure?> DecideCompletionAsync(
+        RunnerMessageEnvelope message,
+        CancellationToken cancellationToken)
+    {
+        var attempt = await _store.ReadAttemptAsync(message.AttemptId, cancellationToken);
+        if (attempt is null)
+        {
+            return null;
+        }
+
+        var kind = RunnerMessageTypes.Canonical(message.Type) == RunnerMessageTypes.Escalation
+            ? "escalated"
+            : "succeeded";
+        var decision = TurnCompletionPolicy.Report(
+            new TurnCompletionState(
+                message.AttemptId,
+                attempt.Completed,
+                attempt.Completed ? kind : null,
+                attempt.Completed ? message.IdempotencyKey : null),
+            kind,
+            message.IdempotencyKey);
+
+        return decision.Outcome == TurnCompletionOutcome.AlreadyCompleted
+            ? Conflict(
+                "attempt_already_completed",
+                "A tentativa já foi concluída por outro desfecho; a conclusão vale uma vez só.")
+            : null;
     }
 
     private static RunnerIpcFailure? ValidatePayload(RunnerMessageEnvelope message)

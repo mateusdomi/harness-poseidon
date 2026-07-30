@@ -1,3 +1,4 @@
+using Harness.SharedKernel.RunnerIpc;
 using Harness.Modules.Coordination.Application;
 
 namespace Harness.UnitTests.Coordination;

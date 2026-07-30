@@ -1,3 +1,4 @@
+using Harness.SharedKernel.RunnerIpc;
 using Harness.Modules.Coordination.Application;
 
 namespace Harness.UnitTests.Coordination;
@@ -8,15 +9,15 @@ public sealed class DispatchLifecycleTests
     [Fact]
     public void EscalationEndsTheTurnWithoutBeingAFailure()
     {
-        Assert.True(DispatchLifecycleTypes.EndsTurn(DispatchLifecycleTypes.Escalation));
-        Assert.False(DispatchLifecycleTypes.IsFailureBearing(DispatchLifecycleTypes.Escalation));
+        Assert.True(RunnerMessageTypes.EndsTurn(RunnerMessageTypes.Escalation));
+        Assert.False(RunnerMessageTypes.IsFailureBearing(RunnerMessageTypes.Escalation));
     }
 
     [Fact]
     public void WorkerDoneEndsTheTurnAndCarriesTheOutcome()
     {
-        Assert.True(DispatchLifecycleTypes.EndsTurn(DispatchLifecycleTypes.WorkerDone));
-        Assert.True(DispatchLifecycleTypes.IsFailureBearing(DispatchLifecycleTypes.WorkerDone));
+        Assert.True(RunnerMessageTypes.EndsTurn(RunnerMessageTypes.WorkerDone));
+        Assert.True(RunnerMessageTypes.IsFailureBearing(RunnerMessageTypes.WorkerDone));
     }
 
     [Theory]
@@ -28,8 +29,8 @@ public sealed class DispatchLifecycleTests
     [InlineData("merge_ready")]
     public void NonTerminalTypesDoNotEndTheTurn(string messageType)
     {
-        Assert.True(DispatchLifecycleTypes.All.Contains(messageType));
-        Assert.False(DispatchLifecycleTypes.EndsTurn(messageType));
+        Assert.True(RunnerMessageTypes.All.Contains(messageType));
+        Assert.False(RunnerMessageTypes.EndsTurn(messageType));
     }
 
     [Fact]
@@ -37,21 +38,21 @@ public sealed class DispatchLifecycleTests
     {
         // decision_gate e a decisao de PLANO da Bruna; escalation e o agente parando para perguntar.
         // Colapsar os dois faz a Bruna esperar por um humano que ninguem chamou.
-        Assert.NotEqual(DispatchLifecycleTypes.DecisionGate, DispatchLifecycleTypes.Escalation);
-        Assert.False(DispatchLifecycleTypes.EndsTurn(DispatchLifecycleTypes.DecisionGate));
-        Assert.True(DispatchLifecycleTypes.EndsTurn(DispatchLifecycleTypes.Escalation));
+        Assert.NotEqual(RunnerMessageTypes.DecisionGate, RunnerMessageTypes.Escalation);
+        Assert.False(RunnerMessageTypes.EndsTurn(RunnerMessageTypes.DecisionGate));
+        Assert.True(RunnerMessageTypes.EndsTurn(RunnerMessageTypes.Escalation));
     }
 
     [Fact]
     public void LegacyCompletionIsAcceptedAndNormalizedToWorkerDone()
     {
-        Assert.True(DispatchLifecycleTypes.All.Contains(DispatchLifecycleTypes.LegacyCompletion));
+        Assert.True(RunnerMessageTypes.All.Contains(RunnerMessageTypes.Completion));
         Assert.Equal(
-            DispatchLifecycleTypes.WorkerDone,
-            DispatchLifecycleTypes.Canonical(DispatchLifecycleTypes.LegacyCompletion));
+            RunnerMessageTypes.WorkerDone,
+            RunnerMessageTypes.Canonical(RunnerMessageTypes.Completion));
         Assert.Equal(
-            DispatchLifecycleTypes.Heartbeat,
-            DispatchLifecycleTypes.Canonical(DispatchLifecycleTypes.Heartbeat));
+            RunnerMessageTypes.Heartbeat,
+            RunnerMessageTypes.Canonical(RunnerMessageTypes.Heartbeat));
     }
 }
 
