@@ -71,6 +71,25 @@ describe('TrackingCard — rastreamento de encomenda', () => {
     expect(screen.queryByText(/Atenção/)).not.toBeInTheDocument();
   });
 
+  // O axe reprovou esta lista com 8 `definition-list` + 48 `dlitem` no Host real:
+  // havia dois níveis de <div> entre <dl> e <dt>/<dd>, e a semântica só admite um.
+  // Nenhum gate canônico roda Playwright, então a regressão é barrada aqui.
+  it('mantém dt e dd como descendentes válidos do dl (semântica de leitor de tela)', () => {
+    const { container } = renderWithApi(
+      <TrackingCard delivery={delivery()} onDownloadDocuments={vi.fn()} />,
+    );
+
+    const items = container.querySelectorAll('dt, dd');
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      const parent = item.parentElement!;
+      const grandparent = parent.parentElement;
+      const attached =
+        parent.tagName === 'DL' || (parent.tagName === 'DIV' && grandparent?.tagName === 'DL');
+      expect(attached, `${item.tagName} fora de <dl>: ${item.textContent}`).toBe(true);
+    }
+  });
+
   it('oferece o download do que já foi aprovado', async () => {
     const user = userEvent.setup();
     const onDownload = vi.fn();

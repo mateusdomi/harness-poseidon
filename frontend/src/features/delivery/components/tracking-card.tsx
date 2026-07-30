@@ -31,32 +31,40 @@ export function TrackingCard({
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
-        <div className="flex items-start gap-2">
-          <PlayCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground-muted" />
-          <div>
-            <dt className="text-xs text-foreground-muted">{t('delivery.tracking.startedAt')}</dt>
-            <dd className="text-foreground">{started ?? t('delivery.tracking.noStart')}</dd>
-          </div>
+      {/*
+        A lista de definição mantém `dl > div > dt/dd`: um único nível de div é o
+        que a semântica de <dl> admite, e o ícone entra como primeira coluna do
+        grid — aninhar outro div deixaria dt e dd órfãos para leitores de tela.
+      */}
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm md:grid-cols-3">
+        <div className="grid grid-cols-[auto_1fr] items-start gap-x-2">
+          <PlayCircle
+            aria-hidden="true"
+            className="row-span-2 mt-0.5 size-4 shrink-0 text-foreground-muted"
+          />
+          <dt className="text-xs text-foreground-muted">{t('delivery.tracking.startedAt')}</dt>
+          <dd className="text-foreground">{started ?? t('delivery.tracking.noStart')}</dd>
         </div>
-        <div className="flex items-start gap-2">
-          <Flag aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground-muted" />
-          <div>
-            <dt className="text-xs text-foreground-muted">{t('delivery.tracking.deadline')}</dt>
-            <dd className="text-foreground">{deadline ?? t('delivery.tracking.noDeadline')}</dd>
-          </div>
+        <div className="grid grid-cols-[auto_1fr] items-start gap-x-2">
+          <Flag
+            aria-hidden="true"
+            className="row-span-2 mt-0.5 size-4 shrink-0 text-foreground-muted"
+          />
+          <dt className="text-xs text-foreground-muted">{t('delivery.tracking.deadline')}</dt>
+          <dd className="text-foreground">{deadline ?? t('delivery.tracking.noDeadline')}</dd>
         </div>
-        <div className="flex items-start gap-2">
-          <CalendarClock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground-muted" />
-          <div>
-            <dt className="text-xs text-foreground-muted">{t('delivery.tracking.progress')}</dt>
-            <dd className="text-foreground">
-              {t('delivery.tracking.progressValue', {
-                done: delivery.milestonesDone,
-                total: delivery.milestonesTotal,
-              })}
-            </dd>
-          </div>
+        <div className="grid grid-cols-[auto_1fr] items-start gap-x-2">
+          <CalendarClock
+            aria-hidden="true"
+            className="row-span-2 mt-0.5 size-4 shrink-0 text-foreground-muted"
+          />
+          <dt className="text-xs text-foreground-muted">{t('delivery.tracking.progress')}</dt>
+          <dd className="text-foreground">
+            {t('delivery.tracking.progressValue', {
+              done: delivery.milestonesDone,
+              total: delivery.milestonesTotal,
+            })}
+          </dd>
         </div>
       </dl>
 

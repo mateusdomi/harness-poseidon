@@ -218,7 +218,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
           </div>
         </CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
             <Stat label={t('delivery.overview.exec.owner')} value={owner ?? t('delivery.portfolio.noOwner')} />
             <Stat label={t('delivery.criticality.label')} value={t(`delivery.criticality.${e.criticality}`)} />
             <Stat label={t('delivery.overview.exec.milestones')} value={`${e.milestonesDone}/${e.milestonesTotal}`} />
@@ -266,7 +266,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
               </Button>
             </div>
           ) : (
-            <dl className="grid gap-3 sm:grid-cols-3">
+            <dl className="grid gap-3 md:grid-cols-3">
               <Stat label={t('delivery.overview.trace.objective')} value={trace.project.description || '—'} />
               <Stat label={t('delivery.overview.trace.phase')} value={activePhase?.name ?? t('delivery.overview.trace.noPhase')} />
               <Stat label={t('delivery.overview.trace.workflow')} value={trace.workflow ? t('delivery.overview.trace.linked') : t('delivery.overview.trace.notLinked')} />
@@ -359,10 +359,11 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
             <CardTitle>{t('delivery.overview.risks.title')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <div className="flex gap-4 text-sm">
+            {/* <Stat> emite dt/dd: o container precisa ser <dl> para não deixá-los órfãos. */}
+            <dl className="flex gap-4 text-sm">
               <Stat label={t('delivery.overview.risks.openDependencies')} value={String(o.risksAndDependencies.openDependencies)} />
               <Stat label={t('delivery.overview.risks.blockedTasks')} value={String(o.risksAndDependencies.blockedTaskCount)} />
-            </div>
+            </dl>
             {o.risksAndDependencies.risks.length === 0 ? (
               <p className="text-sm text-foreground-muted">{t('delivery.overview.risks.empty')}</p>
             ) : (
@@ -383,10 +384,10 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
             <CardTitle>{t('delivery.overview.decisions.title')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <div className="flex gap-4 text-sm">
+            <dl className="flex gap-4 text-sm">
               <Stat label={t('delivery.overview.decisions.total')} value={String(o.decisions.total)} />
               <Stat label={t('delivery.overview.decisions.open')} value={String(o.decisions.open)} />
-            </div>
+            </dl>
             {o.decisions.decisions.length === 0 ? (
               <p className="text-sm text-foreground-muted">{t('delivery.overview.decisions.empty')}</p>
             ) : (
