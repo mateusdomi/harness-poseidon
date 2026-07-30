@@ -184,17 +184,29 @@ public static class ProjectEndpoints
                 if (list.Count == 0) return Problem(404, "organization_not_found", "The organization does not exist.");
                 orgId = list[0].Id;
             }
+            // D12: no modo Negócio o dono descreve o que precisa e não classifica risco nem
+            // declara pilha. Quando ele não informa, estimamos a partir do que ele escreveu —
+            // sem isso o projeto nasceria `medium` mesmo sendo um sistema de pagamento, e esse
+            // default seguiria para o raio de impacto como se fosse avaliação. O que vem
+            // preenchido (formulário completo do modo Técnico) é respeitado sem alteração.
+            var estimate = string.IsNullOrWhiteSpace(request.Criticality)
+                ? ProjectIntakeEstimator.EstimateCriticality(request.Name, request.Description)
+                : null;
+            var technologies = request.Technologies is { Count: > 0 }
+                ? request.Technologies
+                : ProjectIntakeEstimator.InferTechnologies(request.Name, request.Description);
+
             var reqWithOrg = new CreateProjectRequest
             {
                 OrganizationId = orgId,
                 Name = request.Name,
                 Key = request.Key,
                 Description = request.Description,
-                Criticality = request.Criticality,
+                Criticality = estimate?.Criticality ?? request.Criticality,
                 RepositoryUrl = request.RepositoryUrl,
                 RepositoryProvider = request.RepositoryProvider,
                 DefaultBranch = request.DefaultBranch,
-                Technologies = request.Technologies,
+                Technologies = technologies,
                 Brand = request.Brand,
                 MemberProfileIds = request.MemberProfileIds,
                 WorkflowTemplateId = request.WorkflowTemplateId,
@@ -338,9 +350,15 @@ public static class ProjectEndpoints
 
     private static ProjectContract ToContract(ProjectRecord p) => new(p.Id, p.OrganizationId, p.Name, p.Key, p.Description, p.State, p.Criticality, p.RepositoryUrl, p.RepositoryProvider, p.DefaultBranch, p.Technologies, new(p.Brand.LogoUrl, p.Brand.PrimaryColor, p.Brand.SecondaryColor, p.Brand.Typography), p.MemberProfileIds, p.ConfigVersion, p.ChiefAgentId, p.OperationMode, p.CreatedAt, p.LastActivityAt, p.Version) { Prototyping = new(p.Prototyping.Mode, p.Prototyping.Waiver is null ? null : new(p.Prototyping.Waiver.Reason, p.Prototyping.Waiver.GrantedAt)), TargetDeadline = p.TargetDeadline };
     private static ProjectRecord ToRecord(string tenant, ProjectContract p) => new(tenant, p.Id, p.OrganizationId, p.Name, p.Key, p.Description, p.State, p.Criticality, p.RepositoryUrl, p.RepositoryProvider, p.DefaultBranch, p.Technologies, new(p.Brand.LogoUrl, p.Brand.PrimaryColor, p.Brand.SecondaryColor, p.Brand.Typography), p.MemberProfileIds, p.ConfigVersion, p.ChiefAgentId, p.OperationMode, p.CreatedAt, p.LastActivityAt, p.Version) { Prototyping = new(p.Prototyping.Mode, p.Prototyping.Waiver is null ? null : new(p.Prototyping.Waiver.Reason, p.Prototyping.Waiver.GrantedAt)), TargetDeadline = p.TargetDeadline };
-    internal static ProjectResponse ToResponse(ProjectRecord p) => new(p.Id, p.OrganizationId, p.Name, p.Key, p.Description, p.State, p.Criticality, p.RepositoryUrl, p.RepositoryProvider, p.DefaultBranch, p.Technologies, new(p.Brand.LogoUrl, p.Brand.PrimaryColor, p.Brand.SecondaryColor, p.Brand.Typography), p.MemberProfileIds, p.ConfigVersion, p.ChiefAgentId, p.OperationMode, new(p.Prototyping.Mode, p.Prototyping.Waiver is null ? null : new(p.Prototyping.Waiver.Reason, p.Prototyping.Waiver.GrantedAt)), p.CreatedAt, p.LastActivityAt, p.TargetDeadline);
+    internal static ProjectResponse ToResponse(ProjectRecord p) => new(p.Id, p.OrganizationId, p.Name, p.Key, p.Description, p.State, p.Criticality, p.RepositoryUrl, p.RepositoryProvider, p.DefaultBranch, p.Technologies, new(p.Brand.LogoUrl, p.Brand.PrimaryColor, p.Brand.SecondaryColor, p.Brand.Typography), p.MemberProfileIds, p.ConfigVersion, p.ChiefAgentId, p.OperationMode, new(p.Prototyping.Mode, p.Prototyping.Waiver is null ? null : new(p.Prototyping.Waiver.Reason, p.Prototyping.Waiver.GrantedAt)), p.CreatedAt, p.LastActivityAt, p.TargetDeadline, ProjectIntakeEstimator.EstimateCriticality(p.Name, p.Description).Rationale);
     private static IResult InvalidId() => Problem(400, "invalid_project_id", "Project ID must be a ULID."); private static IResult SessionRequired() => Problem(401, "local_session_required", "A local profile session is required."); private static IResult NotFound() => Problem(404, "project_not_found", "The project does not exist."); private static IResult Conflict() => Problem(409, "project_already_exists", "A project with this name or key already exists."); private static IResult Problem(int status, string title, string detail) => Results.Problem(statusCode: status, title: title, detail: detail);
 }
 
-public sealed record ProjectResponse(string Id, string OrganizationId, string Name, string Key, string Description, string State, string Criticality, string? RepositoryUrl, string RepositoryProvider, string DefaultBranch, IReadOnlyList<string> Technologies, ProjectBrandContract Brand, IReadOnlyList<string> MemberProfileIds, long ConfigVersion, string ChiefAgentId, string OperationMode, PrototypingConfigContract Prototyping, DateTimeOffset CreatedAt, DateTimeOffset LastActivityAt, DateTimeOffset? TargetDeadline = null);
+/// <param name="CriticalityRationale">
+/// Por que o projeto tem esta prioridade, em linguagem de negócio (D12). Derivado do título e
+/// do objetivo a cada leitura, não persistido: a estimativa é pura e determinística, então
+/// recalcular dá sempre o mesmo texto e não existe coluna capaz de divergir do que o dono
+/// escreveu. Prioridade sem explicação é indistinguível de chute para quem não é técnico.
+/// </param>
+public sealed record ProjectResponse(string Id, string OrganizationId, string Name, string Key, string Description, string State, string Criticality, string? RepositoryUrl, string RepositoryProvider, string DefaultBranch, IReadOnlyList<string> Technologies, ProjectBrandContract Brand, IReadOnlyList<string> MemberProfileIds, long ConfigVersion, string ChiefAgentId, string OperationMode, PrototypingConfigContract Prototyping, DateTimeOffset CreatedAt, DateTimeOffset LastActivityAt, DateTimeOffset? TargetDeadline = null, string? CriticalityRationale = null);
 public sealed record ProjectPage(IReadOnlyList<ProjectResponse> Items, string? NextCursor);

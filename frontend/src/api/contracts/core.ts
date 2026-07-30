@@ -134,6 +134,12 @@ export const projectSchema = z.object({
   targetDeadline: isoDateTimeSchema.nullable().optional(),
   createdAt: isoDateTimeSchema,
   lastActivityAt: isoDateTimeSchema,
+  /**
+   * Por que o projeto tem esta prioridade, em linguagem de negócio (D12). O dono
+   * leigo não estima criticidade — o sistema estima a partir do objetivo dele e
+   * devolve o motivo, porque prioridade sem explicação parece arbitrária.
+   */
+  criticalityRationale: z.string().nullable().optional(),
 });
 export type Project = z.infer<typeof projectSchema>;
 
