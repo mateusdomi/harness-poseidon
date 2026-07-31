@@ -36,6 +36,8 @@ markdownAllowlist:
   reason: Roadmap proposto pela auditoria, ainda não aprovado como plano canônico.
 - path: docs/architecture/audits/bruna/ADVISORY-REACT-ROUTER-GHSA-qwww-vcr4-c8h2.md
   reason: Avaliação fechada de aplicabilidade de um advisory de dependência, com data e evidência de reprodução; é registro de decisão, não norma.
+- path: docs/architecture/audits/bruna/pareceres/PARECER-0A1-ANTIGRAVITY.md
+  reason: Parecer do crítico independente sobre o sub-bloco 0A1 da Fase 0, com data e comandos reproduzíveis; é evidência de gate, não norma.
 documents:
 - id: governance-core
   path: governance/core.md
