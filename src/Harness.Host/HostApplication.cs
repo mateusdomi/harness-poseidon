@@ -365,6 +365,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IWorkBoardStore, PostgresWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, PostgresDemandPlanStore>();
             builder.Services.AddSingleton<IPlanMaterializationStore, PostgresPlanMaterializationStore>();
+            builder.Services.AddSingleton<Harness.Persistence.Abstractions.Execution.ISandboxAttestationStore, PostgresSandboxAttestationStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, PostgresDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, PostgresDeliveryDailyStore>();
@@ -385,6 +386,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, SqliteDemandPlanStore>();
             builder.Services.AddSingleton<IPlanMaterializationStore, SqlitePlanMaterializationStore>();
+            builder.Services.AddSingleton<Harness.Persistence.Abstractions.Execution.ISandboxAttestationStore, SqliteSandboxAttestationStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, SqliteDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, SqliteDeliveryDailyStore>();
@@ -398,6 +400,14 @@ public static class HostApplication
             .GetSection("Harness:IsolatedExecution")
             .Get<IsolatedExecutionSettings>() ?? new IsolatedExecutionSettings();
         builder.Services.AddSingleton(isolatedSettings);
+        // Fase 0B1: o serviço existe SEMPRE — inclusive com o modo isolado desligado. É ele que
+        // registra a ausência de sandbox como fato, em vez de deixar o orquestrador presumir.
+        builder.Services.AddSingleton(services => new Execution.SandboxAttestationService(
+            services.GetRequiredService<Harness.Persistence.Abstractions.Execution.ISandboxAttestationStore>(),
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<IsolatedExecutionSettings>(),
+            services.GetRequiredService<ILogger<Execution.SandboxAttestationService>>(),
+            services.GetService<ISandboxProvider>()));
         if (isolatedSettings.Mode != IsolatedExecutionMode.Disabled)
         {
             builder.Services.AddSingleton(isolatedSettings.ToOptions());
@@ -560,7 +570,8 @@ public static class HostApplication
                 services.GetRequiredService<IModelInvocationStore>(),
                 services.GetRequiredService<Harness.Modules.Tools.Application.SecurityPolicyEnforcementPoint>(),
                 services.GetRequiredService<IToolCatalogStore>(),
-                services.GetRequiredService<IMastClassificationStore>()));
+                services.GetRequiredService<IMastClassificationStore>(),
+                services.GetRequiredService<Execution.SandboxAttestationService>()));
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para
@@ -888,6 +899,7 @@ public static class HostApplication
         app.MapWorkBoard();
         app.MapBacklogHealth();
         app.MapDemandPlans();
+        app.MapUnsafeExecutionEndpoints();
         app.MapTaskMerge();
         app.MapPhaseProgress();
         app.MapDeliveries();

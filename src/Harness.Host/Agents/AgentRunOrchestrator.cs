@@ -23,6 +23,8 @@ using Harness.Persistence.Abstractions.Tools;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Providers;
 using Harness.SharedKernel.Time;
+using Harness.Host.Execution;
+using Harness.Persistence.Abstractions.Execution;
 
 namespace Harness.Host.Agents;
 
@@ -53,7 +55,8 @@ public sealed class AgentRunOrchestrator(
     IModelInvocationStore invocations,
     SecurityPolicyEnforcementPoint pep,
     IToolCatalogStore toolCatalog,
-    IMastClassificationStore mastClassifications)
+    IMastClassificationStore mastClassifications,
+    SandboxAttestationService sandboxAttestations)
 {
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
@@ -128,7 +131,13 @@ public sealed class AgentRunOrchestrator(
             return Rejected(runId, command, "executor.adapter_not_implemented", account.ExecutorId);
         }
 
-        var toolDecision = await AuthorizeRequiredToolsAsync(command, cancellationToken);
+        // Fase 0B1 (BR-002): a evidência de contenção precisa existir ANTES da autorização. Emitir
+        // a attestation aqui é o que permite negar por FATO — antes, a política recebia
+        // `SandboxActive: true` por literal e autorizava ferramenta crítica sem sandbox nenhuma.
+        var attestation = await sandboxAttestations.AttestAsync(
+            command.TenantId, command.ProjectId, command.AttemptId, cancellationToken);
+        var toolDecision = await AuthorizeRequiredToolsAsync(
+            command, attestation, cancellationToken);
         if (!toolDecision.Allowed)
         {
             return Rejected(runId, command, toolDecision.Code, account.ExecutorId);
@@ -956,8 +965,18 @@ public sealed class AgentRunOrchestrator(
     /// </summary>
     private async Task<ToolPolicyDecision> AuthorizeRequiredToolsAsync(
         StartAgentRunCommand command,
+        SandboxAttestationRecord attestation,
         CancellationToken cancellationToken)
     {
+        // A sandbox vale para ESTA tentativa. Uma attestation de outro attempt não contém nada
+        // aqui — se valesse, bastaria uma execução isolada no passado para liberar as seguintes.
+        var sandboxActive = attestation.Verified &&
+            string.Equals(attestation.AttemptId, command.AttemptId, StringComparison.Ordinal);
+        // O modo inseguro só existe por aceite explícito e vigente do proprietário, gravado por uma
+        // sessão de perfil local. Nenhum agente tem caminho até esse registro.
+        var unsafeAccepted = !sandboxActive &&
+            await sandboxAttestations.IsUnsafeModeAcceptedAsync(
+                command.TenantId, command.ProjectId, cancellationToken);
         if (command.RequiredToolIds is null)
         {
             return ToolPolicyDecision.Deny(
@@ -987,8 +1006,8 @@ public sealed class AgentRunOrchestrator(
                     command.Role,
                     ToolRiskTier.Critical,
                     allowlist,
-                    SandboxActive: true,
-                    UnsafeModeAccepted: false),
+                    sandboxActive,
+                    unsafeAccepted),
                 ToolRiskTier.Critical));
             if (!decision.Allowed)
             {

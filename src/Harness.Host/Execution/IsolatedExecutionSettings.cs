@@ -107,6 +107,34 @@ public sealed class FakeSandboxProvider : ISandboxProvider
     public Task CleanupAsync(string attemptId, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
 
+    /// <summary>
+    /// O fake atesta uma sandbox EFETIVA porque é isso que ele simula — é o provider usado nos
+    /// testes de fluxo isolado. Ele se identifica como `fake`: a auditoria distingue o que foi
+    /// simulado do que foi contido de verdade, em vez de as duas coisas virarem "sandbox ativa".
+    /// </summary>
+    public Task<SandboxAttestation> AttestAsync(
+        SandboxAttestationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Task.FromResult(new SandboxAttestation(
+            request.TenantId,
+            request.ProjectId,
+            request.AttemptId,
+            "fake",
+            "1",
+            $"fake-sandbox:{request.AttemptId}",
+            ["/workspace"],
+            "denied",
+            RootFilesystemReadOnly: true,
+            WorktreeIsolated: true,
+            EgressRestricted: true,
+            ResourceLimitsApplied: true,
+            Verified: true,
+            "Fake sandbox provider: boundaries are simulated for tests.",
+            request.IssuedAt));
+    }
+
     private sealed class FakeSession : ISandboxProcessSession
     {
         public SandboxProcessPlan ProcessPlan { get; } = new(

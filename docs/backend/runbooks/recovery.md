@@ -141,6 +141,29 @@ tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationT
   --filter FullyQualifiedName~CanarySecretPersistenceTests
 ```
 
+## Execução sem sandbox
+
+`SandboxActive` deixou de ser literal: ele vem de uma attestation emitida pelo provider REAL da
+tentativa, persistida em `sandbox_attestations`. A mera criação de um container não conta — a
+attestation exige rootfs somente-leitura, worktree isolada, egresso negado e limites aplicados.
+
+1. Execução negada com `sandbox_required`: leia a attestation da tentativa. O campo
+   `verification_detail` diz o que faltou (runtime ausente, container inexistente, rede em bridge,
+   limites não aplicados). Isso é fail-closed funcionando, não defeito.
+2. A attestation é POR TENTATIVA e a PRIMEIRA emissão é a que vale — uma segunda não pode abençoar
+   retroativamente uma execução em curso.
+3. Modo inseguro: só existe por aceite do proprietário via sessão de perfil local
+   (`POST /api/v1/projects/{id}/unsafe-execution`), com motivo obrigatório, validade máxima de 24h
+   e auditoria. Nenhum agente tem caminho até esse registro; não há flag nem variável de ambiente.
+   Revogue com `DELETE` no mesmo recurso — passa a valer imediatamente.
+4. `poseidon.sandbox.attestation.count` por `provider`/`verified` mostra quanto do trabalho está
+   correndo contido de verdade.
+
+```bash
+tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
+  --filter FullyQualifiedName~SandboxAttestationTests
+```
+
 ## Prova e encerramento
 
 A simulação canônica envia `SIGKILL` depois do terceiro checkpoint e comprova, em

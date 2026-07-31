@@ -1,3 +1,4 @@
+using Harness.IntegrationTests.Security;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
@@ -78,6 +79,7 @@ public sealed class AgentRunHappyPathTests : IDisposable
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
 
         var projectId = await SeedProjectAsync(client, timeout.Token);
+        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, attemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         using var response = await client.PostAsJsonAsync(
@@ -209,6 +211,7 @@ public sealed class AgentRunHappyPathTests : IDisposable
         using var handler = new HttpClientHandler { CookieContainer = new CookieContainer() };
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
         var projectId = await SeedProjectAsync(client, timeout.Token);
+        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, attemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         // O card de documentação resolve a persona technical-writer no servidor. Ela declara

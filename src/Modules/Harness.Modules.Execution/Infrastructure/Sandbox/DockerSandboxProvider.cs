@@ -316,6 +316,94 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
         }
     }
 
+    /// <summary>
+    /// Fase 0B1 (BR-002): a attestation é derivada do que o runtime REALMENTE reporta sobre o
+    /// container desta tentativa — não da configuração que pedimos. A mera criação de um container
+    /// não prova contenção: o que prova é o `inspect` devolver rootfs somente-leitura, rede negada
+    /// e limites aplicados.
+    ///
+    /// Runtime ausente, container inexistente ou inspeção que falhe produzem attestation NÃO
+    /// verificada com o motivo. Nunca lança: o chamador precisa poder NEGAR a execução sabendo por
+    /// quê, e não descobrir por uma exceção genérica no meio do fluxo.
+    /// </summary>
+    public async Task<SandboxAttestation> AttestAsync(
+        SandboxAttestationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(_dockerExecutable))
+        {
+            return SandboxAttestation.Absent(
+                request.TenantId, request.ProjectId, request.AttemptId,
+                "The container runtime is not available on this host.", request.IssuedAt);
+        }
+
+        SandboxResourceInventory inventory;
+        try
+        {
+            inventory = await DetectResourcesAsync(request.AttemptId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return SandboxAttestation.Absent(
+                request.TenantId, request.ProjectId, request.AttemptId,
+                $"The container runtime did not answer: {exception.GetType().Name}.",
+                request.IssuedAt);
+        }
+
+        var container = inventory.Containers.Count > 0 ? inventory.Containers[0] : null;
+        if (container is null)
+        {
+            return SandboxAttestation.Absent(
+                request.TenantId, request.ProjectId, request.AttemptId,
+                "No sandbox container exists for this attempt.", request.IssuedAt);
+        }
+
+        SandboxInspection inspection;
+        string version;
+        try
+        {
+            inspection = await InspectSandboxAsync(container, cancellationToken);
+            var versionResult = await RunDockerAsync(
+                ["version", "--format", "{{.Server.Version}}"], cancellationToken);
+            version = versionResult.StandardOutput.Trim();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return SandboxAttestation.Absent(
+                request.TenantId, request.ProjectId, request.AttemptId,
+                $"The sandbox container could not be inspected: {exception.GetType().Name}.",
+                request.IssuedAt);
+        }
+
+        // `none` é a única política de rede que nega egresso por construção. Qualquer outra —
+        // inclusive uma rede dedicada com proxy — precisa ser provada separadamente antes de ser
+        // aceita como restrita, e por isso não é aceita aqui.
+        var egressRestricted = string.Equals(
+            inspection.NetworkMode, "none", StringComparison.OrdinalIgnoreCase);
+        var limitsApplied = inspection.MemoryBytes > 0 && inspection.CpuLimit > 0 &&
+            inspection.PidsLimit > 0;
+        var verified = inspection.RootFilesystemReadOnly && egressRestricted && limitsApplied;
+        return new SandboxAttestation(
+            request.TenantId,
+            request.ProjectId,
+            request.AttemptId,
+            "docker",
+            string.IsNullOrWhiteSpace(version) ? "unknown" : version,
+            container,
+            [.. inventory.Volumes],
+            inspection.NetworkMode,
+            inspection.RootFilesystemReadOnly,
+            WorktreeIsolated: true,
+            egressRestricted,
+            limitsApplied,
+            verified,
+            verified
+                ? "The container runtime confirmed read-only rootfs, denied network and applied limits."
+                : $"Container '{container}' does not satisfy the boundary: rootfsReadOnly={inspection.RootFilesystemReadOnly}, network='{inspection.NetworkMode}', limits={limitsApplied}.",
+            request.IssuedAt);
+    }
+
     private async Task<SandboxInspection> InspectSandboxAsync(
         string containerName,
         CancellationToken cancellationToken)

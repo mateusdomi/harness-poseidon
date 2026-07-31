@@ -1,3 +1,4 @@
+using Harness.IntegrationTests.Security;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
@@ -57,6 +58,7 @@ public sealed class AgentRunContinuationTests : IDisposable
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
 
         var projectId = await SeedProjectAsync(client, timeout.Token);
+        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, priorAttemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         // Arquiva o attempt reprovado com manifest de provenance e checksum.
@@ -123,6 +125,7 @@ public sealed class AgentRunContinuationTests : IDisposable
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
 
         var projectId = await SeedProjectAsync(client, timeout.Token);
+        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, priorAttemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         new AttemptArtifactArchive(ArchiveRoot).Write(

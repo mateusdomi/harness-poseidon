@@ -1,3 +1,4 @@
+using Harness.IntegrationTests.Security;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -123,6 +124,7 @@ public sealed class ChiefBacklogDispatchTests
                     Description = "Control plane",
                     RepositoryUrl = Path.GetFullPath(repo),
                 }, cts.Token);
+            await UnsafeExecutionSetup.AcceptAsync(client, projectId, cts.Token);
             var solId = await PostId(client, "/api/v1/solicitations",
                 new CreateSolicitationRequest(projectId, "request", "Probe", "Criar um probe backend."), cts.Token);
             var demId = await PostId(client, "/api/v1/demands",

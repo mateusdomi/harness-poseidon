@@ -500,6 +500,25 @@ public sealed class IsolatedAttemptRecoveryTests
 
     private sealed class RecordingSandboxProvider : ISandboxProvider
     {
+        /// <summary>
+        /// Fase 0B1: um provider de teste atesta explicitamente o que ele é. Devolver "sandbox
+        /// ativa" por conveniência aqui reproduziria em teste exatamente a mentira que o bloco
+        /// existe para eliminar em produção.
+        /// </summary>
+        public Task<SandboxAttestation> AttestAsync(
+            SandboxAttestationRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            return Task.FromResult(new SandboxAttestation(
+                request.TenantId, request.ProjectId, request.AttemptId, "test", "1",
+                $"test-sandbox:{request.AttemptId}", ["/workspace"], "denied",
+                RootFilesystemReadOnly: true, WorktreeIsolated: true, EgressRestricted: true,
+                ResourceLimitsApplied: true, Verified: true,
+                "Test double: boundaries are asserted by the test, not by a runtime.",
+                request.IssuedAt));
+        }
+
         public Dictionary<string, int> OpenCounts { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, int> CleanupCounts { get; } = new(StringComparer.Ordinal);

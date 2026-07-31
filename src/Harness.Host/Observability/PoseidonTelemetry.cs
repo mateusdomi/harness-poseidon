@@ -239,6 +239,20 @@ internal static class PoseidonTelemetry
         ChiefTurnDuration.Record(durationMilliseconds, tags);
     }
 
+    /// <summary>
+    /// Fase 0B1: quantas execuções correram com sandbox atestada e quantas não. Antes o produto
+    /// dizia sempre "com sandbox", então esta série não tinha o que medir.
+    /// </summary>
+    private static Counter<long> SandboxAttestationCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.sandbox.attestation.count",
+            description: "Sandbox attestations issued, by provider and verification outcome.");
+
+    internal static void RecordSandboxAttestation(string provider, bool verified) =>
+        SandboxAttestationCounter.Add(
+            1,
+            new TagList { { "provider", provider }, { "verified", verified } });
+
     internal static void RecordChiefTurnLease(string outcome) =>
         ChiefTurnLeaseCounter.Add(1, new TagList { { "outcome", outcome } });
 
