@@ -164,6 +164,29 @@ tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationT
   --filter FullyQualifiedName~SandboxAttestationTests
 ```
 
+## Efeito de ferramenta fora de política
+
+Todo efeito controlável pelo control plane passa pelo `ToolCallBroker`: uma chamada carrega tenant,
+projeto, card, tentativa, agente, ferramenta, capability, fencing, argumentos, caminhos, política de
+rede, timeout, limite de saída e chave de idempotência. Toda decisão — inclusive as NEGATIVAS — fica
+em `tool_call_journal`.
+
+1. Investigando um efeito inesperado: consulte o journal pela tentativa. Ele diz quem pediu, sobre
+   quais caminhos e com que desfecho. Ausência de registro significa que o efeito NÃO veio do
+   broker — veja o limite abaixo.
+2. Perfis: a Bruna nunca executa (só delega); o crítico é read-only; o ator escreve apenas na
+   worktree autorizada e sem rede por padrão.
+3. Repetição da mesma chave de idempotência devolve o resultado anterior sem repetir o efeito.
+4. LIMITE CONHECIDO: chamadas que um CLI externo faz DENTRO do próprio processo (bash, leitura de
+   arquivo, rede) não passam pelo broker — o produto não intercepta o interior de um binário de
+   terceiro. É por isso que a sandbox atestada (0B1) importa: ela é a fronteira que vale onde a
+   política de chamada não alcança.
+
+```bash
+tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
+  --filter FullyQualifiedName~ToolCallBrokerTests
+```
+
 ## Prova e encerramento
 
 A simulação canônica envia `SIGKILL` depois do terceiro checkpoint e comprova, em

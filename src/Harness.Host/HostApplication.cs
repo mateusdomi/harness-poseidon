@@ -366,6 +366,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IDemandPlanStore, PostgresDemandPlanStore>();
             builder.Services.AddSingleton<IPlanMaterializationStore, PostgresPlanMaterializationStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Execution.ISandboxAttestationStore, PostgresSandboxAttestationStore>();
+            builder.Services.AddSingleton<Harness.Persistence.Abstractions.Tools.IToolCallJournalStore, PostgresToolCallJournalStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, PostgresDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, PostgresDeliveryDailyStore>();
@@ -387,6 +388,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IDemandPlanStore, SqliteDemandPlanStore>();
             builder.Services.AddSingleton<IPlanMaterializationStore, SqlitePlanMaterializationStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Execution.ISandboxAttestationStore, SqliteSandboxAttestationStore>();
+            builder.Services.AddSingleton<Harness.Persistence.Abstractions.Tools.IToolCallJournalStore, SqliteToolCallJournalStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, SqliteDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, SqliteDeliveryDailyStore>();
@@ -400,6 +402,13 @@ public static class HostApplication
             .GetSection("Harness:IsolatedExecution")
             .Get<IsolatedExecutionSettings>() ?? new IsolatedExecutionSettings();
         builder.Services.AddSingleton(isolatedSettings);
+        // Fase 0B2: o broker é o gateway tipado por chamada. Todo efeito controlável passa por ele.
+        builder.Services.AddSingleton<Harness.Modules.Tools.Application.IToolCallJournal,
+            Agents.ToolCallJournalAdapter>();
+        builder.Services.AddSingleton(services => new Harness.Modules.Tools.Application.ToolCallBroker(
+            services.GetRequiredService<Harness.Modules.Tools.Application.SecurityPolicyEnforcementPoint>(),
+            services.GetRequiredService<Harness.Modules.Tools.Application.IToolCallJournal>(),
+            TimeProvider.System));
         // Fase 0B1: o serviço existe SEMPRE — inclusive com o modo isolado desligado. É ele que
         // registra a ausência de sandbox como fato, em vez de deixar o orquestrador presumir.
         builder.Services.AddSingleton(services => new Execution.SandboxAttestationService(
