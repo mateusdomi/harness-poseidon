@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Tools;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteToolCatalogStore(SqliteWriteDispatcher dispatcher) : IToolCatalogStore
@@ -126,6 +128,7 @@ public sealed class SqliteToolCatalogStore(SqliteWriteDispatcher dispatcher) : I
     private static async Task AppendLedgerAsync(SqliteConnection connection, SqliteTransaction tx,
         string tenant, string type, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         long sequence; string previous;
         await using (var tail = connection.CreateCommand())
         {
@@ -145,6 +148,7 @@ public sealed class SqliteToolCatalogStore(SqliteWriteDispatcher dispatcher) : I
     private static async Task AppendOutboxAsync(SqliteConnection connection, SqliteTransaction tx,
         string tenant, string type, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await using var insert = connection.CreateCommand(); insert.Transaction = tx;
         insert.CommandText = "INSERT INTO outbox_messages (id,tenant_id,event_type,payload_json,occurred_at) VALUES ($id,$tenant,$type,$payload,$at);";
         Add(insert, "$id", UlidValue.New(at).ToString()); Add(insert, "$tenant", tenant); Add(insert, "$type", type);

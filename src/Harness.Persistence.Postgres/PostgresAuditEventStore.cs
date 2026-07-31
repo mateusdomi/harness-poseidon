@@ -6,6 +6,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed class PostgresAuditEventStore(NpgsqlDataSource dataSource) : IAuditEventStore
@@ -114,6 +116,10 @@ public sealed class PostgresAuditEventStore(NpgsqlDataSource dataSource) : IAudi
                 eventId, command.ActorKind, command.ActorId, command.Action,
                 command.TargetType, command.TargetId, command.Detail, command.OccurredAt)),
             AppendJsonOptions);
+        // Fase 0A3 (BR-014): o ledger é encadeado por hash e replicado para backup — um segredo
+        // gravado aqui é irreversível. Sanitiza ANTES do hash (o que se verifica é o que se
+        // persiste) e RECUSA a escrita se algo reconhecível sobreviver.
+        payload = PersistenceSanitizer.SanitizeCriticalJson(payload, "audit_ledger");
         var (sequence, previous) = await ReadLedgerTailAsync(
             connection,
             transaction,

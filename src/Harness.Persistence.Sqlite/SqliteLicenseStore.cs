@@ -7,6 +7,8 @@ using Harness.Persistence.Abstractions.Licensing;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteLicenseStore(SqliteWriteDispatcher dispatcher) : ILicenseStore
@@ -170,6 +172,7 @@ public sealed class SqliteLicenseStore(SqliteWriteDispatcher dispatcher) : ILice
 
     private static async Task AppendLedgerAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         long sequence; string previous; await using (var query = c.CreateCommand())
         {
             query.Transaction = tx; query.CommandText = "SELECT sequence,event_hash FROM audit_ledger WHERE tenant_id=$tenant ORDER BY sequence DESC LIMIT 1;";
@@ -183,7 +186,7 @@ public sealed class SqliteLicenseStore(SqliteWriteDispatcher dispatcher) : ILice
     }
     private static Task AppendOutboxAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token) =>
         ExecuteAsync(c, tx, "INSERT INTO outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($id,$tenant,$type,$payload,$at);", token,
-            ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", type), ("$payload", payload), ("$at", Store(at)));
+            ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", type), ("$payload", PersistenceSanitizer.SanitizeJson(payload)), ("$at", Store(at)));
     private static async Task ExecuteAsync(SqliteConnection c, SqliteTransaction tx, string sql, CancellationToken token, params (string Name, object Value)[] values)
     { await using var query = c.CreateCommand(); query.Transaction = tx; query.CommandText = sql; foreach (var value in values) Add(query, value.Name, value.Value); await query.ExecuteNonQueryAsync(token); }
     private const string LicenseSelect = "SELECT tenant_id,id,state,plan,device_id,device_name,expires_at,grace_period_ends_at,offline_mode,last_validated_at FROM licenses";

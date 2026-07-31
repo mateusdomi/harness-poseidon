@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Foundation;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteDurableExecutionEngine
@@ -208,6 +210,7 @@ public sealed partial class SqliteDurableExecutionEngine
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        payloadJson = PersistenceSanitizer.SanitizeJson(payloadJson);
         string tenantId;
         long sequence;
         string previousHash;

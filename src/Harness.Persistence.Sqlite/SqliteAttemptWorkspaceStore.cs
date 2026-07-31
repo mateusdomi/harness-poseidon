@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Foundation;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteAttemptWorkspaceStore(SqliteWriteDispatcher dispatcher) : IAttemptWorkspaceStore
@@ -673,6 +675,7 @@ public sealed class SqliteAttemptWorkspaceStore(SqliteWriteDispatcher dispatcher
         DateTimeOffset occurredAt,
         CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await using var tail = connection.CreateCommand();
         tail.Transaction = transaction;
         tail.CommandText =
@@ -718,7 +721,7 @@ public sealed class SqliteAttemptWorkspaceStore(SqliteWriteDispatcher dispatcher
             ("$id", UlidValue.New(occurredAt).ToString()),
             ("$tenant", tenantId),
             ("$type", eventType),
-            ("$payload", payload),
+            ("$payload", PersistenceSanitizer.SanitizeJson(payload)),
             ("$at", Store(occurredAt)));
 
     private static async Task ExecuteAsync(

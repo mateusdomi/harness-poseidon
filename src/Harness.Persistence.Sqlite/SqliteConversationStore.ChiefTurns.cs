@@ -6,6 +6,8 @@ using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.WorkChain;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteConversationStore
@@ -221,6 +223,7 @@ public sealed partial class SqliteConversationStore
         SqliteConnection connection, SqliteTransaction tx, string tenantId, string eventType,
         string payload, DateTimeOffset occurredAt, DateTimeOffset sequencedAt, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await AppendAuditAsync(connection, tx, tenantId, eventType, payload, occurredAt, token);
         await AppendOutboxAsync(connection, tx, tenantId, eventType, payload, sequencedAt, occurredAt, token);
     }

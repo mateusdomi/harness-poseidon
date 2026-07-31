@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Governance;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteAuditEventStore(SqliteWriteDispatcher dispatcher) : IAuditEventStore
@@ -45,6 +47,10 @@ public sealed class SqliteAuditEventStore(SqliteWriteDispatcher dispatcher) : IA
                 eventId, command.ActorKind, command.ActorId, command.Action,
                 command.TargetType, command.TargetId, command.Detail, command.OccurredAt)),
             AppendJsonOptions);
+        // Fase 0A3 (BR-014): o ledger é encadeado por hash e replicado para backup — um segredo
+        // gravado aqui é irreversível. Sanitiza ANTES do hash (o que se verifica é o que se
+        // persiste) e RECUSA a escrita se algo reconhecível sobreviver.
+        payload = PersistenceSanitizer.SanitizeCriticalJson(payload, "audit_ledger");
         await using (var tail = connection.CreateCommand())
         {
             tail.Transaction = transaction;

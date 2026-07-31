@@ -815,7 +815,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:cfe56c65da65aa41e184626ba4bfd0ee68708126acde9afa80c47be3b0ead16b
+  checksum: sha256:15a56a46abedd45be6f2df2c5e33f323dc58429397ef43eada1fdec38bbbac59
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1794,7 +1794,7 @@ documents:
   - src/Harness.Persistence.*/**
   load: on-demand
   priority: 750
-  tokenCost: 1560
+  tokenCost: 1980
   owner: Operations
   status: active
   version: 2.0.0
@@ -1805,7 +1805,7 @@ documents:
   - governance-core
   related: []
   enforcedBy: []
-  checksum: sha256:7d82594879deb7a97cf4e1af73338b98645e610d7ce2f8138773c10e7f9a30dc
+  checksum: sha256:50ecf9f4a5aa75980ac7ebeb2ff10be0d52b8b5f29f6631c2caa1e6d440fef96
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/runbooks/recovery.md

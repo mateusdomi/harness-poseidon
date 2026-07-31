@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Foundation;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : IAgentCatalogStore
@@ -288,6 +290,7 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
 
     private static async Task AppendAuditAsync(SqliteConnection connection, SqliteTransaction tx, string tenant, string eventType, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         long sequence; string previous; await using (var tail = connection.CreateCommand()) { tail.Transaction = tx; tail.CommandText = "SELECT sequence,event_hash FROM audit_ledger WHERE tenant_id=$tenant ORDER BY sequence DESC LIMIT 1;"; Add(tail, "$tenant", tenant); await using var reader = await tail.ExecuteReaderAsync(token); if (await reader.ReadAsync(token)) { sequence = reader.GetInt64(0) + 1; previous = reader.GetString(1); } else { sequence = 1; previous = AuditLedgerHash.Genesis; } }
         var hash = AuditLedgerHash.Compute(previous, tenant, sequence, eventType, payload, at);
         await using var command = connection.CreateCommand(); command.Transaction = tx; command.CommandText = "INSERT INTO audit_ledger(id,tenant_id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at) VALUES($id,$tenant,$sequence,$previous,$hash,$type,$payload,$at); INSERT INTO outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($outbox,$tenant,'audit.eventAppended',$payload,$at);"; Add(command, "$id", UlidValue.New(at).ToString()); Add(command, "$outbox", UlidValue.New(at).ToString()); Add(command, "$tenant", tenant); Add(command, "$sequence", sequence); Add(command, "$previous", previous); Add(command, "$hash", hash); Add(command, "$type", eventType); Add(command, "$payload", payload); Add(command, "$at", Store(at)); await command.ExecuteNonQueryAsync(token);

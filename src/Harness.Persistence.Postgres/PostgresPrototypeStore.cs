@@ -5,6 +5,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed class PostgresPrototypeStore(NpgsqlDataSource dataSource) : IPrototypeStore
@@ -379,6 +381,7 @@ public sealed class PostgresPrototypeStore(NpgsqlDataSource dataSource) : IProto
         bool outbox,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await ExecuteAsync(
             connection,
             transaction,

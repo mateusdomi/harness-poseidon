@@ -5,6 +5,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTargetStore
@@ -380,6 +382,7 @@ public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTa
         DateTimeOffset at,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await ExecuteAsync(
             connection,
             transaction,
@@ -423,7 +426,7 @@ public sealed class PostgresRunTargetStore(NpgsqlDataSource dataSource) : IRunTa
             Text(UlidValue.New(at).ToString()),
             Text(tenant),
             Text(type),
-            Json(payload),
+            Json(PersistenceSanitizer.SanitizeJson(payload)),
             Timestamp(at));
 
     private static async Task<(long Sequence, string PreviousHash)> ReadLedgerTailAsync(

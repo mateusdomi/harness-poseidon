@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Providers;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher) : IProviderCatalogStore
@@ -513,8 +515,11 @@ public sealed class SqliteProviderCatalogStore(SqliteWriteDispatcher dispatcher)
     private static async Task ExecuteAsync(SqliteConnection c, SqliteTransaction tx, string sql, CancellationToken token, params (string, object)[] values)
     { await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText = sql; foreach (var (name, value) in values) Add(q, name, value); await q.ExecuteNonQueryAsync(token); }
     private static async Task AppendLedgerAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token)
-    { long seq; string prev; await using (var q = c.CreateCommand()) { q.Transaction = tx; q.CommandText = "SELECT sequence,event_hash FROM audit_ledger WHERE tenant_id=$tenant ORDER BY sequence DESC LIMIT 1;"; Add(q, "$tenant", tenant); await using var r = await q.ExecuteReaderAsync(token); if (await r.ReadAsync(token)) { seq = r.GetInt64(0) + 1; prev = r.GetString(1); } else { seq = 1; prev = AuditLedgerHash.Genesis; } } var hash = AuditLedgerHash.Compute(prev, tenant, seq, type, payload, at); await ExecuteAsync(c, tx, "INSERT INTO audit_ledger(id,tenant_id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at) VALUES($id,$tenant,$seq,$prev,$hash,$type,$payload,$at);", token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$seq", seq), ("$prev", prev), ("$hash", hash), ("$type", type), ("$payload", payload), ("$at", Store(at))); }
-    private static Task AppendOutboxAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token) => ExecuteAsync(c, tx, "INSERT INTO outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($id,$tenant,$type,$payload,$at);", token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", type), ("$payload", payload), ("$at", Store(at)));
+    {
+        payload = PersistenceSanitizer.SanitizeJson(payload); long seq; string prev; await using (var q = c.CreateCommand()) { q.Transaction = tx; q.CommandText = "SELECT sequence,event_hash FROM audit_ledger WHERE tenant_id=$tenant ORDER BY sequence DESC LIMIT 1;"; Add(q, "$tenant", tenant); await using var r = await q.ExecuteReaderAsync(token); if (await r.ReadAsync(token)) { seq = r.GetInt64(0) + 1; prev = r.GetString(1); } else { seq = 1; prev = AuditLedgerHash.Genesis; } }
+        var hash = AuditLedgerHash.Compute(prev, tenant, seq, type, payload, at); await ExecuteAsync(c, tx, "INSERT INTO audit_ledger(id,tenant_id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at) VALUES($id,$tenant,$seq,$prev,$hash,$type,$payload,$at);", token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$seq", seq), ("$prev", prev), ("$hash", hash), ("$type", type), ("$payload", payload), ("$at", Store(at)));
+    }
+    private static Task AppendOutboxAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token) => ExecuteAsync(c, tx, "INSERT INTO outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($id,$tenant,$type,$payload,$at);", token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", type), ("$payload", PersistenceSanitizer.SanitizeJson(payload)), ("$at", Store(at)));
 
     private static ProviderRecord ReadProvider(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), r.GetInt32(4) == 1);
     private static AccountRecord ReadAccount(SqliteDataReader r) => new(

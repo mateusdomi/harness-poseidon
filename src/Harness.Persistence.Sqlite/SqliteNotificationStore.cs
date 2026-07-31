@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Notifications;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteNotificationStore(SqliteWriteDispatcher dispatcher) : INotificationStore
@@ -150,7 +152,7 @@ public sealed class SqliteNotificationStore(SqliteWriteDispatcher dispatcher) : 
         await ExecuteAsync(connection, transaction, "INSERT INTO audit_ledger(id,tenant_id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at) VALUES($id,$tenant,$sequence,$previous,$hash,$type,$payload,$at);", token, ("$id", auditId), ("$tenant", tenant), ("$sequence", sequence), ("$previous", previousHash), ("$hash", hash), ("$type", action), ("$payload", payload), ("$at", Store(at)));
         await AppendOutboxAsync(connection, transaction, tenant, "audit.eventAppended", payload, at, token);
     }
-    private static Task AppendOutboxAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token) => ExecuteAsync(c, tx, "INSERT INTO outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($id,$tenant,$type,$payload,$at);", token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", type), ("$payload", payload), ("$at", Store(at)));
+    private static Task AppendOutboxAsync(SqliteConnection c, SqliteTransaction tx, string tenant, string type, string payload, DateTimeOffset at, CancellationToken token) => ExecuteAsync(c, tx, "INSERT INTO outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($id,$tenant,$type,$payload,$at);", token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", type), ("$payload", PersistenceSanitizer.SanitizeJson(payload)), ("$at", Store(at)));
     private const string NotificationSelect = "SELECT id,profile_id,severity,category,title,body,group_key,dedupe_count,status,link,created_at,read_at FROM notifications";
     private const string SettingsSelect = "SELECT id,profile_id,theme,language,notifications_enabled,muted_categories_json,working_directory,unsafe_mode_accepted_at,updated_at FROM profile_settings";
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);

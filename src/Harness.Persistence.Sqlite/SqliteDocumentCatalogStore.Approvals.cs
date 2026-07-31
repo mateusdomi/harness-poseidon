@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Foundation;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteDocumentCatalogStore
@@ -208,6 +210,7 @@ public sealed partial class SqliteDocumentCatalogStore
     private static async Task AppendEventAsync(SqliteConnection connection, SqliteTransaction transaction,
         string tenantId, string eventType, string payload, DateTimeOffset occurredAt, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         long sequence; string previous;
         await using (var tail = connection.CreateCommand())
         {

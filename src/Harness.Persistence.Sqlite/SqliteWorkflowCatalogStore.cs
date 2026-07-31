@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dispatcher) : IWorkflowCatalogStore
@@ -265,6 +267,7 @@ public sealed partial class SqliteWorkflowCatalogStore(SqliteWriteDispatcher dis
     private static async Task AppendAuditAsync(SqliteConnection c, SqliteTransaction tx, string tenant,
         string type, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         long sequence; string previous; await using (var tail = c.CreateCommand())
         {
             tail.Transaction = tx; tail.CommandText = "SELECT sequence,event_hash FROM audit_ledger WHERE tenant_id=$tenant ORDER BY sequence DESC LIMIT 1;";

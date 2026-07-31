@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.WorkChain;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed partial class PostgresConversationStore
@@ -183,6 +185,7 @@ public sealed partial class PostgresConversationStore
         string eventType, string payload, DateTimeOffset occurredAt, DateTimeOffset sequencedAt,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await AppendAuditAsync(
             connection, transaction, tenantId, eventType, payload, occurredAt, cancellationToken);
         await AppendOutboxAsync(

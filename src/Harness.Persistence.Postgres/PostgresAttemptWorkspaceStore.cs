@@ -5,6 +5,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed class PostgresAttemptWorkspaceStore(NpgsqlDataSource dataSource) : IAttemptWorkspaceStore
@@ -698,6 +700,7 @@ public sealed class PostgresAttemptWorkspaceStore(NpgsqlDataSource dataSource) :
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await ExecuteAsync(
             connection,
             transaction,
@@ -741,7 +744,7 @@ public sealed class PostgresAttemptWorkspaceStore(NpgsqlDataSource dataSource) :
             Text(UlidValue.New(occurredAt).ToString()),
             Text(tenantId),
             Text(eventType),
-            Json(payload),
+            Json(PersistenceSanitizer.SanitizeJson(payload)),
             Timestamp(occurredAt));
 
     private static async Task<(long Sequence, string PreviousHash)> ReadLedgerTailAsync(

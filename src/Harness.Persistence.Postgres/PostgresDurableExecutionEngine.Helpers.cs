@@ -6,6 +6,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed partial class PostgresDurableExecutionEngine
@@ -205,6 +207,7 @@ public sealed partial class PostgresDurableExecutionEngine
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        payloadJson = PersistenceSanitizer.SanitizeJson(payloadJson);
         string tenantId;
         await using (var tenant = connection.CreateCommand())
         {

@@ -6,6 +6,8 @@ using Harness.Persistence.Abstractions.Projects;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed class SqliteChiefOrchestratorStore(SqliteWriteDispatcher dispatcher) : IChiefOrchestratorStore
@@ -252,6 +254,7 @@ public sealed class SqliteChiefOrchestratorStore(SqliteWriteDispatcher dispatche
     private static async Task AppendLedgerAsync(SqliteConnection connection, SqliteTransaction tx,
         string tenant, string eventType, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         long sequence; string previous;
         await using (var tail = connection.CreateCommand())
         {
@@ -272,7 +275,7 @@ public sealed class SqliteChiefOrchestratorStore(SqliteWriteDispatcher dispatche
         ExecuteAsync(connection, tx,
             "INSERT INTO outbox_messages (id,tenant_id,event_type,payload_json,occurred_at) VALUES ($id,$tenant,$type,$payload,$at);",
             token, ("$id", UlidValue.New(at).ToString()), ("$tenant", tenant), ("$type", eventType),
-            ("$payload", payload), ("$at", Store(at)));
+            ("$payload", PersistenceSanitizer.SanitizeJson(payload)), ("$at", Store(at)));
 
     private static async Task<ProjectRecord?> ReadProjectAsync(SqliteConnection connection, SqliteTransaction? tx,
         string tenant, string id, CancellationToken token)

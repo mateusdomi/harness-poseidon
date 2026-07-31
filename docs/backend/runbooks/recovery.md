@@ -119,6 +119,28 @@ tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationT
   --filter "FullyQualifiedName~ChiefTurnLeaseRenewalTests|FullyQualifiedName~ChiefLongProjectContextTests"
 ```
 
+## Segredo em canal de evidência
+
+A sanitização acontece ANTES da persistência, não na exportação. Redigir na saída é maquiagem: o
+valor já está no disco, no ledger encadeado e em todo backup tirado desde então.
+
+1. `PersistenceSanitizer` é a política única. Ela roda nos funis de escrita de auditoria e outbox de
+   todos os stores, e antes do hash do ledger — o conteúdo verificado é o conteúdo persistido.
+2. Canal de alto risco (`audit_ledger`) é fail-closed: se algo reconhecível sobreviver à
+   sanitização, a escrita é RECUSADA (`SecretPersistenceException`) em vez de gravada "quase limpa".
+3. FRONTEIRA DELIBERADA: o corpo que o humano escreveu (solicitação, demanda, instrução, mensagem)
+   é dado de negócio e é preservado intacto — apagar trecho do texto que ele vai reler quebraria o
+   produto e esconderia o próprio incidente. O que a sanitização impede é esse texto se multiplicar
+   sem redação pelos canais de evidência e transporte.
+4. Suspeita de vazamento: rode a varredura canário. Ela percorre TODAS as tabelas do banco, o
+   backup e o dump — uma tabela nova que passe a guardar conteúdo livre sem sanitizar cai nela
+   automaticamente.
+
+```bash
+tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
+  --filter FullyQualifiedName~CanarySecretPersistenceTests
+```
+
 ## Prova e encerramento
 
 A simulação canônica envia `SIGKILL` depois do terceiro checkpoint e comprova, em

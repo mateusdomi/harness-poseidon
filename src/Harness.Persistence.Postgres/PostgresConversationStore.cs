@@ -6,6 +6,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed partial class PostgresConversationStore(NpgsqlDataSource dataSource) : IConversationStore, IChiefTurnStore
@@ -522,6 +524,7 @@ public sealed partial class PostgresConversationStore(NpgsqlDataSource dataSourc
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await ExecuteAsync(
             connection, transaction,
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));",
@@ -569,7 +572,7 @@ public sealed partial class PostgresConversationStore(NpgsqlDataSource dataSourc
             Text(UlidValue.New(occurredAt).ToString()),
             Text(tenantId),
             Text(eventType),
-            Json(payload),
+            Json(PersistenceSanitizer.SanitizeJson(payload)),
             Timestamp(occurredAt),
             Timestamp(availableAt));
 

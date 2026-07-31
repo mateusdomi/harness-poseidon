@@ -9,6 +9,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) : IWorkBoardStore
@@ -838,6 +840,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         NpgsqlConnection connection, NpgsqlTransaction transaction, string tenant, string type,
         string payload, DateTimeOffset at, CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await ExecuteAsync(
             connection, transaction,
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 0));",
@@ -865,7 +868,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             connection, transaction,
             "INSERT INTO harness.outbox_messages (id,tenant_id,event_type,payload_json,occurred_at) VALUES ($1,$2,$3,$4,$5);",
             cancellationToken,
-            Text(UlidValue.New(at).ToString()), Text(tenant), Text(type), Json(payload),
+            Text(UlidValue.New(at).ToString()), Text(tenant), Text(type), Json(PersistenceSanitizer.SanitizeJson(payload)),
             Timestamp(at));
 
     private static async Task<(long Sequence, string PreviousHash)> ReadLedgerTailAsync(

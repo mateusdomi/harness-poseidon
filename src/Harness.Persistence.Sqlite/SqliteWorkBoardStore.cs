@@ -7,6 +7,8 @@ using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatcher) : IWorkBoardStore
@@ -632,6 +634,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
     private static async Task AppendAuditAsync(SqliteConnection c, SqliteTransaction tx,
         string tenant, string type, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await using var tail = c.CreateCommand(); tail.Transaction = tx; tail.CommandText =
             "SELECT sequence,event_hash FROM audit_ledger WHERE tenant_id=$tenant ORDER BY sequence DESC LIMIT 1;";
         Add(tail, "$tenant", tenant); await using var r = await tail.ExecuteReaderAsync(token);
@@ -653,6 +656,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
     private static async Task AppendOutboxAsync(SqliteConnection c, SqliteTransaction tx,
         string tenant, string type, string payload, DateTimeOffset at, CancellationToken token)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText =
             "INSERT INTO outbox_messages (id,tenant_id,event_type,payload_json,occurred_at) VALUES ($id,$tenant,$type,$payload,$at);";
         Add(q, "$id", UlidValue.New(at).ToString()); Add(q, "$tenant", tenant);

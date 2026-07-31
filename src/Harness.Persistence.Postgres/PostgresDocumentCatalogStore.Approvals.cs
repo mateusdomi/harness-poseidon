@@ -4,6 +4,8 @@ using Harness.Persistence.Abstractions.Foundation;
 using Harness.SharedKernel.Identifiers;
 using Npgsql;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed partial class PostgresDocumentCatalogStore
@@ -286,6 +288,7 @@ public sealed partial class PostgresDocumentCatalogStore
         string eventType, string payload, DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await using (var advisory = connection.CreateCommand())
         {
             advisory.Transaction = transaction;

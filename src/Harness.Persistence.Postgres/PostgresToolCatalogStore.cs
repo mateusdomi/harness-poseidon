@@ -5,6 +5,8 @@ using Harness.SharedKernel.Identifiers;
 using Npgsql;
 using NpgsqlTypes;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Postgres;
 
 public sealed class PostgresToolCatalogStore(NpgsqlDataSource dataSource) : IToolCatalogStore
@@ -268,6 +270,7 @@ public sealed class PostgresToolCatalogStore(NpgsqlDataSource dataSource) : IToo
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         var (sequence, previous) = await ReadLedgerTailAsync(
             connection, transaction, tenantId, cancellationToken);
         var hash = AuditLedgerHash.Compute(
@@ -307,7 +310,7 @@ public sealed class PostgresToolCatalogStore(NpgsqlDataSource dataSource) : IToo
             Text(UlidValue.New(occurredAt).ToString()),
             Text(tenantId),
             Text(eventType),
-            Json(payload),
+            Json(PersistenceSanitizer.SanitizeJson(payload)),
             Timestamp(occurredAt));
 
     private static async Task<(long Sequence, string PreviousHash)> ReadLedgerTailAsync(

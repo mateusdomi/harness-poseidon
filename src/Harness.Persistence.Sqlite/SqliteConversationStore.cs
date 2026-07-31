@@ -6,6 +6,8 @@ using Harness.Persistence.Abstractions.Foundation;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.Data.Sqlite;
 
+using Harness.SharedKernel.Security;
+
 namespace Harness.Persistence.Sqlite;
 
 public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispatcher) : IConversationStore, IChiefTurnStore
@@ -560,6 +562,7 @@ public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispat
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await using var tail = connection.CreateCommand();
         tail.Transaction = transaction;
         tail.CommandText =
@@ -602,6 +605,7 @@ public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispat
         DateTimeOffset availableAt,
         CancellationToken cancellationToken)
     {
+        payload = PersistenceSanitizer.SanitizeJson(payload);
         await using var insert = connection.CreateCommand();
         insert.Transaction = transaction;
         insert.CommandText =
