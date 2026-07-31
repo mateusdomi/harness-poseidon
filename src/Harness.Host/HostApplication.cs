@@ -364,6 +364,7 @@ public static class HostApplication
                 services.GetRequiredService<Harness.Modules.Coordination.Application.ISerializedMergeCoordinator>()));
             builder.Services.AddSingleton<IWorkBoardStore, PostgresWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, PostgresDemandPlanStore>();
+            builder.Services.AddSingleton<IPlanMaterializationStore, PostgresPlanMaterializationStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, PostgresDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, PostgresDeliveryDailyStore>();
@@ -383,6 +384,7 @@ public static class HostApplication
                 services.GetRequiredService<Harness.Modules.Coordination.Application.ISerializedMergeCoordinator>()));
             builder.Services.AddSingleton<IWorkBoardStore, SqliteWorkBoardStore>();
             builder.Services.AddSingleton<IDemandPlanStore, SqliteDemandPlanStore>();
+            builder.Services.AddSingleton<IPlanMaterializationStore, SqlitePlanMaterializationStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, SqliteDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, SqliteDeliveryDailyStore>();
@@ -609,7 +611,17 @@ public static class HostApplication
         }
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
-        builder.Services.AddSingleton<IOutboxMessageSink, PersistedRealtimeOutboxSink>();
+        // A outbox carrega DOIS tipos de mensagem: eventos de tempo real e comandos internos
+        // duráveis (Fase 0A1). O roteador executa o comando de materialização com lease, fencing e
+        // retry próprios e delega todo o resto ao sink de tempo real — um comando interno nunca é
+        // transmitido ao navegador.
+        builder.Services.AddSingleton<PersistedRealtimeOutboxSink>();
+        builder.Services.AddSingleton<IOutboxMessageSink>(services =>
+            new WorkBoard.PlanMaterializationOutboxSink(
+                services.GetRequiredService<WorkBoard.PlanMaterializationService>(),
+                services.GetRequiredService<PersistedRealtimeOutboxSink>(),
+                services.GetRequiredService<OutboxDispatcherOptions>(),
+                services.GetRequiredService<ILogger<WorkBoard.PlanMaterializationOutboxSink>>()));
         builder.Services.AddSingleton(
             new OutboxDispatcherOptions(
                 $"host-outbox-{Guid.NewGuid():N}",
@@ -634,6 +646,21 @@ public static class HostApplication
         builder.Services.AddHostedService<WorkBoard.BoardStateReconciliationBackgroundService>();
         // Núcleo compartilhado demanda→plano→cards: usado pelo endpoint HTTP e pelo turno do Chefe.
         builder.Services.AddSingleton<WorkBoard.DemandPlanMaterializer>();
+        // Fase 0A1: o compromisso de materializar é durável e convergente. O serviço é o único
+        // executor; o reconciliador é a segunda garantia quando o comando da outbox se perde, o
+        // dono cai no meio ou o board diverge do registro.
+        builder.Services.AddSingleton(
+            new WorkBoard.PlanMaterializationOptions(TimeSpan.FromMinutes(5), 5));
+        builder.Services.AddSingleton<WorkBoard.IPlanMaterializationFaultInjector>(
+            WorkBoard.NullPlanMaterializationFaultInjector.Instance);
+        builder.Services.AddSingleton<WorkBoard.PlanMaterializationService>();
+        builder.Services.AddSingleton(
+            new WorkBoard.PlanMaterializationReconciliationOptions(
+                TimeSpan.FromMinutes(2),
+                TimeSpan.FromMinutes(5),
+                250,
+                $"host-plan-reconciler-{Guid.NewGuid():N}"));
+        builder.Services.AddHostedService<WorkBoard.PlanMaterializationReconciliationBackgroundService>();
         var governanceFeatures = builder.Configuration
             .GetSection("Harness:Governance:Features")
             .Get<GovernanceFeatureSettings>() ?? new GovernanceFeatureSettings();

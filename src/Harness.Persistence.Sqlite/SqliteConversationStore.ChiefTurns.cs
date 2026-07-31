@@ -3,6 +3,7 @@ using System.Text.Json;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.DurableExecution;
+using Harness.Persistence.Abstractions.WorkChain;
 using Microsoft.Data.Sqlite;
 
 namespace Harness.Persistence.Sqlite;
@@ -443,9 +444,74 @@ public sealed partial class SqliteConversationStore
             await AppendOutboxAsync(
                 connection, tx, tenant, "demand.created", payload,
                 command.OccurredAt.AddTicks(command.Chunks.Count + 5 + index), occurredAt, token);
+            // A sequência do comando fica DEPOIS de todos os `demand.created` do turno: com duas
+            // demandas, reaproveitar a faixa colidiria o comando de uma com o evento da outra.
+            await CommitPlanMaterializationAsync(
+                connection, tx, command, seed, occurredAt,
+                sequencedAt: command.OccurredAt.AddTicks(
+                    command.Chunks.Count + 5 + command.Demands!.Count + index),
+                token);
             index++;
         }
     }
+
+    /// <summary>
+    /// Fase 0A1 (BR-004): o COMPROMISSO de materializar o plano nasce aqui, na mesma transação que
+    /// conclui o turno e persiste a demanda. Antes, a decomposição acontecia em memória depois do
+    /// commit, dentro de um try/catch: uma queda entre as duas coisas deixava a demanda sem plano e
+    /// sem cards para sempre, e nada no produto sabia disso.
+    ///
+    /// São dois registros complementares, e ambos são necessários. O <c>demand_materializations</c>
+    /// carrega a INTENÇÃO do turno (critérios, especialidade e superfícies declaradas) e o estado
+    /// factual do planejamento — é o que torna a lacuna visível e o que permite ao reconciliador
+    /// convergir mesmo se o comando se perder. O evento de outbox é o gatilho que faz o trabalho
+    /// acontecer agora, com lease, fencing e retry próprios.
+    /// </summary>
+    private static async Task CommitPlanMaterializationAsync(
+        SqliteConnection connection, SqliteTransaction tx, ChiefTurnCompleteCommand command,
+        ChiefDemandSeed seed, DateTimeOffset occurredAt, DateTimeOffset sequencedAt,
+        CancellationToken token)
+    {
+        var tenant = command.Lease.Turn.TenantId;
+        var project = command.Lease.Turn.ProjectId;
+        var request = new PlanMaterializationRequest(
+            seed.AcceptanceCriteria,
+            seed.Specialty,
+            seed.Surfaces is null
+                ? null
+                : new PlanMaterializationSurfaces(
+                    seed.Surfaces.Frontend,
+                    seed.Surfaces.Backend,
+                    seed.Surfaces.ExternalCredential,
+                    seed.Surfaces.TechnicalUncertainty,
+                    seed.Surfaces.Decision));
+        await ExecuteChiefAsync(connection, tx,
+            """
+            INSERT INTO demand_materializations
+                (tenant_id,demand_id,project_id,turn_id,plan_id,status,attempt_count,
+                 expected_cards,materialized_cards,request_json,owner_id,last_error,
+                 requested_at,updated_at,completed_at)
+            VALUES ($tenant,$demand,$project,$turn,NULL,'pending',0,NULL,NULL,$request,NULL,NULL,
+                    $at,$at,NULL);
+            """,
+            token, ("$tenant", tenant), ("$demand", seed.DemandId), ("$project", project),
+            ("$turn", command.Lease.Turn.TurnId),
+            ("$request", JsonSerializer.Serialize(request, JsonOptions)),
+            ("$at", Store(occurredAt)));
+        var commandPayload = JsonSerializer.Serialize(new
+        {
+            tenantId = tenant,
+            projectId = project,
+            demandId = seed.DemandId,
+            turnId = command.Lease.Turn.TurnId,
+        }, JsonOptions);
+        await AppendOutboxAsync(
+            connection, tx, tenant, PlanMaterializationRequestedEventType, commandPayload,
+            sequencedAt, occurredAt, token);
+    }
+
+    /// <summary>Comando interno da outbox; não é evento de tempo real e não vai para o navegador.</summary>
+    internal const string PlanMaterializationRequestedEventType = "plan.materializationRequested";
 
     private sealed record ChiefDemandCreatedPayload(string ProjectId, ChiefDemandPayload Demand);
 

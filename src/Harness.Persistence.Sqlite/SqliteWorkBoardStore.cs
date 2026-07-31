@@ -126,7 +126,83 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
 
     public Task<BoardTaskCreateResult> CreateTaskAsync(
         BoardTaskCreateCommand command, CancellationToken cancellationToken = default) =>
-        _dispatcher.ExecuteAsync((c, t) => CreateTaskCoreAsync(c, command, t), cancellationToken);
+        _dispatcher.ExecuteAsync(async (c, t) =>
+        {
+            var outcome = await CreateTaskCoreAsync(c, command, null, null, t);
+            return new BoardTaskCreateResult(outcome.Task, outcome.Instruction!);
+        }, cancellationToken);
+
+    public Task<BoardPlanCardResult> CreatePlanCardAsync(
+        BoardPlanCardCreateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.PlanId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.PlanSliceKey);
+        return _dispatcher.ExecuteAsync(async (c, t) =>
+        {
+            var outcome = await CreateTaskCoreAsync(
+                c, command.Task, command.PlanId, command.PlanSliceKey, t);
+            return new BoardPlanCardResult(outcome.Task, outcome.Created);
+        }, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<BoardPlanCardRecord>> ListPlanCardsAsync(
+        string tenantId, string planId, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<IReadOnlyList<BoardPlanCardRecord>>(async (c, t) =>
+        {
+            var values = new List<BoardPlanCardRecord>();
+            await using var q = c.CreateCommand();
+            q.CommandText =
+                "SELECT plan_slice_key,id,title,board_state,state,created_at FROM work_tasks " +
+                "WHERE tenant_id=$tenant AND plan_id=$plan AND plan_slice_key IS NOT NULL " +
+                "ORDER BY plan_slice_key;";
+            Add(q, "$tenant", tenantId); Add(q, "$plan", planId);
+            await using var r = await q.ExecuteReaderAsync(t);
+            while (await r.ReadAsync(t))
+            {
+                values.Add(new BoardPlanCardRecord(
+                    r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
+                    r.GetString(4), Parse(r.GetString(5))));
+            }
+
+            return values;
+        }, cancellationToken);
+
+    public Task<int> AdoptPlanCardsAsync(
+        BoardPlanCardAdoptCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return _dispatcher.ExecuteAsync(async (c, t) =>
+        {
+            var adopted = 0;
+            await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(t);
+            foreach (var slice in command.Slices)
+            {
+                // Um card por fatia, escolhido de forma determinística (menor id) e só quando o
+                // slot ainda está livre: a adoção jamais pode violar a unicidade nem escolher ao
+                // acaso entre duplicatas legadas.
+                await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText =
+                    """
+                    UPDATE work_tasks SET plan_id=$plan,plan_slice_key=$slice
+                    WHERE id = (
+                        SELECT id FROM work_tasks
+                        WHERE tenant_id=$tenant AND demand_id=$demand AND title=$title
+                          AND plan_id IS NULL
+                        ORDER BY id LIMIT 1)
+                      AND NOT EXISTS (
+                        SELECT 1 FROM work_tasks
+                        WHERE tenant_id=$tenant AND plan_id=$plan AND plan_slice_key=$slice);
+                    """;
+                Add(q, "$plan", command.PlanId); Add(q, "$slice", slice.SliceKey);
+                Add(q, "$tenant", command.TenantId); Add(q, "$demand", command.DemandId);
+                Add(q, "$title", slice.Title);
+                adopted += await q.ExecuteNonQueryAsync(t);
+            }
+
+            await tx.CommitAsync(t);
+            return adopted;
+        }, cancellationToken);
+    }
 
     public Task<BoardInstructionRecord?> GetInstructionAsync(
         string tenantId, string instructionId, CancellationToken cancellationToken = default) =>
@@ -301,10 +377,28 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             command.OccurredAt, token); await tx.CommitAsync(token); return record;
     }
 
-    private static async Task<BoardTaskCreateResult> CreateTaskCoreAsync(
-        SqliteConnection c, BoardTaskCreateCommand command, CancellationToken token)
+    /// <summary>Card já existente da fatia (não criado) ou o card recém-criado com sua instrução.</summary>
+    private sealed record TaskCreateOutcome(
+        BoardTaskRecord Task, BoardInstructionRecord? Instruction, bool Created);
+
+    private static async Task<TaskCreateOutcome> CreateTaskCoreAsync(
+        SqliteConnection c, BoardTaskCreateCommand command, string? planId, string? sliceKey,
+        CancellationToken token)
     {
         await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        if (planId is not null && sliceKey is not null)
+        {
+            // Fase 0A1: a fatia do plano é a identidade do card. Se ela já foi materializada, o
+            // card existente é a resposta — retry, evento duplicado e consumidor concorrente
+            // convergem para o MESMO card, e não para um board com trabalho repetido.
+            var existing = await ReadPlanCardAsync(c, tx, command.TenantId, planId, sliceKey, token);
+            if (existing is not null)
+            {
+                await tx.CommitAsync(token);
+                return new TaskCreateOutcome(existing, null, Created: false);
+            }
+        }
+
         if (!await ProjectExistsAsync(c, tx, command.TenantId, command.ProjectId, token))
             throw new WorkBoardReferenceNotFoundException("project");
         var backingDemand = command.DemandId ?? command.BackingDemandId;
@@ -333,9 +427,10 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             """
             INSERT INTO work_tasks
                 (id,tenant_id,project_id,demand_id,title,risk_tier,weight,state,version,created_at,
-                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name,card_type)
+                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name,card_type,
+                 plan_id,plan_slice_key)
             VALUES ($id,$tenant,$project,$backing,$title,$priority,1,'ready',1,$at,$at,$source,
-                    'backlog',$priority,$assignee,$due,$phase,$cardType);
+                    'backlog',$priority,$assignee,$due,$phase,$cardType,$plan,$slice);
             INSERT INTO instruction_versions
                 (id,tenant_id,project_id,task_id,version,content,content_hash,created_at,
                  author_kind,author_id)
@@ -348,6 +443,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         AddNullable(q, "$assignee", command.AssigneeAgentId);
         AddNullable(q, "$due", command.DueAt is null ? null : Store(command.DueAt.Value));
         AddNullable(q, "$phase", phaseName); Add(q, "$cardType", cardType);
+        AddNullable(q, "$plan", planId); AddNullable(q, "$slice", sliceKey);
         Add(q, "$instruction", command.InstructionId); Add(q, "$body", command.InstructionBody);
         Add(q, "$hash", hash); await q.ExecuteNonQueryAsync(token);
         var task = new BoardTaskRecord(command.TenantId, command.Id, command.ProjectId,
@@ -361,7 +457,18 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             "task.created", payload, command.OccurredAt, token);
         await AppendOutboxAsync(c, tx, command.TenantId, "task.created", payload,
             command.OccurredAt, token); await tx.CommitAsync(token);
-        return new BoardTaskCreateResult(task, instruction);
+        return new TaskCreateOutcome(task, instruction, Created: true);
+    }
+
+    private static async Task<BoardTaskRecord?> ReadPlanCardAsync(
+        SqliteConnection c, SqliteTransaction? tx, string tenant, string planId, string sliceKey,
+        CancellationToken token)
+    {
+        await using var q = c.CreateCommand(); q.Transaction = tx; q.CommandText =
+            $"{TaskSelect} WHERE t.tenant_id=$tenant AND t.plan_id=$plan AND t.plan_slice_key=$slice;";
+        Add(q, "$tenant", tenant); Add(q, "$plan", planId); Add(q, "$slice", sliceKey);
+        await using var r = await q.ExecuteReaderAsync(token);
+        return await r.ReadAsync(token) ? ReadTask(r) : null;
     }
 
     private static async Task InsertSolicitationAsync(

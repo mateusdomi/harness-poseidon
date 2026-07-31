@@ -1,5 +1,6 @@
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 
 namespace Harness.IntegrationTests.Persistence;
@@ -19,8 +20,12 @@ public static class ConversationChiefStoreBehavior
         string profileId,
         string chiefAgentId,
         Func<string, Task<int>> countDemandsAsync,
+        IPlanMaterializationStore materializations,
+        Func<string, string, Task<int>> countOutboxAsync,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(materializations);
+        ArgumentNullException.ThrowIfNull(countOutboxAsync);
         ArgumentNullException.ThrowIfNull(countDemandsAsync);
         var now = DateTimeOffset.UtcNow;
 
@@ -114,6 +119,23 @@ public static class ConversationChiefStoreBehavior
                 ]),
             cancellationToken);
         Assert.Equal(demandsBefore + 1, await countDemandsAsync(tenantId));
+
+        // Fase 0A1 (BR-004): a MESMA transação que concluiu o turno deixou o compromisso de
+        // materialização durável e o comando na outbox. Sem isso, o turno já apareceria concluído
+        // com a demanda sem plano e sem cards — e uma queda aqui perderia o trabalho em silêncio.
+        var commitment = await materializations.GetAsync(tenantId, demandId, cancellationToken);
+        Assert.NotNull(commitment);
+        Assert.Equal(PlanMaterializationStatus.Pending, commitment!.Status);
+        Assert.Equal(projectId, commitment.ProjectId);
+        Assert.Equal(turnId, commitment.TurnId);
+        Assert.Equal(0, commitment.AttemptCount);
+        Assert.Null(commitment.PlanId);
+        Assert.Null(commitment.CompletedAt);
+        // A INTENÇÃO do turno viajou com o compromisso: sem ela, um replanejamento após reinício
+        // recomporia o plano com hipóteses diferentes das que a Bruna declarou.
+        Assert.Equal(["Critério de paridade dual."], commitment.Request.AcceptanceCriteria);
+        Assert.Equal(1, await countOutboxAsync(tenantId, "plan.materializationRequested"));
+
         var completedTurn = await chiefTurns.GetAsync(tenantId, turnId, cancellationToken);
         Assert.Equal("completed", completedTurn!.State);
         Assert.Equal(2, (await conversations.ListMessagesAsync(

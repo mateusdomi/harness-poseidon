@@ -21,7 +21,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(89, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(90, await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -249,11 +249,21 @@ public sealed class PostgresSkipLockedPocTests
                 count.Parameters.AddWithValue(tenant);
                 return Convert.ToInt32(await count.ExecuteScalarAsync(token), System.Globalization.CultureInfo.InvariantCulture);
             },
+            new PostgresPlanMaterializationStore(dataSource),
+            async (tenant, eventType) =>
+            {
+                await using var count = dataSource.CreateCommand(
+                    "SELECT COUNT(*) FROM harness.outbox_messages WHERE tenant_id=$1 AND event_type=$2;");
+                count.Parameters.AddWithValue(tenant);
+                count.Parameters.AddWithValue(eventType);
+                return Convert.ToInt32(await count.ExecuteScalarAsync(token), System.Globalization.CultureInfo.InvariantCulture);
+            },
             token);
         await BoardWorkflowProjectionBehavior.AssertAsync(
             new PostgresWorkBoardStore(dataSource),
             new PostgresWorkflowStore(dataSource),
             new PostgresWorkflowCatalogStore(dataSource),
+            new PostgresPlanMaterializationStore(dataSource),
             profile.TenantId,
             projectId,
             profile.Id,

@@ -15,6 +15,7 @@ public static class BoardWorkflowProjectionBehavior
         IWorkBoardStore board,
         IWorkflowStore workflowAuthority,
         IWorkflowCatalogStore workflowCatalog,
+        IPlanMaterializationStore planMaterializations,
         string tenantId,
         string projectId,
         string profileId,
@@ -41,6 +42,12 @@ public static class BoardWorkflowProjectionBehavior
             cancellationToken);
         Assert.Equal(solicitationId, demand.SolicitationId);
         Assert.Equal("Execução", demand.PhaseName);
+
+        // Fase 0A1: o compromisso de materialização desta demanda tem o MESMO contrato nos dois
+        // providers — pedido, aquisição, fencing, falha visível, lease vencido e reconciliação.
+        await PlanMaterializationStoreBehavior.AssertAsync(
+            planMaterializations, tenantId, projectId, demandId, cancellationToken);
+
         var taskId = UlidValue.New(now.AddMilliseconds(3)).ToString();
         var instructionId = UlidValue.New(now.AddMilliseconds(4)).ToString();
         var task = await board.CreateTaskAsync(

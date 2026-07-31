@@ -30,6 +30,32 @@ public interface IWorkBoardStore
         CancellationToken cancellationToken = default);
     Task<BoardTaskCreateResult> CreateTaskAsync(
         BoardTaskCreateCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fase 0A1 (BR-001): cria o card de uma FATIA do plano. A chave lógica
+    /// <c>(tenant, plan_id, plan_slice_key)</c> é única no banco, então a operação é idempotente por
+    /// construção: uma segunda chamada — retry, entrega duplicada do evento ou dois consumidores
+    /// concorrentes — devolve o card já existente com <c>Created=false</c> e não cria nada.
+    /// </summary>
+    Task<BoardPlanCardResult> CreatePlanCardAsync(
+        BoardPlanCardCreateCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cards já materializados do plano, por fatia. É a MEDIDA de completude: quem valida o plano
+    /// compara este conjunto com o conjunto previsto, em vez de confiar no marker.
+    /// </summary>
+    Task<IReadOnlyList<BoardPlanCardRecord>> ListPlanCardsAsync(
+        string tenantId, string planId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adota cards criados ANTES desta chave lógica existir, carimbando plano e fatia quando o
+    /// título casa exatamente com a fatia prevista e o slot ainda está livre. Sem isso, um plano
+    /// materializado no fluxo antigo pareceria vazio e seria recriado — duplicando o board.
+    /// Devolve quantos cards foram adotados.
+    /// </summary>
+    Task<int> AdoptPlanCardsAsync(
+        BoardPlanCardAdoptCommand command, CancellationToken cancellationToken = default);
+
     Task<BoardTaskRecord> MoveTaskAsync(
         BoardTaskMoveCommand command, CancellationToken cancellationToken = default);
     Task<BoardTaskRecord> SetTaskPriorityAsync(
@@ -135,6 +161,27 @@ public sealed record BoardTaskCreateCommand(
     string CardType = "agent_task");
 
 public sealed record BoardTaskCreateResult(BoardTaskRecord Task, BoardInstructionRecord Instruction);
+
+/// <summary>Criação de card ancorada na fatia do plano que o originou (Fase 0A1).</summary>
+public sealed record BoardPlanCardCreateCommand(
+    BoardTaskCreateCommand Task, string PlanId, string PlanSliceKey);
+
+/// <summary>
+/// Resultado da criação idempotente. <see cref="Created"/> falso significa que a fatia JÁ estava
+/// materializada — o card devolvido é o que já existia, com o mesmo id de sempre.
+/// </summary>
+public sealed record BoardPlanCardResult(BoardTaskRecord Task, bool Created);
+
+/// <summary>Card materializado do plano, identificado pela fatia.</summary>
+public sealed record BoardPlanCardRecord(
+    string SliceKey, string TaskId, string Title, string State, string InternalState,
+    DateTimeOffset CreatedAt);
+
+/// <summary>Adoção de cards legados: cada fatia é casada pelo título exato previsto no plano.</summary>
+public sealed record BoardPlanCardAdoptCommand(
+    string TenantId, string PlanId, string DemandId, IReadOnlyList<BoardPlanSlice> Slices);
+
+public sealed record BoardPlanSlice(string SliceKey, string Title);
 
 public sealed record BoardSolicitationTransitionCommand(
     string TenantId, string SolicitationId, string State, DateTimeOffset OccurredAt);

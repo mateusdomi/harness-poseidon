@@ -190,11 +190,82 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         return new BoardTaskPageRecord(values, total);
     }
 
-    public Task<BoardTaskCreateResult> CreateTaskAsync(
+    public async Task<BoardTaskCreateResult> CreateTaskAsync(
         BoardTaskCreateCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return CreateTaskCoreAsync(command, cancellationToken);
+        var outcome = await CreateTaskCoreAsync(command, null, null, cancellationToken);
+        return new BoardTaskCreateResult(outcome.Task, outcome.Instruction!);
+    }
+
+    public async Task<BoardPlanCardResult> CreatePlanCardAsync(
+        BoardPlanCardCreateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.PlanId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.PlanSliceKey);
+        var outcome = await CreateTaskCoreAsync(
+            command.Task, command.PlanId, command.PlanSliceKey, cancellationToken);
+        return new BoardPlanCardResult(outcome.Task, outcome.Created);
+    }
+
+    public async Task<IReadOnlyList<BoardPlanCardRecord>> ListPlanCardsAsync(
+        string tenantId, string planId, CancellationToken cancellationToken = default)
+    {
+        var values = new List<BoardPlanCardRecord>();
+        await using var query = _dataSource.CreateCommand(
+            "SELECT plan_slice_key,id,title,board_state,state,created_at FROM harness.work_tasks " +
+            "WHERE tenant_id=$1 AND plan_id=$2 AND plan_slice_key IS NOT NULL " +
+            "ORDER BY plan_slice_key;");
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(planId));
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            values.Add(new BoardPlanCardRecord(
+                reader.GetString(0), reader.GetString(1), reader.GetString(2),
+                reader.GetString(3), reader.GetString(4),
+                reader.GetFieldValue<DateTimeOffset>(5)));
+        }
+
+        return values;
+    }
+
+    public async Task<int> AdoptPlanCardsAsync(
+        BoardPlanCardAdoptCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        var adopted = 0;
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        foreach (var slice in command.Slices)
+        {
+            // Um card por fatia, escolhido de forma determinística (menor id) e só quando o slot
+            // ainda está livre: a adoção jamais pode violar a unicidade nem escolher ao acaso
+            // entre duplicatas legadas.
+            await using var query = connection.CreateCommand();
+            query.Transaction = transaction;
+            query.CommandText =
+                """
+                UPDATE harness.work_tasks SET plan_id=$1,plan_slice_key=$2
+                WHERE id = (
+                    SELECT id FROM harness.work_tasks
+                    WHERE tenant_id=$3 AND demand_id=$4 AND title=$5 AND plan_id IS NULL
+                    ORDER BY id LIMIT 1)
+                  AND NOT EXISTS (
+                    SELECT 1 FROM harness.work_tasks
+                    WHERE tenant_id=$3 AND plan_id=$1 AND plan_slice_key=$2);
+                """;
+            query.Parameters.Add(Text(command.PlanId));
+            query.Parameters.Add(Text(slice.SliceKey));
+            query.Parameters.Add(Text(command.TenantId));
+            query.Parameters.Add(Text(command.DemandId));
+            query.Parameters.Add(Text(slice.Title));
+            adopted += await query.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return adopted;
     }
 
     public async Task<BoardInstructionRecord?> GetInstructionAsync(
@@ -419,11 +490,30 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         return record;
     }
 
-    private async Task<BoardTaskCreateResult> CreateTaskCoreAsync(
-        BoardTaskCreateCommand command, CancellationToken cancellationToken)
+    /// <summary>Card já existente da fatia (não criado) ou o card recém-criado com sua instrução.</summary>
+    private sealed record TaskCreateOutcome(
+        BoardTaskRecord Task, BoardInstructionRecord? Instruction, bool Created);
+
+    private async Task<TaskCreateOutcome> CreateTaskCoreAsync(
+        BoardTaskCreateCommand command, string? planId, string? sliceKey,
+        CancellationToken cancellationToken)
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        if (planId is not null && sliceKey is not null)
+        {
+            // Fase 0A1: a fatia do plano é a identidade do card. Se ela já foi materializada, o
+            // card existente é a resposta — retry, evento duplicado e consumidor concorrente
+            // convergem para o MESMO card, e não para um board com trabalho repetido.
+            var existing = await ReadPlanCardAsync(
+                connection, transaction, command.TenantId, planId, sliceKey, cancellationToken);
+            if (existing is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return new TaskCreateOutcome(existing, null, Created: false);
+            }
+        }
+
         if (!await ProjectExistsAsync(
                 connection, transaction, command.TenantId, command.ProjectId, cancellationToken))
         {
@@ -467,14 +557,16 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             """
             INSERT INTO harness.work_tasks
                 (id,tenant_id,project_id,demand_id,title,risk_tier,weight,state,version,created_at,
-                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name,card_type)
-            VALUES ($1,$2,$3,$4,$5,$6,1,'ready',1,$7,$7,$8,'backlog',$6,$9,$10,$11,$12);
+                 updated_at,source_demand_id,board_state,priority,assignee_agent_id,due_at,phase_name,card_type,
+                 plan_id,plan_slice_key)
+            VALUES ($1,$2,$3,$4,$5,$6,1,'ready',1,$7,$7,$8,'backlog',$6,$9,$10,$11,$12,$13,$14);
             """,
             cancellationToken,
             Text(command.Id), Text(command.TenantId), Text(command.ProjectId), Text(backingDemand),
             Text(command.Title), Text(command.Priority), Timestamp(command.OccurredAt),
             NullableText(command.DemandId), NullableText(command.AssigneeAgentId),
-            NullableTimestamp(command.DueAt), NullableText(phaseName), Text(cardType));
+            NullableTimestamp(command.DueAt), NullableText(phaseName), Text(cardType),
+            NullableText(planId), NullableText(sliceKey));
         await ExecuteAsync(
             connection, transaction,
             """
@@ -503,7 +595,22 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             connection, transaction, command.TenantId, "task.created", payload,
             command.OccurredAt, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new BoardTaskCreateResult(task, instruction);
+        return new TaskCreateOutcome(task, instruction, Created: true);
+    }
+
+    private static async Task<BoardTaskRecord?> ReadPlanCardAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction, string tenantId, string planId,
+        string sliceKey, CancellationToken cancellationToken)
+    {
+        await using var query = connection.CreateCommand();
+        query.Transaction = transaction;
+        query.CommandText =
+            $"{TaskSelect} WHERE t.tenant_id=$1 AND t.plan_id=$2 AND t.plan_slice_key=$3;";
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(planId));
+        query.Parameters.Add(Text(sliceKey));
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadTask(reader) : null;
     }
 
     private static async Task InsertSolicitationAsync(

@@ -11,9 +11,15 @@ namespace Harness.Host.WorkBoard;
 /// entrada do produto: o endpoint HTTP (<see cref="DemandPlanEndpoints"/>, acionado pelo humano) e
 /// o turno do Chefe (<c>ChiefTurnBackgroundService</c>, quando a Bruna delega uma demanda no chat).
 /// Gerar o plano é INERTE e idempotente por demanda; materializar é o ÚNICO ponto que decompõe o
-/// plano em work_tasks reais, e só a PRIMEIRA materialização cria cards (guarda
-/// <c>TryMarkMaterializedAsync</c>). Cards nascem em `backlog`; a triagem (DoR + dependências)
-/// promove a `ready` em ondas — nunca aqui.
+/// plano em work_tasks reais. Cards nascem em `backlog`; a triagem (DoR + dependências) promove a
+/// `ready` em ondas — nunca aqui.
+///
+/// Fase 0A1 (BR-001): materializar é IDEMPOTENTE POR FATIA e o marker é o ÚLTIMO passo. Antes, o
+/// plano era carimbado como materializado ANTES de criar os cards e uma queda no meio deixava um
+/// plano permanentemente "concluído" com cards faltando; e uma segunda chamada saía cedo pelo
+/// marker, sem nunca olhar a realidade do board. Agora a identidade do card é a fatia do plano
+/// (chave única no banco), o retry compara o conjunto real com o previsto e só carimba quando o
+/// conjunto está completo — inclusive com todas as dependências declaradas resolvíveis.
 /// </summary>
 public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanStore plans)
 {
@@ -40,8 +46,10 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
     }
 
     /// <summary>
-    /// Materializa o plano em cards reais do board (estado `backlog`), reusando a criação de task
-    /// existente. Idempotente por plano: uma segunda chamada NÃO recria cards.
+    /// Materializa o plano em cards reais do board (estado `backlog`). Convergente: cria apenas as
+    /// fatias ausentes, nunca duplica uma fatia existente e só carimba o marker depois de comprovar
+    /// que o conjunto materializado é exatamente o previsto. Uma execução repetida sobre um plano
+    /// íntegro não altera nada.
     /// </summary>
     public async Task<DemandPlanMaterialization> MaterializeAsync(
         string tenantId,
@@ -49,46 +57,173 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
         DemandPlanRecord plan,
         BoardDemandRecord demand,
         DateTimeOffset now,
+        IPlanMaterializationFaultInjector? faults = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(demand);
-        var claimed = await plans.TryMarkMaterializedAsync(tenantId, plan.Id, now, cancellationToken);
-        if (!claimed)
+        var slices = SlicePlan(plan);
+        var injector = faults ?? NullPlanMaterializationFaultInjector.Instance;
+
+        var materialized = await board.ListPlanCardsAsync(tenantId, plan.Id, cancellationToken);
+        if (materialized.Count < slices.Count)
         {
-            return new DemandPlanMaterialization(
-                plan,
-                AlreadyMaterialized: true,
-                [.. plan.Cards.Select(card => new MaterializedPlanCard(
-                    card.ProposedTitle, card.CardType, null))]);
+            // Planos materializados ANTES da chave lógica existir têm cards sem carimbo: sem
+            // adotá-los, o plano pareceria vazio e o board ganharia uma segunda cópia de tudo.
+            var adopted = await board.AdoptPlanCardsAsync(
+                new BoardPlanCardAdoptCommand(
+                    tenantId, plan.Id, plan.DemandId,
+                    [.. slices.Select(slice => new BoardPlanSlice(slice.Key, slice.Card.ProposedTitle))]),
+                cancellationToken);
+            if (adopted > 0)
+            {
+                materialized = await board.ListPlanCardsAsync(tenantId, plan.Id, cancellationToken);
+            }
         }
 
-        var results = new List<MaterializedPlanCard>(plan.Cards.Count);
+        var byKey = materialized.ToDictionary(card => card.SliceKey, StringComparer.Ordinal);
+        var results = new List<MaterializedPlanCard>(slices.Count);
+        var created = 0;
         var index = 0;
-        foreach (var card in plan.Cards)
+        foreach (var slice in slices)
         {
+            index++;
+            if (byKey.TryGetValue(slice.Key, out var existing))
+            {
+                results.Add(new MaterializedPlanCard(
+                    slice.Card.ProposedTitle, slice.Card.CardType, existing.TaskId));
+                continue;
+            }
+
             // Uma base de tempo monotônica por card mantém os ULIDs (task, instrução, backing)
             // distintos e cronológicos entre os cards do mesmo plano.
-            var cardNow = now.AddMilliseconds(++index * 8);
+            var cardNow = now.AddMilliseconds(index * 8);
             var taskId = UlidValue.New(cardNow).ToString();
             var instructionId = UlidValue.New(cardNow.AddMilliseconds(1)).ToString();
             var createRequest = new CreateTaskRequest(
-                plan.ProjectId, card.ProposedTitle, ComposeInstruction(card, plan.FeatureId),
-                demand.Id, demand.Priority, CardType: card.CardType);
+                plan.ProjectId, slice.Card.ProposedTitle,
+                ComposeInstruction(slice.Card, plan.FeatureId),
+                demand.Id, demand.Priority, CardType: slice.Card.CardType);
             var values = WorkBoardApplicationService.CreateTask(
                 taskId, instructionId, createRequest, cardNow);
-            var created = await board.CreateTaskAsync(new(
-                tenantId, taskId, values.Task.ProjectId, values.Task.DemandId,
-                UlidValue.New(cardNow.AddMilliseconds(2)).ToString(),
-                UlidValue.New(cardNow.AddMilliseconds(3)).ToString(), actorProfileId,
-                values.Task.Title, values.Task.Priority, values.Task.AssigneeAgentId,
-                values.Task.DueAt, instructionId, values.Instruction.Body, cardNow,
-                values.Task.PhaseName, values.CardType), cancellationToken);
+            var outcome = await board.CreatePlanCardAsync(
+                new BoardPlanCardCreateCommand(
+                    new(tenantId, taskId, values.Task.ProjectId, values.Task.DemandId,
+                        UlidValue.New(cardNow.AddMilliseconds(2)).ToString(),
+                        UlidValue.New(cardNow.AddMilliseconds(3)).ToString(), actorProfileId,
+                        values.Task.Title, values.Task.Priority, values.Task.AssigneeAgentId,
+                        values.Task.DueAt, instructionId, values.Instruction.Body, cardNow,
+                        values.Task.PhaseName, values.CardType),
+                    plan.Id,
+                    slice.Key),
+                cancellationToken);
             results.Add(new MaterializedPlanCard(
-                card.ProposedTitle, card.CardType, created.Task.Id));
+                slice.Card.ProposedTitle, slice.Card.CardType, outcome.Task.Id));
+            if (outcome.Created)
+            {
+                created++;
+                await injector.SignalAsync(
+                    created == 1
+                        ? PlanMaterializationStage.AfterFirstCard
+                        : PlanMaterializationStage.BetweenCards,
+                    cancellationToken);
+            }
         }
 
-        return new DemandPlanMaterialization(plan, AlreadyMaterialized: false, results);
+        await injector.SignalAsync(PlanMaterializationStage.AfterCards, cancellationToken);
+
+        // O conjunto REAL é medido de novo no banco: o que garante a completude é o board, não a
+        // lista que este método acabou de montar.
+        var settled = await board.ListPlanCardsAsync(tenantId, plan.Id, cancellationToken);
+        AssertComplete(plan, slices, settled);
+        await injector.SignalAsync(PlanMaterializationStage.AfterDependencies, cancellationToken);
+
+        await injector.SignalAsync(PlanMaterializationStage.BeforeMarker, cancellationToken);
+        var claimed = await plans.TryMarkMaterializedAsync(tenantId, plan.Id, now, cancellationToken);
+        await injector.SignalAsync(PlanMaterializationStage.AfterMarker, cancellationToken);
+        return new DemandPlanMaterialization(
+            plan with { Status = "materialized", MaterializedAt = plan.MaterializedAt ?? now },
+            AlreadyMaterialized: !claimed && created == 0,
+            results,
+            CreatedCards: created);
+    }
+
+    /// <summary>
+    /// Fatias previstas do plano, na ordem do plano. A chave é o código estável do card
+    /// (<c>F.../Tnn</c>) — a mesma identidade que a triagem por ondas usa para resolver
+    /// dependências, e por isso a única chave de idempotência tecnicamente defensável aqui.
+    /// </summary>
+    internal static IReadOnlyList<PlanSlice> SlicePlan(DemandPlanRecord plan)
+    {
+        var slices = new List<PlanSlice>(plan.Cards.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var card in plan.Cards)
+        {
+            var key = DemandDecompositionPlanner.CodeOf(card.ProposedTitle);
+            if (!seen.Add(key))
+            {
+                // Dois cards com o mesmo código tornariam a materialização ambígua e a triagem
+                // por ondas indeterminada. Falhar aqui é visível; adivinhar não seria.
+                throw new PlanMaterializationIntegrityException(
+                    "plan_slice_key_duplicated",
+                    $"The plan declares the slice '{key}' more than once.");
+            }
+
+            slices.Add(new PlanSlice(key, card));
+        }
+
+        return slices;
+    }
+
+    /// <summary>
+    /// Invariante do bloco: cardinalidade exata, nenhuma fatia extra e toda dependência declarada
+    /// resolvendo para uma fatia REAL do mesmo plano. Uma dependência que não resolve deixaria o
+    /// card preso no backlog para sempre — trabalho invisível, que é exatamente o que este bloco
+    /// existe para impedir.
+    /// </summary>
+    private static void AssertComplete(
+        DemandPlanRecord plan,
+        IReadOnlyList<PlanSlice> slices,
+        IReadOnlyList<BoardPlanCardRecord> materialized)
+    {
+        var actual = new HashSet<string>(
+            materialized.Select(card => card.SliceKey), StringComparer.Ordinal);
+        if (actual.Count != materialized.Count)
+        {
+            throw new PlanMaterializationIntegrityException(
+                "plan_card_duplicated",
+                $"The board holds duplicate slices for plan '{plan.Id}'.");
+        }
+
+        var expected = new HashSet<string>(slices.Select(slice => slice.Key), StringComparer.Ordinal);
+        var missing = expected.Except(actual, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (missing.Length > 0)
+        {
+            throw new PlanMaterializationIntegrityException(
+                "plan_cards_missing",
+                $"The plan '{plan.Id}' is missing the slices {string.Join(", ", missing)}.");
+        }
+
+        var unexpected = actual.Except(expected, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (unexpected.Length > 0)
+        {
+            throw new PlanMaterializationIntegrityException(
+                "plan_cards_unexpected",
+                $"The plan '{plan.Id}' materialized unknown slices {string.Join(", ", unexpected)}.");
+        }
+
+        foreach (var slice in slices)
+        {
+            foreach (var dependency in slice.Card.Dependencies)
+            {
+                if (!expected.Contains(dependency))
+                {
+                    throw new PlanMaterializationIntegrityException(
+                        "plan_dependency_unresolved",
+                        $"The slice '{slice.Key}' depends on '{dependency}', which the plan does not declare.");
+                }
+            }
+        }
     }
 
     internal static DemandPlanCard ToCard(ProposedCard card) => new(
@@ -137,10 +272,25 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
     }
 }
 
-/// <summary>Resultado da materialização: o plano, se era replay e os cards criados (ou nulos no replay).</summary>
+/// <summary>Uma fatia do plano: a chave lógica estável e o card proposto que ela materializa.</summary>
+internal sealed record PlanSlice(string Key, DemandPlanCard Card);
+
+/// <summary>
+/// O plano e o board divergiram de um jeito que a materialização não pode corrigir sozinha. É
+/// sempre um FATO verificado (fatia faltando, duplicada, desconhecida ou dependência que não
+/// resolve), nunca uma suspeita — e nunca é engolido: vira estado `failed` visível com este código.
+/// </summary>
+public sealed class PlanMaterializationIntegrityException(string code, string message)
+    : Exception(message)
+{
+    public string Code { get; } = code;
+}
+
+/// <summary>Resultado da materialização: o plano, se nada mudou e os cards da vez.</summary>
 public sealed record DemandPlanMaterialization(
     DemandPlanRecord Plan,
     bool AlreadyMaterialized,
-    IReadOnlyList<MaterializedPlanCard> Cards);
+    IReadOnlyList<MaterializedPlanCard> Cards,
+    int CreatedCards = 0);
 
 public sealed record MaterializedPlanCard(string Title, string CardType, string? TaskId);

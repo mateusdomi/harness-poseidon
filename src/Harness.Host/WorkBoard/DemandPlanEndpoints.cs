@@ -73,7 +73,8 @@ public static class DemandPlanEndpoints
 
     private static async Task<IResult> MaterializePlanAsync(
         string demandId, HttpRequest request, ILocalProfileStore profiles, IWorkBoardStore board,
-        IDemandPlanStore plans, DemandPlanMaterializer materializer, IClock clock,
+        IDemandPlanStore plans, IPlanMaterializationStore jobs,
+        PlanMaterializationService materialization, IClock clock,
         CancellationToken token)
     {
         if (!Valid(demandId)) return InvalidId("demand");
@@ -84,21 +85,53 @@ public static class DemandPlanEndpoints
         var demand = await board.GetDemandAsync(profile.TenantId, demandId, token);
         if (demand is null) return NotFound("demand");
 
-        // Guarda de idempotência dentro do materializer: só a PRIMEIRA materialização transiciona
-        // 'proposed'→'materialized'. Uma segunda chamada NÃO recria os cards.
-        DemandPlanMaterialization outcome;
+        // Fase 0A1: o caminho humano usa EXATAMENTE o mesmo motor durável do turno da Bruna. O
+        // compromisso é registrado antes de qualquer card existir, de modo que uma queda no meio
+        // desta requisição não deixa a demanda meio materializada e sem ninguém responsável: o
+        // reconciliador converge. A intenção vai vazia porque o plano JÁ existe — o planner é
+        // idempotente por demanda e devolve este mesmo plano, sem regravar nada.
+        await jobs.RequestAsync(
+            new PlanMaterializationRequestCommand(
+                profile.TenantId, demandId, demand.ProjectId, null,
+                new PlanMaterializationRequest([]), clock.UtcNow),
+            token);
+        PlanMaterializationOutcome outcome;
         try
         {
-            outcome = await materializer.MaterializeAsync(
-                profile.TenantId, profile.Id, plan, demand, clock.UtcNow, token);
+            outcome = await materialization.RunAsync(
+                profile.TenantId, demandId, $"http:{profile.Id}", token);
         }
         catch (WorkBoardReferenceNotFoundException e) { return ReferenceNotFound(e.Reference); }
         catch (ArgumentException e) { return Invalid("demand_plan", e.Message); }
 
+        if (outcome.Result is PlanMaterializationResult.Failed
+            or PlanMaterializationResult.Interrupted)
+        {
+            return Problem(
+                409,
+                outcome.ErrorCode ?? "materialization_failed",
+                "The plan could not be materialized; the demand keeps the failure recorded.");
+        }
+
+        if (outcome.Result is PlanMaterializationResult.NotClaimed)
+        {
+            return Problem(
+                409,
+                "materialization_in_progress",
+                "Another owner is materializing this plan right now.");
+        }
+
+        var materialized = (await board.ListPlanCardsAsync(profile.TenantId, plan.Id, token))
+            .ToDictionary(card => card.SliceKey, StringComparer.Ordinal);
         return Results.Ok(new MaterializePlanResult(
-            plan.Id, "materialized", outcome.AlreadyMaterialized,
-            [.. outcome.Cards.Select(card => new MaterializedCardResult(
-                card.Title, card.CardType, card.TaskId))]));
+            plan.Id, "materialized", outcome.CreatedCards == 0,
+            [.. plan.Cards.Select(card => new MaterializedCardResult(
+                card.ProposedTitle,
+                card.CardType,
+                materialized.TryGetValue(
+                    DemandDecompositionPlanner.CodeOf(card.ProposedTitle), out var created)
+                    ? created.TaskId
+                    : null))]));
     }
 
     private static string[] NormalizeCriteria(IReadOnlyList<string>? criteria)

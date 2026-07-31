@@ -10,6 +10,32 @@ knownOwners:
 markdownAllowlist:
 - path: RELATORIO-VALIDACAO-POSEIDON.md
   reason: Relatório de auditoria das 17 fases da campanha v6, solicitado pelo dono na raiz do repositório. É registro de validação com data fechada, não norma — por isso fica no allowlist e não entre os documentos canônicos.
+- path: docs/architecture/audits/bruna/AUDITORIA-ARQUITETURAL-BRUNA-FINAL.md
+  reason: Relatório arquitetural fechado solicitado pelo dono; registra evidências do estado observado e não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-CORE-ARQUITETURA-AS-IS.md
+  reason: Documento de auditoria fechado do runtime da Bruna; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-FLUXO-END-TO-END.md
+  reason: Documento de auditoria fechado do fluxo da Bruna; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-INVENTARIO-ARQUIVOS.md
+  reason: Inventário fechado produzido para a auditoria da Bruna; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-CONTEXTO-E-MEMORIA.md
+  reason: Documento de auditoria fechado sobre contexto e memória; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-ESTADO-E-RECUPERACAO.md
+  reason: Documento de auditoria fechado sobre estado e recuperação; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-CONCORRENCIA-E-MULTIPROJETOS.md
+  reason: Documento de auditoria fechado sobre concorrência e multiprojetos; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-SEGURANCA.md
+  reason: Documento de auditoria fechado sobre segurança do núcleo multiagente; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-RISCOS-ARQUITETURAIS.md
+  reason: Registro de riscos fechado produzido para a auditoria da Bruna; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-AVALIACAO-DE-MATURIDADE.md
+  reason: Avaliação de maturidade fechada produzida para a auditoria da Bruna; não constitui norma canônica.
+- path: docs/architecture/audits/bruna/BRUNA-RECOMENDACOES-TO-BE.md
+  reason: Recomendações de auditoria, ainda não aprovadas como arquitetura canônica.
+- path: docs/architecture/audits/bruna/BRUNA-ROADMAP-ARQUITETURAL.md
+  reason: Roadmap proposto pela auditoria, ainda não aprovado como plano canônico.
+- path: docs/architecture/audits/bruna/ADVISORY-REACT-ROUTER-GHSA-qwww-vcr4-c8h2.md
+  reason: Avaliação fechada de aplicabilidade de um advisory de dependência, com data e evidência de reprodução; é registro de decisão, não norma.
 documents:
 - id: governance-core
   path: governance/core.md
@@ -785,7 +811,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:9344fff79fca127162b1ad664c29972c491718a2c5f3084a51565cc0b2a14432
+  checksum: sha256:f8c64f00f27fdb9a8038d0b86531e0f46a8ea039a96dff3801e6c86ea4c011c6
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1764,7 +1790,7 @@ documents:
   - src/Harness.Persistence.*/**
   load: on-demand
   priority: 750
-  tokenCost: 881
+  tokenCost: 1212
   owner: Operations
   status: active
   version: 2.0.0
@@ -1775,7 +1801,7 @@ documents:
   - governance-core
   related: []
   enforcedBy: []
-  checksum: sha256:372fc0acf9bc9528059a2d10bb6ec95330f6f0a29e9754628413cdf021fd1028
+  checksum: sha256:3b16942fdbd1535f56acec09f00d0a4795540ae38799f87fa73d01a406de7808
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/runbooks/recovery.md

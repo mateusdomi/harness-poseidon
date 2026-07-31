@@ -68,6 +68,34 @@ escale; não avance para um estado estimado.
 Nunca edite o ledger para forçar continuidade. Ausência de checkpoint ou efeito
 externo sem idempotency key exige dead letter e decisão humana.
 
+## Planejamento incompleto de uma demanda
+
+Um turno do Chefe que delega demandas grava, na MESMA transação que o conclui, o
+compromisso `demand_materializations` (estado `pending`) e o comando de outbox
+`plan.materializationRequested`. Enquanto o compromisso não estiver `completed`, o
+planejamento daquela demanda está declaradamente incompleto — a resposta ao usuário
+já existe, os cards ainda não.
+
+1. Ler o compromisso: `pending` (comando não consumido), `processing` (dono vivo ou
+   morto, conforme `updated_at` contra o lease), `failed` (`last_error` tipado) ou
+   `completed`.
+2. `completed` não é palavra final: comparar as fatias previstas do plano com
+   `work_tasks.plan_id`/`plan_slice_key`. Divergência significa board alterado por
+   fora, e o reconciliador reabre o compromisso.
+3. O reconciliador roda no boot e a cada ciclo. Ele CONVERGE — recria apenas as
+   fatias ausentes, nunca duplica e só carimba `demand_plans.materialized_at`
+   quando o conjunto está completo e todas as dependências declaradas resolvem.
+4. Falha terminal (`plan_dependency_unresolved`, `plan_slice_key_duplicated`,
+   `demand_missing`, `loop_guard_interrupted`) não é retentada: corrija o plano ou
+   a demanda; insistir só produziria ruído.
+5. Nunca carimbe `materialized_at` à mão para "destravar": o marker é a afirmação
+   de que os cards existem, e forçá-lo recria exatamente o defeito BR-001.
+
+```bash
+tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
+  --filter FullyQualifiedName~PlanMaterializationDurabilityTests
+```
+
 ## Prova e encerramento
 
 A simulação canônica envia `SIGKILL` depois do terceiro checkpoint e comprova, em

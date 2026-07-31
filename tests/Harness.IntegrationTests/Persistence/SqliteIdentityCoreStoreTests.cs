@@ -81,11 +81,24 @@ public sealed class SqliteIdentityCoreStoreTests
                             await count.ExecuteScalarAsync(ct),
                             System.Globalization.CultureInfo.InvariantCulture);
                     }, timeout.Token),
+                    new SqlitePlanMaterializationStore(dispatcher),
+                    (tenant, eventType) => dispatcher.ExecuteAsync(async (connection, ct) =>
+                    {
+                        await using var count = connection.CreateCommand();
+                        count.CommandText =
+                            "SELECT COUNT(*) FROM outbox_messages WHERE tenant_id=$tenant AND event_type=$type;";
+                        count.Parameters.AddWithValue("$tenant", tenant);
+                        count.Parameters.AddWithValue("$type", eventType);
+                        return Convert.ToInt32(
+                            await count.ExecuteScalarAsync(ct),
+                            System.Globalization.CultureInfo.InvariantCulture);
+                    }, timeout.Token),
                     timeout.Token);
                 await BoardWorkflowProjectionBehavior.AssertAsync(
                     new SqliteWorkBoardStore(dispatcher),
                     new SqliteWorkflowStore(dispatcher),
                     new SqliteWorkflowCatalogStore(dispatcher),
+                    new SqlitePlanMaterializationStore(dispatcher),
                     profile.TenantId,
                     projectId,
                     profile.Id,
