@@ -187,6 +187,28 @@ tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationT
   --filter FullyQualifiedName~ToolCallBrokerTests
 ```
 
+## Git e banco divergentes
+
+Não existe transação distribuída entre um repositório e um SQL, e fingir que existe é pior do que
+não ter nenhuma. O que existe é a INTENÇÃO registrada antes do efeito, em `merge_intents`.
+
+1. Card `approved` com o código já na branch publicada: procure o intent da tentativa. Se ele estiver
+   `merged` com `board_settled=0`, o reconciliador fecha o lado factual sozinho no próximo ciclo —
+   era exatamente esse o estado que ficava permanente antes.
+2. Intent `merged` cujo `result_sha` NÃO existe no repositório: a intenção é reaberta. Afirmar
+   integração sem commit é pior do que refazer o merge.
+3. `merging` com lease vencido: o dono morreu. O repositório é devolvido e outro Host assume com
+   fencing maior; o dono antigo não confirma mais nada.
+4. UM merge ativo por repositório é garantido por índice único no banco — vale entre processos e
+   entre Hosts. `merge_in_progress` na resposta é a coordenação funcionando, não um erro.
+5. Nunca edite `merge_intents` à mão para "destravar": o estado é a única evidência de qual lado
+   (Git ou banco) está adiantado.
+
+```bash
+tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
+  --filter FullyQualifiedName~MergeIntentReconciliationTests
+```
+
 ## Prova e encerramento
 
 A simulação canônica envia `SIGKILL` depois do terceiro checkpoint e comprova, em

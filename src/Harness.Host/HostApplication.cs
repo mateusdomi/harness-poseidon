@@ -367,6 +367,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IPlanMaterializationStore, PostgresPlanMaterializationStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Execution.ISandboxAttestationStore, PostgresSandboxAttestationStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Tools.IToolCallJournalStore, PostgresToolCallJournalStore>();
+            builder.Services.AddSingleton<IMergeIntentStore, PostgresMergeIntentStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, PostgresDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, PostgresDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, PostgresDeliveryDailyStore>();
@@ -389,6 +390,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IPlanMaterializationStore, SqlitePlanMaterializationStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Execution.ISandboxAttestationStore, SqliteSandboxAttestationStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Tools.IToolCallJournalStore, SqliteToolCallJournalStore>();
+            builder.Services.AddSingleton<IMergeIntentStore, SqliteMergeIntentStore>();
             builder.Services.AddSingleton<IDeliveryForecastStore, SqliteDeliveryForecastStore>();
             builder.Services.AddSingleton<IDeliveryReportStore, SqliteDeliveryReportStore>();
             builder.Services.AddSingleton<IDeliveryDailyStore, SqliteDeliveryDailyStore>();
@@ -501,6 +503,12 @@ public static class HostApplication
         builder.Services.AddSingleton<AgentRequestResolver>();
         builder.Services.AddSingleton<ExecutionCheckpointService>();
         builder.Services.AddSingleton<WorkBoard.TaskIntegrationService>();
+        // Fase 0C2: a reconciliação Git↔banco. Sem ela, um crash entre o merge e o commit factual
+        // deixa o código integrado e o card `approved` para sempre.
+        builder.Services.AddSingleton(
+            new WorkBoard.MergeReconciliationOptions(
+                TimeSpan.FromMinutes(2), 100, $"merge-reconciler-{Guid.NewGuid():N}"));
+        builder.Services.AddHostedService<WorkBoard.MergeReconciliationBackgroundService>();
 
         builder.Services.AddSingleton(
             new AccountAvailabilityLedger(

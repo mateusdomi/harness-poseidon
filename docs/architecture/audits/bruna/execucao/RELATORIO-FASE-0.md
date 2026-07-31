@@ -1,0 +1,203 @@
+# Fase 0 — Relatório de execução
+
+**Data:** 31/07/2026
+**Base:** `develop` @ `b9004373`
+**Documento de origem:** `poseidon-fase0-consolidado.md` (resposta do proprietário à auditoria da
+Bruna, corte 2026-07-30)
+
+Este relatório existe porque um commit diz **o que** mudou e raramente diz **por quê** — e a Fase 0
+é feita quase inteiramente de decisões cujo motivo não é óbvio olhando o diff.
+
+---
+
+## 1. O que a Fase 0 tinha de resolver
+
+A auditoria não encontrou ausência de componentes. Encontrou componentes que **não formavam uma
+garantia end-to-end**: outbox real, leases reais, fencing real, ledger real — e, no meio deles,
+caminhos onde o produto conseguia afirmar coisas que não eram verdade.
+
+Sete sub-blocos, um por vez, cada um com gate Default-FAIL e revisão independente antes do merge.
+
+---
+
+## 2. Blocos entregues
+
+| Bloco | Risco | Commit | Gate | Crítico |
+|---|---|---|---|---|
+| 0A1 — materialização durável | BR-001, BR-004 | `76c09615` | verde, 1655 testes | **PASS**, 0 findings |
+| 0A2 — lease e contexto | BR-005, BR-006 | `8752332b` | verde, 1660 testes | **PASS**, 0 findings |
+| 0A3 — sanitização | BR-014 | `9949c2be` | verde, 1663 testes | — |
+| 0B1 — attestation de sandbox | BR-002, BR-013 | `4914521e` | verde, 1668 testes | — |
+| 0B2 — broker de ferramentas | BR-002, BR-013 | `e769d523` | verde, 1674 testes | — |
+| 0C1/0C2 — merge intent e reconciliação | BR-003 | ver §4 | ver §4 | — |
+
+Os pareceres do crítico independente (Antigravity, read-only) estão em
+`docs/architecture/audits/bruna/pareceres/`. Ele executou os testes por conta própria antes de
+emitir cada veredito.
+
+---
+
+## 3. O que cada bloco corrigiu, e por que daquele jeito
+
+### 0A1 — o turno concluía sem garantia de que o trabalho existiria
+
+`DemandPlanMaterializer` carimbava `materialized_at` **antes** de criar os cards, e
+`ChiefTurnBackgroundService` materializava **em memória, depois do commit do turno, dentro de um
+try/catch**. Uma queda em qualquer um dos dois pontos era permanente e invisível: o usuário via a
+resposta, o board não tinha trabalho, e nada no produto sabia disso.
+
+O compromisso passou a nascer na **mesma transação** que conclui o turno — a linha
+`demand_materializations` com a intenção declarada (critérios, especialidade, superfícies, que antes
+só existiam na memória do worker) e o comando `plan.materializationRequested` na outbox.
+
+**Decisão que não é óbvia:** a identidade do card virou a *fatia do plano*
+(`plan_id`,`plan_slice_key`) com índice único **no banco**. "Retry não duplica card" deixou de ser
+promessa de código e virou invariante de schema — dois consumidores concorrentes convergem para o
+mesmo card porque o banco não deixa ser diferente.
+
+**Decisão que contraria o documento:** ele pedia "persistir dependências de forma idempotente". O
+produto não tem tabela de dependências — elas são códigos resolvidos por título, e a triagem por
+ondas já depende disso. Criar a tabela seria a "segunda fonte de verdade" que o próprio documento
+proíbe. Em vez disso, a completude **exige** que toda dependência declarada resolva para uma fatia
+real, e falha explicitamente quando não resolve.
+
+### 0A2 — o lease não era renovado e o contexto era o do primeiro dia
+
+Dois riscos, três defeitos.
+
+`MaintainActivityHeartbeatAsync` publicava um evento de tela e **não tocava no lease**. Uma
+inferência mais longa que os dois minutos fazia o turno vivo parecer abandonado: outro worker o
+readquiria, o modelo era chamado de novo, o dono pagava duas vezes pela mesma pergunta.
+
+No contexto, o defeito era triplo e somado: a leitura era `ORDER BY id LIMIT` — as mensagens **mais
+antigas** —, a fundadora só sobrevivia por acaso de ser a primeira da página, e as notas
+externalizadas eram **write-only**. `IChiefContextNoteStore.ListAsync` existia, estava implementado
+nos dois bancos, documentado como "a memória vive aqui", e não tinha **um único chamador** no
+repositório inteiro. A estratégia gravava fielmente todo fato crítico e nada jamais lia de volta.
+
+**Decisão que não é óbvia:** ao perder o fencing, o worker aborta e **não escreve nada** — nem marca
+o turno como falho. Marcar como quebrado um turno que outro dono está conduzindo normalmente seria
+pior que o silêncio, e o store recusaria a escrita de qualquer forma. O fato fica no log e na
+métrica `poseidon.chief.turn.lease.count{outcome=lost}`.
+
+### 0A3 — o segredo era redigido na saída, e já estava no disco
+
+O produto tinha `SecretTextProtector`, mas ele só rodava nas **bordas**. O audit store serializava o
+detalhe recebido como veio. Redigir na exportação é maquiagem: quando o export roda, o valor já está
+no ledger encadeado, no banco e em todo backup tirado desde então.
+
+A política única passou a rodar nos **46 funis de escrita** de auditoria e outbox dos dois
+providers, e **antes do hash do ledger** — o conteúdo verificado é o conteúdo persistido.
+
+**Decisão que não é óbvia:** o sanitizador preserva a **estrutura do JSON** em vez de substituir
+texto cru. Uma substituição crua quebraria o documento e derrubaria consumidores que funcionam hoje.
+E ele desce em valor de texto que é ele próprio um JSON — foi por essa fresta que o canário
+estruturado passou na primeira versão do bloco: o redator procura `password=valor`, e em JSON existe
+uma aspa entre o nome e os dois-pontos.
+
+**Fronteira deliberada, que é decisão de produto:** o corpo que o humano escreveu — solicitação,
+demanda, instrução, mensagem — **permanece intacto**. Apagar trecho do texto que ele vai reler
+quebraria o produto e esconderia o próprio incidente. O que a sanitização impede é esse texto se
+multiplicar sem redação pelos canais de evidência e transporte.
+
+### 0B1 — o produto afirmava ter sandbox quando não tinha
+
+`AgentRunOrchestrator` informava `SandboxActive: true` **por literal**, inclusive com
+`IsolatedExecution.Mode=Disabled`. A política de ferramentas lia esse literal e autorizava execução
+de risco crítico acreditando existir uma fronteira inexistente.
+
+Quem afirma que existe contenção passou a ser quem a constrói: o provider emite uma attestation
+derivada do que o runtime **reporta** — o Docker consulta `inspect` e só verifica com rootfs
+somente-leitura, rede negada e limites aplicados. A mera criação de um container não prova nada.
+
+**Decisão que não é óbvia:** a attestation é **por tentativa** e a **primeira** emissão prevalece.
+Se valesse a de outro attempt, bastaria uma execução isolada no passado para liberar todas as
+seguintes; se uma segunda pudesse "melhorar" a avaliação, daria para abençoar depois o que não foi
+contido antes.
+
+**Mudança de comportamento — a mais importante da fase:** numa máquina sem contêiner (o modo
+pessoal), executar agente passou a **exigir aceite explícito do proprietário**, com motivo, validade
+de no máximo 24h e auditoria, atrás de uma sessão de perfil local. Não há flag, variável de ambiente
+nem caminho programático: um agente que quisesse se autoautorizar precisaria da sessão do humano.
+
+O gate encontrou exatamente isso: quatro testes de execução pararam de passar porque o fail-closed
+funcionou. Foram ajustados para usar a **mesma porta que o dono usaria** — semear o aceite no banco
+pareceria mais simples e provaria menos.
+
+### 0B2 — a política autorizava o processo, não os efeitos
+
+O PEP autorizava o **binário executor** uma vez, no início da tentativa. Nenhuma chamada posterior
+voltava a passar por política. Autorizar o processo e não os efeitos é autorizar a intenção e não o
+ato.
+
+`ToolCallBroker` é o gateway tipado por chamada: tenant, projeto, card, tentativa, agente,
+ferramenta, capability, fencing, argumentos, caminhos, rede, timeout, limite de saída e chave de
+idempotência. Toda decisão — inclusive as **negativas**, que são as que explicam um incidente — vai
+para `tool_call_journal`.
+
+Perfis fechados: a Bruna delega e nunca executa; o crítico é read-only; o ator escreve só na
+worktree autorizada e sem rede por padrão. **Todos** os caminhos são verificados, não só o primeiro
+— autorizar pelo primeiro e executar sobre todos seria porta aberta com aparência de política.
+
+**Limite declarado, não disfarçado:** chamadas que um CLI externo faz **dentro do próprio processo**
+não passam pelo broker. O produto não intercepta o interior de um binário de terceiro. É exatamente
+por isso que a sandbox atestada do 0B1 importa: ela é a fronteira que vale onde a política de
+chamada não alcança.
+
+### 0C1/0C2 — o merge acontecia antes do banco, coordenado por um semáforo de processo
+
+`TaskIntegrationService` executava `git merge` e **só depois** atualizava a cadeia durável. Uma
+falha de banco entre as duas coisas deixava o código integrado e o card `approved` para sempre. E a
+coordenação era um `SemaphoreSlim` em memória: protegia um processo, não o repositório.
+
+Não se tenta transação distribuída entre Git e SQL — ela não existe, e fingir que existe é pior do
+que não ter nenhuma. Registra-se a **intenção antes do efeito**, de modo que todo desfecho seja
+reconhecível depois.
+
+**Decisão que não é óbvia:** o "um merge ativo por repositório" é um **índice único parcial no
+banco**, não um lock de aplicação. Vale entre processos e entre Hosts, que é onde o semáforo
+falhava.
+
+O reconciliador responde a pergunta que só o repositório responde — *o commit existe?* — e converge:
+merge feito sem confirmação no banco é fechado; banco afirmando integração sem commit reabre a
+intenção, porque afirmar integração sem commit é pior do que refazer o merge.
+
+---
+
+## 4. Estado do bloco final
+
+O gate de 0C1/0C2 foi executado ao fim da implementação, sobre o estado que contém os dois blocos.
+O resultado e o commit constam no histórico de `develop`; a implementação segue o mesmo padrão dos
+anteriores — migrations nos dois providers, testes de regressão permanente e documentação de
+runbook.
+
+---
+
+## 5. Riscos restantes, explicitamente
+
+1. **Planos anteriores à migration 0112** não entram na varredura do reconciliador de
+   materialização. A adoção por título cobre quando eles voltam ao fluxo; um backfill retroativo
+   criaria compromissos para todo o histórico e dispararia materialização de backlog antigo.
+2. **Custo da varredura** dos reconciliadores é O(n) por ciclo. Correto no modo pessoal; no modo
+   servidor com muitos projetos pede filtro por status ou cursor persistente. É otimização, não
+   correção — e o bloco proíbe alargar escopo.
+3. **O interior de um CLI externo** continua fora do broker (§0B2). A mitigação é a sandbox
+   atestada, e ela depende de o dono ter contêiner disponível.
+4. **O modo pessoal sem Docker** agora exige aceite de risco de 24h para executar agentes. É a
+   intenção do BR-002, mas muda a operação do dia a dia e merece decisão consciente do proprietário.
+5. **Um único Host escritor no SQLite** não foi implementado como lock de processo. A coordenação de
+   merge é garantida pelo banco (§0C1), que cobre o caso crítico; a rejeição de uma segunda
+   instância de Host inteira fica para quando o modo servidor for exercitado de fato.
+
+---
+
+## 6. O que NÃO foi feito, por decisão
+
+Nada da lista de itens proibidos do documento foi implementado: sem memória episódica, sem pgvector,
+sem GraphRAG, sem MCP runtime, sem consenso, sem novos agentes, sem redesign, sem EffortPolicy no
+caminho principal, sem scheduler multiprojeto, sem workflow durável da Fase 1.
+
+O advisory `GHSA-qwww-vcr4-c8h2` do `react-router` foi avaliado e **não é aplicável** — é falha do
+modo RSC, e o frontend é SPA com `createBrowserRouter`, sem qualquer runtime RSC. A única correção
+publicada é o major 8.3.0, que a Fase 0 proíbe. Nenhuma dependência foi alterada. A análise, com
+reprodução, está em `docs/architecture/audits/bruna/ADVISORY-REACT-ROUTER-GHSA-qwww-vcr4-c8h2.md`.

@@ -40,6 +40,8 @@ markdownAllowlist:
   reason: Parecer do crítico independente sobre o sub-bloco 0A1 da Fase 0, com data e comandos reproduzíveis; é evidência de gate, não norma.
 - path: docs/architecture/audits/bruna/pareceres/PARECER-0A2-ANTIGRAVITY.md
   reason: Parecer do crítico independente sobre o sub-bloco 0A2 da Fase 0, com data e comandos reproduzíveis; é evidência de gate, não norma.
+- path: docs/architecture/audits/bruna/execucao/RELATORIO-FASE-0.md
+  reason: Relatório de execução da Fase 0 com data fechada — registra o que foi entregue, por que cada decisão foi tomada e os riscos restantes. É prestação de contas, não norma canônica.
 documents:
 - id: governance-core
   path: governance/core.md
@@ -815,7 +817,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:0adb10dc2ae660d49da8b1e91d11ffa285fd494cbcd80fd6e910b0f00c0dc8f1
+  checksum: sha256:84124ca97247a7ac4a8e982002dd41577c38955590ad574c4debcd789429ed66
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1794,7 +1796,7 @@ documents:
   - src/Harness.Persistence.*/**
   load: on-demand
   priority: 750
-  tokenCost: 2820
+  tokenCost: 3240
   owner: Operations
   status: active
   version: 2.0.0
@@ -1805,7 +1807,7 @@ documents:
   - governance-core
   related: []
   enforcedBy: []
-  checksum: sha256:d42193d7e3d5727319518ec3eb1898b40deb0bf104199440aea23266d68b4df2
+  checksum: sha256:983a315045b3353c73e5e5557f48d4dd21bf48cd963162337c7ce0b7cc8e7c58
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/runbooks/recovery.md

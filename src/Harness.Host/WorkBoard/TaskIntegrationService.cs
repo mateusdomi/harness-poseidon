@@ -2,6 +2,7 @@ using Harness.Host.Agents;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
+using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
 namespace Harness.Host.WorkBoard;
@@ -29,8 +30,15 @@ public sealed class TaskIntegrationService(
     IWorkChainStore chain,
     IProjectStore projects,
     AgentRunSettings settings,
-    IClock clock)
+    IClock clock,
+    IMergeIntentStore mergeIntents)
 {
+    /// <summary>Quanto tempo um merge pode segurar o repositório antes de ser dado por abandonado.</summary>
+    private static readonly TimeSpan MergeLease = TimeSpan.FromMinutes(10);
+
+    private readonly IMergeIntentStore _mergeIntents =
+        mergeIntents ?? throw new ArgumentNullException(nameof(mergeIntents));
+
     private readonly IWorkBoardStore _board = board ?? throw new ArgumentNullException(nameof(board));
     private readonly IWorkChainStore _chain = chain ?? throw new ArgumentNullException(nameof(chain));
     private readonly IProjectStore _projects = projects ?? throw new ArgumentNullException(nameof(projects));
@@ -84,32 +92,82 @@ public sealed class TaskIntegrationService(
                 "Merging requires Harness:AgentRuns:ControlledRoot on this machine.");
         }
 
-        // 1. Merge git REAL da branch da tentativa. Conflito aborta e o repositório nunca fica no
-        //    meio de um merge.
+        // 1. INTENÇÃO antes do efeito (Fase 0C1/BR-003). Não existe transação distribuída entre Git
+        //    e SQL; fingir que existe é pior do que não ter nenhuma. Registrando a intenção antes,
+        //    todo desfecho — inclusive uma queda entre o merge e o banco — vira reconhecível.
         var branch = $"task/agent-run-{approved.Id.ToLowerInvariant()}";
+        var repositoryRoot = Path.GetFullPath(project.RepositoryUrl);
+        var now = _clock.UtcNow;
+        var intent = await _mergeIntents.RequestAsync(
+            new MergeIntentRequestCommand(
+                tenantId, UlidValue.New(now).ToString(), repositoryRoot, task.ProjectId, task.Id,
+                approved.Id, branch, project.DefaultBranch ?? "main", null, null, now),
+            cancellationToken);
+        if (string.Equals(intent.State, MergeIntentState.Merged, StringComparison.Ordinal) &&
+            intent.BoardSettled)
+        {
+            // Já integrado e conciliado: repetir o merge criaria um segundo commit para o mesmo
+            // trabalho aprovado.
+            return new TaskIntegrationOutcome(true, "merged", branch, approved.Id, intent.ResultSha);
+        }
+
+        // Um único merge ATIVO por repositório, garantido pelo banco — o semáforo em memória
+        // anterior protegia um processo, não o repositório.
+        var claimed = await _mergeIntents.TryBeginAsync(
+            new MergeIntentBeginCommand(
+                tenantId, intent.MergeIntentId, actorId, _clock.UtcNow, MergeLease),
+            cancellationToken);
+        if (claimed is null)
+        {
+            return new TaskIntegrationOutcome(
+                false, "merge_in_progress", branch, approved.Id,
+                "Another merge holds this repository right now.");
+        }
+
+        string resultSha;
         try
         {
             using var manager = await GitWorktreeManager.OpenAsync(
-                Path.GetFullPath(project.RepositoryUrl),
+                repositoryRoot,
                 Path.GetFullPath(_settings.ControlledRoot),
                 cancellationToken);
             await manager.MergeTaskBranchAsync(
                 branch,
                 $"merge(card {DisplayCode(task.Title)}): tentativa {approved.Id} aprovada em review",
                 cancellationToken);
+            // O SHA resultante é a evidência de que o efeito existiu. Sem ele, um crash logo
+            // depois seria indistinguível de um merge que nunca aconteceu.
+            resultSha = await manager.ResolveCommitAsync("HEAD", cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            await _mergeIntents.TryFailAsync(
+                new MergeIntentFailCommand(
+                    tenantId, intent.MergeIntentId, actorId, claimed.FencingToken,
+                    exception.GetType().Name, Aborted: true, _clock.UtcNow),
+                cancellationToken);
             return new TaskIntegrationOutcome(false, "merge_failed", branch, approved.Id, exception.Message);
+        }
+
+        if (!await _mergeIntents.TryRecordMergedAsync(
+                new MergeIntentResultCommand(
+                    tenantId, intent.MergeIntentId, actorId, claimed.FencingToken, resultSha,
+                    _clock.UtcNow),
+                cancellationToken))
+        {
+            // Perdemos o fencing DEPOIS do efeito Git. O commit existe; quem detém a intenção
+            // agora conclui o lado factual. O reconciliador fecha essa aresta.
+            return new TaskIntegrationOutcome(
+                false, "merge_fencing_lost", branch, approved.Id,
+                "The merge completed but another owner holds the intent; reconciliation will settle it.");
         }
 
         // 2. Cadeia durável: approved → merged → completed (board `done`), idempotente por
         //    tentativa. A conclusão destrava a próxima onda do plano na triagem do chefe.
-        var now = _clock.UtcNow;
         var merged = await _chain.MergeApprovedTaskAsync(
             new WorkTaskMergeCommand(
                 tenantId, task.BackingSolicitationId, task.Id, actorId,
-                $"git-branch:{branch}", task.Version, $"task-merge:{approved.Id}", now),
+                $"git-branch:{branch}", task.Version, $"task-merge:{approved.Id}", _clock.UtcNow),
             cancellationToken);
         if (merged.Status is not (WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay))
         {
@@ -124,8 +182,15 @@ public sealed class TaskIntegrationService(
                 $"git-merge:{branch}", merged.TaskVersion ?? task.Version + 1,
                 $"task-merge-complete:{approved.Id}", _clock.UtcNow),
             cancellationToken);
+        if (completed.Status is WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay)
+        {
+            // Só agora o Git e o banco contam a MESMA história — e isso fica registrado.
+            await _mergeIntents.TrySettleBoardAsync(
+                tenantId, intent.MergeIntentId, _clock.UtcNow, cancellationToken);
+        }
+
         return completed.Status is WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay
-            ? new TaskIntegrationOutcome(true, "merged", branch, approved.Id, null)
+            ? new TaskIntegrationOutcome(true, "merged", branch, approved.Id, resultSha)
             : new TaskIntegrationOutcome(
                 false, "merge_completion_conflict", branch, approved.Id,
                 $"The work chain rejected the completion: {completed.Status}.");
