@@ -254,6 +254,44 @@ public sealed partial class PostgresConversationStore
         return lease;
     }
 
+    public async Task<ChiefTurnRenewOutcome> TryRenewAsync(
+        ChiefTurnRenewCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (command.LeaseDuration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(command));
+        }
+
+        var expiresAt = command.Now.Add(command.LeaseDuration);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var update = connection.CreateCommand();
+        // O critério é o FENCING, não o relógio: se o lease venceu e ninguém o tomou, renovar é o
+        // certo — evita que este trabalho vivo seja readquirido e pago duas vezes. Se outro dono já
+        // adquiriu, o token mudou e nenhuma linha é afetada.
+        update.CommandText =
+            """
+            UPDATE harness.chief_states
+            SET lease_expires_at=$1,version=version+1,updated_at=$2
+            WHERE tenant_id=$3 AND project_id=$4 AND lease_owner_id=$5
+              AND lease_fencing_token=$6
+              AND EXISTS (
+                SELECT 1 FROM harness.chief_turn_mailbox
+                WHERE tenant_id=$3 AND id=$7 AND state='processing'
+                  AND active_fencing_token=$6);
+            """;
+        update.Parameters.Add(Timestamp(expiresAt));
+        update.Parameters.Add(Timestamp(command.Now));
+        update.Parameters.Add(Text(command.Lease.Turn.TenantId));
+        update.Parameters.Add(Text(command.Lease.Turn.ProjectId));
+        update.Parameters.Add(Text(command.Lease.OwnerId));
+        update.Parameters.Add(Bigint(command.Lease.FencingToken));
+        update.Parameters.Add(Text(command.Lease.Turn.TurnId));
+        return await update.ExecuteNonQueryAsync(cancellationToken) == 1
+            ? new ChiefTurnRenewOutcome(true, expiresAt)
+            : new ChiefTurnRenewOutcome(false, null);
+    }
+
     public Task CompleteAsync(
         ChiefTurnCompleteCommand command, CancellationToken cancellationToken = default)
     {

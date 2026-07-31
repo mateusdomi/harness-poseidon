@@ -42,6 +42,46 @@ public sealed partial class SqliteConversationStore
                 token);
         }, cancellationToken);
 
+    public Task<ChiefTurnRenewOutcome> TryRenewAsync(
+        ChiefTurnRenewCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (command.LeaseDuration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(command));
+        }
+
+        return _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            var expiresAt = command.Now.Add(command.LeaseDuration);
+            await using var update = connection.CreateCommand();
+            // O critério é o FENCING, não o relógio: se o lease venceu e ninguém o tomou, renovar é
+            // o certo — evita que este trabalho vivo seja readquirido e pago duas vezes. Se outro
+            // dono já adquiriu, o token mudou e nenhuma linha é afetada.
+            update.CommandText =
+                """
+                UPDATE chief_states
+                SET lease_expires_at=$expires,version=version+1,updated_at=$now
+                WHERE tenant_id=$tenant AND project_id=$project AND lease_owner_id=$owner
+                  AND lease_fencing_token=$fencing
+                  AND EXISTS (
+                    SELECT 1 FROM chief_turn_mailbox
+                    WHERE tenant_id=$tenant AND id=$turn AND state='processing'
+                      AND active_fencing_token=$fencing);
+                """;
+            Add(update, "$expires", Store(expiresAt));
+            Add(update, "$now", Store(command.Now));
+            Add(update, "$tenant", command.Lease.Turn.TenantId);
+            Add(update, "$project", command.Lease.Turn.ProjectId);
+            Add(update, "$owner", command.Lease.OwnerId);
+            Add(update, "$fencing", command.Lease.FencingToken);
+            Add(update, "$turn", command.Lease.Turn.TurnId);
+            return await update.ExecuteNonQueryAsync(token) == 1
+                ? new ChiefTurnRenewOutcome(true, expiresAt)
+                : new ChiefTurnRenewOutcome(false, null);
+        }, cancellationToken);
+    }
+
     public Task CompleteAsync(ChiefTurnCompleteCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<object?>(async (connection, token) =>
         {

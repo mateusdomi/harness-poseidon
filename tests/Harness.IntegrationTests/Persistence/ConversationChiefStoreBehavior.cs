@@ -94,6 +94,29 @@ public static class ConversationChiefStoreBehavior
             "parity-worker", now.AddMilliseconds(4), TimeSpan.FromMinutes(1), cancellationToken);
         Assert.NotNull(lease);
         Assert.Equal(turnId, lease!.Turn.TurnId);
+        // Fase 0A2 (BR-005): o lease do turno RENOVA. Antes, uma inferência mais longa que os dois
+        // minutos de lease deixava o turno vivo parecer abandonado — outro worker o readquiria e o
+        // modelo era chamado de novo, dobrando o custo de uma única pergunta.
+        var renewed = await chiefTurns.TryRenewAsync(
+            new ChiefTurnRenewCommand(lease, now.AddMinutes(1), TimeSpan.FromMinutes(5)),
+            cancellationToken);
+        Assert.True(renewed.Renewed);
+        Assert.Equal(now.AddMinutes(1).AddMinutes(5), renewed.ExpiresAt);
+
+        // Um dono que já perdeu a corrida NÃO estende nada: o critério é o fencing, não o relógio.
+        var strangerLease = lease with { OwnerId = "outro-worker" };
+        Assert.False((await chiefTurns.TryRenewAsync(
+            new ChiefTurnRenewCommand(strangerLease, now.AddMinutes(2), TimeSpan.FromMinutes(5)),
+            cancellationToken)).Renewed);
+        var staleFencing = lease with { FencingToken = lease.FencingToken - 1 };
+        Assert.False((await chiefTurns.TryRenewAsync(
+            new ChiefTurnRenewCommand(staleFencing, now.AddMinutes(2), TimeSpan.FromMinutes(5)),
+            cancellationToken)).Renewed);
+
+        // Renovado com folga, o turno vivo NÃO é readquirido por outro worker.
+        Assert.Null(await chiefTurns.AcquireNextAsync(
+            "worker-invasor", now.AddMinutes(3), TimeSpan.FromMinutes(1), cancellationToken));
+
         var demandsBefore = await countDemandsAsync(tenantId);
         var chiefMessageAt = now.AddMilliseconds(5);
         var demandId = UlidValue.New(now.AddMilliseconds(6)).ToString();

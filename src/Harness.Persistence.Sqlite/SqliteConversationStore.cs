@@ -115,6 +115,62 @@ public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispat
             return values;
         }, cancellationToken);
 
+    public Task<IReadOnlyList<MessageRecord>> ListRecentMessagesAsync(
+        string tenantId,
+        string conversationId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
+        if (limit is < 1 or > 10_000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+
+        return _dispatcher.ExecuteAsync<IReadOnlyList<MessageRecord>>(async (connection, token) =>
+        {
+            var values = new List<MessageRecord>();
+            await using var query = connection.CreateCommand();
+            // DESC no armazenamento (o índice escolhe as últimas sem varrer a conversa inteira) e
+            // inversão antes de devolver, porque quem monta o contexto precisa de ordem cronológica.
+            query.CommandText =
+                $"{MessageSelect} WHERE tenant_id=$tenant AND conversation_id=$conversation " +
+                "ORDER BY id DESC LIMIT $limit;";
+            Add(query, "$tenant", tenantId);
+            Add(query, "$conversation", conversationId);
+            Add(query, "$limit", limit);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token))
+            {
+                values.Add(ReadMessage(reader));
+            }
+
+            values.Reverse();
+            return values;
+        }, cancellationToken);
+    }
+
+    public Task<MessageRecord?> GetFirstMessageAsync(
+        string tenantId,
+        string conversationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
+        return _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            await using var query = connection.CreateCommand();
+            query.CommandText =
+                $"{MessageSelect} WHERE tenant_id=$tenant AND conversation_id=$conversation " +
+                "ORDER BY id LIMIT 1;";
+            Add(query, "$tenant", tenantId);
+            Add(query, "$conversation", conversationId);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            return await reader.ReadAsync(token) ? ReadMessage(reader) : null;
+        }, cancellationToken);
+    }
+
     public Task<MessageMutationResult> CreateMessageAsync(
         MessageCreateCommand command,
         CancellationToken cancellationToken = default) =>

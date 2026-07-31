@@ -9,6 +9,21 @@ public interface IChiefTurnStore
     Task<ChiefTurnLease?> AcquireNextAsync(
         string ownerId, DateTimeOffset now, TimeSpan leaseDuration,
         CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Fase 0A2 (BR-005): RENOVA o lease do turno em andamento. O lease do Chefe dura dois minutos
+    /// e uma inferência longa passava disso sem renovar nada — outro worker readquiria o MESMO
+    /// turno, chamava o modelo de novo e o custo dobrava, com dois efeitos externos para uma única
+    /// pergunta do usuário. O heartbeat de atividade não servia para isso: ele publicava um evento
+    /// de tela e não tocava no lease.
+    ///
+    /// A renovação é condicionada ao par (dono, fencing) e ao turno seguir em <c>processing</c> com
+    /// o mesmo token: um dono que já perdeu a corrida NÃO consegue estender nada. Devolve o novo
+    /// vencimento, ou nulo quando o fencing foi perdido — sinal de que este worker deve parar sem
+    /// escrever, porque quem manda no turno agora é outro.
+    /// </summary>
+    Task<ChiefTurnRenewOutcome> TryRenewAsync(
+        ChiefTurnRenewCommand command, CancellationToken cancellationToken = default);
+
     Task CompleteAsync(ChiefTurnCompleteCommand command, CancellationToken cancellationToken = default);
     /// <summary>
     /// Registra a falha da tentativa e devolve se o turno ainda vai ser retentado ou se MORREU.
@@ -93,6 +108,15 @@ public sealed record ChiefTurnAcquireCommand(
 public sealed record ChiefTurnLease(
     ChiefTurnRecord Turn, string OwnerId, long FencingToken, DateTimeOffset ExpiresAt,
     string ChiefAgentId, string Instruction, string? SessionId);
+
+public sealed record ChiefTurnRenewCommand(
+    ChiefTurnLease Lease, DateTimeOffset Now, TimeSpan LeaseDuration);
+
+/// <summary>
+/// Resultado da renovação. <see cref="Renewed"/> falso significa fencing perdido: o turno pertence
+/// a outro dono e este worker não pode mais escrever nada sobre ele.
+/// </summary>
+public sealed record ChiefTurnRenewOutcome(bool Renewed, DateTimeOffset? ExpiresAt);
 
 public sealed record ChiefTurnCompleteCommand(
     ChiefTurnLease Lease, MessageRecord ChiefMessage, IReadOnlyList<string> Chunks,

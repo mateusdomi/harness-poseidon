@@ -45,6 +45,29 @@ public interface IConversationStore
         int limit,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Fase 0A2 (BR-006): as ÚLTIMAS <paramref name="limit"/> mensagens da conversa, devolvidas em
+    /// ordem cronológica. <see cref="ListMessagesAsync"/> ordena por id crescente, então em um
+    /// projeto longo ele entregava as mensagens MAIS ANTIGAS e descartava tudo o que havia sido
+    /// decidido recentemente — a Bruna respondia com o contexto do primeiro dia.
+    ///
+    /// A seleção é decrescente no armazenamento (o banco escolhe as últimas sem varrer a conversa
+    /// inteira) e invertida antes de devolver, porque a montagem do contexto depende da ordem
+    /// cronológica. A mensagem FUNDADORA vem separada, por <see cref="GetFirstMessageAsync"/>: ela
+    /// é o mandato do projeto e não pode depender de caber na janela recente.
+    /// </summary>
+    Task<IReadOnlyList<MessageRecord>> ListRecentMessagesAsync(
+        string tenantId,
+        string conversationId,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>A primeira mensagem da conversa — o mandato fundador — ou nulo se não houver.</summary>
+    Task<MessageRecord?> GetFirstMessageAsync(
+        string tenantId,
+        string conversationId,
+        CancellationToken cancellationToken = default);
+
     Task<MessageMutationResult> CreateMessageAsync(
         MessageCreateCommand command,
         CancellationToken cancellationToken = default);

@@ -182,6 +182,52 @@ public sealed partial class PostgresConversationStore(NpgsqlDataSource dataSourc
         return values;
     }
 
+    public async Task<IReadOnlyList<MessageRecord>> ListRecentMessagesAsync(
+        string tenantId,
+        string conversationId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
+        if (limit is < 1 or > 10_000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+
+        var values = new List<MessageRecord>();
+        // DESC no armazenamento (o índice escolhe as últimas sem varrer a conversa inteira) e
+        // inversão antes de devolver, porque quem monta o contexto precisa de ordem cronológica.
+        await using var query = _dataSource.CreateCommand(
+            $"{MessageSelect} WHERE tenant_id=$1 AND conversation_id=$2 ORDER BY id DESC LIMIT $3;");
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(conversationId));
+        query.Parameters.Add(Integer(limit));
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            values.Add(ReadMessage(reader));
+        }
+
+        values.Reverse();
+        return values;
+    }
+
+    public async Task<MessageRecord?> GetFirstMessageAsync(
+        string tenantId,
+        string conversationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
+        await using var query = _dataSource.CreateCommand(
+            $"{MessageSelect} WHERE tenant_id=$1 AND conversation_id=$2 ORDER BY id LIMIT 1;");
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(conversationId));
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadMessage(reader) : null;
+    }
+
     public Task<MessageMutationResult> CreateMessageAsync(
         MessageCreateCommand command,
         CancellationToken cancellationToken = default)

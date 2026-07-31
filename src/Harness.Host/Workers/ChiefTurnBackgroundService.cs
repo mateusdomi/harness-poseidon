@@ -53,6 +53,14 @@ public sealed partial class ChiefTurnBackgroundService(
             code => ReasonCodeHumanizer.Humanize(code).Compose(),
             StringComparer.Ordinal);
     private readonly string _ownerId = $"chief-worker:{Environment.ProcessId}:{Guid.NewGuid():N}";
+    private readonly ChiefTurnWorkerOptions _validatedOptions = Validated(options);
+
+    private static ChiefTurnWorkerOptions Validated(ChiefTurnWorkerOptions value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        value.Validate();
+        return value;
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -134,6 +142,7 @@ public sealed partial class ChiefTurnBackgroundService(
         async Task MaintainActivityHeartbeatAsync(
             ChiefTurnActivity activity,
             DateTimeOffset activityStartedAt,
+            CancellationTokenSource leaseLost,
             CancellationToken heartbeatToken)
         {
             using var timer = new PeriodicTimer(options.ActivityHeartbeatInterval);
@@ -143,6 +152,24 @@ public sealed partial class ChiefTurnBackgroundService(
                 {
                     try
                     {
+                        // Fase 0A2 (BR-005): o batimento RENOVA o lease, não apenas pinta a tela.
+                        // Sem isso, uma inferência mais longa que o lease deixava o turno vivo
+                        // parecer abandonado: outro worker o readquiria, chamava o modelo de novo
+                        // e o dono pagava duas vezes pela mesma pergunta.
+                        var renewal = await turns.TryRenewAsync(
+                            new ChiefTurnRenewCommand(lease, clock.UtcNow, options.LeaseDuration),
+                            heartbeatToken);
+                        if (!renewal.Renewed)
+                        {
+                            // Perdemos o fencing: outro dono assumiu o turno. Continuar seria
+                            // gastar cota para produzir um resultado que o store vai recusar.
+                            LogTurnLeaseLost(logger, lease.Turn.TurnId, lease.FencingToken);
+                            PoseidonTelemetry.RecordChiefTurnLease("lost");
+                            await leaseLost.CancelAsync();
+                            return;
+                        }
+
+                        PoseidonTelemetry.RecordChiefTurnLease("renewed");
                         await ReportAsync(
                             activity,
                             activityStartedAt: activityStartedAt,
@@ -169,6 +196,10 @@ public sealed partial class ChiefTurnBackgroundService(
             }
         }
 
+        // Cancelado quando o batimento descobre que o fencing foi perdido. Um turno tomado por
+        // outro dono precisa PARAR aqui: qualquer escrita nossa seria recusada pelo store, e a
+        // inferência em curso viraria custo puro.
+        using var leaseLost = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         try
         {
             await ReportAsync(ChiefTurnActivity.ReadingContext);
@@ -321,6 +352,7 @@ public sealed partial class ChiefTurnBackgroundService(
                 var heartbeat = MaintainActivityHeartbeatAsync(
                     ChiefTurnActivity.Thinking,
                     thinkingStartedAt,
+                    leaseLost,
                     heartbeatCancellation.Token);
                 try
                 {
@@ -339,7 +371,9 @@ public sealed partial class ChiefTurnBackgroundService(
                             communicationInstructions,
                             specialists,
                             communicationContext),
-                        cancellationToken);
+                        // Perder o lease ABORTA a inferência: seguir gastando cota para um turno
+                        // que já pertence a outro dono é o custo duplicado que BR-005 descreve.
+                        leaseLost.Token);
                 }
                 finally
                 {
@@ -485,6 +519,16 @@ public sealed partial class ChiefTurnBackgroundService(
                 "cancelled",
                 Stopwatch.GetElapsedTime(turnStartedAt).TotalMilliseconds);
             throw;
+        }
+        catch (OperationCanceledException) when (leaseLost.IsCancellationRequested)
+        {
+            // Fencing perdido. NÃO escrevemos nada — nem conclusão, nem falha: o store recusaria,
+            // e registrar uma falha aqui marcaria como quebrado um turno que outro dono está
+            // conduzindo normalmente. O fato fica no log e na métrica.
+            turnActivity?.SetTag("chief.result", "lease_lost");
+            PoseidonTelemetry.RecordChiefTurn(
+                "lease_lost",
+                Stopwatch.GetElapsedTime(turnStartedAt).TotalMilliseconds);
         }
         catch (Exception exception)
         {
@@ -801,6 +845,13 @@ public sealed partial class ChiefTurnBackgroundService(
         Level = LogLevel.Information,
         Message = "Chief: lease do projeto disputado ({ErrorType}); o ciclo cede a vez e tenta no próximo tick.")]
     private static partial void LogTurnLeaseContended(ILogger logger, string errorType);
+
+    [LoggerMessage(
+        EventId = 2107,
+        Level = LogLevel.Warning,
+        Message = "Chief: o turno {TurnId} perdeu o lease (fencing {FencingToken}); a execução foi abortada sem escrever.")]
+    private static partial void LogTurnLeaseLost(
+        ILogger logger, string turnId, long fencingToken);
 
     [LoggerMessage(
         EventId = 2106,

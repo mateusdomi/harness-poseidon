@@ -125,9 +125,26 @@ public sealed class ChiefContextComposer(
         ArgumentException.ThrowIfNullOrWhiteSpace(projectId);
         ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
 
-        var history = await _conversations.ListMessagesAsync(
-            tenantId, conversationId, null, _options.HistoryScanLimit, cancellationToken);
-        var items = MapToContextItems(history);
+        // Fase 0A2 (BR-006): as ÚLTIMAS N mensagens, não as primeiras. A leitura anterior era
+        // crescente com LIMIT, então em um projeto longo a Bruna recebia o começo da conversa e
+        // ignorava tudo o que tinha sido decidido depois — o pior tipo de erro, porque a resposta
+        // sai coerente e errada.
+        var recent = await _conversations.ListRecentMessagesAsync(
+            tenantId, conversationId, _options.HistoryScanLimit, cancellationToken);
+
+        // O mandato FUNDADOR não pode depender de caber na janela recente: ele é o que a conversa
+        // inteira está tentando cumprir. Vem separado e é fixado — sem duplicar quando a conversa
+        // ainda é curta e ele já está entre as recentes.
+        var founding = await _conversations.GetFirstMessageAsync(
+            tenantId, conversationId, cancellationToken);
+
+        // Notas externalizadas eram WRITE-ONLY: a estratégia gravava fatos críticos que ninguém
+        // jamais lia de volta. Reinjetá-las é o que torna a compactação uma memória, e não uma
+        // perda. O store é keyed por (tenant, projeto), então nada de outro projeto entra aqui.
+        var notes = await _notes.ListAsync(
+            tenantId, projectId, conversationId, _options.NoteRetrievalLimit, cancellationToken);
+
+        var items = MapToContextItems(recent, founding, notes);
         var result = _strategy.Apply(items, _options.Budget);
 
         var persisted = 0;
@@ -152,28 +169,76 @@ public sealed class ChiefContextComposer(
             Render(result.Context), result.EstimatedTokens, result.Compacted, persisted, result.Context.Count);
     }
 
-    // Mapeia o histórico durável da conversa para itens de contexto ordenados. A mensagem MAIS
-    // ANTIGA (o mandato fundador) é fixada e marcada como crítica: é exatamente o tipo de fato que
-    // deve ser externalizado como nota durável e sobreviver à compactação para sempre.
-    private static ContextItem[] MapToContextItems(IReadOnlyList<MessageRecord> history)
+    /// <summary>
+    /// Monta a janela: o mandato fundador (fixado e crítico), as notas já externalizadas e as
+    /// mensagens recentes, nesta ordem e sem repetir ninguém. A sequência é crescente — maior é
+    /// mais recente —, que é como a estratégia decide o que preservar verbatim.
+    /// </summary>
+    private static ContextItem[] MapToContextItems(
+        IReadOnlyList<MessageRecord> recent,
+        MessageRecord? founding,
+        IReadOnlyList<ChiefContextNoteRecord> notes)
     {
-        var items = new ContextItem[history.Count];
-        for (var index = 0; index < history.Count; index++)
+        var items = new List<ContextItem>(recent.Count + notes.Count + 1);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var sequence = 0L;
+
+        if (founding is not null)
         {
-            var message = history[index];
-            var founding = index == 0;
-            items[index] = new ContextItem(
+            seen.Add(founding.Id);
+            items.Add(new ContextItem(
+                founding.Id,
+                founding.AuthorRole,
+                ContextItemKind.Message,
+                founding.Content,
+                founding.TokenCount ?? GovernanceManifestSynchronizer.EstimateTokens(founding.Content),
+                sequence++,
+                Pinned: true,
+                Critical: true));
+        }
+
+        foreach (var note in notes)
+        {
+            // A nota entra com PROVENANCE: quem lê o contexto precisa saber que aquilo é um fato
+            // externalizado de um turno anterior, e de qual item ele veio — sem isso, memória
+            // recuperada é indistinguível de alucinação.
+            if (!seen.Add(note.NoteId))
+            {
+                continue;
+            }
+
+            items.Add(new ContextItem(
+                note.NoteId,
+                note.Role,
+                ContextItemKind.Note,
+                $"[nota durável · origem {note.SourceItemId} · registrada em " +
+                $"{note.CreatedAt.ToUniversalTime():yyyy-MM-dd HH:mm} UTC]\n{note.Content}",
+                note.TokenEstimate,
+                sequence++,
+                Pinned: true,
+                Critical: false,
+                Noted: true));
+        }
+
+        foreach (var message in recent)
+        {
+            // A fundadora pode estar entre as recentes quando a conversa ainda é curta: entra uma
+            // vez só, e como fundadora.
+            if (!seen.Add(message.Id))
+            {
+                continue;
+            }
+
+            items.Add(new ContextItem(
                 message.Id,
                 message.AuthorRole,
                 ContextItemKind.Message,
                 message.Content,
                 message.TokenCount ?? GovernanceManifestSynchronizer.EstimateTokens(message.Content),
-                index,
-                Pinned: founding,
-                Critical: founding);
+                sequence++));
         }
 
-        return items;
+        return [.. items];
     }
 
     private static string Render(IReadOnlyList<ContextItem> items)

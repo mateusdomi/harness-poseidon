@@ -56,6 +56,15 @@ internal static class PoseidonTelemetry
             unit: "ms",
             description: "Duration of chief turns.");
 
+    /// <summary>
+    /// Fase 0A2 (BR-005): renovação, perda e rejeição do lease do turno. Sem esta série, um turno
+    /// duplicado por lease vencido só aparecia na fatura — nunca na operação.
+    /// </summary>
+    private static Counter<long> ChiefTurnLeaseCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.chief.turn.lease.count",
+            description: "Chief turn lease outcomes (renewed, lost, expired).");
+
     private static Counter<long> AgentExecutionCounter { get; } =
         Meter.CreateCounter<long>(
             "poseidon.agent.execution.count",
@@ -229,6 +238,9 @@ internal static class PoseidonTelemetry
         ChiefTurnCounter.Add(1, tags);
         ChiefTurnDuration.Record(durationMilliseconds, tags);
     }
+
+    internal static void RecordChiefTurnLease(string outcome) =>
+        ChiefTurnLeaseCounter.Add(1, new TagList { { "outcome", outcome } });
 
     internal static void RecordAgentExecution(
         string executor,

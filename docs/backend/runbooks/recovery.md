@@ -96,6 +96,29 @@ tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationT
   --filter FullyQualifiedName~PlanMaterializationDurabilityTests
 ```
 
+## Turno do Chefe duplicado ou sem contexto recente
+
+O lease do turno é RENOVADO pelo batimento (`TryRenewAsync`), condicionado ao par (dono, fencing).
+Uma inferência mais longa que o lease deixou de órfanizar o turno vivo.
+
+1. Turno aparentemente executado duas vezes: confira `poseidon.chief.turn.lease.count` por
+   `outcome`. `lost` significa que um worker descobriu o fencing perdido e ABORTOU sem escrever —
+   é o comportamento correto, não um erro. Reincidência aponta para renovação lenta: compare
+   `LeaseDuration` com `ActivityHeartbeatInterval` (o mínimo exigido é o triplo).
+2. Turno preso: o lease NÃO bloqueia recuperação. Sem renovação, ele vence e outro worker adquire
+   com fencing maior. Se um turno segue `processing` sem dono vivo, verifique se o processo antigo
+   continua rodando antes de mexer no banco.
+3. A Bruna respondendo com contexto antigo: o histórico é lido pelas ÚLTIMAS N mensagens
+   (`ListRecentMessagesAsync`), com o mandato fundador preservado à parte e as notas externalizadas
+   reinjetadas com proveniência. Se o contexto voltar a parecer antigo, cheque `HistoryScanLimit`,
+   o orçamento de tokens e se `chief_context_notes` está sendo lido — nota gravada e nunca lida é
+   esquecimento, não memória.
+
+```bash
+tools/backend/dotnet.sh test tests/Harness.IntegrationTests/Harness.IntegrationTests.csproj \
+  --filter "FullyQualifiedName~ChiefTurnLeaseRenewalTests|FullyQualifiedName~ChiefLongProjectContextTests"
+```
+
 ## Prova e encerramento
 
 A simulação canônica envia `SIGKILL` depois do terceiro checkpoint e comprova, em
