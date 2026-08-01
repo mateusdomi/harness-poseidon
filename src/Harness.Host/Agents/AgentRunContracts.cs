@@ -163,6 +163,13 @@ public sealed record StartAgentRunCommand
     public IReadOnlyList<string>? RequiredToolIds { get; init; }
 
     /// <summary>
+    /// Chave da persona que o despachante resolveu para este card (Fase 2A.3). O orquestrador a
+    /// usa para carregar a definição e injetá-la no bundle — sem isso o agente executa com papel e
+    /// escopo, mas sem nenhuma palavra sobre COMO aquela especialidade pensa e onde ela para.
+    /// </summary>
+    public string? PersonaKey { get; init; }
+
+    /// <summary>
     /// Contexto de continuação governada, quando esta tentativa retoma o trabalho de uma
     /// tentativa anterior reprovada. Nulo para um run do zero.
     /// </summary>

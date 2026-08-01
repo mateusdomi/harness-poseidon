@@ -13,9 +13,20 @@ public interface IWorkflowDocumentTemplateStore
         CancellationToken cancellationToken = default);
 }
 
+/// <param name="MetricFormatsJson">
+/// Mapa campo → formato exigido, para os campos que carregam MÉTRICA. Vazio (<c>{}</c>) quando o
+/// template não tem nenhuma. "Lead time" ora em horas, ora em dias, ora em "rápido" não é métrica:
+/// é opinião com número.
+/// </param>
+/// <param name="Guidance">
+/// O que o documento precisa PROVAR. Não é prosa de exemplo — que o agente copiaria — e sim o
+/// critério que separa o documento pronto do documento preenchido.
+/// </param>
 public sealed record WorkflowDocumentTemplateRecord(
     string Code,
     string Name,
     string Phase,
     string TargetCardType,
-    string RequiredFieldsJson);
+    string RequiredFieldsJson,
+    string MetricFormatsJson,
+    string Guidance);

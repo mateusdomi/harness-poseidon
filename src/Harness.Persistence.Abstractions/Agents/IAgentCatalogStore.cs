@@ -140,7 +140,20 @@ public sealed record AgentDefinitionRecord(
     /// Caminhos que ela NUNCA toca. A ausência é a omissão que deixa governança, segredo e o
     /// próprio quadro abertos por esquecimento — e omissão não é decisão.
     /// </summary>
-    IReadOnlyList<string>? DeniedScopes = null);
+    IReadOnlyList<string>? DeniedScopes = null,
+
+    /// <summary>
+    /// QUANDO acionar esta persona (Fase 2A.3). Sem isto, escolher especialista é adivinhação por
+    /// semelhança de nome, e o card de banco de dados cai no back-end genérico porque "parece
+    /// parecido".
+    /// </summary>
+    IReadOnlyList<string>? ActivationCriteria = null,
+
+    /// <summary>
+    /// Quando NÃO acionar — a fronteira negativa (B11). A ausência é a omissão que faz uma persona
+    /// ser chamada para tudo e, por isso, não servir para nada.
+    /// </summary>
+    IReadOnlyList<string>? NonActivationCriteria = null);
 
 public sealed record AgentDefinitionContent(
     string Key, string Name, string Role, string? Specialty, string Description,
@@ -153,7 +166,11 @@ public sealed record AgentDefinitionContent(
     string? Team = null, string? ActorCritic = null, string? Risk = null,
     // B8/F17 — o que a persona pode e não pode TOCAR. `Stacks` diz tecnologia e `Limitations` é
     // texto livre; nenhum dos dois é escopo de caminho, e o lint de persona julga caminho.
-    IReadOnlyList<string>? AllowedScopes = null, IReadOnlyList<string>? DeniedScopes = null);
+    IReadOnlyList<string>? AllowedScopes = null, IReadOnlyList<string>? DeniedScopes = null,
+    // Fase 2A.3 — QUANDO acionar e quando NÃO acionar. Sem os dois, a escolha de especialista é
+    // semelhança de nome, e a persona sem fronteira negativa é chamada para tudo.
+    IReadOnlyList<string>? ActivationCriteria = null,
+    IReadOnlyList<string>? NonActivationCriteria = null);
 public sealed record AgentDefinitionVersionRecord(
     string Id, string DefinitionId, int Version, AgentDefinitionContent Snapshot,
     string ActorProfileId, DateTimeOffset CreatedAt);

@@ -15,6 +15,7 @@ using Harness.Modules.Governance.Memory;
 using Harness.Modules.Providers.Application;
 using Harness.Modules.Tools.Application;
 using Harness.Modules.Tools.Domain;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Governance;
@@ -58,7 +59,8 @@ public sealed class AgentRunOrchestrator(
     IMastClassificationStore mastClassifications,
     SandboxAttestationService sandboxAttestations,
     ExecutionCheckpointService checkpoints,
-    Harness.Host.Governance.PromotedSkillProvider promotedSkills)
+    Harness.Host.Governance.PromotedSkillProvider promotedSkills,
+    IAgentCatalogStore personas)
 {
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
@@ -767,6 +769,11 @@ public sealed class AgentRunOrchestrator(
             // projeto entram no bundle filtradas pelo escopo da persona que as originou.
             var skills = await promotedSkills.ListForProjectAsync(
                 command.TenantId, command.ProjectId, cancellationToken);
+
+            // Fase 2A.3: a PERSONA resolvida pelo despachante entra no bundle. Sem isto o agente
+            // executava com papel e escopo e nenhuma palavra sobre como a especialidade pensa,
+            // o que ela entrega e onde ela para — um executor genérico com crachá de especialista.
+            var personaSlice = await ResolvePersonaSliceAsync(command, cancellationToken);
             var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
                 command.TenantId, command.ProjectId, command.TaskId, command.AttemptId,
                 command.AccountAlias, account.ProviderKind, command.Model,
@@ -782,7 +789,8 @@ public sealed class AgentRunOrchestrator(
                     slice.Content,
                     slice.CitationReference,
                     slice.TokenCount)).ToArray(),
-                skills));
+                skills,
+                personaSlice));
 
             await governance.CreateContextSnapshotAsync(
                 ContextSnapshotFactory.Create(
@@ -1029,6 +1037,54 @@ public sealed class AgentRunOrchestrator(
         if (!decision.Allowed)
         {
             throw new CapabilityDeniedException(decision);
+        }
+    }
+
+    /// <summary>
+    /// Carrega a definição da persona resolvida para o card e a converte em fatia de contexto.
+    ///
+    /// Persona não resolvida ou ausente do catálogo devolve <see langword="null"/>: o run segue
+    /// sem o segmento. Bloquear aqui trocaria uma execução sem persona — ruim — por nenhuma
+    /// execução, que é pior; e o caminho fail-closed que importa (ferramentas da persona) já
+    /// existe em <see cref="AuthorizeRequiredToolsAsync"/>.
+    /// </summary>
+    private async Task<ContextPersonaSlice?> ResolvePersonaSliceAsync(
+        StartAgentRunCommand command, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.PersonaKey))
+        {
+            return null;
+        }
+
+        try
+        {
+            var definitions = await personas.ListDefinitionsForTenantAsync(
+                command.TenantId, null, 200, false, cancellationToken);
+            var definition = definitions.FirstOrDefault(item =>
+                string.Equals(item.Key, command.PersonaKey, StringComparison.OrdinalIgnoreCase));
+            if (definition is null)
+            {
+                Observability.PoseidonTelemetry.RecordPersonaBundle("not_found");
+                return null;
+            }
+
+            Observability.PoseidonTelemetry.RecordPersonaBundle("resolved");
+            return new ContextPersonaSlice(
+                definition.Key,
+                definition.Name,
+                definition.Persona,
+                definition.Mission,
+                definition.OperatingPrinciples ?? [],
+                definition.Deliverables ?? [],
+                definition.Limitations ?? []);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _ = exception;
+            // Catálogo indisponível NÃO derruba a tentativa: executar sem persona é ruim, não
+            // executar é pior. A série de telemetria existe para que essa degradação apareça.
+            Observability.PoseidonTelemetry.RecordPersonaBundle("unavailable");
+            return null;
         }
     }
 

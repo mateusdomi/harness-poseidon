@@ -41,6 +41,29 @@
         "interagentmisalignment": "Desalinhamento entre agentes",
         "verificationandtermination": "Verificação e término"
       }
+    },
+    "intents": {
+      "title": "Conversa com a liderança, por assunto",
+      "help": "Cada conversa é classificada por assunto antes de virar ação. A coluna de ajustes mostra quantas vezes o sistema impediu uma conversa de virar trabalho que ninguém pediu.",
+      "intent": "Assunto",
+      "turns": "Conversas",
+      "average": "Tempo médio",
+      "p95": "Tempo no pior caso (P95)",
+      "dropped": "Ajustes do sistema",
+      "confidence": "Certeza da classificação",
+      "names": {
+        "planejar_demanda": "Planejar trabalho novo",
+        "responder_pergunta": "Responder pergunta",
+        "resumir_progresso": "Resumir progresso",
+        "decidir_escalacao": "Decidir escalar",
+        "aprovar_documento": "Aprovar documento",
+        "decidir_gate_de_fase": "Decidir avanço de etapa",
+        "tratar_barreira_externa": "Tratar impedimento externo",
+        "ajustar_projeto": "Ajustar o projeto",
+        "pedir_status_pessoa_equipe": "Status da equipe",
+        "conversa_geral": "Conversa geral",
+        "unmatched": "Não classificada"
+      }
     }
   }
 }

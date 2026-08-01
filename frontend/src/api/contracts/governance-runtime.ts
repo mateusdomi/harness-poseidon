@@ -457,10 +457,23 @@ export const capabilityMeasurementSchema = z.object({
 });
 export type CapabilityMeasurement = z.infer<typeof capabilityMeasurementSchema>;
 
+/** B14: o turno da chefe medido por intenção — o laço mais quente, antes não medido. */
+export const chiefIntentUsageSchema = z.object({
+  intent: z.string(),
+  turns: z.number().int(),
+  averageDurationMs: z.number(),
+  p95DurationMs: z.number().int(),
+  /** Turnos em que a rota da intenção descartou ação proposta pelo modelo. */
+  turnsWithDroppedActions: z.number().int(),
+  averageConfidence: z.number(),
+});
+export type ChiefIntentUsage = z.infer<typeof chiefIntentUsageSchema>;
+
 export const projectReliabilitySchema = z.object({
   projectId: z.string(),
   classifiedAttempts: z.number().int(),
   subscriptions: subscriptionUsageSchema.array(),
+  intents: chiefIntentUsageSchema.array(),
   /** `true` quando o histórico é maior que a amostra lida — a tela precisa DIZER isso. */
   sampleTruncated: z.boolean(),
   failureModesByCategory: z.record(z.string(), z.number().int()),

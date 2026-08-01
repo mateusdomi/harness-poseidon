@@ -250,6 +250,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAuditEventStore, PostgresAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, PostgresGovernanceRuntimeStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, PostgresLearningCandidateStore>();
+            builder.Services.AddSingleton<IChiefTurnIntentStore, PostgresChiefTurnIntentStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, PostgresPhaseObligationStore>();
             builder.Services.AddSingleton<IAgentRequestStore, PostgresAgentRequestStore>();
             builder.Services.AddSingleton<IExecutionCheckpointStore, PostgresExecutionCheckpointStore>();
@@ -289,6 +290,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, SqliteGovernanceRuntimeStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, SqliteLearningCandidateStore>();
+            builder.Services.AddSingleton<IChiefTurnIntentStore, SqliteChiefTurnIntentStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, SqlitePhaseObligationStore>();
             builder.Services.AddSingleton<IAgentRequestStore, SqliteAgentRequestStore>();
             builder.Services.AddSingleton<IExecutionCheckpointStore, SqliteExecutionCheckpointStore>();
@@ -590,7 +592,8 @@ public static class HostApplication
                 services.GetRequiredService<IMastClassificationStore>(),
                 services.GetRequiredService<Execution.SandboxAttestationService>(),
                 services.GetRequiredService<ExecutionCheckpointService>(),
-                services.GetRequiredService<Harness.Host.Governance.PromotedSkillProvider>()));
+                services.GetRequiredService<Harness.Host.Governance.PromotedSkillProvider>(),
+                services.GetRequiredService<IAgentCatalogStore>()));
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para

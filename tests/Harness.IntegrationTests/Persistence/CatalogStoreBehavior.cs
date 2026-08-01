@@ -28,6 +28,10 @@ public static class CatalogStoreBehavior
         "architecture-security", "architecture-infrastructure",
         "architecture-rationalization-analyst", "architecture-critic",
         "architecture-adr-writer",
+        // Fase 2A.3: as nove especialidades do playbook, com profundidade operacional.
+        "playbook-product-owner", "playbook-arquiteto", "playbook-tech-lead", "playbook-qa",
+        "playbook-devops", "playbook-sre-sustentacao", "playbook-security", "playbook-dba-dados",
+        "playbook-dev-executor",
     ];
 
     public static async Task AssertAsync(

@@ -23930,6 +23930,62 @@
                     }
                 }
             },
+            "ChiefIntentUsageContract": {
+                "required": [
+                    "intent",
+                    "turns",
+                    "averageDurationMs",
+                    "p95DurationMs",
+                    "turnsWithDroppedActions",
+                    "averageConfidence"
+                ],
+                "type": "object",
+                "properties": {
+                    "intent": {
+                        "type": "string"
+                    },
+                    "turns": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "averageDurationMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "p95DurationMs": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "turnsWithDroppedActions": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "averageConfidence": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    }
+                }
+            },
             "ClassifyDocumentRequest": {
                 "type": "object",
                 "properties": {
@@ -24340,6 +24396,12 @@
                         }
                     },
                     "phaseName": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "templateCode": {
                         "type": [
                             "null",
                             "string"
@@ -31913,6 +31975,7 @@
                     "projectId",
                     "classifiedAttempts",
                     "subscriptions",
+                    "intents",
                     "sampleTruncated",
                     "failureModesByCategory",
                     "advice",
@@ -31935,6 +31998,12 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/SubscriptionUsageContract"
+                        }
+                    },
+                    "intents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ChiefIntentUsageContract"
                         }
                     },
                     "sampleTruncated": {

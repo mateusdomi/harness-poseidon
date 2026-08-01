@@ -40,8 +40,15 @@ public sealed class FakeAgentExecutor : IAgentExecutor
                     ["Critério de aceite proposto pelo Chief."]);
             })
             .ToArray();
+        // B14: o simulado classifica como o real classifica. Emitir demanda sem declarar a
+        // intenção que a autoriza faria o portão descartá-la — e o teste de integração mediria o
+        // portão, não o fluxo que ele quer provar.
         var structured = JsonSerializer.Serialize(
-            new FakeChiefOutput(string.Concat(chunks), demands),
+            new FakeChiefOutput(
+                string.Concat(chunks),
+                demands,
+                demands.Length > 0 ? "planejar_demanda" : "conversa_geral",
+                0.95),
             JsonOptions);
         _ = ChiefTurnOutputContract.Parse(structured);
         return Task.FromResult(new AgentExecutionResult(
@@ -53,7 +60,11 @@ public sealed class FakeAgentExecutor : IAgentExecutor
             (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds));
     }
 
-    private sealed record FakeChiefOutput(string Response, IReadOnlyList<FakeDemandProposal> Demands);
+    private sealed record FakeChiefOutput(
+        string Response,
+        IReadOnlyList<FakeDemandProposal> Demands,
+        string Intent,
+        double IntentConfidence);
 
     private sealed record FakeDemandProposal(
         string Title,

@@ -62,6 +62,11 @@ não podem alterar esta ordem.
   on-demand` exige solicitação explícita.
 - Alterações concorrentes preservam trabalho alheio. Perda de estado, force push,
   bypass de gate ou escrita fora do escopo são proibidos.
+- **O modelo decide o quê; o sistema decide como e se pode.** O juízo do modelo produz
+  conteúdo e classificação; a sequência de passos, a permissão de cada ação e a
+  verificação de cada resultado são código determinístico e testável. Uma capacidade
+  cujo caminho dependa de o modelo lembrar de segui-lo não é uma garantia — é uma
+  esperança com nome de regra.
 
 ## Conteúdo não confiável e prompt injection
 

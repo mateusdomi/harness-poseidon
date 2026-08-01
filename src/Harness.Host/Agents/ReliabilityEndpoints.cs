@@ -1,5 +1,6 @@
 using Harness.Host.Profiles;
 using Harness.Modules.Coordination.Application;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Providers;
@@ -43,6 +44,7 @@ public static class ReliabilityEndpoints
         ILocalProfileStore profiles,
         IMastClassificationStore mast,
         IModelInvocationStore invocations,
+        IChiefTurnIntentStore turnIntents,
         CancellationToken token)
     {
         if (!UlidValue.TryParse(projectId, out _))
@@ -132,10 +134,41 @@ public static class ReliabilityEndpoints
                 PassAtKPolicy.RecommendMaxRounds(measurement, rounds)))
             .ToArray();
 
+        // B14 (Fase 2B): a dimensão de INTENÇÃO. O turno da chefe é o laço mais quente do produto
+        // e era o único sem medição; sem esta série, "o B14 reduziu custo e variância" seria
+        // afirmação sem número, e a média de todos os turnos esconderia a intenção cara.
+        var intents = Array.Empty<ChiefIntentUsageContract>();
+        try
+        {
+            var turns = await turnIntents.ListByProjectAsync(
+                profile.TenantId, projectId, InvocationSampleSize, token);
+            intents = turns
+                .GroupBy(item => item.Intent, StringComparer.Ordinal)
+                .Select(group => new ChiefIntentUsageContract(
+                    group.Key,
+                    group.Count(),
+                    Math.Round(group.Average(item => item.DurationMs), 1),
+                    group.OrderBy(item => item.DurationMs).ElementAt((int)(group.Count() * 0.95) >= group.Count()
+                        ? group.Count() - 1
+                        : (int)(group.Count() * 0.95)).DurationMs,
+                    group.Count(item => item.DemandsDropped > 0 || item.TeamActionsDropped > 0),
+                    Math.Round(group.Average(item => item.Confidence), 2)))
+                .OrderByDescending(item => item.Turns)
+                .ThenBy(item => item.Intent, StringComparer.Ordinal)
+                .ToArray();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Painel sem a dimensão de intenção continua útil; painel que falha inteiro por causa
+            // dela, não. A lista vazia é lida pela tela como "ainda não há turnos medidos".
+            _ = exception;
+        }
+
         return Results.Ok(new ProjectReliabilityContract(
             projectId,
             classifications.Count,
             usage,
+            intents,
             projectInvocations.Count >= InvocationSampleSize,
             distribution.CountByCategory.ToDictionary(
                 entry => entry.Key.ToString().ToLowerInvariant(),
@@ -159,10 +192,28 @@ public sealed record ProjectReliabilityContract(
     string ProjectId,
     int ClassifiedAttempts,
     IReadOnlyList<SubscriptionUsageContract> Subscriptions,
+    IReadOnlyList<ChiefIntentUsageContract> Intents,
     bool SampleTruncated,
     IReadOnlyDictionary<string, int> FailureModesByCategory,
     string Advice,
     IReadOnlyList<CapabilityMeasurementContract> Capabilities);
+
+/// <summary>
+/// B14: o turno da chefe medido por INTENÇÃO — quantos, quanto demoram e quantas vezes a rota
+/// precisou cortar ação proposta.
+/// </summary>
+/// <param name="TurnsWithDroppedActions">
+/// Turnos em que a rota descartou ação que o modelo propôs. Corte frequente numa intenção
+/// significa ou modelo classificando mal, ou rota apertada demais — as duas hipóteses se
+/// distinguem olhando a série, e nenhuma delas aparece sem este número.
+/// </param>
+public sealed record ChiefIntentUsageContract(
+    string Intent,
+    int Turns,
+    double AverageDurationMs,
+    long P95DurationMs,
+    int TurnsWithDroppedActions,
+    double AverageConfidence);
 
 /// <summary>Produtividade e custo de uma assinatura no projeto.</summary>
 public sealed record SubscriptionUsageContract(

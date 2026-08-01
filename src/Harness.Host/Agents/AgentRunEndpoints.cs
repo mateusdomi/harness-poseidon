@@ -404,6 +404,7 @@ public static class AgentRunEndpoints
                     ? input.AcceptanceCriteria ?? []
                     : [.. continuation.PriorFindings, .. input.AcceptanceCriteria ?? []],
                 RequiredToolIds = persona.ToolIds,
+                PersonaKey = persona.Key,
                 Continuation = continuation,
             },
             token);

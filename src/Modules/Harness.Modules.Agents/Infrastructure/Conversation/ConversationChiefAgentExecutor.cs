@@ -251,6 +251,27 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         {SchemaJson}
 
         Regras:
+        - `intent`: CLASSIFIQUE esta mensagem em UMA das intenções abaixo. Esta é a única decisão
+          de rota que você toma — a sequência de passos e o que este turno pode fazer saem de uma
+          tabela do sistema, não do seu julgamento. Classificar errado NÃO libera ação: ações fora
+          da rota são descartadas.
+          - `planejar_demanda`: o usuário pediu trabalho novo, a ser decomposto e delegado;
+          - `responder_pergunta`: pergunta sobre o produto, o projeto ou uma decisão já tomada;
+          - `resumir_progresso`: pedido de panorama do que andou, travou e vem a seguir;
+          - `decidir_escalacao`: algo travou e é preciso decidir se escala ao usuário;
+          - `aprovar_documento`: aprovação ou reprovação de um documento submetido;
+          - `decidir_gate_de_fase`: decisão sobre avançar (ou não) uma fase da esteira;
+          - `tratar_barreira_externa`: obstáculo fora do alcance da fábrica (acesso, credencial,
+            terceiro) que precisa de ação do usuário;
+          - `ajustar_projeto`: mudança de prazo, objetivo ou marca do projeto;
+          - `pedir_status_pessoa_equipe`: pergunta sobre uma especialidade ou sobre a equipe;
+          - `conversa_geral`: saudação, agradecimento ou comentário que não pede ação nenhuma.
+        - `intentConfidence`: número entre 0 e 1. Seja honesto: abaixo de 0,6 o sistema trata o
+          turno como não classificado e RETIRA a permissão de agir. Inflar a confiança para
+          "destravar" ação é exatamente o que este campo existe para impedir.
+        - SOMENTE `planejar_demanda` e `decidir_escalacao` podem emitir `demands`; SOMENTE
+          `planejar_demanda` pode emitir `teamActions`. Nas demais intenções, esses campos são
+          descartados pelo sistema — conversa não vira trabalho por engano.
         - `response`: sua resposta ao usuário, em texto natural (o que aparece no chat).
         - `demands`: lista das demandas que você quer delegar a especialistas AGORA; use `[]`
           quando não for delegar nada neste turno. Nunca invente demanda para preencher.

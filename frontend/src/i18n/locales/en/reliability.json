@@ -41,6 +41,29 @@
         "interagentmisalignment": "Inter-agent misalignment",
         "verificationandtermination": "Verification and termination"
       }
+    },
+    "intents": {
+      "title": "Leadership conversations, by topic",
+      "help": "Every conversation is classified by topic before it becomes action. The adjustments column shows how many times the system stopped a conversation from becoming work nobody asked for.",
+      "intent": "Topic",
+      "turns": "Conversations",
+      "average": "Average time",
+      "p95": "Worst case (P95)",
+      "dropped": "System adjustments",
+      "confidence": "Classification certainty",
+      "names": {
+        "planejar_demanda": "Plan new work",
+        "responder_pergunta": "Answer a question",
+        "resumir_progresso": "Summarize progress",
+        "decidir_escalacao": "Decide on escalation",
+        "aprovar_documento": "Approve a document",
+        "decidir_gate_de_fase": "Decide stage advance",
+        "tratar_barreira_externa": "Handle external blocker",
+        "ajustar_projeto": "Adjust the project",
+        "pedir_status_pessoa_equipe": "Team status",
+        "conversa_geral": "General conversation",
+        "unmatched": "Unclassified"
+      }
     }
   }
 }

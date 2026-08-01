@@ -79,7 +79,7 @@ documents:
   - '**'
   load: always
   priority: 1000
-  tokenCost: 977
+  tokenCost: 1073
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -94,7 +94,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:a58c8b605ede46a9483aaa15903610750f112ba673ea3507ff2b304b987b5631
+  checksum: sha256:3d5165ebdde73ff390cfd50ddeb56a4b5b4cd0c1f005648f1eb5b6f5f62fc5bc
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/core.md
@@ -714,7 +714,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:ae58992a3b9d0b714f8aef23d32f8c19a4964572e3f682ca28b98e9a688c4326
+  checksum: sha256:b23853164f923ebc0dee5695ac1edb075d7263420c37c121b88cbbfa4beca7c8
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -774,7 +774,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:18461cd5af39750b3a3c90c57997c0fd7cc19c265b840ad0676265e7de872123
+  checksum: sha256:b4ed0ae542d56e2e6a87fabdd0aba8bb17e243ee2e2b88e7186468bb9ad5e193
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -808,7 +808,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 1476
+  tokenCost: 1505
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -823,7 +823,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:84124ca97247a7ac4a8e982002dd41577c38955590ad574c4debcd789429ed66
+  checksum: sha256:0ee5cc9b714643686a8890aac911457568f43a91796a98eadb5679127342dbe1
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1284,7 +1284,7 @@ documents:
   - src/Modules/Harness.Modules.Coordination/**
   load: bundle
   priority: 850
-  tokenCost: 590
+  tokenCost: 2651
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -1296,7 +1296,7 @@ documents:
   related:
   - contract-card
   enforcedBy: []
-  checksum: sha256:6c4c277ddcc82ee178d7a2b9d9601d78c0f42bbeeb49a9c48159e2092dac8e7c
+  checksum: sha256:c5cbacce9539fc13394761bbc3cada3934ba760636959066bb7b0c9f1c0869f2
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/architecture/workflows/standard-workflow.md
@@ -1772,6 +1772,48 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/evals.md
+- id: runbook-piloto-real
+  path: docs/backend/runbooks/piloto-real.md
+  title: Runbook do piloto real
+  category: runbook
+  topic: pilot
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - homologation
+  taskTypes:
+  - tarefa
+  riskTiers:
+  - high
+  - critical
+  pathGlobs:
+  - docs/architecture/audits/bruna/**
+  load: on-demand
+  priority: 700
+  tokenCost: 1019
+  owner: Operations
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-01T00:00:00-03:00
+  reviewDueAt: 2027-02-01T00:00:00-03:00
+  supersedes: []
+  dependencies: []
+  related: []
+  enforcedBy: []
+  checksum: sha256:31c24142b98fee8bcfdd7e108f15c82045d252783f01052c45a0618d0819b678
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/backend/runbooks/piloto-real.md
 - id: runbook-recovery
   path: docs/backend/runbooks/recovery.md
   title: Runbook de recuperação
@@ -1938,7 +1980,7 @@ documents:
   - src/Harness.Host/Agents/**
   load: bundle
   priority: 900
-  tokenCost: 327
+  tokenCost: 1748
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -1951,7 +1993,7 @@ documents:
   - rule-chief-constraints
   - rule-authority
   enforcedBy: []
-  checksum: sha256:abff104294785edfbfff04de0566d2446bfbb48f71cd34a881d968635c787057
+  checksum: sha256:b13975f3ebd846926e6e41432a954130cb3e7233f66cfbe7069ad9835f865431
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/agents/bruna.md

@@ -91,13 +91,36 @@ public static class DocumentEndpoints
     private static async Task<IResult> CreateDocumentAsync(
         CreateDocumentRequest input, HttpRequest request, ILocalProfileStore profiles,
         IProjectStore projects, IDocumentStore authority, IDocumentCatalogStore store,
-        IDocumentContentCatalog content, IClock clock, CancellationToken token)
+        IDocumentContentCatalog content, IWorkflowDocumentTemplateStore templates,
+        IClock clock, CancellationToken token)
     {
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
         try
         {
             if (!Valid(input.ProjectId)) return Problem(400, "invalid_project", "Project ID must be a ULID.");
             if (await projects.GetAsync(profile.TenantId, input.ProjectId, token) is null) return NotFound("project");
+
+            // Fase 2A.1: quando o documento declara realizar um template do playbook, a ESTRUTURA
+            // é verificada aqui — antes de qualquer escrita. Os campos obrigatórios existiam desde
+            // a 0082 e ninguém os lia: uma GMUD sem janela e sem rollback entrava no acervo como se
+            // estivesse pronta. O que se verifica é a estrutura e a ordem; a prosa é livre.
+            if (!string.IsNullOrWhiteSpace(input.TemplateCode))
+            {
+                var template = (await templates.ListAsync(token)).FirstOrDefault(item =>
+                    string.Equals(item.Code, input.TemplateCode, StringComparison.OrdinalIgnoreCase));
+                if (template is null)
+                {
+                    return Problem(400, "unknown_template",
+                        $"O template '{input.TemplateCode}' não existe no catálogo do playbook.");
+                }
+
+                var compliance = DocumentTemplateCompliance.Check(input.Body, template.RequiredFieldsJson);
+                if (!compliance.IsCompliant)
+                {
+                    return Problem(400, "template_not_satisfied",
+                        $"O documento não cumpre o template '{template.Code} — {template.Name}': {compliance.Describe()}.");
+                }
+            }
             var normalized = DocumentApiApplicationService.Normalize(input); var now = clock.UtcNow;
             var documentId = UlidValue.New(now).ToString(); var versionId = UlidValue.New(now.AddTicks(1)).ToString();
             var prepared = DocumentApiApplicationService.Prepare(profile.TenantId, documentId, versionId, input.Body);

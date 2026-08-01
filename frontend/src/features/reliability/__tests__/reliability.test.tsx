@@ -14,6 +14,16 @@ function reliability(overrides: Partial<ProjectReliability> = {}): ProjectReliab
     projectId: projeto.id,
     classifiedAttempts: 4,
     sampleTruncated: false,
+    intents: [
+      {
+        intent: 'conversa_geral',
+        turns: 4,
+        averageDurationMs: 820,
+        p95DurationMs: 1200,
+        turnsWithDroppedActions: 1,
+        averageConfidence: 0.91,
+      },
+    ],
     subscriptions: [
       {
         accountAlias: 'assinatura-principal',
@@ -95,8 +105,17 @@ describe('tela de produtividade da fleet', () => {
     );
   });
 
+  it('mostra a conversa da liderança por assunto, com os ajustes que o sistema fez', async () => {
+    // B14: o turno é o laço mais quente do produto e era o único sem medição nenhuma.
+    renderPage(reliability());
+
+    const linha = await findRow(/Conversa geral/);
+    expect(linha).toHaveTextContent('820 ms');
+    expect(linha).toHaveTextContent('91%');
+  });
+
   it('não inventa estado de erro quando o projeto ainda não tem execução', async () => {
-    renderPage(reliability({ subscriptions: [], capabilities: [], classifiedAttempts: 0 }));
+    renderPage(reliability({ subscriptions: [], capabilities: [], intents: [], classifiedAttempts: 0 }));
 
     expect(await screen.findByText(/Ainda não há execução para medir/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

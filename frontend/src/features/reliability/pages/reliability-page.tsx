@@ -110,7 +110,10 @@ export default function UreliabilityPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : !data || (data.subscriptions.length === 0 && data.capabilities.length === 0) ? (
+      ) : !data ||
+        (data.subscriptions.length === 0 &&
+          data.capabilities.length === 0 &&
+          data.intents.length === 0) ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
             <Gauge aria-hidden="true" className="size-8 text-foreground-muted" />
@@ -241,6 +244,59 @@ export default function UreliabilityPage() {
               )}
             </CardContent>
           </Card>
+
+          {data.intents.length > 0 && (
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-6">
+                <h2 className="font-heading text-lg font-semibold">
+                  {t('reliability.intents.title')}
+                </h2>
+                <p className="text-sm text-foreground-muted">{t('reliability.intents.help')}</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[42rem] text-left text-sm">
+                    <thead className="text-foreground-muted">
+                      <tr>
+                        <th scope="col" className="py-2 pr-4 font-medium">
+                          {t('reliability.intents.intent')}
+                        </th>
+                        <th scope="col" className="py-2 pr-4 font-medium">
+                          {t('reliability.intents.turns')}
+                        </th>
+                        <th scope="col" className="py-2 pr-4 font-medium">
+                          {t('reliability.intents.average')}
+                        </th>
+                        <th scope="col" className="py-2 pr-4 font-medium">
+                          {t('reliability.intents.p95')}
+                        </th>
+                        <th scope="col" className="py-2 pr-4 font-medium">
+                          {t('reliability.intents.dropped')}
+                        </th>
+                        <th scope="col" className="py-2 font-medium">
+                          {t('reliability.intents.confidence')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.intents.map((row) => (
+                        <tr key={row.intent} className="border-t border-border">
+                          <th scope="row" className="py-2 pr-4 font-medium">
+                            {t(`reliability.intents.names.${row.intent}`, {
+                              defaultValue: row.intent,
+                            })}
+                          </th>
+                          <td className="py-2 pr-4">{number(row.turns)}</td>
+                          <td className="py-2 pr-4">{`${number(Math.round(row.averageDurationMs))} ms`}</td>
+                          <td className="py-2 pr-4">{`${number(row.p95DurationMs)} ms`}</td>
+                          <td className="py-2 pr-4">{number(row.turnsWithDroppedActions)}</td>
+                          <td className="py-2">{percent(row.averageConfidence)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardContent className="flex flex-col gap-3 p-6">

@@ -2,10 +2,21 @@ using System.Text.Json;
 
 namespace Harness.Modules.Agents.Application.Execution;
 
+/// <param name="Intent">
+/// B14: a INTENÇÃO que o modelo atribuiu ao turno. É a única decisão de rota que ele toma — a
+/// sequência de passos e as ações permitidas saem da tabela de despacho, que é código.
+/// </param>
+/// <param name="IntentConfidence">
+/// Confiança declarada na classificação. Abaixo do mínimo o turno cai em `unmatched` e perde
+/// permissão de agir: aceitar classificação incerta transformaria um palpite do modelo numa rota
+/// com permissão de criar trabalho.
+/// </param>
 public sealed record ChiefTurnOutput(
     string Response,
     IReadOnlyList<ChiefDemandProposal> Demands,
-    IReadOnlyList<ChiefTeamAction>? TeamActions = null);
+    IReadOnlyList<ChiefTeamAction>? TeamActions = null,
+    ChiefTurnIntent Intent = ChiefTurnIntent.Unmatched,
+    double IntentConfidence = 0);
 
 /// <summary>
 /// Uma intenção de GESTÃO DE EQUIPE emitida pela chefe. Formar e reorganizar a equipe é atribuição
@@ -52,7 +63,7 @@ public sealed record ChiefDemandProposal(
 public static class ChiefTurnOutputContract
 {
     private static readonly HashSet<string> RootProperties =
-        new(["response", "demands", "teamActions"], StringComparer.Ordinal);
+        new(["response", "demands", "teamActions", "intent", "intentConfidence"], StringComparer.Ordinal);
     private static readonly HashSet<string> TeamActionProperties =
         new(["action", "reason", "persona", "personaKey"], StringComparer.Ordinal);
     private static readonly HashSet<string> PersonaProperties =
@@ -141,7 +152,21 @@ public static class ChiefTurnOutputContract
                 ReadSurfaces(demand)));
         }
 
-        return new ChiefTurnOutput(response, demands, ReadTeamActions(root));
+        // B14: a classificação é OBRIGATÓRIA no contrato. Ausente ou fora da taxonomia vira
+        // `unmatched` — que é uma rota real (turno livre, sem permissão de agir), não um erro.
+        var intent = ChiefIntentDispatchTable.Parse(
+            root.TryGetProperty("intent", out var intentNode) && intentNode.ValueKind == JsonValueKind.String
+                ? intentNode.GetString()
+                : null);
+        var confidence = root.TryGetProperty("intentConfidence", out var confidenceNode) &&
+            confidenceNode.ValueKind == JsonValueKind.Number &&
+            confidenceNode.TryGetDouble(out var parsed)
+                ? Math.Clamp(parsed, 0, 1)
+                : 0;
+
+        return new ChiefTurnOutput(
+            response, demands, ReadTeamActions(root),
+            ChiefIntentDispatchTable.Resolve(intent, confidence), confidence);
     }
 
     /// <summary>
@@ -289,8 +314,16 @@ public static class ChiefTurnOutputContract
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["response", "demands"],
+              "required": ["response", "demands", "intent", "intentConfidence"],
               "properties": {
+                "intent": {
+                  "type": "string",
+                  "enum": ["planejar_demanda", "responder_pergunta", "resumir_progresso",
+                           "decidir_escalacao", "aprovar_documento", "decidir_gate_de_fase",
+                           "tratar_barreira_externa", "ajustar_projeto",
+                           "pedir_status_pessoa_equipe", "conversa_geral"]
+                },
+                "intentConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
                 "teamActions": {
                   "type": ["array", "null"],
                   "maxItems": 10,

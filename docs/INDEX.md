@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:2fbc8193435117a7be8bcce642a89c2249186096eb914efaf3649f4c80f2af21 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:7fe111b3c29cafb504f917cc13176c30d0dd7aa1f2bfa3b169cbbc20c76d4980 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 36
+- `Canonical`: 37
 - `Generated`: 1
 
 ## By domain
@@ -21,7 +21,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `governance`: 1
 - `index`: 1
 - `rule`: 11
-- `runbook`: 2
+- `runbook`: 3
 - `security`: 3
 - `workflow`: 4
 
@@ -30,17 +30,18 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `*`: 34
 - `architecture`: 1
 - `development`: 1
+- `homologation`: 1
 - `planning`: 1
 - `sustentation`: 2
 - `triage`: 1
 
 ## By status
 
-- `Active`: 39
+- `Active`: 40
 
 ## By owner
 
-- `Operations`: 6
+- `Operations`: 7
 - `Platform Engineering`: 9
 - `Platform Governance`: 14
 - `Product Security`: 6
@@ -50,7 +51,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 31
-- `OnDemand`: 4
+- `OnDemand`: 5
 
 ## Documents by authority and domain
 
@@ -60,7 +61,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 327 |
+| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 1748 |
 
 #### architecture
 
@@ -105,7 +106,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Núcleo de governança do Poseidon](../governance/core.md) | * | Active | Platform Governance | Always | 977 |
+| [Núcleo de governança do Poseidon](../governance/core.md) | * | Active | Platform Governance | Always | 1073 |
 
 #### rule
 
@@ -129,6 +130,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 |---|---|---|---|---|---:|
 | [Runbook de incidente](backend/runbooks/incident.md) | sustentation | Active | Operations | OnDemand | 228 |
 | [Runbook de recuperação](backend/runbooks/recovery.md) | sustentation | Active | Operations | OnDemand | 3240 |
+| [Runbook do piloto real](backend/runbooks/piloto-real.md) | homologation | Active | Operations | OnDemand | 1019 |
 
 #### security
 
@@ -143,7 +145,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Máquina de estados do card](architecture/workflows/card-state-machine.md) | * | Active | Platform Governance | Bundle | 278 |
-| [Workflow padrão de nove fases](architecture/workflows/standard-workflow.md) | * | Active | Platform Governance | Bundle | 590 |
+| [Workflow padrão de nove fases](architecture/workflows/standard-workflow.md) | * | Active | Platform Governance | Bundle | 2651 |
 | [Intake de demandas](architecture/workflows/intake.md) | triage | Active | Product Security | Bundle | 242 |
 | [Paralelismo](architecture/workflows/parallelism.md) | planning, development | Active | Platform Engineering | Bundle | 242 |
 

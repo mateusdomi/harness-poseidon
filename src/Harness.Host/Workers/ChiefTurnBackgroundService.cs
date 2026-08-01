@@ -41,6 +41,7 @@ public sealed partial class ChiefTurnBackgroundService(
     LeadershipProfileStore leadershipProfile,
     ILocalProfileStore localProfiles,
     IAgentCatalogStore agentCatalog,
+    IChiefTurnIntentStore turnIntents,
     IConversationStore conversations,
     ILicenseStore licenses,
     ChiefTeamManager teamManager,
@@ -425,6 +426,59 @@ public sealed partial class ChiefTurnBackgroundService(
                 lease.ChiefAgentId,
                 output.Response,
                 occurredAt);
+            // B14 (Fase 2B): a rota da intenção decide o que este turno PODE fazer. Sem este
+            // portão a taxonomia seria decoração: o modelo diria "conversa_geral" e, se ainda
+            // assim emitisse demandas, elas entrariam no board do dono como trabalho que ninguém
+            // pediu. O corte é registrado — nunca silencioso.
+            var gated = ChiefIntentGate.Apply(output);
+            output = gated.Output;
+            Observability.PoseidonTelemetry.RecordChiefIntent(
+                ChiefIntentDispatchTable.Name(gated.Route.Intent),
+                gated.AnythingDropped,
+                execution.DurationMs);
+            if (gated.AnythingDropped)
+            {
+                await governance.AppendMetricAsync(
+                    Metric(lease, GovernanceMetricKind.EvaluatorVerdict, null, null,
+                        $"intent.actions_dropped:{gated.DropReason}", clock.UtcNow),
+                    cancellationToken);
+            }
+
+            // O turno é o laço mais quente e era o ÚNICO caminho de execução sem registro de
+            // custo ou duração: `model_invocations` cobre os runs de especialista, e o turno da
+            // chefe não escrevia lá nem em lugar nenhum. Falha aqui não derruba o turno — perder a
+            // medição é ruim, perder a resposta ao dono é pior.
+            try
+            {
+                await turnIntents.RecordAsync(
+                    new ChiefTurnIntentRecord(
+                        lease.Turn.TenantId,
+                        lease.Turn.ProjectId,
+                        lease.Turn.TurnId,
+                        ChiefIntentDispatchTable.Name(gated.Route.Intent),
+                        output.IntentConfidence,
+                        gated.DemandsDropped,
+                        gated.TeamActionsDropped,
+                        execution.DurationMs,
+                        clock.UtcNow),
+                    cancellationToken);
+            }
+            catch (Exception measurementFailure) when (measurementFailure is not OperationCanceledException)
+            {
+                _ = measurementFailure;
+                Observability.PoseidonTelemetry.RecordChiefIntent("record_failed", false, 0);
+            }
+
+            if (gated.Route.Intent == ChiefTurnIntent.Unmatched)
+            {
+                // Taxonomia incompleta é dado, não erro: o evento existe para expandi-la com
+                // mensagens reais em vez de adivinhar categorias em mesa de reunião.
+                await governance.AppendMetricAsync(
+                    Metric(lease, GovernanceMetricKind.EvaluatorVerdict, null, null,
+                        $"intent.unmatched:confidence={output.IntentConfidence:F2}", clock.UtcNow),
+                    cancellationToken);
+            }
+
             var demandSeeds = output.Demands
                 .Select((demand, index) => new ChiefDemandSeed(
                     UlidValue.New(occurredAt.AddMilliseconds(10 + index * 2)).ToString(),

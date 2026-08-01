@@ -27,12 +27,19 @@ public sealed class BuiltInAgentDefinitionSeedTests
         "architecture-security", "architecture-infrastructure",
         "architecture-rationalization-analyst", "architecture-critic",
         "architecture-adr-writer",
+        // Fase 2A.3: as nove especialidades do playbook, agora com profundidade operacional.
+        "playbook-product-owner", "playbook-arquiteto", "playbook-tech-lead", "playbook-qa",
+        "playbook-devops", "playbook-sre-sustentacao", "playbook-security", "playbook-dba-dados",
+        "playbook-dev-executor",
     ];
 
     // As personas que são crítico/auditor (ActorCritic == "critic"); as demais são "actor".
     private static readonly string[] CriticKeys =
     [
         "critic-qa", "delivery-quality-release-auditor", "architecture-critic",
+        // Fase 2A.3: no playbook, quem revisa é distinto de quem implementa — tech lead, QA e
+        // security atuam como crítico.
+        "playbook-tech-lead", "playbook-qa", "playbook-security",
     ];
 
     private static readonly string[] ValidEfforts = ["low", "medium", "high", "max"];

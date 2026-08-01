@@ -2115,6 +2115,7 @@ public sealed partial class ChiefBacklogLoopService(
                 // null é deliberadamente fail-closed no orquestrador: uma persona resolvida que
                 // declara zero ferramentas é diferente de não ter resolvido persona alguma.
                 RequiredToolIds = persona?.ToolIds,
+                PersonaKey = persona?.Key,
                 ChiefReinforcement = chiefReinforcement,
             },
             token);

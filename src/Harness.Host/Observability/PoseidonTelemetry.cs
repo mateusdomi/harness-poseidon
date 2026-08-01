@@ -273,6 +273,42 @@ internal static class PoseidonTelemetry
     internal static void RecordCheckpoint(string outcome) =>
         CheckpointCounter.Add(1, new TagList { { "outcome", outcome } });
 
+    /// <summary>
+    /// Fase 2A.3: a persona chegou (ou não) ao bundle. Sem esta série, um catálogo indisponível
+    /// degradaria todos os agentes a executores genéricos e nada no produto diria isso — a
+    /// execução continua, só que sem a especialidade que a chefe escolheu.
+    /// </summary>
+    private static Counter<long> PersonaBundleCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.persona.bundle.count",
+            description: "Persona slice resolution outcomes for the agent context bundle.");
+
+    internal static void RecordPersonaBundle(string outcome) =>
+        PersonaBundleCounter.Add(1, new TagList { { "outcome", outcome } });
+
+    /// <summary>
+    /// B14 (Fase 2B): custo e latência do turno POR INTENÇÃO. O objetivo declarado do B14 é
+    /// reduzir variância e custo do laço mais quente — sem medir por intenção, "reduziu" seria
+    /// afirmação sem número, e a média de todos os turnos esconderia exatamente a intenção cara.
+    /// </summary>
+    private static Counter<long> ChiefIntentCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.chief.intent.count",
+            description: "Chief turn intents classified, and whether the route dropped actions.");
+
+    private static Histogram<double> ChiefIntentDurationHistogram { get; } =
+        Meter.CreateHistogram<double>(
+            "poseidon.chief.intent.duration",
+            unit: "ms",
+            description: "Chief turn duration by classified intent.");
+
+    internal static void RecordChiefIntent(string intent, bool actionsDropped, long durationMs)
+    {
+        var tags = new TagList { { "intent", intent }, { "actions_dropped", actionsDropped } };
+        ChiefIntentCounter.Add(1, tags);
+        ChiefIntentDurationHistogram.Record(durationMs, new TagList { { "intent", intent } });
+    }
+
     internal static void RecordSandboxAttestation(string provider, bool verified) =>
         SandboxAttestationCounter.Add(
             1,

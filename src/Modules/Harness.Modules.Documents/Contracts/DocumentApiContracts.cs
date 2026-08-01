@@ -22,9 +22,16 @@ public sealed record ApprovalContract(
     string? BusinessTitle, string? BusinessDescription);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+/// <param name="TemplateCode">
+/// Código do template do playbook que este documento realiza (ex.: <c>11</c> = GMUD). Quando
+/// declarado, a estrutura do corpo é VERIFICADA contra os campos obrigatórios do template — é o
+/// que faz "campo obrigatório" significar alguma coisa. Ausente, o documento é livre: nem todo
+/// documento de um projeto é um artefato do playbook.
+/// </param>
 public sealed record CreateDocumentRequest(
     string ProjectId, string Title, string Kind, string Body,
-    IReadOnlyList<string>? Classifications = null, string? PhaseName = null);
+    IReadOnlyList<string>? Classifications = null, string? PhaseName = null,
+    string? TemplateCode = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateDocumentVersionRequest(string DocumentId, string Body);
