@@ -1,6 +1,8 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+import { navTo } from './journeys';
+
 /**
  * Gate visual do controle de seleção compartilhado (Checkbox do design
  * system). Reproduz o defeito P2 de homologação: no estado marcado o
@@ -16,22 +18,6 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  * Por isso selecionamos o perfil e navegamos SEMPRE pelo shell (SPA).
  */
 
-/** Navega pelo shell: sidebar no desktop; barra inferior + drawer "Mais" no mobile. */
-async function navTo(page: Page, name: string) {
-  const viewport = page.viewportSize();
-  if (viewport && viewport.width < 1024) {
-    const directLink = page.getByRole('link', { name, exact: true });
-    if (!(await directLink.first().isVisible())) {
-      await page.getByRole('button', { name: 'Mais' }).click();
-    }
-    await directLink.first().click();
-    return;
-  }
-  await page
-    .getByRole('navigation', { name: 'Navegação principal' })
-    .getByRole('link', { name, exact: true })
-    .click();
-}
 
 /** Onboarding pela UI → perfil seed "Mateus" → Notificações (via SPA). */
 async function gotoNotifications(page: Page) {

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { navTo, setPresentationMode } from './journeys';
+
 /**
  * Gate E2E da FE-3: fluxos contra o mock (VITE_API_MODE=mock), nos dois
  * viewports (mobile-360 e desktop-1440 — ver playwright.config.ts).
@@ -18,33 +20,7 @@ const SOLICITATION_TEXT =
   'Precisamos exportar o quadro em CSV. O time comercial vai usar no Excel.';
 const DEMAND_TITLE = 'Precisamos exportar o quadro em CSV';
 
-/** Navega pelo shell: barra lateral no desktop; barra inferior + drawer "Mais" no mobile. */
-async function navTo(page: Page, name: string) {
-  const viewport = page.viewportSize();
-  if (viewport && viewport.width < 1024) {
-    const directLink = page.getByRole('link', { name, exact: true });
-    if (!(await directLink.first().isVisible())) {
-      await page.getByRole('button', { name: 'Mais' }).click();
-    }
-    await directLink.first().click();
-    return;
-  }
-  await page
-    .getByRole('navigation', { name: 'Navegação principal' })
-    .getByRole('link', { name, exact: true })
-    .click();
-}
 
-/**
- * Troca o modo de apresentacao em Configuracoes (F4/D7): telas tecnicas e
- * administrativas so aparecem no menu fora do modo Negocio.
- */
-async function setPresentationMode(page: Page, label: string) {
-  await page.goto('/settings');
-  const select = page.locator('#settings-presentation');
-  await expect(select).toBeEnabled();
-  await select.selectOption({ label });
-}
 
 /** Onboarding pela UI: sem perfil na sessão, o guard redireciona. */
 async function completeOnboarding(page: Page) {
@@ -59,6 +35,10 @@ test.describe('Gate FE-3 — rodar projeto', () => {
     page,
   }) => {
     await completeOnboarding(page);
+    // Iniciar e parar serviços por nome é operação de plataforma: no modo Negócio a tela mostra
+    // um painel simplificado, sem "Vite" nem ".NET", porque o dono não opera processos. Este
+    // teste exercita a visão de quem opera.
+    await setPresentationMode(page, 'Técnico');
     await navTo(page, 'Executar Projeto');
     await expect(page.getByRole('heading', { name: 'Executar projeto' })).toBeVisible();
 

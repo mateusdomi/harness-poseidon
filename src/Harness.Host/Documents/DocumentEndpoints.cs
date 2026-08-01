@@ -1,4 +1,5 @@
 using Harness.Host.Profiles;
+using Harness.Modules.Delivery.Application;
 using Harness.Modules.Documents.Application;
 using Harness.Modules.Documents.Contracts;
 using Harness.Persistence.Abstractions.Documents;
@@ -457,11 +458,25 @@ public static class DocumentEndpoints
         new(value.Id, value.DocumentId, value.Version,
             await content.ReadAsync(value.CatalogPath, value.ContentHash, token), value.AuthorKind,
             value.AuthorId, value.CreatedAt);
-    private static ApprovalContract ToContract(ApprovalCatalogRecord value) => new(
-        value.Id, value.ProjectId, value.GateId, value.TaskId, value.DocumentId, value.Title,
-        value.Description, value.Priority, value.DueAt, value.State, value.RequestedByAgentId,
-        value.RequestedAt, value.ResolvedByProfileId, value.ResolvedAt, value.ResolutionNote,
-        null, null);
+    /// <summary>
+    /// Projeta a aprovação para a API, INCLUINDO a leitura de negócio.
+    ///
+    /// Os dois últimos campos eram `null` cravados. O frontend usa exatamente esses campos para
+    /// liberar a decisão no modo Negócio: sem eles, a tela mostrava "propósito indisponível" e
+    /// bloqueava a resolução — o dono nunca conseguia aprovar nada, inclusive o Termo de Aceite,
+    /// que é o gate humano da Fase 7. O botão existia e a decisão não passava.
+    /// </summary>
+    private static ApprovalContract ToContract(ApprovalCatalogRecord value)
+    {
+        var purpose = ApprovalBusinessProjection.Create(
+            value.Title, value.Description, value.GateId, value.DocumentId, value.TaskId,
+            subjectName: null);
+        return new(
+            value.Id, value.ProjectId, value.GateId, value.TaskId, value.DocumentId, value.Title,
+            value.Description, value.Priority, value.DueAt, value.State, value.RequestedByAgentId,
+            value.RequestedAt, value.ResolvedByProfileId, value.ResolvedAt, value.ResolutionNote,
+            purpose?.Title, purpose?.Description);
+    }
 
     private static IResult? Page(string? cursor, int? limit, params string?[] filters) =>
         ((cursor is not null && !Valid(cursor)) || limit is < 1 or > 200 ||

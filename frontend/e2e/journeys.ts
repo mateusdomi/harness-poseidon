@@ -1,0 +1,106 @@
+import { expect, type Page } from '@playwright/test';
+
+/**
+ * Jornadas compartilhadas dos testes de tela.
+ *
+ * Cada spec vinha reimplementando "criar um projeto" com os passos da UI antiga (abas Identidade,
+ * Objetivo e Pessoas). O formulário de criação foi simplificado para o modo Negócio — o dono é
+ * stakeholder, não operador: ele informa título, objetivo e prazo, e o sistema deriva sigla,
+ * repositório, workflow e equipe. As abas técnicas só existem nos modos Técnico e Administrador.
+ *
+ * Com os passos duplicados em quatro arquivos, a simplificação quebrou os quatro de uma vez e
+ * ninguém percebeu, porque os testes de tela estavam fora do gate. Aqui existe UM lugar: quando a
+ * jornada mudar de novo, muda um arquivo e os testes acompanham.
+ */
+
+/** Navega pelo shell: barra lateral no desktop; barra inferior + drawer "Mais" no mobile. */
+export async function navTo(page: Page, name: string) {
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width < 1024) {
+    const directLink = page.getByRole('link', { name, exact: true });
+    if (!(await directLink.first().isVisible())) {
+      await page.getByRole('button', { name: 'Mais' }).click();
+    }
+
+    await directLink.first().click();
+    return;
+  }
+
+  await page
+    .getByRole('navigation', { name: 'Navegação principal' })
+    .getByRole('link', { name, exact: true })
+    .click();
+}
+
+/** Adota o perfil local no onboarding e aterrissa no Chat. */
+export async function adoptProfile(page: Page, profileName = 'Mateus') {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await page.getByRole('button', { name: new RegExp(profileName) }).click();
+  await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
+}
+
+/**
+ * Cria um projeto pela jornada REAL do dono: título, objetivo e (opcionalmente) prazo.
+ *
+ * Não toca em sigla, repositório, workflow nem equipe — quem os define é o sistema. Um teste que
+ * preenchesse esses campos estaria provando uma tela que o dono não usa.
+ */
+export async function createProject(
+  page: Page,
+  options: { name: string; objective: string; deadline?: string },
+) {
+  await navTo(page, 'Projetos');
+  await page.getByRole('button', { name: 'Novo projeto' }).click();
+  await page.getByLabel(/^Título/).fill(options.name);
+  await page.getByLabel(/^Objetivo e contexto/).fill(options.objective);
+  if (options.deadline) {
+    await page.getByLabel(/Prazo desejado/).fill(options.deadline);
+  }
+
+  await page.getByRole('button', { name: 'Criar projeto' }).click();
+
+  // Depois de criar, a UI abre o projeto recém-criado em EDIÇÃO — é onde o dono continua
+  // ajustando marca e prazo. Esperar por esse estado é a confirmação de que a criação concluiu:
+  // checar visibilidade logo após o clique era uma corrida contra a transição, e perdia.
+  await expect(page.getByRole('heading', { name: 'Editar projeto' })).toBeVisible();
+
+  // A jornada termina de volta na LISTA, para que cada spec comece de um ponto determinístico —
+  // sem isto, os testes seguiam navegando a partir de um formulário aberto e falhavam por um
+  // motivo que nada tinha a ver com o que queriam provar.
+  await page.getByRole('button', { name: 'Voltar para projetos' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Projetos', level: 1 })).toBeVisible();
+
+  // O projeto na lista é um BOTÃO que carrega o nome. Casar por texto solto pegava também o
+  // valor do campo do formulário que ainda estava no DOM — no mobile isso resultava em
+  // "existe mas está oculto", uma falha que nada tinha a ver com a criação.
+  await expect(
+    page.getByRole('button', { name: new RegExp(escapeForRegExp(options.name)) }).first(),
+  ).toBeVisible();
+}
+
+/** Torna um projeto o ativo, pelo seletor global do Dashboard. */
+export async function activateProject(page: Page, name: string) {
+  await navTo(page, 'Dashboard');
+  await page.getByLabel('Projeto ativo').selectOption({ label: name });
+}
+
+/** Escapa o que for metacaractere de regex num nome livre digitado pelo dono. */
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Troca o modo de apresentação pelas Configurações.
+ *
+ * Telas de operação (modelo do chefe, provedores, execução de serviços) só existem nos modos
+ * Técnico e Administrador — no modo Negócio elas seriam jargão exposto ao dono. Um teste que
+ * exercita operação precisa entrar no modo de quem opera.
+ */
+export async function setPresentationMode(page: Page, label: 'Negócio' | 'Técnico' | 'Administrador') {
+  await page.goto('/settings');
+  const select = page.locator('#settings-presentation');
+  await expect(select).toBeEnabled();
+  await select.selectOption({ label });
+}

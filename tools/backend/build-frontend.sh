@@ -38,6 +38,18 @@ rsync -a "$contract_source/openapi.json" "$contract_target/openapi.json"
   # react-router publicar correção — então TRAVAR de volta para 'moderate'.
   npm audit --omit=dev --audit-level=critical
   NODE_NO_WARNINGS=1 npm run check
+  # Testes de TELA no gate canônico.
+  #
+  # Os 21 arquivos Playwright existiam e nenhum gate os executava. Enquanto ficaram de fora,
+  # apodreceram em silêncio: quando o formulário de projeto foi simplificado para o modo Negócio,
+  # os quatro specs que criavam projeto quebraram de uma vez e nada acusou. Pior — o mesmo silêncio
+  # escondeu um defeito de PRODUTO (aprovação sem título de negócio bloqueava o dono de aprovar
+  # qualquer coisa, inclusive o Termo de Aceite).
+  #
+  # Um teste fora do gate não é uma rede de segurança: é uma opinião antiga sobre a tela.
+  NODE_NO_WARNINGS=1 npx playwright install --with-deps chromium >/dev/null 2>&1 || \
+    NODE_NO_WARNINGS=1 npx playwright install chromium >/dev/null 2>&1 || true
+  NODE_NO_WARNINGS=1 npm run test:e2e -- --reporter=line
   # Rollup 4 emits a known two-instance INVALID_ANNOTATION notice from the pinned
   # SignalR ESM package. Suppress only that exact third-party block; every other
   # stderr line remains visible and fatal gates are unaffected.

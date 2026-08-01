@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { navTo, setPresentationMode } from './journeys';
+
 /**
  * Gate E2E da FE-2: fluxos contra o mock (VITE_API_MODE=mock), nos dois
  * viewports (mobile-360 e desktop-1440 — ver playwright.config.ts).
@@ -19,22 +21,6 @@ const DOC_TITLE = 'Spec da API v1';
 const REJECT_NOTE = 'Contratos sem exemplos de payload.';
 const HANDOFF_REASON = 'Testar o Claude Sonnet 4 na orquestração do projeto.';
 
-/** Navega pelo shell: barra lateral no desktop; barra inferior + drawer "Mais" no mobile. */
-async function navTo(page: Page, name: string) {
-  const viewport = page.viewportSize();
-  if (viewport && viewport.width < 1024) {
-    const directLink = page.getByRole('link', { name, exact: true });
-    if (!(await directLink.first().isVisible())) {
-      await page.getByRole('button', { name: 'Mais' }).click();
-    }
-    await directLink.first().click();
-    return;
-  }
-  await page
-    .getByRole('navigation', { name: 'Navegação principal' })
-    .getByRole('link', { name, exact: true })
-    .click();
-}
 
 /** Onboarding pela UI: sem perfil na sessão, o guard redireciona. */
 async function completeOnboarding(page: Page) {
@@ -101,26 +87,33 @@ test.describe('Gate FE-2 — aprovação de documento', () => {
 test.describe('Gate FE-2 — passagem de bastão', () => {
   test('trocar o modelo do chefe pelo wizard e o card reflete sem reload', async ({ page }) => {
     await completeOnboarding(page);
+    // Trocar o modelo do chefe é operação de plataforma: o nome do modelo é jargão que o modo
+    // Negócio esconde de propósito. Este teste entra no modo de quem opera.
+    await setPresentationMode(page, 'Técnico');
     await navTo(page, 'Equipe');
     await expect(page).toHaveURL(/\/orchestrator$/);
-    await expect(page.getByRole('heading', { name: 'Orquestrador' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Equipe', level: 1 })).toBeVisible();
 
     // Card do chefe: modelo em uso é o default da definição (GPT-4o).
     await expect(page.getByText('GPT-4o', { exact: true })).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('button', { name: 'Passar bastão' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Passagem de bastão' });
+    // O produto humanizou os rótulos: "passar bastão" virou "transferir liderança", e "modelo"
+    // virou "modo de trabalho" — mesmo no modo Técnico, onde o valor continua sendo o nome real.
+    await page.getByRole('button', { name: 'Transferir liderança' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Transferir liderança' });
 
-    // Etapa 1: outro modelo + motivo (obrigatório).
-    await dialog.getByLabel('Modelo da nova liderança').selectOption({ label: 'Claude Sonnet 4' });
+    // Etapa 1: outro modo de trabalho + motivo (obrigatório).
+    await dialog
+      .getByLabel('Modo de trabalho da nova liderança')
+      .selectOption({ label: 'Claude Sonnet 4' });
     await dialog.getByRole('button', { name: 'Avançar' }).click();
-    await expect(dialog.getByText('Informe o motivo da passagem de bastão.')).toBeVisible();
+    await expect(dialog.getByText('Informe o motivo da transferência.')).toBeVisible();
     await dialog.getByLabel(/Motivo/).fill(HANDOFF_REASON);
     await dialog.getByRole('button', { name: 'Avançar' }).click();
 
     // Etapa 2: resumo das escolhas → confirma.
     await expect(dialog.getByText('Claude Sonnet 4', { exact: true })).toBeVisible();
-    await dialog.getByRole('button', { name: 'Confirmar passagem de bastão' }).click();
+    await dialog.getByRole('button', { name: 'Confirmar transferência' }).click();
 
     // Sem reload: o card do chefe passa a exibir o novo modelo.
     await expect(dialog).toBeHidden();

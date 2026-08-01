@@ -1,6 +1,8 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
+import { navTo } from './journeys';
+
 const PROJECT_NAME = 'Portal do Cliente F6';
 const PROJECT_OBJECTIVE =
   'Permitir que clientes acompanhem pedidos e recebam atualizações claras.';
@@ -15,21 +17,6 @@ async function ensureProfile(page: Page) {
   }
 }
 
-async function navTo(page: Page, name: string) {
-  const viewport = page.viewportSize();
-  if (viewport && viewport.width < 1024) {
-    const directLink = page.getByRole('link', { name, exact: true });
-    if (!(await directLink.first().isVisible())) {
-      await page.getByRole('button', { name: 'Mais' }).click();
-    }
-    await directLink.first().click();
-    return;
-  }
-  await page
-    .getByRole('navigation', { name: 'Navegação principal' })
-    .getByRole('link', { name, exact: true })
-    .click();
-}
 
 test.describe('F6 — criação de projeto no modo Negócio', () => {
   test('quatro campos abrem um plano da Bruna citando objetivo e prazo', async ({ page }) => {

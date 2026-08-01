@@ -160,6 +160,53 @@ export function createMockStore(fixtures: FixtureData): Store {
   return store;
 }
 
+/**
+ * Leitura de NEGÓCIO de uma aprovação — espelho de `ApprovalBusinessProjection` (backend).
+ *
+ * Não inventa conteúdo: reescreve o que já existe na forma de uma pergunta que um leigo consegue
+ * responder. Sem material suficiente devolve `null`, e aí o bloqueio da tela é correto — pedir
+ * decisão sobre o que não se sabe explicar é pior do que não pedir.
+ */
+function businessPurpose(
+  title: string,
+  description: string,
+  gateId: string | null,
+  documentId: string | null,
+  taskId: string | null,
+): { businessTitle: string | null; businessDescription: string | null } {
+  const subject = title.trim();
+  const detail = (description.trim() || title.trim()).trim();
+  if (!subject || !detail) {
+    return { businessTitle: null, businessDescription: null };
+  }
+
+  if (gateId) {
+    return {
+      businessTitle: `Liberar a próxima etapa: ${subject}`,
+      businessDescription: `${detail} Ao aprovar, o trabalho segue para a etapa seguinte. Se algo ainda não está certo, reprove e diga o que falta.`,
+    };
+  }
+
+  if (documentId) {
+    return {
+      businessTitle: `Aprovar o documento: ${subject}`,
+      businessDescription: `${detail} Ao aprovar, este documento passa a valer como decisão do projeto.`,
+    };
+  }
+
+  if (taskId) {
+    return {
+      businessTitle: `Confirmar a entrega: ${subject}`,
+      businessDescription: `${detail} Ao aprovar, esta entrega é considerada aceita.`,
+    };
+  }
+
+  return {
+    businessTitle: `Decidir sobre: ${subject}`,
+    businessDescription: `${detail} Sua decisão define como o projeto segue a partir daqui.`,
+  };
+}
+
 const DEFAULT_CHAT_REPLY_CHUNKS = [
   'Entendi. ',
   'Vou organizar o pedido com a equipe e priorizar o próximo passo. ',
@@ -580,7 +627,10 @@ export class MockApiClient implements ApiClient {
           projectId: project.id,
           templateId: template.id,
           activeVersionId: template.currentVersionId,
-          operationMode: 'manual',
+          // Fase 1E: o vínculo HERDA o modo do projeto, que nasce autônomo. O simulado dizia
+          // 'manual' e, com isso, mentia sobre o produto: a tela mostrava um projeto parado onde
+          // o backend real já teria começado a trabalhar.
+          operationMode: 'autonomous',
           semiautonomousPauseGates: [],
           riskAcceptances: [],
           createdAt: this.#options.now(),
@@ -1203,7 +1253,8 @@ export class MockApiClient implements ApiClient {
       projectId: parsed.projectId,
       templateId: template.id,
       activeVersionId: versionId,
-      operationMode: version.defaultOperationMode ?? 'manual',
+      // Paridade com `ProjectWorkflowLinker`: versão sem modo declarado herda o do projeto.
+      operationMode: version.defaultOperationMode ?? 'autonomous',
       semiautonomousPauseGates: [],
       riskAcceptances: [],
       createdAt: this.#options.now(),
@@ -2676,8 +2727,10 @@ export class MockApiClient implements ApiClient {
           resolvedByProfileId: null,
           resolvedAt: null,
           resolutionNote: null,
-          businessTitle: null,
-          businessDescription: null,
+          // Espelha `ApprovalBusinessProjection` do backend: sem estes dois campos a visão de
+          // negócio mostra "propósito indisponível" e BLOQUEIA a resolução — o dono via o botão e
+          // a decisão não passava. O simulado cravava `null` e escondia o defeito.
+          ...businessPurpose(i.title, i.description, i.gateId ?? null, i.documentId ?? null, i.taskId ?? null),
         } satisfies Approval as unknown as ResourceMap[K];
       }
       case 'conversations': {
@@ -2861,7 +2914,7 @@ export class MockApiClient implements ApiClient {
           configVersion: 1,
           configHistory: [],
           chiefAgentId: id, // placeholder: backend vincula o chefe provisionado
-          operationMode: 'manual',
+          operationMode: 'autonomous',
           prototyping: { mode: 'autonomousGeneration', waiver: null },
           targetDeadline: i.targetDeadline ?? null,
           createdAt: now,

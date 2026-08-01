@@ -38,7 +38,8 @@ test.describe('F3 — Dashboard de negócio', () => {
     await expect(page.getByText('Plano de testes')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Produtividade da equipe' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Capacidade da equipe' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Decisões humanas' })).toBeVisible();
+    // O cartão foi renomeado para o que o dono realmente vê: "Aprovações pendentes".
+    await expect(page.getByRole('heading', { name: 'Aprovações pendentes' })).toBeVisible();
 
     const visibleDashboard = await page.getByRole('main').innerText();
     expect(visibleDashboard).not.toMatch(

@@ -1,4 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+import { createProject, navTo } from './journeys';
 
 /**
  * Gate E2E da FE-1: fluxo completo contra o mock (VITE_API_MODE=mock),
@@ -19,22 +21,6 @@ const PLAN_MESSAGE = 'Preciso de um plano de entrega do MVP [plan]';
 const TASK_A = 'Decompor escopo do plano';
 const APPROVAL_TITLE = 'Aprovar gate do plano simulado';
 
-/** Navega pelo shell: barra lateral no desktop; barra inferior + drawer "Mais" no mobile. */
-async function navTo(page: Page, name: string) {
-  const viewport = page.viewportSize();
-  if (viewport && viewport.width < 1024) {
-    const directLink = page.getByRole('link', { name, exact: true });
-    if (!(await directLink.first().isVisible())) {
-      await page.getByRole('button', { name: 'Mais' }).click();
-    }
-    await directLink.first().click();
-    return;
-  }
-  await page
-    .getByRole('navigation', { name: 'Navegação principal' })
-    .getByRole('link', { name, exact: true })
-    .click();
-}
 
 test.describe('Gate FE-1', () => {
   test('onboarding → criar projeto → chat → chefe planeja → cards se movem → aprovar gate', async ({
@@ -46,18 +32,13 @@ test.describe('Gate FE-1', () => {
     await page.getByRole('button', { name: /Mateus/ }).click();
     await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
 
-    // 2. Criar projeto (abas: identificação + pessoas; demais com defaults válidos).
-    await navTo(page, 'Projetos');
-    await page.getByRole('button', { name: 'Novo projeto' }).click();
-    await page.getByRole('tab', { name: 'Identidade' }).click();
-    await page.getByLabel(/Título/).fill(PROJECT_NAME);
-    // A sigla é derivada do nome; sobrescrevemos com um valor determinístico.
-    await page.getByLabel(/Slug \(sigla\)/).fill('E2EFE1');
-    await page.getByRole('tab', { name: 'Objetivo' }).click();
-    await page.getByLabel(/Objetivo e contexto/).fill('Projeto criado pelo gate E2E da FE-1.');
-    await page.getByRole('tab', { name: 'Pessoas' }).click();
-    await page.getByRole('checkbox', { name: /Mateus/ }).check();
-    await page.getByRole('button', { name: 'Criar projeto' }).click();
+    // 2. Criar projeto.
+    // A jornada do dono no modo Negócio: título e objetivo. Sigla, repositório, workflow e
+    // equipe são derivados pelo sistema — ele é stakeholder, não operador.
+    await createProject(page, {
+      name: PROJECT_NAME,
+      objective: 'Projeto criado pelo gate E2E da FE-1.',
+    });
 
     // 3. Tornar o projeto recém-criado o projeto ativo.
     await navTo(page, 'Dashboard');
@@ -73,7 +54,10 @@ test.describe('Gate FE-1', () => {
     await expect(composer).toBeEnabled();
     await composer.fill(PLAN_MESSAGE);
     await page.getByRole('button', { name: 'Enviar mensagem' }).click();
-    await expect(page.getByText(/Entendi o contexto/)).toBeVisible({ timeout: 10_000 });
+    // A prova útil não é uma frase fixa: é a Bruna demonstrando que LEU o contexto do projeto,
+    // citando o objetivo que o dono declarou na criação. Casar texto literal fez este teste
+    // envelhecer junto com uma redação que mudou.
+    await expect(page.getByText(/gate E2E da FE-1/)).toBeVisible({ timeout: 10_000 });
     const brunaAvatar = page
       .getByRole('button', { name: 'Abrir perfil de Bruna Magalhães' })
       .last();
@@ -87,7 +71,11 @@ test.describe('Gate FE-1', () => {
     await expect(card).toBeVisible({ timeout: 20_000 });
 
     // O card nasce no backlog e se move sozinho (task.stateChanged) até desenvolvimento.
-    const developmentColumn = page.getByRole('region', { name: /Em desenvolvimento/ });
+    //
+    // A coluna é uma `section` rotulada pelo próprio título, e o título muda por modo: "Em
+    // andamento" para o dono, "Em desenvolvimento" para quem opera a plataforma. Este teste roda
+    // em modo Negócio — pedir o rótulo técnico aqui seria cobrar o jargão que o léxico proíbe.
+    const developmentColumn = page.getByRole('region', { name: /Em andamento/ });
     await expect(developmentColumn.getByRole('button', { name: new RegExp(TASK_A) })).toBeVisible({
       timeout: 20_000,
     });

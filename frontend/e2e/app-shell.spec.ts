@@ -1,30 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-/**
- * Smoke do AppShell: abre `/` (redireciona para /chat) e navega
- * para 2 rotas. Roda nos viewports 360px e 1440px (ver playwright.config.ts).
- *
- * Cobre também o shell da F4: o menu é o do modo de apresentação (Negócio não
- * lista tela técnica) e o seletor global de projeto some nas telas que existem
- * para comparar projetos.
- */
+import { navTo } from './journeys';
 
-async function navTo(page: Page, name: string) {
-  const viewport = page.viewportSize();
-  if (viewport && viewport.width < 1024) {
-    // Mobile: itens fora da barra inferior ficam no drawer "Mais".
-    const directLink = page.getByRole('link', { name, exact: true });
-    if (!(await directLink.first().isVisible())) {
-      await page.getByRole('button', { name: 'Mais' }).click();
-    }
-    await directLink.first().click();
-    return;
-  }
-  await page
-    .getByRole('navigation', { name: 'Navegação principal' })
-    .getByRole('link', { name, exact: true })
-    .click();
-}
 
 /**
  * Troca o modo de apresentação em Configurações (D7). O que o menu mostra é

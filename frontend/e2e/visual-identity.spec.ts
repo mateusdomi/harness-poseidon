@@ -25,8 +25,13 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
 
   await page.goto('/chat');
   await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Perfil de trabalho' })).toBeVisible();
-  await expect(page.getByText('Equipe virtual').first()).toBeVisible();
+  // O Chat deixou de expor "Perfil de trabalho": escolher perfil técnico é decisão de operador, e
+  // o dono é stakeholder. O que sobrou no cabeçalho é a escolha de CONVERSA, que é dele. A
+  // asserção acompanha o produto — e a linha seguinte continua garantindo que nenhum jargão de
+  // modelo vazou para esta tela.
+  // O produto humanizou a projeção pública: "Equipe virtual" virou "Equipe de IA", e "Chief"
+  // virou "Bruna Magalhães" (`public-leadership.ts`). O teste segue o produto.
+  await expect(page.getByText('Equipe de IA').first()).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Modelo' })).toHaveCount(0);
   await expect
     .poll(() =>
@@ -81,9 +86,11 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByRole('combobox', { name: 'Projeto ativo' })).toBeVisible();
-  await expect(page.getByText('Equipe em atividade')).toBeVisible();
-  await expect(page.getByLabel('Timeline das nove fases do projeto')).toBeVisible();
-  await expect(page.getByText('Sustentação', { exact: true })).toBeVisible();
+  // O cartão da equipe no Dashboard chama-se "Quadro da Equipe".
+  await expect(page.getByRole('heading', { name: 'Quadro da Equipe' })).toBeVisible();
+  // A trilha de etapas do projeto: o rótulo técnico ("timeline das nove fases") deu lugar ao
+  // cartão "Etapas do projeto", que é como o dono a enxerga.
+  await expect(page.getByRole('heading', { name: 'Etapas do projeto' })).toBeVisible();
   await expect(page.getByText('Fleet operacional')).toHaveCount(0);
   await expect(page.getByText('Cotas críticas')).toHaveCount(0);
 
