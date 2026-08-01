@@ -76,7 +76,12 @@ public static class TeamActionPolicy
             return new TeamActionVerdict(false, "team.invalid_key", null, []);
         }
 
-        if (string.IsNullOrWhiteSpace(persona.Name) || string.IsNullOrWhiteSpace(persona.Purpose))
+        if (string.IsNullOrWhiteSpace(persona.Name) ||
+            string.IsNullOrWhiteSpace(persona.Purpose) ||
+            string.IsNullOrWhiteSpace(persona.Specialty) ||
+            persona.Responsibilities is null || persona.Responsibilities.Count == 0 ||
+            persona.Constraints is null || persona.Constraints.Count == 0 ||
+            persona.RequiredCapabilities is null || persona.RequiredCapabilities.Count == 0)
         {
             return new TeamActionVerdict(false, "team.incomplete_persona", null, []);
         }
@@ -96,6 +101,10 @@ public static class TeamActionPolicy
             .ToArray();
         var removed = requested.Where(ForbiddenCapabilities.Contains).ToArray();
         var granted = requested.Where(capability => !ForbiddenCapabilities.Contains(capability)).ToArray();
+        if (granted.Length == 0)
+        {
+            return new TeamActionVerdict(false, "team.no_safe_capability", null, removed);
+        }
 
         var tiers = (persona.RiskTiers ?? [])
             .Where(tier => RiskTiers.Contains(tier))

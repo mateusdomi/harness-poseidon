@@ -245,6 +245,160 @@ public sealed class PostgresAgentCatalogStore(NpgsqlDataSource dataSource) : IAg
         await tx.CommitAsync(cancellationToken); return (await GetAgentAsync(command.TenantId, command.AgentId, cancellationToken))!;
     }
 
+    public async Task<(AgentRecord Agent, bool Created)> EnsureProjectAgentAsync(
+        ProjectAgentEnsureCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateProjectAgent(command);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+        await ExecuteAsync(
+            connection, tx,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0));",
+            cancellationToken,
+            Text($"project-agent:{command.TenantId}:{command.ProjectId}:{command.DefinitionId}"));
+
+        string? existingId;
+        await using (var existing = connection.CreateCommand())
+        {
+            existing.Transaction = tx;
+            existing.CommandText =
+                "SELECT id FROM harness.agents WHERE tenant_id=$1 AND project_id=$2 " +
+                "AND definition_id=$3 AND retired_at IS NULL ORDER BY id LIMIT 1 FOR UPDATE;";
+            existing.Parameters.Add(Text(command.TenantId));
+            existing.Parameters.Add(Text(command.ProjectId));
+            existing.Parameters.Add(Text(command.DefinitionId));
+            existingId = ((string?)await existing.ExecuteScalarAsync(cancellationToken))?.TrimEnd();
+        }
+
+        if (existingId is not null)
+        {
+            await tx.CommitAsync(cancellationToken);
+            return ((await GetAgentAsync(command.TenantId, existingId, cancellationToken))!, false);
+        }
+
+        await ValidateProjectAgentReferencesAsync(connection, tx, command, cancellationToken);
+        await ExecuteAsync(
+            connection, tx,
+            """
+            INSERT INTO harness.agents
+                (id,tenant_id,definition_id,project_id,name,state,current_task_id,model_id,
+                 account_id,effort,provider_effort_value,fallback_model_ids_json,
+                 selection_reason,selection_updated_at,last_heartbeat_at,created_at)
+            VALUES ($1,$2,$3,$4,$5,'idle',NULL,$6,$7,$8,$9,$10,$11,$12,$12,$12);
+            """,
+            cancellationToken,
+            Text(command.AgentId), Text(command.TenantId), Text(command.DefinitionId),
+            Text(command.ProjectId), Text(command.Name.Trim()), Text(command.ModelId),
+            Text(command.AccountId), Text(command.Effort), Text(command.ProviderEffortValue),
+            Json(JsonSerializer.Serialize(command.FallbackModelIds, JsonOptions)),
+            Text(command.Reason.Trim()), Timestamp(command.OccurredAt));
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            auditEvent = new
+            {
+                id = UlidValue.New(command.OccurredAt).ToString(),
+                actorKind = "chief",
+                actorId = command.ActorProfileId,
+                action = "agent.projectSpecialistCreated",
+                targetType = "agents",
+                targetId = command.AgentId,
+                detail = command.Reason.Trim(),
+                occurredAt = command.OccurredAt,
+            },
+            command.ProjectId,
+            command.DefinitionId,
+            command.ModelId,
+            command.AccountId,
+        }, JsonOptions);
+        await ExecuteAsync(
+            connection, tx,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0));",
+            cancellationToken,
+            Text($"audit-ledger:{command.TenantId}"));
+        var (sequence, previous) = await ReadLedgerTailAsync(
+            connection, tx, command.TenantId, cancellationToken);
+        var hash = AuditLedgerHash.Compute(
+            previous, command.TenantId, sequence, "agent.projectSpecialistCreated", payload,
+            command.OccurredAt);
+        await ExecuteAsync(
+            connection, tx,
+            "INSERT INTO harness.audit_ledger(id,tenant_id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at) VALUES($1,$2,$3,$4,$5,'agent.projectSpecialistCreated',$6,$7);",
+            cancellationToken,
+            Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
+            Bigint(sequence), Text(previous), Text(hash), Json(payload), Timestamp(command.OccurredAt));
+        await ExecuteAsync(
+            connection, tx,
+            "INSERT INTO harness.outbox_messages(id,tenant_id,event_type,payload_json,occurred_at) VALUES($1,$2,'audit.eventAppended',$3,$4);",
+            cancellationToken,
+            Text(UlidValue.New(command.OccurredAt.AddTicks(1)).ToString()),
+            Text(command.TenantId), Json(payload), Timestamp(command.OccurredAt));
+
+        await tx.CommitAsync(cancellationToken);
+        return ((await GetAgentAsync(command.TenantId, command.AgentId, cancellationToken))!, true);
+    }
+
+    private static void ValidateProjectAgent(ProjectAgentEnsureCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (!UlidValue.TryParse(command.AgentId, out _) ||
+            !UlidValue.TryParse(command.ProjectId, out _) ||
+            !UlidValue.TryParse(command.DefinitionId, out _) ||
+            !UlidValue.TryParse(command.AccountId, out _) ||
+            !UlidValue.TryParse(command.ModelId, out _) ||
+            string.IsNullOrWhiteSpace(command.Name) || command.Name.Length > 200 ||
+            string.IsNullOrWhiteSpace(command.Reason) || command.Reason.Length > 2000 ||
+            command.Effort is not ("low" or "medium" or "high" or "max") ||
+            string.IsNullOrWhiteSpace(command.ProviderEffortValue) ||
+            command.FallbackModelIds.Count > 10 ||
+            command.FallbackModelIds.Contains(command.ModelId, StringComparer.Ordinal) ||
+            command.FallbackModelIds.Distinct(StringComparer.Ordinal).Count() !=
+                command.FallbackModelIds.Count)
+        {
+            throw new AgentSelectionValidationException("Project specialist selection is invalid.");
+        }
+    }
+
+    private static async Task ValidateProjectAgentReferencesAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction tx,
+        ProjectAgentEnsureCommand command,
+        CancellationToken token)
+    {
+        await using (var references = connection.CreateCommand())
+        {
+            references.Transaction = tx;
+            references.CommandText =
+                "SELECT EXISTS(SELECT 1 FROM harness.projects WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL)," +
+                "EXISTS(SELECT 1 FROM harness.agent_definitions WHERE id=$3 AND " +
+                "(tenant_id IS NULL OR tenant_id=$1) AND enabled=true AND archived_at IS NULL);";
+            references.Parameters.Add(Text(command.TenantId));
+            references.Parameters.Add(Text(command.ProjectId));
+            references.Parameters.Add(Text(command.DefinitionId));
+            await using var reader = await references.ExecuteReaderAsync(token);
+            await reader.ReadAsync(token);
+            if (!reader.GetBoolean(0)) throw new AgentSelectionNotFoundException("project");
+            if (!reader.GetBoolean(1)) throw new AgentSelectionNotFoundException("definition");
+        }
+
+        var (providerId, providerEffort) = await ReadModelSelectionAsync(
+            connection, tx, command.TenantId, command.ModelId, command.Effort, token);
+        if (!string.Equals(providerEffort, command.ProviderEffortValue, StringComparison.Ordinal))
+            throw new AgentSelectionConflictException("Provider effort mapping changed before specialist creation.");
+        await using var account = connection.CreateCommand();
+        account.Transaction = tx;
+        account.CommandText =
+            "SELECT provider_id,state FROM harness.provider_accounts WHERE tenant_id=$1 AND id=$2 FOR SHARE;";
+        account.Parameters.Add(Text(command.TenantId));
+        account.Parameters.Add(Text(command.AccountId));
+        await using var accountReader = await account.ExecuteReaderAsync(token);
+        if (!await accountReader.ReadAsync(token)) throw new AgentSelectionNotFoundException("account");
+        if (!string.Equals(accountReader.GetString(0).TrimEnd(), providerId, StringComparison.Ordinal) ||
+            !string.Equals(accountReader.GetString(1), "active", StringComparison.Ordinal))
+            throw new AgentSelectionConflictException("Specialist account is not active for the selected model.");
+    }
+
     // CAT-04: valida que team/specialty referenciados pela definição existem no catálogo
     // tenant-scoped. Valores semeados (migração 0050) continuam válidos; valores novos e
     // inexistentes são recusados com um erro tipado.

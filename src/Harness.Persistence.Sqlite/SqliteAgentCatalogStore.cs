@@ -278,6 +278,149 @@ public sealed class SqliteAgentCatalogStore(SqliteWriteDispatcher dispatcher) : 
             return (await GetAgentInConnectionAsync(connection, command.TenantId, command.AgentId, token))!;
         }, cancellationToken);
 
+    public Task<(AgentRecord Agent, bool Created)> EnsureProjectAgentAsync(
+        ProjectAgentEnsureCommand command,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            ValidateProjectAgent(command);
+            await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(token);
+
+            string? existingId;
+            await using (var existing = connection.CreateCommand())
+            {
+                existing.Transaction = tx;
+                existing.CommandText =
+                    "SELECT id FROM agents WHERE tenant_id=$tenant AND project_id=$project " +
+                    "AND definition_id=$definition AND retired_at IS NULL ORDER BY id LIMIT 1;";
+                Add(existing, "$tenant", command.TenantId);
+                Add(existing, "$project", command.ProjectId);
+                Add(existing, "$definition", command.DefinitionId);
+                existingId = await existing.ExecuteScalarAsync(token) as string;
+            }
+
+            if (existingId is not null)
+            {
+                await tx.CommitAsync(token);
+                return ((await GetAgentInConnectionAsync(
+                    connection, command.TenantId, existingId, token))!, false);
+            }
+
+            await ValidateProjectAgentReferencesAsync(connection, tx, command, token);
+            await using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = tx;
+                insert.CommandText =
+                    "INSERT INTO agents " +
+                    "(id,tenant_id,definition_id,project_id,name,state,current_task_id,model_id," +
+                    "account_id,effort,provider_effort_value,fallback_model_ids_json," +
+                    "selection_reason,selection_updated_at,last_heartbeat_at,created_at) " +
+                    "VALUES ($id,$tenant,$definition,$project,$name,'idle',NULL,$model,$account," +
+                    "$effort,$providerEffort,$fallbacks,$reason,$at,$at,$at);";
+                Add(insert, "$id", command.AgentId);
+                Add(insert, "$tenant", command.TenantId);
+                Add(insert, "$definition", command.DefinitionId);
+                Add(insert, "$project", command.ProjectId);
+                Add(insert, "$name", command.Name.Trim());
+                Add(insert, "$model", command.ModelId);
+                Add(insert, "$account", command.AccountId);
+                Add(insert, "$effort", command.Effort);
+                Add(insert, "$providerEffort", command.ProviderEffortValue);
+                Add(insert, "$fallbacks", JsonSerializer.Serialize(command.FallbackModelIds, JsonOptions));
+                Add(insert, "$reason", command.Reason.Trim());
+                Add(insert, "$at", Store(command.OccurredAt));
+                await insert.ExecuteNonQueryAsync(token);
+            }
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                auditEvent = new
+                {
+                    id = UlidValue.New(command.OccurredAt).ToString(),
+                    actorKind = "chief",
+                    actorId = command.ActorProfileId,
+                    action = "agent.projectSpecialistCreated",
+                    targetType = "agents",
+                    targetId = command.AgentId,
+                    detail = command.Reason.Trim(),
+                    occurredAt = command.OccurredAt,
+                },
+                command.ProjectId,
+                command.DefinitionId,
+                command.ModelId,
+                command.AccountId,
+            }, JsonOptions);
+            await AppendAuditAsync(
+                connection, tx, command.TenantId, "agent.projectSpecialistCreated", payload,
+                command.OccurredAt, token);
+            await tx.CommitAsync(token);
+            return ((await GetAgentInConnectionAsync(
+                connection, command.TenantId, command.AgentId, token))!, true);
+        }, cancellationToken);
+
+    private static void ValidateProjectAgent(ProjectAgentEnsureCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (!UlidValue.TryParse(command.AgentId, out _) ||
+            !UlidValue.TryParse(command.ProjectId, out _) ||
+            !UlidValue.TryParse(command.DefinitionId, out _) ||
+            !UlidValue.TryParse(command.AccountId, out _) ||
+            !UlidValue.TryParse(command.ModelId, out _) ||
+            string.IsNullOrWhiteSpace(command.Name) || command.Name.Length > 200 ||
+            string.IsNullOrWhiteSpace(command.Reason) || command.Reason.Length > 2000 ||
+            command.Effort is not ("low" or "medium" or "high" or "max") ||
+            string.IsNullOrWhiteSpace(command.ProviderEffortValue) ||
+            command.FallbackModelIds.Count > 10 ||
+            command.FallbackModelIds.Contains(command.ModelId, StringComparer.Ordinal) ||
+            command.FallbackModelIds.Distinct(StringComparer.Ordinal).Count() !=
+                command.FallbackModelIds.Count)
+        {
+            throw new AgentSelectionValidationException("Project specialist selection is invalid.");
+        }
+    }
+
+    private static async Task ValidateProjectAgentReferencesAsync(
+        SqliteConnection connection,
+        SqliteTransaction tx,
+        ProjectAgentEnsureCommand command,
+        CancellationToken token)
+    {
+        await using (var references = connection.CreateCommand())
+        {
+            references.Transaction = tx;
+            references.CommandText =
+                "SELECT EXISTS(SELECT 1 FROM projects WHERE tenant_id=$tenant AND id=$project AND deleted_at IS NULL)," +
+                "EXISTS(SELECT 1 FROM agent_definitions WHERE id=$definition AND " +
+                "(tenant_id IS NULL OR tenant_id=$tenant) AND enabled=1 AND archived_at IS NULL);";
+            Add(references, "$tenant", command.TenantId);
+            Add(references, "$project", command.ProjectId);
+            Add(references, "$definition", command.DefinitionId);
+            await using var reader = await references.ExecuteReaderAsync(token);
+            await reader.ReadAsync(token);
+            if (reader.GetInt64(0) == 0)
+                throw new AgentSelectionNotFoundException("project");
+            if (reader.GetInt64(1) == 0)
+                throw new AgentSelectionNotFoundException("definition");
+        }
+
+        var (providerId, providerEffort) = await ReadModelSelectionAsync(
+            connection, tx, command.TenantId, command.ModelId, command.Effort, token);
+        if (!string.Equals(providerEffort, command.ProviderEffortValue, StringComparison.Ordinal))
+            throw new AgentSelectionConflictException("Provider effort mapping changed before specialist creation.");
+        await using var account = connection.CreateCommand();
+        account.Transaction = tx;
+        account.CommandText =
+            "SELECT provider_id,state FROM provider_accounts WHERE tenant_id=$tenant AND id=$id;";
+        Add(account, "$tenant", command.TenantId);
+        Add(account, "$id", command.AccountId);
+        await using var accountReader = await account.ExecuteReaderAsync(token);
+        if (!await accountReader.ReadAsync(token))
+            throw new AgentSelectionNotFoundException("account");
+        if (!string.Equals(accountReader.GetString(0), providerId, StringComparison.Ordinal) ||
+            !string.Equals(accountReader.GetString(1), "active", StringComparison.Ordinal))
+            throw new AgentSelectionConflictException("Specialist account is not active for the selected model.");
+    }
+
     private static async Task<(string ProviderId, string ProviderValue)> ReadModelSelectionAsync(SqliteConnection connection, SqliteTransaction tx, string tenant, string modelId, string effort, CancellationToken token)
     {
         await using var query = connection.CreateCommand(); query.Transaction = tx;

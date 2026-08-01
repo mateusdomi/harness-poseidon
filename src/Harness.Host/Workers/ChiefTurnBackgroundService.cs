@@ -386,6 +386,12 @@ public sealed partial class ChiefTurnBackgroundService(
                 invocationActivity?.SetTag("agent.executor", execution.Executor);
             }
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
+            if (output.TeamActions is { Count: > 0 } &&
+                ChiefTeamActionResponse.ContainsPrematureCompletionClaim(output.Response))
+            {
+                throw new AgentOutputValidationException(
+                    "Chief response announced a team change before the Control Plane confirmed it.");
+            }
             if (!ChiefCommunicationPolicy.TryValidateResponse(
                     output.Response, communicationContext, out var communicationViolation))
             {
@@ -416,16 +422,6 @@ public sealed partial class ChiefTurnBackgroundService(
             {
                 throw new AgentOutputValidationException("Independent evaluator returned Default-FAIL.");
             }
-            // A única projeção que pode chegar ao canal é a resposta já validada. Chunks do
-            // adapter são dados não confiáveis e não podem contornar a policy de apresentação.
-            var chunks = new[] { output.Response };
-            var occurredAt = clock.UtcNow;
-            var message = ConversationApplicationService.CreateChiefMessage(
-                UlidValue.New(occurredAt).ToString(),
-                lease.Turn.ConversationId,
-                lease.ChiefAgentId,
-                output.Response,
-                occurredAt);
             // B14 (Fase 2B): a rota da intenção decide o que este turno PODE fazer. Sem este
             // portão a taxonomia seria decoração: o modelo diria "conversa_geral" e, se ainda
             // assim emitisse demandas, elas entrariam no board do dono como trabalho que ninguém
@@ -478,6 +474,41 @@ public sealed partial class ChiefTurnBackgroundService(
                         $"intent.unmatched:confidence={output.IntentConfidence:F2}", clock.UtcNow),
                     cancellationToken);
             }
+
+            IReadOnlyList<ChiefTeamActionResult> teamActionResults = [];
+            if (output.TeamActions is { Count: > 0 } teamActions)
+            {
+                teamActionResults = await ApplyTeamActionsAsync(
+                    lease, teamActions, cancellationToken);
+            }
+            else if (gated.TeamActionsDropped > 0)
+            {
+                teamActionResults =
+                [new ChiefTeamActionResult(
+                    "intent_gate", "team.intent_disallowed", null, false)];
+            }
+
+            output = output with
+            {
+                Response = ChiefTeamActionResponse.Project(output.Response, teamActionResults),
+            };
+            if (!ChiefCommunicationPolicy.TryValidateResponse(
+                    output.Response, communicationContext, out communicationViolation))
+            {
+                throw new AgentOutputValidationException(
+                    communicationViolation ?? "Chief communication policy rejected the projected response.");
+            }
+
+            // A única projeção que pode chegar ao canal é a resposta validada E confirmada pelos
+            // efeitos. Chunks do adapter são dados não confiáveis e não podem contornar a policy.
+            var chunks = new[] { output.Response };
+            var occurredAt = clock.UtcNow;
+            var message = ConversationApplicationService.CreateChiefMessage(
+                UlidValue.New(occurredAt).ToString(),
+                lease.Turn.ConversationId,
+                lease.ChiefAgentId,
+                output.Response,
+                occurredAt);
 
             var demandSeeds = output.Demands
                 .Select((demand, index) => new ChiefDemandSeed(
@@ -553,14 +584,6 @@ public sealed partial class ChiefTurnBackgroundService(
             // turno (registro `demand_materializations` + comando `plan.materializationRequested`
             // na outbox) e executado por um consumidor durável com lease, fencing e reconciliação.
 
-            // GESTÃO DE EQUIPE: quando nenhuma persona do catálogo cobre a demanda, a chefe cria o
-            // especialista e delega — sem esperar o dono, que é stakeholder e não RH da fábrica.
-            // Falha aqui NUNCA falha o turno (a resposta já foi entregue de forma durável).
-            if (output.TeamActions is { Count: > 0 } teamActions)
-            {
-                await ApplyTeamActionsAsync(lease, teamActions, cancellationToken);
-            }
-
             turnActivity?.SetTag("chief.result", "completed");
             PoseidonTelemetry.RecordChiefTurn(
                 "completed",
@@ -635,15 +658,15 @@ public sealed partial class ChiefTurnBackgroundService(
     }
 
     /// <summary>
-    /// Aplica as intenções de gestão de equipe do turno. Uma ação recusada pela policy ou pelo
-    /// catálogo é registrada e seguida — a chefe continua com quem já existe, e o turno, que já
-    /// respondeu ao usuário, não é derrubado por isso.
+    /// Aplica as intenções de gestão de equipe ANTES de confirmar o turno. Uma ação recusada não
+    /// derruba a conversa, mas vira resultado explícito para a resposta: a Bruna nunca anuncia
+    /// uma pessoa que só existiu no texto do modelo.
     /// </summary>
     [SuppressMessage(
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "A failed team action must not poison the completed turn.")]
-    private async Task ApplyTeamActionsAsync(
+    private async Task<IReadOnlyList<ChiefTeamActionResult>> ApplyTeamActionsAsync(
         ChiefTurnLease lease,
         IReadOnlyList<ChiefTeamAction> actions,
         CancellationToken cancellationToken)
@@ -655,7 +678,8 @@ public sealed partial class ChiefTurnBackgroundService(
                     candidate.TenantId, lease.Turn.TenantId, StringComparison.Ordinal));
             if (profile is null)
             {
-                return;
+                return actions.Select(action => new ChiefTeamActionResult(
+                    action.Action, "team.profile_missing", action.PersonaKey, false)).ToArray();
             }
 
             var results = await teamManager.ApplyAsync(
@@ -664,6 +688,8 @@ public sealed partial class ChiefTurnBackgroundService(
             {
                 LogTeamAction(logger, lease.Turn.TurnId, result.Action, result.ReasonCode);
             }
+
+            return results;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -672,6 +698,8 @@ public sealed partial class ChiefTurnBackgroundService(
         catch (Exception exception)
         {
             LogTeamActionFailure(logger, lease.Turn.TurnId, exception.GetType().Name);
+            return actions.Select(action => new ChiefTeamActionResult(
+                action.Action, "team.execution_failed", action.PersonaKey, false)).ToArray();
         }
     }
 

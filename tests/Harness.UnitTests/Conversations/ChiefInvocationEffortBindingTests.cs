@@ -92,6 +92,7 @@ public sealed class ChiefInvocationEffortBindingTests
         public Task<IReadOnlyList<AgentDefinitionRecord>> ListDefinitionsAsync(string? afterId, int limit, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyList<AgentRecord>> ListAgentsAsync(string tenantId, string? projectId, string? afterId, int limit, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<AgentRecord> UpdateSelectionAsync(AgentSelectionCommand command, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(AgentRecord Agent, bool Created)> EnsureProjectAgentAsync(ProjectAgentEnsureCommand command, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyList<AgentDefinitionRecord>> ListDefinitionsForTenantAsync(string tenantId, string? afterId, int limit, bool includeArchived, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyList<AgentDefinitionVersionRecord>> ListDefinitionVersionsAsync(string tenantId, string definitionId, int? beforeVersion, int limit, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<AgentDefinitionRecord> CreateDefinitionAsync(AgentDefinitionCreateCommand command, CancellationToken cancellationToken = default) => throw new NotImplementedException();

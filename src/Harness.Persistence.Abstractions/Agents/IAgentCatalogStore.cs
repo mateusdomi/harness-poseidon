@@ -27,6 +27,15 @@ public interface IAgentCatalogStore
         AgentSelectionCommand command,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Garante uma instância visível e executável de uma definição dentro do projeto. A chave
+    /// lógica é (tenant, projeto, definição): retries e duas criações concorrentes convergem para
+    /// a mesma pessoa, em vez de deixarem uma definição nominal ou duplicarem o organograma.
+    /// </summary>
+    Task<(AgentRecord Agent, bool Created)> EnsureProjectAgentAsync(
+        ProjectAgentEnsureCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<AgentDefinitionRecord?> GetDefinitionForTenantAsync(string tenantId, string definitionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AgentDefinitionRecord>> ListDefinitionsForTenantAsync(string tenantId, string? afterId, int limit, bool includeArchived, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AgentDefinitionVersionRecord>> ListDefinitionVersionsAsync(
@@ -235,6 +244,21 @@ public sealed record AgentRecord(
 public sealed record AgentSelectionCommand(
     string TenantId, string AgentId, string ActorProfileId, string AccountId, string ModelId,
     string Effort, IReadOnlyList<string> FallbackModelIds, string Reason, DateTimeOffset OccurredAt);
+
+public sealed record ProjectAgentEnsureCommand(
+    string TenantId,
+    string ActorProfileId,
+    string AgentId,
+    string ProjectId,
+    string DefinitionId,
+    string Name,
+    string AccountId,
+    string ModelId,
+    string Effort,
+    string ProviderEffortValue,
+    IReadOnlyList<string> FallbackModelIds,
+    string Reason,
+    DateTimeOffset OccurredAt);
 
 public sealed class AgentSelectionNotFoundException(string resource) : Exception(resource)
 {

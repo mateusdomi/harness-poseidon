@@ -1,6 +1,7 @@
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Persistence.Abstractions.Agents;
+using Harness.Persistence.Abstractions.Tools;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -27,10 +28,14 @@ public sealed record ChiefTeamActionResult(
 /// </summary>
 public sealed partial class ChiefTeamManager(
     IAgentCatalogStore catalog,
+    ITeamSpecialtyCatalogStore specialties,
+    IToolCatalogStore tools,
     IClock clock,
     ILogger<ChiefTeamManager> logger)
 {
     private readonly IAgentCatalogStore _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+    private readonly ITeamSpecialtyCatalogStore _specialties = specialties ?? throw new ArgumentNullException(nameof(specialties));
+    private readonly IToolCatalogStore _tools = tools ?? throw new ArgumentNullException(nameof(tools));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     public async Task<IReadOnlyList<ChiefTeamActionResult>> ApplyAsync(
@@ -96,6 +101,20 @@ public sealed partial class ChiefTeamManager(
                 logger, persona.Key, string.Join(", ", verdict.RemovedCapabilities));
         }
 
+        var projectAgents = await _catalog.ListAgentsAsync(
+            tenantId, projectId, null, 500, cancellationToken);
+        var route = projectAgents
+            .Where(HasExecutableRoute)
+            .OrderByDescending(agent => agent.State is "active" or "idle" or "waiting")
+            .ThenBy(agent => agent.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (route is null)
+        {
+            LogTeamActionRefused(logger, action.Action, "team.no_executable_route");
+            return new ChiefTeamActionResult(
+                action.Action, "team.no_executable_route", persona.Key, false);
+        }
+
         // DEDUPLICAÇÃO antes de criar. Sem isto, cada demanda pareceria exigir um especialista
         // novo e o catálogo viraria uma lista de quase-duplicatas — o oposto de uma equipe.
         var covered = existing.FirstOrDefault(definition =>
@@ -105,30 +124,31 @@ public sealed partial class ChiefTeamManager(
                 persona, definition.Key, definition.Specialty, definition.Description));
         if (covered is not null)
         {
+            var ensured = await EnsureProjectAgentAsync(
+                tenantId, projectId, actorProfileId, covered, route, action.Reason,
+                cancellationToken);
             LogPersonaReused(logger, persona.Key, covered.Key);
-            return new ChiefTeamActionResult(action.Action, "team.reused_existing", covered.Key, false);
+            return new ChiefTeamActionResult(
+                action.Action,
+                ensured.Created ? "team.reused_existing_added_to_project" : "team.reused_existing",
+                covered.Key,
+                ensured.Created);
         }
 
         var now = _clock.UtcNow;
-
-        // A ESPECIALIDADE é um catálogo curado, não texto livre: o store recusa a definição
-        // inteira quando a referência não existe. Recusar por causa disso deixaria a chefe sem o
-        // especialista e a demanda com um generalista — o resultado que a criação existe para
-        // evitar. Então vale a mesma regra das capabilities: reduz-se o que não pode ser
-        // concedido e cria-se o resto. A competência não se perde: ela está no propósito, que é
-        // o que o executor lê no briefing.
-        var knownSpecialties = existing
-            .Where(definition => !string.IsNullOrWhiteSpace(definition.Specialty))
-            .Select(definition => definition.Specialty!)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var specialty = !string.IsNullOrWhiteSpace(persona.Specialty) &&
-            knownSpecialties.Contains(persona.Specialty)
-                ? persona.Specialty
-                : null;
-        if (specialty is null && !string.IsNullOrWhiteSpace(persona.Specialty))
+        var specialty = await EnsureSpecialtyAsync(
+            tenantId, actorProfileId, persona, now, cancellationToken);
+        var enabledTools = await _tools.ListToolsAsync(null, 200, cancellationToken);
+        var enabledSkills = await _tools.ListSkillsAsync(null, 200, cancellationToken);
+        var toolIds = SelectTools(persona, enabledTools);
+        var skillIds = SelectSkills(persona, enabledSkills);
+        if (toolIds.Length == 0)
         {
-            LogSpecialtyNotInCatalog(logger, persona.Key, persona.Specialty);
+            LogTeamActionRefused(logger, action.Action, "team.no_safe_tool");
+            return new ChiefTeamActionResult(action.Action, "team.no_safe_tool", persona.Key, false);
         }
+
+        var (allowedScopes, deniedScopes) = SelectScopes(persona);
 
         var content = new AgentDefinitionContent(
             persona.Key,
@@ -136,29 +156,31 @@ public sealed partial class ChiefTeamManager(
             // Persona criada pela chefe é sempre ESPECIALISTA: uma segunda chefe fabricada por
             // texto do modelo seria autoridade nascendo fora do Control Plane.
             "specialist",
-            specialty,
+            specialty.Name,
             persona.Purpose,
-            DefaultModelId: null,
-            SkillIds: [],
-            // Ferramenta que não existe no catálogo não pode ser concedida. Nascer sem tool é o
-            // menor privilégio possível; ampliar é ato explícito do dono.
-            ToolIds: [],
+            DefaultModelId: route.ModelId,
+            SkillIds: skillIds,
+            ToolIds: toolIds,
             Persona: persona.Purpose,
             Mission: persona.Purpose,
             OperatingPrinciples: persona.Responsibilities,
-            Deliverables: [],
-            QualityCriteria: [],
-            CommunicationStyle: null,
+            Deliverables: persona.Responsibilities,
+            QualityCriteria: persona.Constraints,
+            CommunicationStyle: "Comunique progresso, decisões, riscos e evidências de forma objetiva para a Diretora de Engenharia.",
             Limitations: persona.Constraints,
-            Stacks: null,
-            DefaultEffort: null,
-            PreferredAccountId: null,
-            FallbackModelIds: null,
+            Stacks: persona.RequiredCapabilities,
+            DefaultEffort: route.Effort,
+            PreferredAccountId: route.AccountId,
+            FallbackModelIds: route.FallbackModelIds ?? [],
             Team: null,
             ActorCritic: "actor",
             Risk: persona.RiskTiers.Contains("critical") || persona.RiskTiers.Contains("high")
                 ? "high"
-                : persona.RiskTiers.Contains("medium") ? "medium" : "low");
+                : persona.RiskTiers.Contains("medium") ? "medium" : "low",
+            AllowedScopes: allowedScopes,
+            DeniedScopes: deniedScopes,
+            ActivationCriteria: [persona.Purpose, .. persona.Responsibilities],
+            NonActivationCriteria: persona.Constraints);
 
         try
         {
@@ -172,13 +194,20 @@ public sealed partial class ChiefTeamManager(
                 LogPersonaCreated(logger, definition.Key, projectId);
             }
 
+            var ensured = await EnsureProjectAgentAsync(
+                tenantId, projectId, actorProfileId, definition, route, action.Reason,
+                cancellationToken);
+
             return new ChiefTeamActionResult(
                 action.Action,
-                created ? verdict.ReasonCode : "team.already_exists",
+                created || ensured.Created ? verdict.ReasonCode : "team.already_exists",
                 definition.Key,
-                created);
+                created || ensured.Created);
         }
-        catch (AgentDefinitionAdminException exception)
+        catch (Exception exception) when (exception is AgentDefinitionAdminException or
+            AgentSelectionNotFoundException or AgentSelectionValidationException or
+            AgentSelectionConflictException or TeamSpecialtyCatalogValidationException or
+            TeamSpecialtyCatalogConflictException)
         {
             // Referência inválida (modelo, tool, especialidade inexistente) é recusa legítima do
             // catálogo, não falha do turno: a chefe segue com quem já existe.
@@ -186,6 +215,154 @@ public sealed partial class ChiefTeamManager(
             return new ChiefTeamActionResult(action.Action, "team.catalog_refused", persona.Key, false);
         }
     }
+
+    private async Task<SpecialtyRecord> EnsureSpecialtyAsync(
+        string tenantId,
+        string actorProfileId,
+        ProposedPersona persona,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _specialties.ListSpecialtiesAsync(
+            tenantId, null, null, 500, cancellationToken);
+        var existing = rows.FirstOrDefault(value =>
+            string.Equals(value.Key, persona.Key, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value.Name, persona.Specialty, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        try
+        {
+            var created = await _specialties.CreateSpecialtyAsync(
+                new SpecialtyCreateCommand(
+                    tenantId, actorProfileId, UlidValue.New(now).ToString(), persona.Key,
+                    persona.Specialty, persona.Purpose, null, now),
+                cancellationToken);
+            LogSpecialtyCreated(logger, persona.Key, created.Name);
+            return created;
+        }
+        catch (TeamSpecialtyCatalogConflictException)
+        {
+            // Duas conversas podem detectar a mesma lacuna ao mesmo tempo. O catálogo garante a
+            // unicidade; a segunda converge para a entrada que venceu a corrida.
+            rows = await _specialties.ListSpecialtiesAsync(
+                tenantId, null, null, 500, cancellationToken);
+            return rows.First(value =>
+                string.Equals(value.Key, persona.Key, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value.Name, persona.Specialty, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private Task<(AgentRecord Agent, bool Created)> EnsureProjectAgentAsync(
+        string tenantId,
+        string projectId,
+        string actorProfileId,
+        AgentDefinitionRecord definition,
+        AgentRecord route,
+        string reason,
+        CancellationToken cancellationToken) =>
+        _catalog.EnsureProjectAgentAsync(
+            new ProjectAgentEnsureCommand(
+                tenantId, actorProfileId, UlidValue.New(_clock.UtcNow).ToString(), projectId,
+                definition.Id, definition.Name, route.AccountId!, route.ModelId!, route.Effort!,
+                route.ProviderEffortValue!, route.FallbackModelIds ?? [], reason, _clock.UtcNow),
+            cancellationToken);
+
+    private static bool HasExecutableRoute(AgentRecord agent) =>
+        !string.IsNullOrWhiteSpace(agent.AccountId) &&
+        !string.IsNullOrWhiteSpace(agent.ModelId) &&
+        !string.IsNullOrWhiteSpace(agent.Effort) &&
+        !string.IsNullOrWhiteSpace(agent.ProviderEffortValue) &&
+        agent.State is not ("retired" or "failed" or "disabled");
+
+    private static string[] SelectTools(
+        ProposedPersona persona,
+        IReadOnlyList<ToolCatalogRecord> tools)
+    {
+        var text = PersonaText(persona);
+        var keys = new HashSet<string>(StringComparer.Ordinal) { "filesystem" };
+        if (text.Contains("repo", StringComparison.Ordinal) ||
+            text.Contains("código", StringComparison.Ordinal) ||
+            text.Contains("code", StringComparison.Ordinal) ||
+            text.Contains("implement", StringComparison.Ordinal) ||
+            text.Contains("teste", StringComparison.Ordinal))
+        {
+            keys.Add("git");
+            keys.Add("shell");
+        }
+
+        if (text.Contains("document", StringComparison.Ordinal) ||
+            text.Contains("relatório", StringComparison.Ordinal) ||
+            text.Contains("artefato", StringComparison.Ordinal))
+            keys.Add("artifact.render");
+        if (text.Contains("pesquis", StringComparison.Ordinal) ||
+            text.Contains("research", StringComparison.Ordinal) ||
+            text.Contains("web", StringComparison.Ordinal))
+            keys.Add("web.search");
+
+        return tools
+            .Where(tool => string.Equals(tool.ComponentState, "enabled", StringComparison.Ordinal) &&
+                keys.Contains(tool.Key))
+            .Select(tool => tool.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string[] SelectSkills(
+        ProposedPersona persona,
+        IReadOnlyList<SkillCatalogRecord> skills)
+    {
+        var text = PersonaText(persona);
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        if (text.Contains("requis", StringComparison.Ordinal) || text.Contains("produto", StringComparison.Ordinal)) keys.Add("requirements");
+        if (text.Contains("arquitet", StringComparison.Ordinal) || text.Contains("integra", StringComparison.Ordinal)) keys.Add("architecture");
+        if (text.Contains("teste", StringComparison.Ordinal) || text.Contains("qualidade", StringComparison.Ordinal) || text.Contains("segurança", StringComparison.Ordinal)) keys.Add("testing-review");
+        if (text.Contains("document", StringComparison.Ordinal) || text.Contains("relatório", StringComparison.Ordinal)) keys.Add("technical-writing");
+        return skills
+            .Where(skill => string.Equals(skill.ComponentState, "enabled", StringComparison.Ordinal) &&
+                keys.Contains(skill.Key))
+            .Select(skill => skill.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static (IReadOnlyList<string> Allowed, IReadOnlyList<string> Denied) SelectScopes(
+        ProposedPersona persona)
+    {
+        var text = PersonaText(persona);
+        IReadOnlyList<string> allowed;
+        if (text.Contains("frontend", StringComparison.Ordinal) ||
+            text.Contains("mobile", StringComparison.Ordinal) ||
+            text.Contains("acessibilidade", StringComparison.Ordinal) ||
+            text.Contains("interface", StringComparison.Ordinal))
+            allowed = ["frontend/**", "tests/**", "docs/**"];
+        else if (text.Contains("devops", StringComparison.Ordinal) ||
+            text.Contains("sre", StringComparison.Ordinal) ||
+            text.Contains("infraestrutur", StringComparison.Ordinal))
+            allowed = ["infra/**", "tools/**", "tests/**", "docs/**"];
+        else if (text.Contains("banco", StringComparison.Ordinal) ||
+            text.Contains("database", StringComparison.Ordinal) ||
+            text.Contains("oracle", StringComparison.Ordinal) ||
+            text.Contains("dados", StringComparison.Ordinal))
+            allowed = ["src/Harness.Persistence.Sqlite/**", "src/Harness.Persistence.Postgres/**", "tests/**", "docs/**"];
+        else if (persona.RequiredCapabilities.All(capability =>
+            capability.Contains("read", StringComparison.OrdinalIgnoreCase) ||
+            capability.Contains("doc", StringComparison.OrdinalIgnoreCase) ||
+            capability.Contains("research", StringComparison.OrdinalIgnoreCase)))
+            allowed = ["docs/**"];
+        else
+            allowed = ["src/**", "tests/**", "docs/**"];
+
+        return (allowed, ["governance/**", ".git/**", ".harness/**"]);
+    }
+
+    private static string PersonaText(ProposedPersona persona) =>
+        string.Join(' ',
+            [persona.Key, persona.Name, persona.Specialty, persona.Purpose,
+             .. persona.Responsibilities, .. persona.RequiredCapabilities])
+        .ToLowerInvariant();
 
     private async Task<ChiefTeamActionResult> LifecycleAsync(
         string tenantId,
@@ -249,6 +426,6 @@ public sealed partial class ChiefTeamManager(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: ação de equipe '{Action}' recusada: {ReasonCode}.")]
     private static partial void LogTeamActionRefused(ILogger logger, string action, string reasonCode);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: especialidade '{Specialty}' não existe no catálogo; persona '{PersonaKey}' criada sem ela.")]
-    private static partial void LogSpecialtyNotInCatalog(ILogger logger, string personaKey, string specialty);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: especialidade '{Specialty}' criada no catálogo para a persona '{PersonaKey}'.")]
+    private static partial void LogSpecialtyCreated(ILogger logger, string personaKey, string specialty);
 }

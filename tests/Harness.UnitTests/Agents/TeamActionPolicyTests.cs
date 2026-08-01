@@ -48,14 +48,35 @@ public sealed class TeamActionPolicyTests
     }
 
     [Fact]
-    public void APersonaCanNeverGrantItselfSelfReviewOrPublication()
+    public void APersonaWithOnlyForbiddenAuthorityIsRefused()
     {
         var verdict = TeamActionPolicy.Evaluate(Persona(
             capabilities: ["self.review", "approve.own", "user.publish", "agents.create"]));
 
-        Assert.True(verdict.Allowed);
-        Assert.Empty(verdict.Persona!.RequiredCapabilities);
+        Assert.False(verdict.Allowed);
+        Assert.Equal("team.no_safe_capability", verdict.ReasonCode);
         Assert.Equal(4, verdict.RemovedCapabilities.Count);
+    }
+
+    [Theory]
+    [InlineData("specialty")]
+    [InlineData("responsibilities")]
+    [InlineData("constraints")]
+    [InlineData("capabilities")]
+    public void AnOperationallyIncompletePersonaIsRefused(string missing)
+    {
+        var persona = Persona() with
+        {
+            Specialty = missing == "specialty" ? string.Empty : "architecture-security",
+            Responsibilities = missing == "responsibilities" ? [] : ["Modelar ameaças"],
+            Constraints = missing == "constraints" ? [] : ["Não aprova o próprio trabalho"],
+            RequiredCapabilities = missing == "capabilities" ? [] : ["repo.read"],
+        };
+
+        var verdict = TeamActionPolicy.Evaluate(persona);
+
+        Assert.False(verdict.Allowed);
+        Assert.Equal("team.incomplete_persona", verdict.ReasonCode);
     }
 
     [Fact]

@@ -7,6 +7,7 @@ using Harness.Host.Profiles;
 using Harness.Host.Providers;
 using Harness.Host.Projects;
 using Harness.Host.Realtime;
+using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
@@ -14,6 +15,7 @@ using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Tools;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Identifiers;
@@ -27,6 +29,118 @@ namespace Harness.IntegrationTests.Agents;
 
 public sealed class ChiefOrchestrationApiTests
 {
+    [Fact]
+    public async Task ChiefCreatesAnExecutableVisibleAndIdempotentProjectSpecialist()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var root = Path.Combine(
+            AppContext.BaseDirectory, "integration-artifacts", $"chief-team-{Guid.NewGuid():N}");
+        var database = Path.Combine(root, "chief-team.db");
+        Directory.CreateDirectory(root);
+        await using var app = CreateHost(database);
+        try
+        {
+            await app.StartAsync(timeout.Token);
+            using var client = new HttpClient { BaseAddress = Address(app.Services) };
+            var profile = await CreateProfileAsync(client, timeout.Token);
+            client.DefaultRequestHeaders.Add("Cookie", $"harness.profile={profile.Id}");
+            await ProviderCatalogTestSeed.SeedForLocalProfileAsync(app.Services, timeout.Token);
+            var organization = await CreateOrganizationAsync(client, timeout.Token);
+            var project = await CreateProjectAsync(client, organization.Id, timeout.Token);
+            using var handoff = await client.PostAsJsonAsync(
+                $"/api/v1/projects/{project.Id}/chief/handoff",
+                new HandoffChiefRequest(null, null, "Preparar rota executável para a equipe."),
+                timeout.Token);
+            handoff.EnsureSuccessStatusCode();
+            var routedChief = (await handoff.Content.ReadFromJsonAsync<AgentContract>(timeout.Token))!;
+            var accounts = (await client.GetFromJsonAsync<AccountPage>(
+                "/api/v1/accounts", timeout.Token))!;
+            var models = (await client.GetFromJsonAsync<ModelPage>(
+                "/api/v1/models", timeout.Token))!;
+            var account = accounts.Items.First(value => value.State == "active");
+            var compatible = models.Items.First(value =>
+                value.ProviderId == account.ProviderId && value.Enabled);
+            using var selection = await client.PatchAsJsonAsync(
+                $"/api/v1/agents/{routedChief.Id}/selection",
+                new AgentSelectionRequest(
+                    account.Id, compatible.Id, "medium", [],
+                    "Rota autenticada para delegações do projeto."),
+                timeout.Token);
+            selection.EnsureSuccessStatusCode();
+            var localProfile = (await app.Services.GetRequiredService<ILocalProfileStore>()
+                .GetAsync(profile.Id, timeout.Token))!;
+            var manager = app.Services.GetRequiredService<ChiefTeamManager>();
+            var action = new ChiefTeamAction(
+                "create_persona",
+                "O produto precisa de validação especializada de acessibilidade no frontend.",
+                new ChiefProposedPersona(
+                    "accessibility-specialist",
+                    "Especialista em Acessibilidade",
+                    "Validar e orientar a implementação acessível das jornadas principais do produto.",
+                    "Acessibilidade digital",
+                    ["Revisar navegação por teclado", "Validar semântica e contraste"],
+                    ["Não aprova o próprio trabalho", "Não altera governança"],
+                    ["frontend.write", "tests.execute", "docs.write"],
+                    ["medium"]));
+
+            var first = Assert.Single(await manager.ApplyAsync(
+                localProfile.TenantId, project.Id, profile.Id, [action], timeout.Token));
+            Assert.True(first.Created, first.ReasonCode);
+            Assert.Equal("team.persona_allowed", first.ReasonCode);
+
+            var catalog = app.Services.GetRequiredService<IAgentCatalogStore>();
+            var definition = Assert.Single(
+                await catalog.ListDefinitionsForTenantAsync(
+                    localProfile.TenantId, null, 500, false, timeout.Token),
+                value => value.Key == "accessibility-specialist");
+            Assert.Equal("chief", definition.Origin);
+            Assert.Equal(project.Id, definition.ScopeProjectId);
+            Assert.NotNull(definition.DefaultModelId);
+            Assert.NotNull(definition.PreferredAccountId);
+            Assert.NotEmpty(definition.ToolIds);
+            Assert.Contains("frontend/**", definition.AllowedScopes!);
+            Assert.Contains("governance/**", definition.DeniedScopes!);
+            Assert.NotEmpty(definition.ActivationCriteria!);
+            Assert.NotEmpty(definition.NonActivationCriteria!);
+
+            var tools = app.Services.GetRequiredService<IToolCatalogStore>();
+            var enabledToolIds = (await tools.ListToolsAsync(null, 100, timeout.Token))
+                .Where(value => value.ComponentState == "enabled")
+                .Select(value => value.Id)
+                .ToHashSet(StringComparer.Ordinal);
+            Assert.All(definition.ToolIds, id => Assert.Contains(id, enabledToolIds));
+
+            var projectAgents = await catalog.ListAgentsAsync(
+                localProfile.TenantId, project.Id, null, 500, timeout.Token);
+            var specialist = Assert.Single(
+                projectAgents, value => value.DefinitionId == definition.Id);
+            Assert.Equal("idle", specialist.State);
+            Assert.NotNull(specialist.AccountId);
+            Assert.NotNull(specialist.ModelId);
+            Assert.NotNull(specialist.ProviderEffortValue);
+
+            var specialtyCatalog = app.Services.GetRequiredService<ITeamSpecialtyCatalogStore>();
+            Assert.Contains(
+                await specialtyCatalog.ListSpecialtiesAsync(
+                    localProfile.TenantId, null, null, 500, timeout.Token),
+                value => value.Name == "Acessibilidade digital");
+
+            var second = Assert.Single(await manager.ApplyAsync(
+                localProfile.TenantId, project.Id, profile.Id, [action], timeout.Token));
+            Assert.False(second.Created);
+            Assert.Equal("team.reused_existing", second.ReasonCode);
+            Assert.Single(
+                await catalog.ListAgentsAsync(
+                    localProfile.TenantId, project.Id, null, 500, timeout.Token),
+                value => value.DefinitionId == definition.Id);
+        }
+        finally
+        {
+            await app.StopAsync(timeout.Token);
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
     [Fact]
     public async Task ChiefCommandsFenceHandoffAndDrainBusinessAndDurableWorkAcrossRestart()
     {

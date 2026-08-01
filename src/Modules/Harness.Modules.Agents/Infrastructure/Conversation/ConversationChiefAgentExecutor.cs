@@ -336,6 +336,11 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           - ATENÇÃO: escrever em `response` que você criou o especialista NÃO cria nada. A equipe só
             muda pelo campo `teamActions`. Anunciar a criação sem emitir a ação faz você afirmar ao
             usuário algo que não aconteceu — e ele vai contar com um especialista que não existe.
+          - Mesmo quando emitir `teamActions`, NÃO diga que a mudança já aconteceu. Descreva a
+            intenção no futuro (por exemplo, "vou incorporar a pessoa especializada"). O Control
+            Plane executa a ação depois de validar sua saída e acrescenta à resposta o resultado
+            real. Frases como "criei", "adicionei", "incorporei" ou "já está na equipe" são
+            recusadas porque antecipam um efeito que ainda pode falhar.
           - `create_persona`: exige `persona` com `key` (minúsculas e hífens), `name`, `purpose`
             (o que ela existe para fazer, concreto), `specialty`, `responsibilities`,
             `constraints`, `requiredCapabilities` e `riskTiers`.
