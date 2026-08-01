@@ -54,6 +54,16 @@ describe('gate de vocabulário — Default-FAIL', () => {
     expect(violations[0].key).toBe('featureQueNasceuAgora.hint');
   });
 
+  it('rejeita apresentação artificial de colaboradores', () => {
+    const violations = collectVocabularyViolations({
+      'pt-BR': { chat: { cargo: 'Diretora de Operações de IA' } },
+      en: { chat: { team: 'AI team' } },
+    });
+    expect(violations.map((violation) => violation.term.toUpperCase())).toEqual(
+      expect.arrayContaining(['IA', 'AI']),
+    );
+  });
+
   it('namespace técnico declarado fica de fora', () => {
     const violations = collectVocabularyViolations({
       'pt-BR': { governance: { hint: 'Abra o worktree do agente' } },

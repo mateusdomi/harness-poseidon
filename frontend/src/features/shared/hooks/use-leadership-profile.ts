@@ -40,11 +40,11 @@ export const agentPhotoKey = (alias: string) => ['agent-photo', alias] as const;
 
 const MOCK_PROFILE: LeadershipProfile = {
   displayName: 'Bruna Magalhães',
-  title: 'Diretora de Engenharia e Operações de IA',
+  title: 'Diretora de Engenharia',
   photoUrl: '/people/bruna-magalhaes.jpg',
   summary: 'Liderança técnica orientada a entregas seguras, rastreáveis e úteis para o negócio.',
-  specialties: ['Engenharia de software', 'Operações de IA', 'Governança'],
-  careerSummary: 'Experiência em coordenação técnica, arquitetura e operação de produtos de IA.',
+  specialties: ['Engenharia de software', 'Operações e confiabilidade', 'Governança'],
+  careerSummary: 'Experiência em coordenação técnica, arquitetura e operação de produtos digitais.',
   languages: ['Português (Brasil)', 'Inglês'],
   personality: 'Pragmática, transparente e direta nas decisões.',
   hobbies: ['Café', 'Leitura', 'Tecnologia', 'Caminhadas'],

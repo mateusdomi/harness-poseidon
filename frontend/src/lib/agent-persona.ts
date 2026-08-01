@@ -40,7 +40,7 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   /* ---- Personas canônicas (docs/agents/*.yaml) ---- */
   'chief-orchestrator': {
     humanName: 'Bruna Magalhães',
-    roleLabel: 'Diretora de Engenharia e Operações de IA',
+    roleLabel: 'Diretora de Engenharia',
   },
   'critic-qa': { humanName: 'Beatriz Nunes', roleLabel: 'Crítica / QA' },
   'product-requirements-analyst': { humanName: 'Camila Rocha', roleLabel: 'Análise de Requisitos' },
@@ -98,7 +98,7 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   /* ---- Chaves das definições do frontend (AgentDefinition.key nas fixtures) ---- */
   chief: {
     humanName: 'Bruna Magalhães',
-    roleLabel: 'Diretora de Engenharia e Operações de IA',
+    roleLabel: 'Diretora de Engenharia',
   },
   'backend-engineer': { humanName: 'Thiago Mendes', roleLabel: 'Engenheiro Backend' },
   'frontend-engineer': { humanName: 'Aline Castro', roleLabel: 'Engenheira Frontend' },
@@ -112,7 +112,7 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   /* ---- As 7 contas de execução da fleet (AgentAccountRoster.alias) ---- */
   'chief-claude-primary': {
     humanName: 'Bruna Magalhães',
-    roleLabel: 'Diretora de Engenharia e Operações de IA',
+    roleLabel: 'Diretora de Engenharia',
   },
   'worker-claude-secondary': { humanName: 'Thiago Mendes', roleLabel: 'Especialista Backend' },
   'worker-codex-frontend': { humanName: 'Aline Castro', roleLabel: 'Especialista Frontend' },

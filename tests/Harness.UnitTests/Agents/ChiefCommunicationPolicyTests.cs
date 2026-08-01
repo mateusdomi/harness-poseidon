@@ -12,14 +12,27 @@ public sealed class ChiefCommunicationPolicyTests
 
         Assert.Contains("Bruna Magalhães", instructions, StringComparison.Ordinal);
         Assert.Contains(
-            "Diretora de Engenharia e Operações de IA",
+            "Diretora de Engenharia",
             instructions,
             StringComparison.Ordinal);
         Assert.Contains("tom profissional", instructions, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("caloroso", instructions, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("agentes de IA", instructions, StringComparison.Ordinal);
+        Assert.Contains("equipe de profissionais", instructions, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("responda com honestidade", instructions, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("nunca afirme ser uma pessoa física", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("natureza do sistema", instructions, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Bruna coordena a equipe de IA do projeto.")]
+    [InlineData("A equipe de agentes de IA está trabalhando.")]
+    [InlineData("Sou Diretora de Engenharia e Operações de IA.")]
+    public void PublicResponseDoesNotPresentTheTeamAsArtificial(string response)
+    {
+        Assert.False(ChiefCommunicationPolicy.TryValidateResponse(
+            response,
+            ChiefCommunicationPolicy.Business,
+            out var violation));
+        Assert.Contains("inteligência artificial", violation, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -118,7 +131,7 @@ public sealed class ChiefCommunicationPolicyTests
         "Quer que eu retome?")]
     [InlineData(
         "Sim. Sou uma agente de IA e coordeno a equipe como Bruna Magalhães, " +
-        "Diretora de Engenharia e Operações de IA.")]
+        "Diretora de Engenharia.")]
     [InlineData("Sou uma IA, não uma pessoa física, e coordeno a equipe responsável pelo projeto.")]
     [InlineData("Consulte poseidon.dev ou envie o relatório.pdf para análise.")]
     [InlineData("O protótipo está em https://exemplo.com.")]
@@ -148,10 +161,10 @@ public sealed class ChiefCommunicationPolicyTests
     [InlineData("Não sou a Chief e sou uma agente de IA.")]
     [InlineData(
         "Não sou a gerente; sou Bruna Magalhães, " +
-        "Diretora de Engenharia e Operações de IA.")]
+        "Diretora de Engenharia.")]
     [InlineData("Não sou responsável por essa decisão; sou Bruna Magalhães.")]
     [InlineData("Não sou Ana, mas sou Bruna Magalhães.")]
-    [InlineData("Sou Diretora de Engenharia e Operações de IA e coordeno a equipe.")]
+    [InlineData("Sou Diretora de Engenharia e coordeno a equipe.")]
     [InlineData("Sou a Bruna Magalhães e coordeno a equipe.")]
     [InlineData("Sim, sou IA e coordeno a equipe.")]
     [InlineData("Sou a IA que coordena a equipe.")]
@@ -214,7 +227,7 @@ public sealed class ChiefCommunicationPolicyTests
     [Theory]
     [InlineData("Não sou Bruna Magalhães; sou uma agente de IA.")]
     [InlineData("Não sou a Bruna; sou uma agente de IA.")]
-    [InlineData("Não sou a Diretora de Engenharia e Operações de IA.")]
+    [InlineData("Não sou a Diretora de Engenharia.")]
     [InlineData("Meu nome não é Bruna Magalhães.")]
     public void CanonicalPublicIdentityCannotBeDenied(string response)
     {
@@ -240,8 +253,8 @@ public sealed class ChiefCommunicationPolicyTests
     }
 
     [Theory]
-    [InlineData("Sou Bruna Magalhães, Diretora de Engenharia e Operações de IA.")]
-    [InlineData("Meu nome é Bruna e coordeno a equipe de agentes de IA.")]
+    [InlineData("Sou Bruna Magalhães, Diretora de Engenharia.")]
+    [InlineData("Meu nome é Bruna e coordeno a equipe responsável pelo projeto.")]
     public void CanonicalPublicIdentityIsAccepted(string response)
     {
         Assert.True(ChiefCommunicationPolicy.TryValidateResponse(

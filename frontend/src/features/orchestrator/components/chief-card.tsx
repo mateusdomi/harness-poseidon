@@ -164,7 +164,7 @@ export function ChiefCard({
 
   const chiefIdentity = resolveAgentIdentity('chief-orchestrator', chief.name);
   const publicName = leadershipProfile.data?.displayName ?? chiefIdentity.humanName;
-  const publicTitle = leadershipProfile.data?.title ?? 'Diretora de Engenharia e Operações de IA';
+  const publicTitle = leadershipProfile.data?.title ?? 'Diretora de Engenharia';
   const processHealth = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
   const readiness = deriveChiefReadiness({
     model,

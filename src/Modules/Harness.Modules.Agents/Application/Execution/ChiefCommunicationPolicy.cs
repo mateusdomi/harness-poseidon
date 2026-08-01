@@ -23,7 +23,7 @@ public static partial class ChiefCommunicationPolicy
     private const string TechnicalEntitlementKey = "presentation.technical";
 
     public const string PublicName = "Bruna Magalhães";
-    public const string PublicTitle = "Diretora de Engenharia e Operações de IA";
+    public const string PublicTitle = "Diretora de Engenharia";
 
     public static string RequiredTechnicalEntitlement => TechnicalEntitlementKey;
 
@@ -71,15 +71,17 @@ public static partial class ChiefCommunicationPolicy
             : userPreferences.Trim();
 
         return $$"""
-            Você se apresenta sempre como {{PublicName}} — {{PublicTitle}}.
-            Você é a voz de uma equipe de agentes de IA. Se perguntarem diretamente se você é
-            uma IA ou um sistema, responda com honestidade; nunca afirme ser uma pessoa física.
+            Você se apresenta sempre como {{PublicName}} — {{PublicTitle}} responsável por
+            conduzir o projeto. Você é a voz de uma equipe de profissionais. Não apresente você
+            ou os demais colaboradores como IA, robô, bot, modelo ou agente artificial. Se o
+            usuário perguntar diretamente sobre a natureza do sistema, responda com honestidade,
+            sem transformar esse detalhe no cargo ou na identidade pública de ninguém.
 
             {{projection}}
 
             Regras invariantes:
-            - Você é a voz de uma equipe de agentes de IA; nunca afirme ser humana, funcionária humana ou
-              possuir vínculo empregatício real.
+            - Você é a voz de uma equipe de profissionais; nunca invente vínculo empregatício,
+              biografia ou presença física real.
             - Distingua fato, inferência, incerteza e decisão pendente. Não invente progresso,
               aprovação, prazo, capacidade, causa, evidência ou conclusão.
             - Comunique primeiro: onde estamos; o que foi concluído; o que acontece agora; o que
@@ -95,6 +97,10 @@ public static partial class ChiefCommunicationPolicy
             - Quando o contexto trouxer `reasonCodeTranslations`, use a frase humana e o próximo
               passo desse mapa; jamais repita a chave técnica. Se não houver tradução explícita,
               admita o imprevisto sem inventar causa e diga que a equipe está verificando.
+            - Uma fonte marcada como `FONTE NÃO INTERPRETADA` foi armazenada, mas NÃO foi lida.
+              Nunca invente ou deduza seu conteúdo pelo nome. Diga claramente qual fonte não pôde
+              ser processada, consolide apenas as fontes realmente extraídas e proponha a próxima
+              forma segura de aproveitá-la.
 
             Comportamento por situação:
             - Resumo do projeto: sintetize etapa atual, entregas concluídas, trabalho em curso,
@@ -153,6 +159,12 @@ public static partial class ChiefCommunicationPolicy
             CanonicalAiDenialPattern().IsMatch(response))
         {
             violation = "A resposta nega a identidade pública fixa de Bruna ou sua natureza de IA.";
+            return false;
+        }
+
+        if (ArtificialTeamPresentationPattern().IsMatch(response))
+        {
+            violation = "A resposta apresenta o cargo ou a equipe como inteligência artificial.";
             return false;
         }
 
@@ -216,6 +228,16 @@ public static partial class ChiefCommunicationPolicy
               tomada e nenhum trabalho foi iniciado a partir dela. Você pode reenviar a solicitação
               para eu retomar com segurança; se o problema continuar, eu aviso o próximo passo.
               """;
+
+    [GeneratedRegex(
+        @"(?ix)\b(?:
+            equipe\s+de\s+IA |
+            time\s+de\s+IA |
+            agentes\s+de\s+IA |
+            diretora\s+de\s+engenharia(?:\s+e\s+opera[cç][oõ]es)?\s+de\s+IA
+        )\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex ArtificialTeamPresentationPattern();
 
     [GeneratedRegex(
         @"(?ix)
@@ -353,8 +375,7 @@ public static partial class ChiefCommunicationPolicy
     [GeneratedRegex(
         @"(?ix)\b(?:
             n[aã]o\s+sou\s+(?:a\s+)?Bruna(?:\s+Magalh[aã]es)? |
-            n[aã]o\s+sou\s+(?:a\s+)?Diretora\s+de\s+Engenharia\s+e\s+
-                Opera[cç][oõ]es\s+de\s+IA |
+            n[aã]o\s+sou\s+(?:a\s+)?Diretora\s+de\s+Engenharia |
             meu\s+nome\s+n[aã]o\s+[eé]\s+Bruna(?:\s+Magalh[aã]es)?
         )\b",
         RegexOptions.CultureInvariant)]
@@ -410,7 +431,7 @@ public static partial class ChiefCommunicationPolicy
                 (?:
                     (?:a\s+)?Bruna(?:\s+Magalh[aã]es)?
                         (?!\s+(?:(?:da|de|do|das|dos)\s+)?[\p{Lu}][\p{Ll}]) |
-                    (?:a\s+)?Diretora\s+de\s+Engenharia\s+e\s+Opera[cç][oõ]es\s+de\s+IA |
+                    (?:a\s+)?Diretora\s+de\s+Engenharia |
                     IA |
                     (?:a|uma?)\s+IA |
                     (?:uma?\s+)?agente\s+de\s+IA |

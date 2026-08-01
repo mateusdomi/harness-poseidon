@@ -56,7 +56,7 @@ public sealed class LeadershipProfileStore : IDisposable
                 throw new LeadershipProfileConflictException();
 
             var changes = DescribeChanges(current, request);
-            var next = new LeadershipProfileRecord(
+            var next = NormalizeLegacyPresentation(new LeadershipProfileRecord(
                 Clean(request.DisplayName),
                 Clean(request.Title),
                 current.PhotoUrl,
@@ -76,7 +76,7 @@ public sealed class LeadershipProfileStore : IDisposable
                     .Append(new LeadershipProfileRevision(
                         current.Version + 1, actorProfileId, now, changes))
                     .TakeLast(100)
-                    .ToArray());
+                    .ToArray()));
             await WriteUnsafeAsync(next, token);
             return next;
         }
@@ -191,9 +191,10 @@ public sealed class LeadershipProfileStore : IDisposable
             await using var stream = new FileStream(
                 _profilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
                 bufferSize: 81920, useAsync: true);
-            return await JsonSerializer.DeserializeAsync<LeadershipProfileRecord>(
-                       stream, JsonOptions, token)
-                   ?? LeadershipProfileRecord.Default;
+            var profile = await JsonSerializer.DeserializeAsync<LeadershipProfileRecord>(
+                              stream, JsonOptions, token)
+                          ?? LeadershipProfileRecord.Default;
+            return NormalizeLegacyPresentation(profile);
         }
         catch (JsonException)
         {
@@ -259,6 +260,29 @@ public sealed class LeadershipProfileStore : IDisposable
     private static string[] CleanList(IReadOnlyList<string> values) =>
         values.Select(Clean).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
+    private static LeadershipProfileRecord NormalizeLegacyPresentation(
+        LeadershipProfileRecord profile)
+    {
+        const string legacyTitle = "Diretora de Engenharia e Operações de IA";
+        const string legacySpecialty = "Operações de IA";
+        const string publicTitle = "Diretora de Engenharia";
+        const string publicSpecialty = "Operações e confiabilidade";
+
+        return profile with
+        {
+            Title = string.Equals(profile.Title, legacyTitle, StringComparison.Ordinal)
+                ? publicTitle
+                : profile.Title,
+            Specialties = profile.Specialties
+                .Select(value => string.Equals(value, legacySpecialty, StringComparison.Ordinal)
+                    ? publicSpecialty
+                    : value)
+                .ToArray(),
+            CareerSummary = profile.CareerSummary.Replace(
+                "produtos de IA", "produtos digitais", StringComparison.Ordinal),
+        };
+    }
+
     private void RemoveAlternativePhotos(string stem, string preservedExtension)
     {
         foreach (var extension in new[] { ".jpg", ".png", ".webp" })
@@ -299,11 +323,11 @@ public sealed record LeadershipProfileRecord(
 {
     public static LeadershipProfileRecord Default { get; } = new(
         "Bruna Magalhães",
-        "Diretora de Engenharia e Operações de IA",
+        "Diretora de Engenharia",
         "/people/bruna-magalhaes.jpg",
         "Liderança técnica orientada a entregas seguras, rastreáveis e úteis para o negócio.",
-        ["Engenharia de software", "Operações de IA", "Governança", "Gestão de entregas"],
-        "Experiência em coordenação de equipes multidisciplinares, arquitetura e operação de produtos de IA.",
+        ["Engenharia de software", "Operações e confiabilidade", "Governança", "Gestão de entregas"],
+        "Experiência em coordenação de equipes multidisciplinares, arquitetura e operação de produtos digitais.",
         ["Português (Brasil)", "Inglês"],
         "Pragmática, transparente, cuidadosa com riscos e direta nas decisões.",
         ["Café", "Leitura", "Tecnologia", "Caminhadas"],

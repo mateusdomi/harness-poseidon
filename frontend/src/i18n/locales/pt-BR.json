@@ -68,7 +68,7 @@
     "architecture": "Arquitetura",
     "approvals": "Aprovações",
     "orchestrator": "Equipe",
-    "agents": "Agentes",
+    "agents": "Profissionais",
     "tools": "Ferramentas",
     "run-project": "Executar Projeto",
     "notifications": "Notificações",
@@ -1421,12 +1421,12 @@
       "chief": "Bruna Magalhães",
       "agent": "Pessoa da equipe",
       "system": "Sistema",
-      "virtualTeam": "Equipe de IA"
+      "virtualTeam": "Diretora de Engenharia"
     },
-    "intro": "Converse com {{name}}, que coordena a equipe de IA deste projeto.",
+    "intro": "Converse com {{name}}, Diretora de Engenharia responsável por conduzir este projeto.",
     "leadership": {
       "name": "Bruna Magalhães",
-      "title": "Diretora de Engenharia e Operações de IA",
+      "title": "Diretora de Engenharia",
       "photoAlt": "Foto de Bruna Magalhães",
       "openProfile": "Abrir perfil de Bruna Magalhães",
       "profileLabel": "Perfil de Bruna Magalhães"
@@ -1507,7 +1507,7 @@
     },
     "empty": {
       "title": "Converse com {{name}}",
-      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. {{name}} coordena a equipe de IA e responde por aqui.",
+      "body": "Peça um resumo do progresso, crie uma solicitação ou pergunte sobre bloqueios e aprovações. {{name}} coordena a equipe responsável pelo projeto e responde por aqui.",
       "blockedBody": "A equipe está aguardando a configuração inicial do projeto. Veja o que precisa de atenção logo abaixo.",
       "cta": "Iniciar conversa"
     },
@@ -1582,6 +1582,9 @@
       "attachments": "Anexos",
       "uploading": "Enviando {{name}}",
       "uploaded": "Anexado",
+      "selected": "Pronto para enviar",
+      "sizeBytes": "{{size}} bytes",
+      "sourceContext": "Fontes fornecidas nesta mensagem:\n{{files}}",
       "removeAttachment": "Remover anexo {{name}}",
       "model": "Modelo",
       "modelDefault": "Padrão de Bruna",
@@ -1680,7 +1683,7 @@
     },
     "chat": {
       "title": "Chat",
-      "description": "Converse com Bruna e a equipe de IA."
+      "description": "Converse com Bruna, Diretora de Engenharia responsável pelo projeto."
     },
     "conversations": {
       "title": "Conversas",
@@ -1711,12 +1714,12 @@
       "description": "Como a Bruna coordena o trabalho do time."
     },
     "agents": {
-      "title": "Agentes",
-      "description": "Catálogo e status dos agentes de IA."
+      "title": "Profissionais",
+      "description": "Catálogo e situação dos profissionais da equipe."
     },
     "tools": {
       "title": "Ferramentas",
-      "description": "Ferramentas disponíveis para os agentes."
+      "description": "Ferramentas disponíveis para os profissionais da equipe."
     },
     "run-project": {
       "title": "Executar projeto",

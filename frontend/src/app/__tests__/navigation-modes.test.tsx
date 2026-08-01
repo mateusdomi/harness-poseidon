@@ -94,7 +94,7 @@ describe('navegação por modo de apresentação (F4)', () => {
 
     const names = sidebarLinkNames();
     for (const hidden of [
-      'Agentes',
+      'Profissionais',
       'Governança',
       'Documentos de Governança',
       'Provedores',
@@ -106,9 +106,9 @@ describe('navegação por modo de apresentação (F4)', () => {
     }
   });
 
-  it('Técnico soma Agentes, Governança, Documentos de Governança, Provedores e Ferramentas', async () => {
+  it('Técnico soma Profissionais, Governança, Documentos de Governança, Provedores e Ferramentas', async () => {
     renderShell('technical');
-    await waitForMenu('Agentes');
+    await waitForMenu('Profissionais');
 
     const names = sidebarLinkNames();
     for (const added of ['Governança', 'Documentos de Governança', 'Provedores', 'Ferramentas']) {
@@ -125,7 +125,7 @@ describe('navegação por modo de apresentação (F4)', () => {
 
     const names = sidebarLinkNames();
     expect(names).toContain('Assistente de PO');
-    expect(names).toContain('Agentes');
+    expect(names).toContain('Profissionais');
   });
 
   it('a busca global indexa só o que o modo mostra', async () => {

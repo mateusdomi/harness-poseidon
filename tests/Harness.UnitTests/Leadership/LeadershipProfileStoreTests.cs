@@ -15,9 +15,9 @@ public sealed class LeadershipProfileStoreTests : IDisposable
         var now = new DateTimeOffset(2026, 7, 25, 12, 0, 0, TimeSpan.Zero);
         var updated = await firstStore.UpdateAsync(new(
             "Bruna Magalhães",
-            "Diretora de Engenharia e Operações de IA",
+            "Diretora de Engenharia",
             "Resumo atualizado.",
-            ["Engenharia", "Operações de IA"],
+            ["Engenharia", "Operações e confiabilidade"],
             "Histórico.",
             ["Português (Brasil)", "Inglês"],
             "Direta e transparente.",
@@ -47,6 +47,36 @@ public sealed class LeadershipProfileStoreTests : IDisposable
                 updated.PreferredAccountId, initial.Version),
                 "01ARZ3NDEKTSV4RRFFQ69G5FAX",
                 now.AddMinutes(1)));
+    }
+
+    [Fact]
+    public async Task LegacyArtificialPresentationIsNormalizedBeforeItReachesTheFrontend()
+    {
+        using var store = new LeadershipProfileStore(_directory);
+        var initial = await store.ReadAsync();
+        var updated = await store.UpdateAsync(new(
+            "Bruna Magalhães",
+            "Diretora de Engenharia e Operações de IA",
+            initial.Summary,
+            ["Engenharia de software", "Operações de IA"],
+            "Experiência em operação de produtos de IA.",
+            initial.Languages,
+            initial.Personality,
+            initial.Hobbies,
+            initial.Age,
+            initial.CommunicationInstructions,
+            initial.PreferredModelId,
+            initial.PreferredAccountId,
+            initial.Version),
+            "migration-test",
+            new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal("Diretora de Engenharia", updated.Title);
+        Assert.Contains("Operações e confiabilidade", updated.Specialties);
+        Assert.DoesNotContain("produtos de IA", updated.CareerSummary, StringComparison.Ordinal);
+
+        using var reloaded = new LeadershipProfileStore(_directory);
+        Assert.Equivalent(updated, await reloaded.ReadAsync(), strict: true);
     }
 
     [Fact]

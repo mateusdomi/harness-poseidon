@@ -68,7 +68,7 @@
     "architecture": "Architecture",
     "approvals": "Approvals",
     "orchestrator": "Team",
-    "agents": "Agents",
+    "agents": "Professionals",
     "tools": "Tools",
     "run-project": "Run Project",
     "notifications": "Notifications",
@@ -1421,12 +1421,12 @@
       "chief": "Bruna Magalhães",
       "agent": "Team member",
       "system": "System",
-      "virtualTeam": "AI team"
+      "virtualTeam": "Director of Engineering"
     },
-    "intro": "Talk to {{name}}, who coordinates this project's AI team.",
+    "intro": "Talk to {{name}}, the Director of Engineering responsible for leading this project.",
     "leadership": {
       "name": "Bruna Magalhães",
-      "title": "Director of AI Engineering and Operations",
+      "title": "Director of Engineering",
       "photoAlt": "Photo of Bruna Magalhães",
       "openProfile": "Open Bruna Magalhães's profile",
       "profileLabel": "Bruna Magalhães profile"
@@ -1507,7 +1507,7 @@
     },
     "empty": {
       "title": "Talk to {{name}}",
-      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. {{name}} coordinates the AI team and replies here.",
+      "body": "Ask for a progress summary, create a request, or ask about blockers and approvals. {{name}} coordinates the team responsible for the project and replies here.",
       "blockedBody": "The team is waiting for the project's initial setup. See what needs attention below.",
       "cta": "Start conversation"
     },
@@ -1582,6 +1582,9 @@
       "attachments": "Attachments",
       "uploading": "Uploading {{name}}",
       "uploaded": "Attached",
+      "selected": "Ready to send",
+      "sizeBytes": "{{size}} bytes",
+      "sourceContext": "Sources provided with this message:\n{{files}}",
       "removeAttachment": "Remove attachment {{name}}",
       "model": "Model",
       "modelDefault": "Bruna's default",
@@ -1680,7 +1683,7 @@
     },
     "chat": {
       "title": "Chat",
-      "description": "Talk to Bruna and the AI team."
+      "description": "Talk to Bruna, the Director of Engineering responsible for the project."
     },
     "conversations": {
       "title": "Conversations",
@@ -1711,12 +1714,12 @@
       "description": "How Bruna coordinates the team's work."
     },
     "agents": {
-      "title": "Agents",
-      "description": "Catalog and status of AI agents."
+      "title": "Professionals",
+      "description": "Catalog and status of the project's professionals."
     },
     "tools": {
       "title": "Tools",
-      "description": "Tools available to the agents."
+      "description": "Tools available to the project's professionals."
     },
     "run-project": {
       "title": "Run project",
