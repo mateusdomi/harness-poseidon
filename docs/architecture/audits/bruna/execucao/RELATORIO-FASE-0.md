@@ -201,3 +201,55 @@ O advisory `GHSA-qwww-vcr4-c8h2` do `react-router` foi avaliado e **não é apli
 modo RSC, e o frontend é SPA com `createBrowserRouter`, sem qualquer runtime RSC. A única correção
 publicada é o major 8.3.0, que a Fase 0 proíbe. Nenhuma dependência foi alterada. A análise, com
 reprodução, está em `docs/architecture/audits/bruna/ADVISORY-REACT-ROUTER-GHSA-qwww-vcr4-c8h2.md`.
+
+---
+
+## 7. Continuação: 0-E e Fase 1 (31/07/2026)
+
+### 0-E — Docker obrigatório (`a511c115`)
+
+Decisão do proprietário: o contêiner é pré-requisito nos DOIS modos. O aceite de modo inseguro —
+criado no 0B1 como válvula "até configurar uma sandbox" — foi **extinto do código e dos dados**.
+
+Removido: `UnsafeModeAccepted` do contexto de política; o método do serviço de attestation; o uso no
+orquestrador; os endpoints; os métodos dos dois stores. E também o aceite ANTERIOR, por perfil
+(`settings.UnsafeModeAcceptedAt`), que o `RunTargetEndpoints` usava para liberar execução local.
+
+**Por que a migration 0116 apaga o dado, e não só para de escrever:** enquanto a linha existir, um
+upgrade futuro pode voltar a lê-la e reabrir o caminho em silêncio. Uma exceção "temporária" que o
+produto aceita vira permanente na prática.
+
+A sonda de runtime checa o **Server** do Docker, não o cliente — o cliente responde mesmo com o
+daemon parado, e é o servidor que cria o contêiner. Launcher falha antes de subir o Host; `doctor`
+reporta o runtime antes das contas, porque conta saudável sem contêiner não executa nada.
+
+### Auditoria retroativa (0A3, 0B1, 0B2, 0C)
+
+**PASS nos quatro, zero correções exigidas.** Parecer em
+`docs/architecture/audits/bruna/pareceres/PARECER-RETROATIVO-0A3-0B1-0B2-0C-ANTIGRAVITY.md`.
+
+### 1A — Retomada real por checkpoint (`10edb30d`)
+
+`ExecutionCheckpointService` existia completo — captura, política, consumo, store nos dois providers
+— e **não tinha um único chamador**. Mesmo padrão do `ListAsync` das notas no 0A2: capacidade
+construída, documentada e desligada. Toda queda voltava à estaca zero com a branch cheia de trabalho
+aproveitável, e o agente seguinte refazia ou desfazia o que o anterior deixou.
+
+Captura na falha do executor e na recuperação de órfã pelo Host — este último é o caminho da queda
+de energia e de rede. Retomada na montagem do prompt, ao lado da continuação por patch: os dois
+lados da continuidade deixaram de ser mecanismos separados.
+
+**O que se recupera não é a sessão do agente** — ela morreu com o processo. É o que ele deixou:
+branch, arquivos alterados, onde parou, o que faltava. Sem checkpoint, a tentativa começa do zero
+explicitamente, o que é preferível a afirmar uma continuidade inexistente.
+
+### Blocos da Fase 1 ainda NÃO implementados
+
+`1B` (orçamentos da EffortPolicy governando o despacho), `1C` (gate composto de revisão em
+camadas), `1D` (MAST/pass@k/skills consumidos) e `1E` (multi-tenant real + autonomia por padrão).
+
+Levantamento já feito do 1B: `EffortPolicy` está pronta e determinística em
+`src/Modules/Harness.Modules.Coordination/Application/EffortPolicy.cs`; falta o planner gravar o
+orçamento no card e o scheduler respeitá-lo. Do 1E: o first-tenant está em
+`AttemptRecoveryBackgroundService` (`list[0].TenantId`) além do `ChiefBacklogLoopService:230`
+apontado no documento — são pelo menos dois serviços de fundo, não um.
