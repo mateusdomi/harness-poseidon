@@ -56,6 +56,7 @@ test.describe('Golden path — UX transversal', () => {
     await signIn(page);
     await navTo(page, 'Projetos');
 
+    await expect(page.getByRole('heading', { name: 'Projetos', level: 1 })).toBeVisible();
     await page.getByRole('button', { name: 'Novo projeto' }).click();
     const back = page.getByRole('button', { name: 'Voltar para projetos' });
     await expect(back).toBeVisible();
@@ -69,12 +70,18 @@ test.describe('Golden path — UX transversal', () => {
     await signIn(page);
 
     // Projetos: com itens, só o CTA do topo existe (o empty state some).
+    //
+    // Esperar a tela ESTAR PRONTA antes de contar: sob carga (a suíte roda em paralelo), a
+    // contagem acontecia no meio da montagem e via um estado transitório. Contar antes de a tela
+    // existir mede a montagem, não a regra.
     await navTo(page, 'Projetos');
+    await expect(page.getByRole('heading', { name: 'Projetos', level: 1 })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Novo projeto' })).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Criar projeto' })).toHaveCount(0);
 
     // Organizações: idem.
     await navTo(page, 'Organizações');
+    await expect(page.getByRole('heading', { name: 'Organizações', level: 1 })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Nova organização' })).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Criar organização' })).toHaveCount(0);
   });

@@ -18,11 +18,39 @@ Checklist do operador antes do primeiro uso:
 - [ ] Docker instalado (Docker Desktop no macOS/Windows; Docker Engine no Linux).
 - [ ] Daemon **em execução** — `docker version` precisa responder a versão do *Server*, não só a do
       cliente. O cliente responde mesmo com o daemon parado, e é o servidor que cria o contêiner.
+- [ ] Imagem de execução dos agentes construída — uma vez por máquina:
+
+      ```bash
+      tools/backend/build-sandbox-image.sh
+      ```
+
 - [ ] `./poseidon doctor` verde no item de runtime de contêiner.
 
-Se faltar, o launcher, o `doctor` e a API respondem a mesma frase, com o que fazer:
+Se faltar o Docker, o launcher, o `doctor` e a API respondem a mesma frase, com o que fazer:
 
 > Preciso do Docker para trabalhar com segurança — instale ou inicie o Docker e me chame de novo.
+
+Se o Docker estiver de pé mas a imagem faltar, a frase é outra — porque o estado é outro, e
+"Docker disponível" não é o mesmo que "posso executar":
+
+> O Docker está funcionando, mas a imagem de execução dos agentes ainda não existe nesta máquina —
+> sem ela eu não consigo trabalhar em ambiente isolado.
+
+### O que a imagem contém, e o que não contém
+
+Contém os executores que o produto sabe acionar: **Claude Code** (que serve às contas Anthropic e
+também às GLM, que falam o mesmo protocolo) e **Codex CLI**, ambos em versão fixa — `latest` faria
+a mesma imagem se comportar de forma diferente em dias diferentes, e nenhuma execução seria
+reproduzível.
+
+**Não contém credencial nenhuma.** Token em camada de imagem fica no histórico para sempre: quem
+tem a imagem tem o segredo, ainda que a camada seguinte o apague. A autenticação de cada conta é
+montada em tempo de execução, somente leitura, a partir do config home isolado que o Poseidon
+mantém por alias no host. Uma conta nunca enxerga o perfil da outra, e revogar acesso é apagar um
+diretório — não reconstruir imagem.
+
+Modelos locais e novos provedores entram acrescentando o CLI ao `infra/sandbox/agent/Dockerfile` e
+reconstruindo.
 
 ## Modo pessoal
 

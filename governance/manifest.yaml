@@ -825,7 +825,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:0ee5cc9b714643686a8890aac911457568f43a91796a98eadb5679127342dbe1
+  checksum: sha256:07d59ae8b8f18fab03f4cdcdc6f8f0ee1cb99ddb733526126f8954878b959482
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -859,7 +859,7 @@ documents:
   - '**'
   load: on-demand
   priority: 600
-  tokenCost: 237
+  tokenCost: 807
   owner: Platform Engineering
   status: active
   version: 2.0.0
@@ -872,7 +872,7 @@ documents:
   - documentation-index
   enforcedBy:
   - tools/backend/verify-governance.sh
-  checksum: sha256:52b693859b5eea0c8a6629beaf73534f051b8545bf8c2583003e8164c873ac8c
+  checksum: sha256:fca948569c44dcd600864b47d59f23889414387f3a04ac02ba38f322d2d912fc
   containsSecrets: false
   generated: false
   sourceOfTruth: README.md

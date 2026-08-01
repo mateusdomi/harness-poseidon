@@ -100,7 +100,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Poseidon](../README.md) | * | Active | Platform Engineering | OnDemand | 237 |
+| [Poseidon](../README.md) | * | Active | Platform Engineering | OnDemand | 807 |
 
 #### governance
 
