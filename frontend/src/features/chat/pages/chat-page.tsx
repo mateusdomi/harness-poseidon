@@ -378,8 +378,6 @@ export default function ChatPage() {
               <BrunaProfileAvatar size={64} className="relative" />
               <p className="relative text-sm text-foreground-muted">
                 {chiefName} · {t('chat.leadership.title')}
-                {' · '}
-                {t('chat.authors.virtualTeam')}
               </p>
               <p className="relative font-heading text-lg font-semibold">
                 {t('chat.empty.title', { name: chiefName })}

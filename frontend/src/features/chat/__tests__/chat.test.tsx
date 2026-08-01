@@ -230,6 +230,27 @@ describe('ChatPage', () => {
     expect(screen.getAllByText('Diretora de Engenharia').length).toBeGreaterThan(0);
   });
 
+  it('apresenta a liderança uma única vez no estado sem conversa', async () => {
+    const bundle = createTestBundle();
+    const originalList = bundle.api.list.bind(bundle.api);
+    vi.spyOn(bundle.api, 'list').mockImplementation((resource, query) => {
+      if (resource === 'conversations') {
+        return Promise.resolve({ items: [], nextCursor: null });
+      }
+      return originalList(resource, query);
+    });
+
+    renderWithApi(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    expect(await screen.findByText('Bruna Magalhães · Diretora de Engenharia')).toBeInTheDocument();
+    expect(screen.queryByText(/Diretora de Engenharia · Diretora de Engenharia/)).not.toBeInTheDocument();
+  });
+
   it('mantém modelo e esforço reais disponíveis no modo técnico autorizado', async () => {
     const bundle = createTestBundle();
     usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
