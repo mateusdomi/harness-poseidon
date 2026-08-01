@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using Harness.Modules.Coordination.Application;
+using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -66,6 +68,8 @@ public sealed class PlanMaterializationService(
     DemandPlanMaterializer materializer,
     ILocalProfileStore localProfiles,
     IChiefLoopGuardStore loopGuards,
+    IMastClassificationStore mastClassifications,
+    IAuditEventStore audit,
     IClock clock,
     PlanMaterializationOptions options,
     IPlanMaterializationFaultInjector faults,
@@ -198,6 +202,11 @@ public sealed class PlanMaterializationService(
             return await FailedOutcomeAsync(job, "local_profile_missing", cancellationToken);
         }
 
+        // Fase 1D: o APRENDIZADO entra na decisão. A distribuição MAST das tentativas recentes
+        // deste projeto diz qual modo de falha se repete, e cada categoria pede uma correção
+        // diferente — fatiar menor, exigir critério explícito ou revisar mais fundo. Classificar
+        // sem consumir era telemetria bonita: o painel media e o planejamento continuava igual.
+        var correction = await ReadMastCorrectionAsync(job, cancellationToken);
         var saved = await materializer.EnsurePlanAsync(
             job.TenantId, demand, job.Request.AcceptanceCriteria, ToHints(job.Request.Surfaces),
             job.Request.Specialty, clock.UtcNow, cancellationToken);
@@ -244,6 +253,54 @@ public sealed class PlanMaterializationService(
             MaterializedCards: outcome.Cards.Count,
             CreatedCards: outcome.CreatedCards,
             PlanId: saved.Plan.Id);
+    }
+
+
+    /// <summary>
+    /// Fase 1D: lê a distribuição MAST do projeto e traduz em ajuste de planejamento, AUDITANDO a
+    /// decisão com a evidência que a produziu. Uma decisão de máquina que não pode ser citada é
+    /// indistinguível de capricho — e a primeira pergunta de quem discorda dela é "por quê?".
+    ///
+    /// Falha de leitura não derruba o planejamento: sem sinal, decompõe-se como antes.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Learning must inform planning, never block it.")]
+    private async Task<MastCorrection> ReadMastCorrectionAsync(
+        PlanMaterializationRecord job, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var classifications = await mastClassifications.ListByProjectAsync(
+                job.TenantId, job.ProjectId, cancellationToken);
+            var observations = classifications
+                .GroupBy(record => record.FailureModeCode, StringComparer.Ordinal)
+                .Select(group => new MastObservation(
+                    group.Key,
+                    MastTaxonomy.Find(group.Key)?.Category ?? MastCategory.SpecificationAndDesign,
+                    group.Count()))
+                .ToArray();
+            var correction = MastCorrectionPolicy.Evaluate(observations);
+            if (correction.HasSignal)
+            {
+                await audit.AppendAsync(
+                    new AuditEventAppendCommand(
+                        job.TenantId, "system", null, "plan.mastCorrectionApplied", "demand",
+                        job.DemandId,
+                        $"{correction.ReasonCode}: {correction.Evidence}",
+                        clock.UtcNow),
+                    cancellationToken);
+            }
+
+            return correction;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new MastCorrection(
+                false, 0, false, false, MastCorrectionPolicy.ReasonNoSignal,
+                $"A distribuição MAST não pôde ser lida ({exception.GetType().Name}).");
+        }
     }
 
     /// <summary>

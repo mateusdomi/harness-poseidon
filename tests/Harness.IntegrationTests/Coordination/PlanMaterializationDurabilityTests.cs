@@ -399,6 +399,8 @@ public sealed class PlanMaterializationDurabilityTests
                 new DemandPlanMaterializer(Board, Plans),
                 _profiles,
                 new SqliteChiefLoopGuardStore(_dispatcher),
+                new SqliteMastClassificationStore(_dispatcher),
+                new SqliteAuditEventStore(_dispatcher),
                 _clock,
                 _options,
                 faults ?? NullPlanMaterializationFaultInjector.Instance,

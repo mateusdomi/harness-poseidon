@@ -231,378 +231,387 @@ public sealed partial class ChiefBacklogLoopService(
             return (0, 0);
         }
 
-        var profile = profileList[0];
-
-        var controlledRoot = System.IO.Path.GetFullPath(settings.ControlledRoot!);
-        var personas = await catalog.ListDefinitionsForTenantAsync(profile.TenantId, null, 100, false, token);
-        var plans = scope.ServiceProvider.GetRequiredService<IDemandPlanStore>();
-
+        // Fase 1E: TODOS os tenants, não o primeiro. `profileList[0]` significava que, com dois
+        // perfis na mesma instalação, o segundo projeto simplesmente nunca era despachado — e nada
+        // no produto dizia isso. O laço não "falhava": ele trabalhava para um dono só, em silêncio.
+        //
+        // O isolamento é POR ITERAÇÃO: cada tenant lê seu catálogo, seus projetos e seus cards.
+        // Uma falha em um tenant não pode impedir os demais de progredir, senão um projeto quebrado
+        // paralisa a instalação inteira.
         var dispatched = 0;
         var deferred = 0;
-
-        var projectList = await projects.ListAsync(profile.TenantId, null, 50, token);
-        foreach (var project in projectList)
+        foreach (var profile in profileList)
         {
-            // `pause` do chefe precisa PARAR de verdade. Sem este filtro o loop continuava
-            // colhendo, revisando e despachando cards de projeto pausado/arquivado — o botão
-            // existia na API e não segurava nada, e um projeto que o dono mandou parar seguia
-            // gastando cota e slot de despacho dos projetos ativos.
-            if (!IsDispatchable(project))
-            {
-                continue;
-            }
 
-            if (!IsInsideControlledRoot(project, controlledRoot))
-            {
-                continue;
-            }
+            var controlledRoot = System.IO.Path.GetFullPath(settings.ControlledRoot!);
+            var personas = await catalog.ListDefinitionsForTenantAsync(profile.TenantId, null, 100, false, token);
+            var plans = scope.ServiceProvider.GetRequiredService<IDemandPlanStore>();
 
-            // ACOMPANHAMENTO do chefe (antes de despachar novos cards): 1) colher runs
-            // concluídos — a tentativa vira `awaiting_review` e o card vai a `review`; 2) o code
-            // review acontece por OUTRO agente (ator≠crítico) e o veredito é aplicado na cadeia;
-            // 3) triagem por ondas — cards de plano com DoR ok e dependências ENTREGUES sobem de
-            // `backlog` para `ready`, de onde o despacho abaixo os assume. É este trio que fecha
-            // o ciclo "um agente termina → o chefe confere → o próximo card entra". Uma falha
-            // aqui é logada e NUNCA impede o despacho do restante do ciclo.
-            try
+            var projectList = await projects.ListAsync(profile.TenantId, null, 50, token);
+            foreach (var project in projectList)
             {
-                await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
-                await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
-                await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
-                await ResolveAgentRequestsAsync(profile.TenantId, project, scope, token);
-                await IntegrateApprovedCardsAsync(profile.TenantId, project, board, scope, token);
-                await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
-                await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
-                await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                LogFollowUpFailure(logger, project.Id, exception.GetType().Name);
-            }
-
-            // Cards prontos para delegar: board_state `ready` (minúsculo — o enum é case-sensitive
-            // no SQLite), não arquivados. Cards nascem em `backlog`; a triagem (humano/DoR) promove
-            // a `ready` antes de o loop os enxergar.
-            var page = await board.PageTasksAsync(
-                profile.TenantId,
-                new BoardTaskPageQuery(project.Id, null, null, "ready", null, null, "active", null, 0, 50),
-                token);
-
-            // Mapa das superfícies REAIS do repositório do projeto, lido uma vez por ciclo. É ele
-            // que permite ao card reivindicar o módulo que ele mexe em vez de `src/**` inteiro —
-            // sem isso, dois cards independentes do mesmo projeto nunca rodam juntos.
-            var surfaceMap = string.IsNullOrWhiteSpace(project.RepositoryUrl)
-                ? RepositorySurfaceMap.Empty
-                : RepositorySurfaceMap.Build(System.IO.Path.GetFullPath(project.RepositoryUrl));
-
-            var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)>();
-            foreach (var task in page.Items)
-            {
-                // Card recusado na largada há pouco (conflito de claim): esperar o escopo liberar é
-                // a decisão correta — re-tentar em seguida só produz tentativa fantasma.
-                if (_dispatchBackoff.TryGetValue(task.Id, out var retryAt) && retryAt > clock.UtcNow)
+                // `pause` do chefe precisa PARAR de verdade. Sem este filtro o loop continuava
+                // colhendo, revisando e despachando cards de projeto pausado/arquivado — o botão
+                // existia na API e não segurava nada, e um projeto que o dono mandou parar seguia
+                // gastando cota e slot de despacho dos projetos ativos.
+                if (!IsDispatchable(project))
                 {
                     continue;
                 }
 
-                var instructions = await board.ListInstructionsAsync(profile.TenantId, task.Id, null, 50, token);
-
-                // Gate fail-safe da Definition of Ready: SÓ cards 'agent_task' com instrução e não
-                // bloqueados entram na fila de despacho. 'human_gate'/'decision'/'feature'/'spike'
-                // NUNCA são auto-despachados — mesmo já em `ready`, são pulados aqui com bloqueador
-                // tipado (a triagem/humano cuida deles fora do loop).
-                var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
-                    task.CardType,
-                    instructions.Count >= 1,
-                    string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
-                        !string.IsNullOrWhiteSpace(task.BlockedReason)));
-                if (!readiness.IsDispatchable)
+                if (!IsInsideControlledRoot(project, controlledRoot))
                 {
-                    LogCardNotDispatchable(
-                        logger, task.Id, task.CardType, string.Join(",", readiness.Blockers));
                     continue;
                 }
 
-                // CIRCUITO DO CARD (B4): quando o mesmo card falha três vezes seguidas, o defeito
-                // está no enunciado, não no agente — redespachar é repetir o fracasso queimando
-                // cota. O circuito é recalculado do histórico de tentativas (idempotente, imune a
-                // reinício) e só o replanejamento da Bruna o reabre. Sem isto, o único freio era a
-                // escalação por ciclos de review, que não cobre falha de execução.
-                var attemptHistory = await board.ListAttemptsAsync(profile.TenantId, task.Id, null, 100, token);
-                var circuit = await circuits.SynchronizeAsync(
-                    profile.TenantId,
-                    project.Id,
-                    task.Id,
-                    [.. attemptHistory.Select(attempt =>
-                        (attempt.State, attempt.FinishedAt ?? attempt.StartedAt))],
-                    token);
-                if (!circuit.IsDispatchable)
-                {
-                    LogCardCircuitOpen(logger, task.Id, circuit.ConsecutiveFailures);
-                    continue;
-                }
-
-                // Fase 1B: o ORÇAMENTO do card governa o despacho. A EffortPolicy existia e não
-                // decidia nada — o teto de rodadas era só o circuito por falha, que mede outra
-                // coisa (falha técnica, não esgotamento do plano). Um card que já consumiu as
-                // rodadas orçadas não é redespachado em silêncio: ele ESCALA, com o fato auditado.
-                var budget = await ReadCardBudgetAsync(profile.TenantId, task, plans, token);
-                if (budget is not null && attemptHistory.Count >= budget.MaxRounds)
-                {
-                    await EscalateBudgetExhaustionAsync(
-                        profile.TenantId, project.Id, task, budget, attemptHistory.Count, token);
-                    continue;
-                }
-
-                var resolution = ChiefCardResolver.Resolve(
-                    task.Title, instructions[^1].Body, [], task.Priority, surfaceMap: surfaceMap);
-
-                // Defesa em profundidade: um papel SEM escopo de escrita (o crítico, por exemplo)
-                // produz claim vazia, e a política de path rejeita a tentativa com
-                // `agent_path_scope_empty`. Sem esta guarda o loop redespachava o mesmo card a cada
-                // ciclo, para sempre, queimando slot e registrando tentativa rejeitada sem NUNCA
-                // avisar ninguém. O card é pulado com motivo tipado — quem decide o que fazer com
-                // ele é a triagem, não um retry cego.
-                if (resolution.ScopeClaims.Count == 0)
-                {
-                    LogCardWithoutWriteScope(logger, task.Id, resolution.Role);
-                    continue;
-                }
-
-                cards.Add((
-                    new ChiefCard(task.Id, project.Id, resolution.Role, resolution.RequiredCapability,
-                        PriorityWeight(task.Priority), resolution.ScopeClaims),
-                    resolution, task, instructions[^1].Id));
-            }
-
-            if (cards.Count == 0)
-            {
-                continue;
-            }
-
-            // B6/F15 em PRODUÇÃO: a árvore publicada é reindexada antes do despacho, alimenta o
-            // self-map e passa pelos três consumidores. Erro do índice não vira "impacto zero":
-            // o card segue explicitamente não medido. Erro de sintaxe medido, por outro lado,
-            // bloqueia antes de gastar conta; divergência plano×grafo bloqueia só os cards
-            // envolvidos; o raio recalcula risco e profundidade e entra no briefing auditável.
-            CodeGraph? currentGraph = null;
-            try
-            {
-                var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl!);
-                string? sourceRevision = null;
+                // ACOMPANHAMENTO do chefe (antes de despachar novos cards): 1) colher runs
+                // concluídos — a tentativa vira `awaiting_review` e o card vai a `review`; 2) o code
+                // review acontece por OUTRO agente (ator≠crítico) e o veredito é aplicado na cadeia;
+                // 3) triagem por ondas — cards de plano com DoR ok e dependências ENTREGUES sobem de
+                // `backlog` para `ready`, de onde o despacho abaixo os assume. É este trio que fecha
+                // o ciclo "um agente termina → o chefe confere → o próximo card entra". Uma falha
+                // aqui é logada e NUNCA impede o despacho do restante do ciclo.
                 try
                 {
-                    using var manager = await GitWorktreeManager.OpenAsync(
-                        repositoryRoot, controlledRoot, token);
-                    sourceRevision = await manager.ResolveCommitAsync(
-                        cancellationToken: token);
+                    await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                    await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                    await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
+                    await ResolveAgentRequestsAsync(profile.TenantId, project, scope, token);
+                    await IntegrateApprovedCardsAsync(profile.TenantId, project, board, scope, token);
+                    await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
+                    await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
+                    await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    // Repositório sem Git ainda pode ser indexado, mas não oferece revisão estável
-                    // para cache. A derivação abaixo permanece a fonte da verdade desse ciclo.
+                    LogFollowUpFailure(logger, project.Id, exception.GetType().Name);
                 }
 
-                var cached = sourceRevision is null
-                    ? null
-                    : await codeGraph.LoadCurrentAsync(
-                        profile.TenantId, project.Id, sourceRevision, token);
-                if (cached is not null)
+                // Cards prontos para delegar: board_state `ready` (minúsculo — o enum é case-sensitive
+                // no SQLite), não arquivados. Cards nascem em `backlog`; a triagem (humano/DoR) promove
+                // a `ready` antes de o loop os enxergar.
+                var page = await board.PageTasksAsync(
+                    profile.TenantId,
+                    new BoardTaskPageQuery(project.Id, null, null, "ready", null, null, "active", null, 0, 50),
+                    token);
+
+                // Mapa das superfícies REAIS do repositório do projeto, lido uma vez por ciclo. É ele
+                // que permite ao card reivindicar o módulo que ele mexe em vez de `src/**` inteiro —
+                // sem isso, dois cards independentes do mesmo projeto nunca rodam juntos.
+                var surfaceMap = string.IsNullOrWhiteSpace(project.RepositoryUrl)
+                    ? RepositorySurfaceMap.Empty
+                    : RepositorySurfaceMap.Build(System.IO.Path.GetFullPath(project.RepositoryUrl));
+
+                var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)>();
+                foreach (var task in page.Items)
                 {
-                    currentGraph = cached.Graph;
-                    if (cached.Snapshot.ErrorCount > 0)
+                    // Card recusado na largada há pouco (conflito de claim): esperar o escopo liberar é
+                    // a decisão correta — re-tentar em seguida só produz tentativa fantasma.
+                    if (_dispatchBackoff.TryGetValue(task.Id, out var retryAt) && retryAt > clock.UtcNow)
                     {
-                        LogCodeDiagnosticsBlocked(
-                            logger, project.Id, cached.Snapshot.ErrorCount);
-                        deferred += cards.Count;
                         continue;
                     }
-                }
-                else
-                {
-                    var derivation = await codeGraph.DeriveAndStoreAsync(
+
+                    var instructions = await board.ListInstructionsAsync(profile.TenantId, task.Id, null, 50, token);
+
+                    // Gate fail-safe da Definition of Ready: SÓ cards 'agent_task' com instrução e não
+                    // bloqueados entram na fila de despacho. 'human_gate'/'decision'/'feature'/'spike'
+                    // NUNCA são auto-despachados — mesmo já em `ready`, são pulados aqui com bloqueador
+                    // tipado (a triagem/humano cuida deles fora do loop).
+                    var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
+                        task.CardType,
+                        instructions.Count >= 1,
+                        string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
+                            !string.IsNullOrWhiteSpace(task.BlockedReason)));
+                    if (!readiness.IsDispatchable)
+                    {
+                        LogCardNotDispatchable(
+                            logger, task.Id, task.CardType, string.Join(",", readiness.Blockers));
+                        continue;
+                    }
+
+                    // CIRCUITO DO CARD (B4): quando o mesmo card falha três vezes seguidas, o defeito
+                    // está no enunciado, não no agente — redespachar é repetir o fracasso queimando
+                    // cota. O circuito é recalculado do histórico de tentativas (idempotente, imune a
+                    // reinício) e só o replanejamento da Bruna o reabre. Sem isto, o único freio era a
+                    // escalação por ciclos de review, que não cobre falha de execução.
+                    var attemptHistory = await board.ListAttemptsAsync(profile.TenantId, task.Id, null, 100, token);
+                    var circuit = await circuits.SynchronizeAsync(
                         profile.TenantId,
                         project.Id,
-                        repositoryRoot,
-                        sourceRevision,
+                        task.Id,
+                        [.. attemptHistory.Select(attempt =>
+                            (attempt.State, attempt.FinishedAt ?? attempt.StartedAt))],
                         token);
-                    await codeGraph.SyncSelfMapAsync(
-                        profile.TenantId, project.Id, derivation.Graph, token);
-                    currentGraph = derivation.Graph;
-
-                    var diagnostics = CodeDiagnosticsGate.Inspect(
-                        derivation.Diagnostics, CodeGraphDiagnosticScope.SyntaxOnly);
-                    var deterministic = CodeDiagnosticsGate.ApplyTo(
-                        new LayerResult(
-                            VerificationLayer.Deterministic,
-                            LayerVerdict.Pass,
-                            CodeDiagnosticsGate.ReasonClean),
-                        diagnostics);
-                    if (!LayeredVerificationPolicy.MayOccupyReviewer([deterministic]))
+                    if (!circuit.IsDispatchable)
                     {
-                        LogCodeDiagnosticsBlocked(
-                            logger, project.Id, diagnostics.ErrorCount);
-                        deferred += cards.Count;
+                        LogCardCircuitOpen(logger, task.Id, circuit.ConsecutiveFailures);
                         continue;
                     }
-                }
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                LogCodeGraphUnavailable(logger, project.Id, exception.GetType().Name);
-            }
 
-            if (currentGraph is not null)
-            {
-                var validation = await ValidatePlanAgainstGraphAsync(
-                    profile.TenantId, cards, plans, currentGraph, token);
-                if (!validation.DispatchAllowed)
-                {
-                    var blocked = validation.Blocking
-                        .SelectMany(divergence => divergence.RelatedCardId is null
-                            ? [divergence.CardId]
-                            : new[] { divergence.CardId, divergence.RelatedCardId })
-                        .ToHashSet(StringComparer.Ordinal);
-                    foreach (var divergence in validation.Blocking)
+                    // Fase 1B: o ORÇAMENTO do card governa o despacho. A EffortPolicy existia e não
+                    // decidia nada — o teto de rodadas era só o circuito por falha, que mede outra
+                    // coisa (falha técnica, não esgotamento do plano). Um card que já consumiu as
+                    // rodadas orçadas não é redespachado em silêncio: ele ESCALA, com o fato auditado.
+                    var budget = await ReadCardBudgetAsync(profile.TenantId, task, plans, token);
+                    if (budget is not null && attemptHistory.Count >= budget.MaxRounds)
                     {
-                        LogPlanGraphBlocked(
-                            logger,
-                            divergence.CardId,
-                            divergence.Code,
-                            divergence.RelatedCardId ?? "-",
-                            divergence.Explanation,
-                            divergence.Evidence.Count);
-                    }
-
-                    var before = cards.Count;
-                    cards.RemoveAll(candidate => blocked.Contains(candidate.Card.TaskId));
-                    deferred += before - cards.Count;
-                    if (cards.Count == 0)
-                    {
+                        await EscalateBudgetExhaustionAsync(
+                            profile.TenantId, project.Id, task, budget, attemptHistory.Count, token);
                         continue;
                     }
+
+                    var resolution = ChiefCardResolver.Resolve(
+                        task.Title, instructions[^1].Body, [], task.Priority, surfaceMap: surfaceMap);
+
+                    // Defesa em profundidade: um papel SEM escopo de escrita (o crítico, por exemplo)
+                    // produz claim vazia, e a política de path rejeita a tentativa com
+                    // `agent_path_scope_empty`. Sem esta guarda o loop redespachava o mesmo card a cada
+                    // ciclo, para sempre, queimando slot e registrando tentativa rejeitada sem NUNCA
+                    // avisar ninguém. O card é pulado com motivo tipado — quem decide o que fazer com
+                    // ele é a triagem, não um retry cego.
+                    if (resolution.ScopeClaims.Count == 0)
+                    {
+                        LogCardWithoutWriteScope(logger, task.Id, resolution.Role);
+                        continue;
+                    }
+
+                    cards.Add((
+                        new ChiefCard(task.Id, project.Id, resolution.Role, resolution.RequiredCapability,
+                            PriorityWeight(task.Priority), resolution.ScopeClaims),
+                        resolution, task, instructions[^1].Id));
                 }
 
-                for (var index = 0; index < cards.Count; index++)
+                if (cards.Count == 0)
                 {
-                    var candidate = cards[index];
-                    var declaredRisk = ParseRisk(candidate.Task.Priority);
-                    var expandedPaths = ExpandScopeClaims(
-                        candidate.Resolution.ScopeClaims, currentGraph);
-                    var assessment = BlastRadiusPolicy.Assess(
-                        declaredRisk, currentGraph.MeasureBlastRadius(expandedPaths));
-                    var effectiveRisk = RiskName(assessment.EffectiveRisk);
-                    var auditedScope =
-                        $"{candidate.Resolution.Card.Scope}\n\n" +
-                        "## Impacto calculado antes do despacho\n\n" +
-                        $"{assessment.Justification}\n" +
-                        $"Profundidade de revisão exigida: {assessment.ReviewDepth}.";
-                    var adjustedResolution = candidate.Resolution with
+                    continue;
+                }
+
+                // B6/F15 em PRODUÇÃO: a árvore publicada é reindexada antes do despacho, alimenta o
+                // self-map e passa pelos três consumidores. Erro do índice não vira "impacto zero":
+                // o card segue explicitamente não medido. Erro de sintaxe medido, por outro lado,
+                // bloqueia antes de gastar conta; divergência plano×grafo bloqueia só os cards
+                // envolvidos; o raio recalcula risco e profundidade e entra no briefing auditável.
+                CodeGraph? currentGraph = null;
+                try
+                {
+                    var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl!);
+                    string? sourceRevision = null;
+                    try
                     {
-                        Card = candidate.Resolution.Card with
+                        using var manager = await GitWorktreeManager.OpenAsync(
+                            repositoryRoot, controlledRoot, token);
+                        sourceRevision = await manager.ResolveCommitAsync(
+                            cancellationToken: token);
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        // Repositório sem Git ainda pode ser indexado, mas não oferece revisão estável
+                        // para cache. A derivação abaixo permanece a fonte da verdade desse ciclo.
+                    }
+
+                    var cached = sourceRevision is null
+                        ? null
+                        : await codeGraph.LoadCurrentAsync(
+                            profile.TenantId, project.Id, sourceRevision, token);
+                    if (cached is not null)
+                    {
+                        currentGraph = cached.Graph;
+                        if (cached.Snapshot.ErrorCount > 0)
                         {
-                            Scope = auditedScope,
-                            RiskTier = effectiveRisk
+                            LogCodeDiagnosticsBlocked(
+                                logger, project.Id, cached.Snapshot.ErrorCount);
+                            deferred += cards.Count;
+                            continue;
                         }
-                    };
-                    cards[index] = (
-                        candidate.Card,
-                        adjustedResolution,
-                        candidate.Task,
-                        candidate.InstructionVersionId);
-                    LogBlastRadiusAssessed(
-                        logger,
-                        candidate.Task.Id,
-                        assessment.DeclaredRisk,
-                        assessment.EffectiveRisk,
-                        assessment.ReviewDepth,
-                        assessment.Measured);
+                    }
+                    else
+                    {
+                        var derivation = await codeGraph.DeriveAndStoreAsync(
+                            profile.TenantId,
+                            project.Id,
+                            repositoryRoot,
+                            sourceRevision,
+                            token);
+                        await codeGraph.SyncSelfMapAsync(
+                            profile.TenantId, project.Id, derivation.Graph, token);
+                        currentGraph = derivation.Graph;
+
+                        var diagnostics = CodeDiagnosticsGate.Inspect(
+                            derivation.Diagnostics, CodeGraphDiagnosticScope.SyntaxOnly);
+                        var deterministic = CodeDiagnosticsGate.ApplyTo(
+                            new LayerResult(
+                                VerificationLayer.Deterministic,
+                                LayerVerdict.Pass,
+                                CodeDiagnosticsGate.ReasonClean),
+                            diagnostics);
+                        if (!LayeredVerificationPolicy.MayOccupyReviewer([deterministic]))
+                        {
+                            LogCodeDiagnosticsBlocked(
+                                logger, project.Id, diagnostics.ErrorCount);
+                            deferred += cards.Count;
+                            continue;
+                        }
+                    }
                 }
-            }
-
-            // Fase 10 — despacho em ESCALA: antes de escolher contas, a fila priorizada corta
-            // pelo teto GLOBAL VIVO (runs em andamento agora + já despachados nesta rodada, em
-            // todos os projetos). Sem isto, cada rodada enxergaria só o próprio orçamento e o
-            // processo ultrapassaria o teto com runs de rodadas anteriores ainda vivos.
-            var queue = new CardPrioritizedBuffer();
-            foreach (var candidate in cards)
-            {
-                queue.Enqueue(
-                    candidate.Card.TaskId,
-                    candidate.Card.Role,
-                    candidate.Card.Priority >= 70
-                        ? CardPriority.High
-                        : candidate.Card.Priority >= 40 ? CardPriority.Normal : CardPriority.Low,
-                    clock.UtcNow);
-            }
-
-            var scale = ScaleGate.Dispatch(
-                queue,
-                Math.Max(1, settings.AutoDispatchMaxConcurrent),
-                orchestrator.LiveRunCount + dispatched);
-            var admitted = new HashSet<string>(
-                scale.DispatchedWorkerCards.Concat(scale.DispatchedCriticCards),
-                StringComparer.Ordinal);
-            deferred += scale.DeferredCount;
-            if (admitted.Count == 0)
-            {
-                continue;
-            }
-
-            var planningCards = cards
-                .Where(entry => admitted.Contains(entry.Card.TaskId))
-                .Select(entry => entry.Card)
-                .ToArray();
-            var routingNow = clock.UtcNow;
-            await providerRouting.RefreshCapacityAsync(
-                profile.TenantId, planningCards, routingNow, token);
-            var plan = policy.Plan(
-                planningCards,
-                accounts, availability,
-                settings.AutoDispatchMaxConcurrent, routingNow,
-                CapacitySignals(routingNow));
-            deferred += plan.Deferred.Count;
-            foreach (var deferral in plan.Deferred)
-            {
-                // O MOTIVO tipado do adiamento é operável (conta indisponível? escopo? cota?);
-                // sem ele o operador só vê o contador e não consegue agir. O detalhe por conta
-                // (candidatos do scheduler) diz exatamente QUEM foi recusado e POR QUÊ.
-                LogCardDeferred(
-                    logger, deferral.Card.TaskId, deferral.ReasonCode,
-                    deferral.RetryAfter?.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) ?? "-",
-                    deferral.Candidates is null
-                        ? "-"
-                        : string.Join(", ", deferral.Candidates.Select(candidate =>
-                            $"{candidate.Alias}:{candidate.ReasonCode}")));
-            }
-
-            // Adiamento transitório é rotina e não incomoda ninguém. Adiamento ESTRUTURAL é outra
-            // coisa: nenhuma espera o resolve, e o dono precisa saber que aquele card não tem quem
-            // o execute — senão ele fica parado para sempre com o fato vivo só no log.
-            await AnnounceUndispatchableCardsAsync(
-                profile.TenantId, project, cards, plan.Deferred, scope, token);
-
-            foreach (var decision in plan.Dispatch)
-            {
-                var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
-                var routing = await providerRouting.RouteAndAuditAsync(
-                    profile.TenantId,
-                    project.Id,
-                    decision,
-                    preferredModel: null,
-                    routingNow,
-                    token);
-                if (await LaunchAsync(
-                        profile.TenantId, project, entry.Resolution, decision.AccountAlias,
-                        routing.SelectedModel, entry.Task, entry.InstructionVersionId, personas,
-                        controlledRoot,
-                        string.Equals(
-                            decision.ReasonCode, "chief.reinforcement_dispatched", StringComparison.Ordinal),
-                        board, chain, token))
+                catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    dispatched++;
+                    LogCodeGraphUnavailable(logger, project.Id, exception.GetType().Name);
+                }
+
+                if (currentGraph is not null)
+                {
+                    var validation = await ValidatePlanAgainstGraphAsync(
+                        profile.TenantId, cards, plans, currentGraph, token);
+                    if (!validation.DispatchAllowed)
+                    {
+                        var blocked = validation.Blocking
+                            .SelectMany(divergence => divergence.RelatedCardId is null
+                                ? [divergence.CardId]
+                                : new[] { divergence.CardId, divergence.RelatedCardId })
+                            .ToHashSet(StringComparer.Ordinal);
+                        foreach (var divergence in validation.Blocking)
+                        {
+                            LogPlanGraphBlocked(
+                                logger,
+                                divergence.CardId,
+                                divergence.Code,
+                                divergence.RelatedCardId ?? "-",
+                                divergence.Explanation,
+                                divergence.Evidence.Count);
+                        }
+
+                        var before = cards.Count;
+                        cards.RemoveAll(candidate => blocked.Contains(candidate.Card.TaskId));
+                        deferred += before - cards.Count;
+                        if (cards.Count == 0)
+                        {
+                            continue;
+                        }
+                    }
+
+                    for (var index = 0; index < cards.Count; index++)
+                    {
+                        var candidate = cards[index];
+                        var declaredRisk = ParseRisk(candidate.Task.Priority);
+                        var expandedPaths = ExpandScopeClaims(
+                            candidate.Resolution.ScopeClaims, currentGraph);
+                        var assessment = BlastRadiusPolicy.Assess(
+                            declaredRisk, currentGraph.MeasureBlastRadius(expandedPaths));
+                        var effectiveRisk = RiskName(assessment.EffectiveRisk);
+                        var auditedScope =
+                            $"{candidate.Resolution.Card.Scope}\n\n" +
+                            "## Impacto calculado antes do despacho\n\n" +
+                            $"{assessment.Justification}\n" +
+                            $"Profundidade de revisão exigida: {assessment.ReviewDepth}.";
+                        var adjustedResolution = candidate.Resolution with
+                        {
+                            Card = candidate.Resolution.Card with
+                            {
+                                Scope = auditedScope,
+                                RiskTier = effectiveRisk
+                            }
+                        };
+                        cards[index] = (
+                            candidate.Card,
+                            adjustedResolution,
+                            candidate.Task,
+                            candidate.InstructionVersionId);
+                        LogBlastRadiusAssessed(
+                            logger,
+                            candidate.Task.Id,
+                            assessment.DeclaredRisk,
+                            assessment.EffectiveRisk,
+                            assessment.ReviewDepth,
+                            assessment.Measured);
+                    }
+                }
+
+                // Fase 10 — despacho em ESCALA: antes de escolher contas, a fila priorizada corta
+                // pelo teto GLOBAL VIVO (runs em andamento agora + já despachados nesta rodada, em
+                // todos os projetos). Sem isto, cada rodada enxergaria só o próprio orçamento e o
+                // processo ultrapassaria o teto com runs de rodadas anteriores ainda vivos.
+                var queue = new CardPrioritizedBuffer();
+                foreach (var candidate in cards)
+                {
+                    queue.Enqueue(
+                        candidate.Card.TaskId,
+                        candidate.Card.Role,
+                        candidate.Card.Priority >= 70
+                            ? CardPriority.High
+                            : candidate.Card.Priority >= 40 ? CardPriority.Normal : CardPriority.Low,
+                        clock.UtcNow);
+                }
+
+                var scale = ScaleGate.Dispatch(
+                    queue,
+                    Math.Max(1, settings.AutoDispatchMaxConcurrent),
+                    orchestrator.LiveRunCount + dispatched);
+                var admitted = new HashSet<string>(
+                    scale.DispatchedWorkerCards.Concat(scale.DispatchedCriticCards),
+                    StringComparer.Ordinal);
+                deferred += scale.DeferredCount;
+                if (admitted.Count == 0)
+                {
+                    continue;
+                }
+
+                var planningCards = cards
+                    .Where(entry => admitted.Contains(entry.Card.TaskId))
+                    .Select(entry => entry.Card)
+                    .ToArray();
+                var routingNow = clock.UtcNow;
+                await providerRouting.RefreshCapacityAsync(
+                    profile.TenantId, planningCards, routingNow, token);
+                var plan = policy.Plan(
+                    planningCards,
+                    accounts, availability,
+                    settings.AutoDispatchMaxConcurrent, routingNow,
+                    CapacitySignals(routingNow));
+                deferred += plan.Deferred.Count;
+                foreach (var deferral in plan.Deferred)
+                {
+                    // O MOTIVO tipado do adiamento é operável (conta indisponível? escopo? cota?);
+                    // sem ele o operador só vê o contador e não consegue agir. O detalhe por conta
+                    // (candidatos do scheduler) diz exatamente QUEM foi recusado e POR QUÊ.
+                    LogCardDeferred(
+                        logger, deferral.Card.TaskId, deferral.ReasonCode,
+                        deferral.RetryAfter?.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) ?? "-",
+                        deferral.Candidates is null
+                            ? "-"
+                            : string.Join(", ", deferral.Candidates.Select(candidate =>
+                                $"{candidate.Alias}:{candidate.ReasonCode}")));
+                }
+
+                // Adiamento transitório é rotina e não incomoda ninguém. Adiamento ESTRUTURAL é outra
+                // coisa: nenhuma espera o resolve, e o dono precisa saber que aquele card não tem quem
+                // o execute — senão ele fica parado para sempre com o fato vivo só no log.
+                await AnnounceUndispatchableCardsAsync(
+                    profile.TenantId, project, cards, plan.Deferred, scope, token);
+
+                foreach (var decision in plan.Dispatch)
+                {
+                    var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
+                    var routing = await providerRouting.RouteAndAuditAsync(
+                        profile.TenantId,
+                        project.Id,
+                        decision,
+                        preferredModel: null,
+                        routingNow,
+                        token);
+                    if (await LaunchAsync(
+                            profile.TenantId, project, entry.Resolution, decision.AccountAlias,
+                            routing.SelectedModel, entry.Task, entry.InstructionVersionId, personas,
+                            controlledRoot,
+                            string.Equals(
+                                decision.ReasonCode, "chief.reinforcement_dispatched", StringComparison.Ordinal),
+                            board, chain, token))
+                    {
+                        dispatched++;
+                    }
                 }
             }
+
         }
 
         return (dispatched, deferred);

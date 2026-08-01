@@ -40,13 +40,30 @@ public sealed partial class AttemptRecoveryBackgroundService(
             {
                 using var scope = scopes.CreateScope();
                 var profiles = scope.ServiceProvider.GetRequiredService<ILocalProfileStore>();
+                // Fase 1E: TODOS os tenants. Recuperar só o primeiro deixava tentativas órfãs
+                // presas nos demais — e uma órfã presa mantém a claim de path viva, travando o
+                // escopo daquele card para sempre. Um tenant com Host reiniciado paralisava o
+                // projeto inteiro sem que nada no produto dissesse por quê.
                 var list = await profiles.ListAsync(stoppingToken);
-                if (list.Count > 0)
+                var tenants = list
+                    .Select(profile => profile.TenantId)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                foreach (var tenantId in tenants)
                 {
-                    var recovered = await orchestrator.RecoverAsync(list[0].TenantId, stoppingToken);
-                    if (recovered.Count > 0)
+                    // Isolamento por iteração: um tenant com banco indisponível não pode impedir a
+                    // recuperação dos outros.
+                    try
                     {
-                        LogRecovered(logger, recovered.Count);
+                        var recovered = await orchestrator.RecoverAsync(tenantId, stoppingToken);
+                        if (recovered.Count > 0)
+                        {
+                            LogRecovered(logger, recovered.Count);
+                        }
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        LogFailure(logger, exception.GetType().Name);
                     }
                 }
             }

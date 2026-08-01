@@ -12,10 +12,15 @@ public sealed record GovernanceFeatureSettings
 
     public bool LearningCandidatesEnabled { get; init; } = true;
 
-    // PLAT-02: estratégia de contexto do Chief. Default seguro DESLIGADA — quando desligada, o Chief
-    // mantém o comportamento anterior. Quando ligada, a janela é limitada por limiar e os fatos
-    // críticos são externalizados como notas duráveis.
-    public bool ChiefContextStrategyEnabled { get; init; }
+    // PLAT-02: estratégia de contexto do Chief. Fase 1E: LIGADA por padrão.
+    //
+    // Ela nasceu desligada como default seguro, e o "temporário" durou até a estratégia estar
+    // completa e testada e ainda assim não governar nada — a mesma doença do EffortPolicy e do
+    // ExecutionCheckpointService. Desligada, o Chief lê o histórico sem limiar e sem externalizar
+    // fato crítico: em projeto longo isso é a janela estourando ou a decisão recente sumindo.
+    // Depois do 0A2 (últimas N + fundadora preservada + notas recuperadas com proveniência), o
+    // comportamento LIGADO é o correto, e mantê-la desligada seria preservar o defeito.
+    public bool ChiefContextStrategyEnabled { get; init; } = true;
 
     public int ChiefContextMaxTokens { get; init; } = 12000;
 
