@@ -173,6 +173,7 @@ public sealed class ChiefFollowUpLoopTests
             await File.WriteAllTextAsync(Path.Combine(repo, "agenda.py"), "print('agenda')\n", cts.Token);
             RunGit(repo, "add", "-A");
             RunGit(repo, "commit", "-m", "feat: utilitario de agenda");
+            var deliveryCommit = RunGit(repo, "rev-parse", "HEAD").Trim();
             RunGit(repo, "checkout", "main");
 
             var workspaces = app.Services.GetRequiredService<IAttemptWorkspaceStore>();
@@ -213,7 +214,12 @@ public sealed class ChiefFollowUpLoopTests
                         FencingToken = acquired.Workspace!.FencingToken,
                         ExpectedState = state.From,
                         State = state.To,
-                        CommitSha = state.To == AttemptWorkspaceState.Prepared ? baseCommit : null,
+                        CommitSha = state.To switch
+                        {
+                            AttemptWorkspaceState.Prepared => baseCommit,
+                            AttemptWorkspaceState.Completed => deliveryCommit,
+                            _ => null,
+                        },
                         SessionId = state.To == AttemptWorkspaceState.Running ? "test-session" : null,
                         OccurredAt = DateTimeOffset.UtcNow,
                     },
@@ -228,6 +234,11 @@ public sealed class ChiefFollowUpLoopTests
             var afterHarvest = (await board.GetTaskAsync(tenantId, wave1.Id, cts.Token))!;
             Assert.Equal("review", afterHarvest.State);
             Assert.Equal("awaiting_review", afterHarvest.InternalState);
+            var attemptsAfterHarvest = await board.ListAttemptsAsync(
+                tenantId, wave1.Id, null, 10, cts.Token);
+            Assert.Contains(
+                $"git-commit:{deliveryCommit}",
+                attemptsAfterHarvest.Single(attempt => attempt.Id == attemptId).CommitRefs);
 
             // 5a. Veredito de INFRAESTRUTURA nunca é aplicado — o trabalho não é punido pela
             //     falha do crítico; o estado permanece aguardando review.

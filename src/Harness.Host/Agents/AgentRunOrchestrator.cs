@@ -985,9 +985,25 @@ public sealed class AgentRunOrchestrator(
                     command, account.ExecutorId, execution.FailureCode, cancellationToken);
             }
 
+            // O chefe só enxerga um run concluído DEPOIS que este método devolve. O cleanup do
+            // finally, porém, remove a worktree antes do próximo ciclo do chefe. Portanto a
+            // colheita não pode ser postergada: um executor que criou o artefato mas não executou
+            // `git commit` perderia toda a entrega, e a tentativa ficaria com o SHA da base.
+            //
+            // No sucesso, transforme qualquer resto tracked/untracked em commit durável ANTES de
+            // marcar o workspace como Completed. Se a colheita falhar, a exceção segue para o
+            // caminho de falha/checkpoint; nunca publicamos sucesso sem uma entrega recuperável.
+            var deliveryCommit = succeeded
+                ? await manager.CommitWorktreeLeftoversAsync(
+                    command.WorktreePath,
+                    $"chore(harness): colheita da tentativa {command.AttemptId}",
+                    cancellationToken)
+                : null;
+
             current = await TransitionAsync(
                 command, current, AttemptWorkspaceState.Running,
                 succeeded ? AttemptWorkspaceState.Completed : AttemptWorkspaceState.Failed,
+                commitSha: deliveryCommit,
                 sessionId: execution.SessionId,
                 finalError: succeeded ? null : execution.FailureCode,
                 cancellationToken: cancellationToken);

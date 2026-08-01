@@ -953,8 +953,12 @@ public sealed partial class ChiefBacklogLoopService(
             if (snapshot.Status == AgentRunStatus.Completed)
             {
                 var branch = $"task/agent-run-{running.Id.ToLowerInvariant()}";
+                // O orquestrador colhe antes de remover a worktree e grava o SHA no workspace.
+                // A colheita aqui permanece como compensação para runs legados/interrompidos,
+                // mas a ausência da pasta não pode apagar a evidência já persistida.
                 var deliveryCommit = await TryHarvestWorktreeAsync(
-                    project, controlledRoot, running.Id, branch, token);
+                    project, controlledRoot, running.Id, branch, token)
+                    ?? snapshot.Workspace?.CommitSha;
                 var evidence = new List<WorkEvidenceInput>
                 {
                     new(UlidValue.New(now).ToString(), $"agent-run:{running.Id}"),
