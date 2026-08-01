@@ -1,9 +1,12 @@
+using System.Globalization;
+using System.Text;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Security;
 using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Workflows;
@@ -52,6 +55,7 @@ public sealed class WorkflowPhaseDriver(
     IWorkflowStore authority,
     IWorkBoardStore board,
     IPhaseObligationStore obligations,
+    IWorkflowDocumentTemplateStore documentTemplates,
     IClock clock)
 {
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
@@ -95,6 +99,8 @@ public sealed class WorkflowPhaseDriver(
     private readonly IWorkBoardStore _board = board ?? throw new ArgumentNullException(nameof(board));
     private readonly IPhaseObligationStore _obligations =
         obligations ?? throw new ArgumentNullException(nameof(obligations));
+    private readonly IWorkflowDocumentTemplateStore _documentTemplates =
+        documentTemplates ?? throw new ArgumentNullException(nameof(documentTemplates));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     /// <summary>
@@ -112,6 +118,7 @@ public sealed class WorkflowPhaseDriver(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         ArgumentNullException.ThrowIfNull(project);
+        _failures.Clear();
 
         var bindings = await _catalog.ListBindingsAsync(tenantId, project.Id, null, 1, cancellationToken);
         if (bindings.Count == 0)
@@ -148,6 +155,11 @@ public sealed class WorkflowPhaseDriver(
         var documents = phase.Objectives
             .Where(objective => string.Equals(objective.Kind, DocumentKind, StringComparison.OrdinalIgnoreCase))
             .ToArray();
+        var solicitations = await _board.ListSolicitationsAsync(
+            tenantId, project.Id, null, 500, cancellationToken);
+        var demands = await _board.ListDemandsAsync(
+            tenantId, project.Id, null, null, 500, cancellationToken);
+        var templates = await _documentTemplates.ListAsync(cancellationToken);
 
         var created = 0;
         var advanced = 0;
@@ -164,7 +176,8 @@ public sealed class WorkflowPhaseDriver(
                 if (isPending)
                 {
                     await CreateObjectiveCardAsync(
-                        tenantId, project, actorProfileId, phase.Name, objective.Name, cancellationToken);
+                        tenantId, project, actorProfileId, phase.Name, objective.Name,
+                        solicitations, demands, templates, cancellationToken);
                     created++;
                 }
 
@@ -263,11 +276,13 @@ public sealed class WorkflowPhaseDriver(
         //
         // O conselho NÃO decide: ele critica, e um único achado impeditivo segura a transição
         // ainda que os demais aprovem. Maioria decide preferência; evidência decide risco.
+        CouncilVerdict? councilVerdict = null;
         if (decision != PhaseGateDecision.NotReady &&
             AgentCouncilPolicy.ShouldConvene(phase.Name, progress.RequiredTotal))
         {
             var council = await ConveneCouncilAsync(
                 tenantId, project, phase.Name, actorProfileId, _clock.UtcNow, cancellationToken);
+            councilVerdict = council;
             if (!council.MayProceed)
             {
                 _failures.Add($"phase:{phase.Key}:council:{council.ReasonCode}");
@@ -334,7 +349,8 @@ public sealed class WorkflowPhaseDriver(
         else if (decision == PhaseGateDecision.ChiefApproves && gate is not null)
         {
             gateApproved = await TryApproveGateAsync(
-                tenantId, running.Id, phase, gate, runVersion, actorProfileId, cancellationToken);
+                tenantId, running.Id, phase, gate, runVersion, actorProfileId, councilVerdict,
+                cancellationToken);
         }
 
         return new WorkflowPhaseDriveResult(
@@ -475,6 +491,7 @@ public sealed class WorkflowPhaseDriver(
         WorkflowGateRunSnapshot gate,
         long runVersion,
         string actorProfileId,
+        CouncilVerdict? councilVerdict,
         CancellationToken cancellationToken)
     {
         if (string.Equals(gate.State, "failed", StringComparison.OrdinalIgnoreCase))
@@ -493,8 +510,7 @@ public sealed class WorkflowPhaseDriver(
                     // histórico `chief` não é ULID, quebrava a mutação no validador e deixava a
                     // esteira autônoma repetindo a mesma exceção a cada ciclo.
                     DecidedByProfileId: actorProfileId,
-                    Note: "Portão aprovado pela chefe: todas as obrigações obrigatórias da fase foram " +
-                        "aceitas, sem achado impeditivo e sem card bloqueado (modo autônomo)."),
+                    Note: BuildGateRationale(councilVerdict)),
                 cancellationToken);
             if (receipt.Status is not (WorkflowRunMutationStatus.Applied
                 or WorkflowRunMutationStatus.IdempotentReplay))
@@ -521,6 +537,14 @@ public sealed class WorkflowPhaseDriver(
 
         return phase.Name;
     }
+
+    private static string BuildGateRationale(CouncilVerdict? council) =>
+        council is null
+            ? "Portão aprovado pela chefe: todas as obrigações obrigatórias da fase foram aceitas, sem achado impeditivo e sem card bloqueado (modo autônomo)."
+            : $"Portão aprovado pela chefe após conselho consultivo. Decisão final: {council.Rationale} " +
+              (council.Dissent.Count == 0
+                  ? "Nenhuma ressalva permaneceu aberta."
+                  : $"Ressalvas preservadas: {string.Join(" | ", council.Dissent)}");
 
     private static string MutationKey(
         string operation,
@@ -564,41 +588,109 @@ public sealed class WorkflowPhaseDriver(
             tenantId,
             new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 300),
             cancellationToken);
+        var primaryDemand = (await _board.ListDemandsAsync(
+                tenantId, project.Id, null, null, 500, cancellationToken))
+            .Where(demand => !demand.Internal)
+            .OrderBy(demand => demand.CreatedAt)
+            .FirstOrDefault();
 
         var opinions = new List<CouncilOpinion>(AgentCouncilPolicy.Seats.Count);
         var created = 0;
         foreach (var seat in AgentCouncilPolicy.Seats)
         {
-            var title = CouncilCardTitle(phaseName, seat.PersonaKey);
-            var existing = board.Items.FirstOrDefault(task =>
-                string.Equals(task.Title, title, StringComparison.Ordinal));
+            var prefix = CouncilCardTitle(phaseName, seat.PersonaKey);
+            var existing = board.Items
+                .Where(task => string.Equals(task.Title, prefix, StringComparison.Ordinal) ||
+                    task.Title.StartsWith($"{prefix} — ciclo ", StringComparison.Ordinal))
+                .Select(task => (Task: task, Cycle: CouncilCycle(task.Title, prefix)))
+                .OrderByDescending(value => value.Cycle)
+                .ThenByDescending(value => value.Task.CreatedAt)
+                .FirstOrDefault();
 
-            if (existing is null)
+            if (existing.Task is null)
             {
+                var title = CouncilCardTitle(phaseName, seat.PersonaKey, 1);
                 await CreateCouncilCardAsync(
-                    tenantId, project, phaseName, seat, title, actorProfileId,
+                    tenantId, project, phaseName, seat, title, 1, primaryDemand?.Id, actorProfileId,
                     now.AddMilliseconds(created * 6), cancellationToken);
                 created++;
                 continue;
             }
 
-            // Parecer entregue = card concluído. Card BLOQUEADO é achado impeditivo: o conselheiro
-            // encontrou algo que o impediu de aprovar, e isso segura a transição.
-            var done = string.Equals(existing.State, "done", StringComparison.Ordinal);
-            var blocked = string.Equals(existing.InternalState, "blocked", StringComparison.Ordinal) ||
-                !string.IsNullOrWhiteSpace(existing.BlockedReason);
+            var done = string.Equals(existing.Task.State, "done", StringComparison.Ordinal) ||
+                string.Equals(existing.Task.InternalState, "completed", StringComparison.Ordinal);
+            var blocked = string.Equals(existing.Task.InternalState, "blocked", StringComparison.Ordinal) ||
+                !string.IsNullOrWhiteSpace(existing.Task.BlockedReason);
             if (!done && !blocked)
             {
                 continue;
             }
 
-            opinions.Add(new CouncilOpinion(
-                seat.PersonaKey,
-                IsBlocking: blocked,
-                HasConcern: false,
-                Summary: blocked
-                    ? $"Achado impeditivo sob a lente: {seat.Lens}"
-                    : $"Parecer entregue sob a lente: {seat.Lens}"));
+            var attempts = await _board.ListAttemptsAsync(
+                tenantId, existing.Task.Id, null, 100, cancellationToken);
+            var attemptSummary = attempts
+                .Where(attempt => !string.IsNullOrWhiteSpace(attempt.Summary))
+                .OrderByDescending(attempt => attempt.Number)
+                .Select(attempt => attempt.Summary)
+                .FirstOrDefault();
+            var opinion = AgentCouncilPolicy.FromExecution(
+                seat, attemptSummary, existing.Task.BlockedReason);
+            if (opinion is null)
+            {
+                continue;
+            }
+
+            if (!opinion.IsBlocking)
+            {
+                opinions.Add(opinion);
+                continue;
+            }
+
+            // Achado bloqueante vira TRABALHO VISÍVEL, seguido por nova revisão independente.
+            // Três ciclos com o mesmo assento ainda bloqueando interrompem o crescimento infinito
+            // de cards e devolvem um diagnóstico objetivo à chefe.
+            if (existing.Cycle >= AgentCouncilPolicy.MaximumReviewCycles)
+            {
+                opinions.Add(opinion with
+                {
+                    Summary = $"Achado persistiu por {existing.Cycle} ciclos: {opinion.Summary}",
+                });
+                continue;
+            }
+
+            var remediationTitle = CouncilRemediationCardTitle(
+                phaseName, seat.PersonaKey, existing.Cycle);
+            var remediation = board.Items.FirstOrDefault(task =>
+                string.Equals(task.Title, remediationTitle, StringComparison.Ordinal));
+            if (remediation is null)
+            {
+                await CreateCouncilRemediationCardAsync(
+                    tenantId, project, phaseName, seat, opinion, remediationTitle,
+                    existing.Cycle, primaryDemand?.Id, actorProfileId,
+                    now.AddMilliseconds(created * 6), cancellationToken);
+                created++;
+                continue;
+            }
+
+            var remediationDone = string.Equals(
+                    remediation.InternalState, "completed", StringComparison.Ordinal) ||
+                string.Equals(remediation.State, "done", StringComparison.Ordinal);
+            if (!remediationDone)
+            {
+                continue;
+            }
+
+            var nextCycle = existing.Cycle + 1;
+            var nextTitle = CouncilCardTitle(phaseName, seat.PersonaKey, nextCycle);
+            if (!board.Items.Any(task => string.Equals(
+                    task.Title, nextTitle, StringComparison.Ordinal)))
+            {
+                await CreateCouncilCardAsync(
+                    tenantId, project, phaseName, seat, nextTitle, nextCycle,
+                    primaryDemand?.Id, actorProfileId,
+                    now.AddMilliseconds(created * 6), cancellationToken);
+                created++;
+            }
         }
 
         return AgentCouncilPolicy.Consolidate(opinions);
@@ -607,9 +699,30 @@ public sealed class WorkflowPhaseDriver(
     private static string CouncilCardTitle(string phaseName, string personaKey) =>
         $"{phaseName} — Conselho: parecer de {personaKey}";
 
+    private static string CouncilCardTitle(string phaseName, string personaKey, int cycle) =>
+        $"{CouncilCardTitle(phaseName, personaKey)} — ciclo {cycle}";
+
+    private static string CouncilRemediationCardTitle(
+        string phaseName, string personaKey, int cycle) =>
+        $"{phaseName} — Conselho: corrigir achado de {personaKey} — ciclo {cycle}";
+
+    private static int CouncilCycle(string title, string prefix)
+    {
+        if (string.Equals(title, prefix, StringComparison.Ordinal))
+        {
+            return 1;
+        }
+
+        var suffix = title[$"{prefix} — ciclo ".Length..];
+        return int.TryParse(suffix, NumberStyles.None, CultureInfo.InvariantCulture, out var cycle)
+            ? cycle
+            : 1;
+    }
+
     /// <summary>
-    /// Cria o card de um assento. É `agent_task` porque precisa ser despachável; a LENTE vai na
-    /// instrução, e é ela que impede cinco pareceres iguais.
+    /// Cria o card de um assento. O armazenamento usa `agent_task` porque é o tipo executável do
+    /// dispatcher; a instrução registra que o produto é uma revisão. A LENTE e a especialidade
+    /// explícita impedem cinco pareceres iguais executados pelo mesmo perfil genérico.
     /// </summary>
     private async Task CreateCouncilCardAsync(
         string tenantId,
@@ -617,32 +730,19 @@ public sealed class WorkflowPhaseDriver(
         string phaseName,
         CouncilSeat seat,
         string title,
+        int cycle,
+        string? demandId,
         string actorProfileId,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         var taskId = UlidValue.New(now).ToString();
         var instructionId = UlidValue.New(now.AddMilliseconds(1)).ToString();
-        var instruction =
-            "Papel exigido: critic\nTipo de card: agent_task\n\n" +
-            $"Você foi convocado ao CONSELHO da fase \"{phaseName}\" do projeto {project.Name}, " +
-            $"como {seat.PersonaKey}.\n\n" +
-            $"Sua LENTE — e somente ela: {seat.Lens}\n\n" +
-            "Leia os documentos que as fases anteriores produziram em `docs/` e critique o " +
-            "conjunto SOB A SUA LENTE. Não repita o que outro conselheiro veria: o valor do " +
-            "conselho está na diferença entre as perguntas, não na soma das concordâncias.\n\n" +
-            "Em escopo: um parecer curto em `docs/`, citando o documento e o trecho de cada " +
-            "achado.\nFora de escopo: código de produção e alteração dos documentos revisados.\n\n" +
-            "Critérios de aceite:\n" +
-            "- O parecer existe, cita fontes reais e separa ACHADO IMPEDITIVO de ressalva.\n" +
-            "- Achado impeditivo é o que fica caro corrigir depois de o código existir. Se não " +
-            "houver nenhum, diga isso — não invente um para parecer diligente.\n" +
-            "- Encontrando impedimento, BLOQUEIE este card com o motivo: é assim que o conselho " +
-            "segura a transição.\n";
+        var instruction = ComposeCouncilInstruction(project, phaseName, seat, cycle);
 
         _ = await _board.CreateTaskAsync(
             new BoardTaskCreateCommand(
-                tenantId, taskId, project.Id, null,
+                tenantId, taskId, project.Id, demandId,
                 UlidValue.New(now.AddMilliseconds(2)).ToString(),
                 UlidValue.New(now.AddMilliseconds(3)).ToString(),
                 actorProfileId, title,
@@ -659,41 +759,120 @@ public sealed class WorkflowPhaseDriver(
             cancellationToken);
     }
 
+    private async Task CreateCouncilRemediationCardAsync(
+        string tenantId,
+        ProjectRecord project,
+        string phaseName,
+        CouncilSeat seat,
+        CouncilOpinion opinion,
+        string title,
+        int cycle,
+        string? demandId,
+        string actorProfileId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var taskId = UlidValue.New(now).ToString();
+        var instructionId = UlidValue.New(now.AddMilliseconds(1)).ToString();
+        var editor = RemediationPersona(seat.PersonaKey);
+        var instruction =
+            "Papel exigido: backend-specialist\n" +
+            $"Especialidade exigida: {editor}\n" +
+            "Tipo de card: documento\n\n" +
+            $"Corrigir o achado do Conselho da fase \"{phaseName}\" (ciclo {cycle}) no projeto " +
+            $"{project.Name}.\n\nPARECER INDEPENDENTE QUE ORIGINOU ESTE CARD:\n{opinion.Summary}\n\n" +
+            "Atualize todos os documentos impactados por nova versão, preserve a versão anterior e " +
+            "registre o rationale. Não altere o parecer do conselheiro.\n\n" +
+            "Critérios de aceite:\n" +
+            "- Cada documento impactado possui versão nova e referência à versão substituída.\n" +
+            "- O achado é respondido com evidência verificável, não apenas com concordância textual.\n" +
+            "- Escopo, requisitos, arquitetura e plano permanecem consistentes entre si.\n" +
+            "- A conclusão lista arquivos, versões, validações e riscos residuais.\n";
+        _ = await _board.CreateTaskAsync(
+            new BoardTaskCreateCommand(
+                tenantId, taskId, project.Id, demandId,
+                UlidValue.New(now.AddMilliseconds(2)).ToString(),
+                UlidValue.New(now.AddMilliseconds(3)).ToString(), actorProfileId, title, "critical",
+                null, null, instructionId, instruction, now, phaseName),
+            cancellationToken);
+        _ = await _board.MoveTaskAsync(
+            new BoardTaskMoveCommand(
+                tenantId, taskId, "ready", $"conselho-correcao:{phaseName}", "agent",
+                now.AddMilliseconds(4)),
+            cancellationToken);
+    }
+
+    public static string ComposeCouncilInstruction(
+        ProjectRecord project,
+        string phaseName,
+        CouncilSeat seat,
+        int cycle)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(seat);
+        return
+            "Papel exigido: critic\n" +
+            $"Especialidade exigida: {seat.PersonaKey}\n" +
+            "Tipo de card: revisao\n\n" +
+            $"Você foi convocado ao CONSELHO da fase \"{phaseName}\" do projeto {project.Name} " +
+            $"({project.Key}), ciclo {cycle}, como {seat.PersonaKey}.\n\n" +
+            $"Sua LENTE — e somente ela: {seat.Lens}\n\n" +
+            "Leia as versões mais recentes dos documentos produzidos nas fases 1 a 4 em `docs/` e " +
+            "critique o conjunto sob a sua lente. Cite arquivo, versão e trecho de cada evidência. " +
+            "Não repita outra lente e não force consenso.\n\n" +
+            "Em escopo: parecer independente em `docs/`.\n" +
+            "Fora de escopo: código de produção, alteração dos documentos revisados e decisão final.\n\n" +
+            "Na conclusão do card, use obrigatoriamente:\n" +
+            "VEREDITO: LIBERAR | RESSALVA | BLOQUEAR\n" +
+            "RESUMO: <conclusão independente>\n" +
+            "EVIDÊNCIAS: <arquivos, versões e trechos>\n" +
+            "DOCUMENTOS_IMPACTADOS: <lista ou nenhum>\n\n" +
+            "BLOQUEAR somente quando houver violação de requisito, segurança, integridade, critério " +
+            "de aceite ou gate obrigatório. Sugestões ficam como RESSALVA. Mesmo quando o veredito " +
+            "for BLOQUEAR, conclua o card de parecer: o Control Plane cria cards de correção e uma " +
+            "nova rodada. Não invente achado para parecer diligente.\n";
+    }
+
+    private static string RemediationPersona(string reviewerPersona) => reviewerPersona switch
+    {
+        "playbook-arquiteto" => "playbook-tech-lead",
+        "playbook-tech-lead" => "playbook-arquiteto",
+        "playbook-qa" => "playbook-tech-lead",
+        "playbook-security" => "playbook-arquiteto",
+        "playbook-dba-dados" => "playbook-arquiteto",
+        _ => "playbook-tech-lead",
+    };
+
     private async Task CreateObjectiveCardAsync(
         string tenantId,
         ProjectRecord project,
         string actorProfileId,
         string phaseName,
         string objectiveName,
+        IReadOnlyList<BoardSolicitationRecord> solicitations,
+        IReadOnlyList<BoardDemandRecord> demands,
+        IReadOnlyList<WorkflowDocumentTemplateRecord> templates,
         CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
         var taskId = UlidValue.New(now).ToString();
         var instructionId = UlidValue.New(now.AddMilliseconds(1)).ToString();
 
-        // O documento de fase vive sob `docs/**`, que pertence ao escopo de backend — por isso o
-        // papel exigido é o de backend, e não um papel sem escopo de escrita (que tornaria o card
-        // indespachável).
-        var instruction =
-            $"Papel exigido: backend-specialist\nTipo de card: agent_task\n\n" +
-            $"Produzir o artefato **{objectiveName}** exigido pela fase \"{phaseName}\" da esteira do " +
-            $"projeto {project.Name}.\n\n" +
-            "O documento é o entregável: escreva-o em `docs/` no repositório do projeto, em português, " +
-            "com o conteúdo que a fase exige — e não um esqueleto vazio. Baseie-se no que já existe no " +
-            "repositório e na demanda do projeto; onde faltar informação, declare a lacuna " +
-            "explicitamente em vez de inventar.\n\n" +
-            $"Em escopo: o arquivo do artefato e as referências que ele precisa citar.\n" +
-            "Fora de escopo: código de produção, mudança de comportamento do sistema.\n\n" +
-            "Critérios de aceite:\n" +
-            $"- O arquivo do artefato \"{objectiveName}\" existe em `docs/` e está versionado.\n" +
-            "- O conteúdo cobre o objetivo da fase e cita as fontes reais que usou.\n";
+        var personaKey = PersonaForObjective(phaseName, objectiveName);
+        var template = MatchTemplate(templates, phaseName, objectiveName);
+        var instruction = ComposeObjectiveInstruction(
+            project, phaseName, objectiveName, personaKey, template, solicitations, demands);
+        var primaryDemand = demands
+            .Where(demand => !demand.Internal)
+            .OrderBy(demand => demand.CreatedAt)
+            .FirstOrDefault();
 
         _ = await _board.CreateTaskAsync(
             new BoardTaskCreateCommand(
                 tenantId,
                 taskId,
                 project.Id,
-                null,
+                primaryDemand?.Id,
                 UlidValue.New(now.AddMilliseconds(2)).ToString(),
                 UlidValue.New(now.AddMilliseconds(3)).ToString(),
                 actorProfileId,
@@ -718,5 +897,203 @@ public sealed class WorkflowPhaseDriver(
             new BoardTaskMoveCommand(
                 tenantId, taskId, "ready", $"esteira:{phaseName}", "agent", now.AddMilliseconds(4)),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Pacote efetivo do card de documento. Referências substituem o despejo indiscriminado do
+    /// repositório, mas fatos do usuário, decisões, lacunas, DoD e evidências permanecem no card.
+    /// </summary>
+    public static string ComposeObjectiveInstruction(
+        ProjectRecord project,
+        string phaseName,
+        string objectiveName,
+        string personaKey,
+        WorkflowDocumentTemplateRecord? template,
+        IReadOnlyList<BoardSolicitationRecord> solicitations,
+        IReadOnlyList<BoardDemandRecord> demands)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var builder = new StringBuilder();
+        builder.Append("Papel exigido: backend-specialist\n")
+            .Append("Especialidade exigida: ").Append(personaKey).Append('\n')
+            .Append("Tipo de card: documento\n\n")
+            .Append("# Trabalho delegado\n")
+            .Append("Produzir o artefato **").Append(objectiveName).Append("** da fase \"")
+            .Append(phaseName).Append("\". A Diretora de Engenharia acompanha e revisa; a autoria ")
+            .Append("operacional deste documento é sua.\n\n")
+            .Append("# Projeto e objetivo de negócio\n")
+            .Append("- Projeto: ").Append(project.Name).Append(" (").Append(project.Key).Append(")\n")
+            .Append("- Objetivo registrado: ").Append(Clean(project.Description, 2_000)).Append('\n')
+            .Append("- Criticidade: ").Append(project.Criticality).Append('\n')
+            .Append("- Modo de condução: ").Append(project.OperationMode).Append('\n')
+            .Append("- Prazo registrado: ")
+            .Append(project.TargetDeadline?.ToString("O", CultureInfo.InvariantCulture) ?? "não informado")
+            .Append("\n- Tecnologias já informadas: ")
+            .Append(project.Technologies.Count == 0 ? "nenhuma" : string.Join(", ", project.Technologies))
+            .Append("\n\n# Proveniência — não confunda fato com inferência\n");
+
+        var humanInputs = solicitations
+            .Where(item => !item.Internal)
+            .OrderBy(item => item.CreatedAt)
+            .TakeLast(20)
+            .ToArray();
+        if (humanInputs.Length == 0)
+        {
+            builder.Append("- Nenhuma declaração humana foi localizada no quadro. Trate isso como LACUNA; não invente conteúdo.\n");
+        }
+        else
+        {
+            foreach (var item in humanInputs)
+            {
+                builder.Append("- FATO EXPLÍCITO DO USUÁRIO [solicitação:")
+                    .Append(item.Id).Append(", em ")
+                    .Append(item.CreatedAt.ToString("O", CultureInfo.InvariantCulture)).Append("]: ")
+                    .Append(Clean($"{item.Title}: {item.Body}", 2_000)).Append('\n');
+            }
+        }
+
+        foreach (var demand in demands.OrderBy(item => item.CreatedAt).TakeLast(30))
+        {
+            builder.Append("- ")
+                .Append(demand.Internal ? "TRABALHO INTERNO DERIVADO" : "DEMANDA DERIVADA DO PEDIDO")
+                .Append(" [demanda:").Append(demand.Id);
+            if (!string.IsNullOrWhiteSpace(demand.SolicitationId))
+                builder.Append(", origem:").Append(demand.SolicitationId);
+            builder.Append("]: ").Append(Clean($"{demand.Title}: {demand.Description}", 1_500))
+                .Append('\n');
+        }
+
+        var playbook = CanonicalWorkflowTemplates.PlaybookStandardTemplate;
+        var phaseIndex = Array.FindIndex(
+            playbook.Phases.ToArray(),
+            value => string.Equals(value, phaseName, StringComparison.Ordinal));
+        builder.Append("\n# Fontes canônicas e decisões anteriores\n")
+            .Append("- Playbook canônico: template `").Append(playbook.Key).Append("`, fase `")
+            .Append(phaseName).Append("`.\n")
+            .Append("- Use a versão mais recente aceita dos artefatos abaixo; registre caminho e versão citados.\n");
+        if (phaseIndex > 0)
+        {
+            foreach (var previousPhase in playbook.Phases.Take(phaseIndex))
+            {
+                foreach (var document in playbook.DocumentsByPhase[previousPhase])
+                    builder.Append("  - `docs/**`: ").Append(document).Append(" (")
+                        .Append(previousPhase).Append(")\n");
+            }
+        }
+        else
+        {
+            builder.Append("  - Não há fase anterior; a fonte primária é o pedido humano acima.\n");
+        }
+
+        builder.Append("\n# Estrutura canônica deste artefato\n");
+        if (template is null)
+        {
+            builder.Append("- Nenhum template estrutural correspondente foi localizado. Declare a lacuna e siga os critérios do gate; não fabrique uma estrutura canônica.\n");
+        }
+        else
+        {
+            builder.Append("- Template: ").Append(template.Code).Append(" — ").Append(template.Name)
+                .Append("\n- Campos obrigatórios: `").Append(template.RequiredFieldsJson).Append("`\n")
+                .Append("- Formatos de métricas: `").Append(template.MetricFormatsJson).Append("`\n")
+                .Append("- O que precisa provar: ").Append(Clean(template.Guidance, 2_000)).Append('\n');
+        }
+
+        builder.Append("\n# Escopo, não escopo e dependências\n")
+            .Append("- Em escopo: criar ou atualizar a versão de `").Append(objectiveName)
+            .Append("` em `docs/`, consolidando as fontes relevantes acima.\n")
+            .Append("- Fora de escopo: código de produção, aprovação do próprio documento, alteração de governança e decisões sem evidência.\n")
+            .Append("- Dependências: artefatos anteriores citados e decisões já registradas. Informação de fase futura deve ser preservada com sua origem, não descartada.\n")
+            .Append("- Se faltar decisão de negócio indispensável, registre a pergunta e por que importa. Se houver uma opção responsável inferível, registre-a como PREMISSA INFERIDA, com motivo e risco, e continue.\n\n")
+            .Append("# Critérios de aceite e definição de pronto\n")
+            .Append("- O arquivo existe em `docs/`, possui versão identificável e não é um esqueleto vazio.\n")
+            .Append("- Cada afirmação relevante distingue FATO HUMANO, DECISÃO REGISTRADA e PREMISSA INFERIDA.\n")
+            .Append("- O conteúdo cobre o objetivo da fase, os campos obrigatórios do template e os critérios do gate.\n")
+            .Append("- Inconsistências com documentos anteriores são resolvidas por nova versão ou registradas como bloqueio; não deixe versões incompatíveis silenciosamente.\n")
+            .Append("- Nenhum segredo aparece no documento ou no resumo da execução.\n")
+            .Append("- Um revisor diferente do autor consegue verificar o resultado sem redescobrir o projeto.\n\n")
+            .Append("# Evidências obrigatórias na conclusão\n")
+            .Append("- caminho do arquivo e identificador da versão/commit;\n")
+            .Append("- lista das fontes e versões consultadas;\n")
+            .Append("- campos do template cobertos;\n")
+            .Append("- premissas, riscos, lacunas e decisões pendentes;\n")
+            .Append("- validação executada e resultado.\n");
+        if (playbook.GatesByPhase.TryGetValue(phaseName, out var gates))
+        {
+            builder.Append("\n# Gate que este trabalho ajuda a provar\n");
+            foreach (var gate in gates) builder.Append("- ").Append(gate).Append('\n');
+        }
+
+        return builder.ToString();
+    }
+
+    public static string PersonaForObjective(string phaseName, string objectiveName)
+    {
+        var text = NormalizeSearch($"{phaseName} {objectiveName}");
+        if (text.Contains("threat", StringComparison.Ordinal) || text.Contains("pentest", StringComparison.Ordinal) || text.Contains("sbom", StringComparison.Ordinal)) return "playbook-security";
+        if (text.Contains(" der ", StringComparison.Ordinal) || text.Contains("dados", StringComparison.Ordinal) || text.Contains("dicionario", StringComparison.Ordinal)) return "playbook-dba-dados";
+        if (text.Contains("observabilidade", StringComparison.Ordinal) || text.Contains("dora", StringComparison.Ordinal) || text.Contains("gmud", StringComparison.Ordinal) || text.Contains("release", StringComparison.Ordinal) || text.Contains("rollback", StringComparison.Ordinal)) return "playbook-devops";
+        if (text.Contains("sustentacao", StringComparison.Ordinal) || text.Contains("runbook", StringComparison.Ordinal) || text.Contains("postmortem", StringComparison.Ordinal) || text.Contains("capacity", StringComparison.Ordinal) || text.Contains("operacao", StringComparison.Ordinal)) return "playbook-sre-sustentacao";
+        if (text.Contains("teste", StringComparison.Ordinal) || text.Contains("quality", StringComparison.Ordinal) || text.Contains("performance", StringComparison.Ordinal) || text.Contains("uat", StringComparison.Ordinal) || text.Contains("go/no-go", StringComparison.Ordinal) || text.Contains("defeitos", StringComparison.Ordinal)) return "playbook-qa";
+        if (text.Contains("arquitetura", StringComparison.Ordinal) || text.Contains("sad", StringComparison.Ordinal) || text.Contains("adr", StringComparison.Ordinal) || text.Contains("c4", StringComparison.Ordinal) || text.Contains("trade-off", StringComparison.Ordinal)) return "playbook-arquiteto";
+        if (text.Contains("planejamento", StringComparison.Ordinal) || text.Contains("dor", StringComparison.Ordinal) || text.Contains("dod", StringComparison.Ordinal) || text.Contains("cronograma", StringComparison.Ordinal) || text.Contains("briefing", StringComparison.Ordinal) || text.Contains("code review", StringComparison.Ordinal)) return "playbook-tech-lead";
+        if (text.Contains("desenvolvimento", StringComparison.Ordinal)) return "playbook-dev-executor";
+        return "playbook-product-owner";
+    }
+
+    private static WorkflowDocumentTemplateRecord? MatchTemplate(
+        IReadOnlyList<WorkflowDocumentTemplateRecord> templates,
+        string phaseName,
+        string objectiveName)
+    {
+        var normalizedObjective = NormalizeSearch(objectiveName);
+        if (normalizedObjective.Contains(" der ", StringComparison.Ordinal))
+        {
+            return templates.FirstOrDefault(template =>
+                string.Equals(template.Phase, phaseName, StringComparison.Ordinal) &&
+                string.Equals(template.Code, "09", StringComparison.Ordinal));
+        }
+
+        var objectiveTokens = normalizedObjective
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(token => token.Length > 2)
+            .Select(SingularToken)
+            .ToHashSet(StringComparer.Ordinal);
+        return templates
+            .Where(template => string.Equals(template.Phase, phaseName, StringComparison.Ordinal))
+            .Select(template => new
+            {
+                Template = template,
+                Score = NormalizeSearch(template.Name)
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(SingularToken)
+                    .Count(objectiveTokens.Contains),
+            })
+            .Where(candidate => candidate.Score > 0)
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.Template.Code, StringComparer.Ordinal)
+            .Select(candidate => candidate.Template)
+            .FirstOrDefault();
+    }
+
+    private static string SingularToken(string token) =>
+        token.Length > 3 && token.EndsWith('s') ? token[..^1] : token;
+
+    private static string NormalizeSearch(string value)
+    {
+        var decomposed = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(decomposed.Length + 2).Append(' ');
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+                builder.Append(char.ToLowerInvariant(character));
+        }
+
+        return builder.Append(' ').ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static string Clean(string? value, int limit)
+    {
+        var redacted = SecretTextProtector.Redact(value).Trim();
+        return redacted.Length <= limit ? redacted : $"{redacted[..limit]}…";
     }
 }

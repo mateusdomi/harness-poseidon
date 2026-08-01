@@ -93,6 +93,39 @@ public sealed class AgentCouncilPolicyTests
     }
 
     [Fact]
+    public void CouncilUsesTheActualAttemptVerdictInsteadOfTheCardState()
+    {
+        var seat = AgentCouncilPolicy.Seats.Single(value => value.PersonaKey == "playbook-security");
+
+        var blocking = AgentCouncilPolicy.FromExecution(
+            seat,
+            "VEREDITO: BLOQUEAR\nRESUMO: sessão sem expiração.\nEVIDÊNCIAS: docs/threat-model.md");
+        var advisory = AgentCouncilPolicy.FromExecution(
+            seat,
+            "VEREDITO: RESSALVA\nRESUMO: explicitar risco residual.");
+        var clear = AgentCouncilPolicy.FromExecution(
+            seat,
+            "VEREDITO: LIBERAR\nRESUMO: cobertura adequada.");
+
+        Assert.True(blocking!.IsBlocking);
+        Assert.True(advisory!.HasConcern);
+        Assert.False(clear!.IsBlocking);
+        Assert.False(clear.HasConcern);
+        Assert.Null(AgentCouncilPolicy.FromExecution(seat, null));
+    }
+
+    [Fact]
+    public void ABlockedLegacyCardStillProducesABlockingOpinion()
+    {
+        var seat = AgentCouncilPolicy.Seats[0];
+        var opinion = AgentCouncilPolicy.FromExecution(
+            seat, null, "Inconsistência entre SAD e plano de release.");
+
+        Assert.True(opinion!.IsBlocking);
+        Assert.Contains("SAD", opinion.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MissingOpinionsHoldTheGateInsteadOfPassingByOmission()
     {
         // Enquanto os pareceres não voltam, o conselho está incompleto e o portão NÃO abre.

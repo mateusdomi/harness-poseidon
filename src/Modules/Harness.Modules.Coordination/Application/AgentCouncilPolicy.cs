@@ -16,6 +16,7 @@ namespace Harness.Modules.Coordination.Application;
 /// </summary>
 public static class AgentCouncilPolicy
 {
+    public const int MaximumReviewCycles = 3;
     /// <summary>
     /// A fase cuja SAÍDA aciona o conselho. É a última em que corrigir ainda é barato: depois
     /// dela o custo do erro passa a ser medido em código refeito.
@@ -100,6 +101,48 @@ public static class AgentCouncilPolicy
                 "council.cleared",
                 "O conselho não encontrou impedimento para iniciar o desenvolvimento.",
                 dissent);
+    }
+
+    /// <summary>
+    /// Converte a saída REAL do card em parecer. Estado `done` sozinho não é opinião: sem resumo
+    /// do executor não há evidência do que o conselheiro concluiu. O marcador explícito evita
+    /// inferir consenso a partir de um card meramente fechado; o fallback preserva cards legados.
+    /// </summary>
+    public static CouncilOpinion? FromExecution(
+        CouncilSeat seat,
+        string? attemptSummary,
+        string? blockedReason = null)
+    {
+        ArgumentNullException.ThrowIfNull(seat);
+        if (!string.IsNullOrWhiteSpace(blockedReason))
+        {
+            return new CouncilOpinion(
+                seat.PersonaKey, true, false, blockedReason.Trim());
+        }
+
+        if (string.IsNullOrWhiteSpace(attemptSummary))
+        {
+            return null;
+        }
+
+        var summary = attemptSummary.Trim();
+        var verdict = summary.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .FirstOrDefault(line => line.StartsWith("VEREDITO:", StringComparison.OrdinalIgnoreCase));
+        var blocking = verdict?.Contains("BLOQUEAR", StringComparison.OrdinalIgnoreCase) == true;
+        var concern = verdict?.Contains("RESSALVA", StringComparison.OrdinalIgnoreCase) == true;
+        if (verdict is null)
+        {
+            // Compatibilidade com pareceres produzidos antes do contrato estruturado. A ausência
+            // do marcador nunca vira concordância silenciosa: no mínimo é uma ressalva auditável.
+            blocking = summary.Contains("ACHADO IMPEDITIVO", StringComparison.OrdinalIgnoreCase) ||
+                summary.Contains("BLOCKING", StringComparison.OrdinalIgnoreCase);
+            concern = !blocking;
+        }
+
+        return new CouncilOpinion(
+            seat.PersonaKey, blocking, concern,
+            summary.Length <= 2_000 ? summary : $"{summary[..2_000]}…");
     }
 }
 
