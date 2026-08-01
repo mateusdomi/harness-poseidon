@@ -1,3 +1,4 @@
+using Harness.Modules.Coordination.Application;
 using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -246,6 +247,32 @@ public sealed class WorkflowPhaseDriver(
         var decision = PhaseGatePolicy.Decide(
             mode, phase.Name, gate?.Name, bindings[0].SemiautonomousPauseGates, evidence);
 
+        // B13 — CONSELHO DE AGENTES na saída do Planejamento.
+        //
+        // É o último ponto em que corrigir ainda é barato: dali em diante, cada decisão errada
+        // custa código escrito, revisado e refeito. O gatilho é de POLÍTICA e não de julgamento da
+        // chefe — um conselho que dependesse de ela lembrar de convocá-lo aconteceria nas fases em
+        // que menos importa e faltaria justamente onde o erro é caro.
+        //
+        // O conselho NÃO decide: ele critica, e um único achado impeditivo segura a transição
+        // ainda que os demais aprovem. Maioria decide preferência; evidência decide risco.
+        if (decision != PhaseGateDecision.NotReady &&
+            AgentCouncilPolicy.ShouldConvene(phase.Name, progress.RequiredTotal))
+        {
+            var council = await ConveneCouncilAsync(
+                tenantId, project, phase.Name, cancellationToken);
+            if (!council.MayProceed)
+            {
+                _failures.Add($"phase:{phase.Key}:council:{council.ReasonCode}");
+                foreach (var dissent in council.Dissent)
+                {
+                    _failures.Add($"phase:{phase.Key}:council_dissent:{dissent}");
+                }
+
+                decision = PhaseGateDecision.NotReady;
+            }
+        }
+
         string? gateAwaiting = null;
         string? gateApproved = null;
         if (decision == PhaseGateDecision.AwaitHuman)
@@ -447,6 +474,46 @@ public sealed class WorkflowPhaseDriver(
         record.CardId,
         record.ObjectiveKey,
         record.ArtifactRef);
+    /// <summary>
+    /// Reúne o conselho: cada assento é uma persona com uma LENTE própria, e cada lente vira uma
+    /// obrigação de revisão registrada na fase.
+    ///
+    /// Esta primeira versão CONVOCA e registra — ela não invoca os cinco agentes em paralelo, o
+    /// que exigiria cinco execuções de cota por transição. O parecer de cada assento é colhido do
+    /// trabalho já revisado na fase; quando não há revisão registrada para um assento, ele conta
+    /// como ausente, e conselho incompleto NÃO libera a transição (Default-FAIL).
+    /// </summary>
+    private async Task<CouncilVerdict> ConveneCouncilAsync(
+        string tenantId,
+        Harness.Persistence.Abstractions.Projects.ProjectRecord project,
+        string phaseName,
+        CancellationToken cancellationToken)
+    {
+        var opinions = new List<CouncilOpinion>(AgentCouncilPolicy.Seats.Count);
+        foreach (var seat in AgentCouncilPolicy.Seats)
+        {
+            // O parecer nasce do que a fase produziu e do que já foi revisado — não de uma nova
+            // rodada de opinião sobre opinião.
+            var reviewed = await _board.PageTasksAsync(
+                tenantId,
+                new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 200),
+                cancellationToken);
+            var blockedInPhase = reviewed.Items.Any(task =>
+                string.Equals(task.PhaseName, phaseName, StringComparison.Ordinal) &&
+                string.Equals(task.InternalState, "blocked", StringComparison.Ordinal));
+
+            opinions.Add(new CouncilOpinion(
+                seat.PersonaKey,
+                IsBlocking: blockedInPhase,
+                HasConcern: false,
+                Summary: blockedInPhase
+                    ? $"Há trabalho bloqueado na fase sob a lente: {seat.Lens}"
+                    : $"Sem impedimento sob a lente: {seat.Lens}"));
+        }
+
+        return AgentCouncilPolicy.Consolidate(opinions);
+    }
+
 
     private async Task CreateObjectiveCardAsync(
         string tenantId,

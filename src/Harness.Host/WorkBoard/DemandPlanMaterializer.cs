@@ -58,6 +58,7 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
         BoardDemandRecord demand,
         DateTimeOffset now,
         IPlanMaterializationFaultInjector? faults = null,
+        string? activePhaseName = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -103,7 +104,11 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
             var createRequest = new CreateTaskRequest(
                 plan.ProjectId, slice.Card.ProposedTitle,
                 ComposeInstruction(slice.Card, plan.FeatureId),
-                demand.Id, demand.Priority, CardType: slice.Card.CardType);
+                demand.Id, demand.Priority, CardType: slice.Card.CardType,
+                // O card de TRABALHO nasce carimbado com a fase ativa. Sem isso o progresso da
+                // fase media só documentos: uma fase de Desenvolvimento exibia "100%" com o
+                // briefing e o code review escritos e nenhuma linha implementada.
+                PhaseName: activePhaseName);
             var values = WorkBoardApplicationService.CreateTask(
                 taskId, instructionId, createRequest, cardNow);
             var outcome = await board.CreatePlanCardAsync(

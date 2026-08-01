@@ -235,6 +235,8 @@ public sealed partial class ChiefBacklogLoopService(
         var chain = scope.ServiceProvider.GetRequiredService<IWorkChainStore>();
         var catalog = scope.ServiceProvider.GetRequiredService<IAgentCatalogStore>();
         var workflows = scope.ServiceProvider.GetRequiredService<IWorkflowCatalogStore>();
+        // A raiz gerenciada: todo projeto criado pelo próprio Poseidon nasce sob ela.
+        var repositories = scope.ServiceProvider.GetRequiredService<Harness.Host.Projects.ProjectRepositoryStorage>();
         var circuits = new CardCircuitBreakerService(
             scope.ServiceProvider.GetRequiredService<ICardCircuitBreakerStore>());
 
@@ -272,7 +274,7 @@ public sealed partial class ChiefBacklogLoopService(
                     continue;
                 }
 
-                if (!IsInsideControlledRoot(project, controlledRoot))
+                if (!IsInsideControlledRoot(project, controlledRoot, repositories.RootPath))
                 {
                     continue;
                 }
@@ -2153,7 +2155,21 @@ public sealed partial class ChiefBacklogLoopService(
     private static bool IsDispatchable(ProjectRecord project) =>
         string.Equals(project.State, "active", StringComparison.Ordinal);
 
-    private static bool IsInsideControlledRoot(ProjectRecord project, string controlledRoot)
+    /// <summary>
+    /// O projeto está num repositório que a fábrica pode tocar?
+    ///
+    /// Duas raízes valem, e a segunda faltava:
+    ///   * `ControlledRoot` — onde o dono aponta repositórios DELE, que ele já tinha;
+    ///   * a raiz GERENCIADA (`&lt;dados&gt;/repositories`) — onde o próprio Poseidon cria o
+    ///     repositório de todo projeto novo.
+    ///
+    /// Sem a segunda, todo projeto criado pelo produto nascia FORA do alcance da própria fábrica:
+    /// o dono descrevia a demanda, a chefe planejava, os cards apareciam no quadro e nunca saíam
+    /// do lugar — e nada dizia por quê. Exigir que o dono apontasse o `ControlledRoot` para dentro
+    /// do diretório de dados do Poseidon seria transferir a ele a correção de um defeito nosso.
+    /// </summary>
+    private static bool IsInsideControlledRoot(
+        ProjectRecord project, string controlledRoot, string managedRepositoryRoot)
     {
         if (string.IsNullOrWhiteSpace(project.RepositoryUrl))
         {
@@ -2161,9 +2177,26 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl);
-        return System.IO.Directory.Exists(repositoryRoot) &&
-            repositoryRoot.StartsWith(
-                $"{controlledRoot}{System.IO.Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+        if (!System.IO.Directory.Exists(repositoryRoot))
+        {
+            return false;
+        }
+
+        return IsUnder(repositoryRoot, controlledRoot) ||
+            IsUnder(repositoryRoot, managedRepositoryRoot);
+    }
+
+    private static bool IsUnder(string path, string root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return false;
+        }
+
+        var normalized = System.IO.Path.GetFullPath(root)
+            .TrimEnd(System.IO.Path.DirectorySeparatorChar);
+        return path.StartsWith(
+            $"{normalized}{System.IO.Path.DirectorySeparatorChar}", StringComparison.Ordinal);
     }
 
     private static int PriorityWeight(string priority) => priority.ToLowerInvariant() switch

@@ -73,6 +73,7 @@ public sealed class PlanMaterializationService(
     IClock clock,
     PlanMaterializationOptions options,
     IPlanMaterializationFaultInjector faults,
+    Harness.Host.Workflows.ActivePhaseResolver activePhases,
     ILogger<PlanMaterializationService> logger)
 {
     /// <summary>
@@ -223,8 +224,11 @@ public sealed class PlanMaterializationService(
                 PlanId: saved.Plan.Id);
         }
 
+        var activePhase = await activePhases.ResolveAsync(
+            job.TenantId, demand.ProjectId, cancellationToken);
         var outcome = await materializer.MaterializeAsync(
-            job.TenantId, profile.Id, saved.Plan, demand, clock.UtcNow, faults, cancellationToken);
+            job.TenantId, profile.Id, saved.Plan, demand, clock.UtcNow, faults, activePhase,
+            cancellationToken);
 
         var expected = saved.Plan.Cards.Count;
         var settled = await jobs.TryCompleteAsync(

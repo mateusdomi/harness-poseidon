@@ -11,6 +11,13 @@ public sealed class ProjectRepositoryStorage(string rootPath)
 {
     private readonly string _rootPath = Path.GetFullPath(rootPath);
 
+    /// <summary>
+    /// Raiz dos repositórios que o PRÓPRIO Poseidon cria. O laço do chefe precisa dela para saber
+    /// que um projeto nascido aqui é, por definição, controlado — sem isso todo projeto criado
+    /// pelo produto ficava fora do alcance da própria fábrica.
+    /// </summary>
+    public string RootPath => _rootPath;
+
     public async Task<string> EnsureInitializedAsync(
         string tenantId,
         string projectKey,

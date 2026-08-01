@@ -1,4 +1,5 @@
 using Harness.Host.WorkBoard;
+using Harness.Host.Workflows;
 using Harness.Host.Workers;
 using Harness.Persistence.Abstractions.Messaging;
 using Harness.IntegrationTests.Persistence;
@@ -404,6 +405,8 @@ public sealed class PlanMaterializationDurabilityTests
                 _clock,
                 _options,
                 faults ?? NullPlanMaterializationFaultInjector.Instance,
+                new ActivePhaseResolver(
+                    new SqliteWorkflowCatalogStore(_dispatcher), new SqliteWorkflowStore(_dispatcher)),
                 NullLogger<PlanMaterializationService>.Instance);
 
         public PlanMaterializationReconciliationBackgroundService Reconciler() =>

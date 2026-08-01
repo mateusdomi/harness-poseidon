@@ -686,6 +686,7 @@ public static class HostApplication
             new WorkBoard.PlanMaterializationOptions(TimeSpan.FromMinutes(5), 5));
         builder.Services.AddSingleton<WorkBoard.IPlanMaterializationFaultInjector>(
             WorkBoard.NullPlanMaterializationFaultInjector.Instance);
+        builder.Services.AddSingleton<Workflows.ActivePhaseResolver>();
         builder.Services.AddSingleton<WorkBoard.PlanMaterializationService>();
         builder.Services.AddSingleton(
             new WorkBoard.PlanMaterializationReconciliationOptions(
