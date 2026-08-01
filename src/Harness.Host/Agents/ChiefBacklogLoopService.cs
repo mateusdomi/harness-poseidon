@@ -2209,6 +2209,23 @@ public sealed partial class ChiefBacklogLoopService(
             ? resolution.Card.Scope
             : PersonaCardComposer.Compose(ToContent(persona), resolution.Card);
 
+        // Correção precisa começar do patch reprovado, não novamente do branch principal. A
+        // colheita mantém a branch da tentativa para review; usá-la como base preserva o arquivo
+        // e o delta que o critic mandou corrigir. Se uma colheita excepcional não deixou a
+        // branch, o fallback HEAD mantém o card recuperável e a instrução ainda contém os achados.
+        var priorAttempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+        var correctionBranch = CorrectionBaseBranch(priorAttempts);
+        if (correctionBranch is not null)
+        {
+            using var repository = await GitWorktreeManager.OpenAsync(
+                System.IO.Path.GetFullPath(project.RepositoryUrl!), controlledRoot, token);
+            var branches = await repository.ListLocalBranchesAsync(token);
+            if (!branches.Contains(correctionBranch, StringComparer.Ordinal))
+            {
+                correctionBranch = null;
+            }
+        }
+
         var pathScopeKind = string.Equals(
             resolution.Role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)
             ? AgentPathScopeKind.FrontendSpecialist
@@ -2228,6 +2245,7 @@ public sealed partial class ChiefBacklogLoopService(
                 ControlledRoot = controlledRoot,
                 BranchName = $"task/agent-run-{attemptId.ToLowerInvariant()}",
                 WorktreePath = System.IO.Path.Combine(controlledRoot, "worktrees", attemptId),
+                BaseReference = correctionBranch ?? "HEAD",
                 ScopeClaims = resolution.ScopeClaims,
                 Owner = "chief-backlog-loop",
                 IdempotencyKey = $"chief-loop:{attemptId}",
@@ -2293,6 +2311,16 @@ public sealed partial class ChiefBacklogLoopService(
             new BoardTaskMoveCommand(tenantId, task.Id, "development", $"chief:{attemptId}", "agent", now),
             token);
         return true;
+    }
+
+    /// <summary>Branch colhida da reprovação mais recente, usada como base da correção.</summary>
+    public static string? CorrectionBaseBranch(IReadOnlyList<BoardAttemptRecord> attempts)
+    {
+        var rejected = attempts.LastOrDefault(attempt =>
+            string.Equals(attempt.State, "rejected", StringComparison.Ordinal));
+        return rejected is null
+            ? null
+            : $"task/agent-run-{rejected.Id.ToLowerInvariant()}";
     }
 
     /// <summary>
