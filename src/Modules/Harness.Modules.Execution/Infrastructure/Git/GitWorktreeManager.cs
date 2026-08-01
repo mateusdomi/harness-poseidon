@@ -22,16 +22,24 @@ public sealed class GitWorktreeManager : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(controlledRoot);
 
-        var fullRepositoryRoot = Path.GetFullPath(repositoryRoot);
-        var fullControlledRoot = Path.GetFullPath(controlledRoot);
-        EnsureContained(fullControlledRoot, fullRepositoryRoot, nameof(repositoryRoot));
+        var fullControlledRoot = CanonicalizePath(controlledRoot);
+        var fullRepositoryRoot = EnsureContained(
+            fullControlledRoot, repositoryRoot, nameof(repositoryRoot));
 
         var result = await RunGitAsync(
             fullRepositoryRoot,
             ["rev-parse", "--show-toplevel"],
             cancellationToken);
-        if (result.ExitCode != 0 ||
-            !string.Equals(Path.GetFullPath(result.StandardOutput.Trim()), fullRepositoryRoot, StringComparison.Ordinal))
+        // Comparar o texto de `--show-toplevel` com Path.GetFullPath é incorreto no macOS:
+        // `/var/...` e `/private/var/...` podem apontar para o mesmo diretório, e o Git devolve o
+        // caminho físico. `--show-prefix` vazio prova diretamente que o working directory é a
+        // raiz (e continua recusando uma subpasta), sem depender da grafia do mount/symlink.
+        var prefix = await RunGitAsync(
+            fullRepositoryRoot,
+            ["rev-parse", "--show-prefix"],
+            cancellationToken);
+        if (result.ExitCode != 0 || prefix.ExitCode != 0 ||
+            !string.IsNullOrWhiteSpace(prefix.StandardOutput))
         {
             throw new InvalidOperationException("The configured path is not the root of a Git repository.");
         }
@@ -478,14 +486,16 @@ public sealed class GitWorktreeManager : IDisposable
     {
         if (path is not null && head is not null && branch is not null)
         {
-            descriptors.Add(new GitWorktreeDescriptor(string.Empty, branch, Path.GetFullPath(path), head));
+            descriptors.Add(new GitWorktreeDescriptor(
+                string.Empty, branch, CanonicalizePath(path), head));
         }
     }
 
     private static string EnsureContained(string root, string candidate, string parameterName)
     {
-        var fullCandidate = Path.GetFullPath(candidate);
-        var relative = Path.GetRelativePath(root, fullCandidate);
+        var fullRoot = CanonicalizePath(root);
+        var fullCandidate = CanonicalizePath(candidate);
+        var relative = Path.GetRelativePath(fullRoot, fullCandidate);
         if (relative == ".." ||
             relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
             Path.IsPathRooted(relative))
@@ -494,6 +504,38 @@ public sealed class GitWorktreeManager : IDisposable
         }
 
         return fullCandidate;
+    }
+
+    /// <summary>
+    /// Normaliza também links em diretórios ancestrais. <c>Path.GetFullPath</c> é apenas lexical:
+    /// no macOS ele preserva <c>/var</c>, enquanto Git reporta <c>/private/var</c>. Além de quebrar
+    /// a reconciliação de worktrees, comparar caminhos sem resolver ancestrais permitiria que um
+    /// symlink já existente atravessasse a raiz controlada.
+    /// </summary>
+    private static string CanonicalizePath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(full)
+            ?? throw new ArgumentException("The path must have a root.", nameof(path));
+        var relative = Path.GetRelativePath(root, full);
+        var current = root;
+        foreach (var segment in relative.Split(
+                     Path.DirectorySeparatorChar,
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            var next = Path.Combine(current, segment);
+            if (Directory.Exists(next))
+            {
+                var target = new DirectoryInfo(next).ResolveLinkTarget(returnFinalTarget: true);
+                current = target?.FullName ?? next;
+            }
+            else
+            {
+                current = next;
+            }
+        }
+
+        return Path.GetFullPath(current);
     }
 
     private static async Task<GitCommandResult> RunGitAsync(

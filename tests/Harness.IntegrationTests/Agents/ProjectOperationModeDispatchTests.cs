@@ -10,6 +10,7 @@ using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
@@ -129,7 +130,11 @@ public sealed class ProjectOperationModeDispatchTests
             // é o fato append-only que só existe porque o laço despachou.
             var autonomousAttempts = await board.ListAttemptsAsync(tenantId, autonomousTask, null, 5, cts.Token);
             var autonomousAttempt = Assert.Single(autonomousAttempts);
-            Assert.Equal(alias, autonomousAttempt.AgentId);
+            Assert.True(UlidValue.TryParse(autonomousAttempt.AgentId, out _));
+            var professional = await app.Services.GetRequiredService<IAgentCatalogStore>()
+                .GetAgentAsync(tenantId, autonomousAttempt.AgentId, cts.Token);
+            Assert.NotNull(professional);
+            Assert.Equal(autonomousId, professional!.ProjectId);
 
             // PROVA NEGATIVA: no MESMO ciclo, o projeto manual não andou — e não por falta de
             // card pronto, conta disponível ou escopo, que o projeto autônomo acabou de exercer.

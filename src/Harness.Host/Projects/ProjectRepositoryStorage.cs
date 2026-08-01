@@ -38,7 +38,10 @@ public sealed class ProjectRepositoryStorage(string rootPath)
         var repositoryPath = Path.GetFullPath(Path.Combine(_rootPath, tenantId, safeKey));
         EnsureConfined(repositoryPath);
         if (Directory.Exists(Path.Combine(repositoryPath, ".git")))
+        {
+            await EnsureInitialCommitAsync(repositoryPath, cancellationToken);
             return repositoryPath;
+        }
         if (Directory.Exists(repositoryPath) &&
             Directory.EnumerateFileSystemEntries(repositoryPath).Any())
         {
@@ -47,35 +50,85 @@ public sealed class ProjectRepositoryStorage(string rootPath)
         }
 
         Directory.CreateDirectory(repositoryPath);
+        await RunGitAsync(repositoryPath, cancellationToken,
+            "init", "--initial-branch", "main");
+        await EnsureInitialCommitAsync(repositoryPath, cancellationToken);
+
+        return repositoryPath;
+    }
+
+    /// <summary>
+    /// A worktree precisa de uma revisão-base. <c>git init</c> sozinho deixa o repositório sem
+    /// <c>HEAD</c>; nesse estado a primeira delegação é aceita, mas falha antes de o profissional
+    /// receber o contexto. O commit vazio é deliberado: cria uma base reproduzível sem inventar
+    /// arquivos, tecnologia ou arquitetura para o projeto do usuário.
+    /// </summary>
+    private static async Task EnsureInitialCommitAsync(
+        string repositoryPath,
+        CancellationToken cancellationToken)
+    {
+        var probe = await RunGitAsync(
+            repositoryPath,
+            allowFailure: true,
+            cancellationToken,
+            "rev-parse", "--verify", "HEAD");
+        if (probe.ExitCode == 0)
+        {
+            return;
+        }
+
+        await RunGitAsync(
+            repositoryPath,
+            cancellationToken,
+            "-c", "user.name=Poseidon",
+            "-c", "user.email=poseidon@localhost",
+            "commit", "--allow-empty", "--no-gpg-sign", "-m", "chore: initialize project");
+    }
+
+    private static Task<GitResult> RunGitAsync(
+        string workingDirectory,
+        CancellationToken cancellationToken,
+        params string[] arguments) =>
+        RunGitAsync(workingDirectory, allowFailure: false, cancellationToken, arguments);
+
+    private static async Task<GitResult> RunGitAsync(
+        string workingDirectory,
+        bool allowFailure,
+        CancellationToken cancellationToken,
+        params string[] arguments)
+    {
         var startInfo = new ProcessStartInfo
         {
             FileName = "git",
-            WorkingDirectory = repositoryPath,
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
-        startInfo.ArgumentList.Add("init");
-        startInfo.ArgumentList.Add("--initial-branch");
-        startInfo.ArgumentList.Add("main");
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Git did not start.");
         var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
         await process.WaitForExitAsync(cancellationToken);
-        _ = await standardOutput;
+        var output = await standardOutput;
         var error = await standardError;
-        if (process.ExitCode != 0)
+        if (!allowFailure && process.ExitCode != 0)
         {
             throw new InvalidOperationException(
-                $"Git could not initialize the managed repository (exit {process.ExitCode}): " +
+                $"Git command failed while preparing the managed repository (exit {process.ExitCode}): " +
                 error.Trim());
         }
 
-        return repositoryPath;
+        return new GitResult(process.ExitCode, output, error);
     }
+
+    private sealed record GitResult(int ExitCode, string StandardOutput, string StandardError);
 
     private void EnsureConfined(string repositoryPath)
     {

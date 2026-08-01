@@ -11,6 +11,7 @@ using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Providers.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.Architecture;
+using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Providers;
@@ -187,9 +188,17 @@ public sealed class ChiefBacklogDispatchTests
             // O move só ocorre após uma tentativa durável iniciar — prova que uma existe.
             var attempts = await board.ListAttemptsAsync(tenantId, taskId, null, 10, cts.Token);
             var attempt = Assert.Single(attempts);
-            Assert.Equal(fallbackAlias, attempt.AgentId);
+            Assert.True(UlidValue.TryParse(attempt.AgentId, out _));
+            Assert.Equal(attempt.AgentId, moved.AssigneeAgentId);
+            var professional = await app.Services.GetRequiredService<IAgentCatalogStore>()
+                .GetAgentAsync(tenantId, attempt.AgentId, cts.Token);
+            Assert.NotNull(professional);
+            var professionalDefinition = await app.Services.GetRequiredService<IAgentCatalogStore>()
+                .GetDefinitionForTenantAsync(tenantId, professional!.DefinitionId, cts.Token);
+            Assert.Equal("software-engineer", professionalDefinition!.Key);
 
-            // A mesma decisão que alimentou a tentativa foi registrada no ledger append-only.
+            // A conta de infraestrutura não é apresentada como se fosse a pessoa responsável.
+            // A decisão técnica continua no ledger append-only e prova o fallback real.
             var audit = await app.Services.GetRequiredService<IAuditEventStore>().ListAsync(
                 new AuditEventQuery(
                     tenantId,

@@ -11,6 +11,7 @@ using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
@@ -106,6 +107,10 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Chief: projeto {ProjectId} está em modo MANUAL — o laço não despacha; o disparo é humano.")]
     private static partial void LogProjectManualMode(ILogger logger, string projectId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: repositório gerenciado do projeto {ProjectId} não pôde ser preparado para execução ({ErrorType}); nenhum card será consumido neste ciclo.")]
+    private static partial void LogManagedRepositoryUnavailable(
+        ILogger logger, string projectId, string errorType, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: modo de operação do projeto {ProjectId} indisponível — projeto fora DESTE ciclo; nenhum despacho é presumido.")]
     private static partial void LogOperationModeUnavailable(ILogger logger, string projectId, Exception exception);
@@ -279,6 +284,35 @@ public sealed partial class ChiefBacklogLoopService(
                     continue;
                 }
 
+                // Migração operacional dos repositórios criados por versões anteriores: eles
+                // tinham `.git`, mas nenhum commit/HEAD. O bootstrap idempotente cria somente a
+                // revisão-base vazia necessária para uma worktree. Fazê-lo antes de iniciar a
+                // tentativa evita consumir orçamento com uma falha que já conhecemos.
+                if (IsUnder(System.IO.Path.GetFullPath(project.RepositoryUrl!), repositories.RootPath))
+                {
+                    try
+                    {
+                        _ = await repositories.EnsureInitializedAsync(
+                            profile.TenantId, project.Key, token);
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        LogManagedRepositoryUnavailable(
+                            logger, project.Id, exception.GetType().Name, exception);
+                        continue;
+                    }
+                }
+
+                // O gerenciador de worktrees exige que repositório E worktree pertençam à mesma
+                // raiz controlada. Projetos trazidos pelo dono usam `ControlledRoot`; projetos
+                // criados pelo Poseidon vivem na raiz gerenciada. Aceitar a segunda no filtro e
+                // continuar passando a primeira ao executor fazia toda tentativa de projeto novo
+                // falhar com `ArgumentException` antes de criar a worktree.
+                var projectControlledRoot = IsUnder(
+                    System.IO.Path.GetFullPath(project.RepositoryUrl!), repositories.RootPath)
+                    ? repositories.RootPath
+                    : controlledRoot;
+
                 // Fase 1E: a AUTONOMIA é decisão do PROJETO, não um interruptor único da
                 // instalação. Um projeto `manual` exige disparo humano e não pode ter card
                 // despachado por um laço de fundo; um projeto `autonomous` avança sozinho. Antes,
@@ -320,9 +354,17 @@ public sealed partial class ChiefBacklogLoopService(
                 // aqui é logada e NUNCA impede o despacho do restante do ciclo.
                 try
                 {
-                    await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                    await HarvestCompletedRunsAsync(
+                        profile.TenantId, project, projectControlledRoot, board, chain, token);
                     token.ThrowIfCancellationRequested();
-                    await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                    await ReviewAwaitingAttemptsAsync(
+                        profile.TenantId,
+                        project,
+                        projectControlledRoot,
+                        board,
+                        chain,
+                        scope.ServiceProvider.GetRequiredService<IModelInvocationStore>(),
+                        token);
                     token.ThrowIfCancellationRequested();
                     await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
                     token.ThrowIfCancellationRequested();
@@ -462,7 +504,7 @@ public sealed partial class ChiefBacklogLoopService(
                     try
                     {
                         using var manager = await GitWorktreeManager.OpenAsync(
-                            repositoryRoot, controlledRoot, token);
+                            repositoryRoot, projectControlledRoot, token);
                         sourceRevision = await manager.ResolveCommitAsync(
                             cancellationToken: token);
                     }
@@ -662,9 +704,9 @@ public sealed partial class ChiefBacklogLoopService(
                         routingNow,
                         token);
                     if (await LaunchAsync(
-                            profile.TenantId, project, entry.Resolution, decision.AccountAlias,
+                            profile.TenantId, profile.Id, project, entry.Resolution, decision.AccountAlias,
                             routing.SelectedModel, entry.Task, entry.InstructionVersionId, personas,
-                            controlledRoot,
+                            catalog, projectControlledRoot,
                             string.Equals(
                                 decision.ReasonCode, "chief.reinforcement_dispatched", StringComparison.Ordinal),
                             board, chain, token))
@@ -949,6 +991,7 @@ public sealed partial class ChiefBacklogLoopService(
         string controlledRoot,
         IWorkBoardStore board,
         IWorkChainStore chain,
+        IModelInvocationStore invocations,
         CancellationToken token)
     {
         var reviewed = 0;
@@ -987,7 +1030,24 @@ public sealed partial class ChiefBacklogLoopService(
 
             var resolution = ChiefCardResolver.Resolve(
                 task.Title, instructions[^1].Body, [], task.Priority);
-            var producerAlias = awaiting.AgentId;
+            // A tentativa pertence ao PROFISSIONAL (persona) e por isso `AgentId` é o id dele,
+            // não o alias secreto/operacional da conta. O alias executor vem do ledger de
+            // invocações da própria tentativa; é esse fato que impede o mesmo provider de revisar
+            // o próprio trabalho.
+            var taskInvocations = await invocations.GetTaskInvocationsAsync(
+                tenantId, task.Id, token);
+            var producerAlias = taskInvocations
+                .Where(entry => string.Equals(
+                    entry.AttemptId, awaiting.Id, StringComparison.Ordinal))
+                .OrderByDescending(entry => entry.InvokedAt)
+                .Select(entry => entry.AccountAlias)
+                .FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(producerAlias))
+            {
+                LogNoCriticAvailable(logger, task.Id, awaiting.AgentId);
+                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                continue;
+            }
             var criticAlias = SelectCriticAlias(producerAlias, now);
 
             // B7/F17 — revisão pareada como REGRA, não como disponibilidade. A política decide se
@@ -1115,6 +1175,7 @@ public sealed partial class ChiefBacklogLoopService(
                             ActorAlias = producerAlias,
                             ReviewDirectory = repositoryRoot,
                             Diff = diff,
+                            DelegationInstruction = instructions[^1].Body,
                             TestEvidence =
                                 "(evidência de teste não coletada automaticamente; avalie pelo diff e pelo repositório)",
                             AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
@@ -2044,6 +2105,7 @@ public sealed partial class ChiefBacklogLoopService(
 
     private async Task<bool> LaunchAsync(
         string tenantId,
+        string actorProfileId,
         ProjectRecord project,
         ChiefCardResolution resolution,
         string accountAlias,
@@ -2051,6 +2113,7 @@ public sealed partial class ChiefBacklogLoopService(
         BoardTaskRecord task,
         string instructionVersionId,
         IReadOnlyList<AgentDefinitionRecord> personas,
+        IAgentCatalogStore catalog,
         string controlledRoot,
         bool chiefReinforcement,
         IWorkBoardStore board,
@@ -2058,6 +2121,54 @@ public sealed partial class ChiefBacklogLoopService(
         CancellationToken token)
     {
         var now = clock.UtcNow;
+
+        // Resolve a pessoa ANTES de gravar a atribuição. A conta executora é infraestrutura e
+        // continua registrada na tentativa; o responsável do card é a instância da persona no
+        // projeto. Antes os dois conceitos eram colapsados e a interface mostrava um alias de
+        // provider (ou "Aguardando organização") no lugar do Product Owner/Arquiteto/QA.
+        var persona = FindPersona(personas, resolution.PersonaKey);
+        if (persona is not null && !IsEligible(persona, project.Id, task.Priority))
+        {
+            LogPersonaNotEligible(logger, task.Id, persona.Key);
+            persona = null;
+        }
+
+        if (persona is null && !string.Equals(
+                resolution.PersonaKey, resolution.InferredPersonaKey, StringComparison.OrdinalIgnoreCase))
+        {
+            LogPersonaNotInCatalog(logger, task.Id, resolution.PersonaKey);
+            persona = FindPersona(personas, resolution.InferredPersonaKey);
+        }
+
+        var assigneeAgentId = accountAlias;
+        if (persona is not null)
+        {
+            var route = await catalog.GetAgentAsync(tenantId, project.ChiefAgentId, token);
+            if (route is not null &&
+                !string.IsNullOrWhiteSpace(route.AccountId) &&
+                !string.IsNullOrWhiteSpace(route.ModelId) &&
+                !string.IsNullOrWhiteSpace(route.Effort) &&
+                !string.IsNullOrWhiteSpace(route.ProviderEffortValue))
+            {
+                var ensured = await catalog.EnsureProjectAgentAsync(
+                    new ProjectAgentEnsureCommand(
+                        tenantId,
+                        actorProfileId,
+                        UlidValue.New(now).ToString(),
+                        project.Id,
+                        persona.Id,
+                        persona.Name,
+                        route.AccountId,
+                        route.ModelId,
+                        route.Effort,
+                        route.ProviderEffortValue,
+                        route.FallbackModelIds ?? [],
+                        $"Delegação do card {task.Id} para {persona.Key}.",
+                        now),
+                    token);
+                assigneeAgentId = ensured.Agent.Id;
+            }
+        }
 
         // Inicia uma tentativa durável na cadeia de trabalho (id nunca solto).
         var attemptId = UlidValue.New(now).ToString();
@@ -2067,7 +2178,7 @@ public sealed partial class ChiefBacklogLoopService(
                 task.BackingSolicitationId,
                 task.Id,
                 instructionVersionId,
-                accountAlias,
+                assigneeAgentId,
                 "chief",
                 "bruna",
                 $"attempt:{attemptId}",
@@ -2086,32 +2197,12 @@ public sealed partial class ChiefBacklogLoopService(
         var started = await chain.StartAttemptAsync(
             new WorkAttemptStartCommand(
                 tenantId, task.BackingSolicitationId, task.Id, instructionVersionId, attemptId,
-                accountAlias, assigned.TaskVersion!.Value, $"chief-loop-heartbeat:{attemptId}", now),
+                assigneeAgentId, assigned.TaskVersion!.Value, $"chief-loop-heartbeat:{attemptId}", now),
             token);
         if (started.Status is not (WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay))
         {
             LogAttemptNotStarted(logger, task.Id, started.Status.ToString());
             return false;
-        }
-
-        // Briefing = PERSONA (do catálogo) + CARD (a demanda). A persona pedida pelo card pode ter
-        // sido DECLARADA pelo Chefe; o texto dele propõe, o catálogo decide. Uma chave inexistente,
-        // desabilitada ou que não seja de especialista cai no fallback inferido — nunca em "sem
-        // persona", que degradaria o briefing para o escopo cru.
-        var persona = FindPersona(personas, resolution.PersonaKey);
-        if (persona is not null && !IsEligible(persona, project.Id, task.Priority))
-        {
-            // Existe no catálogo, mas não pode assumir ESTE card. Cair no fallback é melhor do
-            // que delegar a quem o sistema já sabe que não vai conseguir entregar.
-            LogPersonaNotEligible(logger, task.Id, persona.Key);
-            persona = null;
-        }
-
-        if (persona is null && !string.Equals(
-                resolution.PersonaKey, resolution.InferredPersonaKey, StringComparison.OrdinalIgnoreCase))
-        {
-            LogPersonaNotInCatalog(logger, task.Id, resolution.PersonaKey);
-            persona = FindPersona(personas, resolution.InferredPersonaKey);
         }
 
         var briefing = persona is null
