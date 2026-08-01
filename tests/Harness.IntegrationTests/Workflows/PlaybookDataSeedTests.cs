@@ -51,8 +51,8 @@ public sealed class PlaybookDataSeedTests
                 foreach (var (cardType, dispatchable) in new (string, bool)[]
                 {
                     ("historia", true), ("tarefa", true), ("bug", true),
-                    ("adr", false), ("documento", false), ("revisao", false),
-                    ("gate", false), ("incidente", false), ("chamado", false),
+                    ("adr", true), ("documento", true), ("revisao", true),
+                    ("gate", false), ("incidente", true), ("chamado", true),
                 })
                 {
                     using var created = await client.PostAsJsonAsync(

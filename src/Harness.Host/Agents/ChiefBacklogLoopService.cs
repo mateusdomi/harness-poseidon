@@ -414,10 +414,11 @@ public sealed partial class ChiefBacklogLoopService(
 
                     var instructions = await board.ListInstructionsAsync(profile.TenantId, task.Id, null, 50, token);
 
-                    // Gate fail-safe da Definition of Ready: SÓ cards 'agent_task' com instrução e não
-                    // bloqueados entram na fila de despacho. 'human_gate'/'decision'/'feature'/'spike'
-                    // NUNCA são auto-despachados — mesmo já em `ready`, são pulados aqui com bloqueador
-                    // tipado (a triagem/humano cuida deles fora do loop).
+                    // Gate fail-safe da Definition of Ready: somente cards que representam trabalho
+                    // delegável, com instrução e sem bloqueio, entram na fila. Contêineres e decisões
+                    // humanas ('feature', 'human_gate', 'gate', 'decision') são pulados com bloqueador
+                    // tipado; documentos, revisões e pesquisas são trabalho real e seguem para o
+                    // profissional apropriado.
                     var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
                         task.CardType,
                         instructions.Count >= 1,

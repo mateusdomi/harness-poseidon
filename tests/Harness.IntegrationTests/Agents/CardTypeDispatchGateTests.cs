@@ -20,10 +20,11 @@ namespace Harness.IntegrationTests.Agents;
 
 /// <summary>
 /// Prova determinística do GATE de card_type + Definition of Ready no loop autônomo do Chefe
-/// (<see cref="ChiefBacklogLoopService"/>): apenas cards <c>card_type='agent_task'</c> que passam a
-/// DoR são despachados. Um card <c>human_gate</c> em <c>board_state='ready'</c> é IGNORADO por um
-/// ciclo (dispatched==0) e PERMANECE em `ready` — o auto-dispatch nunca executa um gate humano.
-/// Um card <c>agent_task</c> equivalente É despachado (dispatched==1 -> `development`).
+/// (<see cref="ChiefBacklogLoopService"/>): cards que representam trabalho e passam a DoR são
+/// despachados; cards de decisão continuam protegidos. Um <c>human_gate</c> em
+/// <c>board_state='ready'</c> é ignorado e permanece em `ready`. Um <c>agent_task</c> e um
+/// <c>documento</c> equivalentes são delegados — produzir o artefato do playbook não pode ficar
+/// invisível esperando um "condutor próprio" inexistente.
 ///
 /// Reusa o mesmo harness honesto do <see cref="ChiefBacklogDispatchTests"/>: repositório do projeto
 /// é um diretório comum (não-git), então o run de fundo falha ao abrir a worktree DEPOIS do move;
@@ -47,6 +48,16 @@ public sealed class CardTypeDispatchGateTests
     public async Task AgentTaskCardIsDispatchedToDevelopment()
     {
         var result = await RunSingleCardCycleAsync("agent_task");
+
+        Assert.True(result.Dispatched >= 1, $"esperava ao menos um despacho; obtido {result.Dispatched}");
+        Assert.Equal("development", result.FinalState);
+        Assert.NotEmpty(result.Attempts);
+    }
+
+    [Fact]
+    public async Task DocumentCardIsDispatchedToDevelopment()
+    {
+        var result = await RunSingleCardCycleAsync("documento");
 
         Assert.True(result.Dispatched >= 1, $"esperava ao menos um despacho; obtido {result.Dispatched}");
         Assert.Equal("development", result.FinalState);

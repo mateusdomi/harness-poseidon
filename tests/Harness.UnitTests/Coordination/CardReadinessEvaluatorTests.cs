@@ -4,11 +4,21 @@ namespace Harness.UnitTests.Coordination;
 
 public sealed class CardReadinessEvaluatorTests
 {
-    [Fact]
-    public void AgentTaskWithInstructionAndNotBlockedIsDispatchable()
+    [Theory]
+    [InlineData("agent_task")]
+    [InlineData("spike")]
+    [InlineData("historia")]
+    [InlineData("tarefa")]
+    [InlineData("bug")]
+    [InlineData("adr")]
+    [InlineData("documento")]
+    [InlineData("revisao")]
+    [InlineData("incidente")]
+    [InlineData("chamado")]
+    public void WorkCardWithInstructionAndNotBlockedIsDispatchable(string cardType)
     {
         var snapshot = CardReadinessEvaluator.Evaluate(
-            new CardReadinessFacts("agent_task", HasInstruction: true, IsBlocked: false));
+            new CardReadinessFacts(cardType, HasInstruction: true, IsBlocked: false));
 
         Assert.True(snapshot.IsDispatchable);
         Assert.Empty(snapshot.Blockers);
@@ -18,8 +28,8 @@ public sealed class CardReadinessEvaluatorTests
     [InlineData("human_gate")]
     [InlineData("decision")]
     [InlineData("feature")]
-    [InlineData("spike")]
-    public void NonAgentTaskCardTypesAreNeverDispatchable(string cardType)
+    [InlineData("gate")]
+    public void ContainerAndDecisionCardTypesAreNeverDispatchable(string cardType)
     {
         var snapshot = CardReadinessEvaluator.Evaluate(
             new CardReadinessFacts(cardType, HasInstruction: true, IsBlocked: false));

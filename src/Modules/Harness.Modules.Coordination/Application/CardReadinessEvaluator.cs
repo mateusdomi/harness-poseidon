@@ -17,20 +17,26 @@ public sealed record CardReadinessSnapshot(bool IsDispatchable, IReadOnlyList<st
 /// <summary>
 /// Avaliador PURO e determinístico da Definition of Ready (DoR) de um card. Espelha a forma do
 /// <c>ReadinessEvaluator</c> (função pura, códigos de bloqueador tipados, sem IO, sem autoridade de
-/// domínio). Regra fail-safe do loop autônomo do Chefe: só os tipos de IMPLEMENTAÇÃO são
-/// auto-despacháveis — 'agent_task' (legado) e, do playbook (§5, Fase 5), 'historia', 'tarefa' e
-/// 'bug' — sempre com ao menos uma instrução e sem bloqueio. 'human_gate'/'gate' e
-/// 'decision'/'adr' exigem humano ou revisor; 'feature', 'spike', 'documento', 'revisao',
-/// 'incidente' e 'chamado' têm condutores próprios — nenhum deles vira execução de agente
-/// sozinho, então o card_type fora da lista é sempre um bloqueador.
+/// domínio). Regra fail-safe do loop autônomo do Chefe: tipos que representam TRABALHO executável
+/// por um profissional são auto-despacháveis — implementação, pesquisa, documentação, revisão e
+/// operação — sempre com ao menos uma instrução e sem bloqueio. Contêineres ('feature') e decisões
+/// que pertencem ao humano ou à Diretora ('human_gate', 'gate' e 'decision') nunca são executados
+/// automaticamente. Um ADR é trabalho delegável de análise e registro; a decisão que ele subsidia
+/// continua protegida por card 'decision'/'gate'.
 /// </summary>
 public static class CardReadinessEvaluator
 {
     public const string DispatchableCardType = "agent_task";
 
-    /// <summary>Tipos auto-despacháveis: implementação (legado + playbook Fase 5).</summary>
+    /// <summary>Tipos que representam trabalho delegável (legado + vocabulário do playbook).</summary>
     public static readonly IReadOnlySet<string> DispatchableCardTypes =
-        new HashSet<string>(["agent_task", "historia", "tarefa", "bug"], StringComparer.Ordinal);
+        new HashSet<string>(
+            [
+                "agent_task", "spike",
+                "historia", "tarefa", "bug", "adr", "documento", "revisao",
+                "incidente", "chamado",
+            ],
+            StringComparer.Ordinal);
 
     public const string CardTypeNotDispatchable = "dor.card_type.not_dispatchable";
     public const string InstructionMissing = "dor.instruction.missing";

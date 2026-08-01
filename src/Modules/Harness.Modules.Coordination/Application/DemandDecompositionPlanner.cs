@@ -18,7 +18,8 @@ public sealed record DemandDecompositionRequest(
 
     /// <summary>
     /// A especialidade (chave de persona do catálogo) que o Chefe declarou para a demanda. Vai
-    /// apenas aos cards que um agente executa; cards de gate/decisão/spike não têm executor.
+    /// apenas aos cards que um profissional executa; cards de gate/decisão não têm executor.
+    /// Um spike é pesquisa delegável e pode ter a especialidade inferida pelo despacho.
     /// Nulo mantém a inferência por texto no despacho.
     /// </summary>
     string? Specialty = null);
@@ -81,7 +82,7 @@ public sealed record DemandPlanProposal(string FeatureId, IReadOnlyList<Proposed
 /// — a mesma entrada produz sempre a mesma saída.
 ///
 /// Regras (nesta ordem de emissão, códigos T01..Tnn):
-/// 1. incerteza técnica (palavras-chave/dica) → um card 'spike' (NUNCA auto-despachável);
+/// 1. incerteza técnica (palavras-chave/dica) → um card 'spike' de pesquisa delegável;
 /// 2. credencial externa/homologação (palavras-chave/dica) → um card 'human_gate' (exige humano);
 /// 3. decisão pendente (palavras-chave/dica) → um card 'decision' (exige humano);
 /// 4. SEMPRE uma fatia de backend ('agent_task', backend-specialist);
