@@ -1,4 +1,5 @@
 using Harness.Host.Architecture;
+using Harness.Host.Documents;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
@@ -371,7 +372,8 @@ public sealed partial class ChiefBacklogLoopService(
                     token.ThrowIfCancellationRequested();
                     await ResolveAgentRequestsAsync(profile.TenantId, project, scope, token);
                     token.ThrowIfCancellationRequested();
-                    await IntegrateApprovedCardsAsync(profile.TenantId, project, board, scope, token);
+                    await IntegrateApprovedCardsAsync(
+                        profile.TenantId, project, projectControlledRoot, board, scope, token);
                     token.ThrowIfCancellationRequested();
                     await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
                     token.ThrowIfCancellationRequested();
@@ -1588,6 +1590,7 @@ public sealed partial class ChiefBacklogLoopService(
     private async Task<int> IntegrateApprovedCardsAsync(
         string tenantId,
         ProjectRecord project,
+        string controlledRoot,
         IWorkBoardStore board,
         IServiceScope scope,
         CancellationToken token)
@@ -1597,6 +1600,8 @@ public sealed partial class ChiefBacklogLoopService(
         {
             return 0;
         }
+        var documentPublisher = scope.ServiceProvider
+            .GetRequiredService<ApprovedDocumentCatalogPublisher>();
 
         var page = await board.PageTasksAsync(
             tenantId,
@@ -1609,6 +1614,33 @@ public sealed partial class ChiefBacklogLoopService(
             if (!string.Equals(task.InternalState, "approved", StringComparison.Ordinal))
             {
                 continue;
+            }
+
+            if (string.Equals(task.CardType, "documento", StringComparison.Ordinal))
+            {
+                try
+                {
+                    var publication = await documentPublisher.PublishAsync(
+                        tenantId, project, task, board, controlledRoot, token);
+                    if (!publication.Published)
+                    {
+                        LogDocumentPublicationRefused(
+                            logger, task.Id, publication.ReasonCode);
+                        continue;
+                    }
+
+                    LogDocumentPublished(
+                        logger,
+                        task.Id,
+                        publication.DocumentId ?? "-",
+                        publication.DocumentVersionId ?? "-");
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    LogDocumentPublicationRefused(
+                        logger, task.Id, $"document.publish:{exception.GetType().Name}");
+                    continue;
+                }
             }
 
             var outcome = await integration.IntegrateAsync(
@@ -1638,6 +1670,16 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: integração do card {TaskId} adiada: {ReasonCode}.")]
     private static partial void LogCardIntegrationRefused(ILogger logger, string taskId, string reasonCode);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Chief: documento do card {TaskId} publicado no catálogo ({DocumentId}/{VersionId}).")]
+    private static partial void LogDocumentPublished(
+        ILogger logger, string taskId, string documentId, string versionId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Chief: publicação documental do card {TaskId} recusada: {ReasonCode}.")]
+    private static partial void LogDocumentPublicationRefused(
+        ILogger logger, string taskId, string reasonCode);
 
     /// <summary>
     /// Leva ao dono os cards que NENHUMA conta pode executar por motivo estrutural. O scheduler já

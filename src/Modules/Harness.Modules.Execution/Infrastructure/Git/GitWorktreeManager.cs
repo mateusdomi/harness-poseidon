@@ -410,6 +410,37 @@ public sealed class GitWorktreeManager : IDisposable
     }
 
     /// <summary>
+    /// Lê um artefato diretamente da revisão da branch, sem depender de uma worktree viva. O path
+    /// é deliberadamente restrito a <c>docs/</c>: este método alimenta o catálogo documental e
+    /// nunca deve virar um leitor genérico de arquivos arbitrários do repositório.
+    /// </summary>
+    public async Task<string> ReadDocumentFromBranchAsync(
+        string branchName, string documentPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(documentPath);
+        if (!branchName.StartsWith("task/", StringComparison.Ordinal) ||
+            Path.IsPathRooted(documentPath) ||
+            documentPath.Contains('\\') ||
+            !documentPath.StartsWith("docs/", StringComparison.Ordinal) ||
+            documentPath.Split('/').Any(segment => segment is "" or "." or ".."))
+        {
+            throw new ArgumentException(
+                "Only canonical docs/ paths from task branches can be read.",
+                nameof(documentPath));
+        }
+
+        var result = await RunGitAsync(
+            _repositoryRoot, ["show", $"{branchName}:{documentPath}"], cancellationToken);
+        if (result.ExitCode != 0)
+        {
+            throw CreateGitException("read the document artifact from the task branch", result);
+        }
+
+        return result.StandardOutput;
+    }
+
+    /// <summary>
     /// Integração do gate humano: merge REAL (sempre com commit de merge, --no-ff) da branch de
     /// tentativa aprovada na referência atualmente publicada do repositório. Em conflito, o merge
     /// é abortado e a exceção sobe — nunca deixa o repositório no meio de um merge.

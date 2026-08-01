@@ -14,12 +14,29 @@ public sealed class FileSystemDocumentContentCatalog(string rootPath) : IDocumen
     {
         var target = Resolve(catalogPath);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        if (File.Exists(target))
+        {
+            // A autoridade documental é idempotente; o blob precisa acompanhar. Um retry depois
+            // de a transação gravar o documento não pode falhar só porque o mesmo conteúdo já foi
+            // publicado. Conteúdo diferente no mesmo path continua sendo conflito real.
+            VerifyHash(await File.ReadAllBytesAsync(target, cancellationToken), expectedHash);
+            return;
+        }
         var temporary = target + $".{Guid.NewGuid():N}.tmp";
         try
         {
             await File.WriteAllTextAsync(temporary, body, new UTF8Encoding(false), cancellationToken);
             VerifyHash(await File.ReadAllBytesAsync(temporary, cancellationToken), expectedHash);
-            File.Move(temporary, target, overwrite: false);
+            try
+            {
+                File.Move(temporary, target, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(target))
+            {
+                // Duas projeções idempotentes podem vencer a corrida de existência. Só aceitamos
+                // a vencedora se o hash for exatamente o esperado.
+                VerifyHash(await File.ReadAllBytesAsync(target, cancellationToken), expectedHash);
+            }
         }
         finally
         {

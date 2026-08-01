@@ -630,6 +630,7 @@ public static class HostApplication
         }
         builder.Services.AddSingleton<IDocumentContentCatalog>(
             new FileSystemDocumentContentCatalog(documentCatalogPath));
+        builder.Services.AddSingleton<ApprovedDocumentCatalogPublisher>();
         builder.Services.AddSingleton(new SolicitationAttachmentStorage(
             Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "attachments")));
         builder.Services.AddSingleton(new ProjectRepositoryStorage(
