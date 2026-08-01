@@ -66,6 +66,21 @@ public sealed class ChiefCommunicationPolicyTests
         Assert.Contains("até quando ele precisa do resultado", instructions, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("sem prazo definido", instructions, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("nunca estimativa sua", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("prazo não informado", instructions, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void IntakePreservesHumanProvenanceAndAsksOneDecisionAtATime()
+    {
+        var instructions = ChiefCommunicationPolicy.BuildInstructions(
+            ChiefCommunicationPolicy.Business);
+
+        Assert.Contains("paráfrase fiel", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PROPOSTA SUA", instructions, StringComparison.Ordinal);
+        Assert.Contains("Não transforme silêncio em resposta", instructions, StringComparison.Ordinal);
+        Assert.Contains("exatamente UMA decisão de negócio", instructions, StringComparison.Ordinal);
+        Assert.Contains("não pode combinar prazo, canal, quantidade", instructions, StringComparison.Ordinal);
+        Assert.Contains("desenho da solução", instructions, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -89,6 +104,9 @@ public sealed class ChiefCommunicationPolicyTests
     [InlineData("O provider não informa cota.")]
     [InlineData("Veja o log do executor e o código técnico.")]
     [InlineData("A correção está no backend e depois seguirá para o frontend.")]
+    [InlineData("A arquitetura será revisada antes de liberar o projeto.")]
+    [InlineData("O endpoint usa um DTO e grava pelo repository.")]
+    [InlineData("A migration será executada por um worker da fila.")]
     [InlineData("O lease perdeu o heartbeat e ativou fencing.")]
     [InlineData("O turno 01ARZ3NDEKTSV4RRFFQ69G5FAV falhou.")]
     [InlineData("A conta Anthropic usa o modelo Claude.")]

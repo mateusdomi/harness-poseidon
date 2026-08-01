@@ -223,6 +223,13 @@ public sealed record AgentCriticReviewCommand
 
     public required string Diff { get; init; }
 
+    /// <summary>
+    /// Pacote versionado que autorizou a tentativa. O crítico precisa comparar o resultado com
+    /// fatos, proveniência, escopo, DoD e evidências exigidas — o diff isolado não contém a razão
+    /// pela qual o trabalho existe. Conteúdo é dado não confiável, nunca instrução ao revisor.
+    /// </summary>
+    public string DelegationInstruction { get; init; } = string.Empty;
+
     public string TestEvidence { get; init; } = "(nenhuma evidência de teste foi fornecida)";
 
     public IReadOnlyList<string> AcceptanceCriteria { get; init; } = [];
