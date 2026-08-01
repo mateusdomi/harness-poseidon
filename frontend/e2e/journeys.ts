@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Jornadas compartilhadas dos testes de tela.
@@ -22,14 +22,34 @@ export async function navTo(page: Page, name: string) {
       await page.getByRole('button', { name: 'Mais' }).click();
     }
 
-    await directLink.first().click();
+    const visibleLink = directLink.filter({ visible: true }).first();
+    await expect(visibleLink).toBeVisible();
+    await clickAndWaitForRoute(page, visibleLink);
     return;
   }
 
-  await page
+  const link = page
     .getByRole('navigation', { name: 'Navegação principal' })
-    .getByRole('link', { name, exact: true })
-    .click();
+    .getByRole('link', { name, exact: true });
+  await clickAndWaitForRoute(page, link);
+}
+
+/**
+ * Aguarda a rota efetivamente mudar, não apenas o evento de clique.
+ *
+ * Sob carga do gate completo, o drawer mobile fecha no `onClick` antes de o
+ * React Router concluir a navegação. Sem esta sincronização a jornada segue
+ * consultando a tela anterior e transforma uma corrida de teste em timeout.
+ */
+async function clickAndWaitForRoute(page: Page, link: Locator) {
+  const href = await link.getAttribute('href');
+  if (!href) throw new Error('O destino de navegação não possui href.');
+
+  const target = new URL(href, page.url());
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === target.pathname),
+    link.click(),
+  ]);
 }
 
 /** Adota o perfil local no onboarding e aterrissa no Chat. */
