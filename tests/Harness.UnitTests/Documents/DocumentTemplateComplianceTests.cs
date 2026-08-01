@@ -144,6 +144,33 @@ public sealed class DocumentTemplateComplianceTests
         Assert.True(DocumentTemplateCompliance.Check(body, Gmud).IsCompliant);
     }
 
+    [Fact]
+    public void NumberedHeadingsAndExplanatorySuffixesPreserveTheCanonicalField()
+    {
+        const string demand =
+            """["valor_negocio","criticidade","decisao_bbir","justificativa","caminho_tecnico"]""";
+        var body = """
+            # Ficha de Demanda Qualificada
+
+            ## 5. `valor_negocio`
+            Controle dos empréstimos.
+
+            ## 6. `criticidade`
+            Média.
+
+            ## 7. `decisao_bbir` (Build / Buy / Integrate / Reuse / Reject)
+            Build.
+
+            ## 8. `justificativa`
+            Pedido novo e pequeno.
+
+            ## 9. `caminho_tecnico` — em nível de capacidades
+            Cadastro, empréstimo e devolução.
+            """;
+
+        Assert.True(DocumentTemplateCompliance.Check(body, demand).IsCompliant);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

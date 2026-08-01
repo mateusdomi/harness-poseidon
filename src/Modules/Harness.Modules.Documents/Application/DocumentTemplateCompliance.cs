@@ -73,7 +73,11 @@ public static class DocumentTemplateCompliance
         var positions = new List<(string Field, int Position)>();
         foreach (var field in required)
         {
-            var index = Array.IndexOf(headings, Normalize(field));
+            var normalizedField = Normalize(field);
+            var index = Array.FindIndex(
+                headings,
+                heading => string.Equals(heading, normalizedField, StringComparison.Ordinal) ||
+                           heading.StartsWith(normalizedField + " ", StringComparison.Ordinal));
             if (index < 0)
             {
                 missing.Add(field);
@@ -193,6 +197,10 @@ public static class DocumentTemplateCompliance
         // Palavras de ligação não distinguem seção: "plano de rollback" e "plano rollback" são a
         // mesma coisa para quem lê, e o template escreve sem elas.
         var words = builder.ToString().Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            // Numeração de outline é apresentação, não identidade do campo: `## 7. decisao_bbir`
+            // continua sendo a seção `decisao_bbir`. Todos os tokens numéricos iniciais são
+            // descartados para também cobrir cabeçalhos como `### 7.1 Justificativa`.
+            .SkipWhile(word => word.All(char.IsDigit))
             .Where(word => !Connectors.Contains(word))
             .ToArray();
         return string.Join(' ', words).Normalize(NormalizationForm.FormC);
