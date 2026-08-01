@@ -141,6 +141,17 @@ resolve_launcher() {
       echo "Falha ao compilar o Runner." >&2
       exit 2
     }
+  # O HOST precisa ser compilado explicitamente.
+  #
+  # Launcher e Runner referenciam o Host, mas o build incremental do .NET nem sempre o reconstrói
+  # quando só o Host mudou — e o efeito é traiçoeiro: `./poseidon start` termina verde, o produto
+  # sobe, e o binário em execução é de dias atrás. Foi assim que uma correção de sandbox parecia
+  # não funcionar por horas: ela nunca chegou ao processo que estava rodando.
+  "${POSEIDON_ROOT}/tools/backend/dotnet.sh" build \
+    "${POSEIDON_ROOT}/src/Harness.Host/Harness.Host.csproj" --configuration Release >/dev/null || {
+      echo "Falha ao compilar o Host." >&2
+      exit 2
+    }
   local candidate="${POSEIDON_ROOT}/src/Harness.Launcher/bin/Release/net10.0/Harness.Launcher"
   [[ -x "${candidate}" ]] || { echo "Falha ao preparar o Launcher." >&2; exit 2; }
   echo "${candidate}"
