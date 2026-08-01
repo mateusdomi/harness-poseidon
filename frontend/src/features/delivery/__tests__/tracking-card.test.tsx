@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithApi } from '@/test/render-with-providers';
 
-import { TrackingCard, scheduleRisk } from '../components/tracking-card';
+import { TrackingCard } from '../components/tracking-card';
+import { scheduleRisk } from '../lib/schedule-risk';
 import type { DeliverySummary } from '../api/types';
 
 function delivery(overrides: Partial<DeliverySummary> = {}): DeliverySummary {

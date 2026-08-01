@@ -311,17 +311,19 @@ function stubMatchMedia(desktop: boolean) {
 afterEach(() => {
   // jsdom não tem matchMedia: remove o stub entre testes.
   delete (window as { matchMedia?: unknown }).matchMedia;
-  useUiStore.setState({ chatWorkflowPanelOpen: true });
-  usePresentationStore.setState({ modeByProfile: {} });
+  act(() => {
+    useUiStore.setState({ chatWorkflowPanelOpen: true });
+    usePresentationStore.setState({ modeByProfile: {} });
+  });
 });
 
 describe('ChatPage — painel de workflow responsivo', () => {
-  function renderChat() {
+  function renderChat(bundle: TestBundle = createTestBundle()) {
     return renderWithApi(
       <MemoryRouter>
         <ChatPage />
       </MemoryRouter>,
-      createTestBundle(),
+      bundle,
     );
   }
 
@@ -382,12 +384,7 @@ describe('ChatPage — painel de workflow responsivo', () => {
     usePresentationStore
       .getState()
       .requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
-    renderWithApi(
-      <MemoryRouter>
-        <ChatPage />
-      </MemoryRouter>,
-      bundle,
-    );
+    renderChat(bundle);
 
     const aside = await screen.findByRole('complementary', { name: 'Workflow do projeto' });
     expect(await within(aside).findByRole('button', { name: /Validação/ })).toBeInTheDocument();
