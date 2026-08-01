@@ -13,6 +13,24 @@ public sealed class WorkflowPhaseCardContextTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-08-01T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
 
+    [Theory]
+    [InlineData("approved", "review", true)]
+    [InlineData("running", "development", false)]
+    [InlineData("rejected", "corrections", false)]
+    public void NewHumanInformationCreatesARevisionOnlyAfterThePreviousExecutionStabilizes(
+        string state, string internalState, bool expected)
+    {
+        var card = new BoardTaskRecord(
+            "tenant", "task", "project", "demand", "1-Triagem — Ficha", state,
+            "low", null, null, 1, new(0, 0, 0), Now, Now, null, null, 1,
+            internalState, "solicitation", "demand", "1-Triagem", "documento");
+
+        Assert.Equal(
+            expected,
+            WorkflowPhaseDriver.NeedsDocumentRevision(Now.AddMinutes(1), card));
+        Assert.False(WorkflowPhaseDriver.NeedsDocumentRevision(Now, card));
+    }
+
     [Fact]
     public void ObjectiveCardCarriesProvenanceTemplateDependenciesAndEvidenceWithoutSecrets()
     {

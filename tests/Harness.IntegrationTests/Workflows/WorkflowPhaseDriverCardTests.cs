@@ -132,6 +132,7 @@ public sealed class WorkflowPhaseDriverCardTests
                 task => task.Title == "1-Triagem — Ficha de Demanda Qualificada");
             Assert.Equal(demandId, card.DemandId);
             Assert.Equal("1-Triagem", card.PhaseName);
+            Assert.Equal("documento", card.CardType);
             var instruction = Assert.Single(await board.ListInstructionsAsync(
                 localProfile.TenantId, card.Id, null, 10, timeout.Token));
             Assert.Contains(

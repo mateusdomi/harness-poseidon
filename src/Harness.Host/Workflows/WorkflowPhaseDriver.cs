@@ -235,6 +235,31 @@ public sealed class WorkflowPhaseDriver(
                     advanced++;
                 }
             }
+
+            // Informação humana nova depois da criação do último card de um documento exige uma
+            // nova versão executável. Preservá-la apenas em conversa/demanda deixava o artefato
+            // canônico congelado e quebrava a rastreabilidade. A atualização espera a execução
+            // anterior estabilizar para evitar duas pessoas editando o mesmo documento em
+            // paralelo, e o id da mensagem torna o card idempotente entre ciclos do driver.
+            var revisionPrefix = title + " — atualização ";
+            var objectiveCards = page.Items
+                .Where(item => string.Equals(item.Title, title, StringComparison.Ordinal) ||
+                               item.Title.StartsWith(revisionPrefix, StringComparison.Ordinal))
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            var latestHuman = humanMessages.Count == 0 ? null : humanMessages[^1];
+            var latestObjectiveCard = objectiveCards.FirstOrDefault();
+            if (latestHuman is not null && latestObjectiveCard is not null &&
+                NeedsDocumentRevision(latestHuman.CreatedAt, latestObjectiveCard) &&
+                !byTitle.ContainsKey(revisionPrefix + latestHuman.Id))
+            {
+                await CreateObjectiveCardAsync(
+                    tenantId, project, actorProfileId, phase.Name, objective.Name,
+                    humanMessages, solicitations, demands, templates, cancellationToken,
+                    revisionPrefix + latestHuman.Id, latestHuman.Id);
+                created++;
+            }
         }
 
         // ---- PLANO DE OBRIGAÇÕES: o denominador do progresso ----
@@ -897,7 +922,9 @@ public sealed class WorkflowPhaseDriver(
         IReadOnlyList<BoardSolicitationRecord> solicitations,
         IReadOnlyList<BoardDemandRecord> demands,
         IReadOnlyList<WorkflowDocumentTemplateRecord> templates,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? titleOverride = null,
+        string? revisionSourceMessageId = null)
     {
         var now = _clock.UtcNow;
         var taskId = UlidValue.New(now).ToString();
@@ -908,10 +935,20 @@ public sealed class WorkflowPhaseDriver(
         var instruction = ComposeObjectiveInstruction(
             project, phaseName, objectiveName, personaKey, template, humanMessages,
             solicitations, demands);
-        var primaryDemand = demands
-            .Where(demand => !demand.Internal)
-            .OrderBy(demand => demand.CreatedAt)
-            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(revisionSourceMessageId))
+        {
+            instruction += $"""
+
+                # Atualização versionada obrigatória
+                - Este card existe porque a mensagem humana `{revisionSourceMessageId}` chegou depois da versão anterior.
+                - Leia a versão mais recente deste mesmo artefato, preserve o que continua válido e produza uma nova versão rastreável.
+                - Não sobrescreva a proveniência anterior; registre o delta, a mensagem que o originou e os documentos impactados.
+                """;
+        }
+        var humanDemands = demands.Where(demand => !demand.Internal);
+        var primaryDemand = revisionSourceMessageId is null
+            ? humanDemands.OrderBy(demand => demand.CreatedAt).FirstOrDefault()
+            : humanDemands.OrderByDescending(demand => demand.CreatedAt).FirstOrDefault();
 
         _ = await _board.CreateTaskAsync(
             new BoardTaskCreateCommand(
@@ -922,7 +959,7 @@ public sealed class WorkflowPhaseDriver(
                 UlidValue.New(now.AddMilliseconds(2)).ToString(),
                 UlidValue.New(now.AddMilliseconds(3)).ToString(),
                 actorProfileId,
-                CardTitleFor(phaseName, objectiveName),
+                titleOverride ?? CardTitleFor(phaseName, objectiveName),
                 // Prioridade BAIXA de propósito: o artefato da fase é obrigatório, mas não pode
                 // passar à frente do trabalho que o dono pediu e tomar o slot de despacho dele.
                 // Quem quiser antecipá-lo repriorizamos no board — a decisão é humana.
@@ -932,7 +969,8 @@ public sealed class WorkflowPhaseDriver(
                 instructionId,
                 instruction,
                 now,
-                phaseName),
+                phaseName,
+                "documento"),
             cancellationToken);
 
         // O card nasce em `backlog`, e quem promove backlog→ready é a triagem por ondas, que
@@ -943,6 +981,23 @@ public sealed class WorkflowPhaseDriver(
             new BoardTaskMoveCommand(
                 tenantId, taskId, "ready", $"esteira:{phaseName}", "agent", now.AddMilliseconds(4)),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Determina se informação humana posterior já pode originar uma atualização versionada.
+    /// Execução ainda ativa ou em correção permanece serializada no card atual.
+    /// </summary>
+    public static bool NeedsDocumentRevision(
+        DateTimeOffset latestHumanMessageAt,
+        BoardTaskRecord latestObjectiveCard)
+    {
+        if (latestHumanMessageAt <= latestObjectiveCard.CreatedAt)
+        {
+            return false;
+        }
+
+        return latestObjectiveCard.State is "approved" or "merged" or "done" or "completed" ||
+               latestObjectiveCard.InternalState is "approved" or "merged" or "done" or "completed";
     }
 
     /// <summary>
