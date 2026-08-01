@@ -33,6 +33,9 @@ internal static class ProjectOperationModeResolver
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(catalog);
+        // Um projeto tem NO MÁXIMO um vínculo: `LinkTemplateAsync` recusa o segundo com
+        // `WorkflowBindingAlreadyExistsException`. Por isso `limit: 1` e o primeiro item — não é
+        // "pegar qualquer um de vários", é ler o único que pode existir.
         var bindings = await catalog.ListBindingsAsync(tenantId, projectId, null, 1, cancellationToken);
         return bindings.Count > 0
             ? PhaseGatePolicy.ParseMode(bindings[0].OperationMode)

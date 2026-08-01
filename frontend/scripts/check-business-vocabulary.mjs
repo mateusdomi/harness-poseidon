@@ -35,6 +35,7 @@ export const TECHNICAL_NAMESPACES = [
   'governanceDocs',
   'poAssistant',
   'providers',
+  'reliability',
   'tools',
 ];
 
@@ -161,6 +162,8 @@ export const EXEMPTIONS = new Map([
   ['nav.agents', 'item de menu exclusivo do modo Técnico (D7)'],
   ['nav.providers', 'item de menu exclusivo do modo Técnico (D7)'],
   ['nav.keywords.agents', 'busca do item de menu exclusivo do modo Técnico (D7)'],
+  ['nav.reliability', 'item de menu exclusivo do modo Técnico (D7)'],
+  ['nav.keywords.reliability', 'busca do item de menu exclusivo do modo Técnico (D7)'],
   ['features.agents.title', 'tela exclusiva do modo Técnico (D7)'],
   ['features.agents.description', 'tela exclusiva do modo Técnico (D7)'],
   ['features.providers.title', 'tela exclusiva do modo Técnico (D7)'],

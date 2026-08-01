@@ -33,21 +33,18 @@
       "unread_one": "{{count}} unread"
     },
     "project": {
-      "label": "Project"
-    },
-    "context": {
-      "label": "Project context",
-      "phase": "Stage {{name}}",
-      "agentsWorking": "{{count}} people working",
-      "agentsWorking_one": "{{count}} person working"
-    },
-    "project": {
       "label": "Active project",
       "loading": "Loading projects",
       "error": "Projects unavailable — try again",
       "empty": "No projects",
       "unavailable": "Project unavailable",
       "unavailableHelp": "The selected project no longer exists or you lost access. Choose another project."
+    },
+    "context": {
+      "label": "Project context",
+      "phase": "Stage {{name}}",
+      "agentsWorking": "{{count}} people working",
+      "agentsWorking_one": "{{count}} person working"
     },
     "search": {
       "open": "Search screens ({{shortcut}})",
@@ -113,8 +110,10 @@
       "po-assistant": "requirements refinement product owner",
       "onboarding": "setup getting started wizard first access",
       "notifications": "alerts unread center bell",
-      "settings": "preferences configuration options"
-    }
+      "settings": "preferences configuration options",
+      "reliability": "productivity reliability pass@k cost subscription fleet metrics"
+    },
+    "reliability": "Productivity"
   },
   "placeholder": {
     "badge": "Coming soon",
@@ -1612,17 +1611,33 @@
       "technicalDetails": "Technical details",
       "blockers": {
         "unknown": "A required dependency is not ready yet.",
-        "provider_account": { "missing": "Finish hiring a team member." },
-        "model": { "none_chat_enabled": "Enable a working mode." },
-        "workflow": { "unbound": "Bind a workflow to the project." },
-        "chief": { "model_unresolved": "Set Bruna's working mode." }
+        "provider_account": {
+          "missing": "Finish hiring a team member."
+        },
+        "model": {
+          "none_chat_enabled": "Enable a working mode."
+        },
+        "workflow": {
+          "unbound": "Bind a workflow to the project."
+        },
+        "chief": {
+          "model_unresolved": "Set Bruna's working mode."
+        }
       },
       "actions": {
         "unknown": "Resolve dependency",
-        "provider": { "connectAccount": "Finish hiring" },
-        "model": { "enable": "Set working mode" },
-        "workflow": { "bind": "Bind a workflow" },
-        "chief": { "configureModel": "Configure Bruna's working mode" }
+        "provider": {
+          "connectAccount": "Finish hiring"
+        },
+        "model": {
+          "enable": "Set working mode"
+        },
+        "workflow": {
+          "bind": "Bind a workflow"
+        },
+        "chief": {
+          "configureModel": "Configure Bruna's working mode"
+        }
       }
     },
     "readiness": {

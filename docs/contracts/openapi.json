@@ -31912,6 +31912,8 @@
                 "required": [
                     "projectId",
                     "classifiedAttempts",
+                    "subscriptions",
+                    "sampleTruncated",
                     "failureModesByCategory",
                     "advice",
                     "capabilities"
@@ -31928,6 +31930,15 @@
                             "string"
                         ],
                         "format": "int32"
+                    },
+                    "subscriptions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SubscriptionUsageContract"
+                        }
+                    },
+                    "sampleTruncated": {
+                        "type": "boolean"
                     },
                     "failureModesByCategory": {
                         "type": "object",
@@ -34401,6 +34412,74 @@
                         "items": {
                             "$ref": "#/components/schemas/StuckTaskContract"
                         }
+                    }
+                }
+            },
+            "SubscriptionUsageContract": {
+                "required": [
+                    "accountAlias",
+                    "providers",
+                    "invocations",
+                    "tasksTouched",
+                    "successes",
+                    "totalTokens",
+                    "estimatedCostUsd",
+                    "lastInvokedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "accountAlias": {
+                        "type": "string"
+                    },
+                    "providers": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "invocations": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "tasksTouched": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "successes": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "totalTokens": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "estimatedCostUsd": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    },
+                    "lastInvokedAt": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 }
             },

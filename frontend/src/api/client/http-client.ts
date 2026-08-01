@@ -86,6 +86,8 @@ import {
   learningTransitionInputSchema,
   type AgentExecutor,
   type EvaluationRecommendationsResponse,
+  type ProjectReliability,
+  projectReliabilitySchema,
   type EvaluationResult,
   type LedgerReconciliation,
   type MemorySearchResponse,
@@ -608,6 +610,15 @@ export class HttpApiClient implements ApiClient {
   async listAgentExecutors(): Promise<AgentExecutor[]> {
     const response = await this.#request<unknown>('GET', '/governance-runtime/executors');
     return agentExecutorSchema.array().parse(response);
+  }
+
+  async getProjectReliability(projectId: string, k?: number): Promise<ProjectReliability> {
+    const query = k === undefined ? '' : `?k=${k}`;
+    const response = await this.#request<unknown>(
+      'GET',
+      `/projects/${projectId}/reliability${query}`,
+    );
+    return projectReliabilitySchema.parse(response);
   }
 
   async listEvaluationRecommendations(

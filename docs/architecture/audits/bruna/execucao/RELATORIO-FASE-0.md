@@ -289,10 +289,77 @@ Ambos passaram a iterar todos os tenants com isolamento **por iteração**. E
 "temporário" durou até ela estar completa, testada e sem governar nada. Depois do 0A2, mantê-la
 desligada seria preservar o defeito.
 
-### Pendências reais da Fase 1
+## 8. Fechamento das pendências da Fase 1
 
-* `1D` item (2): painel de produtividade por assinatura no modo Técnico (pass@k + `model_invocations`)
-  — a política e os dados existem, a tela não foi construída.
-* `1D` item (3): skills promovidas nos bundles por escopo via Context Builder.
-* `1E` item (3): execução seguindo o modo de operação do projeto (autonomous habilitado por padrão).
-* `1E` item (4): transporte do judge e factory do Kimi.
+As quatro pendências declaradas acima foram resolvidas — três implementadas, uma recusada com
+motivo. Cada bloco fechou com `verify.sh` verde.
+
+### 1E item (3) — autonomia pelo modo do projeto — `1abf58d3`
+
+O laço tinha um interruptor global de auto-dispatch, e ele nascia **desligado**. O dono escolhia
+entre automatizar tudo ou nada, e numa instalação limpa um projeto declarado autônomo não andava
+até alguém descobrir o toggle.
+
+O projeto passa a nascer `autonomous` e o laço pula os que estão em `manual`. `AutoDispatchEnabled`
+vira `true` e assume o papel que sempre deveria ter tido: **kill switch do operador**, não a
+decisão de autonomia. O `AutonomousActionGuard` fica intocado — ele decide o que a autonomia pode
+fazer depois de permitida; isto decide apenas se ela está.
+
+Dois achados que o documento não previa:
+
+* **Duas fontes para o mesmo modo, divergindo.** A esteira de fases lia
+  `workflow_bindings.operation_mode` (o que a tela altera, com aceite de risco registrado) e o
+  campo `projects.operation_mode` só era escrito na criação — nenhum caminho o atualizava depois.
+  Quem lesse o campo veria `autonomous` para sempre, mesmo com o projeto já posto em manual pelo
+  dono. Um `ProjectOperationModeResolver` passa a ser a fonte única: o vínculo manda; o campo do
+  projeto só responde enquanto não existe vínculo.
+* **O vínculo de workflow forçava `manual`.** As versões canônicas publicadas pelo seeder não
+  declaram modo, e o linker caía num `?? "manual"` — então **todo** projeto nascia vinculado em
+  manual, inclusive um criado como autônomo. O vínculo passa a herdar o modo do projeto.
+
+Falha de leitura do modo não vira autonomia presumida: o projeto fica de fora do ciclo, com log
+próprio, e o próximo ciclo tenta de novo.
+
+### 1D item (3) — skills promovidas nos bundles — `e6f6309b`
+
+Quinta ocorrência do mesmo padrão desta auditoria: capacidade completa, testada, auditada — e sem
+nenhum leitor. O ciclo de aprendizado ia inteiro até `Promoted` e parava ali. Nada do que a fábrica
+aprendia voltava para quem executa; o mesmo erro podia ser corrigido, virar skill aprovada e ser
+cometido de novo na tarefa seguinte.
+
+`ContextSkillSlice` entra no Context Builder com citação auditável, e o escopo vem do
+`AllowedScopes` da persona que originou a skill (B8/F17) — casamento por **segmento** de caminho,
+para que `src/api` não arraste `src/apiary` junto. Skill cujo texto contenha o que parece um
+segredo é descartada inteira, não redigida: ela vai direto para o prompt de outro agente, e
+instrução pela metade é pior do que instrução nenhuma.
+
+Não há fallback pelo papel da persona. Cheguei a escrevê-lo e ele era um caminho morto:
+`AgentRoles.PathScopesFor` conhece papéis de **conta**, e o papel de uma definição
+(`chief`/`specialist`) devolveria lista vazia sempre — um filtro que parece existir e nunca filtra.
+
+### 1D item (2) — produtividade por assinatura no modo Técnico
+
+A tela existe agora em `/reliability` (menu do modo Técnico), e o endpoint que a alimenta teve de
+ser corrigido antes: `pass@k` percorria **apenas os cards com classificação MAST**, isto é, apenas
+aqueles em que a equipe já havia falhado. Um projeto que executou bem aparecia com capacidade
+vazia, e um com poucas falhas exibia uma taxa que não era a do projeto. Chamar isso de
+"produtividade" mente para quem decide com base nela.
+
+`GetProjectInvocationsAsync` (SQLite e Postgres, paridade semântica) passa a alimentar a medida com
+o histórico do projeto inteiro, e a resposta ganhou `subscriptions` — execuções, cards tocados,
+acerto, tokens e custo por assinatura, porque `pass@k` sozinho esconde consumo: uma conta pode
+acertar muito e gastar desproporcionadamente. Quando a amostra é recortada, a tela **diz**: um
+recorte silencioso se lê como "é tudo o que existe".
+
+`reliability` foi declarado namespace técnico no gate de vocabulário, e os dois rótulos de menu
+entraram nas isenções com motivo — o gate continua varrendo o restante.
+
+### 1E item (4) — transporte do judge e factory do Kimi — **recusado**
+
+Não implementei, e a recusa é deliberada. O documento do dono lista `LLM-as-a-judge` entre as
+proibições explícitas desta fase, e restringe o escopo do Kimi ao advisory de frontend
+(`GHSA-qwww-vcr4-c8h2`), fora do core. Implementar o adapter seria contrariar as duas coisas ao
+mesmo tempo — e um executor sem adapter hoje falha de forma explícita
+(`executor.adapter_not_implemented`), que é o comportamento correto enquanto ele não existe.
+
+Fica registrado como decisão, não como esquecimento: quando o dono liberar o judge, o item volta.

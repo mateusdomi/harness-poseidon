@@ -20,6 +20,12 @@ namespace Harness.Host.Agents;
 /// </summary>
 public static class ReliabilityEndpoints
 {
+    /// <summary>
+    /// Teto da amostra de invocações lida por projeto. Alto o bastante para uma medida honesta e
+    /// baixo o bastante para a tela não pagar uma varredura de histórico inteiro a cada abertura.
+    /// </summary>
+    private const int InvocationSampleSize = 5000;
+
     public static IEndpointRouteBuilder MapReliability(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/projects/{projectId}").WithTags("agents");
@@ -67,14 +73,18 @@ public static class ReliabilityEndpoints
         // pass@k sai do histórico REAL de invocações: cada tentativa de um card, na ordem em que
         // aconteceu, com o desfecho registrado. A ordem define o número da rodada — não há campo
         // "tentativa nº" e inventá-lo por contagem global misturaria cards diferentes.
+        //
+        // As invocações vêm do PROJETO inteiro. Antes o laço percorria apenas os cards com
+        // classificação MAST — ou seja, os que já haviam falhado — e media pass@k sobre o
+        // subconjunto em que a equipe foi pior. Um projeto sem nenhuma falha classificada exibia
+        // capacidade VAZIA, e um com poucas falhas exibia uma taxa que não era a do projeto.
+        var projectInvocations = await invocations.GetProjectInvocationsAsync(
+            profile.TenantId, projectId, InvocationSampleSize, token);
         var history = new List<AttemptOutcome>();
-        foreach (var group in classifications
-            .Select(item => item.TaskId)
-            .Distinct(StringComparer.Ordinal))
+        foreach (var group in projectInvocations
+            .GroupBy(item => item.WorkTaskId, StringComparer.Ordinal))
         {
-            var taskInvocations = await invocations.GetTaskInvocationsAsync(
-                profile.TenantId, group, token);
-            var ordered = taskInvocations.OrderBy(item => item.InvokedAt).ToArray();
+            var ordered = group.OrderBy(item => item.InvokedAt).ToArray();
             for (var index = 0; index < ordered.Length; index++)
             {
                 var invocation = ordered[index];
@@ -85,6 +95,23 @@ public static class ReliabilityEndpoints
                     invocation.Outcome.Contains("success", StringComparison.OrdinalIgnoreCase)));
             }
         }
+
+        // Produtividade POR ASSINATURA: o que cada conta entregou e a que custo. É a leitura que
+        // pass@k não dá — uma conta pode acertar muito e consumir desproporcionalmente.
+        var usage = projectInvocations
+            .GroupBy(item => item.AccountAlias, StringComparer.Ordinal)
+            .Select(group => new SubscriptionUsageContract(
+                group.Key,
+                group.Select(item => item.Provider).Distinct(StringComparer.Ordinal).OrderBy(item => item, StringComparer.Ordinal).ToArray(),
+                group.Count(),
+                group.Select(item => item.WorkTaskId).Distinct(StringComparer.Ordinal).Count(),
+                group.Count(item => item.Outcome.Contains("success", StringComparison.OrdinalIgnoreCase)),
+                group.Sum(item => (long)item.InputTokens + item.OutputTokens),
+                group.Sum(item => item.EstimatedCostUsd),
+                group.Max(item => item.InvokedAt)))
+            .OrderByDescending(item => item.Invocations)
+            .ThenBy(item => item.AccountAlias, StringComparer.Ordinal)
+            .ToArray();
 
         var measurements = history
             .Select(outcome => outcome.Pair)
@@ -108,6 +135,8 @@ public static class ReliabilityEndpoints
         return Results.Ok(new ProjectReliabilityContract(
             projectId,
             classifications.Count,
+            usage,
+            projectInvocations.Count >= InvocationSampleSize,
             distribution.CountByCategory.ToDictionary(
                 entry => entry.Key.ToString().ToLowerInvariant(),
                 entry => entry.Value,
@@ -122,12 +151,29 @@ public static class ReliabilityEndpoints
 /// não ajuda — o enunciado precisa mudar; em verificação, aprofundar a revisão ajuda; em
 /// desalinhamento, o problema é o número de agentes e a fronteira entre eles.
 /// </param>
+/// <param name="SampleTruncated">
+/// `true` quando o histórico do projeto é maior que a amostra lida. A tela DIZ isso: um recorte
+/// silencioso se lê como "é tudo o que existe", e uma medida assim orienta decisão errada.
+/// </param>
 public sealed record ProjectReliabilityContract(
     string ProjectId,
     int ClassifiedAttempts,
+    IReadOnlyList<SubscriptionUsageContract> Subscriptions,
+    bool SampleTruncated,
     IReadOnlyDictionary<string, int> FailureModesByCategory,
     string Advice,
     IReadOnlyList<CapabilityMeasurementContract> Capabilities);
+
+/// <summary>Produtividade e custo de uma assinatura no projeto.</summary>
+public sealed record SubscriptionUsageContract(
+    string AccountAlias,
+    IReadOnlyList<string> Providers,
+    int Invocations,
+    int TasksTouched,
+    int Successes,
+    long TotalTokens,
+    decimal EstimatedCostUsd,
+    DateTimeOffset LastInvokedAt);
 
 public sealed record CapabilityMeasurementContract(
     string AccountAlias,

@@ -31,6 +31,7 @@ import type {
   PhaseObligationProgress,
   Profile,
   Project,
+  ProjectReliability,
   PublishWorkflowDraftInput,
   PublishWorkflowVersionInput,
   RemovableResource,
@@ -372,6 +373,7 @@ export interface ApiClient {
     projectId: string,
     minSampleSize?: number,
   ): Promise<EvaluationRecommendationsResponse>;
+  getProjectReliability(projectId: string, k?: number): Promise<ProjectReliability>;
   getMergeContention(): Promise<MergeContention>;
   reconcileLedger(): Promise<LedgerReconciliation>;
   searchMemory(query: string, projectId?: string, topK?: number): Promise<MemorySearchResponse>;

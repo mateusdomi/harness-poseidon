@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FileText,
   Gauge,
+  TrendingUp,
   LayoutGrid,
   MessagesSquare,
   Network,
@@ -93,6 +94,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'orchestrator', path: '/orchestrator', icon: Users },
       { key: 'run-project', path: '/run-project', icon: Play },
       { key: 'agents', path: '/agents', icon: Bot, mode: 'technical' },
+      { key: 'reliability', path: '/reliability', icon: TrendingUp, mode: 'technical' },
     ],
   },
   {

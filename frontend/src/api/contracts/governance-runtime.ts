@@ -425,3 +425,46 @@ export const memorySearchResponseSchema = z.object({
   slices: memorySliceSchema.array(),
 });
 export type MemorySearchResponse = z.infer<typeof memorySearchResponseSchema>;
+
+/**
+ * Confiabilidade e produtividade do projeto (B1+B12/F16, modo Técnico).
+ *
+ * Duas leituras que só valem juntas: onde o sistema erra (distribuição MAST) e quem resolve com
+ * quantas rodadas (pass@k por conta+modelo). `subscriptions` acrescenta o custo: uma conta pode
+ * acertar muito e consumir desproporcionalmente.
+ */
+export const subscriptionUsageSchema = z.object({
+  accountAlias: z.string(),
+  providers: z.string().array(),
+  invocations: z.number().int(),
+  tasksTouched: z.number().int(),
+  successes: z.number().int(),
+  totalTokens: z.number().int(),
+  estimatedCostUsd: z.number(),
+  lastInvokedAt: z.string(),
+});
+export type SubscriptionUsage = z.infer<typeof subscriptionUsageSchema>;
+
+export const capabilityMeasurementSchema = z.object({
+  accountAlias: z.string(),
+  modelTier: z.string(),
+  cardType: z.string(),
+  k: z.number().int(),
+  tasksObserved: z.number().int(),
+  passAt1: z.number(),
+  passAtK: z.number(),
+  recommendedMaxRounds: z.number().int(),
+});
+export type CapabilityMeasurement = z.infer<typeof capabilityMeasurementSchema>;
+
+export const projectReliabilitySchema = z.object({
+  projectId: z.string(),
+  classifiedAttempts: z.number().int(),
+  subscriptions: subscriptionUsageSchema.array(),
+  /** `true` quando o histórico é maior que a amostra lida — a tela precisa DIZER isso. */
+  sampleTruncated: z.boolean(),
+  failureModesByCategory: z.record(z.string(), z.number().int()),
+  advice: z.string(),
+  capabilities: capabilityMeasurementSchema.array(),
+});
+export type ProjectReliability = z.infer<typeof projectReliabilitySchema>;

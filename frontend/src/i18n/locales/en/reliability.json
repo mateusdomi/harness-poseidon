@@ -1,0 +1,46 @@
+{
+  "reliability": {
+    "title": "Fleet productivity",
+    "subtitle": "How much each subscription delivered, at what success rate and at what cost — and where the system fails. Measured over real project executions, not estimates.",
+    "roundsLabel": "Rounds (k)",
+    "sampleTruncated": "This project's history is larger than the sample read: the numbers below cover the most recent executions, not all of them.",
+    "noProject": {
+      "body": "Pick a project to see fleet productivity.",
+      "cta": "Go to Projects"
+    },
+    "empty": {
+      "title": "No executions to measure yet",
+      "body": "Once the fleet runs cards in this project, productivity per subscription and pass@k show up here."
+    },
+    "subscriptions": {
+      "title": "Per subscription",
+      "help": "An account can succeed often and still consume disproportionately — success rate and cost sit side by side for that reason.",
+      "account": "Subscription",
+      "provider": "Provider",
+      "tasks": "Cards",
+      "invocations": "Executions",
+      "successRate": "Success",
+      "tokens": "Tokens",
+      "cost": "Estimated cost"
+    },
+    "capabilities": {
+      "title": "Success per round (pass@k)",
+      "help": "pass@1 is getting it right first try; pass@k is getting it right within k attempts. The recommendation says how many rounds are worth spending before switching accounts.",
+      "empty": "Not enough executions yet to measure success per round.",
+      "model": "Model",
+      "observed": "Cards observed",
+      "passAt1": "pass@1",
+      "passAtK": "pass@{{k}}",
+      "recommended": "Recommended rounds"
+    },
+    "failures": {
+      "title": "Where the system fails",
+      "classified": "{{count}} classified attempts.",
+      "categories": {
+        "specificationanddesign": "Specification and design",
+        "interagentmisalignment": "Inter-agent misalignment",
+        "verificationandtermination": "Verification and termination"
+      }
+    }
+  }
+}

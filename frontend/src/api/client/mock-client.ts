@@ -90,6 +90,7 @@ import {
   type WorkflowVersion,
   type AgentExecutor,
   type EvaluationRecommendationsResponse,
+  type ProjectReliability,
   type EvaluationResult,
   type LedgerReconciliation,
   type MemorySearchResponse,
@@ -2213,6 +2214,12 @@ export class MockApiClient implements ApiClient {
   // Operação do runtime (fases 5/6/10/12): fatos medidos existem só no backend real —
   // o modo simulado falha explícito em vez de fingir números.
   listEvaluationRecommendations(): Promise<EvaluationRecommendationsResponse> {
+    return this.#governanceRequiresHttp();
+  }
+
+  // Confiabilidade e produtividade saem de invocações REAIS: o modo simulado não tem o que medir
+  // e recusa explicitamente, em vez de exibir números inventados como se fossem do projeto.
+  getProjectReliability(): Promise<ProjectReliability> {
     return this.#governanceRequiresHttp();
   }
 

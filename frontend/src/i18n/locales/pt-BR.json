@@ -33,21 +33,18 @@
       "unread_one": "{{count}} não lida"
     },
     "project": {
-      "label": "Projeto"
-    },
-    "context": {
-      "label": "Contexto do projeto",
-      "phase": "Etapa {{name}}",
-      "agentsWorking": "{{count}} pessoas trabalhando",
-      "agentsWorking_one": "{{count}} pessoa trabalhando"
-    },
-    "project": {
       "label": "Projeto ativo",
       "loading": "Carregando projetos",
       "error": "Projetos indisponíveis — tentar novamente",
       "empty": "Nenhum projeto",
       "unavailable": "Projeto sem acesso",
       "unavailableHelp": "O projeto selecionado não existe mais ou você perdeu o acesso. Escolha outro projeto."
+    },
+    "context": {
+      "label": "Contexto do projeto",
+      "phase": "Etapa {{name}}",
+      "agentsWorking": "{{count}} pessoas trabalhando",
+      "agentsWorking_one": "{{count}} pessoa trabalhando"
     },
     "search": {
       "open": "Buscar telas ({{shortcut}})",
@@ -113,8 +110,10 @@
       "po-assistant": "requisitos refinamento product owner",
       "onboarding": "configuração inicial primeiro acesso assistente",
       "notifications": "alertas não lidas central sino",
-      "settings": "preferências configuração opções ajustes"
-    }
+      "settings": "preferências configuração opções ajustes",
+      "reliability": "produtividade confiabilidade pass@k custo assinatura fleet métricas"
+    },
+    "reliability": "Produtividade"
   },
   "placeholder": {
     "badge": "Em breve",
@@ -1612,17 +1611,33 @@
       "technicalDetails": "Detalhes técnicos",
       "blockers": {
         "unknown": "Uma dependência necessária ainda não está pronta.",
-        "provider_account": { "missing": "Conclua a contratação de uma pessoa da equipe." },
-        "model": { "none_chat_enabled": "Habilite um modo de trabalho." },
-        "workflow": { "unbound": "Vincule um fluxo de trabalho ao projeto." },
-        "chief": { "model_unresolved": "Defina o modo de trabalho da Bruna." }
+        "provider_account": {
+          "missing": "Conclua a contratação de uma pessoa da equipe."
+        },
+        "model": {
+          "none_chat_enabled": "Habilite um modo de trabalho."
+        },
+        "workflow": {
+          "unbound": "Vincule um fluxo de trabalho ao projeto."
+        },
+        "chief": {
+          "model_unresolved": "Defina o modo de trabalho da Bruna."
+        }
       },
       "actions": {
         "unknown": "Resolver dependência",
-        "provider": { "connectAccount": "Concluir contratação" },
-        "model": { "enable": "Definir modo de trabalho" },
-        "workflow": { "bind": "Vincular fluxo de trabalho" },
-        "chief": { "configureModel": "Configurar o modo de trabalho da Bruna" }
+        "provider": {
+          "connectAccount": "Concluir contratação"
+        },
+        "model": {
+          "enable": "Definir modo de trabalho"
+        },
+        "workflow": {
+          "bind": "Vincular fluxo de trabalho"
+        },
+        "chief": {
+          "configureModel": "Configurar o modo de trabalho da Bruna"
+        }
       }
     },
     "readiness": {
