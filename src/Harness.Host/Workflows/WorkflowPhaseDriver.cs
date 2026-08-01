@@ -814,7 +814,7 @@ public sealed class WorkflowPhaseDriver(
         var instructionId = UlidValue.New(now.AddMilliseconds(1)).ToString();
         var editor = RemediationPersona(seat.PersonaKey);
         var instruction =
-            "Papel exigido: backend-specialist\n" +
+            "Capacidade de execução autorizada: backend-specialist\n" +
             $"Especialidade exigida: {editor}\n" +
             "Tipo de card: documento\n\n" +
             $"Corrigir o achado do Conselho da fase \"{phaseName}\" (ciclo {cycle}) no projeto " +
@@ -849,7 +849,7 @@ public sealed class WorkflowPhaseDriver(
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(seat);
         return
-            "Papel exigido: critic\n" +
+            "Capacidade de execução autorizada: critic\n" +
             $"Especialidade exigida: {seat.PersonaKey}\n" +
             "Tipo de card: revisao\n\n" +
             $"Você foi convocado ao CONSELHO da fase \"{phaseName}\" do projeto {project.Name} " +
@@ -1016,7 +1016,7 @@ public sealed class WorkflowPhaseDriver(
     {
         ArgumentNullException.ThrowIfNull(project);
         var builder = new StringBuilder();
-        builder.Append("Papel exigido: backend-specialist\n")
+        builder.Append("Capacidade de execução autorizada: backend-specialist\n")
             .Append("Especialidade exigida: ").Append(personaKey).Append('\n')
             .Append("Tipo de card: documento\n\n")
             .Append("# Trabalho delegado\n")

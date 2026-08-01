@@ -79,6 +79,18 @@ public sealed class ChiefCardResolverTests
     }
 
     [Fact]
+    public void OperationalCapabilityDoesNotMasqueradeAsTheProfessionalsRole()
+    {
+        var r = Resolve(
+            "Produzir ficha de demanda",
+            "Capacidade de execução autorizada: critic\n" +
+            "Especialidade exigida: playbook-product-owner\n\nRevisar requisitos.");
+
+        Assert.Equal(AgentRoles.Critic, r.Role);
+        Assert.Equal("playbook-product-owner", r.PersonaKey);
+    }
+
+    [Fact]
     public void WithoutADeclarationTheInferredPersonaIsAlsoTheChosenOne()
     {
         var r = Resolve("Atualizar o guia de operações", "Documentar o novo fluxo no manual.");

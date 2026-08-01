@@ -30,8 +30,9 @@ public static class ChiefCardResolver
         // arrastaria a inferência junto.
         var text = $"{title}\n{WithoutSpecialtyMarker(instructionBody)}".ToLowerInvariant();
 
-        // Um card que DECLARA o papel (o materializer de planos escreve "Papel exigido: <role>")
-        // prevalece sobre qualquer heurística — a heurística só existe para cards escritos à mão.
+        // Um card que DECLARA a capacidade operacional (o materializer escreve
+        // "Capacidade de execução autorizada: <role>") prevalece sobre qualquer heurística. O
+        // marcador legado "Papel exigido" continua aceito para instruções imutáveis já gravadas.
         var role = explicitRole ?? ParseDeclaredRole(instructionBody) ?? InferRole(text);
 
         // A persona INFERIDA é sempre calculada, mesmo quando há uma declarada: ela é o fallback
@@ -97,17 +98,20 @@ public static class ChiefCardResolver
     }
 
     /// <summary>
-    /// Papel declarado no corpo da instrução ("Papel exigido: backend-specialist|frontend-specialist|critic").
-    /// "none" e valores desconhecidos caem para a heurística (o card de documentação, por exemplo,
-    /// declara "none" e é implementado pelo papel inferido do texto).
+    /// Capacidade operacional declarada no corpo da instrução. Ela escolhe a conta e o escopo de
+    /// execução; não é o papel humano do profissional, que vem de "Especialidade exigida". O
+    /// marcador legado "Papel exigido" permanece compatível com cards já persistidos. "none" e
+    /// valores desconhecidos caem para a heurística.
     /// </summary>
     private static string? ParseDeclaredRole(string instructionBody)
     {
-        const string marker = "papel exigido:";
+        string[] markers = ["capacidade de execução autorizada:", "papel exigido:"];
         foreach (var line in instructionBody.Split('\n'))
         {
             var trimmed = line.Trim();
-            if (!trimmed.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+            var marker = markers.FirstOrDefault(candidate =>
+                trimmed.StartsWith(candidate, StringComparison.OrdinalIgnoreCase));
+            if (marker is null)
             {
                 continue;
             }

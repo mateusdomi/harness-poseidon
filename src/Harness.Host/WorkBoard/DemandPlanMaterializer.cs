@@ -243,13 +243,14 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
                 card.Budget.Agents, card.Budget.TokenBudget, card.Budget.MaxRounds,
                 card.Budget.ReviewDepth, card.Budget.FanOutAllowed, card.Budget.ReasonCode));
 
-    // A instrução carrega o PAPEL exigido (nunca uma conta), o escopo in/out, os critérios de aceite,
-    // os gates e as dependências — tudo o que o card precisa para virar execução após a triagem.
+    // A instrução carrega a CAPACIDADE operacional exigida (nunca uma conta), o escopo in/out, os
+    // critérios de aceite, gates e dependências. Ela não é confundida com o papel humano, que vem
+    // da especialidade/persona declarada no mesmo pacote.
     internal static string ComposeInstruction(DemandPlanCard card, string featureId)
     {
         var builder = new StringBuilder();
         builder.Append("Feature: ").Append(featureId).Append('\n');
-        builder.Append("Papel exigido: ").Append(card.RequiredRole).Append('\n');
+        builder.Append("Capacidade de execução autorizada: ").Append(card.RequiredRole).Append('\n');
         if (!string.IsNullOrWhiteSpace(card.Specialty))
         {
             // O julgamento do Chefe sobre QUEM é o profissional qualificado chega ao card e, dali,
