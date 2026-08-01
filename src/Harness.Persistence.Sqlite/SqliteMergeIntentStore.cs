@@ -52,6 +52,23 @@ public sealed class SqliteMergeIntentStore(SqliteWriteDispatcher dispatcher) : I
             Add(insert, "$baseSha", command.ExpectedBaseSha);
             Add(insert, "$at", Store(command.OccurredAt));
             await insert.ExecuteNonQueryAsync(t);
+
+            // Compatibilidade de recuperação: versões anteriores abortavam como erro terminal
+            // a seleção incorreta da raiz gerenciada (`ArgumentException`). Reabrimos exatamente
+            // essa primeira falha uma única vez; conflitos Git realmente abortados continuam
+            // terminais e não entram em retry infinito.
+            await using (var recover = c.CreateCommand())
+            {
+                recover.Transaction = tx;
+                recover.CommandText =
+                    "UPDATE merge_intents SET state='pending',last_error=NULL,updated_at=$at " +
+                    "WHERE tenant_id=$tenant AND attempt_id=$attempt AND state='aborted' " +
+                    "AND last_error='ArgumentException' AND fencing_token=1;";
+                Add(recover, "$at", Store(command.OccurredAt));
+                Add(recover, "$tenant", command.TenantId);
+                Add(recover, "$attempt", command.AttemptId);
+                await recover.ExecuteNonQueryAsync(t);
+            }
             var record = await ReadByAttemptAsync(c, tx, command.TenantId, command.AttemptId, t)
                 ?? throw new InvalidOperationException("The merge intent could not be read back.");
             await tx.CommitAsync(t);

@@ -18,6 +18,21 @@ public sealed class ProjectRepositoryStorage(string rootPath)
     /// </summary>
     public string RootPath => _rootPath;
 
+    /// <summary>
+    /// Resolve a raiz de segurança aplicável ao repositório. Projetos criados pelo Poseidon vivem
+    /// sob <see cref="RootPath"/>; projetos trazidos pelo dono usam a raiz configurada para
+    /// execução externa. Todos os consumidores Git devem usar esta decisão única.
+    /// </summary>
+    public string ResolveControlledRoot(string repositoryRoot, string configuredControlledRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(configuredControlledRoot);
+        var repository = Path.GetFullPath(repositoryRoot);
+        return IsUnder(repository, _rootPath)
+            ? _rootPath
+            : Path.GetFullPath(configuredControlledRoot);
+    }
+
     public async Task<string> EnsureInitializedAsync(
         string tenantId,
         string projectKey,
@@ -140,5 +155,14 @@ public sealed class ProjectRepositoryStorage(string rootPath)
             throw new InvalidOperationException(
                 "Managed repository storage refused a path outside its root.");
         }
+    }
+
+    private static bool IsUnder(string path, string root)
+    {
+        var normalizedRoot = Path.GetFullPath(root)
+            .TrimEnd(Path.DirectorySeparatorChar);
+        return path.StartsWith(
+            $"{normalizedRoot}{Path.DirectorySeparatorChar}",
+            StringComparison.Ordinal);
     }
 }

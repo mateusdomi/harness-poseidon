@@ -1,5 +1,6 @@
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Host.Agents;
+using Harness.Host.Projects;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Time;
@@ -61,6 +62,7 @@ public sealed class MergeReconciliationBackgroundService : BackgroundService
     private readonly AgentRunSettings _settings;
     private readonly IClock _clock;
     private readonly MergeReconciliationOptions _options;
+    private readonly ProjectRepositoryStorage _repositories;
     private readonly ILogger<MergeReconciliationBackgroundService> _logger;
 
     public MergeReconciliationBackgroundService(
@@ -71,6 +73,7 @@ public sealed class MergeReconciliationBackgroundService : BackgroundService
         AgentRunSettings settings,
         IClock clock,
         MergeReconciliationOptions options,
+        ProjectRepositoryStorage repositories,
         ILogger<MergeReconciliationBackgroundService> logger)
     {
         _intents = intents ?? throw new ArgumentNullException(nameof(intents));
@@ -80,6 +83,7 @@ public sealed class MergeReconciliationBackgroundService : BackgroundService
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _repositories = repositories ?? throw new ArgumentNullException(nameof(repositories));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options.Validate();
     }
@@ -144,7 +148,7 @@ public sealed class MergeReconciliationBackgroundService : BackgroundService
 
         using var manager = await GitWorktreeManager.OpenAsync(
             Path.GetFullPath(project.RepositoryUrl),
-            Path.GetFullPath(_settings.ControlledRoot),
+            _repositories.ResolveControlledRoot(project.RepositoryUrl, _settings.ControlledRoot),
             cancellationToken);
 
         // A pergunta que só o repositório responde: o commit existe?

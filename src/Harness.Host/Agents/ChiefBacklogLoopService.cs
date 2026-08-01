@@ -310,10 +310,8 @@ public sealed partial class ChiefBacklogLoopService(
                 // criados pelo Poseidon vivem na raiz gerenciada. Aceitar a segunda no filtro e
                 // continuar passando a primeira ao executor fazia toda tentativa de projeto novo
                 // falhar com `ArgumentException` antes de criar a worktree.
-                var projectControlledRoot = IsUnder(
-                    System.IO.Path.GetFullPath(project.RepositoryUrl!), repositories.RootPath)
-                    ? repositories.RootPath
-                    : controlledRoot;
+                var projectControlledRoot = repositories.ResolveControlledRoot(
+                    project.RepositoryUrl!, controlledRoot);
 
                 // Fase 1E: a AUTONOMIA é decisão do PROJETO, não um interruptor único da
                 // instalação. Um projeto `manual` exige disparo humano e não pode ter card

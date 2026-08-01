@@ -52,6 +52,21 @@ public sealed class PostgresMergeIntentStore(NpgsqlDataSource dataSource) : IMer
             Add(insert, "@baseSha", command.ExpectedBaseSha);
             Add(insert, "@at", command.OccurredAt);
             await insert.ExecuteNonQueryAsync(t);
+
+            // Compatibilidade de recuperação equivalente ao SQLite: somente a primeira falha
+            // legada de raiz controlada é reaberta. Um conflito Git abortado não é redespachado.
+            await using (var recover = c.CreateCommand())
+            {
+                recover.Transaction = tx;
+                recover.CommandText =
+                    "UPDATE harness.merge_intents SET state='pending',last_error=NULL,updated_at=@at " +
+                    "WHERE tenant_id=@tenant AND attempt_id=@attempt AND state='aborted' " +
+                    "AND last_error='ArgumentException' AND fencing_token=1;";
+                Add(recover, "@at", command.OccurredAt);
+                Add(recover, "@tenant", command.TenantId);
+                Add(recover, "@attempt", command.AttemptId);
+                await recover.ExecuteNonQueryAsync(t);
+            }
             var record = await ReadByAttemptAsync(c, tx, command.TenantId, command.AttemptId, t)
                 ?? throw new InvalidOperationException("The merge intent could not be read back.");
             await tx.CommitAsync(t);

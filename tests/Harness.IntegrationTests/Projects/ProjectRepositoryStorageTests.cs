@@ -18,7 +18,8 @@ public sealed class ProjectRepositoryStorageTests
 
         try
         {
-            var storage = new ProjectRepositoryStorage(root);
+            var managedRoot = Path.Combine(root, "managed");
+            var storage = new ProjectRepositoryStorage(managedRoot);
 
             var repository = await storage.EnsureInitializedAsync(
                 tenantId,
@@ -31,7 +32,7 @@ public sealed class ProjectRepositoryStorageTests
 
             Assert.Equal(repository, replay);
             Assert.Equal(
-                Path.GetFullPath(Path.Combine(root, tenantId, "portal-cliente")),
+                Path.GetFullPath(Path.Combine(managedRoot, tenantId, "portal-cliente")),
                 repository);
             Assert.True(Directory.Exists(Path.Combine(repository, ".git")));
             Assert.True(Path.IsPathRooted(repository));
@@ -39,13 +40,22 @@ public sealed class ProjectRepositoryStorageTests
             Assert.Equal(
                 "chore: initialize project",
                 (await GitAsync(repository, "log", "-1", "--pretty=%s")).Trim());
+            Assert.Equal(
+                Path.GetFullPath(managedRoot),
+                storage.ResolveControlledRoot(repository, Path.Combine(root, "external")));
+
+            var externalRoot = Path.Combine(root, "external");
+            var externalRepository = Path.Combine(externalRoot, "repo");
+            Assert.Equal(
+                Path.GetFullPath(externalRoot),
+                storage.ResolveControlledRoot(externalRepository, externalRoot));
 
             // A prova que faltava: o repositório criado pelo produto já aceita a operação que o
             // primeiro profissional executa. `git init` sem commit passa no teste superficial,
             // mas `worktree add` falha porque não há revisão-base.
-            var worktree = Path.Combine(root, "worktree-proof");
+            var worktree = Path.Combine(managedRoot, "worktree-proof");
             using var manager = await GitWorktreeManager.OpenAsync(
-                repository, root, timeout.Token);
+                repository, managedRoot, timeout.Token);
             var descriptor = await manager.CreateTaskWorktreeAsync(
                 "task/proof", "attempt-proof", worktree, cancellationToken: timeout.Token);
             Assert.True(Directory.Exists(worktree));

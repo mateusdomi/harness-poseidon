@@ -1,4 +1,5 @@
 using Harness.Host.Agents;
+using Harness.Host.Projects;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -31,7 +32,8 @@ public sealed class TaskIntegrationService(
     IProjectStore projects,
     AgentRunSettings settings,
     IClock clock,
-    IMergeIntentStore mergeIntents)
+    IMergeIntentStore mergeIntents,
+    ProjectRepositoryStorage repositories)
 {
     /// <summary>Quanto tempo um merge pode segurar o repositório antes de ser dado por abandonado.</summary>
     private static readonly TimeSpan MergeLease = TimeSpan.FromMinutes(10);
@@ -44,6 +46,8 @@ public sealed class TaskIntegrationService(
     private readonly IProjectStore _projects = projects ?? throw new ArgumentNullException(nameof(projects));
     private readonly AgentRunSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+    private readonly ProjectRepositoryStorage _repositories =
+        repositories ?? throw new ArgumentNullException(nameof(repositories));
 
     /// <param name="actorId">
     /// Quem integra: o perfil humano, quando vem da tela, ou a chefe, quando vem do laço autônomo.
@@ -129,7 +133,7 @@ public sealed class TaskIntegrationService(
         {
             using var manager = await GitWorktreeManager.OpenAsync(
                 repositoryRoot,
-                Path.GetFullPath(_settings.ControlledRoot),
+                _repositories.ResolveControlledRoot(repositoryRoot, _settings.ControlledRoot),
                 cancellationToken);
             await manager.MergeTaskBranchAsync(
                 branch,

@@ -153,6 +153,40 @@ public sealed class MergeIntentReconciliationTests
             timeout.Token));
     }
 
+    [Fact]
+    public async Task TheLegacyManagedRootArgumentFailureIsReopenedExactlyOnce()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await using var fixture = await Fixture.StartAsync(timeout.Token);
+        var now = fixture.Now;
+        var intent = await fixture.RequestAsync("attempt-root", now, timeout.Token);
+        var first = await fixture.Store.TryBeginAsync(
+            new MergeIntentBeginCommand(
+                Tenant, intent.MergeIntentId, "host-a", now, TimeSpan.FromMinutes(10)),
+            timeout.Token);
+        Assert.True(await fixture.Store.TryFailAsync(
+            new MergeIntentFailCommand(
+                Tenant, intent.MergeIntentId, "host-a", first!.FencingToken,
+                "ArgumentException", Aborted: true, now.AddSeconds(1)),
+            timeout.Token));
+
+        var reopened = await fixture.RequestAsync("attempt-root", now.AddSeconds(2), timeout.Token);
+        Assert.Equal(MergeIntentState.Pending, reopened.State);
+        var second = await fixture.Store.TryBeginAsync(
+            new MergeIntentBeginCommand(
+                Tenant, intent.MergeIntentId, "host-b", now.AddSeconds(3), TimeSpan.FromMinutes(10)),
+            timeout.Token);
+        Assert.Equal(2, second!.FencingToken);
+
+        Assert.True(await fixture.Store.TryFailAsync(
+            new MergeIntentFailCommand(
+                Tenant, intent.MergeIntentId, "host-b", second.FencingToken,
+                "ArgumentException", Aborted: true, now.AddSeconds(4)),
+            timeout.Token));
+        var terminal = await fixture.RequestAsync("attempt-root", now.AddSeconds(5), timeout.Token);
+        Assert.Equal(MergeIntentState.Aborted, terminal.State);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string _root;
