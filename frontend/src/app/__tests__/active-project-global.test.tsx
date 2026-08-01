@@ -11,6 +11,16 @@ import { useSessionStore } from '@/stores/session-store';
 import { useUiStore } from '@/stores/ui-store';
 import { renderWithApi } from '@/test/render-with-providers';
 
+// O navigate real cria um Request cujo AbortSignal do jsdom conflita com o do
+// Node 26. O comportamento do roteador continua coberto no navegador; aqui
+// verificamos o destino pedido pelo seletor sem transformar essa limitação do
+// ambiente de teste em um falso negativo.
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return { ...actual, useNavigate: () => navigate };
+});
+
 function renderShell(initialPath: string, bundle: TestBundle = createTestBundle()) {
   useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
   const memoryRouter = createMemoryRouter(
@@ -36,6 +46,7 @@ describe('seleção global de projeto no shell (F4)', () => {
     useUiStore.setState({ sidebarCollapsed: false, collapsedNavGroups: {}, mobileNavOpen: false });
     usePresentationStore.setState({ modeByProfile: {} });
     useActiveProjectStore.setState({ selectionsByProfile: {} });
+    navigate.mockReset();
   });
 
   it('o seletor fica no cabeçalho das telas de projeto único', async () => {
@@ -59,6 +70,18 @@ describe('seleção global de projeto no shell (F4)', () => {
     expect(
       useActiveProjectStore.getState().selectionsByProfile[profileId]?.projectId,
     ).toBeTruthy();
+  });
+
+  it('ao trocar de projeto remove o id da conversa anterior da rota', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    const oldConversation = bundle.fixtures.data.conversations[0].id;
+    renderShell(`/chat/${oldConversation}`, bundle);
+
+    const select = await screen.findByRole('combobox', { name: 'Projeto ativo' });
+    await user.selectOptions(select, 'API de Pagamentos');
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/chat', { replace: true }));
   });
 
   it('some nas telas multi-projeto, que ignoram a seleção global', async () => {

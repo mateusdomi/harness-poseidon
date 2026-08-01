@@ -1,11 +1,21 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 
 import { HeaderContext } from '@/app/components/header-context';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { renderWithApi } from '@/test/render-with-providers';
 import { useActiveProjectStore } from '@/stores/active-project-store';
+
+function renderHeader(bundle: ReturnType<typeof createTestBundle>) {
+  return renderWithApi(
+    <MemoryRouter initialEntries={['/chat']}>
+      <HeaderContext />
+    </MemoryRouter>,
+    bundle,
+  );
+}
 
 describe('seletor global de projeto', () => {
   beforeEach(() => {
@@ -14,7 +24,7 @@ describe('seletor global de projeto', () => {
 
   it('mostra carregamento e depois a seleção autorizada', async () => {
     const bundle = createTestBundle({ latency: { min: 40, max: 40 } });
-    renderWithApi(<HeaderContext />, bundle);
+    renderHeader(bundle);
 
     expect(screen.getByRole('status', { name: 'Carregando projetos' })).toBeInTheDocument();
     expect(await screen.findByRole('combobox', { name: 'Projeto ativo' })).toHaveValue(
@@ -30,7 +40,7 @@ describe('seletor global de projeto', () => {
       return originalList(resource, query);
     });
 
-    renderWithApi(<HeaderContext />, bundle);
+    renderHeader(bundle);
 
     expect(
       await screen.findByRole('button', { name: /projetos indisponíveis/i }),
@@ -43,7 +53,7 @@ describe('seletor global de projeto', () => {
     const profileId = bundle.fixtures.meta.currentProfileId;
     useActiveProjectStore.getState().selectProject(profileId, 'project-without-access');
 
-    renderWithApi(<HeaderContext />, bundle);
+    renderHeader(bundle);
 
     const selector = await screen.findByRole('combobox', { name: 'Projeto ativo' });
     expect(selector).toHaveValue('');
@@ -55,4 +65,3 @@ describe('seletor global de projeto', () => {
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   });
 });
-

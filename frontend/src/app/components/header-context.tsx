@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 import { Button, Select, Skeleton } from '@/design-system';
@@ -13,6 +14,8 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
  */
 export function HeaderContext() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     projects,
     activeProject,
@@ -28,6 +31,17 @@ export function HeaderContext() {
 
   const activePhase = phases.find((phase) => phase.state === 'active') ?? null;
   const workingCount = (agentsQuery.data ?? []).filter((agent) => agent.state === 'working').length;
+
+  function changeProject(projectId: string) {
+    const changed = activeProject?.id !== projectId;
+    setActiveProject(projectId);
+    // O id da conversa pertence ao projeto anterior. Preservá-lo após a troca produz uma falsa
+    // tela de "sem acesso" e impede o usuário de continuar. Deep links inválidos continuam
+    // fail-closed quando não houve troca de projeto.
+    if (changed && location.pathname.startsWith('/chat/')) {
+      navigate('/chat', { replace: true });
+    }
+  }
 
   if (isPending) {
     return (
@@ -68,7 +82,7 @@ export function HeaderContext() {
         className="min-w-0 flex-1 truncate md:max-w-64"
         value={activeProject?.id ?? ''}
         disabled={projects.length === 0}
-        onChange={(event) => setActiveProject(event.target.value)}
+        onChange={(event) => changeProject(event.target.value)}
       >
         {(selectionUnavailable || projects.length === 0) && (
           <option value="">
