@@ -1034,6 +1034,11 @@ public sealed class AgentRunOrchestrator(
                 // receipt de governança abaixo registra a falha do turno.
             }
 
+            // Inclui shutdown/cancelamento: CollectAsync propaga OperationCanceledException para
+            // este catch antes de produzir um ExternalAgentRunResult. A worktree pode conter
+            // minutos de trabalho não commitado; colher aqui é obrigatório antes do cleanup.
+            await TryCaptureCheckpointAsync(
+                command, account.ExecutorId, sanitized, CancellationToken.None);
             current = await TryFailAsync(command, current, sanitized);
             if (receipt is not null &&
                 receipt.State is not GovernanceReceiptState.Completed and not GovernanceReceiptState.Failed)
