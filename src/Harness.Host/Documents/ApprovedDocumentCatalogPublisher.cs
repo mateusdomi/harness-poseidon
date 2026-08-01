@@ -49,8 +49,12 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
         }
 
         var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, cancellationToken);
-        var attempt = attempts.LastOrDefault(candidate =>
-            string.Equals(candidate.State, "approved", StringComparison.Ordinal));
+        // BoardAttemptRecord.State é a projeção OPERACIONAL (completed/failed/cancelled), não o
+        // estado lógico interno (awaiting_review/approved/rejected). A aprovação já está provada
+        // pelo estado `approved` do card que chama este método; aqui selecionamos a entrega
+        // operacional concluída correspondente. Procurar "approved" tornava a publicação
+        // impossível por construção.
+        var attempt = SelectDeliveredAttempt(attempts);
         if (attempt is null)
         {
             return new(false, "document.approved_attempt_missing");
@@ -181,6 +185,11 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
                            path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)];
+
+    internal static BoardAttemptRecord? SelectDeliveredAttempt(
+        IEnumerable<BoardAttemptRecord> attempts) =>
+        attempts.LastOrDefault(candidate =>
+            string.Equals(candidate.State, "completed", StringComparison.Ordinal));
 
     internal static string? ParseTemplateCode(string instruction)
     {

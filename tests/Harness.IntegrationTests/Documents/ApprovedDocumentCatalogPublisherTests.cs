@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Harness.Host.Documents;
+using Harness.Persistence.Abstractions.WorkChain;
 
 namespace Harness.IntegrationTests.Documents;
 
@@ -38,6 +39,19 @@ public sealed class ApprovedDocumentCatalogPublisherTests
     }
 
     [Fact]
+    public void AnApprovedCardPublishesItsLatestOperationallyCompletedAttempt()
+    {
+        var started = new DateTimeOffset(2026, 8, 1, 20, 0, 0, TimeSpan.Zero);
+        var failed = Attempt("01ARZ3NDEKTSV4RRFFQ69G5FA", "failed", started);
+        var delivered = Attempt("01ARZ3NDEKTSV4RRFFQ69G5FB", "completed", started.AddMinutes(1));
+
+        var selected = ApprovedDocumentCatalogPublisher.SelectDeliveredAttempt([failed, delivered]);
+
+        Assert.Equal(delivered.Id, selected?.Id);
+        Assert.Null(ApprovedDocumentCatalogPublisher.SelectDeliveredAttempt([failed]));
+    }
+
+    [Fact]
     public async Task CatalogContentWriteIsIdempotentOnlyForTheSameHash()
     {
         var root = Path.Combine(
@@ -66,4 +80,12 @@ public sealed class ApprovedDocumentCatalogPublisherTests
             }
         }
     }
+
+    private static BoardAttemptRecord Attempt(
+        string id,
+        string operationalState,
+        DateTimeOffset startedAt) =>
+        new(
+            "tenant", id, "task", 1, operationalState, "professional", startedAt,
+            startedAt.AddSeconds(1), 1000, 0, 0, 0, [], null, null);
 }
