@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace Harness.Persistence.Sqlite;
 
 /// <summary>
-/// Persistência SQLite da attestation de sandbox e do aceite de modo inseguro (Fase 0B1).
+/// Persistência SQLite da attestation de sandbox (Fase 0B1).
 /// </summary>
 public sealed class SqliteSandboxAttestationStore(SqliteWriteDispatcher dispatcher)
     : ISandboxAttestationStore
@@ -49,74 +49,6 @@ public sealed class SqliteSandboxAttestationStore(SqliteWriteDispatcher dispatch
     public Task<SandboxAttestationRecord?> GetAsync(
         string tenantId, string attemptId, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => ReadAsync(c, null, tenantId, attemptId, t), cancellationToken);
-
-    public Task<UnsafeExecutionAcceptanceRecord?> GetUnsafeAcceptanceAsync(
-        string tenantId, string projectId, DateTimeOffset now,
-        CancellationToken cancellationToken = default) =>
-        _dispatcher.ExecuteAsync(async (c, t) =>
-        {
-            await using var q = c.CreateCommand();
-            // Vencido ou revogado conta como AUSENTE: um aceite de ontem não autoriza hoje.
-            q.CommandText =
-                "SELECT tenant_id,project_id,accepted_by_profile_id,reason,accepted_at,expires_at,revoked_at " +
-                "FROM unsafe_execution_acceptances " +
-                "WHERE tenant_id=$tenant AND project_id=$project AND revoked_at IS NULL AND expires_at>$now;";
-            Add(q, "$tenant", tenantId);
-            Add(q, "$project", projectId);
-            Add(q, "$now", Store(now));
-            await using var r = await q.ExecuteReaderAsync(t);
-            return await r.ReadAsync(t)
-                ? new UnsafeExecutionAcceptanceRecord(
-                    r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
-                    Parse(r.GetString(4)), Parse(r.GetString(5)),
-                    r.IsDBNull(6) ? null : Parse(r.GetString(6)))
-                : null;
-        }, cancellationToken);
-
-    public Task<UnsafeExecutionAcceptanceRecord> AcceptUnsafeAsync(
-        UnsafeExecutionAcceptanceRecord record, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(record);
-        return _dispatcher.ExecuteAsync(async (c, t) =>
-        {
-            await using var q = c.CreateCommand();
-            q.CommandText =
-                """
-                INSERT INTO unsafe_execution_acceptances
-                    (tenant_id,project_id,accepted_by_profile_id,reason,accepted_at,expires_at,revoked_at)
-                VALUES ($tenant,$project,$profile,$reason,$at,$expires,NULL)
-                ON CONFLICT(tenant_id,project_id) DO UPDATE SET
-                    accepted_by_profile_id=excluded.accepted_by_profile_id,
-                    reason=excluded.reason,
-                    accepted_at=excluded.accepted_at,
-                    expires_at=excluded.expires_at,
-                    revoked_at=NULL;
-                """;
-            Add(q, "$tenant", record.TenantId);
-            Add(q, "$project", record.ProjectId);
-            Add(q, "$profile", record.AcceptedByProfileId);
-            Add(q, "$reason", record.Reason);
-            Add(q, "$at", Store(record.AcceptedAt));
-            Add(q, "$expires", Store(record.ExpiresAt));
-            await q.ExecuteNonQueryAsync(t);
-            return record;
-        }, cancellationToken);
-    }
-
-    public Task<bool> RevokeUnsafeAsync(
-        string tenantId, string projectId, DateTimeOffset revokedAt,
-        CancellationToken cancellationToken = default) =>
-        _dispatcher.ExecuteAsync(async (c, t) =>
-        {
-            await using var q = c.CreateCommand();
-            q.CommandText =
-                "UPDATE unsafe_execution_acceptances SET revoked_at=$at " +
-                "WHERE tenant_id=$tenant AND project_id=$project AND revoked_at IS NULL;";
-            Add(q, "$at", Store(revokedAt));
-            Add(q, "$tenant", tenantId);
-            Add(q, "$project", projectId);
-            return await q.ExecuteNonQueryAsync(t) == 1;
-        }, cancellationToken);
 
     private static async Task<SandboxAttestationRecord?> ReadAsync(
         SqliteConnection c, SqliteTransaction? tx, string tenantId, string attemptId,

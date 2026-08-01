@@ -1,8 +1,9 @@
 namespace Harness.Persistence.Abstractions.Execution;
 
 /// <summary>
-/// Fase 0B1 (BR-002/BR-013): guarda a prova de contenção da tentativa e o aceite explícito de modo
-/// inseguro. Os dois são fatos auditáveis; nenhum deles é inferido em tempo de leitura.
+/// Fase 0B1 (BR-002/BR-013): guarda a PROVA de contenção da tentativa. É fato auditável, nunca
+/// inferido em tempo de leitura. O aceite de modo inseguro foi extinto em 31/07/2026 — o contêiner
+/// é pré-requisito nos dois modos, sem exceção temporal.
 /// </summary>
 public interface ISandboxAttestationStore
 {
@@ -17,22 +18,6 @@ public interface ISandboxAttestationStore
     Task<SandboxAttestationRecord?> GetAsync(
         string tenantId, string attemptId, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Aceite VIGENTE do modo inseguro para o projeto, ou nulo. Vencido ou revogado conta como
-    /// ausente — um aceite de ontem não autoriza a execução de hoje.
-    /// </summary>
-    Task<UnsafeExecutionAcceptanceRecord?> GetUnsafeAcceptanceAsync(
-        string tenantId, string projectId, DateTimeOffset now,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>Registra o aceite do proprietário. Substitui o anterior do mesmo projeto.</summary>
-    Task<UnsafeExecutionAcceptanceRecord> AcceptUnsafeAsync(
-        UnsafeExecutionAcceptanceRecord record, CancellationToken cancellationToken = default);
-
-    /// <summary>Revoga o aceite vigente. Falso quando não havia nada vigente a revogar.</summary>
-    Task<bool> RevokeUnsafeAsync(
-        string tenantId, string projectId, DateTimeOffset revokedAt,
-        CancellationToken cancellationToken = default);
 }
 
 public sealed record SandboxAttestationRecord(
@@ -52,12 +37,3 @@ public sealed record SandboxAttestationRecord(
     string VerificationDetail,
     string ConfigurationHash,
     DateTimeOffset IssuedAt);
-
-public sealed record UnsafeExecutionAcceptanceRecord(
-    string TenantId,
-    string ProjectId,
-    string AcceptedByProfileId,
-    string Reason,
-    DateTimeOffset AcceptedAt,
-    DateTimeOffset ExpiresAt,
-    DateTimeOffset? RevokedAt = null);

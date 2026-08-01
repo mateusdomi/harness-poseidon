@@ -40,8 +40,8 @@ public sealed class SandboxAttestationTests
         Assert.False(await service.IsSandboxActiveAsync(Tenant, Attempt, timeout.Token));
 
         // E a política NEGA a ferramenta crítica. Antes ela era permitida pelo literal.
-        Assert.False(Evaluate(sandboxActive: false, unsafeAccepted: false).Allowed);
-        Assert.Equal("sandbox_required", Evaluate(false, false).Code);
+        Assert.False(Evaluate(sandboxActive: false).Allowed);
+        Assert.Equal("sandbox_required", Evaluate(false).Code);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class SandboxAttestationTests
         Assert.True(attestation.Verified);
         Assert.Equal("fake", attestation.Provider);
         Assert.True(await service.IsSandboxActiveAsync(Tenant, Attempt, timeout.Token));
-        Assert.True(Evaluate(sandboxActive: true, unsafeAccepted: false).Allowed);
+        Assert.True(Evaluate(sandboxActive: true).Allowed);
 
         // A attestation é POR TENTATIVA: se valesse para outra, bastaria uma execução isolada no
         // passado para liberar todas as seguintes.
@@ -77,7 +77,7 @@ public sealed class SandboxAttestationTests
         var attestation = await service.AttestAsync(Tenant, Project, Attempt, timeout.Token);
         Assert.False(attestation.Verified);
         Assert.False(await service.IsSandboxActiveAsync(Tenant, Attempt, timeout.Token));
-        Assert.False(Evaluate(sandboxActive: false, unsafeAccepted: false).Allowed);
+        Assert.False(Evaluate(sandboxActive: false).Allowed);
     }
 
     [Fact]
@@ -98,49 +98,34 @@ public sealed class SandboxAttestationTests
     }
 
     [Fact]
-    public async Task UnsafeModeOnlyExistsWithAnExplicitOwnerAcceptanceThatExpires()
+    public async Task ThereIsNoWayToExecuteWithoutAnAttestedSandbox()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         await using var fixture = await Fixture.StartAsync(timeout.Token);
         var service = fixture.Service(IsolatedExecutionMode.Disabled, provider: null);
-        Assert.False(await service.IsUnsafeModeAcceptedAsync(Tenant, Project, timeout.Token));
+        await service.AttestAsync(Tenant, Project, Attempt, timeout.Token);
 
-        var now = fixture.Now;
-        await fixture.Store.AcceptUnsafeAsync(
-            new UnsafeExecutionAcceptanceRecord(
-                Tenant, Project, "01ARZ3NDEKTSV4RRFFQ69G5FAY",
-                "O dono aceitou rodar sem contêiner nesta máquina durante a homologação.",
-                now, now.AddHours(1)),
-            timeout.Token);
-        Assert.True(await service.IsUnsafeModeAcceptedAsync(Tenant, Project, timeout.Token));
+        // Decisão do proprietário (31/07/2026): o contêiner é pré-requisito nos DOIS modos. Não
+        // existe mais aceite de risco que dispense a sandbox — uma exceção "temporária" que o
+        // produto aceita vira permanente na prática, e era o último caminho que deixava um agente
+        // produzir efeito no host sem fronteira nenhuma.
+        Assert.False(await service.IsSandboxActiveAsync(Tenant, Attempt, timeout.Token));
+        var decision = Evaluate(sandboxActive: false);
+        Assert.False(decision.Allowed);
+        Assert.Equal("sandbox_required", decision.Code);
 
-        // Com aceite vigente, a ferramenta crítica passa — mas SÓ por decisão registrada do humano.
-        Assert.True(Evaluate(sandboxActive: false, unsafeAccepted: true).Allowed);
-
-        // Revogado, volta a valer o fail-closed imediatamente.
-        Assert.True(await fixture.Store.RevokeUnsafeAsync(
-            Tenant, Project, now.AddMinutes(5), timeout.Token));
-        Assert.False(await service.IsUnsafeModeAcceptedAsync(Tenant, Project, timeout.Token));
-
-        // Vencido também conta como ausente: risco aceito ontem não autoriza hoje.
-        await fixture.Store.AcceptUnsafeAsync(
-            new UnsafeExecutionAcceptanceRecord(
-                Tenant, Project, "01ARZ3NDEKTSV4RRFFQ69G5FAY",
-                "Aceite antigo que já venceu e não pode continuar valendo.",
-                now.AddHours(-5), now.AddHours(-4)),
-            timeout.Token);
-        Assert.False(await service.IsUnsafeModeAcceptedAsync(Tenant, Project, timeout.Token));
+        // A única maneira de a política permitir é uma sandbox REALMENTE atestada.
+        Assert.True(Evaluate(sandboxActive: true).Allowed);
     }
 
-    private static ToolPolicyDecision Evaluate(bool sandboxActive, bool unsafeAccepted) =>
+    private static ToolPolicyDecision Evaluate(bool sandboxActive) =>
         ToolExecutionPolicy.Evaluate(new ToolInvocationPolicyRequest(
             new ToolPolicyDescriptor("tool-critical", true, ToolRiskTier.Critical, "{}", "{}"),
             new ToolPolicyContext(
                 "execution",
                 ToolRiskTier.Critical,
                 new HashSet<string>(["tool-critical"], StringComparer.Ordinal),
-                sandboxActive,
-                unsafeAccepted),
+                sandboxActive),
             ToolRiskTier.Critical));
 
     /// <summary>Provider que cria container mas NÃO entrega as fronteiras. É o caso realista.</summary>

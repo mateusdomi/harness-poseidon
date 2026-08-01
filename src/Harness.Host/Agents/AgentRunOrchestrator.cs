@@ -972,11 +972,7 @@ public sealed class AgentRunOrchestrator(
         // aqui — se valesse, bastaria uma execução isolada no passado para liberar as seguintes.
         var sandboxActive = attestation.Verified &&
             string.Equals(attestation.AttemptId, command.AttemptId, StringComparison.Ordinal);
-        // O modo inseguro só existe por aceite explícito e vigente do proprietário, gravado por uma
-        // sessão de perfil local. Nenhum agente tem caminho até esse registro.
-        var unsafeAccepted = !sandboxActive &&
-            await sandboxAttestations.IsUnsafeModeAcceptedAsync(
-                command.TenantId, command.ProjectId, cancellationToken);
+
         if (command.RequiredToolIds is null)
         {
             return ToolPolicyDecision.Deny(
@@ -1006,8 +1002,7 @@ public sealed class AgentRunOrchestrator(
                     command.Role,
                     ToolRiskTier.Critical,
                     allowlist,
-                    sandboxActive,
-                    unsafeAccepted),
+                    sandboxActive),
                 ToolRiskTier.Critical));
             if (!decision.Allowed)
             {

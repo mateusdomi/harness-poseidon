@@ -599,8 +599,14 @@ public static class AgentRunEndpoints
             return Disabled();
         }
 
+        // 0-E: o diagnóstico começa pelo PRÉ-REQUISITO. Uma conta perfeitamente configurada não
+        // executa nada sem contêiner, e listar as contas como saudáveis nesse estado seria mentir
+        // sobre a prontidão do produto.
+        var containerRuntimeReady = Execution.ContainerRuntimeProbe.IsAvailable();
         var reports = await orchestrator.DoctorAsync(token);
         return Results.Ok(new AgentAccountDoctorResponse(
+            containerRuntimeReady,
+            containerRuntimeReady ? null : Execution.ContainerRuntimeProbe.Message,
             [.. reports.Select(report => new AgentAccountDoctorContract(
                 report.Alias,
                 report.ExecutorId,
@@ -876,7 +882,10 @@ public sealed record CriticFindingContract(
 
 public sealed record AgentRunRecoveryResponse(IReadOnlyList<string> Recovered);
 
-public sealed record AgentAccountDoctorResponse(IReadOnlyList<AgentAccountDoctorContract> Accounts);
+public sealed record AgentAccountDoctorResponse(
+    bool ContainerRuntimeReady,
+    string? ContainerRuntimeMessage,
+    IReadOnlyList<AgentAccountDoctorContract> Accounts);
 
 public sealed record AgentAccountDoctorContract(
     string Alias,

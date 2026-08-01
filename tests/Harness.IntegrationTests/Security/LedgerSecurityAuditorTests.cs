@@ -53,8 +53,7 @@ public sealed class LedgerSecurityAuditorTests
                     "Development",
                     ToolRiskTier.Critical,
                     new HashSet<string> { ToolId },
-                    SandboxActive: true,
-                    UnsafeModeAccepted: false);
+                    SandboxActive: true);
 
                 CapabilityToken Grant(CapabilityActorKind kind, string actorId) => pep.Issue(
                     new CapabilityGrantRequest(

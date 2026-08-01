@@ -81,7 +81,7 @@ public static class NotificationEndpoints
     private static Task<LocalProfileRecord?> SessionAsync(HttpRequest request, ILocalProfileStore profiles, CancellationToken token) => LocalProfileSession.ResolveAsync(request, profiles, token);
     private static bool Owned(string? requested, string current) => requested is null || string.Equals(requested, current, StringComparison.Ordinal);
     private static NotificationContract ToContract(NotificationRecord x) => new(x.Id, x.ProfileId, x.Severity, x.Category, x.Title, x.Body, x.GroupKey, x.DedupeCount, x.Status, x.Link, x.CreatedAt, x.ReadAt);
-    private static SettingsContract ToContract(SettingsRecord x) => new(x.Id, x.ProfileId, x.Theme, x.Language, x.NotificationsEnabled, x.MutedCategories, x.WorkingDirectory, x.UnsafeModeAcceptedAt, x.UpdatedAt);
+    private static SettingsContract ToContract(SettingsRecord x) => new(x.Id, x.ProfileId, x.Theme, x.Language, x.NotificationsEnabled, x.MutedCategories, x.WorkingDirectory, x.UpdatedAt);
     private static IResult Unauthorized() => Results.Problem(statusCode: 401, title: "local_session_required", detail: "A local profile session is required.");
     private static IResult Forbidden() => Results.Problem(statusCode: 403, title: "profile_scope_forbidden", detail: "The resource belongs to another profile.");
     private static IResult Missing(string resource) => Results.Problem(statusCode: 404, title: $"{resource}_not_found", detail: $"The {resource} resource does not exist.");
@@ -93,6 +93,6 @@ public sealed record NotificationStatusRequest(IReadOnlyList<string> Ids);
 public sealed record NotificationStatusResult(int Updated);
 public sealed record NotificationContract(string Id, string ProfileId, string Severity, string Category, string Title, string Body, string? GroupKey, int DedupeCount, string Status, string? Link, DateTimeOffset CreatedAt, DateTimeOffset? ReadAt);
 public sealed record NotificationPage(IReadOnlyList<NotificationContract> Items, string? NextCursor);
-public sealed record SettingsPatchRequest(string? Theme, string? Language, bool? NotificationsEnabled, IReadOnlyList<string>? MutedCategories, string? WorkingDirectory, DateTimeOffset? UnsafeModeAcceptedAt);
-public sealed record SettingsContract(string Id, string ProfileId, string Theme, string Language, bool NotificationsEnabled, IReadOnlyList<string> MutedCategories, string? WorkingDirectory, DateTimeOffset? UnsafeModeAcceptedAt, DateTimeOffset UpdatedAt);
+public sealed record SettingsPatchRequest(string? Theme, string? Language, bool? NotificationsEnabled, IReadOnlyList<string>? MutedCategories, string? WorkingDirectory);
+public sealed record SettingsContract(string Id, string ProfileId, string Theme, string Language, bool NotificationsEnabled, IReadOnlyList<string> MutedCategories, string? WorkingDirectory, DateTimeOffset UpdatedAt);
 public sealed record SettingsPage(IReadOnlyList<SettingsContract> Items, string? NextCursor);

@@ -17,7 +17,7 @@ public sealed class ToolExecutionPolicyTests
     {
         var descriptor = Descriptor with { Enabled = enabled };
         var context = new ToolPolicyContext("Implementation", taskRisk,
-            allowlisted ? new HashSet<string> { ToolId } : new HashSet<string>(), sandbox, false);
+            allowlisted ? new HashSet<string> { ToolId } : new HashSet<string>(), sandbox);
         Assert.Equal(code, ToolExecutionPolicy.Evaluate(new(descriptor, context, invocationRisk)).Code);
     }
 
@@ -30,7 +30,7 @@ public sealed class ToolExecutionPolicyTests
         var token = pep.Issue(Grant());
         var sut = new PolicyCheckedToolExecutor<string, string>(executor, pep);
         var denied = new PolicyCheckedToolInvocation<string>("danger", Descriptor,
-            new("Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId }, false, false),
+            new("Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId }, false),
             ToolRiskTier.High,
             token,
             Authorization());
@@ -51,7 +51,7 @@ public sealed class ToolExecutionPolicyTests
         var invocation = new PolicyCheckedToolInvocation<string>(
             "disabled",
             Descriptor with { Enabled = false },
-            new("Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId }, true, false),
+            new("Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId }, true),
             ToolRiskTier.High,
             token,
             Authorization());
@@ -74,7 +74,7 @@ public sealed class ToolExecutionPolicyTests
         var invocation = new PolicyCheckedToolInvocation<string>(
             "unsafe",
             Descriptor,
-            new("Implementation", ToolRiskTier.Low, new HashSet<string> { ToolId }, true, false),
+            new("Implementation", ToolRiskTier.Low, new HashSet<string> { ToolId }, true),
             ToolRiskTier.Low,
             token,
             Authorization() with { ActorKind = CapabilityActorKind.Chief, ActorId = "bruna" });

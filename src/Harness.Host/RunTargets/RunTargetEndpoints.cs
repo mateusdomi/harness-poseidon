@@ -1,3 +1,4 @@
+using Harness.Host.Execution;
 using Harness.Host.Profiles;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Notifications;
@@ -50,7 +51,7 @@ public static class RunTargetEndpoints
                     var root = ResolveProjectRoot(settings.WorkingDirectory, project);
                     var definitions = await detector.DetectAsync(
                         root,
-                        settings.UnsafeModeAcceptedAt is null
+                        !ContainerRuntimeProbe.IsAvailable()
                             ? null
                             : new RunTargetDetectionContext(
                                 session.TenantId,
@@ -164,8 +165,10 @@ public static class RunTargetEndpoints
 
     private static IResult? Authorize(SettingsRecord? settings, RunTargetLaunchRecord launch)
     {
-        if (settings?.UnsafeModeAcceptedAt is null) return Problem(409, "unsafe_mode_acceptance_required", "Local project execution requires explicit unsafe-mode acceptance until a sandbox is configured.");
-        if (string.IsNullOrWhiteSpace(settings.WorkingDirectory)) return Problem(409, "working_directory_required", "A working directory must be configured.");
+        // 0-E: o aceite de risco foi extinto. O contêiner é pré-requisito, e a ausência dele é uma
+        // recusa com instrução — não um pedido para o dono abrir mão da fronteira.
+        if (!ContainerRuntimeProbe.IsAvailable()) return Problem(409, "docker_required", ContainerRuntimeProbe.Message);
+        if (string.IsNullOrWhiteSpace(settings?.WorkingDirectory)) return Problem(409, "working_directory_required", "A working directory must be configured.");
         var root = Path.GetFullPath(settings.WorkingDirectory); var working = Path.GetFullPath(launch.WorkingDirectory); var relative = Path.GetRelativePath(root, working);
         return relative == ".." || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) || Path.IsPathRooted(relative) ? Problem(409, "run_target_outside_working_directory", "The run target is outside the authorized working directory.") : null;
     }

@@ -1,4 +1,3 @@
-using Harness.IntegrationTests.Security;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
@@ -64,6 +63,9 @@ public sealed class AgentRunHappyPathTests : IDisposable
             "--urls", "http://127.0.0.1:0",
             "--Harness:DatabasePath", Path.Combine(_root, "harness.db"),
             "--Harness:AgentRuns:Enabled", "true",
+            // 0-E: o contêiner é pré-requisito. O provider fake ATESTA uma sandbox efetiva, que é
+            // o caminho único — não existe mais aceite de risco que dispense a fronteira.
+            "--Harness:IsolatedExecution:Mode", "Fake",
             "--Harness:AgentRuns:ControlledRoot", ControlledRoot,
             // Ledger de disponibilidade PRÓPRIO do teste: sem isto o Host de teste lê e escreve
             // o ledger da instalação real do operador — uma conta em cooldown na máquina
@@ -79,7 +81,6 @@ public sealed class AgentRunHappyPathTests : IDisposable
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
 
         var projectId = await SeedProjectAsync(client, timeout.Token);
-        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, attemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         using var response = await client.PostAsJsonAsync(
@@ -201,6 +202,9 @@ public sealed class AgentRunHappyPathTests : IDisposable
             "--urls", "http://127.0.0.1:0",
             "--Harness:DatabasePath", Path.Combine(_root, "harness.db"),
             "--Harness:AgentRuns:Enabled", "true",
+            // 0-E: o contêiner é pré-requisito. O provider fake ATESTA uma sandbox efetiva, que é
+            // o caminho único — não existe mais aceite de risco que dispense a fronteira.
+            "--Harness:IsolatedExecution:Mode", "Fake",
             "--Harness:AgentRuns:ControlledRoot", ControlledRoot,
             "--Harness:AgentRuns:AvailabilityLedgerPath",
                 Path.Combine(Path.GetTempPath(), $"harness-availability-{Guid.NewGuid():N}.json"),
@@ -211,7 +215,6 @@ public sealed class AgentRunHappyPathTests : IDisposable
         using var handler = new HttpClientHandler { CookieContainer = new CookieContainer() };
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
         var projectId = await SeedProjectAsync(client, timeout.Token);
-        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, attemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         // O card de documentação resolve a persona technical-writer no servidor. Ela declara

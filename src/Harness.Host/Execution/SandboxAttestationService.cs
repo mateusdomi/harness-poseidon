@@ -15,7 +15,8 @@ namespace Harness.Host.Execution;
 ///
 /// Fail-closed em todas as bordas: sem provider, sem attestation, attestation não verificada ou
 /// attestation de OUTRA tentativa, o resultado é "sem sandbox" — nunca um fallback silencioso para
-/// o host.
+/// o host. E, desde a decisão do proprietário de 31/07/2026, "sem sandbox" significa NÃO EXECUTA:
+/// não há mais aceite de risco que dispense o contêiner.
 /// </summary>
 public sealed class SandboxAttestationService(
     ISandboxAttestationStore store,
@@ -84,16 +85,6 @@ public sealed class SandboxAttestationService(
             record.EgressRestricted &&
             record.ResourceLimitsApplied;
     }
-
-    /// <summary>
-    /// Existe aceite VIGENTE de modo inseguro para o projeto? Só o proprietário grava esse aceite,
-    /// por uma sessão de perfil local — nenhum agente tem caminho até aqui. Vencido ou revogado
-    /// conta como ausente.
-    /// </summary>
-    public async Task<bool> IsUnsafeModeAcceptedAsync(
-        string tenantId, string projectId, CancellationToken cancellationToken = default) =>
-        await _store.GetUnsafeAcceptanceAsync(
-            tenantId, projectId, _clock.UtcNow, cancellationToken) is not null;
 
     private static SandboxAttestationRecord ToRecord(SandboxAttestation attestation) => new(
         attestation.TenantId,

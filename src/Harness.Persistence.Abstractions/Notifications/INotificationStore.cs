@@ -16,7 +16,7 @@ public sealed record NotificationRecord(string Id, string ProfileId, string Seve
     DateTimeOffset CreatedAt, DateTimeOffset? ReadAt);
 public sealed record SettingsRecord(string Id, string ProfileId, string Theme, string Language,
     bool NotificationsEnabled, IReadOnlyList<string> MutedCategories, string? WorkingDirectory,
-    DateTimeOffset? UnsafeModeAcceptedAt, DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt);
 public sealed record NotificationCreateCommand(string TenantId, string Id, string ProfileId,
     string Severity, string Category, string Title, string Body, string? GroupKey, string? Link,
     DateTimeOffset OccurredAt);

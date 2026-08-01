@@ -1,4 +1,3 @@
-using Harness.IntegrationTests.Security;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -72,6 +71,9 @@ public sealed class CardTypeDispatchGateTests
             "--urls", "http://127.0.0.1:0",
             "--Harness:DatabasePath", db,
             "--Harness:AgentRuns:Enabled", "true",
+            // 0-E: o contêiner é pré-requisito. O provider fake ATESTA uma sandbox efetiva, que é
+            // o caminho único — não existe mais aceite de risco que dispense a fronteira.
+            "--Harness:IsolatedExecution:Mode", "Fake",
             "--Harness:AgentRuns:ControlledRoot", controlledRoot,
             // Ledger de disponibilidade PRÓPRIO do teste: sem isto o Host de teste lê e escreve
             // o ledger da instalação real do operador — uma conta em cooldown na máquina
@@ -121,7 +123,6 @@ public sealed class CardTypeDispatchGateTests
                     Description = "Control plane",
                     RepositoryUrl = Path.GetFullPath(repo),
                 }, cts.Token);
-            await UnsafeExecutionSetup.AcceptAsync(client, projectId, cts.Token);
             var solId = await PostId(client, "/api/v1/solicitations",
                 new CreateSolicitationRequest(projectId, "request", "Probe", "Criar um probe backend."), cts.Token);
             var demId = await PostId(client, "/api/v1/demands",

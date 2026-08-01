@@ -864,7 +864,7 @@ documents:
   - documentation-index
   enforcedBy:
   - tools/backend/verify-governance.sh
-  checksum: sha256:390a01222e55534c71f005b178f7122e118ae9ded3b0b03ed5378bd9906df97d
+  checksum: sha256:52b693859b5eea0c8a6629beaf73534f051b8545bf8c2583003e8164c873ac8c
   containsSecrets: false
   generated: false
   sourceOfTruth: README.md

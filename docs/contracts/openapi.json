@@ -737,84 +737,6 @@
                 }
             }
         },
-        "/api/v1/projects/{projectId}/unsafe-execution": {
-            "get": {
-                "tags": [
-                    "UnsafeExecutionEndpoints"
-                ],
-                "parameters": [
-                    {
-                        "name": "projectId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "UnsafeExecutionEndpoints"
-                ],
-                "parameters": [
-                    {
-                        "name": "projectId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "null"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/UnsafeExecutionAcceptRequest"
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "UnsafeExecutionEndpoints"
-                ],
-                "parameters": [
-                    {
-                        "name": "projectId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
         "/api/v1/tasks/{id}/merge": {
             "post": {
                 "tags": [
@@ -20324,10 +20246,21 @@
             },
             "AgentAccountDoctorResponse": {
                 "required": [
+                    "containerRuntimeReady",
+                    "containerRuntimeMessage",
                     "accounts"
                 ],
                 "type": "object",
                 "properties": {
+                    "containerRuntimeReady": {
+                        "type": "boolean"
+                    },
+                    "containerRuntimeMessage": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
                     "accounts": {
                         "type": "array",
                         "items": {
@@ -33612,7 +33545,6 @@
                     "notificationsEnabled",
                     "mutedCategories",
                     "workingDirectory",
-                    "unsafeModeAcceptedAt",
                     "updatedAt"
                 ],
                 "type": "object",
@@ -33643,13 +33575,6 @@
                             "null",
                             "string"
                         ]
-                    },
-                    "unsafeModeAcceptedAt": {
-                        "type": [
-                            "null",
-                            "string"
-                        ],
-                        "format": "date-time"
                     },
                     "updatedAt": {
                         "type": "string",
@@ -33684,8 +33609,7 @@
                     "language",
                     "notificationsEnabled",
                     "mutedCategories",
-                    "workingDirectory",
-                    "unsafeModeAcceptedAt"
+                    "workingDirectory"
                 ],
                 "type": "object",
                 "properties": {
@@ -33721,13 +33645,6 @@
                             "null",
                             "string"
                         ]
-                    },
-                    "unsafeModeAcceptedAt": {
-                        "type": [
-                            "null",
-                            "string"
-                        ],
-                        "format": "date-time"
                     }
                 }
             },
@@ -35404,28 +35321,6 @@
                 },
                 "additionalProperties": false
             },
-            "UnsafeExecutionAcceptRequest": {
-                "required": [
-                    "reason",
-                    "duration"
-                ],
-                "type": "object",
-                "properties": {
-                    "reason": {
-                        "type": [
-                            "null",
-                            "string"
-                        ]
-                    },
-                    "duration": {
-                        "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$",
-                        "type": [
-                            "null",
-                            "string"
-                        ]
-                    }
-                }
-            },
             "UpdateOrganizationRequest": {
                 "type": "object",
                 "properties": {
@@ -36604,9 +36499,6 @@
         },
         {
             "name": "channels"
-        },
-        {
-            "name": "UnsafeExecutionEndpoints"
         },
         {
             "name": "tasks"

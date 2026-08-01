@@ -13,8 +13,7 @@ public sealed record ToolPolicyContext(
     string PhaseName,
     ToolRiskTier TaskRiskTier,
     IReadOnlySet<string> AllowedToolIds,
-    bool SandboxActive,
-    bool UnsafeModeAccepted);
+    bool SandboxActive);
 
 public sealed record ToolInvocationPolicyRequest(
     ToolPolicyDescriptor Tool,
@@ -42,9 +41,12 @@ public static class ToolExecutionPolicy
             return ToolPolicyDecision.Deny("tool_risk_exceeded", "The invocation exceeds the tool risk ceiling.");
         if (request.InvocationRiskTier > request.Context.TaskRiskTier)
             return ToolPolicyDecision.Deny("task_risk_exceeded", "The invocation exceeds the accepted task risk tier.");
-        if (request.InvocationRiskTier >= ToolRiskTier.High &&
-            !request.Context.SandboxActive && !request.Context.UnsafeModeAccepted)
-            return ToolPolicyDecision.Deny("sandbox_required", "High-risk tool execution requires a sandbox or explicit unsafe-mode acceptance.");
+        // Decisão do proprietário (31/07/2026): o contêiner é pré-requisito nos DOIS modos. Não
+        // existe mais aceite de risco que dispense a sandbox — uma exceção "temporária" que o
+        // produto aceita é uma exceção permanente na prática, e era o único caminho que ainda
+        // deixava um agente produzir efeito no host sem fronteira nenhuma.
+        if (request.InvocationRiskTier >= ToolRiskTier.High && !request.Context.SandboxActive)
+            return ToolPolicyDecision.Deny("sandbox_required", "High-risk tool execution requires an attested sandbox.");
         return ToolPolicyDecision.Permit();
     }
 }

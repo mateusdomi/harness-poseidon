@@ -6,7 +6,7 @@ public sealed class NotificationContractDriftTests
 {
     [Theory]
     [InlineData("notifications", "NotificationContract", "notificationSchema", "Notification", "id,profileId,severity,category,title,body,groupKey,dedupeCount,status,link,createdAt,readAt")]
-    [InlineData("settings", "SettingsContract", "settingsSchema", "Settings", "id,profileId,theme,language,notificationsEnabled,mutedCategories,workingDirectory,unsafeModeAcceptedAt,updatedAt")]
+    [InlineData("settings", "SettingsContract", "settingsSchema", "Settings", "id,profileId,theme,language,notificationsEnabled,mutedCategories,workingDirectory,updatedAt")]
     public void OpenApiMatchesFrontendSystemContracts(string route, string schema, string marker, string type, string csv)
     {
         var root = FindRepositoryRoot(); using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "contracts", "openapi.json")));

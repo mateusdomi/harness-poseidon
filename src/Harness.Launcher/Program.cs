@@ -23,6 +23,14 @@ internal static class LauncherProgram
             }
         }
 
+        // 0-E: pré-requisito verificado ANTES de qualquer coisa. Falhar aqui, com instrução, é
+        // melhor do que subir o produto e recusar o primeiro trabalho lá na frente.
+        if (!ContainerRuntimeCheck.IsAvailable())
+        {
+            Console.Error.WriteLine(ContainerRuntimeCheck.Message);
+            return 3;
+        }
+
         LauncherOptions options;
         try
         {

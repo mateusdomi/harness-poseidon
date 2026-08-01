@@ -1,4 +1,3 @@
-using Harness.IntegrationTests.Security;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
@@ -58,7 +57,6 @@ public sealed class AgentRunContinuationTests : IDisposable
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
 
         var projectId = await SeedProjectAsync(client, timeout.Token);
-        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, priorAttemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         // Arquiva o attempt reprovado com manifest de provenance e checksum.
@@ -125,7 +123,6 @@ public sealed class AgentRunContinuationTests : IDisposable
         using var client = new HttpClient(handler) { BaseAddress = BaseAddress(app.Services) };
 
         var projectId = await SeedProjectAsync(client, timeout.Token);
-        await UnsafeExecutionSetup.AcceptAsync(client, projectId, timeout.Token);
         var (taskId, priorAttemptId) = await SeedTaskAndAttemptAsync(app, client, projectId, timeout.Token);
 
         new AttemptArtifactArchive(ArchiveRoot).Write(
@@ -157,6 +154,9 @@ public sealed class AgentRunContinuationTests : IDisposable
         "--urls", "http://127.0.0.1:0",
         "--Harness:DatabasePath", Path.Combine(_root, "harness.db"),
         "--Harness:AgentRuns:Enabled", "true",
+            // 0-E: o contêiner é pré-requisito. O provider fake ATESTA uma sandbox efetiva, que é
+            // o caminho único — não existe mais aceite de risco que dispense a fronteira.
+            "--Harness:IsolatedExecution:Mode", "Fake",
         "--Harness:AgentRuns:ControlledRoot", ControlledRoot,
         // Ledger de disponibilidade PRÓPRIO do teste: sem isto o Host de teste lê e escreve
         // o ledger da instalação real do operador — uma conta em cooldown na máquina

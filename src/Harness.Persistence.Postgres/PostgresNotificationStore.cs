@@ -16,7 +16,7 @@ public sealed class PostgresNotificationStore(NpgsqlDataSource dataSource) : INo
         "SELECT id,profile_id,severity,category,title,body,group_key,dedupe_count,status,link,created_at,read_at FROM harness.notifications";
 
     private const string SettingsSelect =
-        "SELECT id,profile_id,theme,language,notifications_enabled,muted_categories_json::text,working_directory,unsafe_mode_accepted_at,updated_at FROM harness.profile_settings";
+        "SELECT id,profile_id,theme,language,notifications_enabled,muted_categories_json::text,working_directory,updated_at FROM harness.profile_settings";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> Severities = ["info", "warning", "error", "critical"];
@@ -266,17 +266,15 @@ public sealed class PostgresNotificationStore(NpgsqlDataSource dataSource) : INo
         var enabled = ReadBool(root, "notificationsEnabled", current.NotificationsEnabled);
         var muted = ReadCategories(root, current.MutedCategories);
         var working = ReadNullableString(root, "workingDirectory", current.WorkingDirectory);
-        var unsafeAt = ReadNullableDate(root, "unsafeModeAcceptedAt", current.UnsafeModeAcceptedAt);
         await using var update = connection.CreateCommand();
         update.Transaction = transaction;
         update.CommandText =
-            "UPDATE harness.profile_settings SET theme=$1,language=$2,notifications_enabled=$3,muted_categories_json=$4,working_directory=$5,unsafe_mode_accepted_at=$6,updated_at=$7 WHERE tenant_id=$8 AND profile_id=$9 AND id=$10;";
+            "UPDATE harness.profile_settings SET theme=$1,language=$2,notifications_enabled=$3,muted_categories_json=$4,working_directory=$5,updated_at=$6 WHERE tenant_id=$7 AND profile_id=$8 AND id=$9;";
         update.Parameters.Add(Text(theme));
         update.Parameters.Add(Text(language.Trim()));
         update.Parameters.Add(Boolean(enabled));
         update.Parameters.Add(Json(JsonSerializer.Serialize(muted, JsonOptions)));
         update.Parameters.Add(NullableText(working));
-        update.Parameters.Add(NullableTimestamp(unsafeAt));
         update.Parameters.Add(Timestamp(command.OccurredAt));
         update.Parameters.Add(Text(command.TenantId));
         update.Parameters.Add(Text(command.ProfileId));
@@ -297,7 +295,6 @@ public sealed class PostgresNotificationStore(NpgsqlDataSource dataSource) : INo
             NotificationsEnabled = enabled,
             MutedCategories = muted,
             WorkingDirectory = working,
-            UnsafeModeAcceptedAt = unsafeAt,
             UpdatedAt = command.OccurredAt,
         };
     }
@@ -406,8 +403,7 @@ public sealed class PostgresNotificationStore(NpgsqlDataSource dataSource) : INo
         reader.GetBoolean(4),
         JsonSerializer.Deserialize<string[]>(reader.GetString(5), JsonOptions) ?? [],
         reader.IsDBNull(6) ? null : reader.GetString(6),
-        reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7),
-        reader.GetFieldValue<DateTimeOffset>(8));
+        reader.GetFieldValue<DateTimeOffset>(7));
 
     private static string ReadString(JsonElement root, string name, string current)
     {

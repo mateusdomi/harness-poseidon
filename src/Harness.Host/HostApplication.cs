@@ -916,7 +916,6 @@ public static class HostApplication
         app.MapWorkBoard();
         app.MapBacklogHealth();
         app.MapDemandPlans();
-        app.MapUnsafeExecutionEndpoints();
         app.MapTaskMerge();
         app.MapPhaseProgress();
         app.MapDeliveries();

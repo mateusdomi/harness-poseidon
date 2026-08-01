@@ -6,8 +6,7 @@ using NpgsqlTypes;
 namespace Harness.Persistence.Postgres;
 
 /// <summary>
-/// Persistência PostgreSQL da attestation de sandbox e do aceite de modo inseguro (Fase 0B1).
-/// Paridade semântica exata com o SQLite.
+/// Persistência PostgreSQL da attestation de sandbox (Fase 0B1). Paridade com o SQLite.
 /// </summary>
 public sealed class PostgresSandboxAttestationStore(NpgsqlDataSource dataSource)
     : ISandboxAttestationStore
@@ -66,73 +65,6 @@ public sealed class PostgresSandboxAttestationStore(NpgsqlDataSource dataSource)
     {
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         return await ReadAsync(connection, null, tenantId, attemptId, cancellationToken);
-    }
-
-    public async Task<UnsafeExecutionAcceptanceRecord?> GetUnsafeAcceptanceAsync(
-        string tenantId, string projectId, DateTimeOffset now,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
-        await using var q = connection.CreateCommand();
-        // Vencido ou revogado conta como AUSENTE: um aceite de ontem não autoriza hoje.
-        q.CommandText =
-            "SELECT tenant_id,project_id,accepted_by_profile_id,reason,accepted_at,expires_at,revoked_at " +
-            "FROM harness.unsafe_execution_acceptances " +
-            "WHERE tenant_id=$1 AND project_id=$2 AND revoked_at IS NULL AND expires_at>$3;";
-        q.Parameters.Add(Text(tenantId));
-        q.Parameters.Add(Text(projectId));
-        q.Parameters.Add(Timestamp(now));
-        await using var r = await q.ExecuteReaderAsync(cancellationToken);
-        return await r.ReadAsync(cancellationToken)
-            ? new UnsafeExecutionAcceptanceRecord(
-                r.GetString(0).TrimEnd(), r.GetString(1).TrimEnd(), r.GetString(2).TrimEnd(),
-                r.GetString(3), r.GetFieldValue<DateTimeOffset>(4),
-                r.GetFieldValue<DateTimeOffset>(5),
-                r.IsDBNull(6) ? null : r.GetFieldValue<DateTimeOffset>(6))
-            : null;
-    }
-
-    public async Task<UnsafeExecutionAcceptanceRecord> AcceptUnsafeAsync(
-        UnsafeExecutionAcceptanceRecord record, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(record);
-        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
-        await using var q = connection.CreateCommand();
-        q.CommandText =
-            """
-            INSERT INTO harness.unsafe_execution_acceptances
-                (tenant_id,project_id,accepted_by_profile_id,reason,accepted_at,expires_at,revoked_at)
-            VALUES ($1,$2,$3,$4,$5,$6,NULL)
-            ON CONFLICT (tenant_id,project_id) DO UPDATE SET
-                accepted_by_profile_id=excluded.accepted_by_profile_id,
-                reason=excluded.reason,
-                accepted_at=excluded.accepted_at,
-                expires_at=excluded.expires_at,
-                revoked_at=NULL;
-            """;
-        q.Parameters.Add(Text(record.TenantId));
-        q.Parameters.Add(Text(record.ProjectId));
-        q.Parameters.Add(Text(record.AcceptedByProfileId));
-        q.Parameters.Add(Text(record.Reason));
-        q.Parameters.Add(Timestamp(record.AcceptedAt));
-        q.Parameters.Add(Timestamp(record.ExpiresAt));
-        await q.ExecuteNonQueryAsync(cancellationToken);
-        return record;
-    }
-
-    public async Task<bool> RevokeUnsafeAsync(
-        string tenantId, string projectId, DateTimeOffset revokedAt,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
-        await using var q = connection.CreateCommand();
-        q.CommandText =
-            "UPDATE harness.unsafe_execution_acceptances SET revoked_at=$1 " +
-            "WHERE tenant_id=$2 AND project_id=$3 AND revoked_at IS NULL;";
-        q.Parameters.Add(Timestamp(revokedAt));
-        q.Parameters.Add(Text(tenantId));
-        q.Parameters.Add(Text(projectId));
-        return await q.ExecuteNonQueryAsync(cancellationToken) == 1;
     }
 
     private static async Task<SandboxAttestationRecord?> ReadAsync(
