@@ -122,7 +122,9 @@ public sealed class ProjectApiTests
                     Assert.Equal("idle", rootNode.State); Assert.NotEmpty(rootNode.SkillIds);
                     Assert.NotNull(rootNode.EffectiveModelId);
                     Assert.Equal("active", created.State);
-                    Assert.Equal("manual", created.OperationMode);
+                    // Fase 1E: o projeto nasce autonomo. Quem quiser conduzir card a card muda o
+                    // modo depois, por escolha explicita; o padrao nao decide isso pelo dono.
+                    Assert.Equal("autonomous", created.OperationMode);
                     Assert.Equal([profileId], created.MemberProfileIds);
                     Assert.Equal(1, created.ConfigVersion);
 

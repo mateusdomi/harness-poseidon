@@ -3,6 +3,7 @@ using Harness.Host.Profiles;
 using Harness.Modules.Workflows.Application;
 using Harness.Modules.Workflows.Contracts;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
@@ -355,15 +356,18 @@ public static class WorkflowEndpoints
 
     private static async Task<IResult> LinkProjectWorkflowAsync(string id,
         LinkWorkflowTemplateRequest input, HttpRequest request, ILocalProfileStore profiles,
-        IWorkflowCatalogStore store, IClock clock, CancellationToken token)
+        IWorkflowCatalogStore store, IProjectStore projects, IClock clock, CancellationToken token)
     {
         if (!Valid(id) || !Valid(input.TemplateId) ||
             (input.VersionId is not null && !Valid(input.VersionId))) return InvalidId();
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
         var template = await store.GetTemplateAsync(profile.TenantId, input.TemplateId, token);
         if (template is null) return NotFound("workflow_template");
+        // O modo do PROJETO é o fallback quando a versão escolhida não declara um: vincular um
+        // template a um projeto autônomo não pode, sozinho, torná-lo manual.
+        var project = await projects.GetAsync(profile.TenantId, id, token);
         var result = await ProjectWorkflowLinker.LinkAsync(store, profile.TenantId, id, template,
-            input.VersionId, profile.Id, clock, token);
+            input.VersionId, profile.Id, clock, token, project?.OperationMode);
         return result.Outcome == ProjectWorkflowLinker.LinkOutcome.Applied
             ? Results.Created($"/api/v1/workflows/{result.Binding!.Id}", ToContract(result.Binding))
             : ProjectWorkflowLinker.ToProblem(result);

@@ -58,7 +58,9 @@ public sealed class ProjectWorkflowPreselectionTests
                 Assert.Equal(project.Id, workflow.ProjectId);
                 Assert.Equal(recommended.Id, workflow.TemplateId);
                 Assert.Equal(recommended.CurrentVersionId, workflow.ActiveVersionId);
-                Assert.Equal("manual", workflow.OperationMode);
+                // Fase 1E: a versao canonica nao declara modo, entao o vinculo HERDA o do
+                // projeto — que nasce autonomo. Vincular um template nao torna o projeto manual.
+                Assert.Equal("autonomous", workflow.OperationMode);
                 Assert.Empty(workflow.RiskAcceptances);
 
                 // O template recomendado é o canônico "Software Delivery Standard".

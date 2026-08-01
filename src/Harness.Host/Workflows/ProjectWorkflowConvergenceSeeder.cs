@@ -153,7 +153,7 @@ public sealed class ProjectWorkflowConvergenceSeeder(
 
             var result = await ProjectWorkflowLinker.LinkAsync(
                 _workflows, tenantId, project.Id, template, versionId: null, actorProfileId,
-                _clock, cancellationToken);
+                _clock, cancellationToken, project.OperationMode);
             if (result.Outcome is ProjectWorkflowLinker.LinkOutcome.Applied)
             {
                 bound++;

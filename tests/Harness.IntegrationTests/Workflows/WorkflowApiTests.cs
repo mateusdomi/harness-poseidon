@@ -167,7 +167,8 @@ public sealed class WorkflowApiTests
                             $"/api/v1/workflows?projectId={projectId}", timeout.Token))!.Items);
                         workflowId = workflow.Id;
                         Assert.Equal(version.Id, workflow.ActiveVersionId);
-                        Assert.Equal("manual", workflow.OperationMode);
+                        // Fase 1E: versao sem modo declarado herda o modo do projeto.
+                        Assert.Equal("autonomous", workflow.OperationMode);
                         Assert.Empty(workflow.RiskAcceptances);
                     }
                     using (var duplicate = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/workflow", new LinkWorkflowTemplateRequest(templateId, version.Id), timeout.Token)) Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);

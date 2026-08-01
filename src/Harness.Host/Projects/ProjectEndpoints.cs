@@ -237,7 +237,7 @@ public static class ProjectEndpoints
 
             if (template is not null)
             {
-                var link = await ProjectWorkflowLinker.LinkAsync(workflows, profile.TenantId, value.Id, template, null, profile.Id, clock, token);
+                var link = await ProjectWorkflowLinker.LinkAsync(workflows, profile.TenantId, value.Id, template, null, profile.Id, clock, token, value.OperationMode);
                 if (link.Outcome is not (ProjectWorkflowLinker.LinkOutcome.Applied or ProjectWorkflowLinker.LinkOutcome.AlreadyExists))
                     return ProjectWorkflowLinker.ToProblem(link);
             }

@@ -86,7 +86,15 @@ public sealed record Project(
             NormalizeIds(memberProfileIds is { Count: > 0 } ? memberProfileIds : [ownerProfileId]),
             1,
             RequiredId(chiefAgentId, nameof(chiefAgentId)),
-            "manual",
+            // Fase 1E: o projeto nasce AUTÔNOMO. Nascia `manual`, e o efeito prático era que uma
+            // instalação limpa não andava: o dono criava o projeto, descrevia a demanda e ficava
+            // esperando uma fábrica que estava, por definição, parada — sem nada dizendo por quê.
+            //
+            // O dono é STAKEHOLDER, não operador. O que continua exigindo humano é o que o
+            // `AutonomousActionGuard` protege (e ele segue intocado) e a transição de FASE conforme
+            // o modo; quem quiser conduzir card a card muda o modo do projeto para `manual`, que é
+            // a escolha explícita de quem a faz — o oposto de um padrão que decide pelo dono.
+            "autonomous",
             RequireUtc(occurredAt),
             occurredAt,
             1)

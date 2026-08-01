@@ -35,7 +35,8 @@ public sealed class ProjectTests
         Assert.Equal([".NET", "SQLite"], project.Technologies);
         Assert.Equal(["01ARZ3NDEKTSV4RRFFQ69G5FAX"], project.MemberProfileIds);
         Assert.Equal(1, project.ConfigVersion);
-        Assert.Equal("manual", project.OperationMode);
+        // Fase 1E: nasce autonomo — o dono e stakeholder, nao operador.
+        Assert.Equal("autonomous", project.OperationMode);
     }
 
     [Fact]

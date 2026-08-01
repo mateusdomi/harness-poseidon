@@ -12,6 +12,7 @@ using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
+using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.CodeGraph;
 using Harness.SharedKernel.Time;
@@ -103,6 +104,12 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} (card_type={CardType}) NÃO despachável — pulado por prontidão (DoR): {Blockers}")]
     private static partial void LogCardNotDispatchable(ILogger logger, string taskId, string cardType, string blockers);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Chief: projeto {ProjectId} está em modo MANUAL — o laço não despacha; o disparo é humano.")]
+    private static partial void LogProjectManualMode(ILogger logger, string projectId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: modo de operação do projeto {ProjectId} indisponível — projeto fora DESTE ciclo; nenhum despacho é presumido.")]
+    private static partial void LogOperationModeUnavailable(ILogger logger, string projectId, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} ESGOTOU o orçamento de rodadas ({Spent}/{MaxRounds}, {ReasonCode}) — escalado em vez de redespachado.")]
     private static partial void LogBudgetExhausted(
         ILogger logger, string taskId, int spent, int maxRounds, string reasonCode);
@@ -180,6 +187,11 @@ public sealed partial class ChiefBacklogLoopService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Fase 1E: `AutoDispatchEnabled` continua sendo o INTERRUPTOR DO OPERADOR — um kill switch
+        // que desliga a fábrica inteira quando alguém precisa parar tudo. Ele não é mais a decisão
+        // sobre autonomia: essa é do PROJETO, e é avaliada por projeto dentro do ciclo. Um
+        // interruptor global respondendo "o projeto A é autônomo?" só sabia dizer sim ou não para
+        // todos, o que obrigava o dono a escolher entre automatizar tudo ou não automatizar nada.
         if (!settings.AutoDispatchEnabled)
         {
             LogDisabled(logger);
@@ -222,6 +234,7 @@ public sealed partial class ChiefBacklogLoopService(
         var board = scope.ServiceProvider.GetRequiredService<IWorkBoardStore>();
         var chain = scope.ServiceProvider.GetRequiredService<IWorkChainStore>();
         var catalog = scope.ServiceProvider.GetRequiredService<IAgentCatalogStore>();
+        var workflows = scope.ServiceProvider.GetRequiredService<IWorkflowCatalogStore>();
         var circuits = new CardCircuitBreakerService(
             scope.ServiceProvider.GetRequiredService<ICardCircuitBreakerStore>());
 
@@ -261,6 +274,38 @@ public sealed partial class ChiefBacklogLoopService(
 
                 if (!IsInsideControlledRoot(project, controlledRoot))
                 {
+                    continue;
+                }
+
+                // Fase 1E: a AUTONOMIA é decisão do PROJETO, não um interruptor único da
+                // instalação. Um projeto `manual` exige disparo humano e não pode ter card
+                // despachado por um laço de fundo; um projeto `autonomous` avança sozinho. Antes,
+                // a única escolha era automatizar tudo ou nada — e quem tem um projeto sensível ao
+                // lado de um projeto rotineiro acabava desligando os dois.
+                //
+                // O AutonomousActionGuard segue INTOCADO: ele decide o que a autonomia pode fazer
+                // depois que ela está permitida; isto decide apenas se ela está.
+                //
+                // O modo vem do RESOLVEDOR, não do campo do projeto: o campo é escrito uma vez, na
+                // criação, e nunca acompanha a troca de modo feita pelo dono na tela. Ler o campo
+                // direto faria o laço despachar um projeto que o dono já tinha posto em manual.
+                Harness.Modules.Workflows.Application.ProjectOperationMode mode;
+                try
+                {
+                    mode = await Harness.Host.Workflows.ProjectOperationModeResolver.ResolveAsync(
+                        workflows, profile.TenantId, project.Id, project.OperationMode, token);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // Não sabemos o modo. Despachar seria decidir por autonomia sem base; o projeto
+                    // fica de fora DESTE ciclo e o próximo tenta de novo.
+                    LogOperationModeUnavailable(logger, project.Id, exception);
+                    continue;
+                }
+
+                if (mode == Harness.Modules.Workflows.Application.ProjectOperationMode.Manual)
+                {
+                    LogProjectManualMode(logger, project.Id);
                     continue;
                 }
 

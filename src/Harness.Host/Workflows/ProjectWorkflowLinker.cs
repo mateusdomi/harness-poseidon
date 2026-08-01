@@ -81,7 +81,8 @@ public static class ProjectWorkflowLinker
         string? versionId,
         string actorProfileId,
         IClock clock,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? projectOperationMode = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(template);
@@ -103,7 +104,13 @@ public static class ProjectWorkflowLinker
             return new LinkResult(LinkOutcome.VersionInvalid);
         }
 
-        var mode = version.DefaultOperationMode ?? "manual";
+        // Fase 1E: quando a VERSÃO do workflow não declara um modo, o vínculo HERDA o modo do
+        // projeto. Antes forçava "manual", e o efeito era invisível e definitivo: as versões
+        // canônicas publicadas pelo seeder não declaram modo, então TODO projeto nascia vinculado
+        // em manual — inclusive um projeto criado como autônomo, que parava no primeiro portão sem
+        // que nada explicasse por quê. "Manual" só sobra como último recurso, quando nem a versão
+        // nem o projeto disseram nada, e aí devolver a decisão ao humano é a escolha segura.
+        var mode = version.DefaultOperationMode ?? projectOperationMode ?? "manual";
         if (mode is not ("manual" or "semiautonomous" or "autonomous"))
         {
             return new LinkResult(LinkOutcome.ModeInvalid);

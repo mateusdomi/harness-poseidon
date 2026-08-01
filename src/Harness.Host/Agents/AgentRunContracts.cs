@@ -52,12 +52,20 @@ public sealed record AgentRunSettings
     public int ContextTokenBudget { get; init; } = 8000;
 
     /// <summary>
-    /// Loop autônomo do chefe (drena o backlog e delega). Nasce DESLIGADO: um auto-dispatch
-    /// executa agentes reais e gasta cota, então só roda quando o operador o habilita
-    /// explicitamente. O card vai só até <c>AwaitingReview</c> — nunca publica em `develop`
-    /// sozinho.
+    /// Loop autônomo do chefe (drena o backlog e delega).
+    ///
+    /// Fase 1E: nasce LIGADO, e o freio real passou a ser o MODO DO PROJETO. Ele nascia desligado
+    /// porque era a única trava existente — e, sendo global, obrigava o dono a escolher entre
+    /// automatizar tudo ou não automatizar nada. Numa instalação limpa isso significava que um
+    /// projeto declarado autônomo não andava até alguém achar um interruptor, o que contradiz o
+    /// próprio modo que o dono escolheu.
+    ///
+    /// Agora ele é o INTERRUPTOR DO OPERADOR: um kill switch para parar a fábrica inteira quando
+    /// preciso. Quem decide se um projeto avança sozinho é o `OperationMode` dele — `manual` exige
+    /// disparo humano, e o `AutonomousActionGuard` segue intocado decidindo o que a autonomia pode
+    /// fazer depois de permitida. O card continua indo só até <c>AwaitingReview</c>.
     /// </summary>
-    public bool AutoDispatchEnabled { get; init; }
+    public bool AutoDispatchEnabled { get; init; } = true;
 
     /// <summary>Intervalo entre ciclos do loop do chefe.</summary>
     public TimeSpan AutoDispatchInterval { get; init; } = TimeSpan.FromSeconds(30);
