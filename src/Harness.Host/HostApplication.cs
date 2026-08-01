@@ -588,7 +588,8 @@ public static class HostApplication
                 services.GetRequiredService<Harness.Modules.Tools.Application.SecurityPolicyEnforcementPoint>(),
                 services.GetRequiredService<IToolCatalogStore>(),
                 services.GetRequiredService<IMastClassificationStore>(),
-                services.GetRequiredService<Execution.SandboxAttestationService>()));
+                services.GetRequiredService<Execution.SandboxAttestationService>(),
+                services.GetRequiredService<ExecutionCheckpointService>()));
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para

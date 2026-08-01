@@ -248,6 +248,18 @@ internal static class PoseidonTelemetry
             "poseidon.sandbox.attestation.count",
             description: "Sandbox attestations issued, by provider and verification outcome.");
 
+    /// <summary>
+    /// Fase 1A: captura e retomada de checkpoint. Sem esta série, "retomou do checkpoint" e
+    /// "recomeçou do zero" seriam indistinguíveis de fora.
+    /// </summary>
+    private static Counter<long> CheckpointCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.attempt.checkpoint.count",
+            description: "Attempt checkpoint capture and resume outcomes.");
+
+    internal static void RecordCheckpoint(string outcome) =>
+        CheckpointCounter.Add(1, new TagList { { "outcome", outcome } });
+
     internal static void RecordSandboxAttestation(string provider, bool verified) =>
         SandboxAttestationCounter.Add(
             1,

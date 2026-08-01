@@ -56,7 +56,8 @@ public sealed class AgentRunOrchestrator(
     SecurityPolicyEnforcementPoint pep,
     IToolCatalogStore toolCatalog,
     IMastClassificationStore mastClassifications,
-    SandboxAttestationService sandboxAttestations)
+    SandboxAttestationService sandboxAttestations,
+    ExecutionCheckpointService checkpoints)
 {
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
@@ -379,6 +380,13 @@ public sealed class AgentRunOrchestrator(
                 }
 
                 snapshot = failed.Workspace;
+
+                // Fase 1A: a órfã tinha trabalho em disco — a branch dela sobreviveu à queda. Sem
+                // capturar o checkpoint AQUI, a próxima tentativa do card recomeça do zero sobre um
+                // repositório que já contém metade do serviço feito, e o agente refaz (ou desfaz)
+                // o que o anterior deixou. O checkpoint é o que transforma "a branch existe" em
+                // "a próxima tentativa sabe de onde continuar".
+                await TryCaptureOrphanCheckpointAsync(tenantId, snapshot, cancellationToken);
             }
 
             var release = await workspaces.ReleaseAsync(
@@ -392,6 +400,55 @@ public sealed class AgentRunOrchestrator(
         }
 
         return [.. recoveredAccounts.Concat(released).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+    }
+
+
+    /// <summary>
+    /// Captura o checkpoint de uma tentativa órfã recuperada pelo Host. Fora do caminho crítico:
+    /// falhar aqui não pode impedir a devolução da worktree ao pool — travar o escopo do card seria
+    /// pior do que perder o registro de continuidade.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Capturing a checkpoint must never block releasing an orphaned workspace.")]
+    private async Task TryCaptureOrphanCheckpointAsync(
+        string tenantId,
+        AttemptWorkspaceSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(settings.ControlledRoot))
+            {
+                return;
+            }
+
+            Observability.PoseidonTelemetry.RecordCheckpoint("capture_orphan");
+            await checkpoints.CaptureAsync(
+                tenantId,
+                snapshot.ProjectId,
+                snapshot.TaskId,
+                snapshot.TechnicalExecutionId ?? snapshot.AttemptId,
+                snapshot.AttemptId,
+                // O snapshot da worktree não guarda conta nem papel: o que ele preserva é o
+                // TRABALHO. A política de retomada trata origem desconhecida como transitória, que
+                // é a leitura conservadora — qualquer conta compatível pode continuar.
+                "unknown",
+                "unknown",
+                CheckpointOrigin.Transient,
+                snapshot.BranchName,
+                snapshot.RepositoryRoot,
+                Path.GetFullPath(settings.ControlledRoot),
+                [.. snapshot.ScopeClaims.Select(claim => claim.PathPattern)],
+                snapshot.FencingToken,
+                "O Host reiniciou durante esta tentativa; a branch preserva o trabalho já feito.",
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Observability.PoseidonTelemetry.RecordCheckpoint("capture_failed");
+        }
     }
 
     /// <summary>
@@ -693,6 +750,11 @@ public sealed class AgentRunOrchestrator(
             // patch estiver stale, NÃO força — segue com o diff anterior apenas como contexto,
             // e o motivo fica explícito no prompt. Nada de best effort silencioso.
             var continuationNote = await PrepareContinuationAsync(command, manager, cancellationToken);
+            // Fase 1A: os DOIS lados da continuidade no mesmo lugar — o estado do worktree (patch
+            // arquivado, acima) e o estado da EXECUÇÃO (checkpoint). Eram mecanismos separados, e o
+            // do engine não tinha consumidor: uma queda no meio de uma tentativa longa recomeçava
+            // do zero mesmo com a branch cheia de trabalho aproveitável.
+            continuationNote += await PrepareCheckpointResumeAsync(command, cancellationToken);
 
             // 6. Context bundle + receipt: o worker recebe contexto SELECIONADO e auditado.
             var memory = await ragContext.SearchAsync(
@@ -804,6 +866,12 @@ public sealed class AgentRunOrchestrator(
             if (!succeeded)
             {
                 await TryClassifyFailureModeAsync(command, execution, cancellationToken);
+                // Fase 1A: a tentativa não vai terminar, mas o TRABALHO dela pode estar em disco.
+                // `ExecutionCheckpointService` existia sem um único chamador — o produto gravava a
+                // capacidade de retomar e nunca a exercia, então toda queda voltava para a estaca
+                // zero mesmo com a branch cheia de alteração aproveitável.
+                await TryCaptureCheckpointAsync(
+                    command, account.ExecutorId, execution.FailureCode, cancellationToken);
             }
 
             current = await TransitionAsync(
@@ -1094,6 +1162,68 @@ public sealed class AgentRunOrchestrator(
         {command.Instruction}
         """;
 
+
+    /// <summary>
+    /// Fase 1A: retoma do último checkpoint quando existe um para este card e a política permite.
+    ///
+    /// O que se recupera NÃO é a sessão do agente anterior — ela morreu com o processo. É o que ele
+    /// deixou: a branch, os arquivos que mexeu, onde parou e o que faltava. Isso é o suficiente para
+    /// continuar sem refazer, e é honesto: o produto não finge ter restaurado um raciocínio.
+    ///
+    /// Sem checkpoint, ou com a política recusando, devolve vazio — e a tentativa começa do zero,
+    /// que é melhor do que afirmar uma continuidade que não existe.
+    /// </summary>
+    private async Task<string> PrepareCheckpointResumeAsync(
+        StartAgentRunCommand command, CancellationToken cancellationToken)
+    {
+        var resume = await checkpoints.TryResumeAsync(
+            command.TenantId,
+            command.TaskId,
+            command.Role,
+            command.AccountAlias,
+            executorChanged: false,
+            cancellationToken);
+        if (resume is not { } found)
+        {
+            Observability.PoseidonTelemetry.RecordCheckpoint("resume_unavailable");
+            return string.Empty;
+        }
+
+        var (checkpoint, verdict) = found;
+        // Consumir ANTES de montar o prompt: se a tentativa cair de novo, o checkpoint já foi
+        // entregue a ela e um novo será capturado no lugar. Deixar disponível permitiria duas
+        // tentativas simultâneas partirem do mesmo ponto.
+        await checkpoints.ConsumeAsync(
+            command.TenantId, checkpoint.CheckpointId, command.AttemptId, cancellationToken);
+        Observability.PoseidonTelemetry.RecordCheckpoint("resumed");
+
+        var changed = checkpoint.ChangedFiles.Count == 0
+            ? "  - (o checkpoint não registrou arquivos alterados)"
+            : string.Join(
+                Environment.NewLine, checkpoint.ChangedFiles.Take(50).Select(file => $"  - {file}"));
+        var pending = checkpoint.Pending.Count == 0
+            ? "  - (nada registrado como pendente)"
+            : string.Join(
+                Environment.NewLine, checkpoint.Pending.Select(item => $"  - {item}"));
+        return $"""
+
+            ## Retomada por checkpoint ({verdict.ReasonCode})
+
+            A tentativa {checkpoint.SourceAttemptId} deste card NÃO terminou, mas o trabalho dela
+            está na branch {checkpoint.BranchName} desta worktree. Você está CONTINUANDO, não
+            recomeçando: leia o que já existe antes de escrever, e não refaça o que está pronto.
+
+            Arquivos que a tentativa anterior alterou:
+            {changed}
+
+            Onde ela parou: {checkpoint.ProgressNote ?? "(sem nota de progresso)"}
+
+            Pendente:
+            {pending}
+
+            """;
+    }
+
     /// <summary>
     /// Prepara a worktree para uma continuação: aplica o patch arquivado sobre a base atual.
     ///
@@ -1366,6 +1496,58 @@ public sealed class AgentRunOrchestrator(
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Telemetry must never abort a completed attempt.")]
+
+    /// <summary>
+    /// Fase 1A: grava o CHECKPOINT da tentativa que não vai terminar. O trabalho vive no Git — a
+    /// branch da tentativa é preservada mesmo quando ela falha —, então o que se perdia não era o
+    /// código: era o CONHECIMENTO de que ele existe e de onde a próxima tentativa deve continuar.
+    ///
+    /// Fora do caminho crítico de propósito: um erro aqui não pode transformar uma falha
+    /// classificada numa exceção do orquestrador.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Capturing a checkpoint must never mask or replace the original failure.")]
+    private async Task TryCaptureCheckpointAsync(
+        StartAgentRunCommand command,
+        string executorId,
+        string? failureCode,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(settings.ControlledRoot))
+            {
+                return;
+            }
+
+            await checkpoints.CaptureAsync(
+                command.TenantId,
+                command.ProjectId,
+                command.TaskId,
+                command.AttemptId,
+                command.AttemptId,
+                command.AccountAlias,
+                command.Role,
+                CheckpointResumePolicy.ParseOrigin(failureCode ?? "transient"),
+                command.BranchName,
+                command.RepositoryRoot,
+                Path.GetFullPath(command.ControlledRoot),
+                command.ScopeClaims,
+                0,
+                failureCode is { Length: > 0 }
+                    ? $"A tentativa anterior parou em '{failureCode}' (executor {executorId})."
+                    : null,
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Sem logger neste serviço: o fato entra na telemetria, que é o canal dele.
+            Observability.PoseidonTelemetry.RecordCheckpoint("capture_failed");
+        }
+    }
+
     private async Task TryClassifyFailureModeAsync(
         StartAgentRunCommand command,
         ExternalAgentRunResult execution,
