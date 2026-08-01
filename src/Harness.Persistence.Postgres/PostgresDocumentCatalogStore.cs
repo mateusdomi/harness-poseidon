@@ -165,16 +165,18 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
     }
 
     public async Task<IReadOnlyList<ApprovalCatalogRecord>> ListApprovalsAsync(
-        string tenantId, string? projectId, string? afterId, int limit,
+        string tenantId, string? projectId, string? taskId, string? afterId, int limit,
         CancellationToken cancellationToken = default)
     {
         var rows = new List<ApprovalCatalogRecord>();
         await using var query = _dataSource.CreateCommand(
             "SELECT * FROM (" + ApprovalSelect + ") a " +
             "WHERE tenant_id=$1 AND ($2 IS NULL OR project_id=$2) " +
-            "AND ($3 IS NULL OR id>$3) ORDER BY id LIMIT $4;");
+            "AND ($3 IS NULL OR task_id=$3) " +
+            "AND ($4 IS NULL OR id>$4) ORDER BY id LIMIT $5;");
         query.Parameters.Add(Text(tenantId));
         query.Parameters.Add(NullableText(projectId));
+        query.Parameters.Add(NullableText(taskId));
         query.Parameters.Add(NullableText(afterId));
         query.Parameters.Add(Integer(limit));
         await using var reader = await query.ExecuteReaderAsync(cancellationToken);
@@ -192,10 +194,11 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
     {
         const string filters =
             "tenant_id=$1 AND ($2 IS NULL OR project_id=$2) " +
-            "AND ($3 IS NULL OR state=$3) AND ($4 IS NULL OR priority=$4) " +
-            "AND ($5='all' OR ($5='overdue' AND due_at IS NOT NULL AND due_at<$6) " +
-            "OR ($5='week' AND due_at IS NOT NULL AND due_at<=$7) " +
-            "OR ($5='none' AND due_at IS NULL))";
+            "AND ($3 IS NULL OR task_id=$3) " +
+            "AND ($4 IS NULL OR state=$4) AND ($5 IS NULL OR priority=$5) " +
+            "AND ($6='all' OR ($6='overdue' AND due_at IS NOT NULL AND due_at<$7) " +
+            "OR ($6='week' AND due_at IS NOT NULL AND due_at<=$8) " +
+            "OR ($6='none' AND due_at IS NULL))";
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(
             IsolationLevel.RepeatableRead, cancellationToken);
@@ -209,7 +212,7 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         page.CommandText = "SELECT * FROM (" + ApprovalSelect + $") a WHERE {filters} " +
             "ORDER BY CASE WHEN due_at IS NULL THEN 1 ELSE 0 END,due_at," +
             "CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END," +
-            "requested_at,id LIMIT $8 OFFSET $9;";
+            "requested_at,id LIMIT $9 OFFSET $10;";
         AddApprovalPageParameters(page, tenantId, query);
         page.Parameters.Add(Integer(query.Limit)); page.Parameters.Add(Integer(query.Offset));
         await using var reader = await page.ExecuteReaderAsync(cancellationToken);
@@ -342,6 +345,7 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         NpgsqlCommand command, string tenantId, ApprovalCatalogPageQuery query)
     {
         command.Parameters.Add(Text(tenantId)); command.Parameters.Add(NullableText(query.ProjectId));
+        command.Parameters.Add(NullableText(query.TaskId));
         command.Parameters.Add(NullableText(query.State)); command.Parameters.Add(NullableText(query.Priority));
         command.Parameters.Add(Text(query.Due)); command.Parameters.Add(Timestamp(query.Now));
         command.Parameters.Add(Timestamp(query.Now.AddDays(7)));

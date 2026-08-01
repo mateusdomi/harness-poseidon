@@ -322,27 +322,27 @@ public static class DocumentEndpoints
     }
 
     private static async Task<IResult> ListApprovalsAsync(
-        string? projectId, string? state, string? priority, string? due,
+        string? projectId, string? taskId, string? state, string? priority, string? due,
         int? page, int? pageSize, string? cursor, int? limit, HttpRequest request,
         ILocalProfileStore profiles, IDocumentCatalogStore store, IClock clock,
         CancellationToken token)
     {
         var invalid = ApprovalPageValidation(
-            projectId, state, priority, due, page, pageSize, cursor, limit);
+            projectId, taskId, state, priority, due, page, pageSize, cursor, limit);
         if (invalid is not null) return invalid;
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
         if (cursor is not null || limit is not null)
         {
             var size = limit ?? 100;
             var rows = await store.ListApprovalsAsync(
-                profile.TenantId, projectId, cursor, size + 1, token);
+                profile.TenantId, projectId, taskId, cursor, size + 1, token);
             var more = rows.Count > size; var selected = rows.Take(size).ToArray();
             return Results.Ok(new ApprovalPage(selected.Select(ToContract).ToArray(),
                 more ? selected[^1].Id : null, selected.Length, 1, size));
         }
         var requestedPage = page ?? 1; var requestedSize = pageSize ?? 15;
         var result = await store.PageApprovalsAsync(profile.TenantId, new(
-            projectId, state, priority, due ?? "all", clock.UtcNow,
+            projectId, taskId, state, priority, due ?? "all", clock.UtcNow,
             checked((requestedPage - 1) * requestedSize), requestedSize), token);
         return Results.Ok(new ApprovalPage(result.Items.Select(ToContract).ToArray(), null,
             result.Total, requestedPage, requestedSize));
@@ -513,10 +513,10 @@ public static class DocumentEndpoints
         .Replace("%", "\\%", StringComparison.Ordinal)
         .Replace("_", "\\_", StringComparison.Ordinal);
     private static IResult? ApprovalPageValidation(
-        string? projectId, string? state, string? priority, string? due,
+        string? projectId, string? taskId, string? state, string? priority, string? due,
         int? page, int? pageSize, string? cursor, int? limit)
     {
-        if (projectId is not null && !Valid(projectId) ||
+        if (projectId is not null && !Valid(projectId) || taskId is not null && !Valid(taskId) ||
             state is not null && !ApprovalStates.Contains(state) ||
             priority is not null && !Priorities.Contains(priority) ||
             due is not null && !DueFilters.Contains(due) ||

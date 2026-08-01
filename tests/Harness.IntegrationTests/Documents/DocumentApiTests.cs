@@ -189,6 +189,13 @@ public sealed class DocumentApiTests
                         new ResolveApprovalRequest("rejected", "Estratégia recusada."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, rejectHuman.StatusCode);
                     approvals = await client.GetFromJsonAsync<ApprovalPage>($"/api/v1/approvals?projectId={projectId}", timeout.Token);
                     Assert.Equal(4, approvals!.Items.Count); Assert.Equal("critical", approvals.Items.Single(value => value.Id == taskApprovalId).Priority);
+                    var taskApprovals = await client.GetFromJsonAsync<ApprovalPage>(
+                        $"/api/v1/approvals?taskId={taskId}", timeout.Token);
+                    Assert.Equal(taskApprovalId, Assert.Single(taskApprovals!.Items).Id);
+                    Assert.Equal(1, taskApprovals.Total);
+                    using (var invalidTaskFilter = await client.GetAsync(
+                        "/api/v1/approvals?taskId=not-a-ulid", timeout.Token))
+                        Assert.Equal(HttpStatusCode.BadRequest, invalidTaskFilter.StatusCode);
                     var allResolved = await WaitForEventsAsync(client, $"project:{projectId}", "approval.resolved", 4, timeout.Token);
                     Assert.Equal(humanApprovalId, allResolved.Delta.Last(value => value.Type == "approval.resolved").Payload.GetProperty("approvalId").GetString());
                 }

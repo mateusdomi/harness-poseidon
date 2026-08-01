@@ -139,7 +139,7 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
         }, cancellationToken);
 
     public Task<IReadOnlyList<ApprovalCatalogRecord>> ListApprovalsAsync(
-        string tenantId, string? projectId, string? afterId, int limit,
+        string tenantId, string? projectId, string? taskId, string? afterId, int limit,
         CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<IReadOnlyList<ApprovalCatalogRecord>>(async (connection, token) =>
         {
@@ -147,8 +147,10 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
             await using var query = connection.CreateCommand();
             query.CommandText = "SELECT * FROM (" + ApprovalSelect + ") a " +
                 "WHERE tenant_id=$tenant AND ($project IS NULL OR project_id=$project) " +
+                "AND ($task IS NULL OR task_id=$task) " +
                 "AND ($after IS NULL OR id>$after) ORDER BY id LIMIT $limit;";
             Add(query, "$tenant", tenantId); AddNullable(query, "$project", projectId);
+            AddNullable(query, "$task", taskId);
             AddNullable(query, "$after", afterId); Add(query, "$limit", limit);
             await using var reader = await query.ExecuteReaderAsync(token);
             while (await reader.ReadAsync(token)) rows.Add(ReadApproval(reader));
@@ -162,6 +164,7 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
         {
             const string filters =
                 "tenant_id=$tenant AND ($project IS NULL OR project_id=$project) " +
+                "AND ($task IS NULL OR task_id=$task) " +
                 "AND ($state IS NULL OR state=$state) AND ($priority IS NULL OR priority=$priority) " +
                 "AND ($due='all' OR ($due='overdue' AND due_at IS NOT NULL AND due_at<$now) " +
                 "OR ($due='week' AND due_at IS NOT NULL AND due_at<=$week) " +
@@ -276,6 +279,7 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
         SqliteCommand command, string tenantId, ApprovalCatalogPageQuery query)
     {
         Add(command, "$tenant", tenantId); AddNullable(command, "$project", query.ProjectId);
+        AddNullable(command, "$task", query.TaskId);
         AddNullable(command, "$state", query.State); AddNullable(command, "$priority", query.Priority);
         Add(command, "$due", query.Due); Add(command, "$now", query.Now.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         Add(command, "$week", query.Now.AddDays(7).ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));

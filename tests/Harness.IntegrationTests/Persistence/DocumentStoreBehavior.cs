@@ -328,7 +328,7 @@ internal static class DocumentStoreBehavior
         Assert.Equal(1, pending.Version);
         Assert.Equal(2, pendingSnapshot.StateTransitions.Count);
         var approvalPage = await catalog.PageApprovalsAsync(command.TenantId, new(
-            command.ProjectId, "pending", "high", "week", append.OccurredAt, 0, 1),
+            command.ProjectId, null, "pending", "high", "week", append.OccurredAt, 0, 1),
             cancellationToken);
         Assert.Single(approvalPage.Items); Assert.True(approvalPage.Total >= 1);
         Assert.Equal(firstApproval.ApprovalRequestId, approvalPage.Items[0].Id);

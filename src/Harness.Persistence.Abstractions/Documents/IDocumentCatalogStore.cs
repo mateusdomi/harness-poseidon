@@ -25,7 +25,7 @@ public interface IDocumentCatalogStore
         string tenantId, string versionId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ApprovalCatalogRecord>> ListApprovalsAsync(
-        string tenantId, string? projectId, string? afterId, int limit,
+        string tenantId, string? projectId, string? taskId, string? afterId, int limit,
         CancellationToken cancellationToken = default);
 
     Task<ApprovalCatalogPageRecord> PageApprovalsAsync(
@@ -79,7 +79,7 @@ public sealed record ApprovalCatalogRecord(
     DateTimeOffset? ResolvedAt, string? ResolutionNote, long AggregateVersion);
 
 public sealed record ApprovalCatalogPageQuery(
-    string? ProjectId, string? State, string? Priority, string Due,
+    string? ProjectId, string? TaskId, string? State, string? Priority, string Due,
     DateTimeOffset Now, int Offset, int Limit);
 
 public sealed record ApprovalCatalogPageRecord(
