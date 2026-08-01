@@ -589,7 +589,8 @@ public static class HostApplication
                 services.GetRequiredService<IToolCatalogStore>(),
                 services.GetRequiredService<IMastClassificationStore>(),
                 services.GetRequiredService<Execution.SandboxAttestationService>(),
-                services.GetRequiredService<ExecutionCheckpointService>()));
+                services.GetRequiredService<ExecutionCheckpointService>(),
+                services.GetRequiredService<Harness.Host.Governance.PromotedSkillProvider>()));
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para
@@ -760,6 +761,7 @@ public static class HostApplication
         }
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IHybridRagSearchEngine, Harness.Modules.Governance.Memory.HybridRagSearchEngine>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IRagContextProvider, Harness.Modules.Governance.Memory.RagContextProvider>();
+        builder.Services.AddSingleton<Harness.Host.Governance.PromotedSkillProvider>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Memory.IContextBuilder, Harness.Modules.Governance.Memory.ContextBuilder>();
         builder.Services.AddSingleton<Harness.Modules.Coordination.Application.IMultimodalIntakeService, Harness.Modules.Coordination.Application.MultimodalIntakeService>();
         builder.Services.AddSingleton<Harness.Modules.Governance.Ledger.ILedgerReconciliationService, Harness.Modules.Governance.Ledger.LedgerReconciliationService>();

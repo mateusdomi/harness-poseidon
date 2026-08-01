@@ -30,6 +30,26 @@ public sealed record ContextMemorySlice(
     string CitationReference,
     int EstimatedTokens);
 
+/// <summary>
+/// Fatia de SKILL PROMOVIDA — uma instrução que o ciclo de aprendizado aprovou e promoveu, e que
+/// passa a valer para as próximas execuções.
+///
+/// Existia o caminho inteiro até <c>Promoted</c> — proposta, avaliação, sombra, aprovação — e
+/// nenhum leitor: a skill era promovida e ficava no banco, sem nunca chegar a um agente. Esta
+/// fatia é o consumo.
+///
+/// <c>PathScopes</c> é o ESCOPO: vazio significa "vale para o projeto todo"; com
+/// caminhos, a skill só entra no bundle de um card que trabalhe dentro deles. Uma skill aprendida
+/// consertando o frontend não deve reaparecer como instrução num card de migração de banco.
+/// </summary>
+public sealed record ContextSkillSlice(
+    string SkillId,
+    string Title,
+    string Instructions,
+    IReadOnlyList<string> PathScopes,
+    string CitationReference,
+    int EstimatedTokens);
+
 public sealed record ContextBundleRequest(
     string TenantId,
     string ProjectId,
@@ -49,7 +69,8 @@ public sealed record ContextBundleRequest(
     IReadOnlyList<string> Evidence,
     IReadOnlyList<string> StopConditions,
     int TokenBudget,
-    IReadOnlyList<ContextMemorySlice>? MemorySlices = null);
+    IReadOnlyList<ContextMemorySlice>? MemorySlices = null,
+    IReadOnlyList<ContextSkillSlice>? SkillSlices = null);
 
 public sealed record ContextBundleDocument(
     string DocumentId,
@@ -287,6 +308,27 @@ public sealed class ContextBundleBuilder
         Add(segments, ContextSegmentKind.Evidence, "runtime:evidence", request.Evidence, false);
         Add(segments, ContextSegmentKind.StopCondition, "runtime:stop-conditions", request.StopConditions, true);
         Add(segments, ContextSegmentKind.Budget, "runtime:budget", [$"tokenBudget={request.TokenBudget}"], true);
+        foreach (var skill in request.SkillSlices ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(skill.SkillId) ||
+                string.IsNullOrWhiteSpace(skill.Instructions) ||
+                string.IsNullOrWhiteSpace(skill.CitationReference) ||
+                !SkillAppliesTo(skill, request.Paths))
+            {
+                continue;
+            }
+
+            // NÃO é obrigatória: uma skill aprendida é uma ajuda, e o orçamento de tokens deve
+            // cortá-la antes de cortar critério de aceite, condição de parada ou orçamento.
+            segments.Add(new ContextBundleSegment(
+                ContextSegmentKind.Skill,
+                $"skill:{skill.SkillId}",
+                $"{skill.Title.Trim()}\n{skill.Instructions.Trim()}\n\nCitation: {skill.CitationReference}",
+                Math.Max(1, skill.EstimatedTokens),
+                false,
+                skill.CitationReference));
+        }
+
         foreach (var slice in request.MemorySlices ?? [])
         {
             if (string.IsNullOrWhiteSpace(slice.DocumentId) ||
@@ -305,6 +347,54 @@ public sealed class ContextBundleBuilder
                 slice.CitationReference));
         }
     }
+
+    /// <summary>
+    /// A skill entra quando não declara escopo (vale para o projeto) ou quando algum de seus
+    /// caminhos toca os caminhos do card. A comparação é por PREFIXO de segmento — <c>src/api</c>
+    /// cobre <c>src/api/users.cs</c>, mas não <c>src/apiary</c>, que só compartilha o texto.
+    /// </summary>
+    private static bool SkillAppliesTo(ContextSkillSlice skill, IReadOnlyList<string> paths)
+    {
+        var scopes = skill.PathScopes ?? [];
+        if (scopes.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var scope in scopes)
+        {
+            var normalizedScope = NormalizePath(scope);
+            if (normalizedScope.Length == 0)
+            {
+                // Escopo vazio dentro de uma lista declarada não é "tudo": é declaração
+                // malformada, e alargar o alcance por causa dela seria decidir a favor do risco.
+                continue;
+            }
+
+            foreach (var path in paths ?? [])
+            {
+                var normalizedPath = NormalizePath(path);
+                if (normalizedPath.Length == 0)
+                {
+                    continue;
+                }
+
+                if (Covers(normalizedScope, normalizedPath) || Covers(normalizedPath, normalizedScope))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool Covers(string outer, string inner) =>
+        string.Equals(outer, inner, StringComparison.Ordinal) ||
+        (inner.StartsWith(outer, StringComparison.Ordinal) && inner[outer.Length] == '/');
+
+    private static string NormalizePath(string? value) =>
+        (value ?? string.Empty).Replace('\\', '/').Trim().TrimEnd('/').TrimStart('.', '/');
 
     private static void Add(
         List<ContextBundleSegment> segments,

@@ -57,7 +57,8 @@ public sealed class AgentRunOrchestrator(
     IToolCatalogStore toolCatalog,
     IMastClassificationStore mastClassifications,
     SandboxAttestationService sandboxAttestations,
-    ExecutionCheckpointService checkpoints)
+    ExecutionCheckpointService checkpoints,
+    Harness.Host.Governance.PromotedSkillProvider promotedSkills)
 {
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
@@ -762,6 +763,10 @@ public sealed class AgentRunOrchestrator(
                 command.ProjectId,
                 string.Join('\n', new[] { command.Instruction }.Concat(command.AcceptanceCriteria)),
                 cancellationToken: cancellationToken);
+            // Fase 1D: o que a fábrica APRENDEU volta para quem executa. Skills promovidas do
+            // projeto entram no bundle filtradas pelo escopo da persona que as originou.
+            var skills = await promotedSkills.ListForProjectAsync(
+                command.TenantId, command.ProjectId, cancellationToken);
             var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
                 command.TenantId, command.ProjectId, command.TaskId, command.AttemptId,
                 command.AccountAlias, account.ProviderKind, command.Model,
@@ -776,7 +781,8 @@ public sealed class AgentRunOrchestrator(
                     slice.DocumentId,
                     slice.Content,
                     slice.CitationReference,
-                    slice.TokenCount)).ToArray()));
+                    slice.TokenCount)).ToArray(),
+                skills));
 
             await governance.CreateContextSnapshotAsync(
                 ContextSnapshotFactory.Create(

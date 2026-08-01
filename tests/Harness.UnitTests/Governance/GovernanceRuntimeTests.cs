@@ -236,6 +236,82 @@ public sealed class GovernanceRuntimeTests
         }
     }
 
+    /// <summary>
+    /// Fase 1D — a skill promovida chega ao agente, e chega FILTRADA pelo escopo.
+    ///
+    /// A skill do escopo do card entra; a de outro escopo não entra. Sem o filtro, uma skill
+    /// aprendida no frontend viraria instrução num card de banco — e instrução fora de contexto
+    /// não é ajuda inerte: ela compete com o critério de aceite pela atenção do agente.
+    /// </summary>
+    [Fact]
+    public void PromotedSkillsEnterTheBundleOnlyWithinTheirScope()
+    {
+        var bundle = new ContextBundleBuilder(FindRepositoryRoot()).Build(
+            Request() with
+            {
+                Paths = ["src/Harness.Host/Agents/AgentRunOrchestrator.cs"],
+                SkillSlices =
+                [
+                    new ContextSkillSlice(
+                        "skill-in-scope",
+                        "Sempre medir o quadro antes de confiar no marcador.",
+                        "Antes de tratar o plano como materializado, contar os cards no quadro.",
+                        ["src/Harness.Host"],
+                        "learning-candidate:skill-in-scope@2",
+                        30),
+                    new ContextSkillSlice(
+                        "skill-out-of-scope",
+                        "Skill de frontend.",
+                        "Preferir composição a herança nos componentes.",
+                        ["frontend/src"],
+                        "learning-candidate:skill-out-of-scope@1",
+                        30),
+                    new ContextSkillSlice(
+                        "skill-project-wide",
+                        "Skill sem escopo declarado.",
+                        "Registrar a evidência antes de declarar conclusão.",
+                        [],
+                        "learning-candidate:skill-project-wide@1",
+                        20),
+                ],
+            });
+
+        var skills = bundle.Segments
+            .Where(segment => segment.Kind == ContextSegmentKind.Skill)
+            .Select(segment => segment.SourceId)
+            .ToArray();
+
+        Assert.Contains("skill:skill-in-scope", skills);
+        Assert.Contains("skill:skill-project-wide", skills);
+        Assert.DoesNotContain("skill:skill-out-of-scope", skills);
+        Assert.Contains("Citation: learning-candidate:skill-in-scope@2", bundle.RenderedContext);
+        Assert.DoesNotContain("Preferir composição a herança", bundle.RenderedContext);
+    }
+
+    /// <summary>
+    /// O escopo casa por SEGMENTO de caminho, não por texto: <c>src/api</c> não pode arrastar
+    /// junto <c>src/apiary</c>, que só compartilha um prefixo de string.
+    /// </summary>
+    [Fact]
+    public void SkillScopeMatchesPathSegmentsAndNotStringPrefixes()
+    {
+        var bundle = new ContextBundleBuilder(FindRepositoryRoot()).Build(
+            Request() with
+            {
+                Paths = ["src/apiary/hive.cs"],
+                SkillSlices =
+                [
+                    new ContextSkillSlice(
+                        "skill-api", "Skill da API.", "Validar o contrato antes de publicar.",
+                        ["src/api"], "learning-candidate:skill-api@1", 20),
+                ],
+            });
+
+        Assert.DoesNotContain(
+            bundle.Segments,
+            segment => segment.Kind == ContextSegmentKind.Skill);
+    }
+
     private static ContextBundleRequest Request() => new(
         "tenant", "project", "task", "attempt", "chief", "poseidon", "fake",
         "chief-turn", "execution", "orchestration", "medium", [], "{}",
