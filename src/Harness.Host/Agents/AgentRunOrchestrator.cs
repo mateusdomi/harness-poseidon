@@ -60,11 +60,12 @@ public sealed class AgentRunOrchestrator(
     SandboxAttestationService sandboxAttestations,
     ExecutionCheckpointService checkpoints,
     Harness.Host.Governance.PromotedSkillProvider promotedSkills,
-    IAgentCatalogStore personas)
+    IAgentCatalogStore personas) : IHostedService
 {
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
+    private int _acceptingRuns = 1;
 
     /// <summary>
     /// Tentativas vivas NESTE processo agora. É o sinal de concorrência global que o
@@ -85,6 +86,51 @@ public sealed class AgentRunOrchestrator(
         Task<AgentRunSnapshot> Completion);
 
     /// <summary>
+    /// O orquestrador participa explicitamente do ciclo de vida do Host. Sem isto, parar o
+    /// Poseidon descartava o contêiner de DI enquanto os processos externos continuavam vivos,
+    /// reparentados ao PID 1 e escrevendo em worktrees sem dono.
+    /// </summary>
+    Task IHostedService.StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    async Task IHostedService.StopAsync(CancellationToken cancellationToken)
+    {
+        _ = Interlocked.Exchange(ref _acceptingRuns, 0);
+        var live = _live.Values.ToArray();
+        if (live.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var run in live)
+        {
+            run.Cancellation.Cancel();
+        }
+
+        // Encerrar a árvore primeiro é determinístico e não depende de a CLI respeitar o token.
+        // PendingSession é intencionalmente no-op: nesse estágio o cancelamento acima interrompe
+        // a preparação antes de um processo externo nascer.
+        foreach (var run in live)
+        {
+            await run.Session.StopAsync(CancellationToken.None);
+        }
+
+        try
+        {
+            await Task.WhenAll(live.Select(run => run.Completion))
+                .WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // O processo externo já foi encerrado. O Host pode concluir o shutdown mesmo se uma
+            // persistência best-effort de encerramento ultrapassar a janela do operador.
+        }
+        catch (TimeoutException)
+        {
+            // Mesma garantia: nenhuma CLI sobrevive; a recuperação durável reconcilia o workspace.
+        }
+    }
+
+    /// <summary>
     /// Adquire tudo o que o run precisa e devolve imediatamente com <c>Accepted</c>. A
     /// execução segue em background: um turno de agente dura minutos e não pode ficar preso
     /// numa requisição HTTP.
@@ -95,6 +141,11 @@ public sealed class AgentRunOrchestrator(
         ArgumentNullException.ThrowIfNull(command);
         var now = clock.UtcNow;
         var runId = UlidValue.New(now).ToString();
+
+        if (Volatile.Read(ref _acceptingRuns) == 0)
+        {
+            return Rejected(runId, command, "orchestrator.stopping");
+        }
 
         // 1. O escopo pertence ao PAPEL. Um claim fora do escopo bloqueia antes de tudo.
         var decision = AgentPathScopePolicy.Evaluate(command.PathScopeKind, command.ScopeClaims);

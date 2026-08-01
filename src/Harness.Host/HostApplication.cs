@@ -594,6 +594,10 @@ public static class HostApplication
                 services.GetRequiredService<ExecutionCheckpointService>(),
                 services.GetRequiredService<Harness.Host.Governance.PromotedSkillProvider>(),
                 services.GetRequiredService<IAgentCatalogStore>()));
+            // A mesma instância singleton governa o shutdown: cancela tokens, mata as árvores das
+            // CLIs e aguarda a finalização durável antes que os stores sejam descartados.
+            builder.Services.AddHostedService(services =>
+                services.GetRequiredService<AgentRunOrchestrator>());
 
             // GP-06 (fecho): com o Chefe executável pela CLI, semeia de forma idempotente a conta e
             // o modelo REAIS que o gate de prontidão e o roteamento exigem, aponta o chefe para
