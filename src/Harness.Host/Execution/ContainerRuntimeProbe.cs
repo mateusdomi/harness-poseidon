@@ -22,9 +22,71 @@ public static class ContainerRuntimeProbe
     public const string Message =
         "Preciso do Docker para trabalhar com segurança — instale ou inicie o Docker e me chame de novo.";
 
+    /// <summary>
+    /// Mensagem para quando o Docker está de pé mas a IMAGEM do agente não existe.
+    ///
+    /// É um estado diferente e precisava de mensagem própria: o piloto real mostrou o Docker
+    /// rodando, o doctor verde e TODA execução recusada com `sandbox_required` — vinte e uma
+    /// tentativas do mesmo card, canceladas em milissegundos, sem que nada dissesse que faltava
+    /// uma imagem. "Docker disponível" e "posso executar" não são a mesma afirmação.
+    /// </summary>
+    private static readonly System.Text.CompositeFormat MissingImageFormat =
+        System.Text.CompositeFormat.Parse(MissingImageMessage);
+
+    /// <summary>A mensagem de imagem ausente, já com o nome da imagem que falta.</summary>
+    public static string MissingImage(string imageName) =>
+        string.Format(System.Globalization.CultureInfo.InvariantCulture, MissingImageFormat, imageName);
+
+    public const string MissingImageMessage =
+        "O Docker está funcionando, mas a imagem de execução dos agentes ainda não existe nesta " +
+        "máquina — sem ela eu não consigo trabalhar em ambiente isolado. Construa a imagem " +
+        "'{0}' e me chame de novo.";
+
     private static readonly Lazy<bool> Available = new(Detect, isThreadSafe: true);
 
     public static bool IsAvailable() => Available.Value;
+
+    /// <summary>
+    /// A imagem existe localmente? Sem ela o contêiner não sobe, a atestação resolve como não
+    /// verificada e toda execução é recusada — corretamente, mas sem que ninguém saiba por quê.
+    /// </summary>
+    public static bool HasImage(string imageName)
+    {
+        if (string.IsNullOrWhiteSpace(imageName))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "docker",
+                ArgumentList = { "image", "inspect", imageName, "--format", "{{.Id}}" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            });
+            if (process is null)
+            {
+                return false;
+            }
+
+            if (!process.WaitForExit(TimeSpan.FromSeconds(10)))
+            {
+                process.Kill(entireProcessTree: true);
+                return false;
+            }
+
+            return process.ExitCode == 0;
+        }
+        catch (Exception exception) when (
+            exception is System.ComponentModel.Win32Exception or InvalidOperationException
+                or System.IO.IOException)
+        {
+            return false;
+        }
+    }
 
     private static bool Detect()
     {

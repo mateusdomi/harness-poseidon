@@ -603,11 +603,25 @@ public static class AgentRunEndpoints
         // 0-E: o diagnóstico começa pelo PRÉ-REQUISITO. Uma conta perfeitamente configurada não
         // executa nada sem contêiner, e listar as contas como saudáveis nesse estado seria mentir
         // sobre a prontidão do produto.
-        var containerRuntimeReady = Execution.ContainerRuntimeProbe.IsAvailable();
+        // Docker de pé NÃO é o mesmo que "posso executar": sem a imagem do agente o contêiner não
+        // sobe, a atestação resolve como não verificada e toda execução é recusada. O piloto real
+        // mostrou exatamente isso — doctor verde e vinte e uma tentativas canceladas em silêncio.
+        var isolated = services.GetService<Execution.IsolatedExecutionSettings>()
+            ?? new Execution.IsolatedExecutionSettings();
+        var runtimeUp = Execution.ContainerRuntimeProbe.IsAvailable();
+        var imageReady = runtimeUp &&
+            Execution.ContainerRuntimeProbe.HasImage(isolated.AgentImageName);
+        var containerRuntimeReady = runtimeUp && imageReady;
+        var containerRuntimeMessage = !runtimeUp
+            ? Execution.ContainerRuntimeProbe.Message
+            : imageReady
+                ? null
+                : Execution.ContainerRuntimeProbe.MissingImage(isolated.AgentImageName);
+
         var reports = await orchestrator.DoctorAsync(token);
         return Results.Ok(new AgentAccountDoctorResponse(
             containerRuntimeReady,
-            containerRuntimeReady ? null : Execution.ContainerRuntimeProbe.Message,
+            containerRuntimeMessage,
             [.. reports.Select(report => new AgentAccountDoctorContract(
                 report.Alias,
                 report.ExecutorId,
