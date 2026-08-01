@@ -19,6 +19,27 @@ dono é um piloto reprovado; um projeto modesto que sai sozinho é um piloto apr
 Contas cujo executor não tem adapter (hoje, a de Kimi) são **ignoradas pelo escalonador**, não
 causam falha: `AgentAccountScheduler` filtra por `ExternalAgentExecutorFactory.IsImplemented`.
 
+### Navegadores da estação macOS de QA
+
+Esta estação mantém navegadores, drivers e os motores do Playwright prontos para os testes
+humanos da Bruna e do produto gerado. Antes de concluir que não há navegador, verifique o `PATH`
+e estes locais conhecidos:
+
+| Recurso | Comandos no `PATH` | Local conhecido |
+| --- | --- | --- |
+| Google Chrome | `google-chrome`, `chrome` | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
+| Chromium | `chromium`, `chromium-browser` | `/Applications/Chromium.app/Contents/MacOS/Chromium` |
+| Firefox | `firefox` | `/Applications/Firefox.app/Contents/MacOS/firefox` |
+| Microsoft Edge | `msedge`, `edge` | `/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge` |
+| WebDrivers | `chromedriver`, `geckodriver` | `/opt/homebrew/bin/` |
+| Motores Playwright | — | `~/Library/Caches/ms-playwright` |
+
+O gate versionado continua sendo `tools/backend/verify-screens.sh`. Para uma reprodução focada,
+use o Playwright instalado pelo projeto (`cd frontend && npx playwright test`); Python e Node.js
+também podem iniciar `chromium`, `firefox` ou `webkit` em modo headless. Um smoke direto pode usar
+`google-chrome --headless --screenshot=<arquivo> <url>`. Registre URL, navegador, comando, resultado
+e evidência; a presença do binário, sozinha, não comprova o comportamento da tela.
+
 ## Insumo do dono — o único
 
 Nome e objetivo do projeto, **em prosa, pelo chat**, exatamente como um cliente leigo faria. Nada

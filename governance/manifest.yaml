@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-07-26T17:25:32.9586780+00:00
+lastGeneratedAt: 2026-08-01T19:48:57.9244950+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -825,7 +825,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:07d59ae8b8f18fab03f4cdcdc6f8f0ee1cb99ddb733526126f8954878b959482
+  checksum: sha256:6309726d140a11aa6ee95faedb508cb7bb5ba5a7f08e791e69e6364ad1885bdd
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1802,7 +1802,7 @@ documents:
   - docs/architecture/audits/bruna/**
   load: on-demand
   priority: 700
-  tokenCost: 1019
+  tokenCost: 1280
   owner: Operations
   status: active
   version: 1.0.0
@@ -1812,7 +1812,7 @@ documents:
   dependencies: []
   related: []
   enforcedBy: []
-  checksum: sha256:31c24142b98fee8bcfdd7e108f15c82045d252783f01052c45a0618d0819b678
+  checksum: sha256:08e39d997ab9b139091582155a9dc6fb1170a7fb1fad733b6c26fe0c1c94bf3c
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/backend/runbooks/piloto-real.md
@@ -1846,7 +1846,7 @@ documents:
   - src/Harness.Persistence.*/**
   load: on-demand
   priority: 750
-  tokenCost: 3240
+  tokenCost: 2570
   owner: Operations
   status: active
   version: 2.0.0

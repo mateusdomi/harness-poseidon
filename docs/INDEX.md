@@ -129,8 +129,8 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Runbook de incidente](backend/runbooks/incident.md) | sustentation | Active | Operations | OnDemand | 228 |
-| [Runbook de recuperação](backend/runbooks/recovery.md) | sustentation | Active | Operations | OnDemand | 3240 |
-| [Runbook do piloto real](backend/runbooks/piloto-real.md) | homologation | Active | Operations | OnDemand | 1019 |
+| [Runbook de recuperação](backend/runbooks/recovery.md) | sustentation | Active | Operations | OnDemand | 2570 |
+| [Runbook do piloto real](backend/runbooks/piloto-real.md) | homologation | Active | Operations | OnDemand | 1280 |
 
 #### security
 
