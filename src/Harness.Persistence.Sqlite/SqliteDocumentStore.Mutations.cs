@@ -59,7 +59,9 @@ public sealed partial class SqliteDocumentStore
                 row.State,
                 row.CurrentVersion);
         }
-        else if (row.State is not ("in_elaboration" or "in_review" or "awaiting_approval"))
+        else if (row.State is not (
+                     "in_elaboration" or "in_review" or "awaiting_approval" or
+                     "approved" or "outdated"))
         {
             receipt = Rejected(
                 DocumentMutationStatus.InvalidState,
@@ -72,6 +74,8 @@ public sealed partial class SqliteDocumentStore
         {
             var nextDocumentVersion = row.Version + 1;
             var nextContentVersion = row.CurrentVersion + 1;
+            var reopensApprovedVersion = row.State is "approved" or "outdated";
+            var nextState = reopensApprovedVersion ? "in_elaboration" : row.State;
             await using (var insert = connection.CreateCommand())
             {
                 insert.Transaction = transaction;
@@ -84,8 +88,16 @@ public sealed partial class SqliteDocumentStore
                             $catalogPath,$contentHash,$supersedesId,$authorKind,$authorId,$occurredAt);
 
                     UPDATE documents
-                    SET current_version=$contentVersion,version=$nextVersion,updated_at=$occurredAt
+                    SET state=$nextState,current_version=$contentVersion,version=$nextVersion,
+                        updated_at=$occurredAt
                     WHERE tenant_id=$tenantId AND id=$documentId AND version=$expectedVersion;
+
+                    INSERT INTO document_state_transitions
+                        (id,tenant_id,project_id,document_id,document_version,from_state,to_state,
+                         note,actor_kind,actor_id,occurred_at)
+                    SELECT $documentVersionId,$tenantId,$projectId,$documentId,$nextVersion,
+                           $fromState,$nextState,$reopenNote,$authorKind,$authorId,$occurredAt
+                    WHERE $reopensApprovedVersion=1;
 
                     UPDATE document_approval_requests
                     SET document_version_id=$documentVersionId,version=version+1
@@ -102,12 +114,17 @@ public sealed partial class SqliteDocumentStore
                 Add(insert, "$supersedesId", row.CurrentDocumentVersionId);
                 Add(insert, "$authorKind", command.AuthorKind);
                 AddNullable(insert, "$authorId", command.AuthorId);
+                Add(insert, "$fromState", row.State);
+                Add(insert, "$nextState", nextState);
+                Add(insert, "$reopenNote", $"version-appended:{command.DocumentVersionId}");
+                Add(insert, "$reopensApprovedVersion", reopensApprovedVersion ? 1 : 0);
                 Add(insert, "$occurredAt", Store(command.OccurredAt));
                 Add(insert, "$nextVersion", nextDocumentVersion);
                 Add(insert, "$expectedVersion", command.ExpectedDocumentVersion);
                 var rebindApproval = row.State == "awaiting_approval";
                 Add(insert, "$rebindApproval", rebindApproval ? 1 : 0);
-                var expectedChanges = rebindApproval ? 3 : 2;
+                var expectedChanges = 2 + (rebindApproval ? 1 : 0) +
+                                      (reopensApprovedVersion ? 1 : 0);
                 if (await insert.ExecuteNonQueryAsync(cancellationToken) != expectedChanges)
                 {
                     throw new InvalidOperationException(
@@ -119,7 +136,7 @@ public sealed partial class SqliteDocumentStore
                 DocumentMutationStatus.Applied,
                 command.DocumentId,
                 nextDocumentVersion,
-                row.State,
+                nextState,
                 nextContentVersion,
                 command.DocumentVersionId);
         }
@@ -130,6 +147,7 @@ public sealed partial class SqliteDocumentStore
             command,
             hash,
             row?.ProjectId,
+            row?.State,
             receipt,
             cancellationToken);
     }
@@ -200,6 +218,7 @@ public sealed partial class SqliteDocumentStore
         DocumentVersionAppendCommand command,
         string hash,
         string? projectId,
+        string? fromState,
         DocumentMutationReceipt receipt,
         CancellationToken cancellationToken)
     {
@@ -210,7 +229,7 @@ public sealed partial class SqliteDocumentStore
             {
                 projectId,
                 documentId = receipt.DocumentId,
-                from = ApiState(receipt.State),
+                from = ApiState(fromState),
                 to = ApiState(receipt.State),
                 documentVersion = receipt.DocumentVersion,
                 currentVersion = receipt.CurrentVersion,

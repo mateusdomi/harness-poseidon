@@ -526,6 +526,38 @@ internal static class DocumentStoreBehavior
             ],
             approved.StateTransitions.Select(item => item.ToState));
 
+        // Uma mudança tardia não pode apagar a versão aprovada nem permanecer falsamente
+        // aprovada. O append reabre atomicamente o documento para elaboração e registra o elo.
+        var approvedRevision = new DocumentVersionAppendCommand(
+            command.TenantId,
+            command.DocumentId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FC1",
+            "docs/architecture/context-map-v4.md",
+            new string('C', 64),
+            "agent",
+            "01ARZ3NDEKTSV4RRFFQ69G5FC2",
+            approved.Version,
+            "document:append:approved-revision",
+            append.OccurredAt.AddMinutes(16));
+        var revisedAfterApproval = await store.AppendVersionAsync(
+            approvedRevision, cancellationToken);
+        Assert.Equal(DocumentMutationStatus.Applied, revisedAfterApproval.Status);
+        Assert.Equal("in_elaboration", revisedAfterApproval.State);
+        Assert.Equal(4, revisedAfterApproval.CurrentVersion);
+        Assert.Equal(
+            DocumentMutationStatus.IdempotentReplay,
+            (await store.AppendVersionAsync(approvedRevision, cancellationToken)).Status);
+        var reopened = await store.ReadAsync(
+            command.TenantId, command.DocumentId, cancellationToken);
+        Assert.NotNull(reopened);
+        Assert.Equal("in_elaboration", reopened.State);
+        Assert.Equal(4, reopened.CurrentVersion);
+        Assert.Equal(4, reopened.Versions.Count);
+        var reopening = Assert.Single(reopened.StateTransitions, transition =>
+            transition.FromState == "approved" && transition.ToState == "in_elaboration");
+        Assert.Equal("agent", reopening.ActorKind);
+        Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FC2", reopening.ActorId);
+
         await AssertManualEditRebindsPendingApprovalAsync(
             store, command.TenantId, command.ProjectId, cancellationToken);
         await AssertReviewedCardApprovalProjectionAsync(

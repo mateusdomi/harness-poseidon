@@ -62,7 +62,9 @@ public sealed partial class PostgresDocumentStore
                 row.State,
                 row.CurrentVersion);
         }
-        else if (row.State is not ("in_elaboration" or "in_review" or "awaiting_approval"))
+        else if (row.State is not (
+                     "in_elaboration" or "in_review" or "awaiting_approval" or
+                     "approved" or "outdated"))
         {
             receipt = Rejected(
                 DocumentMutationStatus.InvalidState,
@@ -75,6 +77,8 @@ public sealed partial class PostgresDocumentStore
         {
             var nextDocumentVersion = row.Version + 1;
             var nextContentVersion = row.CurrentVersion + 1;
+            var reopensApprovedVersion = row.State is "approved" or "outdated";
+            var nextState = reopensApprovedVersion ? "in_elaboration" : row.State;
             await ExecuteAsync(
                 connection,
                 transaction,
@@ -101,10 +105,11 @@ public sealed partial class PostgresDocumentStore
                 transaction,
                 """
                 UPDATE harness.documents
-                SET current_version=$1,version=$2,updated_at=$3
-                WHERE tenant_id=$4 AND id=$5 AND version=$6;
+                SET state=$1,current_version=$2,version=$3,updated_at=$4
+                WHERE tenant_id=$5 AND id=$6 AND version=$7;
                 """,
                 cancellationToken,
+                Text(nextState),
                 Integer(nextContentVersion),
                 Bigint(nextDocumentVersion),
                 Timestamp(command.OccurredAt),
@@ -138,11 +143,36 @@ public sealed partial class PostgresDocumentStore
                 }
             }
 
+            if (reopensApprovedVersion)
+            {
+                await ExecuteAsync(
+                    connection,
+                    transaction,
+                    """
+                    INSERT INTO harness.document_state_transitions
+                        (id,tenant_id,project_id,document_id,document_version,from_state,to_state,
+                         note,actor_kind,actor_id,occurred_at)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
+                    """,
+                    cancellationToken,
+                    Text(command.DocumentVersionId),
+                    Text(command.TenantId),
+                    Text(row.ProjectId),
+                    Text(command.DocumentId),
+                    Bigint(nextDocumentVersion),
+                    Text(row.State),
+                    Text(nextState),
+                    Text($"version-appended:{command.DocumentVersionId}"),
+                    Text(command.AuthorKind),
+                    NullableText(command.AuthorId),
+                    Timestamp(command.OccurredAt));
+            }
+
             receipt = new DocumentMutationReceipt(
                 DocumentMutationStatus.Applied,
                 command.DocumentId,
                 nextDocumentVersion,
-                row.State,
+                nextState,
                 nextContentVersion,
                 command.DocumentVersionId);
         }
@@ -152,6 +182,7 @@ public sealed partial class PostgresDocumentStore
             transaction,
             command,
             hash,
+            row?.State,
             receipt,
             cancellationToken);
     }
@@ -222,6 +253,7 @@ public sealed partial class PostgresDocumentStore
         NpgsqlTransaction transaction,
         DocumentVersionAppendCommand command,
         string hash,
+        string? fromState,
         DocumentMutationReceipt receipt,
         CancellationToken cancellationToken)
     {
@@ -237,7 +269,8 @@ public sealed partial class PostgresDocumentStore
             var payload = JsonSerializer.Serialize(new
             {
                 documentId = receipt.DocumentId,
-                state = receipt.State,
+                from = ApiState(fromState),
+                to = ApiState(receipt.State),
                 documentVersion = receipt.DocumentVersion,
                 currentVersion = receipt.CurrentVersion,
                 documentVersionId = receipt.DocumentVersionId,
@@ -335,6 +368,15 @@ public sealed partial class PostgresDocumentStore
         string? state = null,
         int? currentVersion = null) =>
         new(status, documentId, version, state, currentVersion);
+
+    private static string? ApiState(string? state) => state switch
+    {
+        "in_elaboration" => "inElaboration",
+        "in_review" => "inReview",
+        "awaiting_approval" => "awaitingApproval",
+        "not_applicable" => "notApplicable",
+        _ => state,
+    };
 
     private sealed record DocumentMutationRow(
         string ProjectId,
