@@ -321,17 +321,24 @@ public sealed partial class ChiefBacklogLoopService(
                 try
                 {
                     await HarvestCompletedRunsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                    token.ThrowIfCancellationRequested();
                     await ReviewAwaitingAttemptsAsync(profile.TenantId, project, controlledRoot, board, chain, token);
+                    token.ThrowIfCancellationRequested();
                     await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
+                    token.ThrowIfCancellationRequested();
                     await ResolveAgentRequestsAsync(profile.TenantId, project, scope, token);
+                    token.ThrowIfCancellationRequested();
                     await IntegrateApprovedCardsAsync(profile.TenantId, project, board, scope, token);
+                    token.ThrowIfCancellationRequested();
                     await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
+                    token.ThrowIfCancellationRequested();
                     await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
+                    token.ThrowIfCancellationRequested();
                     await PromotePlannedCardsAsync(profile.TenantId, project, board, plans, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    LogFollowUpFailure(logger, project.Id, exception.GetType().Name);
+                    LogFollowUpFailure(logger, exception, project.Id, exception.GetType().Name);
                 }
 
                 // Cards prontos para delegar: board_state `ready` (minúsculo — o enum é case-sensitive
@@ -2011,7 +2018,11 @@ public sealed partial class ChiefBacklogLoopService(
     private static partial void LogWorktreeHarvestFailure(ILogger logger, string attemptId, string errorType);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: acompanhamento do projeto {ProjectId} falhou neste ciclo: {ErrorType}.")]
-    private static partial void LogFollowUpFailure(ILogger logger, string projectId, string errorType);
+    private static partial void LogFollowUpFailure(
+        ILogger logger,
+        Exception exception,
+        string projectId,
+        string errorType);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} adiado: {ReasonCode} (volta: {RetryAfter}; contas: {Candidates}).")]
     private static partial void LogCardDeferred(ILogger logger, string taskId, string reasonCode, string retryAfter, string candidates);

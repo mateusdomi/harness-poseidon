@@ -367,6 +367,10 @@ public sealed class AccountProfileProvisionerTests : IDisposable
         Assert.False(report.Healthy);
         Assert.Contains("profile.session_store_missing", report.Findings);
         Assert.Contains("profile.lock_stale", report.Findings);
+
+        provisioner.Ensure(
+            Account(alias, ExecutorCatalog.Codex), Profile(ExecutorCatalog.Codex), Now.AddHours(1));
+        Assert.True(Directory.Exists(handle.Layout.SessionStorePath));
     }
 
     [Fact]

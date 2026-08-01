@@ -98,4 +98,20 @@ public sealed class PhaseObligationPlannerTests
 
         Assert.StartsWith("5-Desenvolvimento —", artifactCard.Title, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData("pending", "validated", "executed,validated")]
+    [InlineData("validated", "approved", "approved")]
+    [InlineData("approved", "validated", "")]
+    public void WorkflowObjectivesAdvanceOneStepAtATimeThroughTheRequiredState(
+        string current,
+        string target,
+        string expected)
+    {
+        var steps = WorkflowPhaseDriver.ObjectiveStepsThrough(current, target);
+
+        Assert.Equal(
+            expected.Length == 0 ? [] : expected.Split(','),
+            steps);
+    }
 }

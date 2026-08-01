@@ -549,6 +549,14 @@ public sealed class AgentRunOrchestrator(
                 criticLock.FencingToken,
                 (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Encerramento do Host não é falha do crítico. Propagar o cancelamento faz o
+            // BackgroundService abandonar o ciclo imediatamente; convertê-lo em
+            // `critic.execution_failed` mantinha a esteira percorrendo todos os reviews durante
+            // o shutdown e fazia o Launcher ultrapassar a janela de desligamento gracioso.
+            throw;
+        }
         catch (Exception)
         {
             return Fail("critic.execution_failed", critic.ExecutorId, criticLock.FencingToken);
@@ -664,6 +672,23 @@ public sealed class AgentRunOrchestrator(
             }
 
             var implemented = ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId);
+            if (implemented)
+            {
+                // O pre-flight não é apenas diagnóstico: antes de escalar uma ausência de
+                // diretórios que o próprio Poseidon sabe criar, revalida o perfil de forma
+                // idempotente. O config home existente (e a autenticação) é preservado.
+                try
+                {
+                    profiles.Ensure(account, executorProfile, now, owner: "poseidon-preflight");
+                }
+                catch (AgentAccountValidationException)
+                {
+                    // Symlink inseguro, referência inválida e conflitos de executor não são
+                    // autorreparáveis. O Doctor abaixo mantém o estado vermelho e os códigos
+                    // fechados, em vez de esconder o bloqueio com uma exceção genérica.
+                }
+            }
+
             var probe = implemented
                 ? await executors.Create(account.ExecutorId).ProbeAsync(cancellationToken)
                 : new ExecutorProbeResult(

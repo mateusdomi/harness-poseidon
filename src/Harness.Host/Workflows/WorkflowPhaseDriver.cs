@@ -64,20 +64,25 @@ public sealed class WorkflowPhaseDriver(
     private static readonly string[] ObjectiveLadder = ["pending", "executed", "validated", "approved"];
 
     /// <summary>
-    /// Degraus que o condutor pode subir a partir do estado atual — até `validated`, nunca
-    /// `approved`: o último degrau é decisão humana (Default-FAIL, HITL).
+    /// Degraus que o condutor precisa subir, um a um, até o estado exigido. O limite é explícito:
+    /// documentos entregues chegam a `validated`; em modo autônomo a Bruna também pode levar um
+    /// objetivo requerido a `approved`, mas somente depois de todas as evidências e gates de
+    /// política terem autorizado a decisão.
     /// </summary>
-    private static IEnumerable<string> ObjectiveStepsAfter(string currentState)
+    public static IEnumerable<string> ObjectiveStepsThrough(string currentState, string targetState)
     {
         var index = Array.FindIndex(
             ObjectiveLadder,
             step => string.Equals(step, currentState, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
+        var target = Array.FindIndex(
+            ObjectiveLadder,
+            step => string.Equals(step, targetState, StringComparison.OrdinalIgnoreCase));
+        if (index < 0 || target < 0 || index >= target)
         {
             yield break;
         }
 
-        for (var next = index + 1; next < ObjectiveLadder.Length - 1; next++)
+        for (var next = index + 1; next <= target; next++)
         {
             yield return ObjectiveLadder[next];
         }
@@ -178,12 +183,14 @@ public sealed class WorkflowPhaseDriver(
             //                 o último degrau esvaziaria o sentido da esteira.
             if (isPending && string.Equals(card.InternalState, "completed", StringComparison.Ordinal))
             {
-                foreach (var step in ObjectiveStepsAfter(objective.State))
+                foreach (var step in ObjectiveStepsThrough(objective.State, "validated"))
                 {
+                    var occurredAt = _clock.UtcNow;
                     var receipt = await _authority.AdvanceObjectiveAsync(
                         new WorkflowObjectiveAdvanceCommand(
                             tenantId, running.Id, phase.Key, objective.Key, step,
-                            runVersion, $"phase-driver:{running.Id}:{objective.Key}:{step}", _clock.UtcNow),
+                            runVersion, MutationKey("objective", running.Id, objective.Key, step, occurredAt),
+                            occurredAt),
                         cancellationToken);
                     if (receipt.Status is not (WorkflowRunMutationStatus.Applied
                         or WorkflowRunMutationStatus.IdempotentReplay))
@@ -273,6 +280,51 @@ public sealed class WorkflowPhaseDriver(
             }
         }
 
+        // O plano de obrigações mede o trabalho real, mas o motor de workflow também mantém
+        // objetivos de tarefa/evidência exigidos pelo gate. Eles não têm card próprio (o produtor
+        // é o conjunto de cards da fase), portanto deixá-los em `pending` fazia o progresso chegar
+        // a 100% enquanto EvaluateGate recusava `GateRequirementsNotMet` para sempre.
+        if (decision == PhaseGateDecision.ChiefApproves && gate is not null)
+        {
+            foreach (var requiredKey in gate.RequiredObjectiveKeys)
+            {
+                var required = phase.Objectives.FirstOrDefault(objective =>
+                    string.Equals(objective.Key, requiredKey, StringComparison.Ordinal));
+                if (required is null)
+                {
+                    _failures.Add($"gate:{gate.Key}:objective_missing:{requiredKey}");
+                    decision = PhaseGateDecision.NotReady;
+                    break;
+                }
+
+                foreach (var step in ObjectiveStepsThrough(required.State, gate.MinimumRequiredState))
+                {
+                    var occurredAt = _clock.UtcNow;
+                    var receipt = await _authority.AdvanceObjectiveAsync(
+                        new WorkflowObjectiveAdvanceCommand(
+                            tenantId, running.Id, phase.Key, required.Key, step, runVersion,
+                            MutationKey("gate-objective", running.Id, required.Key, step, occurredAt),
+                            occurredAt),
+                        cancellationToken);
+                    if (receipt.Status is not (WorkflowRunMutationStatus.Applied
+                        or WorkflowRunMutationStatus.IdempotentReplay))
+                    {
+                        _failures.Add($"{required.Key}->{step}:{receipt.Status}");
+                        decision = PhaseGateDecision.NotReady;
+                        break;
+                    }
+
+                    runVersion = receipt.RunVersion ?? runVersion;
+                    advanced++;
+                }
+
+                if (decision == PhaseGateDecision.NotReady)
+                {
+                    break;
+                }
+            }
+        }
+
         string? gateAwaiting = null;
         string? gateApproved = null;
         if (decision == PhaseGateDecision.AwaitHuman)
@@ -282,7 +334,7 @@ public sealed class WorkflowPhaseDriver(
         else if (decision == PhaseGateDecision.ChiefApproves && gate is not null)
         {
             gateApproved = await TryApproveGateAsync(
-                tenantId, running.Id, phase, gate, runVersion, cancellationToken);
+                tenantId, running.Id, phase, gate, runVersion, actorProfileId, cancellationToken);
         }
 
         return new WorkflowPhaseDriveResult(
@@ -422,33 +474,43 @@ public sealed class WorkflowPhaseDriver(
         WorkflowPhaseRunSnapshot phase,
         WorkflowGateRunSnapshot gate,
         long runVersion,
+        string actorProfileId,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(gate.State, "pending", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(gate.State, "failed", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        var receipt = await _authority.EvaluateGateAsync(
-            new WorkflowGateEvaluateCommand(
-                tenantId, runId, phase.Key, gate.Key, true, runVersion,
-                $"phase-driver-gate:{runId}:{gate.Key}", _clock.UtcNow,
-                DecidedByProfileId: ChiefGateActor,
-                Note: "Portão aprovado pela chefe: todas as obrigações obrigatórias da fase foram " +
-                    "aceitas, sem achado impeditivo e sem card bloqueado (modo autônomo)."),
-            cancellationToken);
-        if (receipt.Status is not (WorkflowRunMutationStatus.Applied
-            or WorkflowRunMutationStatus.IdempotentReplay))
+        if (string.Equals(gate.State, "pending", StringComparison.OrdinalIgnoreCase))
         {
-            _failures.Add($"gate:{gate.Key}:{receipt.Status}");
-            return null;
+            var occurredAt = _clock.UtcNow;
+            var receipt = await _authority.EvaluateGateAsync(
+                new WorkflowGateEvaluateCommand(
+                    tenantId, runId, phase.Key, gate.Key, true, runVersion,
+                    MutationKey("gate", runId, gate.Key, "pass", occurredAt), occurredAt,
+                    // O ledger referencia a identidade persistida que conduziu a decisão. O literal
+                    // histórico `chief` não é ULID, quebrava a mutação no validador e deixava a
+                    // esteira autônoma repetindo a mesma exceção a cada ciclo.
+                    DecidedByProfileId: actorProfileId,
+                    Note: "Portão aprovado pela chefe: todas as obrigações obrigatórias da fase foram " +
+                        "aceitas, sem achado impeditivo e sem card bloqueado (modo autônomo)."),
+                cancellationToken);
+            if (receipt.Status is not (WorkflowRunMutationStatus.Applied
+                or WorkflowRunMutationStatus.IdempotentReplay))
+            {
+                _failures.Add($"gate:{gate.Key}:{receipt.Status}");
+                return null;
+            }
+
+            runVersion = receipt.RunVersion ?? runVersion;
         }
 
-        var version = receipt.RunVersion ?? runVersion;
+        var completionAt = _clock.UtcNow;
         var completion = await _authority.CompletePhaseAsync(
             new WorkflowPhaseCompleteCommand(
-                tenantId, runId, phase.Key, version,
-                $"phase-driver-complete:{runId}:{phase.Key}", _clock.UtcNow),
+                tenantId, runId, phase.Key, runVersion,
+                MutationKey("complete", runId, phase.Key, "phase", completionAt), completionAt),
             cancellationToken);
         if (completion.Status is not (WorkflowRunMutationStatus.Applied
             or WorkflowRunMutationStatus.IdempotentReplay))
@@ -460,8 +522,13 @@ public sealed class WorkflowPhaseDriver(
         return phase.Name;
     }
 
-    /// <summary>Autor registrado quando a decisão do portão é da chefe, não de um humano.</summary>
-    public const string ChiefGateActor = "chief";
+    private static string MutationKey(
+        string operation,
+        string runId,
+        string subject,
+        string step,
+        DateTimeOffset occurredAt) =>
+        $"phase-driver:{operation}:{runId}:{subject}:{step}:{UlidValue.New(occurredAt)}";
 
     private static PhaseObligation ToDomain(PhaseObligationRecord record) => new(
         record.ObligationKey,
