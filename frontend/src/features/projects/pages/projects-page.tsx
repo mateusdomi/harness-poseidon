@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Building2 } from 'lucide-react';
 
-import type { Project } from '@/api';
+import { ApiError, type Project } from '@/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { useApi } from '@/app/api-context';
 import { useOrganizations } from '@/features/organizations/hooks/use-organizations';
@@ -11,6 +11,8 @@ import { ProjectList } from '@/features/projects/components/project-list';
 import { ProjectForm, type ProjectFormValues } from '@/features/projects/components/project-form';
 import { BackLink } from '@/features/shared/components/back-link';
 import { Breadcrumb } from '@/features/shared/components/breadcrumb';
+import { useActiveProject } from '@/features/shared/hooks/use-active-project';
+import { useActiveProjectStore } from '@/stores/active-project-store';
 import {
   useCreateProject,
   useProjectOperationalData,
@@ -27,6 +29,14 @@ function toDeadline(value: string): string | null {
   return value ? `${value}T00:00:00.000Z` : null;
 }
 
+function mutationErrorMessage(error: unknown, fallback: string, alreadyExists: string): string {
+  if (error instanceof ApiError) {
+    if (error.problem.title === 'project_already_exists') return alreadyExists;
+    return error.problem.detail || error.problem.title;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export default function ProjectsPage() {
   const { t } = useTranslation();
   const api = useApi();
@@ -38,6 +48,8 @@ export default function ProjectsPage() {
   const organizationsQuery = useOrganizations();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
+  const { profileId } = useActiveProject();
+  const selectProject = useActiveProjectStore((state) => state.selectProject);
   const [view, setView] = useState<View>({ kind: 'list' });
   const editingProjectId = view.kind === 'edit' ? view.project.id : null;
   const startedQuery = useProjectStarted(editingProjectId);
@@ -73,27 +85,43 @@ export default function ProjectsPage() {
   }
 
   async function handleCreate(values: ProjectFormValues, logoFile?: File | null) {
-    let project = await createProject.mutateAsync({
-      ...toInput(values),
-      workflowTemplateId: values.workflowTemplateId || undefined,
-    });
-    if (logoFile) {
-      project = await api.uploadProjectLogo(project.id, logoFile);
+    try {
+      let project = await createProject.mutateAsync({
+        ...toInput(values),
+        workflowTemplateId: values.workflowTemplateId || undefined,
+      });
+      if (logoFile) {
+        project = await api.uploadProjectLogo(project.id, logoFile);
+      }
+      // A resposta de criação é a autorização do próprio backend para este perfil. Persistimos a
+      // seleção imediatamente: deixar o projeto anterior ativo mistura conversas e cards quando o
+      // usuário naturalmente segue para o Chat depois de criar um projeto novo. A página de
+      // projetos pode ficar interativa antes de o hook global terminar de resolver o perfil;
+      // nesse caso consultamos a sessão diretamente em vez de descartar a seleção em silêncio.
       await projectsQuery.refetch();
+      const activeProfileId = profileId ?? (await api.getCurrentProfile()).id;
+      selectProject(activeProfileId, project.id);
+      setView({ kind: 'edit', project });
+    } catch {
+      // O estado tipado da mutation alimenta o alerta abaixo. Capturar a rejeição evita
+      // unhandled promise e mantém o formulário intacto para correção/reenvio.
     }
-    setView({ kind: 'edit', project });
   }
 
   async function handleUpdate(project: Project, values: ProjectFormValues, logoFile?: File | null) {
-    let updated = await updateProject.mutateAsync({
-      id: project.id,
-      input: { ...toInput(values), state: values.state },
-    });
-    if (logoFile) {
-      updated = await api.uploadProjectLogo(updated.id, logoFile);
-      await projectsQuery.refetch();
+    try {
+      let updated = await updateProject.mutateAsync({
+        id: project.id,
+        input: { ...toInput(values), state: values.state },
+      });
+      if (logoFile) {
+        updated = await api.uploadProjectLogo(updated.id, logoFile);
+        await projectsQuery.refetch();
+      }
+      setView({ kind: 'edit', project: updated });
+    } catch {
+      // Mesma semântica da criação: erro permanece visível e os campos não são perdidos.
     }
-    setView({ kind: 'edit', project: updated });
   }
 
   const organizations = organizationsQuery.data ?? [];
@@ -175,6 +203,15 @@ export default function ProjectsPage() {
             onBack={() => setView({ kind: 'list' })}
             fallbackTo="/projects"
           />
+          {createProject.isError ? (
+            <p role="alert" className="rounded-md border border-error p-3 text-sm text-error">
+              {mutationErrorMessage(
+                createProject.error,
+                t('common.states.errorBody'),
+                t('projects.form.apiErrors.alreadyExists'),
+              )}
+            </p>
+          ) : null}
           <ProjectForm
             organizations={organizations}
             workflowTemplates={workflowCatalogQuery.data?.templates}
@@ -199,6 +236,15 @@ export default function ProjectsPage() {
             onBack={() => setView({ kind: 'list' })}
             fallbackTo="/projects"
           />
+          {updateProject.isError ? (
+            <p role="alert" className="rounded-md border border-error p-3 text-sm text-error">
+              {mutationErrorMessage(
+                updateProject.error,
+                t('common.states.errorBody'),
+                t('projects.form.apiErrors.alreadyExists'),
+              )}
+            </p>
+          ) : null}
           <ProjectForm
             organizations={organizations}
             initial={view.project}

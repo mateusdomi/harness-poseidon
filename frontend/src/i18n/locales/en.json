@@ -735,6 +735,9 @@
         "advanced": "Advanced settings"
       },
       "errorsSummary": "Review the highlighted fields before saving.",
+      "apiErrors": {
+        "alreadyExists": "A project with this title or short code already exists. Change one of them to continue."
+      },
       "identification": {
         "organization": "Organization",
         "name": "Title",

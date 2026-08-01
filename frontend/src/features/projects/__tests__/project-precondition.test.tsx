@@ -1,10 +1,14 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
 
-import type { Page, ResourceKind, ResourceMap } from '@/api';
+import { ApiError, type Page, type ResourceKind, type ResourceMap } from '@/api';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import ProjectsPage from '@/features/projects/pages/projects-page';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useActiveProjectStore } from '@/stores/active-project-store';
+import { useSessionStore } from '@/stores/session-store';
 
 /**
  * GP-08: criar projeto exige organização. O formulário NÃO abre com um select de
@@ -48,5 +52,61 @@ describe('ProjectsPage — pré-condição de organização (GP-08)', () => {
     await screen.findByText(/crie uma organização primeiro/i);
     // Nenhum select é renderizado: nem o de organização do formulário, nem filtros.
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('mostra a falha de criação e preserva o formulário para correção', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    const profileId = bundle.fixtures.meta.currentProfileId;
+    useSessionStore.setState({ activeProfileId: profileId });
+    usePresentationStore.setState({ modeByProfile: {} });
+    usePresentationStore.getState().requestMode(profileId, 'business');
+    vi.spyOn(bundle.api, 'create').mockRejectedValueOnce(
+      ApiError.of(409, 'project_already_exists', 'A project already exists.'),
+    );
+    renderWithApi(
+      <MemoryRouter>
+        <ProjectsPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Novo projeto' }));
+    await user.type(screen.getByLabelText(/título/i), 'Projeto duplicado');
+    await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Validar retorno de erro.');
+    await user.click(screen.getByRole('button', { name: 'Criar projeto' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Já existe um projeto com este título ou esta sigla.',
+    );
+    expect(screen.getByLabelText(/título/i)).toHaveValue('Projeto duplicado');
+  });
+
+  it('torna o projeto recém-criado o contexto ativo', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    const profileId = bundle.fixtures.meta.currentProfileId;
+    const created = bundle.fixtures.data.projects[1];
+    useSessionStore.setState({ activeProfileId: profileId });
+    useActiveProjectStore.setState({ selectionsByProfile: {} });
+    vi.spyOn(bundle.api, 'create').mockResolvedValueOnce(created);
+
+    renderWithApi(
+      <MemoryRouter>
+        <ProjectsPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Novo projeto' }));
+    await user.type(screen.getByLabelText(/título/i), 'Projeto novo');
+    await user.type(screen.getByLabelText(/objetivo e contexto/i), 'Novo contexto isolado.');
+    await user.click(screen.getByRole('button', { name: 'Criar projeto' }));
+
+    await waitFor(() => {
+      expect(useActiveProjectStore.getState().selectionsByProfile[profileId]?.projectId).toBe(
+        created.id,
+      );
+    });
   });
 });

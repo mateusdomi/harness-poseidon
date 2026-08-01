@@ -735,6 +735,9 @@
         "advanced": "Configurações avançadas"
       },
       "errorsSummary": "Revise os campos destacados antes de salvar.",
+      "apiErrors": {
+        "alreadyExists": "Já existe um projeto com este título ou esta sigla. Ajuste um dos dois para continuar."
+      },
       "identification": {
         "organization": "Organização",
         "name": "Título",
