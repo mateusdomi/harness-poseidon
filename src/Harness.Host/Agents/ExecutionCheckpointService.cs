@@ -48,8 +48,11 @@ public sealed partial class ExecutionCheckpointService(
         IReadOnlyList<string> scopeClaims,
         long fencingToken,
         string? progressNote,
+        string? worktreePath,
         CancellationToken cancellationToken)
     {
+        var sourceCommit = await PreserveWorktreeAsync(
+            repositoryRoot, controlledRoot, worktreePath, attemptId, cancellationToken);
         var changed = await ReadChangedFilesAsync(repositoryRoot, controlledRoot, branchName, cancellationToken);
         if (changed.Count == 0 && string.IsNullOrWhiteSpace(progressNote))
         {
@@ -70,18 +73,52 @@ public sealed partial class ExecutionCheckpointService(
                 role,
                 CheckpointResumePolicy.Serialize(origin),
                 branchName,
-                SourceCommit: null,
+                SourceCommit: sourceCommit,
                 repositoryRoot,
                 scopeClaims,
                 changed,
                 progressNote,
                 Pending: [],
-                Evidence: [$"attempt:{attemptId}", $"git-branch:{branchName}"],
+                Evidence: sourceCommit is null
+                    ? [$"attempt:{attemptId}", $"git-branch:{branchName}"]
+                    : [$"attempt:{attemptId}", $"git-branch:{branchName}", $"git-commit:{sourceCommit}"],
                 fencingToken,
                 now),
             cancellationToken);
         LogCheckpointCaptured(logger, taskId, attemptId, record.Origin, changed.Count);
         return record;
+    }
+
+    /// <summary>
+    /// Antes de projetar a lista de arquivos, transforma alterações rastreadas e não rastreadas da
+    /// worktree órfã em um commit de colheita. Sem isso a branch apontava para a base, o checkpoint
+    /// dizia "0 arquivos" e o cleanup apagava o único lugar onde o trabalho parcial existia.
+    /// </summary>
+    private static async Task<string?> PreserveWorktreeAsync(
+        string repositoryRoot,
+        string controlledRoot,
+        string? worktreePath,
+        string attemptId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(worktreePath) || !Directory.Exists(worktreePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var manager = await GitWorktreeManager.OpenAsync(
+                Path.GetFullPath(repositoryRoot), Path.GetFullPath(controlledRoot), cancellationToken);
+            return await manager.CommitWorktreeLeftoversAsync(
+                Path.GetFullPath(worktreePath),
+                $"chore(harness): checkpoint da tentativa {attemptId}",
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

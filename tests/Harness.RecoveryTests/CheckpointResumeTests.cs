@@ -1,4 +1,7 @@
+using System.Diagnostics;
 using Harness.Host.Agents;
+using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Persistence.Abstractions.DurableExecution;
 using Harness.Persistence.Sqlite;
 using Harness.SharedKernel.Time;
@@ -103,6 +106,112 @@ public sealed class CheckpointResumeTests
                 Directory.Delete(root, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public async Task OrphanCheckpointCommitsUntrackedWorkBeforeCleanupCanRemoveTheWorktree()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var root = Path.Combine(
+            AppContext.BaseDirectory, "recovery-artifacts", $"checkpoint-orphan-{Guid.NewGuid():N}");
+        var controlled = Path.Combine(root, "controlled");
+        var repository = Path.Combine(controlled, "repository");
+        var worktree = Path.Combine(controlled, "worktrees", "attempt");
+        const string attempt = "01ARZ3NDEKTSV4RRFFQ69G5FK4";
+        var branch = $"task/agent-run-{attempt.ToLowerInvariant()}";
+        Directory.CreateDirectory(repository);
+        try
+        {
+            await Git(repository, timeout.Token, "init", "--initial-branch=main");
+            await File.WriteAllTextAsync(Path.Combine(repository, "README.md"), "# Base\n", timeout.Token);
+            await Git(repository, timeout.Token, "add", "README.md");
+            await Git(
+                repository,
+                timeout.Token,
+                "-c", "user.name=Poseidon Test", "-c", "user.email=test@poseidon.local",
+                "commit", "-m", "base");
+
+            using (var manager = await GitWorktreeManager.OpenAsync(
+                       repository, controlled, timeout.Token))
+            {
+                _ = await manager.CreateTaskWorktreeAsync(
+                    branch, attempt, worktree, "HEAD", timeout.Token);
+            }
+
+            Directory.CreateDirectory(Path.Combine(worktree, "docs"));
+            await File.WriteAllTextAsync(
+                Path.Combine(worktree, "docs", "partial.md"),
+                "# Trabalho parcial preservado\n",
+                timeout.Token);
+
+            await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(
+                Path.Combine(root, "checkpoint.db"), timeout.Token);
+            await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
+            var now = new DateTimeOffset(2026, 8, 1, 22, 0, 0, TimeSpan.Zero);
+            var service = new ExecutionCheckpointService(
+                new SqliteExecutionCheckpointStore(dispatcher),
+                new StubClock(now),
+                NullLogger<ExecutionCheckpointService>.Instance);
+
+            var captured = await service.CaptureAsync(
+                Tenant,
+                Project,
+                Task,
+                attempt,
+                attempt,
+                "unknown",
+                "backend-specialist",
+                CheckpointOrigin.Transient,
+                branch,
+                repository,
+                controlled,
+                ["docs/**"],
+                2,
+                "Host reiniciado.",
+                worktree,
+                timeout.Token);
+
+            Assert.NotNull(captured);
+            Assert.Contains("docs/partial.md", captured!.ChangedFiles);
+            Assert.NotNull(captured.SourceCommit);
+            Assert.Contains($"git-commit:{captured.SourceCommit}", captured.Evidence);
+            Assert.Equal(
+                "# Trabalho parcial preservado\n",
+                await Git(repository, timeout.Token, "show", $"{branch}:docs/partial.md"));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    private static async Task<string> Git(
+        string workingDirectory,
+        CancellationToken cancellationToken,
+        params string[] arguments)
+    {
+        var start = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var argument in arguments)
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(start)
+            ?? throw new InvalidOperationException("git did not start");
+        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var error = await process.StandardError.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
+        return output;
     }
 
     private sealed class StubClock(DateTimeOffset now) : IClock

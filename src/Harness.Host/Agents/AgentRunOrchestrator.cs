@@ -497,6 +497,7 @@ public sealed class AgentRunOrchestrator(
                 [.. snapshot.ScopeClaims.Select(claim => claim.PathPattern)],
                 snapshot.FencingToken,
                 "O Host reiniciou durante esta tentativa; a branch preserva o trabalho já feito.",
+                snapshot.WorktreePath,
                 cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -1697,6 +1698,7 @@ public sealed class AgentRunOrchestrator(
                 failureCode is { Length: > 0 }
                     ? $"A tentativa anterior parou em '{failureCode}' (executor {executorId})."
                     : null,
+                command.WorktreePath,
                 cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
