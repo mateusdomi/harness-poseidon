@@ -262,7 +262,7 @@ public sealed partial class ChiefBacklogLoopService(
         var deferred = 0;
         foreach (var profile in profileList)
         {
-
+            token.ThrowIfCancellationRequested();
             var controlledRoot = System.IO.Path.GetFullPath(settings.ControlledRoot!);
             var personas = await catalog.ListDefinitionsForTenantAsync(profile.TenantId, null, 100, false, token);
             var plans = scope.ServiceProvider.GetRequiredService<IDemandPlanStore>();
@@ -270,6 +270,7 @@ public sealed partial class ChiefBacklogLoopService(
             var projectList = await projects.ListAsync(profile.TenantId, null, 50, token);
             foreach (var project in projectList)
             {
+                token.ThrowIfCancellationRequested();
                 // `pause` do chefe precisa PARAR de verdade. Sem este filtro o loop continuava
                 // colhendo, revisando e despachando cards de projeto pausado/arquivado — o botão
                 // existia na API e não segurava nada, e um projeto que o dono mandou parar seguia
@@ -383,6 +384,8 @@ public sealed partial class ChiefBacklogLoopService(
                     LogFollowUpFailure(logger, exception, project.Id, exception.GetType().Name);
                 }
 
+                token.ThrowIfCancellationRequested();
+
                 // Cards prontos para delegar: board_state `ready` (minúsculo — o enum é case-sensitive
                 // no SQLite), não arquivados. Cards nascem em `backlog`; a triagem (humano/DoR) promove
                 // a `ready` antes de o loop os enxergar.
@@ -401,6 +404,7 @@ public sealed partial class ChiefBacklogLoopService(
                 var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)>();
                 foreach (var task in page.Items)
                 {
+                    token.ThrowIfCancellationRequested();
                     // Card recusado na largada há pouco (conflito de claim): esperar o escopo liberar é
                     // a decisão correta — re-tentar em seguida só produz tentativa fantasma.
                     if (_dispatchBackoff.TryGetValue(task.Id, out var retryAt) && retryAt > clock.UtcNow)
@@ -675,6 +679,7 @@ public sealed partial class ChiefBacklogLoopService(
                 deferred += plan.Deferred.Count;
                 foreach (var deferral in plan.Deferred)
                 {
+                    token.ThrowIfCancellationRequested();
                     // O MOTIVO tipado do adiamento é operável (conta indisponível? escopo? cota?);
                     // sem ele o operador só vê o contador e não consegue agir. O detalhe por conta
                     // (candidatos do scheduler) diz exatamente QUEM foi recusado e POR QUÊ.
@@ -695,6 +700,7 @@ public sealed partial class ChiefBacklogLoopService(
 
                 foreach (var decision in plan.Dispatch)
                 {
+                    token.ThrowIfCancellationRequested();
                     var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
                     var routing = await providerRouting.RouteAndAuditAsync(
                         profile.TenantId,
@@ -743,6 +749,7 @@ public sealed partial class ChiefBacklogLoopService(
                      .Where(candidate => candidate.Task.DemandId is not null)
                      .GroupBy(candidate => candidate.Task.DemandId!, StringComparer.Ordinal))
         {
+            token.ThrowIfCancellationRequested();
             var plan = await plans.GetByDemandAsync(tenantId, demandGroup.Key, token);
             if (plan?.MaterializedAt is null)
             {
@@ -906,6 +913,7 @@ public sealed partial class ChiefBacklogLoopService(
             token);
         foreach (var task in page.Items)
         {
+            token.ThrowIfCancellationRequested();
             if (!string.Equals(task.InternalState, "running", StringComparison.Ordinal))
             {
                 continue;
@@ -1007,6 +1015,7 @@ public sealed partial class ChiefBacklogLoopService(
             token);
         foreach (var task in page.Items)
         {
+            token.ThrowIfCancellationRequested();
             if (!string.Equals(task.InternalState, "awaiting_review", StringComparison.Ordinal))
             {
                 continue;
@@ -1382,6 +1391,7 @@ public sealed partial class ChiefBacklogLoopService(
 
         foreach (var failure in result.Failures)
         {
+            token.ThrowIfCancellationRequested();
             LogPhaseDriveFailure(logger, project.Id, failure);
         }
 
@@ -1436,6 +1446,7 @@ public sealed partial class ChiefBacklogLoopService(
         var stillEscalated = new List<BoardTaskRecord>();
         foreach (var task in escalated)
         {
+            token.ThrowIfCancellationRequested();
             if (await TryReplanEscalatedAsync(
                 tenantId, project, task, board,
                 scope.ServiceProvider.GetRequiredService<IWorkChainStore>(), token))
@@ -1467,6 +1478,7 @@ public sealed partial class ChiefBacklogLoopService(
             foreach (var previous in history.Where(entry =>
                 entry.Content.Contains(EscalationMarker, StringComparison.Ordinal)))
             {
+                token.ThrowIfCancellationRequested();
                 foreach (var task in escalated)
                 {
                     if (previous.Content.Contains(task.Id, StringComparison.Ordinal))
@@ -1499,6 +1511,7 @@ public sealed partial class ChiefBacklogLoopService(
         var announced = 0;
         foreach (var task in escalated)
         {
+            token.ThrowIfCancellationRequested();
             var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
             var rejected = attempts.Count(attempt =>
                 string.Equals(attempt.State, "failed", StringComparison.Ordinal));
@@ -1591,6 +1604,7 @@ public sealed partial class ChiefBacklogLoopService(
         var integrated = 0;
         foreach (var task in page.Items)
         {
+            token.ThrowIfCancellationRequested();
             if (!string.Equals(task.InternalState, "approved", StringComparison.Ordinal))
             {
                 continue;
@@ -1674,6 +1688,7 @@ public sealed partial class ChiefBacklogLoopService(
         var announced = 0;
         foreach (var deferral in structural)
         {
+            token.ThrowIfCancellationRequested();
             if (alreadyAnnounced.Any(entry =>
                     entry.Content.Contains(deferral.Card.TaskId, StringComparison.Ordinal)))
             {
@@ -1809,6 +1824,7 @@ public sealed partial class ChiefBacklogLoopService(
             token);
         foreach (var task in page.Items)
         {
+            token.ThrowIfCancellationRequested();
             if (!string.Equals(task.InternalState, "running", StringComparison.Ordinal))
             {
                 continue;
@@ -1971,6 +1987,7 @@ public sealed partial class ChiefBacklogLoopService(
             .Where(task => task.DemandId is not null)
             .GroupBy(task => task.DemandId!, StringComparer.Ordinal))
         {
+            token.ThrowIfCancellationRequested();
             var plan = await plans.GetByDemandAsync(tenantId, group.Key, token);
             if (plan is null || plan.MaterializedAt is null)
             {
@@ -1997,6 +2014,7 @@ public sealed partial class ChiefBacklogLoopService(
 
             foreach (var task in group)
             {
+                token.ThrowIfCancellationRequested();
                 // A triagem por ondas promove backlog→ready quando as dependências foram
                 // ENTREGUES. Ela NÃO decide quem executa: cards que exigem humano (spike,
                 // human_gate, decision) também precisam chegar a `ready`, senão o gate fica
