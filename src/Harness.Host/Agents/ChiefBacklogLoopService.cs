@@ -942,16 +942,22 @@ public sealed partial class ChiefBacklogLoopService(
             if (snapshot.Status == AgentRunStatus.Completed)
             {
                 var branch = $"task/agent-run-{running.Id.ToLowerInvariant()}";
-                await TryHarvestWorktreeAsync(project, controlledRoot, running.Id, branch, token);
+                var deliveryCommit = await TryHarvestWorktreeAsync(
+                    project, controlledRoot, running.Id, branch, token);
+                var evidence = new List<WorkEvidenceInput>
+                {
+                    new(UlidValue.New(now).ToString(), $"agent-run:{running.Id}"),
+                    new(UlidValue.New(now.AddTicks(1)).ToString(), $"git-branch:{branch}"),
+                };
+                if (!string.IsNullOrWhiteSpace(deliveryCommit))
+                {
+                    evidence.Add(new WorkEvidenceInput(
+                        UlidValue.New(now.AddTicks(2)).ToString(), $"git-commit:{deliveryCommit}"));
+                }
                 var completed = await chain.CompleteAttemptAsync(
                     new WorkAttemptCompleteCommand(
                         tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
-                        [
-                            new WorkEvidenceInput(
-                                UlidValue.New(now).ToString(), $"agent-run:{running.Id}"),
-                            new WorkEvidenceInput(
-                                UlidValue.New(now.AddTicks(1)).ToString(), $"git-branch:{branch}"),
-                        ],
+                        evidence,
                         $"chief-loop-complete:{running.Id}", now),
                     token);
                 if (completed.Status is WorkChainMutationStatus.Applied
@@ -1157,6 +1163,36 @@ public sealed partial class ChiefBacklogLoopService(
                     diff.AsSpan(0, 160_000), "\n... (diff truncado para o review)");
             }
 
+            var placeholders = ForbiddenDeliveryPlaceholders(diff);
+            if (placeholders.Count > 0)
+            {
+                var deterministicResult = new CriticReviewResult(
+                    UlidValue.New(now).ToString(), awaiting.Id, "deterministic-delivery-gate",
+                    "deterministic", producerAlias, CriticVerdict.Fail,
+                    "critic.delivery_placeholder",
+                    [.. placeholders.Select(value => new CriticFinding(
+                        CriticFindingSeverity.P1,
+                        "delivery.placeholder",
+                        "A entrega contém placeholder não resolvido.",
+                        null,
+                        value))],
+                    "Placeholders de entrega precisam ser resolvidos antes da revisão comportamental.",
+                    null,
+                    0);
+                if (await ApplyReviewVerdictAsync(
+                        tenantId, task, awaiting.Id, deterministicResult, chain, token))
+                {
+                    reviewed++;
+                    _reviewBackoff.Remove(awaiting.Id);
+                }
+                else
+                {
+                    _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                }
+
+                continue;
+            }
+
             // O review roda dentro do ciclo; um executor de crítico que TRAVE congelaria o loop
             // inteiro (colheita, correções, triagem e despacho). O teto local garante que o
             // ciclo sempre volta: estouro vira falha de infraestrutura com backoff, nunca
@@ -1176,8 +1212,11 @@ public sealed partial class ChiefBacklogLoopService(
                             ReviewDirectory = repositoryRoot,
                             Diff = diff,
                             DelegationInstruction = instructions[^1].Body,
-                            TestEvidence =
-                                "(evidência de teste não coletada automaticamente; avalie pelo diff e pelo repositório)",
+                            TestEvidence = awaiting.CommitRefs.Count == 0
+                                ? "(nenhuma evidência durável foi registrada; falhe fechado)"
+                                : string.Join(
+                                    Environment.NewLine,
+                                    awaiting.CommitRefs.Select(reference => $"- {reference}")),
                             AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
                             ScopeClaims = resolution.ScopeClaims,
                         },
@@ -2030,7 +2069,7 @@ public sealed partial class ChiefBacklogLoopService(
     /// os restos na branch da tentativa e remove a worktree. Nunca destrói trabalho; falha aqui é
     /// logada e não impede a colheita da cadeia (o diff apenas refletirá o que está na branch).
     /// </summary>
-    private async Task TryHarvestWorktreeAsync(
+    private async Task<string?> TryHarvestWorktreeAsync(
         ProjectRecord project,
         string controlledRoot,
         string attemptId,
@@ -2040,20 +2079,22 @@ public sealed partial class ChiefBacklogLoopService(
         var worktreePath = System.IO.Path.Combine(controlledRoot, "worktrees", attemptId);
         if (!System.IO.Directory.Exists(worktreePath))
         {
-            return;
+            return null;
         }
 
         try
         {
             var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl!);
             using var manager = await GitWorktreeManager.OpenAsync(repositoryRoot, controlledRoot, token);
-            _ = await manager.CommitWorktreeLeftoversAsync(
+            var commit = await manager.CommitWorktreeLeftoversAsync(
                 worktreePath, $"chore(harness): colheita da tentativa {attemptId}", token);
             _ = await manager.RemoveTaskWorktreeAsync(branchName, worktreePath, deleteBranch: false, token);
+            return commit;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             LogWorktreeHarvestFailure(logger, attemptId, exception.GetType().Name);
+            return null;
         }
     }
 
@@ -2321,6 +2362,23 @@ public sealed partial class ChiefBacklogLoopService(
         return rejected is null
             ? null
             : $"task/agent-run-{rejected.Id.ToLowerInvariant()}";
+    }
+
+    /// <summary>
+    /// Localiza marcadores inequívocos de trabalho inacabado somente nas linhas adicionadas do
+    /// diff. Texto removido e cabeçalhos do patch não geram falso positivo.
+    /// </summary>
+    public static IReadOnlyList<string> ForbiddenDeliveryPlaceholders(string diff)
+    {
+        ArgumentNullException.ThrowIfNull(diff);
+        string[] markers = ["PENDING_PUB_SHA", "REPLACE_ME", "CHANGEME", "<commit-sha>", "TODO:"];
+        return diff.Split('\n')
+            .Where(line => line.StartsWith('+') && !line.StartsWith("+++", StringComparison.Ordinal))
+            .Where(line => markers.Any(marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+            .Select(line => line.Length <= 1000 ? line[1..] : line[1..1000])
+            .Distinct(StringComparer.Ordinal)
+            .Take(50)
+            .ToArray();
     }
 
     /// <summary>

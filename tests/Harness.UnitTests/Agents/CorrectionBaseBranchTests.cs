@@ -30,6 +30,28 @@ public sealed class CorrectionBaseBranchTests
             [Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAA", 1, "running")]));
     }
 
+    [Fact]
+    public void UnresolvedDeliveryPlaceholdersFailBeforeBehavioralReview()
+    {
+        var findings = ChiefBacklogLoopService.ForbiddenDeliveryPlaceholders(
+            """
+            --- a/doc.md
+            +++ b/doc.md
+            -Commit: PENDING_PUB_SHA
+            +Commit: PENDING_PUB_SHA
+            +Texto legítimo sem marcador
+            """);
+
+        Assert.Equal(["Commit: PENDING_PUB_SHA"], findings);
+    }
+
+    [Fact]
+    public void RemovedPlaceholdersDoNotBlockTheCorrectedDelivery()
+    {
+        Assert.Empty(ChiefBacklogLoopService.ForbiddenDeliveryPlaceholders(
+            "-TODO: preencher\n+Commit: 0123456789abcdef"));
+    }
+
     private static BoardAttemptRecord Attempt(string id, int number, string state) =>
         new("tenant", id, "task", number, state, "agent", Now, null, null, 0, 0, 0,
             [], null, null);

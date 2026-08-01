@@ -77,6 +77,8 @@ public sealed class WorkflowPhaseCardContextTests
         Assert.Contains("não pode entrar silenciosamente", instruction, StringComparison.Ordinal);
         Assert.Contains("prova intenção de construir", instruction, StringComparison.Ordinal);
         Assert.Contains("Evidências obrigatórias", instruction, StringComparison.Ordinal);
+        Assert.Contains("git-commit:<sha>", instruction, StringComparison.Ordinal);
+        Assert.Contains("Não invente hash", instruction, StringComparison.Ordinal);
         Assert.Contains("[REDACTED]", instruction, StringComparison.Ordinal);
         Assert.DoesNotContain("valor-secreto", instruction, StringComparison.Ordinal);
     }

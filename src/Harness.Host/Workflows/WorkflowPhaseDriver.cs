@@ -1139,7 +1139,7 @@ public sealed class WorkflowPhaseDriver(
             .Append("- Nenhum segredo aparece no documento ou no resumo da execução.\n")
             .Append("- Um revisor diferente do autor consegue verificar o resultado sem redescobrir o projeto.\n\n")
             .Append("# Evidências obrigatórias na conclusão\n")
-            .Append("- caminho do arquivo e identificador da versão/commit;\n")
+            .Append("- caminho do arquivo e identificador da versão; o runtime registra o SHA real em `git-commit:<sha>` após a colheita. Não invente hash nem deixe placeholder autorreferente no documento;\n")
             .Append("- lista das fontes e versões consultadas;\n")
             .Append("- campos do template cobertos;\n")
             .Append("- premissas, riscos, lacunas e decisões pendentes;\n")

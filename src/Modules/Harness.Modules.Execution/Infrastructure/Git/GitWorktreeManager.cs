@@ -295,10 +295,10 @@ public sealed class GitWorktreeManager : IDisposable
 
     /// <summary>
     /// Colheita governada: commita na branch da tentativa QUALQUER resto não commitado da
-    /// worktree (o worker pode terminar sem commitar). Devolve <c>true</c> se um commit de
-    /// colheita foi criado; <c>false</c> se a worktree já estava limpa. Nunca destrói trabalho.
+    /// worktree (o worker pode terminar sem commitar). Devolve o SHA exato que passa a representar
+    /// a entrega, tenha ele sido criado pelo worker ou pela colheita. Nunca destrói trabalho.
     /// </summary>
-    public async Task<bool> CommitWorktreeLeftoversAsync(
+    public async Task<string> CommitWorktreeLeftoversAsync(
         string worktreePath, string message, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
@@ -313,7 +313,7 @@ public sealed class GitWorktreeManager : IDisposable
 
         if (status.StandardOutput.Trim().Length == 0)
         {
-            return false;
+            return await ResolveWorktreeHeadAsync(destination, cancellationToken);
         }
 
         var add = await RunGitAsync(destination, ["add", "-A"], cancellationToken);
@@ -334,7 +334,20 @@ public sealed class GitWorktreeManager : IDisposable
             throw CreateGitException("commit the worktree leftovers", commit);
         }
 
-        return true;
+        return await ResolveWorktreeHeadAsync(destination, cancellationToken);
+    }
+
+    private static async Task<string> ResolveWorktreeHeadAsync(
+        string worktreePath,
+        CancellationToken cancellationToken)
+    {
+        var head = await RunGitAsync(worktreePath, ["rev-parse", "--verify", "HEAD"], cancellationToken);
+        if (head.ExitCode != 0)
+        {
+            throw CreateGitException("resolve the harvested worktree commit", head);
+        }
+
+        return head.StandardOutput.Trim();
     }
 
     /// <summary>
