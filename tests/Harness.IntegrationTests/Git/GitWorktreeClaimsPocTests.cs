@@ -9,6 +9,64 @@ namespace Harness.IntegrationTests.Git;
 public sealed class GitWorktreeClaimsPocTests
 {
     [Fact]
+    public async Task SupersededDocumentMergePreservesTheApprovedPublishedBodyAndRecordsAncestry()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory, "poc-artifacts", "superseded", Guid.NewGuid().ToString("N"));
+        var repository = Path.Combine(artifactRoot, "repository");
+        var worktree = Path.Combine(artifactRoot, "worktrees", "attempt-old");
+        try
+        {
+            await CreateFixtureRepositoryAsync(repository, timeout.Token);
+            using var manager = await GitWorktreeManager.OpenAsync(repository, artifactRoot, timeout.Token);
+            var created = await manager.CreateTaskWorktreeAsync(
+                "task/old-document", "attempt-old", worktree,
+                cancellationToken: timeout.Token);
+            Directory.CreateDirectory(Path.Combine(worktree, "docs"));
+            await File.WriteAllTextAsync(
+                Path.Combine(worktree, "docs", "demand.md"), "# Versão antiga\n", timeout.Token);
+            await RunGitAsync(worktree, ["add", "docs/demand.md"], timeout.Token);
+            await RunGitAsync(worktree, ["commit", "-m", "old approved document"], timeout.Token);
+            await manager.RemoveTaskWorktreeAsync(
+                created.BranchName, created.WorktreePath, deleteBranch: false,
+                cancellationToken: timeout.Token);
+
+            Directory.CreateDirectory(Path.Combine(repository, "docs"));
+            await File.WriteAllTextAsync(
+                Path.Combine(repository, "docs", "demand.md"), "# Versão nova aprovada\n", timeout.Token);
+            await RunGitAsync(repository, ["add", "docs/demand.md"], timeout.Token);
+            await RunGitAsync(repository, ["commit", "-m", "new approved document"], timeout.Token);
+
+            Assert.Equal(
+                "# Versão antiga\n",
+                await manager.ReadDocumentFromBranchAsync(
+                    "task/old-document", "docs/demand.md", timeout.Token));
+            Assert.Equal(
+                "# Versão nova aprovada\n",
+                await manager.ReadPublishedDocumentAsync("main", "docs/demand.md", timeout.Token));
+
+            await manager.MergeSupersededTaskBranchAsync(
+                "task/old-document", "record superseded approved document", timeout.Token);
+
+            Assert.Equal(
+                "# Versão nova aprovada\n",
+                await File.ReadAllTextAsync(Path.Combine(repository, "docs", "demand.md"), timeout.Token));
+            _ = await RunGitAsync(
+                repository,
+                ["merge-base", "--is-ancestor", "task/old-document", "main"],
+                timeout.Token);
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ThreeFixtureRepositoriesExerciseParallelWorktreesAndScopeClaimsWithoutTouchingHarnessRefs()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));

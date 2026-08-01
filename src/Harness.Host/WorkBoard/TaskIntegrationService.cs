@@ -53,10 +53,34 @@ public sealed class TaskIntegrationService(
     /// Quem integra: o perfil humano, quando vem da tela, ou a chefe, quando vem do laço autônomo.
     /// O ator é registrado na cadeia — é o que permite distinguir depois as duas origens.
     /// </param>
-    public async Task<TaskIntegrationOutcome> IntegrateAsync(
+    public Task<TaskIntegrationOutcome> IntegrateAsync(
         string tenantId,
         string taskId,
         string actorId,
+        CancellationToken cancellationToken) =>
+        IntegrateCoreAsync(
+            tenantId, taskId, actorId, preservePublishedTarget: false,
+            supersessionEvidence: null, cancellationToken);
+
+    public Task<TaskIntegrationOutcome> IntegrateSupersededDocumentAsync(
+        string tenantId,
+        string taskId,
+        string actorId,
+        string supersessionEvidence,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(supersessionEvidence);
+        return IntegrateCoreAsync(
+            tenantId, taskId, actorId, preservePublishedTarget: true,
+            supersessionEvidence, cancellationToken);
+    }
+
+    private async Task<TaskIntegrationOutcome> IntegrateCoreAsync(
+        string tenantId,
+        string taskId,
+        string actorId,
+        bool preservePublishedTarget,
+        string? supersessionEvidence,
         CancellationToken cancellationToken)
     {
         var task = await _board.GetTaskAsync(tenantId, taskId, cancellationToken);
@@ -115,6 +139,25 @@ public sealed class TaskIntegrationService(
             return new TaskIntegrationOutcome(true, "merged", branch, approved.Id, intent.ResultSha);
         }
 
+        if (preservePublishedTarget &&
+            string.Equals(intent.State, MergeIntentState.Aborted, StringComparison.Ordinal))
+        {
+            intent = await _mergeIntents.TryReopenSupersededAsync(
+                new MergeIntentSupersessionCommand(
+                    tenantId,
+                    intent.MergeIntentId,
+                    intent.FencingToken,
+                    supersessionEvidence!,
+                    _clock.UtcNow),
+                cancellationToken);
+            if (intent is null)
+            {
+                return new TaskIntegrationOutcome(
+                    false, "superseded_merge_reopen_refused", branch, approved.Id,
+                    "The bounded supersession recovery was already consumed or lost its fencing token.");
+            }
+        }
+
         // Um único merge ATIVO por repositório, garantido pelo banco — o semáforo em memória
         // anterior protegia um processo, não o repositório.
         var claimed = await _mergeIntents.TryBeginAsync(
@@ -135,10 +178,17 @@ public sealed class TaskIntegrationService(
                 repositoryRoot,
                 _repositories.ResolveControlledRoot(repositoryRoot, _settings.ControlledRoot),
                 cancellationToken);
-            await manager.MergeTaskBranchAsync(
-                branch,
-                $"merge(card {DisplayCode(task.Title)}): tentativa {approved.Id} aprovada em review",
-                cancellationToken);
+            var message = preservePublishedTarget
+                ? $"merge(card {DisplayCode(task.Title)}): entrega {approved.Id} substituída por {supersessionEvidence}"
+                : $"merge(card {DisplayCode(task.Title)}): tentativa {approved.Id} aprovada em review";
+            if (preservePublishedTarget)
+            {
+                await manager.MergeSupersededTaskBranchAsync(branch, message, cancellationToken);
+            }
+            else
+            {
+                await manager.MergeTaskBranchAsync(branch, message, cancellationToken);
+            }
             // O SHA resultante é a evidência de que o efeito existiu. Sem ele, um crash logo
             // depois seria indistinguível de um merge que nunca aconteceu.
             resultSha = await manager.ResolveCommitAsync("HEAD", cancellationToken);
@@ -171,7 +221,10 @@ public sealed class TaskIntegrationService(
         var merged = await _chain.MergeApprovedTaskAsync(
             new WorkTaskMergeCommand(
                 tenantId, task.BackingSolicitationId, task.Id, actorId,
-                $"git-branch:{branch}", task.Version, $"task-merge:{approved.Id}", _clock.UtcNow),
+                preservePublishedTarget
+                    ? $"git-superseded:{branch}:{supersessionEvidence}"
+                    : $"git-branch:{branch}",
+                task.Version, $"task-merge:{approved.Id}", _clock.UtcNow),
             cancellationToken);
         if (merged.Status is not (WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay))
         {
@@ -194,7 +247,9 @@ public sealed class TaskIntegrationService(
         }
 
         return completed.Status is WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay
-            ? new TaskIntegrationOutcome(true, "merged", branch, approved.Id, resultSha)
+            ? new TaskIntegrationOutcome(
+                true, preservePublishedTarget ? "merged_superseded" : "merged",
+                branch, approved.Id, resultSha)
             : new TaskIntegrationOutcome(
                 false, "merge_completion_conflict", branch, approved.Id,
                 $"The work chain rejected the completion: {completed.Status}.");

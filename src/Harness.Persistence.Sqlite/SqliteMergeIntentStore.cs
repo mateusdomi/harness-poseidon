@@ -130,6 +130,43 @@ public sealed class SqliteMergeIntentStore(SqliteWriteDispatcher dispatcher) : I
         }, cancellationToken);
     }
 
+    public Task<MergeIntentRecord?> TryReopenSupersededAsync(
+        MergeIntentSupersessionCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.EvidenceReference);
+        if (command.ExpectedFencingToken < 1 || command.EvidenceReference.Length > 1_000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(command));
+        }
+
+        return _dispatcher.ExecuteAsync(async (c, t) =>
+        {
+            await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(t);
+            await using var update = c.CreateCommand();
+            update.Transaction = tx;
+            update.CommandText =
+                "UPDATE merge_intents SET state='pending',last_error=$evidence,updated_at=$at " +
+                "WHERE tenant_id=$tenant AND merge_intent_id=$id AND state='aborted' " +
+                "AND fencing_token=$fencing AND fencing_token<=2;";
+            Add(update, "$evidence", $"superseded:{command.EvidenceReference}");
+            Add(update, "$at", Store(command.OccurredAt));
+            Add(update, "$tenant", command.TenantId);
+            Add(update, "$id", command.MergeIntentId);
+            Add(update, "$fencing", command.ExpectedFencingToken);
+            if (await update.ExecuteNonQueryAsync(t) != 1)
+            {
+                await tx.CommitAsync(t);
+                return null;
+            }
+
+            var record = await ReadAsync(c, tx, command.TenantId, command.MergeIntentId, t);
+            await tx.CommitAsync(t);
+            return record;
+        }, cancellationToken);
+    }
+
     public Task<bool> TryRecordMergedAsync(
         MergeIntentResultCommand command, CancellationToken cancellationToken = default)
     {

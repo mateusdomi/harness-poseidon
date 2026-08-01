@@ -18,6 +18,14 @@ public sealed record ApprovedDocumentPublishResult(
     string? DocumentVersionId = null,
     string? SourcePath = null);
 
+public sealed record SupersededDocumentProof(
+    string DocumentId,
+    string DocumentVersionId,
+    string AttemptId,
+    string ReviewId,
+    string SourcePath,
+    string EvidenceReference);
+
 /// <summary>
 /// Materializa no catálogo do Poseidon o Markdown produzido e aprovado por outro profissional.
 /// Git continua sendo a evidência da entrega; o catálogo vira a projeção navegável e versionada.
@@ -255,6 +263,107 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
                !string.Equals(attempt.ProducerAgentId, review.ReviewerAgentId, StringComparison.Ordinal)
             ? review
             : null;
+    }
+
+    /// <summary>
+    /// Prova estrita para recuperar cards documentais legados que nasceram como `agent_task` e
+    /// cujo branch aprovado foi substituído por uma versão posterior também revisada. Só aceita
+    /// quando o conteúdo atualmente publicado no Git é byte a byte o blob aprovado do catálogo.
+    /// </summary>
+    internal async Task<SupersededDocumentProof?> ProveSupersededLegacyDocumentAsync(
+        string tenantId,
+        ProjectRecord project,
+        BoardTaskRecord task,
+        IWorkBoardStore board,
+        string controlledRoot,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(task.CardType, "documento", StringComparison.Ordinal) ||
+            !string.Equals(task.InternalState, "approved", StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(task.PhaseName) ||
+            string.IsNullOrWhiteSpace(project.RepositoryUrl))
+        {
+            return null;
+        }
+
+        var instructions = await board.ListInstructionsAsync(
+            tenantId, task.Id, null, 100, cancellationToken);
+        var latestInstruction = instructions.Count == 0 ? null : instructions[^1].Body;
+        if (latestInstruction is null ||
+            !latestInstruction.Contains("Tipo de card: documento", StringComparison.Ordinal) ||
+            ParseTemplateCode(latestInstruction) is not { } templateCode)
+        {
+            return null;
+        }
+
+        var attempts = await board.ListAttemptsAsync(
+            tenantId, task.Id, null, 100, cancellationToken);
+        var attempt = SelectDeliveredAttempt(attempts);
+        if (attempt is null)
+        {
+            return null;
+        }
+
+        var aggregate = await chain.ReadAggregateAsync(
+            tenantId, task.BackingSolicitationId, cancellationToken);
+        var review = SelectApprovedReview(aggregate, task.Id, attempt.Id);
+        if (review is null)
+        {
+            return null;
+        }
+
+        var candidates = (await catalog.ListDocumentsAsync(
+                tenantId, project.Id, null, 500, cancellationToken))
+            .Where(document =>
+                !string.Equals(document.Id, task.Id, StringComparison.Ordinal) &&
+                string.Equals(document.State, "approved", StringComparison.Ordinal) &&
+                string.Equals(document.PhaseName, task.PhaseName, StringComparison.Ordinal) &&
+                string.Equals(document.TemplateCode, templateCode, StringComparison.OrdinalIgnoreCase) &&
+                document.UpdatedAt >= review.CreatedAt)
+            .ToArray();
+        if (candidates.Length != 1)
+        {
+            return null;
+        }
+
+        var approvedDocument = candidates[0];
+        var versions = await catalog.PageVersionsAsync(
+            tenantId, approvedDocument.Id, 0, 1, cancellationToken);
+        var currentVersion = versions.Items.SingleOrDefault();
+        if (currentVersion is null || currentVersion.Version != approvedDocument.CurrentVersion)
+        {
+            return null;
+        }
+
+        var branch = $"task/agent-run-{attempt.Id.ToLowerInvariant()}";
+        using var git = await GitWorktreeManager.OpenAsync(
+            Path.GetFullPath(project.RepositoryUrl!), controlledRoot, cancellationToken);
+        var artifacts = SelectDocumentArtifacts(
+            await git.ListBranchChangedFilesAsync(branch, cancellationToken));
+        if (artifacts.Count != 1)
+        {
+            return null;
+        }
+
+        var sourcePath = artifacts[0];
+        var oldBody = await git.ReadDocumentFromBranchAsync(branch, sourcePath, cancellationToken);
+        var publishedBody = await git.ReadPublishedDocumentAsync(
+            project.DefaultBranch ?? "main", sourcePath, cancellationToken);
+        var catalogBody = await content.ReadAsync(
+            currentVersion.CatalogPath, currentVersion.ContentHash, cancellationToken);
+        if (string.Equals(oldBody, publishedBody, StringComparison.Ordinal) ||
+            !string.Equals(publishedBody, catalogBody, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return new SupersededDocumentProof(
+            approvedDocument.Id,
+            currentVersion.Id,
+            attempt.Id,
+            review.ReviewId,
+            sourcePath,
+            $"document:{approvedDocument.Id}:version:{currentVersion.Id}:hash:{currentVersion.ContentHash}");
     }
 
     internal static IReadOnlyList<string> SelectDocumentArtifacts(IEnumerable<string> changedFiles) =>

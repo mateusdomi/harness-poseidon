@@ -5,7 +5,9 @@ using System.Security.Cryptography;
 using Harness.Modules.Execution.Infrastructure.Sandbox;
 using Harness.IntegrationTests.Persistence;
 using Harness.IntegrationTests.Workers;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Postgres;
+using Harness.SharedKernel.Identifiers;
 using Npgsql;
 
 namespace Harness.IntegrationTests.Postgres;
@@ -27,6 +29,8 @@ public sealed class PostgresSkipLockedPocTests
         await FoundationTransactionBehavior.AssertAsync(
             new PostgresFoundationTransactionStore(dataSource),
             timeout.Token);
+        await AssertMergeIntentSupersessionAsync(
+            new PostgresMergeIntentStore(dataSource), timeout.Token);
         await AssertAuditLedgerIsAppendOnlyAsync(dataSource, timeout.Token);
         await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
             OutboxStoreBehavior.SecondProjectCommand(),
@@ -181,6 +185,39 @@ public sealed class PostgresSkipLockedPocTests
         Assert.Single(inventory.Networks);
         Assert.Single(inventory.Volumes);
         Assert.Single(inventory.Images);
+    }
+
+    private static async Task AssertMergeIntentSupersessionAsync(
+        PostgresMergeIntentStore store,
+        CancellationToken cancellationToken)
+    {
+        var at = new DateTimeOffset(2026, 7, 18, 12, 45, 0, TimeSpan.Zero);
+        var intentId = UlidValue.New(at).ToString();
+        var intent = await store.RequestAsync(new(
+            FoundationTransactionBehavior.TenantId,
+            intentId,
+            "postgres-supersession-repository",
+            FoundationTransactionBehavior.ProjectId,
+            UlidValue.New(at.AddMilliseconds(1)).ToString(),
+            UlidValue.New(at.AddMilliseconds(2)).ToString(),
+            "task/postgres-superseded",
+            "main",
+            null,
+            null,
+            at), cancellationToken);
+        var claimed = await store.TryBeginAsync(new(
+            intent.TenantId, intent.MergeIntentId, "host-a", at, TimeSpan.FromMinutes(1)),
+            cancellationToken);
+        Assert.NotNull(claimed);
+        Assert.True(await store.TryFailAsync(new(
+            intent.TenantId, intent.MergeIntentId, "host-a", claimed.FencingToken,
+            "InvalidOperationException", Aborted: true, at.AddSeconds(1)), cancellationToken));
+
+        var reopened = await store.TryReopenSupersededAsync(new(
+            intent.TenantId, intent.MergeIntentId, claimed.FencingToken,
+            "document:approved-newer-version", at.AddSeconds(2)), cancellationToken);
+        Assert.Equal(MergeIntentState.Pending, reopened?.State);
+        Assert.Equal("superseded:document:approved-newer-version", reopened?.LastError);
     }
 
     private static async Task ResetQueueAsync(NpgsqlDataSource dataSource, CancellationToken cancellationToken)

@@ -27,6 +27,14 @@ public interface IMergeIntentStore
     Task<MergeIntentRecord?> TryBeginAsync(
         MergeIntentBeginCommand command, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Reabre uma intenção abortada somente quando uma prova externa determinística demonstrou
+    /// que o branch foi substituído por uma entrega documental mais nova já aprovada. É limitado
+    /// por fencing para não transformar conflito Git comum em retry infinito.
+    /// </summary>
+    Task<MergeIntentRecord?> TryReopenSupersededAsync(
+        MergeIntentSupersessionCommand command, CancellationToken cancellationToken = default);
+
     /// <summary>Registra o SHA resultante. Falso quando o fencing foi perdido.</summary>
     Task<bool> TryRecordMergedAsync(
         MergeIntentResultCommand command, CancellationToken cancellationToken = default);
@@ -93,6 +101,13 @@ public sealed record MergeIntentBeginCommand(
     string OwnerId,
     DateTimeOffset Now,
     TimeSpan LeaseDuration);
+
+public sealed record MergeIntentSupersessionCommand(
+    string TenantId,
+    string MergeIntentId,
+    long ExpectedFencingToken,
+    string EvidenceReference,
+    DateTimeOffset OccurredAt);
 
 public sealed record MergeIntentResultCommand(
     string TenantId,

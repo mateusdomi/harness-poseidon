@@ -477,6 +477,69 @@ public sealed class GitWorktreeManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Registra como ancestral um branch documental aprovado que foi comprovadamente substituído
+    /// por uma versão mais nova já publicada. A estratégia <c>ours</c> preserva o conteúdo atual;
+    /// este método não decide a supersessão e só pode ser chamado depois da prova no catálogo.
+    /// </summary>
+    public async Task MergeSupersededTaskBranchAsync(
+        string branchName, string message, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (!branchName.StartsWith("task/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Task branches must use the task/ prefix.", nameof(branchName));
+        }
+
+        await _metadataGate.WaitAsync(cancellationToken);
+        try
+        {
+            var merge = await RunGitAsync(
+                _repositoryRoot,
+                [
+                    "-c", "user.name=Poseidon Harness", "-c", "user.email=harness@poseidon.local",
+                    "merge", "--no-ff", "-s", "ours", "-m", message, branchName,
+                ],
+                cancellationToken);
+            if (merge.ExitCode != 0)
+            {
+                _ = await RunGitAsync(_repositoryRoot, ["merge", "--abort"], CancellationToken.None);
+                throw CreateGitException("record the superseded approved task branch", merge);
+            }
+        }
+        finally
+        {
+            _metadataGate.Release();
+        }
+    }
+
+    public async Task<string> ReadPublishedDocumentAsync(
+        string referenceName, string documentPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(referenceName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(documentPath);
+        if (referenceName[0] == '-' ||
+            referenceName.Any(character =>
+                !(char.IsAsciiLetterOrDigit(character) || character is '/' or '-' or '_' or '.')) ||
+            Path.IsPathRooted(documentPath) ||
+            documentPath.Contains('\\') ||
+            !documentPath.StartsWith("docs/", StringComparison.Ordinal) ||
+            documentPath.Split('/').Any(segment => segment is "" or "." or ".."))
+        {
+            throw new ArgumentException("The Git reference or document path is invalid.");
+        }
+
+        var result = await RunGitAsync(
+            _repositoryRoot, ["show", $"{referenceName}:{documentPath}"], cancellationToken);
+        if (result.ExitCode != 0)
+        {
+            throw CreateGitException("read the published document", result);
+        }
+
+        return result.StandardOutput;
+    }
+
     public void Dispose() => _metadataGate.Dispose();
 
     private async Task<IReadOnlyList<GitWorktreeDescriptor>> ListWorktreesCoreAsync(

@@ -187,6 +187,57 @@ public sealed class MergeIntentReconciliationTests
         Assert.Equal(MergeIntentState.Aborted, terminal.State);
     }
 
+    [Fact]
+    public async Task AProvenSupersededDeliveryCanReopenTheLastLegacyAbortOnlyOnce()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await using var fixture = await Fixture.StartAsync(timeout.Token);
+        var now = fixture.Now;
+        var intent = await fixture.RequestAsync("attempt-superseded", now, timeout.Token);
+        var first = await fixture.Store.TryBeginAsync(
+            new MergeIntentBeginCommand(
+                Tenant, intent.MergeIntentId, "host-a", now, TimeSpan.FromMinutes(10)),
+            timeout.Token);
+        Assert.True(await fixture.Store.TryFailAsync(
+            new MergeIntentFailCommand(
+                Tenant, intent.MergeIntentId, "host-a", first!.FencingToken,
+                "ArgumentException", Aborted: true, now.AddSeconds(1)),
+            timeout.Token));
+        _ = await fixture.RequestAsync("attempt-superseded", now.AddSeconds(2), timeout.Token);
+        var second = await fixture.Store.TryBeginAsync(
+            new MergeIntentBeginCommand(
+                Tenant, intent.MergeIntentId, "host-b", now.AddSeconds(3), TimeSpan.FromMinutes(10)),
+            timeout.Token);
+        Assert.True(await fixture.Store.TryFailAsync(
+            new MergeIntentFailCommand(
+                Tenant, intent.MergeIntentId, "host-b", second!.FencingToken,
+                "InvalidOperationException", Aborted: true, now.AddSeconds(4)),
+            timeout.Token));
+
+        var reopened = await fixture.Store.TryReopenSupersededAsync(
+            new MergeIntentSupersessionCommand(
+                Tenant, intent.MergeIntentId, second.FencingToken,
+                "document:approved-newer-version", now.AddSeconds(5)),
+            timeout.Token);
+        Assert.Equal(MergeIntentState.Pending, reopened?.State);
+        Assert.Equal("superseded:document:approved-newer-version", reopened?.LastError);
+        var final = await fixture.Store.TryBeginAsync(
+            new MergeIntentBeginCommand(
+                Tenant, intent.MergeIntentId, "host-c", now.AddSeconds(6), TimeSpan.FromMinutes(10)),
+            timeout.Token);
+        Assert.Equal(3, final?.FencingToken);
+        Assert.True(await fixture.Store.TryFailAsync(
+            new MergeIntentFailCommand(
+                Tenant, intent.MergeIntentId, "host-c", final!.FencingToken,
+                "InvalidOperationException", Aborted: true, now.AddSeconds(7)),
+            timeout.Token));
+        Assert.Null(await fixture.Store.TryReopenSupersededAsync(
+            new MergeIntentSupersessionCommand(
+                Tenant, intent.MergeIntentId, final.FencingToken,
+                "document:approved-newer-version", now.AddSeconds(8)),
+            timeout.Token));
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string _root;

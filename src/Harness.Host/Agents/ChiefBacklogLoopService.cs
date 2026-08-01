@@ -1628,6 +1628,7 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
+            SupersededDocumentProof? supersededDocument = null;
             if (string.Equals(task.CardType, "documento", StringComparison.Ordinal))
             {
                 try
@@ -1654,9 +1655,30 @@ public sealed partial class ChiefBacklogLoopService(
                     continue;
                 }
             }
+            else
+            {
+                try
+                {
+                    supersededDocument = await documentPublisher.ProveSupersededLegacyDocumentAsync(
+                        tenantId, project, task, board, controlledRoot, token);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    LogDocumentPublicationRefused(
+                        logger, task.Id, $"document.supersession-proof:{exception.GetType().Name}");
+                    continue;
+                }
+            }
 
-            var outcome = await integration.IntegrateAsync(
-                tenantId, task.Id, ChiefIntegrationActor, token);
+            var outcome = supersededDocument is null
+                ? await integration.IntegrateAsync(
+                    tenantId, task.Id, ChiefIntegrationActor, token)
+                : await integration.IntegrateSupersededDocumentAsync(
+                    tenantId,
+                    task.Id,
+                    ChiefIntegrationActor,
+                    supersededDocument.EvidenceReference,
+                    token);
             if (outcome.Integrated)
             {
                 integrated++;
