@@ -87,6 +87,10 @@ public sealed class RunTargetAgentFallback(
                 "{\"purpose\":\"run-target-detection\",\"version\":1}",
                 root);
             var execution = await executor.ExecuteAsync(request, cancellationToken);
+            // Este caminho NÃO é um turno de conversa: é detecção de serviços, e o agente responde
+            // com a proposta no campo `response`. Exigir a classificação de intenção aqui seria
+            // cobrar de um contexto uma decisão de rota que ele não toma — e foi o que quebrou
+            // quando o B14 tornou `intent` obrigatório no turno da chefe.
             var chiefOutput = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
             var definitions = ParseDefinitions(root, chiefOutput.Response);
             if (auditEvents is not null)

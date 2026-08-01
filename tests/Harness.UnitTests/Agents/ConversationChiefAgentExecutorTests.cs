@@ -27,7 +27,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     public ConversationChiefAgentExecutorTests() => Directory.CreateDirectory(_repositoryRoot);
 
     private const string ValidChiefJson =
-        """{"response":"Plano definido. Vou organizar a próxima entrega com a equipe.","demands":[]}""";
+        """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"Plano definido. Vou organizar a próxima entrega com a equipe.","demands":[]}""";
 
     [Fact]
     public async Task WithoutAChiefAccountItFailsHonestlyLikeUnavailable()
@@ -151,13 +151,13 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     public async Task BusinessCommunicationLeakReceivesOneRepairBeforePublication()
     {
         const string leaked =
-            """{"response":"O provider OpenAI falhou; veja o log e o turno 01ARZ3NDEKTSV4RRFFQ69G5FAV.","demands":[]}""";
+            """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"O provider OpenAI falhou; veja o log e o turno 01ARZ3NDEKTSV4RRFFQ69G5FAV.","demands":[]}""";
         var fake = new FakeExternalExecutor(leaked)
         {
             SessionId = "session-policy-repair",
             NextMessages = new Queue<string>(
             [
-                """{"response":"Houve uma falha temporária, mas nada foi perdido. Vou retomar com segurança.","demands":[]}""",
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"Houve uma falha temporária, mas nada foi perdido. Vou retomar com segurança.","demands":[]}""",
             ]),
         };
         var executor = Build(ChiefRegistry(), fake);
@@ -179,7 +179,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     public async Task TechnicalDetailsRequireBothExplicitRequestAndServerAuthorization()
     {
         const string technical =
-            """{"response":"O provider OpenAI selecionou o modelo de análise.","demands":[]}""";
+            """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"O provider OpenAI selecionou o modelo de análise.","demands":[]}""";
 
         var unauthorized = Build(ChiefRegistry(), new FakeExternalExecutor(technical)
         {
@@ -280,7 +280,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     {
         const string json =
             """
-            {"response":"Só tela.","demands":[{"title":"UI-1 cor do botão","description":"Trocar a cor.",
+            {"intent":"planejar_demanda","intentConfidence":0.9,"response":"Só tela.","demands":[{"title":"UI-1 cor do botão","description":"Trocar a cor.",
             "riskTier":"low","acceptanceCriteria":["O botão fica verde."],
             "specialty":"software-engineer","surfaces":{"frontend":true,"backend":false}}]}
             """;
@@ -306,7 +306,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         // O que não passa por aqui não acontece, por mais convincente que seja a prosa.
         const string json =
             """
-            {"response":"Formei o especialista.","demands":[],
+            {"intent":"planejar_demanda","intentConfidence":0.9,"response":"Formei o especialista.","demands":[],
              "teamActions":[{"action":"create_persona",
                "reason":"Nenhuma persona do catálogo cobre auditoria de acessibilidade WCAG.",
                "persona":{"key":"accessibility-auditor","name":"Auditor de Acessibilidade",

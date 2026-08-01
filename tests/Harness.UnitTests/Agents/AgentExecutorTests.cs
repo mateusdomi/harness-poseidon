@@ -27,10 +27,10 @@ public sealed class AgentExecutorTests
     public void ChiefOutputRejectsUnknownFieldsAndInvalidDemandRisk()
     {
         Assert.Throws<AgentOutputValidationException>(() =>
-            ChiefTurnOutputContract.Parse("""{"response":"ok","demands":[],"hidden":true}"""));
+            ChiefTurnOutputContract.Parse("""{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[],"hidden":true}"""));
         Assert.Throws<AgentOutputValidationException>(() =>
             ChiefTurnOutputContract.Parse(
-                """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"extreme","acceptanceCriteria":["A"]}]}"""));
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[{"title":"T","description":"D","riskTier":"extreme","acceptanceCriteria":["A"]}]}"""));
     }
 
     [Fact]
@@ -40,13 +40,13 @@ public sealed class AgentExecutorTests
         // fora do tipo são recusados, do mesmo jeito que no resto do contrato.
         Assert.Throws<AgentOutputValidationException>(() =>
             ChiefTurnOutputContract.Parse(
-                """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{"mobile":true}}]}"""));
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{"mobile":true}}]}"""));
         Assert.Throws<AgentOutputValidationException>(() =>
             ChiefTurnOutputContract.Parse(
-                """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{"frontend":"sim"}}]}"""));
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{"frontend":"sim"}}]}"""));
         Assert.Throws<AgentOutputValidationException>(() =>
             ChiefTurnOutputContract.Parse(
-                """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":[]}]}"""));
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":[]}]}"""));
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class AgentExecutorTests
         // Compatibilidade: a declaração é OPCIONAL. Um turno sem ela continua válido e mantém a
         // inferência por texto — "não declarei" nunca vira "declarei que não".
         var output = ChiefTurnOutputContract.Parse(
-            """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"]}]}""");
+            """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"]}]}""");
         var demand = Assert.Single(output.Demands);
         Assert.Null(demand.Specialty);
         Assert.Null(demand.Surfaces);
@@ -65,7 +65,7 @@ public sealed class AgentExecutorTests
     public void AnEmptySurfaceObjectIsTreatedAsNoDeclaration()
     {
         var output = ChiefTurnOutputContract.Parse(
-            """{"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{},"specialty":null}]}""");
+            """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[{"title":"T","description":"D","riskTier":"low","acceptanceCriteria":["A"],"surfaces":{},"specialty":null}]}""");
         var demand = Assert.Single(output.Demands);
         Assert.Null(demand.Surfaces);
         Assert.Null(demand.Specialty);
@@ -76,7 +76,7 @@ public sealed class AgentExecutorTests
     {
         var output = ChiefTurnOutputContract.Parse(
             """
-            {"response":"Vou criar o especialista.","demands":[],
+            {"intent":"planejar_demanda","intentConfidence":0.9,"response":"Vou criar o especialista.","demands":[],
              "teamActions":[{"action":"create_persona",
                "reason":"Nenhuma persona do catálogo cobre threat modeling de aplicações.",
                "persona":{"key":"application-security-architect","name":"Arquiteto de Segurança",
@@ -96,19 +96,19 @@ public sealed class AgentExecutorTests
         // Interpretar texto do modelo como comando é o caminho por onde a autoridade vaza.
         Assert.Throws<AgentOutputValidationException>(() =>
             ChiefTurnOutputContract.Parse(
-                """{"response":"ok","demands":[],"teamActions":[{"action":"delete_everything","reason":"porque sim, motivo longo"}]}"""));
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[],"teamActions":[{"action":"delete_everything","reason":"porque sim, motivo longo"}]}"""));
         Assert.Throws<AgentOutputValidationException>(() =>
             ChiefTurnOutputContract.Parse(
-                """{"response":"ok","demands":[],"teamActions":[{"action":"create_persona","reason":"curto"}]}"""));
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[],"teamActions":[{"action":"create_persona","reason":"curto"}]}"""));
         Assert.Throws<AgentOutputValidationException>(() =>
             ChiefTurnOutputContract.Parse(
-                """{"response":"ok","demands":[],"teamActions":[{"action":"create_persona","reason":"motivo suficientemente longo","extra":1}]}"""));
+                """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[],"teamActions":[{"action":"create_persona","reason":"motivo suficientemente longo","extra":1}]}"""));
     }
 
     [Fact]
     public void ATurnWithoutTeamActionsParsesExactlyAsBefore()
     {
-        var output = ChiefTurnOutputContract.Parse("""{"response":"ok","demands":[]}""");
+        var output = ChiefTurnOutputContract.Parse("""{"intent":"planejar_demanda","intentConfidence":0.9,"response":"ok","demands":[]}""");
         Assert.Null(output.TeamActions);
     }
 

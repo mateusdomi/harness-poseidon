@@ -217,6 +217,36 @@ public sealed class ChiefIntentDispatchTests
         Assert.Equal(1, result.TeamActionsDropped);
     }
 
+    [Fact]
+    public void TheChiefTurnContractRefusesAnUnclassifiedTurnSoTheRepairRoundHappens()
+    {
+        // Foi assim que o primeiro piloto real falhou: o modelo esqueceu `intent`, o parse
+        // degradou em silêncio para `unmatched`, o portão descartou as demandas — e o dono
+        // recebeu uma resposta simpática sem nenhum trabalho criado, sem nada explicando.
+        //
+        // Agora a ausência FALHA, e a falha aciona a rodada de reparo em que o modelo corrige a
+        // própria saída. Pedir de novo custa uma chamada; perder o trabalho custa o projeto.
+        var semClassificacao = """{"response":"Vou cuidar disso.","demands":[]}""";
+
+        Assert.Throws<AgentOutputValidationException>(
+            () => ChiefTurnOutputContract.ParseChiefTurn(semClassificacao));
+
+        // O contrato GERAL continua tolerante: ele é compartilhado com a detecção de serviços, os
+        // executores de CLI e o simulado, que não tomam decisão de rota nenhuma.
+        var geral = ChiefTurnOutputContract.Parse(semClassificacao);
+        Assert.Equal(ChiefTurnIntent.Unmatched, geral.Intent);
+    }
+
+    [Fact]
+    public void AClassifiedTurnPassesTheChiefContract()
+    {
+        var output = ChiefTurnOutputContract.ParseChiefTurn(
+            """{"intent":"planejar_demanda","intentConfidence":0.93,"response":"Vou organizar.","demands":[]}""");
+
+        Assert.Equal(ChiefTurnIntent.PlanejarDemanda, output.Intent);
+        Assert.Equal(0.93, output.IntentConfidence);
+    }
+
     private static ChiefDemandProposal Demand(string title) =>
         new(title, "descrição da demanda", "medium", ["critério"], null, null);
 }

@@ -152,16 +152,19 @@ public static class ChiefTurnOutputContract
                 ReadSurfaces(demand)));
         }
 
-        // B14: a classificação é OBRIGATÓRIA no contrato. Ausente ou fora da taxonomia vira
-        // `unmatched` — que é uma rota real (turno livre, sem permissão de agir), não um erro.
+        // Este contrato é COMPARTILHADO: além do turno da chefe, validam por aqui a detecção de
+        // serviços, os executores de CLI e o simulado. A classificação de intenção só faz sentido
+        // num TURNO — exigi-la aqui cobraria de contextos que não tomam decisão de rota.
+        //
+        // Quem exige a classificação é `ParseChiefTurn`, usado somente no caminho do turno.
         var intent = ChiefIntentDispatchTable.Parse(
             root.TryGetProperty("intent", out var intentNode) && intentNode.ValueKind == JsonValueKind.String
                 ? intentNode.GetString()
                 : null);
         var confidence = root.TryGetProperty("intentConfidence", out var confidenceNode) &&
             confidenceNode.ValueKind == JsonValueKind.Number &&
-            confidenceNode.TryGetDouble(out var parsed)
-                ? Math.Clamp(parsed, 0, 1)
+            confidenceNode.TryGetDouble(out var parsedConfidence)
+                ? Math.Clamp(parsedConfidence, 0, 1)
                 : 0;
 
         return new ChiefTurnOutput(
@@ -305,6 +308,30 @@ public static class ChiefTurnOutputContract
         }
 
         return ReadText(value, property, minimumLength, maximumLength);
+    }
+
+    /// <summary>
+    /// O contrato do TURNO DA CHEFE: além de tudo o que <see cref="Parse"/> exige, a
+    /// classificação de intenção é obrigatória.
+    ///
+    /// A ausência FALHA de propósito — e a falha é o que aciona a rodada de reparo do executor, na
+    /// qual o modelo corrige a própria saída. Degradar em silêncio para `unmatched` parecia seguro
+    /// e era pior: o turno perdia a permissão de agir, o dono recebia uma resposta simpática,
+    /// nenhum trabalho era criado e NADA explicava. Foi exatamente o que aconteceu no primeiro
+    /// piloto real — a chefe respondeu, propôs demandas, e o portão as descartou porque o modelo
+    /// esqueceu um campo. Pedir de novo custa uma chamada; perder o trabalho custa o projeto.
+    /// </summary>
+    public static ChiefTurnOutput ParseChiefTurn(string json)
+    {
+        var output = Parse(json);
+        if (output.Intent == ChiefTurnIntent.Unmatched && output.IntentConfidence == 0)
+        {
+            throw new AgentOutputValidationException(
+                "Chief output must classify the turn in `intent` (one of the declared values) " +
+                "and declare `intentConfidence` between 0 and 1.");
+        }
+
+        return output;
     }
 
     private static JsonElement CreateSchema()

@@ -14,6 +14,7 @@ cd "${REPOSITORY_ROOT}"
 "${TOOLS_DIR}/verify-homologation-campaign.sh"
 "${TOOLS_DIR}/verify-governance.sh"
 "${FRONTEND_BUILD}"
+"${TOOLS_DIR}/verify-screens.sh"
 "${DOTNET}" format Harness.sln --verify-no-changes --no-restore
 "${DOTNET}" build Harness.sln --configuration "${CONFIGURATION}" --no-restore
 "${DOTNET}" test Harness.sln --configuration "${CONFIGURATION}" --no-build --no-restore

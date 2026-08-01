@@ -124,6 +124,19 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         if (validated is null)
         {
+            // Última chance ANTES de descartar o turno: aceitar a saída sem a classificação e
+            // tratá-la como `unmatched` — turno livre, sem permissão de agir.
+            //
+            // Derrubar o turno por um campo ausente deixaria o dono sem resposta nenhuma, e ficar
+            // sem resposta é pior do que receber a resposta sem o trabalho automático. A
+            // degradação é consciente e MEDIDA: o turno aparece como `unmatched` no painel, com a
+            // contagem de ações descartadas ao lado.
+            validated = TryParseAcceptingMissingIntent(
+                result.FinalMessage, communicationContext, out parseError);
+        }
+
+        if (validated is null)
+        {
             // Saída inválida é uma falha de gate honesta (não-retryável): o worker a registra
             // como falha, jamais como resposta.
             throw new AgentOutputValidationException(
@@ -243,6 +256,28 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         {request.Instruction}
 
+        ## PRIMEIRO: classifique este turno
+
+        Antes de escrever qualquer outra coisa, decida o campo `intent` — a intenção desta
+        mensagem. É a única decisão de ROTA que você toma; a sequência de passos e o que este
+        turno pode fazer saem de uma tabela do sistema, não do seu julgamento.
+
+        - `planejar_demanda` — o usuário pediu trabalho novo, a ser decomposto e delegado;
+        - `responder_pergunta` — pergunta sobre o produto, o projeto ou uma decisão já tomada;
+        - `resumir_progresso` — pedido de panorama do que andou, travou e vem a seguir;
+        - `decidir_escalacao` — algo travou e é preciso decidir se escala ao usuário;
+        - `aprovar_documento` — aprovação ou reprovação de um documento submetido;
+        - `decidir_gate_de_fase` — decisão sobre avançar (ou não) uma fase da esteira;
+        - `tratar_barreira_externa` — obstáculo fora do alcance da fábrica que precisa do usuário;
+        - `ajustar_projeto` — mudança de prazo, objetivo ou marca do projeto;
+        - `pedir_status_pessoa_equipe` — pergunta sobre uma especialidade ou sobre a equipe;
+        - `conversa_geral` — saudação ou comentário que não pede ação nenhuma.
+
+        `intent` e `intentConfidence` são OBRIGATÓRIOS. Omitir qualquer um dos dois faz a resposta
+        ser rejeitada e você terá de refazê-la. SOMENTE `planejar_demanda` e `decidir_escalacao`
+        podem emitir `demands`; SOMENTE `planejar_demanda` pode emitir `teamActions` — nas demais
+        intenções o sistema DESCARTA esses campos, e o trabalho que você propôs não acontece.
+
         ## Formato de saída OBRIGATÓRIO
 
         Responda com um ÚNICO objeto JSON válido, SEM cercas de código e SEM texto ao redor,
@@ -360,6 +395,44 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     /// ao redor: isolamos o objeto JSON externo antes de validar de forma ESTRITA. Falha de
     /// validação devolve nulo com o motivo, nunca uma resposta inventada.
     /// </summary>
+    /// <summary>
+    /// Variante tolerante do <see cref="TryParse"/>: aceita a saída sem classificação de intenção
+    /// e a rebaixa a <c>unmatched</c>. Só é chamada depois que a rodada de reparo não resolveu.
+    /// </summary>
+    private static ChiefTurnOutput? TryParseAcceptingMissingIntent(
+        string? finalMessage,
+        ChiefCommunicationContext communicationContext,
+        out string? error)
+    {
+        error = null;
+        var candidate = string.IsNullOrWhiteSpace(finalMessage)
+            ? null
+            : ExtractJsonObject(finalMessage);
+        if (candidate is null)
+        {
+            error = "nenhum objeto JSON encontrado na resposta.";
+            return null;
+        }
+
+        try
+        {
+            var output = ChiefTurnOutputContract.Parse(candidate);
+            if (!ChiefCommunicationPolicy.TryValidateResponse(
+                    output.Response, communicationContext, out var communicationViolation))
+            {
+                error = communicationViolation;
+                return null;
+            }
+
+            return output;
+        }
+        catch (AgentOutputValidationException exception)
+        {
+            error = exception.Message;
+            return null;
+        }
+    }
+
     private static ChiefTurnOutput? TryParse(
         string? finalMessage,
         ChiefCommunicationContext communicationContext,
@@ -381,7 +454,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         try
         {
-            var output = ChiefTurnOutputContract.Parse(candidate);
+            var output = ChiefTurnOutputContract.ParseChiefTurn(candidate);
             if (!ChiefCommunicationPolicy.TryValidateResponse(
                     output.Response, communicationContext, out var communicationViolation))
             {
@@ -492,7 +565,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                 [.. output.Demands.Select(demand => new ChiefStructuredDemand(
                     demand.Title, demand.Description, demand.RiskTier, demand.AcceptanceCriteria,
                     demand.Specialty, demand.Surfaces))],
-                output.TeamActions),
+                output.TeamActions,
+                ChiefIntentDispatchTable.Name(output.Intent),
+                output.IntentConfidence),
             StructuredJsonOptions);
 
     private string LoadGovernanceCore()
@@ -524,10 +599,17 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     private static string SchemaJson { get; } =
         JsonSerializer.Serialize(ChiefTurnOutputContract.JsonSchema, StructuredJsonOptions);
 
+    /// <param name="Intent">
+    /// A classificação do turno vai junto na saída estruturada — é ela que fica registrada como
+    /// EVIDÊNCIA. Sem isso, o recibo do turno não permitiria auditar depois por que aquele turno
+    /// pôde (ou não pôde) criar trabalho.
+    /// </param>
     private sealed record ChiefStructuredOutput(
         string Response,
         IReadOnlyList<ChiefStructuredDemand> Demands,
-        IReadOnlyList<ChiefTeamAction>? TeamActions);
+        IReadOnlyList<ChiefTeamAction>? TeamActions,
+        string Intent,
+        double IntentConfidence);
 
     private sealed record ChiefStructuredDemand(
         string Title, string Description, string RiskTier, IReadOnlyList<string> AcceptanceCriteria,
