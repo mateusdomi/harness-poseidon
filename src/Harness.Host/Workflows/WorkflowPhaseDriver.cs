@@ -758,9 +758,9 @@ public sealed class WorkflowPhaseDriver(
     }
 
     /// <summary>
-    /// Cria o card de um assento. O armazenamento usa `agent_task` porque é o tipo executável do
-    /// dispatcher; a instrução registra que o produto é uma revisão. A LENTE e a especialidade
-    /// explícita impedem cinco pareceres iguais executados pelo mesmo perfil genérico.
+    /// Cria o card de um assento como `revisao`, o tipo canônico do trabalho. A LENTE e a
+    /// especialidade explícita impedem cinco pareceres iguais executados pelo mesmo perfil
+    /// genérico; o gate de despacho já reconhece revisão como trabalho delegável.
     /// </summary>
     private async Task CreateCouncilCardAsync(
         string tenantId,
@@ -787,7 +787,7 @@ public sealed class WorkflowPhaseDriver(
                 // Alta: o conselho destrava a fase inteira. Na fila atrás do trabalho comum, ele
                 // atrasaria tudo o que vem depois dele.
                 "high",
-                null, null, instructionId, instruction, now, phaseName),
+                null, null, instructionId, instruction, now, phaseName, "revisao"),
             cancellationToken);
 
         _ = await _board.MoveTaskAsync(
@@ -831,7 +831,7 @@ public sealed class WorkflowPhaseDriver(
                 tenantId, taskId, project.Id, demandId,
                 UlidValue.New(now.AddMilliseconds(2)).ToString(),
                 UlidValue.New(now.AddMilliseconds(3)).ToString(), actorProfileId, title, "critical",
-                null, null, instructionId, instruction, now, phaseName),
+                null, null, instructionId, instruction, now, phaseName, "documento"),
             cancellationToken);
         _ = await _board.MoveTaskAsync(
             new BoardTaskMoveCommand(
