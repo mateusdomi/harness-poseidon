@@ -44,7 +44,19 @@ public sealed record IsolatedExecutionSettings
             ? KimiAgentDefinitionKeys
             : FrontendSpecialistAgentDefinitionKeys;
 
-    public IsolatedExecutionMode Mode { get; init; } = IsolatedExecutionMode.Disabled;
+    /// <summary>
+    /// Modo de isolamento. O padrão é <see cref="IsolatedExecutionMode.Docker"/> desde o 0-E, que
+    /// tornou o contêiner o CAMINHO ÚNICO de execução.
+    ///
+    /// Nascia `Disabled`, e o efeito era o pior possível: numa instalação com Docker rodando e
+    /// tudo pronto, a atestação resolvia `unverified:none`, toda execução era recusada com
+    /// `sandbox_required` e o card voltava para a fila — vinte e uma vezes seguidas, sem que nada
+    /// dissesse por quê. A fábrica parecia trabalhar e não produzia nada.
+    ///
+    /// Desligar de propósito continua possível (`Disabled`), mas passa a ser uma DECLARAÇÃO de
+    /// quem instala, não o estado em que o produto nasce.
+    /// </summary>
+    public IsolatedExecutionMode Mode { get; init; } = IsolatedExecutionMode.Docker;
 
     public string? ControlledRoot { get; init; }
 

@@ -1766,25 +1766,45 @@ public sealed partial class ChiefBacklogLoopService(
     private static async Task<DemandCardBudget?> ReadCardBudgetAsync(
         string tenantId, BoardTaskRecord task, IDemandPlanStore plans, CancellationToken token)
     {
-        if (task.DemandId is not { Length: > 0 } demandId)
+        if (task.DemandId is { Length: > 0 } demandId)
         {
-            return null;
+            var plan = await plans.GetByDemandAsync(tenantId, demandId, token);
+            var code = DemandDecompositionPlanner.CodeOf(task.Title);
+            var planned = plan?.Cards
+                .FirstOrDefault(card =>
+                    string.Equals(
+                        DemandDecompositionPlanner.CodeOf(card.ProposedTitle), code,
+                        StringComparison.OrdinalIgnoreCase))
+                ?.Budget;
+            if (planned is not null)
+            {
+                return planned;
+            }
         }
 
-        var plan = await plans.GetByDemandAsync(tenantId, demandId, token);
-        if (plan is null)
-        {
-            return null;
-        }
-
-        var code = DemandDecompositionPlanner.CodeOf(task.Title);
-        return plan.Cards
-            .FirstOrDefault(card =>
-                string.Equals(
-                    DemandDecompositionPlanner.CodeOf(card.ProposedTitle), code,
-                    StringComparison.OrdinalIgnoreCase))
-            ?.Budget;
+        // SEM plano ainda há teto. Cards que não nascem de uma demanda — o artefato da esteira, o
+        // parecer do conselho — ficavam sem orçamento nenhum, e sem orçamento não há esgotamento:
+        // um card cuja execução é recusada volta para a fila indefinidamente. Foi o que aconteceu
+        // no piloto real: vinte e uma tentativas do mesmo card, canceladas em milissegundos, sem
+        // que nada as interrompesse.
+        //
+        // O teto padrão é o mesmo que a EffortPolicy daria a um trabalho pequeno de um agente só,
+        // que é o que esses cards são. Quem gasta as rodadas ESCALA, com o fato auditado.
+        return DefaultCardBudget;
     }
+
+    /// <summary>
+    /// Orçamento de quem não vem de plano. Deliberadamente curto: um card de esteira que precisa
+    /// de mais de três rodadas não está com falta de tentativa, está com um problema que outra
+    /// tentativa não resolve.
+    /// </summary>
+    private static readonly DemandCardBudget DefaultCardBudget = new(
+        Agents: 1,
+        TokenBudget: 8000,
+        MaxRounds: 3,
+        ReviewDepth: 1,
+        FanOutAllowed: false,
+        ReasonCode: "effort.default_off_plan");
 
     /// <summary>
     /// O card esgotou as rodadas orçadas. Parar em silêncio esconderia um card morto no board;
@@ -2124,8 +2144,34 @@ public sealed partial class ChiefBacklogLoopService(
 
         if (snapshot.Status is AgentRunStatus.Rejected or AgentRunStatus.ScopeConflict)
         {
-            LogRunRejected(logger, task.Id, snapshot.Status.ToString(), snapshot.FinalError ?? string.Empty);
+            var rejection = snapshot.FinalError ?? "rejeitado sem motivo declarado";
+            LogRunRejected(logger, task.Id, snapshot.Status.ToString(), rejection);
             _dispatchBackoff[task.Id] = clock.UtcNow.Add(RejectedDispatchBackoff);
+
+            // O MOTIVO precisa ficar visível para o dono, não só no log do servidor.
+            //
+            // Uma recusa que só existe em log produz o pior sintoma possível: vinte e uma
+            // tentativas canceladas em milissegundos, nenhuma com razão registrada, e um card que
+            // volta para a fila para sempre. De fora, a fábrica parece trabalhar e não produz
+            // nada. Falha de auditoria nunca impede o resto do ciclo — perder o registro é ruim,
+            // parar a fábrica por causa dele é pior.
+            try
+            {
+                using var auditScope = scopes.CreateScope();
+                await auditScope.ServiceProvider
+                    .GetRequiredService<global::Harness.Persistence.Abstractions.Governance.IAuditEventStore>()
+                    .AppendAsync(
+                        new global::Harness.Persistence.Abstractions.Governance.AuditEventAppendCommand(
+                            tenantId, "agent", accountAlias, "card.dispatchRejected",
+                            "task", task.Id,
+                            $"{{\"status\":\"{snapshot.Status}\",\"reason\":\"{rejection}\"}}",
+                            clock.UtcNow),
+                        token);
+            }
+            catch (Exception auditFailure) when (auditFailure is not OperationCanceledException)
+            {
+                _ = auditFailure;
+            }
 
             // COMPENSAÇÃO: a tentativa durável já estava `running` quando o orquestrador recusou
             // o run (ex.: conflito de claim com um run vivo). Sem abandoná-la, o card ficaria em
