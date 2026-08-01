@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Workflows.Application;
+using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
@@ -56,6 +57,7 @@ public sealed class WorkflowPhaseDriver(
     IWorkBoardStore board,
     IPhaseObligationStore obligations,
     IWorkflowDocumentTemplateStore documentTemplates,
+    IConversationStore conversations,
     IClock clock)
 {
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
@@ -101,6 +103,8 @@ public sealed class WorkflowPhaseDriver(
         obligations ?? throw new ArgumentNullException(nameof(obligations));
     private readonly IWorkflowDocumentTemplateStore _documentTemplates =
         documentTemplates ?? throw new ArgumentNullException(nameof(documentTemplates));
+    private readonly IConversationStore _conversations =
+        conversations ?? throw new ArgumentNullException(nameof(conversations));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     /// <summary>
@@ -159,6 +163,8 @@ public sealed class WorkflowPhaseDriver(
             tenantId, project.Id, null, 500, cancellationToken);
         var demands = await _board.ListDemandsAsync(
             tenantId, project.Id, null, null, 500, cancellationToken);
+        var humanMessages = await ListHumanMessagesAsync(
+            tenantId, project.Id, cancellationToken);
         var templates = await _documentTemplates.ListAsync(cancellationToken);
 
         var created = 0;
@@ -173,11 +179,18 @@ public sealed class WorkflowPhaseDriver(
 
             if (!byTitle.TryGetValue(title, out var card))
             {
-                if (isPending)
+                // Cadastrar um projeto não equivale a autorizar trabalho invisível. A esteira só
+                // materializa o primeiro artefato depois de existir um pedido humano autenticado
+                // na conversa (qualquer canal) ou uma solicitação explícita no quadro. Assim o
+                // profissional nunca recebe um documento pré-fabricado antes de a Bruna ouvir o
+                // usuário, e o card já nasce com a fonte primária no pacote executável.
+                var hasHumanKickoff = humanMessages.Count > 0 ||
+                    solicitations.Any(item => !item.Internal);
+                if (isPending && hasHumanKickoff)
                 {
                     await CreateObjectiveCardAsync(
                         tenantId, project, actorProfileId, phase.Name, objective.Name,
-                        solicitations, demands, templates, cancellationToken);
+                        humanMessages, solicitations, demands, templates, cancellationToken);
                     created++;
                 }
 
@@ -843,12 +856,44 @@ public sealed class WorkflowPhaseDriver(
         _ => "playbook-tech-lead",
     };
 
+    private async Task<IReadOnlyList<MessageRecord>> ListHumanMessagesAsync(
+        string tenantId,
+        string projectId,
+        CancellationToken cancellationToken)
+    {
+        var conversations = await _conversations.ListConversationsAsync(
+            tenantId, projectId, null, 200, cancellationToken);
+        var messages = new Dictionary<string, MessageRecord>(StringComparer.Ordinal);
+        foreach (var conversation in conversations)
+        {
+            // O mandato fundador não pode sumir quando a conversa ultrapassa a janela recente.
+            // A store possui consultas próprias para ambos, sem carregar o histórico inteiro.
+            var first = await _conversations.GetFirstMessageAsync(
+                tenantId, conversation.Id, cancellationToken);
+            if (first is not null) messages[first.Id] = first;
+            foreach (var message in await _conversations.ListRecentMessagesAsync(
+                         tenantId, conversation.Id, 50, cancellationToken))
+            {
+                messages[message.Id] = message;
+            }
+        }
+
+        return messages.Values
+            .Where(item => string.Equals(item.ProjectId, projectId, StringComparison.Ordinal) &&
+                           string.Equals(item.AuthorRole, "user", StringComparison.Ordinal) &&
+                           !string.IsNullOrWhiteSpace(item.AuthorProfileId))
+            .OrderBy(item => item.CreatedAt)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+    }
+
     private async Task CreateObjectiveCardAsync(
         string tenantId,
         ProjectRecord project,
         string actorProfileId,
         string phaseName,
         string objectiveName,
+        IReadOnlyList<MessageRecord> humanMessages,
         IReadOnlyList<BoardSolicitationRecord> solicitations,
         IReadOnlyList<BoardDemandRecord> demands,
         IReadOnlyList<WorkflowDocumentTemplateRecord> templates,
@@ -861,7 +906,8 @@ public sealed class WorkflowPhaseDriver(
         var personaKey = PersonaForObjective(phaseName, objectiveName);
         var template = MatchTemplate(templates, phaseName, objectiveName);
         var instruction = ComposeObjectiveInstruction(
-            project, phaseName, objectiveName, personaKey, template, solicitations, demands);
+            project, phaseName, objectiveName, personaKey, template, humanMessages,
+            solicitations, demands);
         var primaryDemand = demands
             .Where(demand => !demand.Internal)
             .OrderBy(demand => demand.CreatedAt)
@@ -909,6 +955,7 @@ public sealed class WorkflowPhaseDriver(
         string objectiveName,
         string personaKey,
         WorkflowDocumentTemplateRecord? template,
+        IReadOnlyList<MessageRecord> humanMessages,
         IReadOnlyList<BoardSolicitationRecord> solicitations,
         IReadOnlyList<BoardDemandRecord> demands)
     {
@@ -932,24 +979,45 @@ public sealed class WorkflowPhaseDriver(
             .Append(project.Technologies.Count == 0 ? "nenhuma" : string.Join(", ", project.Technologies))
             .Append("\n\n# Proveniência — não confunda fato com inferência\n");
 
-        var humanInputs = solicitations
+        var orderedConversationInputs = humanMessages
+            .Where(item => string.Equals(item.AuthorRole, "user", StringComparison.Ordinal) &&
+                           !string.IsNullOrWhiteSpace(item.AuthorProfileId))
+            .OrderBy(item => item.CreatedAt)
+            .ToArray();
+        var founders = orderedConversationInputs
+            .GroupBy(item => item.ConversationId, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .TakeLast(20)
+            .ToArray();
+        var conversationInputs = founders
+            .Concat(orderedConversationInputs.TakeLast(Math.Max(0, 20 - founders.Length)))
+            .DistinctBy(item => item.Id, StringComparer.Ordinal)
+            .OrderBy(item => item.CreatedAt)
+            .ToArray();
+        foreach (var item in conversationInputs)
+        {
+            builder.Append("- FATO EXPLÍCITO DO USUÁRIO [conversa:")
+                .Append(item.ConversationId).Append(", mensagem:").Append(item.Id)
+                .Append(", em ")
+                .Append(item.CreatedAt.ToString("O", CultureInfo.InvariantCulture)).Append("]: ")
+                .Append(Clean(item.Content, 2_000)).Append('\n');
+        }
+
+        var boardInputs = solicitations
             .Where(item => !item.Internal)
             .OrderBy(item => item.CreatedAt)
             .TakeLast(20)
             .ToArray();
-        if (humanInputs.Length == 0)
+        if (conversationInputs.Length == 0 && boardInputs.Length == 0)
         {
-            builder.Append("- Nenhuma declaração humana foi localizada no quadro. Trate isso como LACUNA; não invente conteúdo.\n");
+            builder.Append("- Nenhuma declaração humana autenticada foi localizada. Trate isso como LACUNA; não invente conteúdo.\n");
         }
-        else
+        foreach (var item in boardInputs)
         {
-            foreach (var item in humanInputs)
-            {
-                builder.Append("- FATO EXPLÍCITO DO USUÁRIO [solicitação:")
-                    .Append(item.Id).Append(", em ")
-                    .Append(item.CreatedAt.ToString("O", CultureInfo.InvariantCulture)).Append("]: ")
-                    .Append(Clean($"{item.Title}: {item.Body}", 2_000)).Append('\n');
-            }
+            builder.Append("- FATO EXPLÍCITO DO USUÁRIO [solicitação:")
+                .Append(item.Id).Append(", em ")
+                .Append(item.CreatedAt.ToString("O", CultureInfo.InvariantCulture)).Append("]: ")
+                .Append(Clean($"{item.Title}: {item.Body}", 2_000)).Append('\n');
         }
 
         foreach (var demand in demands.OrderBy(item => item.CreatedAt).TakeLast(30))

@@ -37,6 +37,12 @@ public enum PlanMaterializationResult
     /// <summary>Outro dono vivo detém o trabalho — quem o detém conclui.</summary>
     NotClaimed,
 
+    /// <summary>
+    /// A demanda está preservada, mas o Playbook ainda não liberou Desenvolvimento. Não conta
+    /// como tentativa nem como falha; o reconciliador volta a avaliá-la quando a fase mudar.
+    /// </summary>
+    Deferred,
+
     /// <summary>A guarda de laço interrompeu deliberadamente; o motivo está auditado.</summary>
     Interrupted,
 
@@ -150,6 +156,26 @@ public sealed class PlanMaterializationService(
             }
 
             reopenCompleted = true;
+        }
+
+        // Gate absoluto do Playbook para demandas propostas pela Bruna. O turno continua
+        // registrando a necessidade do usuário e sua proveniência no banco, mas a decomposição
+        // em cards de implementação só acontece quando a Fase 5 está realmente ativa. Antes
+        // desta guarda, um primeiro "pode tocar o projeto?" criava cards Backend em andamento
+        // dentro de Triagem, contornando documentos, Conselho e gate de liberação.
+        //
+        // Ausência de fase é Default-FAIL apenas para trabalho gerado pelo próprio turno. O
+        // caminho manual (TurnId nulo) permanece compatível com projetos sem workflow.
+        if (current.TurnId is not null)
+        {
+            var phase = await activePhases.ResolveSnapshotAsync(
+                tenantId, current.ProjectId, cancellationToken);
+            if (phase is null || phase.Order < 5)
+            {
+                return new PlanMaterializationOutcome(
+                    PlanMaterializationResult.Deferred,
+                    "workflow.development_not_released");
+            }
         }
 
         var job = await jobs.TryBeginAsync(

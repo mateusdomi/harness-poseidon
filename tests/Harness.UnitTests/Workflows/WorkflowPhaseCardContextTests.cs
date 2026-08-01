@@ -1,6 +1,7 @@
 using Harness.Host.Agents;
 using Harness.Host.Workflows;
 using Harness.Modules.Coordination.Application;
+using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
@@ -36,12 +37,17 @@ public sealed class WorkflowPhaseCardContextTests
             "05", "ADR (MADR)", "3-Arquitetura", "adr",
             "[\"contexto\",\"decisao\",\"alternativas\",\"consequencias\"]", "{}",
             "Provar o trade-off e suas consequências negativas.");
+        var message = new MessageRecord(
+            "tenant", "project", "message-human", "conversation-human", "user", "profile", null,
+            "O mais importante é não pagar uma renovação que eu não queria.", null, Now);
 
         var instruction = WorkflowPhaseDriver.ComposeObjectiveInstruction(
             project, "3-Arquitetura", "ADRs", "playbook-arquiteto", template,
-            [solicitation], [demand]);
+            [message], [solicitation], [demand]);
 
         Assert.Contains("Especialidade exigida: playbook-arquiteto", instruction, StringComparison.Ordinal);
+        Assert.Contains("mensagem:message-human", instruction, StringComparison.Ordinal);
+        Assert.Contains("não pagar uma renovação", instruction, StringComparison.Ordinal);
         Assert.Contains("FATO EXPLÍCITO DO USUÁRIO [solicitação:solicitation-human", instruction, StringComparison.Ordinal);
         Assert.Contains("DEMANDA DERIVADA DO PEDIDO [demanda:demand-human", instruction, StringComparison.Ordinal);
         Assert.Contains("integração futura com calendário", instruction, StringComparison.Ordinal);

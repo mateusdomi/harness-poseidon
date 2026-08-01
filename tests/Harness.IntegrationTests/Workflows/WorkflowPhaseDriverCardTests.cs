@@ -8,6 +8,7 @@ using Harness.Host.Workflows;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
+using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
@@ -71,7 +72,40 @@ public sealed class WorkflowPhaseDriverCardTests
             var localProfile = (await app.Services.GetRequiredService<ILocalProfileStore>()
                 .GetAsync(profile.Id, timeout.Token))!;
             var board = app.Services.GetRequiredService<IWorkBoardStore>();
+            var conversations = app.Services.GetRequiredService<IConversationStore>();
+            using var scope = app.Services.CreateScope();
+            var project = (await scope.ServiceProvider.GetRequiredService<IProjectStore>()
+                .GetAsync(localProfile.TenantId, projectContract.Id, timeout.Token))!;
+            var driver = scope.ServiceProvider.GetRequiredService<WorkflowPhaseDriver>();
+
+            var beforeKickoff = await driver.DriveAsync(
+                localProfile.TenantId, project, profile.Id, timeout.Token);
+            Assert.Equal(0, beforeKickoff.CardsCreated);
+            Assert.Empty(await board.ListTasksAsync(
+                localProfile.TenantId, project.Id, null, null, 100, timeout.Token));
+
             var now = DateTimeOffset.UtcNow;
+            var conversationId = UlidValue.New(now.AddMilliseconds(-2)).ToString();
+            var messageId = UlidValue.New(now.AddMilliseconds(-1)).ToString();
+            var createdConversation = await conversations.CreateConversationAsync(
+                new ConversationCreateCommand(
+                    new ConversationRecord(
+                        localProfile.TenantId, conversationId, projectContract.Id, "Conversa inicial",
+                        "active", profile.Id, now.AddMilliseconds(-2), null, 1),
+                    now.AddMilliseconds(-2)),
+                timeout.Token);
+            Assert.Equal(ConversationMutationStatus.Applied, createdConversation.Status);
+            var createdMessage = await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    localProfile.TenantId,
+                    new MessageRecord(
+                        localProfile.TenantId, projectContract.Id, messageId, conversationId,
+                        "user", profile.Id, null,
+                        "Quero aviso antes da renovação para não pagar algo que não queria.",
+                        null, now.AddMilliseconds(-1)),
+                    now.AddMilliseconds(-1)),
+                timeout.Token);
+            Assert.Equal(MessageMutationStatus.Applied, createdMessage.Status);
             var solicitationId = UlidValue.New(now).ToString();
             var demandId = UlidValue.New(now.AddMilliseconds(1)).ToString();
             _ = await board.CreateSolicitationAsync(
@@ -88,11 +122,8 @@ public sealed class WorkflowPhaseDriverCardTests
                     "medium", now.AddMilliseconds(1)),
                 timeout.Token);
 
-            using var scope = app.Services.CreateScope();
-            var project = (await scope.ServiceProvider.GetRequiredService<IProjectStore>()
-                .GetAsync(localProfile.TenantId, projectContract.Id, timeout.Token))!;
-            var result = await scope.ServiceProvider.GetRequiredService<WorkflowPhaseDriver>()
-                .DriveAsync(localProfile.TenantId, project, profile.Id, timeout.Token);
+            var result = await driver.DriveAsync(
+                localProfile.TenantId, project, profile.Id, timeout.Token);
 
             Assert.True(result.CardsCreated > 0);
             var card = Assert.Single(
@@ -106,6 +137,8 @@ public sealed class WorkflowPhaseDriverCardTests
             Assert.Contains(
                 "Especialidade exigida: playbook-product-owner", instruction.Body,
                 StringComparison.Ordinal);
+            Assert.Contains($"mensagem:{messageId}", instruction.Body, StringComparison.Ordinal);
+            Assert.Contains("não pagar algo que não queria", instruction.Body, StringComparison.Ordinal);
             Assert.Contains($"solicitação:{solicitationId}", instruction.Body, StringComparison.Ordinal);
             Assert.Contains($"demanda:{demandId}", instruction.Body, StringComparison.Ordinal);
             Assert.Contains("PREMISSA INFERIDA", instruction.Body, StringComparison.Ordinal);

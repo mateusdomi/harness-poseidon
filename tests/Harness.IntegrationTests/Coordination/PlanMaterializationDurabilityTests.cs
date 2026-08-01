@@ -25,6 +25,35 @@ namespace Harness.IntegrationTests.Coordination;
 public sealed class PlanMaterializationDurabilityTests
 {
     [Fact]
+    public async Task ChiefDemandRemainsPendingUntilDevelopmentIsReleased()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await using var fixture = await PlanFixture.StartAsync(timeout.Token);
+        await fixture.MarkAsChiefGeneratedAsync(timeout.Token);
+
+        var outcome = await fixture.Service().RunAsync(
+            PlanFixture.Tenant, fixture.DemandId, "owner-a", timeout.Token);
+
+        Assert.Equal(PlanMaterializationResult.Deferred, outcome.Result);
+        Assert.Equal("workflow.development_not_released", outcome.ErrorCode);
+        Assert.Equal(0, await fixture.CountDemandCardsAsync(timeout.Token));
+        Assert.Null(await fixture.Plans.GetByDemandAsync(
+            PlanFixture.Tenant, fixture.DemandId, timeout.Token));
+        var job = await fixture.Jobs.GetAsync(
+            PlanFixture.Tenant, fixture.DemandId, timeout.Token);
+        Assert.NotNull(job);
+        Assert.Equal(PlanMaterializationStatus.Pending, job!.Status);
+        Assert.Equal(0, job.AttemptCount);
+        Assert.Null(job.LastError);
+
+        var reconciled = await fixture.Reconciler().RunOnceAsync(timeout.Token);
+        Assert.Equal(1, reconciled.Scanned);
+        Assert.Equal(0, reconciled.Recovered);
+        Assert.Equal(0, reconciled.Blocked);
+        Assert.Equal(0, await fixture.CountDemandCardsAsync(timeout.Token));
+    }
+
+    [Fact]
     public async Task MaterializesExactlyOnceAndIsIdempotentAcrossRetriesAndConcurrency()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -473,6 +502,23 @@ public sealed class PlanMaterializationDurabilityTests
                 return Convert.ToInt32(
                     await query.ExecuteScalarAsync(token),
                     System.Globalization.CultureInfo.InvariantCulture);
+            }, cancellationToken);
+
+        public Task<object?> MarkAsChiefGeneratedAsync(CancellationToken cancellationToken) =>
+            _dispatcher.ExecuteAsync<object?>(async (connection, token) =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    "UPDATE demand_materializations SET turn_id=$turn " +
+                    "WHERE tenant_id=$tenant AND demand_id=$demand;";
+                command.Parameters.AddWithValue(
+                    "$turn",
+                    UlidValue.New(new DateTimeOffset(2026, 7, 31, 11, 0, 1, TimeSpan.Zero))
+                        .ToString());
+                command.Parameters.AddWithValue("$tenant", Tenant);
+                command.Parameters.AddWithValue("$demand", DemandId);
+                await command.ExecuteNonQueryAsync(token);
+                return null;
             }, cancellationToken);
 
         public async Task DeleteOnePlanCardAsync(string planId, CancellationToken cancellationToken) =>

@@ -2,6 +2,8 @@ using Harness.Persistence.Abstractions.Workflows;
 
 namespace Harness.Host.Workflows;
 
+public sealed record ActiveWorkflowPhase(string Key, string Name, int Order);
+
 /// <summary>
 /// A FASE ATIVA da esteira de um projeto.
 ///
@@ -34,6 +36,15 @@ public sealed class ActivePhaseResolver(
     /// </summary>
     public async Task<string?> ResolveAsync(
         string tenantId, string projectId, CancellationToken cancellationToken)
+        => (await ResolveSnapshotAsync(tenantId, projectId, cancellationToken))?.Name;
+
+    /// <summary>
+    /// Resolve a identidade completa da fase ativa. A ordem é necessária para os gates de
+    /// efeito: uma demanda capturada no chat durante Triagem deve continuar durável, mas seus
+    /// cards de implementação não podem nascer antes da liberação da Fase 5.
+    /// </summary>
+    public async Task<ActiveWorkflowPhase?> ResolveSnapshotAsync(
+        string tenantId, string projectId, CancellationToken cancellationToken)
     {
         try
         {
@@ -52,9 +63,10 @@ public sealed class ActivePhaseResolver(
             }
 
             var aggregate = await _authority.ReadRunAggregateAsync(tenantId, running.Id, cancellationToken);
-            return aggregate?.Phases
-                .FirstOrDefault(phase => string.Equals(phase.State, "active", StringComparison.Ordinal))
-                ?.Name;
+            var phase = aggregate?.Phases
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.State, "active", StringComparison.Ordinal));
+            return phase is null ? null : new ActiveWorkflowPhase(phase.Key, phase.Name, phase.Order);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

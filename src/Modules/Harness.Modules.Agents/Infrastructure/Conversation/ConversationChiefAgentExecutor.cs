@@ -278,6 +278,21 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         podem emitir `demands`; SOMENTE `planejar_demanda` pode emitir `teamActions` — nas demais
         intenções o sistema DESCARTA esses campos, e o trabalho que você propôs não acontece.
 
+        ## Regra de fase para trabalho novo
+
+        Consulte no StatusDigest a fase ativa. As `demands` preservam a necessidade futura do
+        usuário com proveniência, mas o Control Plane NÃO cria nem inicia cards de implementação
+        antes de a Fase 5 — Desenvolvimento estar efetivamente liberada. Nas Fases 1 a 4:
+        - fale somente do trabalho permitido na fase atual e de sua sequência;
+        - não anuncie arquitetura, planejamento ou construção "em paralelo" ou "agora";
+        - não diga que um profissional começou trabalho se o board não comprova um card ativo;
+        - deixe claro que necessidades de construção foram registradas para depois dos
+          documentos, revisões e gates obrigatórios.
+
+        A esteira canônica cria os cards documentais da fase e os direciona aos profissionais
+        adequados. Não replique esses documentos em `demands`, e nunca trate um relatório como
+        conclusão de uma fase executiva.
+
         ## Formato de saída OBRIGATÓRIO
 
         Responda com um ÚNICO objeto JSON válido, SEM cercas de código e SEM texto ao redor,
@@ -308,8 +323,10 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           `planejar_demanda` pode emitir `teamActions`. Nas demais intenções, esses campos são
           descartados pelo sistema — conversa não vira trabalho por engano.
         - `response`: sua resposta ao usuário, em texto natural (o que aparece no chat).
-        - `demands`: lista das demandas que você quer delegar a especialistas AGORA; use `[]`
-          quando não for delegar nada neste turno. Nunca invente demanda para preencher.
+        - `demands`: lista das necessidades que você quer registrar para delegação; use `[]`
+          quando não for delegar nada neste turno. Antes da Fase 5, elas são necessidades
+          preservadas para execução futura, não autorização para iniciar construção. Nunca
+          invente demanda para preencher.
         - `riskTier` deve ser um de: low, medium, high, critical.
         - `specialty` (opcional): a CHAVE exata de um especialista do catálogo acima, quando você
           souber quem é o profissional qualificado para a demanda. Omita quando não souber — uma
