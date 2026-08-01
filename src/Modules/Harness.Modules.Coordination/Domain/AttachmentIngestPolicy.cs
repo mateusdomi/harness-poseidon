@@ -29,7 +29,8 @@ public static class AttachmentIngestPolicy
     public const int MaximumZipCompressionRatio = 200;
 
     private static readonly HashSet<string> AllowedExtensions = new(
-        [".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".csv", ".xlsx", ".docx", ".zip"],
+        [".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".csv", ".xlsx", ".docx", ".zip",
+         ".mp3", ".wav", ".ogg", ".m4a"],
         StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> BlockedExtensions = new(
@@ -89,8 +90,15 @@ public static class AttachmentIngestPolicy
                 "O conteúdo do anexo carrega assinatura de executável e foi bloqueado.");
         }
 
-        return string.Equals(extension, ".zip", StringComparison.OrdinalIgnoreCase)
-            ? InspectZip(request.Content)
+        if (!HasExpectedSignature(extension, request.Content.Span))
+        {
+            return AttachmentIngestDecision.Deny(
+                "signature_mismatch",
+                $"O conteúdo não corresponde ao formato declarado pela extensão '{extension}'.");
+        }
+
+        return extension.ToLowerInvariant() is ".zip" or ".docx" or ".xlsx"
+            ? InspectZip(request.Content, extension)
             : AttachmentIngestDecision.Permit();
     }
 
@@ -134,7 +142,25 @@ public static class AttachmentIngestPolicy
             (content[0] == (byte)'#' && content[1] == (byte)'!');
     }
 
-    private static AttachmentIngestDecision InspectZip(ReadOnlyMemory<byte> content)
+    private static bool HasExpectedSignature(string extension, ReadOnlySpan<byte> content) =>
+        extension.ToLowerInvariant() switch
+        {
+            ".pdf" => content.StartsWith("%PDF-"u8),
+            ".png" => content.StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }),
+            ".jpg" or ".jpeg" => content.StartsWith(new byte[] { 0xFF, 0xD8, 0xFF }),
+            ".zip" or ".docx" or ".xlsx" => content.StartsWith(new byte[] { 0x50, 0x4B }),
+            ".mp3" => content.StartsWith("ID3"u8) ||
+                (content.Length >= 2 && content[0] == 0xFF && (content[1] & 0xE0) == 0xE0),
+            ".wav" => content.Length >= 12 && content.StartsWith("RIFF"u8) &&
+                content[8..].StartsWith("WAVE"u8),
+            ".ogg" => content.StartsWith("OggS"u8),
+            ".m4a" => content.Length >= 12 && content[4..].StartsWith("ftyp"u8),
+            _ => true,
+        };
+
+    private static AttachmentIngestDecision InspectZip(
+        ReadOnlyMemory<byte> content,
+        string extension)
     {
         try
         {
@@ -148,9 +174,11 @@ public static class AttachmentIngestPolicy
             }
 
             long totalUncompressed = 0;
+            var names = new HashSet<string>(StringComparer.Ordinal);
             var head = new byte[4];
             foreach (var entry in archive.Entries)
             {
+                names.Add(entry.FullName);
                 if (entry.FullName.Contains("..", StringComparison.Ordinal) ||
                     Path.IsPathRooted(entry.FullName) ||
                     entry.FullName.Contains('\\', StringComparison.Ordinal))
@@ -198,6 +226,22 @@ public static class AttachmentIngestPolicy
                         "zip_executable_entry",
                         $"A entrada '{entry.FullName}' carrega assinatura de executável.");
                 }
+            }
+
+            if (string.Equals(extension, ".docx", StringComparison.OrdinalIgnoreCase) &&
+                !names.Contains("word/document.xml"))
+            {
+                return AttachmentIngestDecision.Deny(
+                    "office_structure_invalid",
+                    "O DOCX não contém a estrutura documental esperada.");
+            }
+
+            if (string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase) &&
+                !names.Contains("xl/workbook.xml"))
+            {
+                return AttachmentIngestDecision.Deny(
+                    "office_structure_invalid",
+                    "O XLSX não contém a estrutura de planilha esperada.");
             }
 
             return AttachmentIngestDecision.Permit();

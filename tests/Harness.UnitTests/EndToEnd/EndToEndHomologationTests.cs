@@ -48,7 +48,8 @@ public sealed class EndToEndHomologationTests
         var intake = new MultimodalIntakeService();
         var intakeResult = await intake.ProcessAttachmentAsync(tenantId, "solicitation-13", "arch.png", "image/png", [1, 2, 3, 4]);
         Assert.True(intakeResult.IsAllowedType);
-        Assert.Equal("passed", intakeResult.SecurityScanStatus);
+        Assert.Equal("type_allowlisted", intakeResult.SecurityScanStatus);
+        Assert.Equal("stored_not_interpreted", intakeResult.ExtractionStatus);
 
         // Phase 10: Scale Dispatcher
         var buffer = new CardPrioritizedBuffer();

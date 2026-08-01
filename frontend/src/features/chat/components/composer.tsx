@@ -16,8 +16,7 @@ export type EffortLevel = ChatTurnEffort;
 export interface ChatAttachment {
   id: string;
   name: string;
-  /** Progresso do upload simulado (0–100). */
-  progress: number;
+  file: File;
 }
 
 /** Seleção explícita da invocação, resolvida no envio do turno. */
@@ -36,7 +35,11 @@ interface ComposerProps {
   /** Valor inicial (rascunho vindo do cockpit, sugestões, ações rápidas). */
   draft: string;
   onDraftConsumed: () => void;
-  onSend: (content: string, attachments: ChatAttachment[], selection: ChatTurnSelection) => void;
+  onSend: (
+    content: string,
+    attachments: ChatAttachment[],
+    selection: ChatTurnSelection,
+  ) => Promise<void>;
 }
 
 /** Ordem canônica dos esforços do Harness (do menor ao maior). */
@@ -62,7 +65,7 @@ function effortOptionsFor(model: Model | undefined): EffortLevel[] {
 
 /**
  * Barra de composição: texto (Enter envia, Shift+Enter quebra linha),
- * anexos com progresso simulado, seletor de modelo e de esforço.
+ * anexos reais, seletor de modelo e de esforço.
  */
 export function Composer({
   models,
@@ -80,6 +83,7 @@ export function Composer({
   const [effort, setEffort] = useState<EffortLevel>('medium');
   const [workMode, setWorkMode] = useState<BusinessWorkMode>('balanced');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentSeq = useRef(0);
 
@@ -105,24 +109,12 @@ export function Composer({
     }
   }, [draft, onDraftConsumed]);
 
-  // Upload simulado: progresso incremental até 100%.
-  useEffect(() => {
-    const pending = attachments.some((a) => a.progress < 100);
-    if (!pending) return;
-    const timer = setInterval(() => {
-      setAttachments((prev) =>
-        prev.map((a) => (a.progress < 100 ? { ...a, progress: Math.min(a.progress + 20, 100) } : a)),
-      );
-    }, 200);
-    return () => clearInterval(timer);
-  }, [attachments]);
-
   function addFiles(files: FileList | null) {
     if (!files) return;
     const added = [...files].map((file) => ({
       id: `att-${(attachmentSeq.current += 1)}`,
       name: file.name,
-      progress: 0,
+      file,
     }));
     setAttachments((prev) => [...prev, ...added]);
   }
@@ -131,18 +123,21 @@ export function Composer({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
-  function send() {
+  async function send() {
     const text = content.trim();
-    if (text === '' || sending || disabled) return;
+    if (text === '' || sending || submitting || disabled) return;
     const selection = showTechnicalDetails
       ? { modelId, effort }
       : resolveBusinessTurnSelection(models, workMode);
-    onSend(text, attachments.filter((a) => a.progress >= 100), selection);
-    setContent('');
-    setAttachments([]);
+    setSubmitting(true);
+    try {
+      await onSend(text, attachments, selection);
+      setContent('');
+      setAttachments([]);
+    } finally {
+      setSubmitting(false);
+    }
   }
-
-  const uploading = attachments.some((a) => a.progress < 100);
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-card motion-safe:transition-colors motion-safe:duration-base focus-within:border-primary/40">
@@ -155,28 +150,14 @@ export function Composer({
             >
               <Paperclip aria-hidden="true" className="size-4 shrink-0 text-foreground-muted" />
               <span className="min-w-0 flex-1 truncate text-sm">{attachment.name}</span>
-              {attachment.progress < 100 ? (
-                <>
-                  <div
-                    role="progressbar"
-                    aria-label={t('chat.composer.uploading', { name: attachment.name })}
-                    aria-valuenow={attachment.progress}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-elevated"
-                  >
-                    <div
-                      className="h-full rounded-full bg-info transition-[width]"
-                      style={{ width: `${attachment.progress}%` }}
-                    />
-                  </div>
-                  <span className="text-xs tabular-nums text-foreground-muted">
-                    {formatNumber(attachment.progress)}%
-                  </span>
-                </>
-              ) : (
-                <span className="text-xs text-success">{t('chat.composer.uploaded')}</span>
-              )}
+              <span className="text-xs tabular-nums text-foreground-muted">
+                {t('chat.composer.sizeBytes', { size: formatNumber(attachment.file.size) })}
+              </span>
+              <span className="text-xs text-info">
+                {submitting
+                  ? t('chat.composer.uploading', { name: attachment.name })
+                  : t('chat.composer.selected')}
+              </span>
               <Button
                 type="button"
                 variant="ghost"
@@ -198,7 +179,7 @@ export function Composer({
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
-              send();
+              void send();
             }
           }}
           placeholder={t('chat.composer.placeholder', { name: leaderName })}
@@ -211,6 +192,7 @@ export function Composer({
           ref={fileInputRef}
           type="file"
           multiple
+          accept=".md,.txt,.pdf,.png,.jpg,.jpeg,.csv,.xlsx,.docx,.zip,.mp3,.wav,.ogg,.m4a"
           className="hidden"
           aria-hidden="true"
           tabIndex={-1}
@@ -233,10 +215,10 @@ export function Composer({
           type="button"
           size="icon"
           aria-label={t('chat.composer.send')}
-          onClick={send}
-          disabled={disabled || sending || uploading || content.trim() === ''}
+          onClick={() => void send()}
+          disabled={disabled || sending || submitting || content.trim() === ''}
         >
-          {sending ? (
+          {sending || submitting ? (
             <Loader2 aria-hidden="true" className="animate-spin" />
           ) : (
             <SendHorizonal aria-hidden="true" />

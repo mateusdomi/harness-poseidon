@@ -272,7 +272,8 @@ public static class SolicitationAttachmentEndpoints
                 solicitationId,
                 SecretTextProtector.Redact(
                     $"{file.FileName} ({content.Length} bytes, sha256 {sha256}); " +
-                    $"scan={processed.SecurityScanStatus}; preview={processed.PreviewSnippet}"),
+                    $"scan={processed.SecurityScanStatus}; extraction={processed.ExtractionStatus}; " +
+                    $"preview={processed.PreviewSnippet}"),
                 occurredAt),
             token);
         _ = await DesignSystemBundleEndpoints.TryPromoteIntakeBundleAsync(

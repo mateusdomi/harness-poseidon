@@ -261,6 +261,12 @@ export class HttpApiClient implements ApiClient {
     return designSystemBundleSchema.parse(response);
   }
 
+  async uploadSolicitationAttachment(solicitationId: Ulid, file: File): Promise<void> {
+    const form = new FormData();
+    form.append('file', file);
+    await this.#request('POST', `/solicitations/${solicitationId}/attachments/`, form);
+  }
+
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task> {
     return this.#request('POST', `/tasks/${taskId}/moves`, input);
   }

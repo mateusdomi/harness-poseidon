@@ -12,6 +12,7 @@ public sealed record MultimodalIntakeResult(
     long SizeBytes,
     string Sha256Hash,
     string PreviewSnippet,
+    string ExtractionStatus,
     bool IsAllowedType,
     string SecurityScanStatus,
     DateTimeOffset ProcessedAt);
@@ -28,8 +29,50 @@ public interface IMultimodalIntakeService
         CancellationToken cancellationToken = default);
 }
 
-public sealed class MultimodalIntakeService : IMultimodalIntakeService
+public sealed record ArtifactContentExtraction(string Status, string Text);
+
+/// <summary>
+/// Extração é uma fronteira substituível porque o Host produtivo a executa em sandbox. O fallback
+/// local existe apenas para testes puros e só decodifica texto; jamais interpreta binário.
+/// </summary>
+public interface IArtifactContentExtractor
 {
+    Task<ArtifactContentExtraction> ExtractAsync(
+        string fileName,
+        string contentType,
+        byte[] content,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class TextOnlyArtifactContentExtractor : IArtifactContentExtractor
+{
+    public Task<ArtifactContentExtraction> ExtractAsync(
+        string fileName,
+        string contentType,
+        byte[] content,
+        CancellationToken cancellationToken = default)
+    {
+        var extracted = contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(contentType, "application/json", StringComparison.OrdinalIgnoreCase);
+        if (!extracted)
+        {
+            return Task.FromResult(new ArtifactContentExtraction(
+                "stored_not_interpreted",
+                $"[FONTE NÃO INTERPRETADA: {contentType}, {content.Length} bytes. " +
+                "O arquivo foi armazenado, mas seu conteúdo não foi lido nesta etapa.]"));
+        }
+
+        var text = System.Text.Encoding.UTF8.GetString(content);
+        var sanitized = Regex.Replace(text, @"\s+", " ").Trim();
+        return Task.FromResult(new ArtifactContentExtraction("extracted", sanitized));
+    }
+}
+
+public sealed class MultimodalIntakeService(IArtifactContentExtractor? extractor = null)
+    : IMultimodalIntakeService
+{
+    private readonly IArtifactContentExtractor _extractor =
+        extractor ?? new TextOnlyArtifactContentExtractor();
     private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -44,7 +87,7 @@ public sealed class MultimodalIntakeService : IMultimodalIntakeService
         "application/octet-stream",
     };
 
-    public Task<MultimodalIntakeResult> ProcessAttachmentAsync(
+    public async Task<MultimodalIntakeResult> ProcessAttachmentAsync(
         string tenantId,
         string resourceId,
         string fileName,
@@ -66,7 +109,9 @@ public sealed class MultimodalIntakeService : IMultimodalIntakeService
 
         var isAllowed = AllowedMimeTypes.Contains(contentType);
         var sha256 = Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant();
-        var preview = GeneratePreview(contentType, content);
+        var extraction = await _extractor.ExtractAsync(
+            fileName, contentType, content, cancellationToken);
+        var preview = NormalizePreview(extraction.Text);
         var assetId = Guid.NewGuid().ToString("N");
 
         var result = new MultimodalIntakeResult(
@@ -78,23 +123,19 @@ public sealed class MultimodalIntakeService : IMultimodalIntakeService
             SizeBytes: content.Length,
             Sha256Hash: sha256,
             PreviewSnippet: preview,
+            ExtractionStatus: extraction.Status,
             IsAllowedType: isAllowed,
-            SecurityScanStatus: isAllowed ? "passed" : "flagged_unsupported_type",
+            // Isto é uma allowlist de tipo, não antivírus. Chamá-la de `passed` afirmava uma
+            // verificação de malware que nunca ocorreu.
+            SecurityScanStatus: isAllowed ? "type_allowlisted" : "flagged_unsupported_type",
             ProcessedAt: DateTimeOffset.UtcNow);
 
-        return Task.FromResult(result);
+        return result;
     }
 
-    private static string GeneratePreview(string contentType, byte[] content)
+    private static string NormalizePreview(string text)
     {
-        if (contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(contentType, "application/json", StringComparison.OrdinalIgnoreCase))
-        {
-            var text = System.Text.Encoding.UTF8.GetString(content);
-            var sanitized = Regex.Replace(text, @"\s+", " ").Trim();
-            return sanitized.Length > 200 ? sanitized[..200] + "..." : sanitized;
-        }
-
-        return $"[{contentType} binary payload, {content.Length} bytes]";
+        var sanitized = Regex.Replace(text, @"\s+", " ").Trim();
+        return sanitized.Length > 4000 ? sanitized[..4000] + "..." : sanitized;
     }
 }

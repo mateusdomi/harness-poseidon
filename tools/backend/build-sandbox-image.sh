@@ -30,4 +30,21 @@ echo "Verificando os executores dentro da imagem…"
 docker run --rm --network=none "${IMAGE}" \
   bash -lc 'claude --version && codex --version'
 
+extraction="$({ docker run --rm --network=none --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=32m \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --mount "type=bind,source=${REPOSITORY_ROOT}/governance/core.md,target=/input/payload,readonly" \
+  "${IMAGE}" python3 /opt/harness/artifact_extract.py /input/payload text/markdown; } 2>/dev/null)"
+if ! jq -e '.status == "extracted" and (.text | contains("Núcleo de governança"))' \
+  >/dev/null <<<"${extraction}"; then
+  echo "A imagem subiu, mas o extrator isolado não conseguiu ler o fixture textual." >&2
+  exit 4
+fi
+
+echo "Verificando extração de texto, PDF, DOCX, XLSX, imagem e falha explícita de áudio…"
+docker run --rm --network=none --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --cap-drop ALL --security-opt no-new-privileges \
+  "${IMAGE}" python3 /opt/harness/artifact_extract_selftest.py
+
 echo "Imagem ${IMAGE} pronta."

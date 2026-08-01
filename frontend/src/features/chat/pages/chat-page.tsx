@@ -39,9 +39,11 @@ import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useActiveProjectStore } from '@/stores/active-project-store';
 import { useUiStore } from '@/stores/ui-store';
 import { usePresentationPolicy } from '@/app/presentation/use-presentation-policy';
+import { useApi } from '@/app/api-context';
 
 export default function ChatPage() {
   const { t } = useTranslation();
+  const api = useApi();
   const presentation = usePresentationPolicy();
   const { profileId, activeProject, isPending: projectsPending } = useActiveProject();
   const projectId = activeProject?.id ?? null;
@@ -55,12 +57,7 @@ export default function ChatPage() {
     selectConversation,
     requestedConversationUnavailable,
     restoring: conversationRestoring,
-  } = useActiveConversation(
-    profileId,
-    projectId,
-    allConversations,
-    conversationsQuery.isLoading,
-  );
+  } = useActiveConversation(profileId, projectId, allConversations, conversationsQuery.isLoading);
   const conversations = useMemo(() => {
     const active = allConversations.filter((c) => c.state === 'active');
     if (conversation && conversation.state !== 'active') return [conversation, ...active];
@@ -150,16 +147,27 @@ export default function ChatPage() {
     attachments: ChatAttachment[] = [],
     selection?: ChatTurnSelection,
   ) {
-    const withAttachments =
-      attachments.length > 0
-        ? `${content}\n\n${attachments.map((a) => `- ${a.name}`).join('\n')}`
-        : content;
+    if (!projectId || creatingRef.current) return;
+    let withAttachments = content;
+    if (attachments.length > 0) {
+      const solicitation = await api.create('solicitations', {
+        projectId,
+        kind: 'request',
+        title: content.length > 120 ? `${content.slice(0, 117)}…` : content,
+        body: content,
+      });
+      for (const attachment of attachments) {
+        await api.uploadSolicitationAttachment(solicitation.id, attachment.file);
+      }
+      withAttachments = `${content}\n\n${t('chat.composer.sourceContext', {
+        files: attachments.map((attachment) => `- ${attachment.name}`).join('\n'),
+      })}`;
+    }
 
     if (conversationId) {
       submitTurn(withAttachments, selection);
       return;
     }
-    if (!projectId || creatingRef.current) return;
     creatingRef.current = true;
     try {
       const created = await createConversation.mutateAsync({
@@ -270,9 +278,7 @@ export default function ChatPage() {
           <h1 className="font-heading text-xl font-semibold">
             {t('chat.conversation.unavailableTitle')}
           </h1>
-          <p className="text-sm text-foreground-muted">
-            {t('chat.conversation.unavailableBody')}
-          </p>
+          <p className="text-sm text-foreground-muted">{t('chat.conversation.unavailableBody')}</p>
           <Button asChild>
             <Link to="/chat">{t('chat.conversation.backToChat')}</Link>
           </Button>
@@ -594,7 +600,7 @@ export default function ChatPage() {
           sending={sendMessage.isPending || turnActive || createConversation.isPending}
           draft={draft}
           onDraftConsumed={() => setDraft('')}
-          onSend={(content, attachments, selection) => void send(content, attachments, selection)}
+          onSend={send}
         />
       </div>
 

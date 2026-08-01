@@ -539,6 +539,12 @@ export class MockApiClient implements ApiClient {
     });
   }
 
+  async uploadSolicitationAttachment(solicitationId: Ulid, file: File): Promise<void> {
+    await this.#simulate();
+    this.#require('solicitations', solicitationId);
+    if (file.size === 0) throw new Error('O anexo não pode ser vazio.');
+  }
+
   async getPrototypingStage(projectId: Ulid): Promise<PrototypingStage> {
     await this.#simulate();
     const project = await this.get('projects', projectId);
@@ -2730,7 +2736,13 @@ export class MockApiClient implements ApiClient {
           // Espelha `ApprovalBusinessProjection` do backend: sem estes dois campos a visão de
           // negócio mostra "propósito indisponível" e BLOQUEIA a resolução — o dono via o botão e
           // a decisão não passava. O simulado cravava `null` e escondia o defeito.
-          ...businessPurpose(i.title, i.description, i.gateId ?? null, i.documentId ?? null, i.taskId ?? null),
+          ...businessPurpose(
+            i.title,
+            i.description,
+            i.gateId ?? null,
+            i.documentId ?? null,
+            i.taskId ?? null,
+          ),
         } satisfies Approval as unknown as ResourceMap[K];
       }
       case 'conversations': {

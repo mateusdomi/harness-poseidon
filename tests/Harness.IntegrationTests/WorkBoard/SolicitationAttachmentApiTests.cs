@@ -137,7 +137,7 @@ public sealed class SolicitationAttachmentApiTests
                     timeout.Token))!;
                 var acceptedEntry = Assert.Single(acceptedAudit.Items);
                 // Fase 8: o intake tornou o insumo rastreável — scan e preview no ledger.
-                Assert.Contains("scan=passed", acceptedEntry.Detail!, StringComparison.Ordinal);
+                Assert.Contains("scan=type_allowlisted", acceptedEntry.Detail!, StringComparison.Ordinal);
                 Assert.Contains("preview=", acceptedEntry.Detail!, StringComparison.Ordinal);
                 Assert.Contains("Requisito 1: exportar CSV.", acceptedEntry.Detail!, StringComparison.Ordinal);
 

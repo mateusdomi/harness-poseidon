@@ -42,6 +42,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
         ca-certificates \
+        python3 \
+        poppler-utils \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        tesseract-ocr-por \
     && rm -rf /var/lib/apt/lists/*
 
 # Versões FIXAS. Um `latest` faz a mesma imagem produzir comportamentos diferentes em dias
@@ -53,6 +58,9 @@ RUN npm install -g --no-fund --no-audit \
         "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
         "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force
+
+COPY --chmod=0555 artifact_extract.py /opt/harness/artifact_extract.py
+COPY --chmod=0555 artifact_extract_selftest.py /opt/harness/artifact_extract_selftest.py
 
 # Usuário sem privilégio, com UID estável: o mesmo do PoC (10001), para que a worktree montada do
 # host tenha dono previsível e o agente não precise de root para escrever no próprio espaço.

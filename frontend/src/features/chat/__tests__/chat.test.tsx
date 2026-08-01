@@ -89,19 +89,20 @@ describe('chat-derive', () => {
   });
 
   it('deriva ações rápidas do contexto do projeto', () => {
-    expect(deriveQuickActions({
-      blockedTasks: 0,
-      pendingApprovals: 0,
-      projectPaused: false,
-    })).toEqual([
-      'summarizeProgress',
-      'planNewDemand',
-    ]);
-    expect(deriveQuickActions({
-      blockedTasks: 2,
-      pendingApprovals: 1,
-      projectPaused: true,
-    })).toEqual([
+    expect(
+      deriveQuickActions({
+        blockedTasks: 0,
+        pendingApprovals: 0,
+        projectPaused: false,
+      }),
+    ).toEqual(['summarizeProgress', 'planNewDemand']);
+    expect(
+      deriveQuickActions({
+        blockedTasks: 2,
+        pendingApprovals: 1,
+        projectPaused: true,
+      }),
+    ).toEqual([
       'summarizeProgress',
       'blockedStatus',
       'approvalStatus',
@@ -132,10 +133,9 @@ describe('chat-derive', () => {
 
 describe('MessageBubble', () => {
   it('humaniza referências históricas à liderança sem alterar o dado persistido', () => {
-    const persisted =
-      'Olá! Chief operacional e pronto. O Chefe acompanhará a Equipe virtual.';
+    const persisted = 'Olá! Chief operacional e pronto. O Chefe acompanhará a Equipe virtual.';
     expect(publicLeadershipContent(persisted)).toBe(
-      'Olá! Bruna Magalhães está pronta. Bruna Magalhães acompanhará a Equipe de IA.',
+      'Olá! Bruna Magalhães está pronta. Bruna Magalhães acompanhará a equipe do projeto.',
     );
     expect(persisted).toContain('Chief');
   });
@@ -220,21 +220,19 @@ describe('ChatPage', () => {
     );
     const mode = screen.getByRole('combobox', { name: 'Modo de trabalho' });
     expect(mode).toBeInTheDocument();
-    expect(within(mode).getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'Rápido',
-      'Equilibrado',
-      'Aprofundado',
-    ]);
+    expect(
+      within(mode)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Rápido', 'Equilibrado', 'Aprofundado']);
     expect(screen.queryByRole('combobox', { name: 'Modelo' })).not.toBeInTheDocument();
     expect(screen.queryByText(/equipe virtual/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText('Equipe de IA').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Diretora de Engenharia').length).toBeGreaterThan(0);
   });
 
   it('mantém modelo e esforço reais disponíveis no modo técnico autorizado', async () => {
     const bundle = createTestBundle();
-    usePresentationStore
-      .getState()
-      .requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+    usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
     renderWithApi(
       <MemoryRouter>
         <ChatPage />
@@ -251,8 +249,7 @@ describe('ChatPage', () => {
     const bundle = createTestBundle();
     const target = bundle.fixtures.data.conversations.find(
       (conversation) =>
-        conversation.projectId === project.id &&
-        conversation.title === 'Planejamento da sprint 12',
+        conversation.projectId === project.id && conversation.title === 'Planejamento da sprint 12',
     )!;
     renderWithApi(
       <MemoryRouter initialEntries={[`/chat/${target.id}`]}>
@@ -331,8 +328,9 @@ describe('ChatPage', () => {
       bundle,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Conversa indisponível' }))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Conversa indisponível' }),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText(/mensagem para bruna/i)).not.toBeInTheDocument();
   });
 
@@ -359,6 +357,39 @@ describe('ChatPage', () => {
       },
       { timeout: 3000 },
     );
+  });
+
+  it('só marca o anexo como enviado depois de persistir a fonte durável', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle({ chatChunkDelayMs: 5 });
+    const upload = vi.spyOn(bundle.api, 'uploadSolicitationAttachment');
+    const turn = vi.spyOn(bundle.api, 'startChatTurn');
+    renderWithApi(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>,
+      bundle,
+    );
+
+    await user.type(await screen.findByLabelText(/mensagem para bruna/i), 'Considere esta regra.');
+    await user.click(screen.getByRole('button', { name: 'Anexar arquivo' }));
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const file = new File(['renovar com sete dias'], 'regra.txt', { type: 'text/plain' });
+    await user.upload(input, file);
+
+    expect(screen.getByText('Pronto para enviar')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /enviar mensagem/i }));
+
+    await waitFor(() => expect(upload).toHaveBeenCalledWith(expect.any(String), file));
+    await waitFor(() =>
+      expect(turn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          content: expect.stringMatching(/Fontes fornecidas nesta mensagem:\n- regra\.txt/),
+        }),
+      ),
+    );
+    expect(turn.mock.calls.at(-1)?.[1].content).not.toMatch(/[0-9A-HJKMNP-TV-Z]{26}/);
   });
 
   it('mantém o banner do handle bloqueado após o evento terminal do SignalR', async () => {
@@ -425,7 +456,7 @@ describe('ChatPage', () => {
     await user.click(triggers[0]);
 
     const dialog = await screen.findByRole('dialog', { name: 'Perfil de Bruna Magalhães' });
-    expect(dialog).toHaveTextContent('Diretora de Engenharia e Operações de IA');
+    expect(dialog).toHaveTextContent('Diretora de Engenharia');
     expect(within(dialog).getByAltText('Foto de Bruna Magalhães')).toBeInTheDocument();
 
     await user.keyboard('{Escape}');

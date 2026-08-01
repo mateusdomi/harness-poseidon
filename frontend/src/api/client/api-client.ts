@@ -134,6 +134,8 @@ export interface ApiClient {
     file: File,
     title?: string,
   ): Promise<DesignSystemBundle>;
+  /** Persiste e processa a fonte; selecionar o arquivo localmente não conta como upload. */
+  uploadSolicitationAttachment(solicitationId: Ulid, file: File): Promise<void>;
 
   /** Move tarefa entre colunas do quadro → emite `task.stateChanged`. */
   moveTask(taskId: Ulid, input: MoveTaskInput): Promise<Task>;

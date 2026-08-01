@@ -9,19 +9,43 @@ public sealed class AttachmentIngestPolicyTests
     [Fact]
     public void AcceptsRegularDocumentsInsideTheAllowlist()
     {
-        foreach (var (name, type) in (ReadOnlySpan<(string, string)>)
+        foreach (var (name, type, content) in (ReadOnlySpan<(string, string, byte[])>)
         [
-            ("requisitos.md", "text/markdown"),
-            ("planilha.csv", "text/csv"),
-            ("captura.png", "image/png"),
+            ("requisitos.md", "text/markdown", Encoding.UTF8.GetBytes("requisitos")),
+            ("planilha.csv", "text/csv", Encoding.UTF8.GetBytes("a,b")),
+            ("captura.png", "image/png", [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
         ])
         {
             var decision = AttachmentIngestPolicy.Evaluate(new AttachmentIngestRequest(
                 name,
                 type,
-                Encoding.UTF8.GetBytes("conteúdo legítimo do documento")));
+                content));
             Assert.True(decision.Accepted, $"{name} deveria ser aceito: {decision.Detail}");
         }
+    }
+
+    [Theory]
+    [InlineData("foto.png", "image/png")]
+    [InlineData("contrato.pdf", "application/pdf")]
+    [InlineData("gravacao.wav", "audio/wav")]
+    public void RejectsAFileWhoseBytesDoNotMatchItsDeclaredFormat(string name, string type)
+    {
+        var decision = AttachmentIngestPolicy.Evaluate(new AttachmentIngestRequest(
+            name, type, Encoding.UTF8.GetBytes("não é o formato declarado")));
+
+        Assert.False(decision.Accepted);
+        Assert.Equal("signature_mismatch", decision.Code);
+    }
+
+    [Fact]
+    public void OfficeArchivesMustContainTheirCanonicalStructure()
+    {
+        var decision = AttachmentIngestPolicy.Evaluate(new AttachmentIngestRequest(
+            "falso.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            BuildZip(("qualquer.txt", Encoding.UTF8.GetBytes("x")))));
+
+        Assert.Equal("office_structure_invalid", decision.Code);
     }
 
     [Fact]
@@ -134,7 +158,7 @@ public sealed class AttachmentIngestPolicyTests
     public void RejectsCorruptedZip()
     {
         var decision = AttachmentIngestPolicy.Evaluate(new AttachmentIngestRequest(
-            "quebrado.zip", "application/zip", Encoding.UTF8.GetBytes("isto não é um zip")));
+            "quebrado.zip", "application/zip", new byte[] { 0x50, 0x4B, 0x03, 0x04, 0x00, 0x01 }));
         Assert.Equal("zip_corrupted", decision.Code);
     }
 

@@ -34,15 +34,22 @@ describe('HttpApiClient — término seguro e observabilidade', () => {
   it('encerra GET travado com 504, publica slow/settled e não expõe query string', async () => {
     vi.useFakeTimers();
     const telemetry: ApiRequestTelemetry[] = [];
-    const listener = (event: Event) => telemetry.push((event as CustomEvent<ApiRequestTelemetry>).detail);
+    const listener = (event: Event) =>
+      telemetry.push((event as CustomEvent<ApiRequestTelemetry>).detail);
     window.addEventListener(API_REQUEST_EVENT, listener);
-    const fetchFn = vi.fn<typeof fetch>().mockImplementation((_input, init) => new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
-    }));
+    const fetchFn = vi.fn<typeof fetch>().mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
     const client = new HttpApiClient({ baseUrl: '', fetchFn, slowRequestMs: 5, readTimeoutMs: 10 });
 
-    const assertion = expect(client.list('projects', { filter: { secret: 'never-log-this' } }))
-      .rejects.toMatchObject({ problem: { status: 504 } });
+    const assertion = expect(
+      client.list('projects', { filter: { secret: 'never-log-this' } }),
+    ).rejects.toMatchObject({ problem: { status: 504 } });
     await vi.advanceTimersByTimeAsync(11);
     await assertion;
 
@@ -54,10 +61,13 @@ describe('HttpApiClient — término seguro e observabilidade', () => {
 
   it('não aborta escrita longa e a conclui normalmente', async () => {
     vi.useFakeTimers();
-    const fetchFn = vi.fn<typeof fetch>().mockImplementation((_input, init) => new Promise((resolve) => {
-      expect(init?.signal).toBeUndefined();
-      setTimeout(() => resolve(new Response(null, { status: 204 })), 20);
-    }));
+    const fetchFn = vi.fn<typeof fetch>().mockImplementation(
+      (_input, init) =>
+        new Promise((resolve) => {
+          expect(init?.signal).toBeUndefined();
+          setTimeout(() => resolve(new Response(null, { status: 204 })), 20);
+        }),
+    );
     const client = new HttpApiClient({ baseUrl: '', fetchFn, slowRequestMs: 5, readTimeoutMs: 10 });
 
     const removal = client.remove('projects', account.id);
@@ -66,8 +76,14 @@ describe('HttpApiClient — término seguro e observabilidade', () => {
   });
 
   it('converte JSON inválido em erro explícito 502', async () => {
-    const response = new Response('{', { status: 200, headers: { 'content-type': 'application/json' } });
-    const client = new HttpApiClient({ baseUrl: '', fetchFn: vi.fn<typeof fetch>().mockResolvedValue(response) });
+    const response = new Response('{', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+    const client = new HttpApiClient({
+      baseUrl: '',
+      fetchFn: vi.fn<typeof fetch>().mockResolvedValue(response),
+    });
     await expect(client.list('projects')).rejects.toMatchObject({ problem: { status: 502 } });
   });
 });
@@ -141,9 +157,9 @@ describe('HttpApiClient — turnos do chat', () => {
   });
 
   it('falha fechado quando o handle 202 diverge do contrato', async () => {
-    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ ...blockedHandle, readiness: undefined }, 202),
-    );
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ ...blockedHandle, readiness: undefined }, 202));
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
 
     await expect(client.startChatTurn('conversation-1', { content: 'Execute.' })).rejects.toThrow();
@@ -242,6 +258,29 @@ describe('HttpApiClient — etapa de Prototipação', () => {
   });
 });
 
+describe('HttpApiClient — fontes da conversa', () => {
+  it('envia os bytes do anexo como multipart para a solicitação rastreável', async () => {
+    const solicitationId = '01ARZ3NDEKTSV4RRFFQ69G5FH2';
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ id: 'attachment' }, 201));
+    const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
+    const file = new File(['conteúdo'], 'regra.txt', { type: 'text/plain' });
+
+    await client.uploadSolicitationAttachment(solicitationId, file);
+
+    const request = fetchFn.mock.calls[0];
+    expect(request[0]).toBe(
+      `https://api.example.test/api/v1/solicitations/${solicitationId}/attachments/`,
+    );
+    expect(request[1]).toEqual(
+      expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+    );
+    expect((request[1]!.body as FormData).get('file')).toBe(file);
+    expect(request[1]!.headers).toBeUndefined();
+  });
+});
+
 describe('HttpApiClient — definições de agentes V3', () => {
   it('adapta campos editoriais ao write contract e envia versão esperada', async () => {
     const response = {
@@ -314,17 +353,36 @@ describe('HttpApiClient — definições de agentes V3', () => {
 
 describe('HttpApiClient — governança P1', () => {
   const receipt = {
-    projectId: 'project-1', taskId: 'task-1', attemptId: 'attempt-1', turnId: 'turn-1', agentId: 'agent-1',
-    manifestVersion: '1.0.0', documents: [], estimatedTokens: 120, actualPromptTokens: null,
-    truncated: [], conflicts: [], cacheHits: 1, provider: 'claude', model: null,
-    timestamp: '2026-07-20T12:00:00Z', bundleChecksum: 'sha256:bundle', state: 'completed', gateResult: 'passed', version: 1,
+    projectId: 'project-1',
+    taskId: 'task-1',
+    attemptId: 'attempt-1',
+    turnId: 'turn-1',
+    agentId: 'agent-1',
+    manifestVersion: '1.0.0',
+    documents: [],
+    estimatedTokens: 120,
+    actualPromptTokens: null,
+    truncated: [],
+    conflicts: [],
+    cacheHits: 1,
+    provider: 'claude',
+    model: null,
+    timestamp: '2026-07-20T12:00:00Z',
+    bundleChecksum: 'sha256:bundle',
+    state: 'completed',
+    gateResult: 'passed',
+    version: 1,
   };
 
   it('lista receipts com os nomes de query publicados e valida a resposta', async () => {
     const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([receipt]));
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
 
-    const result = await client.listGovernanceReceipts({ projectId: 'project-1', cursor: 'cursor-1', limit: 25 });
+    const result = await client.listGovernanceReceipts({
+      projectId: 'project-1',
+      cursor: 'cursor-1',
+      limit: 25,
+    });
 
     expect(result[0].estimatedTokens).toBe(120);
     expect(fetchFn).toHaveBeenCalledWith(
@@ -334,7 +392,8 @@ describe('HttpApiClient — governança P1', () => {
   });
 
   it('consulta métricas e executores nos paths exatos do contrato', async () => {
-    const fetchFn = vi.fn<typeof fetch>()
+    const fetchFn = vi
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]));
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
@@ -342,21 +401,41 @@ describe('HttpApiClient — governança P1', () => {
     await client.listGovernanceMetrics('turn/encoded');
     await client.listAgentExecutors();
 
-    expect(fetchFn.mock.calls[0][0]).toBe('https://api.example.test/api/v1/governance-runtime/receipts/turn%2Fencoded/metrics');
-    expect(fetchFn.mock.calls[1][0]).toBe('https://api.example.test/api/v1/governance-runtime/executors');
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      'https://api.example.test/api/v1/governance-runtime/receipts/turn%2Fencoded/metrics',
+    );
+    expect(fetchFn.mock.calls[1][0]).toBe(
+      'https://api.example.test/api/v1/governance-runtime/executors',
+    );
   });
 
   it('envia avaliação tipada sem campos adicionais', async () => {
     const response = {
-      schemaVersion: '1.0', evaluationId: 'evaluation-1', verdict: 'PASS', findings: [],
-      provider: 'claude', model: null, readOnly: true, cleanContext: true, evaluatedAt: '2026-07-20T12:00:00Z',
+      schemaVersion: '1.0',
+      evaluationId: 'evaluation-1',
+      verdict: 'PASS',
+      findings: [],
+      provider: 'claude',
+      model: null,
+      readOnly: true,
+      cleanContext: true,
+      evaluatedAt: '2026-07-20T12:00:00Z',
     };
     const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(response));
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
     const input = {
-      evaluationId: 'evaluation-1', projectId: 'project-1', taskId: 'task-1', attemptId: 'attempt-1', turnId: 'turn-1',
-      actorAgentId: 'actor-1', evaluatorAgentId: 'evaluator-1', riskTier: 'medium',
-      acceptanceCriteria: ['sem regressão'], diff: '+ mudança', evidence: ['testes'], testResults: [],
+      evaluationId: 'evaluation-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      attemptId: 'attempt-1',
+      turnId: 'turn-1',
+      actorAgentId: 'actor-1',
+      evaluatorAgentId: 'evaluator-1',
+      riskTier: 'medium',
+      acceptanceCriteria: ['sem regressão'],
+      diff: '+ mudança',
+      evidence: ['testes'],
+      testResults: [],
     };
 
     await client.createFreshContextEvaluation(input);
@@ -368,7 +447,9 @@ describe('HttpApiClient — governança P1', () => {
   });
 
   it('falha fechado quando a resposta diverge do schema P1', async () => {
-    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([{ turnId: 'incompleto' }]));
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse([{ turnId: 'incompleto' }]));
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
     await expect(client.listGovernanceReceipts()).rejects.toThrow();
   });
@@ -376,34 +457,105 @@ describe('HttpApiClient — governança P1', () => {
 
 describe('HttpApiClient — governança de aprendizado P2', () => {
   const candidate = {
-    organizationId: 'org-1', projectId: 'project-1', candidateId: 'candidate-1', type: 'rule', state: 'candidate',
-    fingerprint: 'sha256:fingerprint', observation: 'Falhas transitórias recorrentes.',
-    evidence: [{ kind: 'test', reference: 'evidence://test/1', checksum: 'sha256:evidence', summary: 'Teste isolado.' }],
-    payload: { title: 'Retry seguro', statement: 'Retry limitado.', instructions: null, personaId: null, workflowId: null, toolId: null, documentId: null, providerId: null, modelId: null, refinement: null, recommendation: null, correction: null },
-    actorAgentId: 'actor-1', actorProvider: 'provider-a', actorModel: 'actor-model', baselineVersion: 'rule/1', proposedVersion: 'rule/2',
-    evaluatorAgentId: null, evaluatorProvider: null, evaluatorModel: null, evaluationVerdict: null, shadowResult: null,
-    reviewerProfileId: null, decisionNote: null, activeVersion: null, previousVersion: null,
-    createdAt: '2026-07-20T12:00:00Z', updatedAt: '2026-07-20T12:00:00Z', version: 1,
+    organizationId: 'org-1',
+    projectId: 'project-1',
+    candidateId: 'candidate-1',
+    type: 'rule',
+    state: 'candidate',
+    fingerprint: 'sha256:fingerprint',
+    observation: 'Falhas transitórias recorrentes.',
+    evidence: [
+      {
+        kind: 'test',
+        reference: 'evidence://test/1',
+        checksum: 'sha256:evidence',
+        summary: 'Teste isolado.',
+      },
+    ],
+    payload: {
+      title: 'Retry seguro',
+      statement: 'Retry limitado.',
+      instructions: null,
+      personaId: null,
+      workflowId: null,
+      toolId: null,
+      documentId: null,
+      providerId: null,
+      modelId: null,
+      refinement: null,
+      recommendation: null,
+      correction: null,
+    },
+    actorAgentId: 'actor-1',
+    actorProvider: 'provider-a',
+    actorModel: 'actor-model',
+    baselineVersion: 'rule/1',
+    proposedVersion: 'rule/2',
+    evaluatorAgentId: null,
+    evaluatorProvider: null,
+    evaluatorModel: null,
+    evaluationVerdict: null,
+    shadowResult: null,
+    reviewerProfileId: null,
+    decisionNote: null,
+    activeVersion: null,
+    previousVersion: null,
+    createdAt: '2026-07-20T12:00:00Z',
+    updatedAt: '2026-07-20T12:00:00Z',
+    version: 1,
   };
 
   it('lista com paginação e filtros canônicos e valida o envelope', async () => {
-    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ items: [candidate], nextCursor: 'next-1', total: '2' }));
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ items: [candidate], nextCursor: 'next-1', total: '2' }));
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
 
-    const page = await client.listLearningCandidates({ projectId: 'project-1', type: 'rule', state: 'candidate', cursor: 'cursor-1', limit: 30 });
+    const page = await client.listLearningCandidates({
+      projectId: 'project-1',
+      type: 'rule',
+      state: 'candidate',
+      cursor: 'cursor-1',
+      limit: 30,
+    });
 
     expect(page.total).toBe(2);
     expect(page.nextCursor).toBe('next-1');
-    expect(fetchFn.mock.calls[0][0]).toBe('https://api.example.test/api/v1/governance-runtime/learning-candidates?projectId=project-1&type=rule&state=candidate&cursor=cursor-1&limit=30');
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      'https://api.example.test/api/v1/governance-runtime/learning-candidates?projectId=project-1&type=rule&state=candidate&cursor=cursor-1&limit=30',
+    );
   });
 
   it('consulta detalhe, evidência, comparação, histórico e métricas nos paths publicados', async () => {
-    const fetchFn = vi.fn<typeof fetch>()
+    const fetchFn = vi
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse(candidate))
       .mockResolvedValueOnce(jsonResponse(candidate.evidence))
-      .mockResolvedValueOnce(jsonResponse({ baselineVersion: 'rule/1', proposedVersion: 'rule/2', proposedPayload: candidate.payload, activeVersion: null, previousVersion: null }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          baselineVersion: 'rule/1',
+          proposedVersion: 'rule/2',
+          proposedPayload: candidate.payload,
+          activeVersion: null,
+          previousVersion: null,
+        }),
+      )
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse({ created: 1, deduplicated: 0, rejected: 0, approved: 0, promoted: 0, rolledBack: 0, averageFirstPassSuccessDelta: 0, averageRepeatedErrorRateDelta: 0, tokenImpact: 0, averageCostPerAcceptedTaskDelta: 0, regressionsAfterPromotion: 0 }));
+      .mockResolvedValueOnce(
+        jsonResponse({
+          created: 1,
+          deduplicated: 0,
+          rejected: 0,
+          approved: 0,
+          promoted: 0,
+          rolledBack: 0,
+          averageFirstPassSuccessDelta: 0,
+          averageRepeatedErrorRateDelta: 0,
+          tokenImpact: 0,
+          averageCostPerAcceptedTaskDelta: 0,
+          regressionsAfterPromotion: 0,
+        }),
+      );
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
 
     await client.getLearningCandidate('candidate/encoded');
@@ -422,19 +574,40 @@ describe('HttpApiClient — governança de aprendizado P2', () => {
   });
 
   it('envia OCC e Idempotency-Key em transições; promoção é chamada somente por ação explícita', async () => {
-    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ ...candidate, state: 'promoted', version: 7 }));
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ ...candidate, state: 'promoted', version: 7 }));
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
 
-    await client.transitionLearningCandidate('candidate-1', 'promotion', { expectedVersion: 6, note: 'promoção manual' });
+    await client.transitionLearningCandidate('candidate-1', 'promotion', {
+      expectedVersion: 6,
+      note: 'promoção manual',
+    });
 
     const [url, init] = fetchFn.mock.calls[0];
-    expect(url).toBe('https://api.example.test/api/v1/governance-runtime/learning-candidates/candidate-1/promotion');
-    expect(init).toEqual(expect.objectContaining({ method: 'POST', credentials: 'include', body: JSON.stringify({ expectedVersion: 6, note: 'promoção manual' }) }));
+    expect(url).toBe(
+      'https://api.example.test/api/v1/governance-runtime/learning-candidates/candidate-1/promotion',
+    );
+    expect(init).toEqual(
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ expectedVersion: 6, note: 'promoção manual' }),
+      }),
+    );
     expect(new Headers(init?.headers).get('Idempotency-Key')).toMatch(/^ui-promotion-/);
   });
 
   it('falha fechado quando estado, enum ou payload P2 diverge', async () => {
-    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ items: [{ ...candidate, state: 'auto_promoted' }], nextCursor: null, total: 1 }));
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        jsonResponse({
+          items: [{ ...candidate, state: 'auto_promoted' }],
+          nextCursor: null,
+          total: 1,
+        }),
+      );
     const client = new HttpApiClient({ baseUrl: 'https://api.example.test', fetchFn });
     await expect(client.listLearningCandidates()).rejects.toThrow();
   });
