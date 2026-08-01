@@ -204,7 +204,7 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
         {
             query.CommandText =
                 "SELECT id,project_id,title,kind,state,current_version,phase_name,inconsistent," +
-                "created_at,updated_at,version FROM documents WHERE tenant_id=$tenant AND id=$id;";
+                "created_at,updated_at,version,template_code FROM documents WHERE tenant_id=$tenant AND id=$id;";
             Add(query, "$tenant", tenantId);
             Add(query, "$id", documentId);
             await using var reader = await query.ExecuteReaderAsync(token);
@@ -212,7 +212,8 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
                 ? new(reader.GetString(0), reader.GetString(1), reader.GetString(2),
                     reader.GetString(3), reader.GetString(4), reader.GetInt32(5),
                     reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetBoolean(7),
-                    Parse(reader.GetString(8)), Parse(reader.GetString(9)), reader.GetInt64(10))
+                    Parse(reader.GetString(8)), Parse(reader.GetString(9)), reader.GetInt64(10),
+                    reader.IsDBNull(11) ? null : reader.GetString(11))
                 : null;
         }
 
@@ -229,7 +230,7 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
 
         return new(header.Id, header.ProjectId, header.Title, header.Kind, header.State,
             header.CurrentVersion, classifications, header.PhaseName, header.Inconsistent,
-            header.CreatedAt, header.UpdatedAt, header.Version);
+            header.CreatedAt, header.UpdatedAt, header.Version, header.TemplateCode);
     }
 
     private static DocumentVersionCatalogRecord ReadVersion(SqliteDataReader reader) => new(
@@ -287,5 +288,5 @@ public sealed partial class SqliteDocumentCatalogStore(SqliteWriteDispatcher dis
     private sealed record DocumentHeader(
         string Id, string ProjectId, string Title, string Kind, string State, int CurrentVersion,
         string? PhaseName, bool Inconsistent, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
-        long Version);
+        long Version, string? TemplateCode);
 }

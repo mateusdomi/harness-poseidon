@@ -59,7 +59,14 @@ public sealed record DocumentCreateCommand(
     // card/fluxo (tarefa, demanda, gate) que ancora o documento. Opcional para criação interativa
     // por um humano ('user'), OBRIGATÓRIA para criação programática ('chief'/'agent'): um agente
     // não fabrica documento "à toa", só a partir de um fluxo rastreável. Ver DocumentCreateValidator.
-    string? OriginReference = null);
+    string? OriginReference = null,
+
+    /// <summary>
+    /// O template do playbook que este documento realiza. É PROPRIEDADE do documento, não do
+    /// pedido: toda versão futura é verificada contra ele, sem depender de o cliente reenviá-lo — e
+    /// sem permitir que ele o troque para escapar da verificação.
+    /// </summary>
+    string? TemplateCode = null);
 
 public sealed record DocumentCreateReceipt(
     string DocumentId,

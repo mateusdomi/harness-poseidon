@@ -63,9 +63,9 @@ public sealed partial class SqliteDocumentStore(SqliteWriteDispatcher dispatcher
                 """
                 INSERT INTO documents
                     (id,tenant_id,project_id,title,kind,state,current_version,phase_name,
-                     inconsistent,version,created_at,updated_at)
+                     inconsistent,version,created_at,updated_at,template_code)
                 VALUES ($documentId,$tenantId,$projectId,$title,$kind,'in_elaboration',1,
-                        $phaseName,0,1,$occurredAt,$occurredAt);
+                        $phaseName,0,1,$occurredAt,$occurredAt,$templateCode);
 
                 INSERT INTO document_versions
                     (id,tenant_id,project_id,document_id,version,catalog_path,content_hash,
@@ -85,6 +85,7 @@ public sealed partial class SqliteDocumentStore(SqliteWriteDispatcher dispatcher
             Add(insert, "$contentHash", value.ContentHash);
             Add(insert, "$authorKind", value.AuthorKind);
             AddNullable(insert, "$authorId", value.AuthorId);
+            AddNullable(insert, "$templateCode", value.TemplateCode);
             await insert.ExecuteNonQueryAsync(cancellationToken);
         }
 

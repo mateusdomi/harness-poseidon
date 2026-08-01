@@ -134,7 +134,10 @@ public static class DocumentEndpoints
                 await authority.CreateAsync(new(profile.TenantId, input.ProjectId, documentId,
                     normalized.Title, normalized.Kind, normalized.Classifications, normalized.PhaseName,
                     versionId, prepared.CatalogPath, prepared.ContentHash, "user", profile.Id,
-                    $"api:document:create:{documentId}", now), token);
+                    $"api:document:create:{documentId}", now,
+                    TemplateCode: string.IsNullOrWhiteSpace(input.TemplateCode)
+                        ? null
+                        : input.TemplateCode.Trim()), token);
             }
             catch
             {
@@ -190,26 +193,51 @@ public static class DocumentEndpoints
     private static async Task<IResult> CreateVersionAsync(
         CreateDocumentVersionRequest input, HttpRequest request, ILocalProfileStore profiles,
         IDocumentStore authority, IDocumentCatalogStore store, IDocumentContentCatalog content,
-        IClock clock, CancellationToken token)
+        IWorkflowDocumentTemplateStore templates, IClock clock, CancellationToken token)
         => await CreateVersionCoreAsync(input.DocumentId, input.Body, request, profiles, authority,
-            store, content, clock, token);
+            store, content, templates, clock, token);
 
     private static async Task<IResult> SaveDocumentVersionAsync(
         string id, SaveDocumentVersionRequest input, HttpRequest request,
         ILocalProfileStore profiles, IDocumentStore authority, IDocumentCatalogStore store,
-        IDocumentContentCatalog content, IClock clock, CancellationToken token)
+        IDocumentContentCatalog content, IWorkflowDocumentTemplateStore templates,
+        IClock clock, CancellationToken token)
         => await CreateVersionCoreAsync(id, input.Body, request, profiles, authority, store,
-            content, clock, token);
+            content, templates, clock, token);
 
     private static async Task<IResult> CreateVersionCoreAsync(
         string documentId, string body, HttpRequest request, ILocalProfileStore profiles,
         IDocumentStore authority, IDocumentCatalogStore store, IDocumentContentCatalog content,
-        IClock clock, CancellationToken token)
+        IWorkflowDocumentTemplateStore templates, IClock clock, CancellationToken token)
     {
         var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized();
         if (!Valid(documentId)) return Problem(400, "invalid_document", "Document ID must be a ULID.");
         var snapshot = await authority.ReadAsync(profile.TenantId, documentId, token);
         if (snapshot is null) return NotFound("document");
+
+        // Fase 2A.1 (correção de achado do parecer): a conformidade vale para TODA versão, não só
+        // para a primeira. Validar apenas na criação deixava o caminho óbvio aberto — criar
+        // conforme e, na versão seguinte, gravar qualquer coisa. O gate valeria para o primeiro
+        // instante da vida do documento e para mais nenhum, que é o mesmo que não valer: o
+        // conteúdo que importa é o vigente.
+        //
+        // O template vem do DOCUMENTO, não do pedido: quem edita não pode trocá-lo para escapar.
+        var catalogRow = await store.GetDocumentAsync(profile.TenantId, documentId, token);
+        if (!string.IsNullOrWhiteSpace(catalogRow?.TemplateCode))
+        {
+            var template = (await templates.ListAsync(token)).FirstOrDefault(item =>
+                string.Equals(item.Code, catalogRow!.TemplateCode, StringComparison.OrdinalIgnoreCase));
+            if (template is not null)
+            {
+                var compliance = DocumentTemplateCompliance.Check(body, template.RequiredFieldsJson);
+                if (!compliance.IsCompliant)
+                {
+                    return Problem(400, "template_not_satisfied",
+                        $"A nova versão não cumpre o template '{template.Code} — {template.Name}': {compliance.Describe()}.");
+                }
+            }
+        }
+
         try
         {
             var now = clock.UtcNow; var versionId = UlidValue.New(now).ToString();

@@ -126,6 +126,34 @@ public sealed class PlaybookTemplateCatalogTests
                     Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
                 }
 
+                // ACHADO DO PARECER, fechado: a conformidade vale para TODA versão. Validar só na
+                // criação deixava o caminho óbvio aberto — criar conforme e, na versão seguinte,
+                // gravar qualquer coisa. O template vem do DOCUMENTO, não do pedido de edição:
+                // quem edita não pode trocá-lo para escapar da verificação.
+                using (var accepted = await client.PostAsJsonAsync("/api/v1/documents",
+                    new CreateDocumentRequest(
+                        projectId, "GMUD sob edição", "spec",
+                        "## Janela\nA.\n\n## Plano de execução\nB.\n\n## Plano de rollback testado\n" +
+                        "C.\n\n## Critérios de saúde\nD.\n\n## Aprovador\nE.\n",
+                        TemplateCode: "11"),
+                    timeout.Token))
+                {
+                    Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+                    using var created = JsonDocument.Parse(
+                        await accepted.Content.ReadAsStringAsync(timeout.Token));
+                    var documentId = created.RootElement.GetProperty("id").GetString()!;
+
+                    using var degraded = await client.PostAsJsonAsync(
+                        $"/api/v1/documents/{documentId}/versions",
+                        new SaveDocumentVersionRequest("## Janela\nSó isso agora.\n"),
+                        timeout.Token);
+                    Assert.Equal(HttpStatusCode.BadRequest, degraded.StatusCode);
+                    Assert.Contains(
+                        "plano_rollback_testado",
+                        await degraded.Content.ReadAsStringAsync(timeout.Token),
+                        StringComparison.Ordinal);
+                }
+
                 // Sem template declarado o documento é LIVRE: nem todo documento de um projeto é
                 // um artefato do playbook.
                 using (var free = await client.PostAsJsonAsync("/api/v1/documents",

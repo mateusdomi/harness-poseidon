@@ -121,8 +121,8 @@ public sealed partial class PostgresDocumentStore(NpgsqlDataSource dataSource) :
             """
             INSERT INTO harness.documents
                 (id,tenant_id,project_id,title,kind,state,current_version,phase_name,
-                 inconsistent,version,created_at,updated_at)
-            VALUES ($1,$2,$3,$4,$5,'in_elaboration',1,$6,false,1,$7,$7);
+                 inconsistent,version,created_at,updated_at,template_code)
+            VALUES ($1,$2,$3,$4,$5,'in_elaboration',1,$6,false,1,$7,$7,$8);
             """,
             cancellationToken,
             Text(value.DocumentId),
@@ -131,7 +131,8 @@ public sealed partial class PostgresDocumentStore(NpgsqlDataSource dataSource) :
             Text(value.Title),
             Text(value.Kind),
             NullableText(value.PhaseName),
-            Timestamp(value.OccurredAt));
+            Timestamp(value.OccurredAt),
+            NullableText(value.TemplateCode));
         await ExecuteAsync(
             connection,
             transaction,

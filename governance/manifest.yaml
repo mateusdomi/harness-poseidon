@@ -46,6 +46,8 @@ markdownAllowlist:
   reason: Parecer do crítico independente sobre os blocos 0-E, 1A, 1B, 1C, 1D e 1E; é evidência de gate, não norma.
 - path: docs/architecture/audits/bruna/pareceres/PARECER-FASE1-FINAL-ANTIGRAVITY.md
   reason: Parecer do crítico independente sobre os blocos finais da Fase 1 (1E/3, 1D/3 e 1D/2), com a resposta do executor a cada achado; é evidência de gate, não norma.
+- path: docs/architecture/audits/bruna/pareceres/PARECER-FASE2-2A-2B-ANTIGRAVITY.md
+  reason: Parecer do crítico independente sobre os blocos 2A e 2B da Fase 2, com a resposta do executor ao achado aceito; é evidência de gate, não norma.
 - path: docs/architecture/audits/bruna/execucao/RELATORIO-FASE-0.md
   reason: Relatório de execução da Fase 0 com data fechada — registra o que foi entregue, por que cada decisão foi tomada e os riscos restantes. É prestação de contas, não norma canônica.
 documents:

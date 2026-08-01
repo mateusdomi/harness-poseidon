@@ -238,7 +238,7 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
         {
             query.CommandText =
                 "SELECT id,project_id,title,kind,state,current_version,phase_name,inconsistent," +
-                "created_at,updated_at,version FROM harness.documents WHERE tenant_id=$1 AND id=$2;";
+                "created_at,updated_at,version,template_code FROM harness.documents WHERE tenant_id=$1 AND id=$2;";
             query.Parameters.Add(Text(tenantId));
             query.Parameters.Add(Text(documentId));
             await using var reader = await query.ExecuteReaderAsync(cancellationToken);
@@ -247,7 +247,8 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
                     reader.GetString(2), reader.GetString(3), reader.GetString(4),
                     reader.GetInt32(5), reader.IsDBNull(6) ? null : reader.GetString(6),
                     reader.GetBoolean(7), reader.GetFieldValue<DateTimeOffset>(8),
-                    reader.GetFieldValue<DateTimeOffset>(9), reader.GetInt64(10))
+                    reader.GetFieldValue<DateTimeOffset>(9), reader.GetInt64(10),
+                    reader.IsDBNull(11) ? null : reader.GetString(11).TrimEnd())
                 : null;
         }
 
@@ -271,7 +272,7 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
 
         return new(header.Id, header.ProjectId, header.Title, header.Kind, header.State,
             header.CurrentVersion, classifications, header.PhaseName, header.Inconsistent,
-            header.CreatedAt, header.UpdatedAt, header.Version);
+            header.CreatedAt, header.UpdatedAt, header.Version, header.TemplateCode);
     }
 
     private static DocumentVersionCatalogRecord ReadVersion(NpgsqlDataReader reader) => new(
@@ -349,5 +350,5 @@ public sealed partial class PostgresDocumentCatalogStore(NpgsqlDataSource dataSo
     private sealed record DocumentHeader(
         string Id, string ProjectId, string Title, string Kind, string State, int CurrentVersion,
         string? PhaseName, bool Inconsistent, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
-        long Version);
+        long Version, string? TemplateCode);
 }

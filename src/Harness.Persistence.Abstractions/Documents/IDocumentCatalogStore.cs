@@ -54,7 +54,9 @@ public interface IDocumentContentCatalog
 public sealed record DocumentCatalogRecord(
     string Id, string ProjectId, string Title, string Kind, string State, int CurrentVersion,
     IReadOnlyList<string> Classifications, string? PhaseName, bool Inconsistent,
-    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, long AggregateVersion);
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, long AggregateVersion,
+    /// <summary>Template do playbook que o documento realiza; toda versão é verificada contra ele.</summary>
+    string? TemplateCode = null);
 
 public sealed record DocumentCatalogPageQuery(
     string? ProjectId, string? SearchPattern, string? Kind, string? State, string? PhaseName,
