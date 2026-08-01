@@ -664,6 +664,16 @@ public sealed class AgentRunOrchestrator(
           de pronto e evidências obrigatórias, mesmo quando a lista resumida de critérios estiver vazia;
         - em documentos, `fail` se uma afirmação for apresentada como fato humano sem existir na
           fonte citada, ou se uma dedução/proposta aparecer sem rótulo explícito de inferência;
+        - para documentos, faça uma auditoria afirmação por afirmação: liste cada problema,
+          valor, capacidade, restrição e decisão introduzidos pelo diff e localize a citação exata
+          no pacote. Se não houver citação, inclua a afirmação em `checks.unsupportedClaims`;
+        - uma classificação correta em uma tabela NÃO corrige a repetição sem rótulo em outra
+          seção. Inclua cada repetição ambígua em `checks.unlabeledInferences`;
+        - nome de projeto, tecnologia do Poseidon e governança interna não são declaração do
+          usuário nem provam necessidade de negócio. Pedido para "tocar/conduzir/criar o projeto"
+          já é intenção explícita de construir e não deve ser convertido em dúvida Build x Buy;
+        - preencha `checks` depois da auditoria. `pass` exige as três confirmações verdadeiras e
+          ambas as listas vazias; checklist ausente, falso ou com itens falha fechado no runtime;
         - `pass` somente quando os critérios estiverem atendidos e a evidência sustentar isso.
         """;
 

@@ -67,13 +67,45 @@ public sealed class CriticReviewContractTests
         var (verdict, reason, findings, summary) = CriticReviewContract.Parse(
             """
             {"verdict":"pass","summary":"critérios atendidos","findings":[
-              {"severity":"P3","code":"estilo","summary":"nome poderia ser melhor"}]}
+              {"severity":"P3","code":"estilo","summary":"nome poderia ser melhor"}],
+             "checks":{"delegationCompared":true,"scopeVerified":true,
+               "evidenceSufficient":true,"unsupportedClaims":[],"unlabeledInferences":[]}}
             """);
 
         Assert.Equal(CriticVerdict.Pass, verdict);
         Assert.Equal("critic.pass", reason);
         Assert.Equal("critérios atendidos", summary);
         Assert.Equal(CriticFindingSeverity.P3, Assert.Single(findings).Severity);
+    }
+
+    [Fact]
+    public void APassWithoutMaterializedChecksFailsClosed()
+    {
+        var (verdict, reason, _, _) = CriticReviewContract.Parse(
+            """{"verdict":"pass","summary":"parece bom","findings":[]}""");
+
+        Assert.Equal(CriticVerdict.Fail, verdict);
+        Assert.Equal("critic.checks_missing", reason);
+    }
+
+    [Theory]
+    [InlineData("unsupportedClaims", "critic.unsupported_claims")]
+    [InlineData("unlabeledInferences", "critic.unlabeled_inferences")]
+    public void APassWithAnUnresolvedClaimAuditFailsClosed(string field, string expectedReason)
+    {
+        var unsupported = field == "unsupportedClaims" ? "[\"valor inventado\"]" : "[]";
+        var unlabeled = field == "unlabeledInferences"
+            ? "[\"dedução repetida sem rótulo\"]"
+            : "[]";
+        var output =
+            "{\"verdict\":\"pass\",\"summary\":\"otimista\",\"findings\":[]," +
+            "\"checks\":{\"delegationCompared\":true,\"scopeVerified\":true," +
+            "\"evidenceSufficient\":true,\"unsupportedClaims\":" + unsupported + "," +
+            "\"unlabeledInferences\":" + unlabeled + "}}";
+
+        var (verdict, reason, _, _) = CriticReviewContract.Parse(output);
+        Assert.Equal(CriticVerdict.Fail, verdict);
+        Assert.Equal(expectedReason, reason);
     }
 
     [Fact]

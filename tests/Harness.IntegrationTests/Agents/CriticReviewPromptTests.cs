@@ -26,6 +26,10 @@ public sealed class CriticReviewPromptTests
         Assert.Contains("afirmação for apresentada como fato humano", prompt, StringComparison.Ordinal);
         Assert.Contains("fonte citada", prompt, StringComparison.Ordinal);
         Assert.Contains("rótulo explícito de inferência", prompt, StringComparison.Ordinal);
+        Assert.Contains("auditoria afirmação por afirmação", prompt, StringComparison.Ordinal);
+        Assert.Contains("checks.unsupportedClaims", prompt, StringComparison.Ordinal);
+        Assert.Contains("checks.unlabeledInferences", prompt, StringComparison.Ordinal);
+        Assert.Contains("governança interna não são declaração", prompt, StringComparison.Ordinal);
     }
 
     [Fact]

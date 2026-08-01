@@ -55,6 +55,9 @@ public sealed class WorkflowPhaseCardContextTests
         Assert.Contains("PRD", instruction, StringComparison.Ordinal);
         Assert.Contains("Campos obrigatórios", instruction, StringComparison.Ordinal);
         Assert.Contains("PREMISSA INFERIDA", instruction, StringComparison.Ordinal);
+        Assert.Contains("lista exaustiva do que o usuário afirmou", instruction, StringComparison.Ordinal);
+        Assert.Contains("não pode entrar silenciosamente", instruction, StringComparison.Ordinal);
+        Assert.Contains("prova intenção de construir", instruction, StringComparison.Ordinal);
         Assert.Contains("Evidências obrigatórias", instruction, StringComparison.Ordinal);
         Assert.Contains("[REDACTED]", instruction, StringComparison.Ordinal);
         Assert.DoesNotContain("valor-secreto", instruction, StringComparison.Ordinal);

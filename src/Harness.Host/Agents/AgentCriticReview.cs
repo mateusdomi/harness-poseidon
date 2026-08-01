@@ -60,7 +60,7 @@ public static class CriticReviewContract
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verdict", "summary", "findings"],
+      "required": ["verdict", "summary", "findings", "checks"],
       "properties": {
         "verdict": { "type": "string", "enum": ["pass", "fail"] },
         "summary": { "type": "string", "maxLength": 4000 },
@@ -77,6 +77,27 @@ public static class CriticReviewContract
               "summary": { "type": "string", "maxLength": 2000 },
               "path": { "type": "string", "maxLength": 400 },
               "evidence": { "type": "string", "maxLength": 2000 }
+            }
+          }
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "delegationCompared", "scopeVerified", "evidenceSufficient",
+            "unsupportedClaims", "unlabeledInferences"
+          ],
+          "properties": {
+            "delegationCompared": { "type": "boolean" },
+            "scopeVerified": { "type": "boolean" },
+            "evidenceSufficient": { "type": "boolean" },
+            "unsupportedClaims": {
+              "type": "array", "maxItems": 50,
+              "items": { "type": "string", "maxLength": 1000 }
+            },
+            "unlabeledInferences": {
+              "type": "array", "maxItems": 50,
+              "items": { "type": "string", "maxLength": 1000 }
             }
           }
         }
@@ -148,6 +169,37 @@ public static class CriticReviewContract
                 return (CriticVerdict.Fail, "critic.pass_contradicted_by_findings", findings, summary);
             }
 
+            // Um resumo otimista não substitui a prova. Para aprovar, o revisor precisa
+            // materializar o checklist que demonstra que comparou o pacote completo, o
+            // escopo e a evidência. Em documentos, as duas listas tornam explícita a
+            // auditoria de afirmações — uma tabela de proveniência no próprio artefato não
+            // licencia repetir inferências como fatos em outras seções.
+            if (verdict == CriticVerdict.Pass)
+            {
+                if (!root.TryGetProperty("checks", out var checks) ||
+                    checks.ValueKind != JsonValueKind.Object)
+                {
+                    return (CriticVerdict.Fail, "critic.checks_missing", findings, summary);
+                }
+
+                if (!ReadTrue(checks, "delegationCompared") ||
+                    !ReadTrue(checks, "scopeVerified") ||
+                    !ReadTrue(checks, "evidenceSufficient"))
+                {
+                    return (CriticVerdict.Fail, "critic.checks_failed", findings, summary);
+                }
+
+                if (HasArrayItems(checks, "unsupportedClaims"))
+                {
+                    return (CriticVerdict.Fail, "critic.unsupported_claims", findings, summary);
+                }
+
+                if (HasArrayItems(checks, "unlabeledInferences"))
+                {
+                    return (CriticVerdict.Fail, "critic.unlabeled_inferences", findings, summary);
+                }
+            }
+
             return (verdict, verdict == CriticVerdict.Pass ? "critic.pass" : "critic.fail", findings, summary);
         }
         catch (JsonException)
@@ -155,6 +207,15 @@ public static class CriticReviewContract
             return (CriticVerdict.Fail, "critic.output_not_json", [], null);
         }
     }
+
+    private static bool ReadTrue(JsonElement parent, string property) =>
+        parent.TryGetProperty(property, out var value) &&
+        value.ValueKind == JsonValueKind.True;
+
+    private static bool HasArrayItems(JsonElement parent, string property) =>
+        !parent.TryGetProperty(property, out var value) ||
+        value.ValueKind != JsonValueKind.Array ||
+        value.GetArrayLength() > 0;
 
     /// <summary>Isola o último objeto JSON da saída, tolerando texto ao redor.</summary>
     private static string? ExtractJsonObject(string output)
