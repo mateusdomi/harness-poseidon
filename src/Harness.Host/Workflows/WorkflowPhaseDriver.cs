@@ -260,7 +260,7 @@ public sealed class WorkflowPhaseDriver(
             AgentCouncilPolicy.ShouldConvene(phase.Name, progress.RequiredTotal))
         {
             var council = await ConveneCouncilAsync(
-                tenantId, project, phase.Name, cancellationToken);
+                tenantId, project, phase.Name, actorProfileId, _clock.UtcNow, cancellationToken);
             if (!council.MayProceed)
             {
                 _failures.Add($"phase:{phase.Key}:council:{council.ReasonCode}");
@@ -475,45 +475,122 @@ public sealed class WorkflowPhaseDriver(
         record.ObjectiveKey,
         record.ArtifactRef);
     /// <summary>
-    /// Reúne o conselho: cada assento é uma persona com uma LENTE própria, e cada lente vira uma
-    /// obrigação de revisão registrada na fase.
+    /// Reúne o conselho: cada assento vira um CARD DE REVISÃO despachado pelo caminho normal.
     ///
-    /// Esta primeira versão CONVOCA e registra — ela não invoca os cinco agentes em paralelo, o
-    /// que exigiria cinco execuções de cota por transição. O parecer de cada assento é colhido do
-    /// trabalho já revisado na fase; quando não há revisão registrada para um assento, ele conta
-    /// como ausente, e conselho incompleto NÃO libera a transição (Default-FAIL).
+    /// Invocar os cinco agentes direto daqui seria mais curto e pior: perderia sandbox atestada,
+    /// escopo de path, orçamento de esforço, checkpoint e fencing — todo o maquinário durável que
+    /// existe para que uma execução não se perca. Como card, o parecer fica visível no quadro do
+    /// dono, é retomável depois de uma queda e entra na contabilidade de custo.
+    ///
+    /// Enquanto os pareceres não voltam, o conselho está INCOMPLETO e o portão não abre. É o
+    /// Default-FAIL aplicado ao conselho: ausência de parecer não é parecer favorável.
     /// </summary>
     private async Task<CouncilVerdict> ConveneCouncilAsync(
         string tenantId,
-        Harness.Persistence.Abstractions.Projects.ProjectRecord project,
+        ProjectRecord project,
         string phaseName,
+        string actorProfileId,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        var board = await _board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 300),
+            cancellationToken);
+
         var opinions = new List<CouncilOpinion>(AgentCouncilPolicy.Seats.Count);
+        var created = 0;
         foreach (var seat in AgentCouncilPolicy.Seats)
         {
-            // O parecer nasce do que a fase produziu e do que já foi revisado — não de uma nova
-            // rodada de opinião sobre opinião.
-            var reviewed = await _board.PageTasksAsync(
-                tenantId,
-                new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 200),
-                cancellationToken);
-            var blockedInPhase = reviewed.Items.Any(task =>
-                string.Equals(task.PhaseName, phaseName, StringComparison.Ordinal) &&
-                string.Equals(task.InternalState, "blocked", StringComparison.Ordinal));
+            var title = CouncilCardTitle(phaseName, seat.PersonaKey);
+            var existing = board.Items.FirstOrDefault(task =>
+                string.Equals(task.Title, title, StringComparison.Ordinal));
+
+            if (existing is null)
+            {
+                await CreateCouncilCardAsync(
+                    tenantId, project, phaseName, seat, title, actorProfileId,
+                    now.AddMilliseconds(created * 6), cancellationToken);
+                created++;
+                continue;
+            }
+
+            // Parecer entregue = card concluído. Card BLOQUEADO é achado impeditivo: o conselheiro
+            // encontrou algo que o impediu de aprovar, e isso segura a transição.
+            var done = string.Equals(existing.State, "done", StringComparison.Ordinal);
+            var blocked = string.Equals(existing.InternalState, "blocked", StringComparison.Ordinal) ||
+                !string.IsNullOrWhiteSpace(existing.BlockedReason);
+            if (!done && !blocked)
+            {
+                continue;
+            }
 
             opinions.Add(new CouncilOpinion(
                 seat.PersonaKey,
-                IsBlocking: blockedInPhase,
+                IsBlocking: blocked,
                 HasConcern: false,
-                Summary: blockedInPhase
-                    ? $"Há trabalho bloqueado na fase sob a lente: {seat.Lens}"
-                    : $"Sem impedimento sob a lente: {seat.Lens}"));
+                Summary: blocked
+                    ? $"Achado impeditivo sob a lente: {seat.Lens}"
+                    : $"Parecer entregue sob a lente: {seat.Lens}"));
         }
 
         return AgentCouncilPolicy.Consolidate(opinions);
     }
 
+    private static string CouncilCardTitle(string phaseName, string personaKey) =>
+        $"{phaseName} — Conselho: parecer de {personaKey}";
+
+    /// <summary>
+    /// Cria o card de um assento. É `agent_task` porque precisa ser despachável; a LENTE vai na
+    /// instrução, e é ela que impede cinco pareceres iguais.
+    /// </summary>
+    private async Task CreateCouncilCardAsync(
+        string tenantId,
+        ProjectRecord project,
+        string phaseName,
+        CouncilSeat seat,
+        string title,
+        string actorProfileId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var taskId = UlidValue.New(now).ToString();
+        var instructionId = UlidValue.New(now.AddMilliseconds(1)).ToString();
+        var instruction =
+            "Papel exigido: critic\nTipo de card: agent_task\n\n" +
+            $"Você foi convocado ao CONSELHO da fase \"{phaseName}\" do projeto {project.Name}, " +
+            $"como {seat.PersonaKey}.\n\n" +
+            $"Sua LENTE — e somente ela: {seat.Lens}\n\n" +
+            "Leia os documentos que as fases anteriores produziram em `docs/` e critique o " +
+            "conjunto SOB A SUA LENTE. Não repita o que outro conselheiro veria: o valor do " +
+            "conselho está na diferença entre as perguntas, não na soma das concordâncias.\n\n" +
+            "Em escopo: um parecer curto em `docs/`, citando o documento e o trecho de cada " +
+            "achado.\nFora de escopo: código de produção e alteração dos documentos revisados.\n\n" +
+            "Critérios de aceite:\n" +
+            "- O parecer existe, cita fontes reais e separa ACHADO IMPEDITIVO de ressalva.\n" +
+            "- Achado impeditivo é o que fica caro corrigir depois de o código existir. Se não " +
+            "houver nenhum, diga isso — não invente um para parecer diligente.\n" +
+            "- Encontrando impedimento, BLOQUEIE este card com o motivo: é assim que o conselho " +
+            "segura a transição.\n";
+
+        _ = await _board.CreateTaskAsync(
+            new BoardTaskCreateCommand(
+                tenantId, taskId, project.Id, null,
+                UlidValue.New(now.AddMilliseconds(2)).ToString(),
+                UlidValue.New(now.AddMilliseconds(3)).ToString(),
+                actorProfileId, title,
+                // Alta: o conselho destrava a fase inteira. Na fila atrás do trabalho comum, ele
+                // atrasaria tudo o que vem depois dele.
+                "high",
+                null, null, instructionId, instruction, now, phaseName),
+            cancellationToken);
+
+        _ = await _board.MoveTaskAsync(
+            new BoardTaskMoveCommand(
+                tenantId, taskId, "ready", $"conselho:{phaseName}", "agent",
+                now.AddMilliseconds(4)),
+            cancellationToken);
+    }
 
     private async Task CreateObjectiveCardAsync(
         string tenantId,

@@ -93,6 +93,20 @@ public sealed class AgentCouncilPolicyTests
     }
 
     [Fact]
+    public void MissingOpinionsHoldTheGateInsteadOfPassingByOmission()
+    {
+        // Enquanto os pareceres não voltam, o conselho está incompleto e o portão NÃO abre.
+        // Ausência de parecer não é parecer favorável — é o Default-FAIL aplicado ao conselho.
+        // Sem isto, convocar cinco conselheiros e não esperar por eles seria teatro.
+        var apenasUmVoltou = AgentCouncilPolicy.Consolidate([
+            new("playbook-arquiteto", false, false, "Parecer entregue."),
+        ]);
+
+        Assert.False(apenasUmVoltou.MayProceed);
+        Assert.Equal("council.incomplete", apenasUmVoltou.ReasonCode);
+    }
+
+    [Fact]
     public void NoOpinionAtAllNeverClearsTheTransition()
     {
         Assert.False(AgentCouncilPolicy.Consolidate([]).MayProceed);
