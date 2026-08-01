@@ -363,3 +363,65 @@ mesmo tempo — e um executor sem adapter hoje falha de forma explícita
 (`executor.adapter_not_implemented`), que é o comportamento correto enquanto ele não existe.
 
 Fica registrado como decisão, não como esquecimento: quando o dono liberar o judge, o item volta.
+
+---
+
+## 9. Fase 2 — comportamento, intenção e piloto
+
+### 2A — profundidade comportamental (`d092e645`, correção em `ea267f1b`)
+
+O diagnóstico da ordem estava certo: esqueleto normativo com músculos mecânicos. 35 dos 44
+templates com a tríade genérica, nove fases em 69 linhas de prosa aproximada, nove especialidades
+reduzidas a uma linha, `bruna.md` com 37 linhas.
+
+O que a implementação revelou, além do previsto:
+
+* **Campos obrigatórios que não obrigavam nada.** Os `required_fields_json` existiam desde a
+  migration 0082 e eram lidos por um endpoint de listagem e por mais ninguém. Substituí-los por
+  campos reais não bastaria: sem consumidor, campo bom e campo genérico produzem o mesmo resultado.
+  A verificação de conformidade entrou no caminho de criação **e**, depois do parecer, no de
+  edição.
+* **`ContextSegmentKind.Persona` sem produtor.** O enum existia desde o começo e nenhuma persona
+  chegava ao prompt: o agente executava com papel e escopo, sem uma palavra sobre como a
+  especialidade pensa. Sétima ocorrência do padrão desta auditoria.
+* **Dois vocabulários que não conversam.** O `kind` de um documento (`prd`, `spec`, `design`,
+  `runbook`, `note`, `report`) e o `target_card_type` do template (`documento`, `historia`,
+  `tarefa`…) são taxonomias distintas sem tradução entre elas. Não unifiquei — é mudança de
+  contrato com alcance maior que este bloco —, mas fica registrado: hoje um template do playbook
+  não consegue exigir um `kind` específico de documento.
+
+### 2B — B14, despacho determinístico de intenção (`d092e645`)
+
+O turno era o laço mais quente e mais livre do produto. Taxonomia de dez intenções, tabela de rota,
+portão que corta ação fora da rota com registro auditável, e fallback honesto (`unmatched` = turno
+livre **sem** permissão de agir).
+
+Dois achados próprios:
+
+* **O turno não era medido.** `model_invocations` cobre runs de especialista; o turno da chefe não
+  escrevia em lugar nenhum. O painel media tudo menos a peça que mais executa — e sem isso "o B14
+  reduziu custo" seria afirmação sem número. Migration 0120 e a dimensão de intenção no
+  `/reliability` resolvem.
+* **O repositório já tinha o guardião do padrão.** `PolicyWiringTests` reprova política estática
+  sem consumidor de produção. Ele pegou a tabela de despacho antes de mim — a proteção contra
+  "capacidade sem consumidor" existe e funciona.
+
+### 2C — piloto real: BLOQUEADO no insumo do dono
+
+O piloto é o único bloco que não posso executar sozinho, e não por limitação técnica.
+
+**Prontidão verificada (2026-08-01):** Docker 29.5.2 ativo; 7 contas autenticadas em `~/.harness`;
+instrumentação completa (spans, MAST, `model_invocations`, `chief_turn_intents`, orçamentos);
+painéis publicados. A conta cujo executor não tem adapter (Kimi) é ignorada pelo escalonador, não
+causa falha. Runbook em `docs/backend/runbooks/piloto-real.md`.
+
+**O que falta é o insumo que a própria ordem define como único e do dono:** nome e objetivo do
+projeto, em prosa, pelo chat. E mais: o piloto exige o dono em dois gates que são HITL por lei do
+produto — Termo de Aceite (Fase 7) e aprovação de mudança (Fase 8).
+
+Inventar um projeto piloto violaria o critério que a ordem enuncia — "valor real para o dono, não
+projeto de brinquedo, o incentivo de aceite precisa ser genuíno" — e produziria um aceite fictício.
+Um piloto cujo Termo de Aceite eu mesmo aprovasse não provaria nada sobre o produto; provaria
+apenas que consigo escrever um documento.
+
+O piloto começa assim que o dono disser o nome e o objetivo do projeto no chat.
