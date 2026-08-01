@@ -20,6 +20,20 @@ public sealed record AccountSchedulingRequest
     /// <summary>Escopos de path que o trabalho vai reivindicar. Vazio para um critic read-only.</summary>
     public IReadOnlyList<string> RequiredPathScopes { get; init; } = [];
 
+    /// <summary>
+    /// Fase 1B — assimetria de modelo: verdadeiro quando este trabalho merece a conta mais capaz.
+    ///
+    /// A prioridade da conta expressa capacidade (e custo). Preferir sempre a mais capaz gasta o
+    /// modelo caro em troca de rótulo; preferir sempre a mais barata entrega revisão de mudança
+    /// estrutural a quem tem menos condição de julgá-la. A escolha é do TRABALHO, não do humor do
+    /// orquestrador: o chefe e a revisão de risco alto vão para a mais capaz, execução comum vai
+    /// para a mais barata que atenda.
+    ///
+    /// Quando falso, a ordem de preferência inverte — e SÓ a ordem: a elegibilidade continua
+    /// intacta, então nenhuma conta inapta é promovida por ser barata.
+    /// </summary>
+    public bool PreferMostCapable { get; init; } = true;
+
     /// <summary>Verdadeiro quando se seleciona o CRITIC: exige conta distinta do actor.</summary>
     public bool ForCritic { get; init; }
 
@@ -71,7 +85,9 @@ public sealed class AgentAccountScheduler
         // é a preferência; ela NUNCA promove um inelegível.
         var eligible = candidates
             .Where(candidate => candidate.Eligible)
-            .OrderByDescending(candidate => candidate.Priority)
+            .OrderBy(candidate =>
+                // Assimetria de modelo (Fase 1B): a mesma lista, ordenada pelo que o trabalho pede.
+                request.PreferMostCapable ? -candidate.Priority : candidate.Priority)
             // A prioridade é a preferência primária; no empate vale a ordem de preferência
             // (saúde reduzida e cota perto do limite são operacionais, nunca preferidas a igual
             // prioridade — mas também nunca descartadas, porque a capacidade é real).

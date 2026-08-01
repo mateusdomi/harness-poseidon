@@ -243,13 +243,56 @@ lados da continuidade deixaram de ser mecanismos separados.
 branch, arquivos alterados, onde parou, o que faltava. Sem checkpoint, a tentativa começa do zero
 explicitamente, o que é preferível a afirmar uma continuidade inexistente.
 
-### Blocos da Fase 1 ainda NÃO implementados
+### 1B — Orçamento governando o despacho
 
-`1B` (orçamentos da EffortPolicy governando o despacho), `1C` (gate composto de revisão em
-camadas), `1D` (MAST/pass@k/skills consumidos) e `1E` (multi-tenant real + autonomia por padrão).
+`EffortPolicy` estava pronta, determinística, testada — e **não governava nada**. Terceira vez que
+o mesmo padrão aparece nesta auditoria (depois do `ListAsync` das notas no 0A2 e do
+`ExecutionCheckpointService` no 1A): capacidade construída com cuidado e nunca ligada.
 
-Levantamento já feito do 1B: `EffortPolicy` está pronta e determinística em
-`src/Modules/Harness.Modules.Coordination/Application/EffortPolicy.cs`; falta o planner gravar o
-orçamento no card e o scheduler respeitá-lo. Do 1E: o first-tenant está em
-`AttemptRecoveryBackgroundService` (`list[0].TenantId`) além do `ChiefBacklogLoopService:230`
-apontado no documento — são pelo menos dois serviços de fundo, não um.
+O orçamento nasce no planner, é **copiado** no plano (recalcular no despacho deixaria o card
+sujeito a mudanças de política feitas depois, e o plano deixaria de ser reproduzível) e governa: card
+que esgota as rodadas orçadas **escala com evento auditado**, em vez de ser redespachado em silêncio.
+
+**Assimetria de modelo:** a prioridade da conta expressa capacidade e custo. Preferir sempre a mais
+capaz gasta o modelo caro em troca de rótulo; preferir sempre a mais barata entrega revisão de
+mudança estrutural a quem tem menos condição de julgá-la. Quem decide é o TRABALHO — revisão e risco
+alto vão para a mais capaz, execução comum para a mais barata que atenda. A inversão altera apenas a
+ORDEM de preferência: nenhuma conta inapta é promovida por ser barata.
+
+### 1C — Veredito composto nomeia a camada
+
+As três camadas e a regra de não-compensação já existiam. Faltava o parecer **dizer qual camada
+reprovou**: "reprovado" sozinho não informa a quem corrige, e build quebrado, critério de aceite não
+atendido e objetivo não cumprido exigem ações completamente diferentes.
+
+### 1D — Aprendizado consumido
+
+A taxonomia MAST classificava desde a F16 e morria como telemetria. O ponto dela nunca foi medir — é
+que **cada categoria pede uma correção diferente**, e aplicar a errada é pior que não corrigir:
+especificação recorrente fatia menor e exige critério explícito (revisar mais fundo não conserta
+enunciado ambíguo — o revisor reprova de novo pelo mesmo motivo e o custo dobra); desalinhamento
+fatia menor (profundidade de revisão não arbitra conflito entre agentes); verificação — e só ela —
+revisa mais fundo.
+
+Uma ocorrência isolada é acidente, não padrão. A decisão entra no planejamento **auditada com a
+evidência**: uma decisão de máquina que não pode ser citada é indistinguível de capricho.
+
+### 1E — Multi-tenant real
+
+O documento apontava `ChiefBacklogLoopService:230`. Havia **dois**: o mesmo `[0]` estava também no
+`AttemptRecoveryBackgroundService` — e ali era pior, porque órfã presa mantém claim de path viva e
+trava o escopo do card para sempre. Com dois perfis, o segundo dono nunca era atendido, e nada no
+produto dizia isso: o laço não falhava, trabalhava para um só em silêncio.
+
+Ambos passaram a iterar todos os tenants com isolamento **por iteração**. E
+`ChiefContextStrategyEnabled` passou a ligada por padrão: nasceu desligada como default seguro e o
+"temporário" durou até ela estar completa, testada e sem governar nada. Depois do 0A2, mantê-la
+desligada seria preservar o defeito.
+
+### Pendências reais da Fase 1
+
+* `1D` item (2): painel de produtividade por assinatura no modo Técnico (pass@k + `model_invocations`)
+  — a política e os dados existem, a tela não foi construída.
+* `1D` item (3): skills promovidas nos bundles por escopo via Context Builder.
+* `1E` item (3): execução seguindo o modo de operação do projeto (autonomous habilitado por padrão).
+* `1E` item (4): transporte do judge e factory do Kimi.

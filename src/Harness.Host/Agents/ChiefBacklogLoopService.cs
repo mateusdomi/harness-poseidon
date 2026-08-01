@@ -378,7 +378,15 @@ public sealed partial class ChiefBacklogLoopService(
 
                     cards.Add((
                         new ChiefCard(task.Id, project.Id, resolution.Role, resolution.RequiredCapability,
-                            PriorityWeight(task.Priority), resolution.ScopeClaims),
+                            PriorityWeight(task.Priority), resolution.ScopeClaims,
+                            // Fase 1B — assimetria de modelo. O que decide é o TRABALHO: revisão e
+                            // risco alto/crítico vão para a conta mais capaz; execução comum vai
+                            // para a mais barata que atenda. O orçamento do card é a fonte quando
+                            // existe (ReviewDepth alto = mudança que merece julgamento melhor);
+                            // sem orçamento, o risco do card decide.
+                            PreferMostCapable: budget is { ReviewDepth: >= 2 } ||
+                                string.Equals(resolution.Role, "critic", StringComparison.Ordinal) ||
+                                task.Priority is "high" or "critical"),
                         resolution, task, instructions[^1].Id));
                 }
 

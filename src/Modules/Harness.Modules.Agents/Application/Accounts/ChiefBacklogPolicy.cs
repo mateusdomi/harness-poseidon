@@ -13,7 +13,15 @@ public sealed record ChiefCard(
     string Role,
     string RequiredCapability,
     int Priority,
-    IReadOnlyList<string> ScopeClaims);
+    IReadOnlyList<string> ScopeClaims,
+
+    /// <summary>
+    /// Fase 1B — assimetria de modelo: este card merece a conta mais capaz? Verdadeiro para
+    /// revisão e para trabalho de risco alto; falso para execução comum, que vai para a conta
+    /// barata que atenda. Sem isso, o modelo caro era gasto em troca de rótulo — ou, pior, a
+    /// revisão de mudança estrutural caía em quem tinha menos condição de julgá-la.
+    /// </summary>
+    bool PreferMostCapable = true);
 
 /// <summary>Decisão de despachar um card para uma conta disponível, com o motivo explicável.</summary>
 public sealed record ChiefDispatch(
@@ -115,6 +123,7 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
                 Now = now,
                 RequiredPathScopes = card.ScopeClaims,
                 Quotas = quotas,
+                PreferMostCapable = card.PreferMostCapable,
             };
 
             var decision = _scheduler.Select(accounts, request);
@@ -223,6 +232,10 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
                 Now = now,
                 RequiredPathScopes = card.ScopeClaims,
                 Quotas = quotas,
+                // O empréstimo da conta do CHEFE é sempre o caminho mais capaz: ele só acontece
+                // quando nenhuma conta do papel serve, e ceder o chefe para trabalho barato
+                // desperdiçaria a única conta que pode conduzir o projeto.
+                PreferMostCapable = true,
             });
 
             if (FirstFreeSlot(decision, borrowed, used) is { } alias)

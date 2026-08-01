@@ -1,3 +1,5 @@
+using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Application;
 
 namespace Harness.UnitTests.Coordination;
@@ -84,4 +86,59 @@ public sealed class EffortBudgetPlanningTests
             structuralDepth > visualDepth,
             $"estrutural={structuralDepth} deveria ser mais fundo que visual={visualDepth}");
     }
+}
+
+/// <summary>
+/// Fase 1B — assimetria de modelo. A prioridade da conta expressa capacidade (e custo). Preferir
+/// sempre a mais capaz gasta o modelo caro em troca de rótulo; preferir sempre a mais barata entrega
+/// revisão de mudança estrutural a quem tem menos condição de julgá-la.
+/// </summary>
+public sealed class ModelAsymmetryTests
+{
+    [Fact]
+    public void CapableWorkGetsTheMostCapableAccountAndCommonWorkGetsTheCheapest()
+    {
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account("conta-cara", priority: 100));
+        registry.Register(Account("conta-barata", priority: 10));
+        var scheduler = new AgentAccountScheduler();
+        var now = new DateTimeOffset(2026, 7, 31, 21, 0, 0, TimeSpan.Zero);
+
+        var capable = scheduler.Select(registry, Request(now, preferMostCapable: true));
+        var cheap = scheduler.Select(registry, Request(now, preferMostCapable: false));
+
+        Assert.Equal("conta-cara", capable.SelectedAlias);
+        Assert.Equal("conta-barata", cheap.SelectedAlias);
+    }
+
+    [Fact]
+    public void PreferringTheCheapestNeverPromotesAnIneligibleAccount()
+    {
+        var registry = new AgentAccountRegistry();
+        // A barata NÃO tem o papel exigido: preferir barato altera a ORDEM, nunca a elegibilidade.
+        registry.Register(Account("conta-cara", priority: 100));
+        registry.Register(Account("conta-barata", priority: 10, role: "frontend-specialist"));
+        var scheduler = new AgentAccountScheduler();
+        var now = new DateTimeOffset(2026, 7, 31, 21, 0, 0, TimeSpan.Zero);
+
+        var decision = scheduler.Select(registry, Request(now, preferMostCapable: false));
+
+        Assert.Equal("conta-cara", decision.SelectedAlias);
+    }
+
+    private static AgentAccountContract Account(
+        string alias, int priority, string role = "backend-specialist") =>
+        new(alias, "anthropic", ExecutorCatalog.ClaudeCode, $"keychain://poseidon/{alias}",
+            $"confighome://{alias}", [role], ["src/**"],
+            AgentAccountState.Available, AgentAccountHealth.Unknown, 2, 0, null, null, null, null,
+            null, priority);
+
+    private static AccountSchedulingRequest Request(DateTimeOffset now, bool preferMostCapable) => new()
+    {
+        Role = "backend-specialist",
+        RequiredCapability = "code",
+        Now = now,
+        RequiredPathScopes = ["src/app.cs"],
+        PreferMostCapable = preferMostCapable,
+    };
 }
