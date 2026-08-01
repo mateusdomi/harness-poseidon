@@ -47,7 +47,27 @@ public sealed record DemandPlanCard(
     /// Especialidade (chave de persona) declarada pelo Chefe para este card. Opcional por design:
     /// planos gravados antes desta declaração desserializam com nulo e seguem pela heurística.
     /// </summary>
-    string? Specialty = null);
+    string? Specialty = null,
+
+    /// <summary>
+    /// Fase 1B: o orçamento determinístico do card (agentes, tokens, rodadas, profundidade de
+    /// revisão). Vai no `cards_json`, então planos antigos desserializam com nulo e seguem pela
+    /// regra anterior — nenhuma migration é necessária para uma decisão que é do plano.
+    /// </summary>
+    DemandCardBudget? Budget = null);
+
+/// <summary>
+/// O orçamento gravado no plano. É uma CÓPIA do que a política decidiu no momento do planejamento,
+/// não uma referência viva: recalcular na hora do despacho deixaria o card sujeito a mudanças de
+/// política feitas depois, e o plano deixaria de ser reproduzível.
+/// </summary>
+public sealed record DemandCardBudget(
+    int Agents,
+    int TokenBudget,
+    int MaxRounds,
+    int ReviewDepth,
+    bool FanOutAllowed,
+    string ReasonCode);
 
 public sealed record DemandPlanSaveCommand(
     string TenantId,

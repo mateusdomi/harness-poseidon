@@ -59,7 +59,17 @@ public sealed record ProposedCard(
     IReadOnlyList<string> Dependencies,
 
     /// <summary>Especialidade declarada pelo Chefe para este card, quando houver executor.</summary>
-    string? Specialty = null);
+    string? Specialty = null,
+
+    /// <summary>
+    /// Fase 1B: o ORÇAMENTO do card — quantos agentes, quantos tokens, quantas rodadas e que
+    /// profundidade de revisão. Determinístico por tipo × risco × natureza (<see cref="EffortPolicy"/>).
+    ///
+    /// Sem ele gravado aqui, a política existia e não governava nada: o despacho decidia esforço
+    /// por hábito, e a tendência de um orquestrador sem regra é sempre a mesma — mais agentes, mais
+    /// rodadas, revisão mais funda, como se esforço fosse gratuito e proporcional à qualidade.
+    /// </summary>
+    EffortBudget? Budget = null);
 
 /// <summary>Plano proposto: o id da feature e a lista ORDENADA de cards filhos.</summary>
 public sealed record DemandPlanProposal(string FeatureId, IReadOnlyList<ProposedCard> Cards);
@@ -385,8 +395,17 @@ public static class DemandDecompositionPlanner
         // consertá-lo — comportamento louvável isolado, e destrutivo em paralelo: dois agentes
         // editam o mesmo arquivo, o merge serializado vira conflito e o trabalho do outro é
         // sobrescrito. Declarar o limite é mais barato que arbitrar a colisão depois.
+        // Fase 1B: o ORÇAMENTO entra no card aqui, no fim da decomposição, quando já se sabe o
+        // tipo, o papel e quantos irmãos ele tem. A política é determinística: a mesma demanda
+        // produz sempre os mesmos orçamentos, e sem isso ninguém consegue dizer se um resultado
+        // melhorou pelo plano ou pela sorte.
+        var risk = ParseRiskTier(request.RiskTier);
+        var isSmall = cards.Count <= 2;
+        var budgeted = cards
+            .Select(card => card with { Budget = EffortPolicy.Decide(NatureOf(card), risk, isSmall) })
+            .ToList();
         return NegativeBoundaryPolicy.EnrichWithSiblingBoundaries(
-            new DemandPlanProposal(featureId, cards));
+            new DemandPlanProposal(featureId, budgeted));
     }
 
     private static string[] ImplementationCriteria(string[] criteria, string surface) =>
@@ -429,6 +448,56 @@ public static class DemandDecompositionPlanner
         subject.Length > 0 ? $"{prefix}: {subject}" : fallback;
 
     /// <summary>Extrai o código estável do card ("&lt;featureId&gt;/T&lt;nn&gt;") do título proposto.</summary>
+
+    /// <summary>
+    /// A natureza do card a partir do que ele É, não do texto da demanda. Um spike entrega
+    /// conhecimento; um gate humano e uma decisão não têm executor; frontend é verificável olhando;
+    /// e um card de implementação que mexe em contrato é estrutural.
+    /// </summary>
+    internal static WorkNature NatureOf(ProposedCard card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+        if (string.Equals(card.CardType, CardTypeSpike, StringComparison.Ordinal))
+        {
+            return WorkNature.Investigation;
+        }
+
+        if (string.Equals(card.CardType, CardTypeDecision, StringComparison.Ordinal) ||
+            string.Equals(card.CardType, CardTypeHumanGate, StringComparison.Ordinal))
+        {
+            // Sem executor de agente: o orçamento existe para não deixar o card sem regra, e o
+            // menor possível é o honesto — quem trabalha aqui é gente.
+            return WorkNature.Investigation;
+        }
+
+        if (string.Equals(card.RequiredRole, RoleFrontend, StringComparison.Ordinal))
+        {
+            return WorkNature.Visual;
+        }
+
+        // Backend que mexe em contrato, dado persistido ou fronteira entre módulos é estrutural —
+        // é o caso em que revisar mais fundo se paga.
+        return MentionsAny(
+                $"{card.Instruction} {card.InScope}".ToLowerInvariant(), StructuralTerms)
+            ? WorkNature.Structural
+            : WorkNature.Implementation;
+    }
+
+    /// <summary>Termos que denunciam mudança estrutural: contrato, dado persistido, fronteira.</summary>
+    private static readonly string[] StructuralTerms =
+    [
+        "contrato", "schema", "migration", "migração", "banco", "tabela", "api pública",
+        "breaking", "endpoint", "protocolo", "interface pública", "persistência",
+    ];
+
+    private static RiskTier ParseRiskTier(string? priority) => priority?.Trim().ToLowerInvariant() switch
+    {
+        "critical" => RiskTier.Critical,
+        "high" => RiskTier.High,
+        "low" => RiskTier.Low,
+        _ => RiskTier.Medium,
+    };
+
     public static string CodeOf(string proposedTitle)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(proposedTitle);

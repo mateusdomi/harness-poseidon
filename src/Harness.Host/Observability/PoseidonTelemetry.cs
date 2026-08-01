@@ -257,6 +257,19 @@ internal static class PoseidonTelemetry
             "poseidon.attempt.checkpoint.count",
             description: "Attempt checkpoint capture and resume outcomes.");
 
+    /// <summary>
+    /// Fase 1B: o orçamento de esforço em telemetria. Sem esta série, "o card parou porque acabou o
+    /// orçamento" e "o card parou por falha" seriam a mesma linha no gráfico.
+    /// </summary>
+    private static Counter<long> EffortBudgetCounter { get; } =
+        Meter.CreateCounter<long>(
+            "poseidon.card.effort.budget.count",
+            description: "Effort budget outcomes per card, by reason code.");
+
+    internal static void RecordEffortBudget(string outcome, string reasonCode) =>
+        EffortBudgetCounter.Add(
+            1, new TagList { { "outcome", outcome }, { "reason_code", reasonCode } });
+
     internal static void RecordCheckpoint(string outcome) =>
         CheckpointCounter.Add(1, new TagList { { "outcome", outcome } });
 

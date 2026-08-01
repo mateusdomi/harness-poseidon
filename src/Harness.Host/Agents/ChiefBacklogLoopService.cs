@@ -103,6 +103,10 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} (card_type={CardType}) NÃO despachável — pulado por prontidão (DoR): {Blockers}")]
     private static partial void LogCardNotDispatchable(ILogger logger, string taskId, string cardType, string blockers);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} ESGOTOU o orçamento de rodadas ({Spent}/{MaxRounds}, {ReasonCode}) — escalado em vez de redespachado.")]
+    private static partial void LogBudgetExhausted(
+        ILogger logger, string taskId, int spent, int maxRounds, string reasonCode);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} com CIRCUITO ABERTO ({Failures} falhas consecutivas) — não é redespachado; só o replanejamento da Bruna o reabre.")]
     private static partial void LogCardCircuitOpen(ILogger logger, string taskId, int failures);
 
@@ -335,6 +339,18 @@ public sealed partial class ChiefBacklogLoopService(
                 if (!circuit.IsDispatchable)
                 {
                     LogCardCircuitOpen(logger, task.Id, circuit.ConsecutiveFailures);
+                    continue;
+                }
+
+                // Fase 1B: o ORÇAMENTO do card governa o despacho. A EffortPolicy existia e não
+                // decidia nada — o teto de rodadas era só o circuito por falha, que mede outra
+                // coisa (falha técnica, não esgotamento do plano). Um card que já consumiu as
+                // rodadas orçadas não é redespachado em silêncio: ele ESCALA, com o fato auditado.
+                var budget = await ReadCardBudgetAsync(profile.TenantId, task, plans, token);
+                if (budget is not null && attemptHistory.Count >= budget.MaxRounds)
+                {
+                    await EscalateBudgetExhaustionAsync(
+                        profile.TenantId, project.Id, task, budget, attemptHistory.Count, token);
                     continue;
                 }
 
@@ -1063,6 +1079,7 @@ public sealed partial class ChiefBacklogLoopService(
     /// executor falhou, saída inválida) NÃO são aplicados — devolvem <c>false</c> para o chamador
     /// re-tentar com backoff, sem punir o trabalho do ator pela falha do crítico.
     /// </summary>
+
     internal async Task<bool> ApplyReviewVerdictAsync(
         string tenantId,
         BoardTaskRecord task,
@@ -1100,7 +1117,15 @@ public sealed partial class ChiefBacklogLoopService(
         var findingsSummary = result.Findings.Count == 0
             ? string.Empty
             : $" Achados: {string.Join("; ", result.Findings.Select(finding => $"[{finding.Severity}] {finding.Summary}"))}";
-        var rationale = $"{result.Summary ?? result.ReasonCode}{findingsSummary}";
+
+        // Fase 1C: uma reprovação precisa NOMEAR a camada e a severidade. "Reprovado" sozinho não
+        // diz a quem corrige o que consertar — build quebrado, critério de aceite não atendido e
+        // objetivo da demanda não cumprido exigem ações completamente diferentes, e quem lê o
+        // parecer precisa saber qual delas é a sua.
+        var layerVerdict = layered.Approved || layered.BlockedAt is not { } blocked
+            ? string.Empty
+            : $"[camada {(int)blocked}/{blocked} · severidade {layered.Severity}] ";
+        var rationale = $"{layerVerdict}{result.Summary ?? result.ReasonCode}{findingsSummary}";
         if (rationale.Length > 4_000)
         {
             rationale = rationale[..4_000];
@@ -1668,6 +1693,77 @@ public sealed partial class ChiefBacklogLoopService(
     /// imediatamente; as demais sobem à medida que o gate humano de merge conclui os provedores.
     /// Cards que exigem humano (spike/human_gate/decision) nunca sobem sozinhos.
     /// </summary>
+
+    /// <summary>
+    /// Fase 1B: o orçamento do card, lido do PLANO que o originou. Cards sem plano (criados à mão)
+    /// e planos anteriores a este bloco devolvem nulo e seguem pela regra anterior — o orçamento
+    /// governa onde ele existe, sem inventar teto para trabalho que ninguém orçou.
+    /// </summary>
+    private static async Task<DemandCardBudget?> ReadCardBudgetAsync(
+        string tenantId, BoardTaskRecord task, IDemandPlanStore plans, CancellationToken token)
+    {
+        if (task.DemandId is not { Length: > 0 } demandId)
+        {
+            return null;
+        }
+
+        var plan = await plans.GetByDemandAsync(tenantId, demandId, token);
+        if (plan is null)
+        {
+            return null;
+        }
+
+        var code = DemandDecompositionPlanner.CodeOf(task.Title);
+        return plan.Cards
+            .FirstOrDefault(card =>
+                string.Equals(
+                    DemandDecompositionPlanner.CodeOf(card.ProposedTitle), code,
+                    StringComparison.OrdinalIgnoreCase))
+            ?.Budget;
+    }
+
+    /// <summary>
+    /// O card esgotou as rodadas orçadas. Parar em silêncio esconderia um card morto no board;
+    /// seguir despachando queimaria cota repetindo o mesmo fracasso. A saída é ESCALAR com a
+    /// evidência: quantas rodadas foram orçadas, quantas foram gastas e por qual razão o orçamento
+    /// era aquele.
+    /// </summary>
+    private async Task EscalateBudgetExhaustionAsync(
+        string tenantId,
+        string projectId,
+        BoardTaskRecord task,
+        DemandCardBudget budget,
+        int spentRounds,
+        CancellationToken token)
+    {
+        LogBudgetExhausted(logger, task.Id, spentRounds, budget.MaxRounds, budget.ReasonCode);
+        Observability.PoseidonTelemetry.RecordEffortBudget("exhausted", budget.ReasonCode);
+        using var scope = scopes.CreateScope();
+        var audit = scope.ServiceProvider
+            .GetRequiredService<global::Harness.Persistence.Abstractions.Governance.IAuditEventStore>();
+        await audit.AppendAsync(
+            new global::Harness.Persistence.Abstractions.Governance.AuditEventAppendCommand(
+                tenantId,
+                "system",
+                null,
+                "card.effortBudgetExhausted",
+                "task",
+                task.Id,
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    projectId,
+                    taskId = task.Id,
+                    spentRounds,
+                    budget.MaxRounds,
+                    budget.Agents,
+                    budget.TokenBudget,
+                    budget.ReviewDepth,
+                    budget.ReasonCode,
+                }),
+                clock.UtcNow),
+            token);
+    }
+
     internal async Task<int> PromotePlannedCardsAsync(
         string tenantId,
         ProjectRecord project,

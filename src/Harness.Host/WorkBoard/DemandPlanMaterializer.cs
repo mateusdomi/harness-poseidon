@@ -228,7 +228,15 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
 
     internal static DemandPlanCard ToCard(ProposedCard card) => new(
         card.ProposedTitle, card.CardType, card.RequiredRole, card.Instruction, card.InScope,
-        card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies, card.Specialty);
+        card.OutOfScope, card.AcceptanceCriteria, card.Gates, card.Dependencies, card.Specialty,
+        // Fase 1B: o orçamento decidido no planejamento viaja com o card. Recalcular no despacho
+        // deixaria o card sujeito a mudanças de política feitas depois — e o plano deixaria de ser
+        // reproduzível, que é a única razão de ele ser determinístico.
+        card.Budget is null
+            ? null
+            : new DemandCardBudget(
+                card.Budget.Agents, card.Budget.TokenBudget, card.Budget.MaxRounds,
+                card.Budget.ReviewDepth, card.Budget.FanOutAllowed, card.Budget.ReasonCode));
 
     // A instrução carrega o PAPEL exigido (nunca uma conta), o escopo in/out, os critérios de aceite,
     // os gates e as dependências — tudo o que o card precisa para virar execução após a triagem.
