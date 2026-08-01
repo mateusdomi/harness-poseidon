@@ -1613,6 +1613,16 @@ public sealed partial class ChiefBacklogLoopService(
         foreach (var task in page.Items)
         {
             token.ThrowIfCancellationRequested();
+            // Convergência de versões anteriores: o card já foi revisado e integrado, mas o
+            // catálogo permaneceu "em elaboração". O ID do documento é o ID do card por contrato.
+            if (string.Equals(task.CardType, "documento", StringComparison.Ordinal) &&
+                string.Equals(task.InternalState, "completed", StringComparison.Ordinal))
+            {
+                _ = await documentPublisher.EnsureReviewedDocumentApprovedAsync(
+                    tenantId, task, task.Id, token);
+                continue;
+            }
+
             if (!string.Equals(task.InternalState, "approved", StringComparison.Ordinal))
             {
                 continue;

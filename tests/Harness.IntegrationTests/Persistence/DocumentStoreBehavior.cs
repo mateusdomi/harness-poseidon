@@ -528,6 +528,8 @@ internal static class DocumentStoreBehavior
 
         await AssertManualEditRebindsPendingApprovalAsync(
             store, command.TenantId, command.ProjectId, cancellationToken);
+        await AssertReviewedCardApprovalProjectionAsync(
+            store, command.TenantId, command.ProjectId, cancellationToken);
 
         Assert.Null(await store.ReadAsync(
             command.TenantId,
@@ -613,5 +615,48 @@ internal static class DocumentStoreBehavior
             at.AddMinutes(4)), cancellationToken);
         Assert.Equal(DocumentMutationStatus.Applied, resolved.Status);
         Assert.Equal("approved", resolved.State);
+    }
+
+    private static async Task AssertReviewedCardApprovalProjectionAsync(
+        IDocumentStore store, string tenantId, string projectId,
+        CancellationToken cancellationToken)
+    {
+        var at = new DateTimeOffset(2026, 7, 18, 20, 0, 0, TimeSpan.Zero);
+        string Id(int offset) => UlidValue.New(at.AddMilliseconds(offset)).ToString();
+        var documentId = Id(1);
+        var documentVersionId = Id(2);
+        var created = await store.CreateAsync(new(
+            tenantId, projectId, documentId, "Reviewed card delivery", "report", [], "Triagem",
+            documentVersionId, $"docs/decisions/{documentId}.md", new string('C', 64),
+            "agent", Id(3), $"document:create:{documentId}", at, Id(4)), cancellationToken);
+
+        var transition = await store.TransitionAsync(new(
+            tenantId, documentId, documentVersionId, "approved",
+            $"approved-card:{documentId};review-attempt:{documentVersionId}",
+            "system", null, created.DocumentVersion,
+            $"approved-document-review:{documentVersionId}", at.AddMinutes(1)), cancellationToken);
+
+        Assert.Equal(DocumentMutationStatus.Applied, transition.Status);
+        Assert.Equal("approved", transition.State);
+        Assert.Equal(
+            DocumentMutationStatus.IdempotentReplay,
+            (await store.TransitionAsync(new(
+                tenantId, documentId, documentVersionId, "approved",
+                $"approved-card:{documentId};review-attempt:{documentVersionId}",
+                "system", null, created.DocumentVersion,
+                $"approved-document-review:{documentVersionId}", at.AddMinutes(1)),
+                cancellationToken)).Status);
+
+        var approved = await store.ReadAsync(tenantId, documentId, cancellationToken);
+        Assert.NotNull(approved);
+        Assert.Equal("approved", approved.State);
+        var stateTransition = Assert.Single(approved.StateTransitions);
+        Assert.Equal("in_elaboration", stateTransition.FromState);
+        Assert.Equal("approved", stateTransition.ToState);
+        Assert.Equal("system", stateTransition.ActorKind);
+        Assert.Null(stateTransition.ActorId);
+        Assert.Equal(
+            $"approved-card:{documentId};review-attempt:{documentVersionId}",
+            stateTransition.Note);
     }
 }

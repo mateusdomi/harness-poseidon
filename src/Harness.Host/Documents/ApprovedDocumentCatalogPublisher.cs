@@ -29,6 +29,7 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
     IDocumentCatalogStore catalog,
     IDocumentContentCatalog content,
     IWorkflowDocumentTemplateStore templates,
+    IWorkChainStore chain,
     IClock clock)
 {
     private static readonly Regex TemplateMarker = new(
@@ -148,7 +149,11 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
                 if (snapshot.Versions.Any(version =>
                         string.Equals(version.DocumentVersionId, versionId, StringComparison.Ordinal)))
                 {
-                    return new(true, "document.version_already_published", documentId, versionId, sourcePath);
+                    var converged = await EnsureReviewedDocumentApprovedAsync(
+                        tenantId, task, documentId, cancellationToken);
+                    return converged
+                        ? new(true, "document.version_already_published", documentId, versionId, sourcePath)
+                        : new(false, "document.approved_state_not_converged", documentId, versionId, sourcePath);
                 }
 
                 var receipt = await documents.AppendVersionAsync(
@@ -176,7 +181,80 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
             throw;
         }
 
-        return new(true, "document.published", documentId, versionId, sourcePath);
+        return await EnsureReviewedDocumentApprovedAsync(
+                tenantId, task, documentId, cancellationToken)
+            ? new(true, "document.published", documentId, versionId, sourcePath)
+            : new(false, "document.approved_state_not_converged", documentId, versionId, sourcePath);
+    }
+
+    /// <summary>
+    /// Converge a projeção documental com o fato já provado na cadeia: card documental aprovado
+    /// por revisor distinto. Serve também para documentos publicados por uma versão anterior que
+    /// ficaram incorretamente em `in_elaboration` após o card ser integrado.
+    /// </summary>
+    internal async Task<bool> EnsureReviewedDocumentApprovedAsync(
+        string tenantId,
+        BoardTaskRecord task,
+        string documentId,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await documents.ReadAsync(tenantId, documentId, cancellationToken);
+        if (snapshot is null)
+        {
+            return false;
+        }
+
+        if (string.Equals(snapshot.State, "approved", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (!string.Equals(snapshot.State, "in_elaboration", StringComparison.Ordinal) ||
+            snapshot.Versions.Count == 0)
+        {
+            return false;
+        }
+
+        var reviewedVersion = snapshot.Versions[^1];
+        var aggregate = await chain.ReadAggregateAsync(
+            tenantId, task.BackingSolicitationId, cancellationToken);
+        var review = SelectApprovedReview(aggregate, task.Id, reviewedVersion.DocumentVersionId);
+        if (review is null)
+        {
+            return false;
+        }
+
+        var receipt = await documents.TransitionAsync(
+            new DocumentTransitionCommand(
+                tenantId,
+                documentId,
+                review.ReviewId,
+                "approved",
+                $"approved-card:{task.Id};review-attempt:{review.ReviewId}",
+                "system",
+                null,
+                snapshot.Version,
+                $"approved-document-review:{review.ReviewId}",
+                review.CreatedAt),
+            cancellationToken);
+        return receipt.Status is DocumentMutationStatus.Applied or DocumentMutationStatus.IdempotentReplay;
+    }
+
+    internal static WorkReviewSnapshot? SelectApprovedReview(
+        WorkChainAggregateSnapshot? aggregate,
+        string taskId,
+        string attemptId)
+    {
+        var attempt = aggregate?.Demands
+            .SelectMany(demand => demand.Tasks)
+            .SingleOrDefault(task => string.Equals(task.TaskId, taskId, StringComparison.Ordinal))?
+            .Attempts
+            .SingleOrDefault(candidate =>
+                string.Equals(candidate.AttemptId, attemptId, StringComparison.Ordinal));
+        return attempt?.Review is { Decision: "approved" } review &&
+               !string.Equals(attempt.ProducerAgentId, review.ReviewerAgentId, StringComparison.Ordinal)
+            ? review
+            : null;
     }
 
     internal static IReadOnlyList<string> SelectDocumentArtifacts(IEnumerable<string> changedFiles) =>

@@ -194,7 +194,8 @@ public sealed partial class SqliteDocumentStore
                 row.State,
                 row.CurrentVersion);
         }
-        else if (!CanTransition(row.State, command.TargetState))
+        else if (!DocumentLifecycleMutationValidator.CanTransition(
+                     row.State, command.TargetState, command.ActorKind))
         {
             receipt = Rejected(
                 DocumentMutationStatus.InvalidState,
@@ -345,15 +346,5 @@ public sealed partial class SqliteDocumentStore
         await transaction.CommitAsync(cancellationToken);
         return final;
     }
-
-    private static bool CanTransition(string current, string target) =>
-        (current, target) switch
-        {
-            ("planned", "in_elaboration" or "not_applicable") => true,
-            ("in_elaboration", "in_review" or "not_applicable") => true,
-            ("in_review", "in_elaboration") => true,
-            ("approved", "outdated" or "superseded") => true,
-            _ => false,
-        };
 
 }

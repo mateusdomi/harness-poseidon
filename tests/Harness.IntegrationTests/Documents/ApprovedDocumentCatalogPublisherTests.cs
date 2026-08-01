@@ -52,6 +52,27 @@ public sealed class ApprovedDocumentCatalogPublisherTests
     }
 
     [Fact]
+    public void CatalogApprovalRequiresTheDurableIndependentReviewForThePublishedAttempt()
+    {
+        var at = new DateTimeOffset(2026, 8, 1, 20, 0, 0, TimeSpan.Zero);
+        var approved = Aggregate(
+            new WorkReviewSnapshot("review-1", "reviewer", "approved", "Aprovado.", at));
+
+        Assert.Equal(
+            "review-1",
+            ApprovedDocumentCatalogPublisher.SelectApprovedReview(
+                approved, "task", "attempt")?.ReviewId);
+        Assert.Null(ApprovedDocumentCatalogPublisher.SelectApprovedReview(
+            Aggregate(new("review-2", "producer", "approved", "Autorrevisão.", at)),
+            "task", "attempt"));
+        Assert.Null(ApprovedDocumentCatalogPublisher.SelectApprovedReview(
+            Aggregate(new("review-3", "reviewer", "rejected", "Correções.", at)),
+            "task", "attempt"));
+        Assert.Null(ApprovedDocumentCatalogPublisher.SelectApprovedReview(
+            approved, "task", "outra-tentativa"));
+    }
+
+    [Fact]
     public async Task CatalogContentWriteIsIdempotentOnlyForTheSameHash()
     {
         var root = Path.Combine(
@@ -88,4 +109,19 @@ public sealed class ApprovedDocumentCatalogPublisherTests
         new(
             "tenant", id, "task", 1, operationalState, "professional", startedAt,
             startedAt.AddSeconds(1), 1000, 0, 0, 0, [], null, null);
+
+    private static WorkChainAggregateSnapshot Aggregate(WorkReviewSnapshot review)
+    {
+        var at = new DateTimeOffset(2026, 8, 1, 20, 0, 0, TimeSpan.Zero);
+        return new(
+            "tenant", "project", "user", "solicitation", "pedido", at,
+            [new WorkDemandSnapshot(
+                "demand", "Demanda", [], at,
+                [new WorkTaskAggregateSnapshot(
+                    "task", "Documento", "low", 1, "approved", 5, at, at,
+                    [],
+                    [new WorkAttemptSnapshot(
+                        "attempt", "instruction", 1, "producer", "approved", at, at,
+                        [], review)])])]);
+    }
 }

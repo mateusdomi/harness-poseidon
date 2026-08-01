@@ -94,11 +94,40 @@ public static class DocumentLifecycleMutationValidator
         {
             ValidateId(command.ActorId, nameof(command));
         }
+
+        // Aprovação direta é reservada à convergência interna de um card documental que já
+        // passou por revisão independente. Sem os dois elos explícitos na nota, nem o próprio
+        // sistema pode pular o workflow normal de solicitação/aprovação humana.
+        if (command.TargetState == "approved" && command.ActorKind == "system" &&
+            (command.Note is null ||
+             !command.Note.Contains("approved-card:", StringComparison.Ordinal) ||
+             !command.Note.Contains("review-attempt:", StringComparison.Ordinal)))
+        {
+            throw new ArgumentException(
+                "A system approval requires approved-card and review-attempt evidence.",
+                nameof(command));
+        }
     }
 
     public static string Hash(DocumentMetadataUpdateCommand command) => HashCore(command);
 
     public static string Hash(DocumentTransitionCommand command) => HashCore(command);
+
+    /// <summary>
+    /// Política única de transição usada pelos stores. O caminho especial para `approved` não é
+    /// uma aprovação genérica: só o ator `system`, já validado com evidência card+review acima,
+    /// pode projetar no catálogo a aprovação que aconteceu na cadeia durável de trabalho.
+    /// </summary>
+    public static bool CanTransition(string current, string target, string actorKind) =>
+        (current, target) switch
+        {
+            ("planned", "in_elaboration" or "not_applicable") => true,
+            ("in_elaboration", "in_review" or "not_applicable") => true,
+            ("in_elaboration", "approved") => actorKind == "system",
+            ("in_review", "in_elaboration") => true,
+            ("approved", "outdated" or "superseded") => true,
+            _ => false,
+        };
 
     private static string HashCore<T>(T command) =>
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
