@@ -69,7 +69,10 @@ public sealed class PostgresChiefContextNoteStore(NpgsqlDataSource dataSource) :
         query.CommandText =
             "SELECT tenant_id,project_id,conversation_id,turn_id,id,source_item_id,role,content,token_estimate,sequence,created_at " +
             "FROM harness.chief_context_notes WHERE tenant_id=$1 AND project_id=$2 " +
-            "AND ($3 IS NULL OR conversation_id=$3) ORDER BY sequence,id LIMIT $4;";
+            // Paridade com o SQLite: o limite corta as notas mais ANTIGAS, não as mais recentes.
+            // Busca decrescente e inversão antes de devolver, mantendo a ordem cronológica para
+            // quem monta o contexto.
+            "AND ($3 IS NULL OR conversation_id=$3) ORDER BY sequence DESC,id DESC LIMIT $4;";
         query.Parameters.Add(Text(tenantId));
         query.Parameters.Add(Text(projectId));
         query.Parameters.Add(Text(conversationId));
@@ -84,6 +87,7 @@ public sealed class PostgresChiefContextNoteStore(NpgsqlDataSource dataSource) :
                 reader.GetInt32(8), reader.GetInt64(9), reader.GetFieldValue<DateTimeOffset>(10)));
         }
 
+        rows.Reverse();
         return rows;
     }
 

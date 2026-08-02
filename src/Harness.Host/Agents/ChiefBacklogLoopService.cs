@@ -541,7 +541,7 @@ public sealed partial class ChiefBacklogLoopService(
                     if (budget is not null && spentRounds >= budget.MaxRounds)
                     {
                         await EscalateBudgetExhaustionAsync(
-                            profile.TenantId, project.Id, task, budget, spentRounds, token);
+                            profile.TenantId, project.Id, task, chain, budget, spentRounds, token);
                         continue;
                     }
 
@@ -3109,12 +3109,33 @@ public sealed partial class ChiefBacklogLoopService(
         string tenantId,
         string projectId,
         BoardTaskRecord task,
+        IWorkChainStore chain,
         DemandCardBudget budget,
         int spentRounds,
         CancellationToken token)
     {
         LogBudgetExhausted(logger, task.Id, spentRounds, budget.MaxRounds, budget.ReasonCode);
         Observability.PoseidonTelemetry.RecordEffortBudget("exhausted", budget.ReasonCode);
+
+        // O comentário do chamador promete que o card "ESCALA, com o fato auditado" — mas só o
+        // fato era auditado. Sem mudar o estado, o card continuava em `ready`: reexaminado a cada
+        // ciclo, nunca anunciado ao dono (o anúncio filtra por `escalated`) e reescrevendo o mesmo
+        // evento de auditoria a cada tique do laço. É exatamente o sintoma que o ramo do circuito
+        // aberto, logo acima, já havia corrigido — card morto e invisível para todos.
+        _ = await chain.EscalateUndispatchableTaskAsync(
+            new WorkTaskUndispatchableCommand(
+                tenantId, task.BackingSolicitationId, task.Id,
+                $"Este trabalho já consumiu as {budget.MaxRounds} rodadas que orçamos para ele " +
+                $"({spentRounds} usadas) e ainda não fechou. Continuar tentando gastaria esforço " +
+                "repetindo a mesma abordagem, então parei: preciso rever o enunciado, reduzir o " +
+                "escopo ou aumentar o orçamento antes de seguir.",
+                $"card:{task.Id}",
+                task.Version,
+                // A versão entra na chave: o inbox guarda também as mutações RECUSADAS, e uma
+                // chave fixa envenenaria toda tentativa posterior com conflito de idempotência.
+                $"chief-loop-budget-exhausted:{task.Id}:{task.Version}",
+                clock.UtcNow),
+            token);
         using var scope = scopes.CreateScope();
         var audit = scope.ServiceProvider
             .GetRequiredService<global::Harness.Persistence.Abstractions.Governance.IAuditEventStore>();

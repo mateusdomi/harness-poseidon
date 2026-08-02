@@ -47,7 +47,17 @@ export function AgentIdentity({
   const isLeadership = isLeadershipAlias(alias);
   const humanName =
     isLeadership && leadershipProfile ? leadershipProfile.displayName : identity.humanName;
-  const subtitle = technicalLabel ?? identity.roleLabel ?? identity.alias;
+  // O alias técnico NUNCA é texto de apresentação. Ele só aparece quando a tela pede
+  // transparência explicitamente, via `technicalLabel` — e telas de negócio não pedem. Enquanto
+  // o alias era o último fallback, bastava o backend publicar uma conta fora do mapa de personas
+  // (`worker-...`) para o usuário leigo ler o nome da conta no lugar do cargo da pessoa.
+  const subtitle = technicalLabel ?? identity.roleLabel ?? null;
+
+  // O tooltip nativo do nome seguia o alias da conta em TODA tela, sem portão de modo: passar o
+  // mouse sobre "Bruna Magalhães" no painel revelava `chief-claude-primary`. Vale a mesma regra
+  // do subtítulo — o alias só aparece quando a tela pediu transparência técnica; caso contrário
+  // o tooltip repete o cargo da pessoa.
+  const nameTitle = subtitle ?? undefined;
 
   return (
     <span className={cn('flex min-w-0 items-center gap-2.5', className)}>
@@ -60,7 +70,7 @@ export function AgentIdentity({
       <span className="flex min-w-0 flex-col">
         <span
           className={cn('truncate font-heading font-semibold text-foreground', nameClassName)}
-          title={identity.alias || undefined}
+          title={nameTitle}
         >
           {humanName}
         </span>

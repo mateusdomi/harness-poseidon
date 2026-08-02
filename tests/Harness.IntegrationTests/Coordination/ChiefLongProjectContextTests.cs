@@ -184,6 +184,66 @@ public sealed class ChiefLongProjectContextTests
         }
     }
 
+    /// <summary>
+    /// O limite das notas precisa cortar as MAIS ANTIGAS — o mesmo oldest-N de BR-006, que foi
+    /// corrigido no histórico de mensagens e ficou para trás nas notas. Enquanto a leitura era
+    /// `ORDER BY sequence,id LIMIT`, um projeto que passasse do teto recebia para sempre as
+    /// primeiras notas e descartava em silêncio tudo o que a Bruna registrou depois.
+    /// </summary>
+    [Fact]
+    public async Task NoteRetrievalKeepsTheNewestNotesAndDropsTheOldest()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var root = Path.Combine(
+            AppContext.BaseDirectory, "integration-artifacts", $"ctx0a2-newest-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(
+                Path.Combine(root, "context.db"), timeout.Token);
+            await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
+            await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
+                FoundationTransactionBehavior.Command(), timeout.Token);
+            var notes = new SqliteChiefContextNoteStore(dispatcher);
+            var now = new DateTimeOffset(2026, 8, 2, 8, 0, 0, TimeSpan.Zero);
+
+            const int total = 30;
+            for (var index = 0; index < total; index++)
+            {
+                await notes.AppendAsync(
+                    new ChiefContextNoteAppendCommand(
+                        Tenant, Project, null, null,
+                        [
+                            new ChiefContextNoteEntry(
+                                UlidValue.New(now.AddSeconds(index * 2)).ToString(),
+                                UlidValue.New(now.AddSeconds((index * 2) + 1)).ToString(),
+                                "chief",
+                                $"decisao-{index}",
+                                4,
+                                index)
+                        ],
+                        now.AddSeconds(index * 2)),
+                    timeout.Token);
+            }
+
+            const int limit = 10;
+            var recovered = await notes.ListAsync(Tenant, Project, null, limit, timeout.Token);
+
+            Assert.Equal(limit, recovered.Count);
+            // As dez ÚLTIMAS decisões, em ordem cronológica — não as dez primeiras.
+            Assert.Equal("decisao-20", recovered[0].Content);
+            Assert.Equal("decisao-29", recovered[^1].Content);
+            Assert.DoesNotContain(recovered, note => note.Content == "decisao-0");
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     [Fact]
     public async Task NotesFromAnotherProjectNeverEnterTheContext()
     {

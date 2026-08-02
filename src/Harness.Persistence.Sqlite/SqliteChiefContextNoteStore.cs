@@ -79,7 +79,13 @@ public sealed class SqliteChiefContextNoteStore(SqliteWriteDispatcher dispatcher
             "SELECT tenant_id,project_id,conversation_id,turn_id,id,source_item_id,role,content,token_estimate,sequence,created_at " +
             "FROM chief_context_notes WHERE tenant_id=$tenant AND project_id=$project " +
             "AND ($conversation IS NULL OR conversation_id=$conversation) " +
-            "ORDER BY sequence,id LIMIT $limit;";
+            // O limite precisa cortar as notas MAIS ANTIGAS, não as mais recentes. Com
+            // `ORDER BY sequence,id LIMIT`, um projeto que passasse do teto recebia de volta
+            // sempre as primeiras notas e descartava em silêncio tudo o que a Bruna aprendeu
+            // depois — o mesmo modo de falha oldest-N já corrigido no histórico de mensagens.
+            // Busca-se em ordem decrescente e inverte-se antes de devolver, porque quem monta o
+            // contexto espera ordem cronológica.
+            "ORDER BY sequence DESC,id DESC LIMIT $limit;";
         Add(query, "$tenant", tenantId);
         Add(query, "$project", projectId);
         Add(query, "$conversation", conversationId);
@@ -94,6 +100,7 @@ public sealed class SqliteChiefContextNoteStore(SqliteWriteDispatcher dispatcher
                 reader.GetInt32(8), reader.GetInt64(9), ParseDate(reader.GetString(10))));
         }
 
+        rows.Reverse();
         return rows;
     }
 
