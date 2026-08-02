@@ -67,7 +67,10 @@ export default function UnotificationsPage() {
         </h1>
         {!isPending && !isError && (
           <span className="text-sm text-foreground-muted">
-            {t('notifications.center.count', { count: notifications.length })}
+            {/* Conta o que está NA TELA. Com o total, filtrar para uma categoria vazia deixava
+                a lista dizendo "Nenhuma notificação" e o cabeçalho dizendo "2 notificação(ões)" —
+                dois números contraditórios na mesma linha de visão. */}
+            {t('notifications.center.count', { count: entries.length })}
           </span>
         )}
       </div>

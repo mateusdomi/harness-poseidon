@@ -76,13 +76,13 @@ export default function UagentsPage() {
           </span>
         )}
         {projects.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-2">
             <label htmlFor="agents-project" className="text-sm text-foreground-muted">
               {t('cockpit.projectSelector.label')}
             </label>
             <Select
               id="agents-project"
-              className="w-auto min-w-48"
+              className="w-auto min-w-0 max-w-full md:min-w-48"
               value={activeProject?.id ?? ''}
               onChange={(event) => setActiveProject(event.target.value)}
             >

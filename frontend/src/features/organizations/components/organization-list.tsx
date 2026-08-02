@@ -85,13 +85,17 @@ export function OrganizationList({ organizations, onSelect, onCreateNew }: Organ
         <>
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {pagination.paginate(filtered).map((org) => (
-              <li key={org.id}>
+              // `min-w-0` precisa existir em TODA a cadeia até o `truncate`: um nome longo de
+              // organização esticava o card inteiro para 400 px dentro de um viewport de 360 e
+              // a página passava a rolar na horizontal. O `truncate` do span interno não
+              // adiantava porque os pais podiam crescer.
+              <li key={org.id} className="min-w-0">
                 <button
                   type="button"
                   onClick={() => onSelect(org)}
-                  className="flex min-h-touch w-full flex-col gap-2 rounded-lg border border-border bg-surface p-4 text-start transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="flex min-h-touch w-full min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface p-4 text-start transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex w-full min-w-0 items-center gap-2">
                     <span
                       aria-hidden="true"
                       className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-elevated text-foreground-muted"

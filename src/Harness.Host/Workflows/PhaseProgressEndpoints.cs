@@ -29,6 +29,7 @@ public static class PhaseProgressEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         IPhaseObligationStore obligations,
+        IWorkflowStore workflows,
         CancellationToken token)
     {
         if (!UlidValue.TryParse(runId, out _))
@@ -47,9 +48,23 @@ public static class PhaseProgressEndpoints
         var current = await obligations.ListCurrentAsync(profile.TenantId, runId, phaseKey, token);
         if (current.Count == 0)
         {
-            return Results.Problem(
-                statusCode: 404, title: "phase_plan_not_found",
-                detail: "The phase has no materialized obligation plan yet.");
+            // Etapa que ainda não começou NÃO é erro: é o estado normal de toda fase futura. Como
+            // 404, a tela do painel abria com OITO requisições vermelhas no console a cada carga —
+            // ruído que esconde erro de verdade e faz um produto saudável parecer quebrado. O 404
+            // fica onde ainda significa alguma coisa: execução inexistente ou etapa que não é
+            // daquela esteira.
+            var run = await workflows.ReadRunAggregateAsync(profile.TenantId, runId, token);
+            var phase = run?.Phases.FirstOrDefault(candidate =>
+                string.Equals(candidate.Key, phaseKey, StringComparison.Ordinal));
+            if (phase is null)
+            {
+                return Results.Problem(
+                    statusCode: 404, title: "phase_plan_not_found",
+                    detail: "The workflow run or phase does not exist.");
+            }
+
+            return Results.Ok(new PhaseProgressContract(
+                runId, phaseKey, 0, 0m, 0, 0, 0, 0, 0, 0, 0, 0, false, []));
         }
 
         var snapshot = PhaseProgressEvaluator.Evaluate(

@@ -2,7 +2,9 @@
   "notifications": {
     "center": {
       "label": "Central de notificações",
-      "count": "{{count}} notificação(ões)"
+      "count_one": "1 notificação",
+      "count_other": "{{count}} notificações",
+      "count_zero": "Nenhuma notificação"
     },
     "filters": {
       "status": "Status",

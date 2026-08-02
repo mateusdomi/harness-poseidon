@@ -2,7 +2,6 @@
   "channels": {
     "title": "Canais externos",
     "subtitle": "Gateways de conversa externos (Telegram, Teams, WhatsApp, e-mail) vinculados a projetos. As mensagens entram na caixa durável de Bruna sem duplicação.",
-    "count": "{{count}} canal(is) vinculado(s)",
     "kind": {
       "telegram": "Telegram",
       "teams": "Microsoft Teams",
@@ -108,6 +107,9 @@
     "manage": {
       "title": "Gerenciar",
       "unlinkNote": "Desvincular um canal ainda não é possível por esta tela. Enquanto o vínculo existir, as mensagens do chat continuam chegando para a Bruna."
-    }
+    },
+    "count_one": "1 canal vinculado",
+    "count_other": "{{count}} canais vinculados",
+    "count_zero": "Nenhum canal vinculado"
   }
 }

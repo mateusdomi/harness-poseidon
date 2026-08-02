@@ -84,13 +84,13 @@ export default function UprototypesPage() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-semibold">{t('features.prototypes.title')}</h1>
         {projects.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-2">
             <label htmlFor="prototypes-project" className="text-sm text-foreground-muted">
               {t('cockpit.projectSelector.label')}
             </label>
             <Select
               id="prototypes-project"
-              className="w-auto min-w-48"
+              className="w-auto min-w-0 max-w-full md:min-w-48"
               value={activeProject?.id ?? ''}
               onChange={(event) => setActiveProject(event.target.value)}
             >

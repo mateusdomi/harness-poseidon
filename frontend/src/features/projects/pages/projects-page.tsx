@@ -110,9 +110,15 @@ export default function ProjectsPage() {
 
   async function handleUpdate(project: Project, values: ProjectFormValues, logoFile?: File | null) {
     try {
+      // A organização e a sigla são IMUTÁVEIS depois da criação, e o contrato de atualização
+      // recusa qualquer campo que não seja dele. Enviá-los fazia toda edição de projeto voltar
+      // 400 "Bad Request" — nada era salvo e o usuário via um texto técnico em inglês.
+      const input = toInput(values);
+      delete (input as Partial<typeof input>).organizationId;
+      delete (input as Partial<typeof input>).key;
       let updated = await updateProject.mutateAsync({
         id: project.id,
-        input: { ...toInput(values), state: values.state },
+        input: { ...input, state: values.state },
       });
       if (logoFile) {
         updated = await api.uploadProjectLogo(updated.id, logoFile);

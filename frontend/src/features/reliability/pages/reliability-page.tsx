@@ -69,7 +69,7 @@ export default function UreliabilityPage() {
               </label>
               <Select
                 id="reliability-project"
-                className="w-auto min-w-48"
+                className="w-auto min-w-0 max-w-full md:min-w-48"
                 value={activeProject?.id ?? ''}
                 onChange={(event) => setActiveProject(event.target.value)}
               >

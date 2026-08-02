@@ -178,10 +178,15 @@ export function ProjectTimeline({
               {phaseGates.map((gate) => (
                 <li
                   key={gate.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface p-3 text-sm"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-surface p-3 text-sm"
                 >
-                  <span>{obligationName(gate.name)}</span>
-                  <Badge variant={gate.state === 'approved' ? 'success' : 'outline'}>
+                  {/* Nome longo de obrigação esticava o item e a página passava a rolar na
+                      horizontal no celular: o texto quebra, o selo de estado não encolhe. */}
+                  <span className="min-w-0 break-words">{obligationName(gate.name)}</span>
+                  <Badge
+                    className="shrink-0"
+                    variant={gate.state === 'approved' ? 'success' : 'outline'}
+                  >
                     {t(`cockpit.timeline.obligationState.${gate.state}`)}
                   </Badge>
                 </li>
@@ -189,10 +194,13 @@ export function ProjectTimeline({
               {selectedPhase.deliverables.map((deliverable) => (
                 <li
                   key={deliverable.name}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface p-3 text-sm"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-surface p-3 text-sm"
                 >
-                  <span>{deliverable.name}</span>
-                  <Badge variant={deliverable.status === 'approved' ? 'success' : 'outline'}>
+                  <span className="min-w-0 break-words">{deliverable.name}</span>
+                  <Badge
+                    className="shrink-0"
+                    variant={deliverable.status === 'approved' ? 'success' : 'outline'}
+                  >
                     {t(`cockpit.timeline.deliverableState.${deliverable.status}`)}
                   </Badge>
                 </li>

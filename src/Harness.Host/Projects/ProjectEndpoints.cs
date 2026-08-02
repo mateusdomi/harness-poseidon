@@ -144,11 +144,63 @@ public static class ProjectEndpoints
             : Results.File(path, contentType);
     }
 
-    private static async Task<IResult> ListAsync(string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IProjectStore store, CancellationToken token)
+    /// <summary>
+    /// Lista os projetos do tenant, opcionalmente restrita a uma organização.
+    ///
+    /// O filtro `organizationId` era ACEITO e ignorado: a tela de detalhe de uma organização
+    /// recém-criada, sem nenhum projeto, exibia os 23 projetos das outras — um vazamento de
+    /// escopo entre organizações do próprio dono, e um número que contradizia o card ao lado
+    /// dizendo "Nenhum projeto". Um parâmetro silenciosamente ignorado é pior que um parâmetro
+    /// recusado: a interface confia nele.
+    /// </summary>
+    private static async Task<IResult> ListAsync(string? cursor, int? limit, string? organizationId, HttpRequest request, ILocalProfileStore profiles, IProjectStore store, CancellationToken token)
     {
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token); if (profile is null) return SessionRequired();
         var size = limit ?? 50; if (size is < 1 or > 200 || (cursor is not null && !UlidValue.TryParse(cursor, out _))) return Problem(400, "invalid_cursor", "Cursor or limit is invalid.");
-        var records = await store.ListAsync(profile.TenantId, cursor, size + 1, token); var more = records.Count > size; var items = records.Take(size).Select(ToResponse).ToArray(); return Results.Ok(new ProjectPage(items, more ? items[^1].Id : null));
+        if (organizationId is not null && !UlidValue.TryParse(organizationId, out _))
+        {
+            return Problem(400, "invalid_organization_id", "Organization ID must be a ULID.");
+        }
+
+        if (organizationId is null)
+        {
+            var records = await store.ListAsync(profile.TenantId, cursor, size + 1, token); var more = records.Count > size; var items = records.Take(size).Select(ToResponse).ToArray(); return Results.Ok(new ProjectPage(items, more ? items[^1].Id : null));
+        }
+
+        // A página do store é por tenant; o recorte por organização acontece depois dela. Para
+        // não devolver uma página curta (ou vazia) só porque a fatia lida caiu em outra
+        // organização, avançamos o cursor até completar o tamanho pedido.
+        var filtered = new List<ProjectResponse>(size);
+        var pageCursor = cursor;
+        var hasMore = false;
+        while (filtered.Count <= size)
+        {
+            var page = await store.ListAsync(profile.TenantId, pageCursor, 200, token);
+            if (page.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var record in page.Where(candidate =>
+                string.Equals(candidate.OrganizationId, organizationId, StringComparison.Ordinal)))
+            {
+                filtered.Add(ToResponse(record));
+                if (filtered.Count > size)
+                {
+                    break;
+                }
+            }
+
+            pageCursor = page[^1].Id;
+            if (page.Count < 200)
+            {
+                break;
+            }
+        }
+
+        hasMore = filtered.Count > size;
+        var pageItems = filtered.Take(size).ToArray();
+        return Results.Ok(new ProjectPage(pageItems, hasMore ? pageItems[^1].Id : null));
     }
     private static async Task<IResult> GetAsync(string projectId, HttpRequest request, ILocalProfileStore profiles, IProjectStore store, CancellationToken token)
     {

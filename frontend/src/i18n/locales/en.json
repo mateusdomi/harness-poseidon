@@ -655,7 +655,10 @@
       "plan": "Plan",
       "planManaged": "Defined by the organization license.",
       "brandTitle": "Brand",
-      "create": "Create organization"
+      "create": "Create organization",
+      "apiErrors": {
+        "alreadyExists": "An organization with this name already exists. Choose another one."
+      }
     },
     "detail": {
       "edit": "Edit organization",

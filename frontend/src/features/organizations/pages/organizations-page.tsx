@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-import type { Organization } from '@/api';
+import { ApiError, type Organization } from '@/api';
 import { Button, Skeleton } from '@/design-system';
 import { OrganizationDetail } from '@/features/organizations/components/organization-detail';
 import { OrganizationForm } from '@/features/organizations/components/organization-form';
@@ -22,6 +22,15 @@ type View =
   | { kind: 'detail'; organization: Organization }
   | { kind: 'create' }
   | { kind: 'edit'; organization: Organization };
+
+/** Mensagem de negócio para a falha da mutation, com caso nomeado para o conflito de nome. */
+function mutationErrorMessage(error: unknown, fallback: string, alreadyExists: string): string {
+  if (error instanceof ApiError) {
+    if (error.problem.title === 'organization_already_exists') return alreadyExists;
+    return error.problem.detail || error.problem.title;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export default function OrganizationsPage() {
   const { t } = useTranslation();
@@ -48,18 +57,28 @@ export default function OrganizationsPage() {
   }, [wantsCreate]);
 
   async function handleCreate(values: OrganizationFormValues) {
-    const created = await createOrganization.mutateAsync(values);
-    // Retorno ao fluxo de projeto: volta pré-selecionando a nova organização.
-    if (returnTo === 'project') {
-      navigate(`/projects?new=1&org=${created.id}`);
-      return;
+    try {
+      const created = await createOrganization.mutateAsync(values);
+      // Retorno ao fluxo de projeto: volta pré-selecionando a nova organização.
+      if (returnTo === 'project') {
+        navigate(`/projects?new=1&org=${created.id}`);
+        return;
+      }
+      setView({ kind: 'list' });
+    } catch {
+      // O estado tipado da mutation alimenta o alerta acima do formulário. Sem esta captura, um
+      // nome duplicado virava rejeição não tratada no console — em inglês — e o usuário ficava
+      // olhando um formulário parado, sem nenhuma mensagem.
     }
-    setView({ kind: 'list' });
   }
 
   async function handleUpdate(organization: Organization, values: OrganizationFormValues) {
-    const updated = await updateOrganization.mutateAsync({ id: organization.id, input: values });
-    setView({ kind: 'detail', organization: updated });
+    try {
+      const updated = await updateOrganization.mutateAsync({ id: organization.id, input: values });
+      setView({ kind: 'detail', organization: updated });
+    } catch {
+      // Mesma semântica da criação: o erro fica visível e os campos não são perdidos.
+    }
   }
 
   const breadcrumbBase = { label: t('features.organizations.title'), to: '/organizations' };
@@ -87,6 +106,15 @@ export default function OrganizationsPage() {
             }
             fallbackTo="/organizations"
           />
+          {createOrganization.isError ? (
+            <p role="alert" className="rounded-md border border-error p-3 text-sm text-error">
+              {mutationErrorMessage(
+                createOrganization.error,
+                t('common.states.errorBody'),
+                t('organizations.form.apiErrors.alreadyExists'),
+              )}
+            </p>
+          ) : null}
           <OrganizationForm
             submitting={createOrganization.isPending}
             onSubmit={(values) => void handleCreate(values)}
@@ -111,6 +139,15 @@ export default function OrganizationsPage() {
             onBack={() => setView({ kind: 'detail', organization: view.organization })}
             fallbackTo="/organizations"
           />
+          {updateOrganization.isError ? (
+            <p role="alert" className="rounded-md border border-error p-3 text-sm text-error">
+              {mutationErrorMessage(
+                updateOrganization.error,
+                t('common.states.errorBody'),
+                t('organizations.form.apiErrors.alreadyExists'),
+              )}
+            </p>
+          ) : null}
           <OrganizationForm
             initial={view.organization}
             submitting={updateOrganization.isPending}

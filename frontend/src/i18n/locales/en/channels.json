@@ -2,7 +2,6 @@
   "channels": {
     "title": "External channels",
     "subtitle": "External conversation gateways (Telegram, Teams, WhatsApp, email) linked to projects. Messages route to Bruna's durable inbox with zero duplication.",
-    "count": "{{count}} channel(s) linked",
     "kind": {
       "telegram": "Telegram",
       "teams": "Microsoft Teams",
@@ -108,6 +107,9 @@
     "manage": {
       "title": "Manage",
       "unlinkNote": "Unlinking a channel is not possible from this screen yet. While the link exists, chat messages keep reaching Bruna."
-    }
+    },
+    "count_one": "1 linked channel",
+    "count_other": "{{count}} linked channels",
+    "count_zero": "No linked channel"
   }
 }

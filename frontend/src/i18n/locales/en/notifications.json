@@ -2,7 +2,9 @@
   "notifications": {
     "center": {
       "label": "Notification center",
-      "count": "{{count}} notification(s)"
+      "count_one": "1 notification",
+      "count_other": "{{count}} notifications",
+      "count_zero": "No notifications"
     },
     "filters": {
       "status": "Status",
