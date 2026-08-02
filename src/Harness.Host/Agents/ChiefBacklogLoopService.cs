@@ -299,6 +299,29 @@ public sealed partial class ChiefBacklogLoopService(
             foreach (var project in projectList)
             {
                 token.ThrowIfCancellationRequested();
+
+                // RECONCILIAÇÃO — roda ANTES dos portões de produção, de propósito.
+                //
+                // Pausar um projeto deve parar de PRODUZIR trabalho; não pode congelar o ledger. Uma
+                // tentativa cujo processo morreu continua marcada `running` no banco, e o índice
+                // `ux_work_attempts_one_active` impede qualquer nova tentativa naquele card. Como o
+                // workspace órfão já foi liberado pela recuperação (e some das listas, que filtram
+                // `released_at IS NULL`), o estado é IRREVERSÍVEL: nem despausar o projeto destrava.
+                // Foi o que prendeu tentativas por seis dias em projetos pausados e manuais.
+                //
+                // Isto não despacha, não revisa, não integra e não anuncia — apenas fecha o que já
+                // morreu. Nenhuma cota é gasta e nenhum slot de despacho é ocupado.
+                try
+                {
+                    await ReconcileDeadAttemptsAsync(profile.TenantId, project, board, chain, token);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    LogFollowUpFailure(logger, exception, project.Id, exception.GetType().Name);
+                }
+
+                token.ThrowIfCancellationRequested();
+
                 // `pause` do chefe precisa PARAR de verdade. Sem este filtro o loop continuava
                 // colhendo, revisando e despachando cards de projeto pausado/arquivado — o botão
                 // existia na API e não segurava nada, e um projeto que o dono mandou parar seguia
@@ -1306,19 +1329,8 @@ public sealed partial class ChiefBacklogLoopService(
             var now = clock.UtcNow;
             if (snapshot is null)
             {
-                // Tentativa SEM workspace: o orquestrador nunca aceitou o run (órfã de uma
-                // compensação perdida — ex.: processo caiu entre o start da cadeia e o aceite).
-                // A janela de tolerância evita expirar um lançamento em curso deste mesmo ciclo.
-                if (running.StartedAt < now.AddMinutes(-2))
-                {
-                    _ = await chain.ExpireAttemptLeaseAsync(
-                        new WorkAttemptLeaseExpiredCommand(
-                            tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
-                            $"chief-loop-orphan:{running.Id}", now),
-                        token);
-                    LogRunRequeued(logger, task.Id, running.Id, "orphan");
-                }
-
+                // Tentativa morta — fechada pela reconciliação, que roda antes dos portões de
+                // produção e alcança também projeto pausado/manual.
                 continue;
             }
 
@@ -1366,46 +1378,142 @@ public sealed partial class ChiefBacklogLoopService(
                     LogRunHarvested(logger, task.Id, running.Id);
                 }
             }
-            else if (snapshot.Status is AgentRunStatus.Failed or AgentRunStatus.Cancelled)
-            {
-                // Tentativa morta: devolve o card à fila (`ready`) para re-despacho. Só uma
-                // falha PERMANENTE do executor representa rodada de trabalho gasta; problemas
-                // transitórios/infraestrutura e cancelamentos continuam recuperáveis sem queimar
-                // o orçamento anti-loop.
-                var countsTowardRoundBudget = CountsFailedRunTowardRoundBudget(snapshot);
 
-                // O MOTIVO é gravado sempre que o run realmente falhou, mesmo transitório. Ele não
-                // é o orçamento de rodadas (acima) — é o que torna a falha VISÍVEL para o circuito
-                // do card. Sem ele, uma falha de execução chegava ao quadro como `cancelled` sem
-                // motivo, indistinguível de um cancelamento do operador ou de um reinício do Host:
-                // o circuito não a contava, e o mesmo card era redespachado indefinidamente. Foi
-                // exatamente o que aconteceu — nove tentativas seguidas no mesmo card, todas
-                // transitórias, e o circuito parado em uma.
-                var failureReason = snapshot.Status == AgentRunStatus.Failed
-                    ? snapshot.FinalError
-                        ?? snapshot.Execution?.FailureCode
-                        ?? (countsTowardRoundBudget ? "run.permanent_failure" : "run.failed")
-                    : null;
-                var expired = await chain.ExpireAttemptLeaseAsync(
-                    new WorkAttemptLeaseExpiredCommand(
-                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
-                        $"chief-loop-expire:{running.Id}", now,
-                        countsTowardRoundBudget,
-                        failureReason),
-                    token);
-                if (expired.Status is WorkChainMutationStatus.Applied
-                    or WorkChainMutationStatus.IdempotentReplay)
-                {
-                    _dispatchBackoff[task.Id] = now.Add(
-                        RetryDelayAfterRun(snapshot) ?? FailedRunRetryBackoff);
-                }
-                LogRunRequeued(logger, task.Id, running.Id, snapshot.Status.ToString());
-            }
-
+            // Falha/cancelamento e órfã sem workspace → reconciliação (acima no ciclo).
             // Accepted/Running → ainda em voo; nada a fazer neste ciclo.
         }
 
         return harvested;
+    }
+
+    /// <summary>
+    /// Fecha tentativas cujo processo MORREU, devolvendo o card à fila.
+    ///
+    /// Roda ANTES dos portões de produção do ciclo (pausa, raiz controlada, modo manual) porque
+    /// reconciliar trabalho já morto não é produzir trabalho novo. Enquanto isto vivia dentro da
+    /// colheita, um projeto pausado — ou em modo manual — nunca fechava a tentativa de um processo
+    /// derrubado; e como a recuperação de workspace já havia liberado a worktree (some das listas,
+    /// que filtram `released_at IS NULL`) e `ux_work_attempts_one_active` proíbe uma segunda
+    /// tentativa viva no mesmo card, o card ficava travado de forma IRREVERSÍVEL. Nem despausar
+    /// resolvia.
+    ///
+    /// Só toca no que está morto: run concluído continua sendo colhido pela colheita, com
+    /// evidência e consumo medido.
+    /// </summary>
+    private async Task ReconcileDeadAttemptsAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        var page = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, "development", null, null, "active", null, 0, 50),
+            token);
+        foreach (var task in page.Items)
+        {
+            token.ThrowIfCancellationRequested();
+            if (!string.Equals(task.InternalState, "running", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // ISOLAMENTO POR CARD. Um card só pode envenenar a si mesmo.
+            //
+            // Duas vezes seguidas um único card derrubou o ciclo INTEIRO do projeto: primeiro por
+            // `ArgumentException` do validador, depois por `IdempotencyConflictException` — a chave
+            // de idempotência é estável, mas o comando carrega `OccurredAt`, então um recibo de
+            // mutação REJEITADA grava um hash que nenhum retry posterior reproduz, e o conflito
+            // passa a ser permanente. Com o `try` só em volta do ciclo todo, esse card virava uma
+            // pílula de veneno: colheita, review, integração e avanço de fase morriam junto, e o
+            // projeto congelava indefinidamente.
+            //
+            // Aqui a falha fica contida no card que a causou e o restante do projeto continua.
+            try
+            {
+                await ReconcileDeadAttemptAsync(tenantId, task, board, chain, token);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                LogFollowUpFailure(logger, exception, task.Id, exception.GetType().Name);
+            }
+        }
+    }
+
+    private async Task ReconcileDeadAttemptAsync(
+        string tenantId,
+        BoardTaskRecord task,
+        IWorkBoardStore board,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+        var running = attempts.FirstOrDefault(attempt =>
+            string.Equals(attempt.State, "running", StringComparison.Ordinal));
+        if (running is null)
+        {
+            return;
+        }
+
+        var snapshot = await orchestrator.GetAsync(tenantId, running.Id, token);
+        var now = clock.UtcNow;
+
+        if (snapshot is null)
+        {
+            // Tentativa SEM workspace: o orquestrador nunca aceitou o run (órfã de uma
+            // compensação perdida — ex.: processo caiu entre o start da cadeia e o aceite).
+            // A janela de tolerância evita expirar um lançamento em curso deste mesmo ciclo.
+            if (running.StartedAt < now.AddMinutes(-2))
+            {
+                _ = await chain.ExpireAttemptLeaseAsync(
+                    new WorkAttemptLeaseExpiredCommand(
+                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                        $"chief-loop-orphan:{running.Id}", now),
+                    token);
+                LogRunRequeued(logger, task.Id, running.Id, "orphan");
+            }
+
+            return;
+        }
+
+        if (snapshot.Status is not (AgentRunStatus.Failed or AgentRunStatus.Cancelled))
+        {
+            return;
+        }
+
+        // Devolve o card à fila (`ready`) para re-despacho. Só uma falha PERMANENTE do
+        // executor representa rodada de trabalho gasta; problemas transitórios/infraestrutura
+        // e cancelamentos continuam recuperáveis sem queimar o orçamento anti-loop.
+        var countsTowardRoundBudget = CountsFailedRunTowardRoundBudget(snapshot);
+
+        // O MOTIVO é gravado sempre que o run realmente falhou, mesmo transitório. Ele não
+        // é o orçamento de rodadas (acima) — é o que torna a falha VISÍVEL para o circuito
+        // do card. Sem ele, uma falha de execução chegava ao quadro como `cancelled` sem
+        // motivo, indistinguível de um cancelamento do operador ou de um reinício do Host:
+        // o circuito não a contava, e o mesmo card era redespachado indefinidamente. Foi
+        // exatamente o que aconteceu — nove tentativas seguidas no mesmo card, todas
+        // transitórias, e o circuito parado em uma.
+        var failureReason = snapshot.Status == AgentRunStatus.Failed
+            ? snapshot.FinalError
+                ?? snapshot.Execution?.FailureCode
+                ?? (countsTowardRoundBudget ? "run.permanent_failure" : "run.failed")
+            : null;
+        var expired = await chain.ExpireAttemptLeaseAsync(
+            new WorkAttemptLeaseExpiredCommand(
+                tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                $"chief-loop-expire:{running.Id}", now,
+                countsTowardRoundBudget,
+                failureReason),
+            token);
+        if (expired.Status is WorkChainMutationStatus.Applied
+            or WorkChainMutationStatus.IdempotentReplay)
+        {
+            _dispatchBackoff[task.Id] = now.Add(
+                RetryDelayAfterRun(snapshot) ?? FailedRunRetryBackoff);
+        }
+
+        LogRunRequeued(logger, task.Id, running.Id, snapshot.Status.ToString());
     }
 
     /// <summary>
