@@ -307,7 +307,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
         <ReconnectionBanner />
-        <main id="main-content" className="poseidon-main flex-1 p-4 pb-24 lg:p-6 lg:pb-6">
+        <main id="main-content" className="poseidon-main flex-1 p-4 pb-24 lg:p-6 lg:pb-3">
           {permissionDenied ? (
             <PermissionDenied
               onRetry={() => {

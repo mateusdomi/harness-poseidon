@@ -140,7 +140,7 @@ export function Composer({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-card motion-safe:transition-colors motion-safe:duration-base focus-within:border-primary/40">
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-2.5 shadow-card motion-safe:transition-colors motion-safe:duration-base focus-within:border-primary/40">
       {attachments.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label={t('chat.composer.attachments')}>
           {attachments.map((attachment) => (
@@ -227,19 +227,19 @@ export function Composer({
       </div>
 
       <div
-        className={showTechnicalDetails ? 'grid gap-2 md:grid-cols-2' : 'grid gap-2'}
+        className="flex flex-wrap items-center gap-x-4 gap-y-2"
         role="group"
         aria-label={t('chat.composer.preferences')}
       >
         {showTechnicalDetails ? (
           <>
-            <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="chat-model" className="text-xs text-foreground-muted">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <label htmlFor="chat-model" className="shrink-0 text-xs text-foreground-muted">
                 {t('chat.composer.model')}
               </label>
               <Select
                 id="chat-model"
-                className="h-9 min-h-touch w-full rounded-full border-border bg-surface-elevated text-xs"
+                className="h-9 min-h-touch w-full min-w-0 rounded-full border-border bg-surface-elevated text-xs"
                 value={modelId}
                 onChange={(event) => setModelId(event.target.value)}
                 disabled={disabled}
@@ -252,13 +252,13 @@ export function Composer({
                 ))}
               </Select>
             </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="chat-effort" className="text-xs text-foreground-muted">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <label htmlFor="chat-effort" className="shrink-0 text-xs text-foreground-muted">
                 {t('chat.composer.effort')}
               </label>
               <Select
                 id="chat-effort"
-                className="h-9 min-h-touch w-full rounded-full border-border bg-surface-elevated text-xs"
+                className="h-9 min-h-touch w-full min-w-0 rounded-full border-border bg-surface-elevated text-xs"
                 value={effort}
                 onChange={(event) => setEffort(event.target.value as EffortLevel)}
                 disabled={disabled}
@@ -272,13 +272,13 @@ export function Composer({
             </div>
           </>
         ) : (
-          <div className="flex min-w-0 flex-col gap-1">
-            <label htmlFor="chat-work-mode" className="text-xs text-foreground-muted">
+          <div className="flex min-w-0 items-center gap-2">
+            <label htmlFor="chat-work-mode" className="shrink-0 text-xs text-foreground-muted">
               {t('chat.composer.workMode')}
             </label>
             <Select
               id="chat-work-mode"
-              className="h-9 min-h-touch w-full rounded-full border-border bg-surface-elevated text-xs"
+              className="h-9 min-h-touch w-auto min-w-40 rounded-full border-border bg-surface-elevated text-xs"
               value={workMode}
               onChange={(event) => setWorkMode(event.target.value as BusinessWorkMode)}
               disabled={disabled}

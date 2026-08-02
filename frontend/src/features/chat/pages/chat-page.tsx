@@ -288,20 +288,15 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex w-full gap-4 lg:h-[calc(100svh-7rem)] lg:min-h-0 lg:gap-6">
-      <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-4 pb-24 lg:h-full lg:min-h-0 lg:pb-0">
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-heading text-2xl font-semibold">{t('features.chat.title')}</h1>
-              <Badge variant="info">
-                <Sparkles aria-hidden="true" className="size-3" />
-                {t('chat.authors.virtualTeam')}
-              </Badge>
-            </div>
-            <p className="mt-1 text-sm text-foreground-muted">
-              {t('chat.intro', { name: chiefName })}
-            </p>
+    <div className="flex w-full gap-4 lg:h-[calc(100svh-6.25rem)] lg:min-h-0 lg:gap-6">
+      <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-2 pb-24 lg:h-full lg:min-h-0 lg:pb-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <h1 className="font-heading text-xl font-semibold">{t('features.chat.title')}</h1>
+            <Badge variant="info">
+              <Sparkles aria-hidden="true" className="size-3" />
+              {t('chat.authors.virtualTeam')}
+            </Badge>
           </div>
           <div className="ml-0 flex w-full min-w-0 flex-wrap items-center gap-2 md:ml-auto md:w-auto">
             {conversations.length > 0 && (
