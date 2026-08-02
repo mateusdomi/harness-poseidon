@@ -156,7 +156,10 @@
     "routeError": {
       "title": "Something went wrong on this screen",
       "body": "An unexpected error occurred while rendering this screen. Try again — if it keeps happening, reload the page.",
-      "reload": "Reload page"
+      "reload": "Reload page",
+      "notFoundTitle": "This page does not exist",
+      "notFoundBody": "The address you opened does not match any Poseidon screen. It may have moved or been mistyped.",
+      "backHome": "Go to the start"
     },
     "session": {
       "validationError": "The local session could not be validated."

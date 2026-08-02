@@ -156,7 +156,10 @@
     "routeError": {
       "title": "Algo deu errado nesta tela",
       "body": "Ocorreu um erro inesperado ao renderizar esta tela. Tente novamente — se persistir, recarregue a página.",
-      "reload": "Recarregar página"
+      "reload": "Recarregar página",
+      "notFoundTitle": "Esta página não existe",
+      "notFoundBody": "O endereço que você abriu não corresponde a nenhuma tela do Poseidon. Ele pode ter mudado de lugar ou ter sido digitado com um erro.",
+      "backHome": "Ir para o início"
     },
     "session": {
       "validationError": "Não foi possível validar a sessão local."

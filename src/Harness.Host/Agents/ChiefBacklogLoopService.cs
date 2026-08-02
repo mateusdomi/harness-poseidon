@@ -2089,9 +2089,13 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
+            // O que o dono recebeu são os DOCUMENTOS da etapa, não os critérios do portão: o
+            // objetivo de portão tem nome de checklist interno e não é entrega. Documento entregue
+            // chega a `validated`; exigir `approved` esconderia exatamente o que ficou pronto.
             var delivered = phase.Objectives
                 .Where(objective => string.Equals(
-                    objective.State, "approved", StringComparison.OrdinalIgnoreCase))
+                    objective.Kind, "document", StringComparison.OrdinalIgnoreCase))
+                .Where(objective => objective.State is "validated" or "approved")
                 .Select(objective => $"- {objective.Name}")
                 .ToArray();
             var next = ordered.FirstOrDefault(candidate => candidate.Order > phase.Order);
