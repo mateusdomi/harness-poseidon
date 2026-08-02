@@ -1240,6 +1240,12 @@ public sealed partial class ChiefBacklogLoopService(
     /// Marcador estável do aviso de escalação. É o que permite reconhecer, na própria conversa,
     /// que aquele card JÁ foi levado ao dono — idempotência que sobrevive a restart.
     /// </summary>
+    /// <summary>
+    /// Teto de instruções de um card que escala sem nunca ter rodado. Cada replanejamento grava
+    /// uma versão; passando disso, o problema não é a redação e insistir vira laço.
+    /// </summary>
+    private const int MaximumOperationalReplanRounds = 4;
+
     private const string EscalationMarker = "Preciso da sua decisão em uma parte do projeto:";
 
     /// <summary>Cards cuja escalação já foi anunciada ao dono — o aviso é uma vez, não a cada ciclo.</summary>
@@ -2752,14 +2758,28 @@ public sealed partial class ChiefBacklogLoopService(
         CancellationToken token)
     {
         var instructions = await board.ListInstructionsAsync(tenantId, task.Id, null, 100, token);
-        if (instructions.Count == 0 ||
-            instructions.Any(instruction =>
-                instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal)))
+        if (instructions.Count == 0)
         {
             return false;
         }
 
         var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+        var alreadyReplanned = instructions.Any(instruction =>
+            instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal));
+
+        // Replanejar uma vez basta para um card que TENTOU e falhou: reescrever a instrução de novo
+        // sobre a mesma abordagem só repete o fracasso. Mas um card que NUNCA rodou não tem
+        // abordagem anterior a evitar — ele escalou por causa operacional (despacho impossível), e o
+        // replanejamento é o único caminho de volta à fila depois que essa causa é resolvida.
+        // Prendê-lo na guarda criava um beco sem saída: foi assim que os cinco assentos do Conselho
+        // ficaram travados mesmo depois de a causa ter sido corrigida. O teto de rodadas impede que
+        // a exceção vire outro laço.
+        if (alreadyReplanned &&
+            (attempts.Count > 0 || instructions.Count >= MaximumOperationalReplanRounds))
+        {
+            return false;
+        }
+
         var rejected = attempts.Count(attempt =>
             string.Equals(attempt.State, "failed", StringComparison.Ordinal));
         var content =
@@ -2799,7 +2819,14 @@ public sealed partial class ChiefBacklogLoopService(
                     "chief.replan_after_escalation",
                     $"attempts:{rejected}",
                     task.Version,
-                    $"chief-loop-replan:{task.Id}:{contentHash[..16]}",
+                    // A chave carrega o ESTADO que o replanejamento está tentando mudar: card,
+                    // versão e conteúdo. O inbox de idempotência guarda também as mutações
+                    // RECUSADAS — então uma tentativa que falhou por estado inválido (por exemplo,
+                    // antes de a causa operacional ser corrigida) envenenava a chave, e toda
+                    // tentativa seguinte batia em conflito para sempre, mesmo depois de o estado
+                    // ficar bom. Com a versão na chave, o card mudar de estado dá uma chave nova; e
+                    // uma repetição sem nenhuma mudança continua sendo recusada, como deve.
+                    $"chief-loop-replan:{task.Id}:v{task.Version}:{contentHash[..12]}",
                     now),
                 token);
         }
