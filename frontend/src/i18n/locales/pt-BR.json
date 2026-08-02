@@ -1974,7 +1974,7 @@
     },
     "empty": {
       "title": "Ainda não há documentos neste projeto",
-      "body": "Documentos são os artefatos versionados do projeto (visão do produto, especificação, design, manual de operação, notas e relatórios). A Bruna e a equipe os produzem ao longo do trabalho — cada correção vira uma nova versão, com histórico e comparação.",
+      "body": "Documentos são os artefatos versionados do projeto (visão do produto, especificação, design, manual de operação, notas e relatórios). A equipe os produz sob coordenação e revisão da Bruna — cada correção vira uma nova versão, com histórico e comparação.",
       "appears": "Assim que alguém da equipe ou uma etapa do fluxo de trabalho gerar um documento, ele aparece aqui com o estado (rascunho, em conferência, aprovado). Você também pode criar o primeiro agora mesmo.",
       "governanceNote": "Procurando editar os arquivos internos do sistema (governança, políticas, manifestos)? Isso fica em Documentos de Governança — outra tela.",
       "governanceLink": "Ir para Documentos de Governança",

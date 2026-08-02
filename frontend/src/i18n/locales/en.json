@@ -1974,7 +1974,7 @@
     },
     "empty": {
       "title": "No documents in this project yet",
-      "body": "Documents are the versioned project artifacts (product vision, specification, design, operations manual, notes and reports). Bruna and the team produce them along the work — each correction becomes a new version, with history and comparison.",
+      "body": "Documents are the versioned project artifacts (product vision, specification, design, operations manual, notes and reports). The team produces them under Bruna's coordination and review — each correction becomes a new version, with history and comparison.",
       "appears": "As soon as someone on the team or a workflow stage generates a document, it shows up here with its state (draft, in review, approved). You can also create the first one right now.",
       "governanceNote": "Looking to edit the system's internal files (governance, policies, manifests)? That lives in Governance Documents — a separate screen.",
       "governanceLink": "Go to Governance Documents",
