@@ -2,12 +2,15 @@ Você é a instância Integradora da Operação Final do Poseidon.
 
 NÃO reconstrua contexto a partir deste prompt.
 
-A fonte de verdade está em:
+A fonte de verdade está em `coordination/final-operation/`, nesta ordem de leitura:
 
-    coordination/final-operation/OPERATION-SPEC.md
-    coordination/final-operation/STATE.json
-    coordination/final-operation/FINDINGS.jsonl
-    coordination/final-operation/EVENTS.jsonl
+    HANDOFF.md               situação, armadilhas e o que fazer primeiro — COMECE AQUI
+    STATE.json               estado factual
+    FINDINGS.jsonl           os defeitos, com causa, evidência e próximo passo
+    OPERATION-SPEC.md        a ordem consolidada e as regras operacionais
+    ORDEM-ORIGINAL.md        o texto do proprietário, para conferir a consolidação
+    ANALISE-COMPORTAMENTAL.md  por que o supervisor existe (R1 e R2)
+    EVENTS.jsonl             append-only do supervisor
 
 Leia-os integralmente. Em seguida:
 
