@@ -518,6 +518,11 @@ public static class AgentRunEndpoints
         {
             return NotFound("attempt");
         }
+        var task = await board.GetTaskAsync(profile.TenantId, attempt.TaskId, token);
+        if (task is null)
+        {
+            return NotFound("task");
+        }
 
         var reviewDirectory = Path.GetFullPath(
             input.ReviewDirectory ?? settings.ControlledRoot);
@@ -532,6 +537,9 @@ public static class AgentRunEndpoints
             new AgentCriticReviewCommand
             {
                 AttemptId = attemptId,
+                TenantId = profile.TenantId,
+                ProjectId = task.ProjectId,
+                TaskId = attempt.TaskId,
                 CriticAlias = input.Critic,
                 ActorAlias = input.Actor,
                 ReviewDirectory = reviewDirectory,

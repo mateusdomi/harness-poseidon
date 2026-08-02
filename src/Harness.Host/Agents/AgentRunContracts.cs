@@ -213,6 +213,13 @@ public sealed record AgentCriticReviewCommand
 {
     public required string AttemptId { get; init; }
 
+    /// <summary>Identidade durável opcional para contabilizar custo/capacidade do review.</summary>
+    public string? TenantId { get; init; }
+
+    public string? ProjectId { get; init; }
+
+    public string? TaskId { get; init; }
+
     /// <summary>Conta do revisor. Precisa ser diferente da conta do actor.</summary>
     public required string CriticAlias { get; init; }
 

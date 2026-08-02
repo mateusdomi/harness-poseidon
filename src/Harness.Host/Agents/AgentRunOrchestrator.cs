@@ -841,6 +841,11 @@ public sealed partial class AgentRunOrchestrator(
                 cancellationToken);
 
             var execution = await session.CollectAsync(cancellationToken);
+            var outcome = AgentRunOutcomeClassifier.Classify(
+                execution.Status, execution.FailureCode);
+            RecordAvailability(command.CriticAlias, outcome, clock.UtcNow);
+            await TryRecordCriticInvocationAsync(
+                command, critic, execution, outcome, clock.UtcNow, cancellationToken);
             if (execution.Status != ExternalAgentRunStatus.Completed)
             {
                 return Fail(
@@ -867,6 +872,11 @@ public sealed partial class AgentRunOrchestrator(
         }
         catch (Exception)
         {
+            var outcome = AgentRunOutcomeClassifier.Classify(
+                ExternalAgentRunStatus.Failed, "critic.execution_failed");
+            RecordAvailability(command.CriticAlias, outcome, clock.UtcNow);
+            await TryRecordCriticInvocationAsync(
+                command, critic, null, outcome, clock.UtcNow, CancellationToken.None);
             return Fail("critic.execution_failed", critic.ExecutorId, criticLock.FencingToken);
         }
         finally
@@ -1561,6 +1571,54 @@ public sealed partial class AgentRunOrchestrator(
                 usage is null ? $"{kind}|usage_unknown" : kind,
                 now),
             cancellationToken);
+    }
+
+    private async Task TryRecordCriticInvocationAsync(
+        AgentCriticReviewCommand command,
+        AgentAccountContract account,
+        ExternalAgentRunResult? execution,
+        AgentRunOutcome outcome,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(command.TenantId) ||
+                string.IsNullOrWhiteSpace(command.ProjectId) ||
+                string.IsNullOrWhiteSpace(command.TaskId))
+            {
+                return;
+            }
+
+            var kind = outcome.Kind.ToString().ToLowerInvariant();
+            capacity.RecordInvocationOutcome(
+                command.CriticAlias,
+                account.ProviderKind,
+                outcome.Kind == AgentRunOutcomeKind.Completed ? "success" : kind,
+                now);
+            var usage = execution?.Usage;
+            await invocations.RecordInvocationAsync(
+                new ModelInvocationRecord(
+                    UlidValue.New(now).ToString(),
+                    command.TenantId,
+                    command.ProjectId,
+                    command.TaskId,
+                    command.AttemptId,
+                    account.ProviderKind,
+                    command.Model ?? string.Empty,
+                    command.CriticAlias,
+                    (int)(usage?.InputTokens ?? 0),
+                    (int)(usage?.OutputTokens ?? 0),
+                    usage?.CostUsd ?? 0m,
+                    execution?.DurationMs ?? 0,
+                    usage is null ? $"review:{kind}|usage_unknown" : $"review:{kind}",
+                    now),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Telemetria não pode mudar o veredito do revisor nem impedir o fallback.
+        }
     }
 
     /// <summary>

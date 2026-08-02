@@ -1360,7 +1360,8 @@ public sealed partial class ChiefBacklogLoopService(
                 _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
                 continue;
             }
-            var criticAlias = SelectCriticAlias(producerAlias, now);
+            var criticAliases = SelectCriticAliases(producerAlias, now);
+            var criticAlias = criticAliases.Length == 0 ? null : criticAliases[0];
 
             // B7/F17 — revisão pareada como REGRA, não como disponibilidade. A política decide se
             // esta rodada pode seguir para submissão: em risco alto e crítico o revisor é
@@ -1503,9 +1504,10 @@ public sealed partial class ChiefBacklogLoopService(
             // inteiro (colheita, correções, triagem e despacho). O teto local garante que o
             // ciclo sempre volta: estouro vira falha de infraestrutura com backoff, nunca
             // reprovação do ator.
-            CriticReviewResult result;
-            using (var reviewTimeout = CancellationTokenSource.CreateLinkedTokenSource(token))
+            CriticReviewResult? result = null;
+            foreach (var candidateAlias in criticAliases)
             {
+                using var reviewTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);
                 reviewTimeout.CancelAfter(TimeSpan.FromMinutes(10));
                 try
                 {
@@ -1513,7 +1515,10 @@ public sealed partial class ChiefBacklogLoopService(
                         new AgentCriticReviewCommand
                         {
                             AttemptId = awaiting.Id,
-                            CriticAlias = criticAlias,
+                            TenantId = tenantId,
+                            ProjectId = project.Id,
+                            TaskId = task.Id,
+                            CriticAlias = candidateAlias,
                             ActorAlias = producerAlias,
                             ReviewDirectory = repositoryRoot,
                             Diff = diff,
@@ -1531,12 +1536,23 @@ public sealed partial class ChiefBacklogLoopService(
                 catch (OperationCanceledException) when (!token.IsCancellationRequested)
                 {
                     LogReviewInfrastructureFailure(logger, task.Id, awaiting.Id, "critic.review_timeout");
-                    _reviewBackoff[awaiting.Id] = clock.UtcNow.Add(ReviewRetryBackoff);
-                    continue;
+                    result = null;
+                }
+
+                if (result is not null && AppliableReviewReasons.Contains(result.ReasonCode))
+                {
+                    break;
+                }
+
+                if (result is not null)
+                {
+                    LogReviewInfrastructureFailure(
+                        logger, task.Id, awaiting.Id, result.ReasonCode);
                 }
             }
 
-            if (await ApplyReviewVerdictAsync(tenantId, task, awaiting.Id, result, chain, token))
+            if (result is not null &&
+                await ApplyReviewVerdictAsync(tenantId, task, awaiting.Id, result, chain, token))
             {
                 reviewed++;
                 _reviewBackoff.Remove(awaiting.Id);
@@ -2445,7 +2461,7 @@ public sealed partial class ChiefBacklogLoopService(
     /// Escolhe a conta do crítico: papel `critic`, HABILITADA, adapter real, alias DIFERENTE do
     /// ator, fora de cooldown/circuito — por prioridade e desempate determinístico por alias.
     /// </summary>
-    private string? SelectCriticAlias(string producerAlias, DateTimeOffset now)
+    private string[] SelectCriticAliases(string producerAlias, DateTimeOffset now)
     {
         var signals = CapacitySignals(now);
         return accounts.List()
@@ -2464,7 +2480,7 @@ public sealed partial class ChiefBacklogLoopService(
             .OrderByDescending(account => account.Priority)
             .ThenBy(account => account.Alias, StringComparer.Ordinal)
             .Select(account => account.Alias)
-            .FirstOrDefault();
+            .ToArray();
     }
 
     /// <summary>
