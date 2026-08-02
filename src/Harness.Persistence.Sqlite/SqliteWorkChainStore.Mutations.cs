@@ -1272,20 +1272,30 @@ public sealed partial class SqliteWorkChainStore
             mutation.CommandText =
                 """
                 UPDATE work_attempts
-                SET state='rejected',operational_state='cancelled',completed_at=$occurredAt
+                SET state='rejected',operational_state=$operationalState,
+                    completed_at=$occurredAt,failure_reason=$failureReason
                 WHERE id=$attemptId AND tenant_id=$tenantId
                   AND state='running' AND operational_state='running';
                 INSERT INTO attempt_events
                     (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
                 VALUES
-                    ($eventId,$tenantId,$projectId,$attemptId,'log',
-                     'Attempt abandoned; card returned to ready.',$occurredAt,'warning');
+                    ($eventId,$tenantId,$projectId,$attemptId,'log',$eventContent,
+                     $occurredAt,'warning');
                 UPDATE work_tasks
                 SET state='ready',version=$nextVersion,updated_at=$occurredAt,
                     board_state='ready',blocked_reason=NULL
                 WHERE id=$taskId AND tenant_id=$tenantId AND version=$expectedVersion;
                 """;
             Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$operationalState",
+                command.CountsTowardRoundBudget ? "failed" : "cancelled");
+            Add(mutation, "$failureReason",
+                command.CountsTowardRoundBudget && command.FailureReason is not null
+                    ? command.FailureReason
+                    : DBNull.Value);
+            Add(mutation, "$eventContent", command.CountsTowardRoundBudget
+                ? "Attempt failed; card returned to ready."
+                : "Attempt abandoned; card returned to ready.");
             Add(mutation, "$attemptId", command.AttemptId);
             Add(mutation, "$tenantId", command.TenantId);
             Add(mutation, "$eventId", UlidValue.New(command.OccurredAt).ToString());
@@ -1300,7 +1310,7 @@ public sealed partial class SqliteWorkChainStore
                 command.AttemptId,
                 nextVersion,
                 "ready",
-                "abandoned");
+                command.CountsTowardRoundBudget ? "failed" : "abandoned");
         }
 
         return await FinalizeMutationAsync(

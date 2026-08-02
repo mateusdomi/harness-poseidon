@@ -1,4 +1,5 @@
 using Harness.Host.Agents;
+using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Persistence.Abstractions.WorkChain;
 
 namespace Harness.UnitTests.Agents;
@@ -76,6 +77,37 @@ public sealed class CorrectionBaseBranchTests
         };
 
         Assert.Equal(3, ChiefBacklogLoopService.CountSpentRounds(attempts));
+    }
+
+    [Theory]
+    [InlineData(ExternalAgentRunStatus.Failed, "critic.pass_contradicted_by_findings", true)]
+    [InlineData(ExternalAgentRunStatus.Failed, "connection reset by peer", false)]
+    [InlineData(ExternalAgentRunStatus.TimedOut, "executor.timeout", false)]
+    [InlineData(ExternalAgentRunStatus.Cancelled, "executor.cancelled", false)]
+    public void OnlyPermanentExecutedFailuresConsumeARound(
+        ExternalAgentRunStatus externalStatus,
+        string failureCode,
+        bool expected)
+    {
+        var execution = new ExternalAgentRunResult(
+            "executor", "account", null, externalStatus, string.Empty, [], null, null,
+            failureCode, 100);
+        var snapshot = new AgentRunSnapshot(
+            "run", "attempt", "account", "role", "executor", AgentRunStatus.Failed,
+            null, [], execution, null, null, null, null, null, failureCode);
+
+        Assert.Equal(expected,
+            ChiefBacklogLoopService.CountsFailedRunTowardRoundBudget(snapshot));
+    }
+
+    [Fact]
+    public void OrchestratorFailureWithoutAnExecutorResultDoesNotConsumeARound()
+    {
+        var snapshot = new AgentRunSnapshot(
+            "run", "attempt", "account", "role", "executor", AgentRunStatus.Failed,
+            null, [], null, null, null, null, null, null, "IOException");
+
+        Assert.False(ChiefBacklogLoopService.CountsFailedRunTowardRoundBudget(snapshot));
     }
 
     private static BoardAttemptRecord Attempt(string id, int number, string state) =>

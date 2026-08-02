@@ -77,6 +77,7 @@ internal static class WorkChainStoreBehavior
         await AssertInitialLifecycleAsync(store, command, cancellationToken);
         await AssertMutationsAsync(store, command, cancellationToken);
         await AssertLeaseExpiryAsync(store, command, cancellationToken);
+        await AssertFailedAttemptAsync(store, command, cancellationToken);
         await AssertCancellationAsync(store, command, cancellationToken);
         await AssertBlockingAsync(store, command, cancellationToken);
         await AssertReviewEscalationAsync(store, command, cancellationToken);
@@ -591,6 +592,63 @@ internal static class WorkChainStoreBehavior
             task.Attempts.Select(item => item.InstructionVersionId));
         Assert.NotNull(task.Attempts[0].CompletedAt);
         Assert.Null(task.Attempts[0].Review);
+    }
+
+    private static async Task AssertFailedAttemptAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FE0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FE1",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5FE2",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FE3",
+            IdempotencyKey = "work-chain:create:failed-attempt",
+            OccurredAt = template.OccurredAt.AddDays(7),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        var start = new WorkAttemptStartCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            chain.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FE4",
+            "failed-owner",
+            3,
+            "work-chain:attempt:start:failed-attempt",
+            chain.OccurredAt.AddMinutes(1));
+        var started = await store.StartAttemptAsync(start, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+
+        var failure = new WorkAttemptLeaseExpiredCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            start.AttemptId,
+            5,
+            "work-chain:attempt:failed",
+            chain.OccurredAt.AddMinutes(2),
+            CountsTowardRoundBudget: true,
+            FailureReason: "executor.permanent_failure");
+        var failed = await store.ExpireAttemptLeaseAsync(failure, cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, failed.Status);
+        Assert.Equal("ready", failed.TaskState);
+        Assert.Equal("failed", failed.AttemptState);
+
+        var aggregate = await store.ReadAggregateAsync(
+            chain.TenantId,
+            chain.SolicitationId,
+            cancellationToken);
+        Assert.NotNull(aggregate);
+        var task = Assert.Single(Assert.Single(aggregate.Demands).Tasks);
+        var attempt = Assert.Single(task.Attempts);
+        Assert.Equal("rejected", attempt.State);
+        Assert.NotNull(attempt.CompletedAt);
     }
 
     private static async Task AssertMutationsAsync(

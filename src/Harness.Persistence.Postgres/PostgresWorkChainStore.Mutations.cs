@@ -1263,12 +1263,14 @@ public sealed partial class PostgresWorkChainStore
                 transaction,
                 """
                 UPDATE harness.work_attempts
-                SET state='rejected',operational_state='cancelled',completed_at=$1
-                WHERE id=$2 AND tenant_id=$3
+                SET state='rejected',operational_state=$1,completed_at=$2,failure_reason=$3
+                WHERE id=$4 AND tenant_id=$5
                   AND state='running' AND operational_state='running';
                 """,
                 cancellationToken,
+                Text(command.CountsTowardRoundBudget ? "failed" : "cancelled"),
                 Timestamp(command.OccurredAt),
+                NullableText(command.CountsTowardRoundBudget ? command.FailureReason : null),
                 Text(command.AttemptId),
                 Text(command.TenantId));
             await ExecuteAsync(
@@ -1277,14 +1279,16 @@ public sealed partial class PostgresWorkChainStore
                 """
                 INSERT INTO harness.attempt_events
                     (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
-                VALUES
-                    ($1,$2,$3,$4,'log','Attempt abandoned; card returned to ready.',$5,'warning');
+                VALUES ($1,$2,$3,$4,'log',$5,$6,'warning');
                 """,
                 cancellationToken,
                 Text(UlidValue.New(command.OccurredAt).ToString()),
                 Text(command.TenantId),
                 Text(row.ProjectId),
                 Text(command.AttemptId),
+                Text(command.CountsTowardRoundBudget
+                    ? "Attempt failed; card returned to ready."
+                    : "Attempt abandoned; card returned to ready."),
                 Timestamp(command.OccurredAt));
             var nextVersion = row.Version + 1;
             await ExecuteAsync(
@@ -1308,7 +1312,7 @@ public sealed partial class PostgresWorkChainStore
                 command.AttemptId,
                 nextVersion,
                 "ready",
-                "abandoned");
+                command.CountsTowardRoundBudget ? "failed" : "abandoned");
         }
 
         return await FinalizeMutationAsync(

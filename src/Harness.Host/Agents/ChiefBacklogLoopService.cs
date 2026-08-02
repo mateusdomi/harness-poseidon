@@ -1,6 +1,7 @@
 using Harness.Host.Architecture;
 using Harness.Host.Documents;
 using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Application;
@@ -934,7 +935,9 @@ public sealed partial class ChiefBacklogLoopService(
     /// chefe confere cada card em `development`: run Completed → commit de colheita dos restos da
     /// worktree (se houver) e <c>CompleteAttemptAsync</c> (tentativa `awaiting_review`, card em
     /// `review`); run Failed/Cancelled → <c>ExpireAttemptLeaseAsync</c> devolve o card a `ready`
-    /// para re-despacho. Idempotente por tentativa.
+    /// para re-despacho. Falha permanente que chegou a executar consome rodada; cancelamento,
+    /// timeout, falha transitória e falha do próprio orquestrador não consomem. Idempotente por
+    /// tentativa.
     /// </summary>
     internal async Task<int> HarvestCompletedRunsAsync(
         string tenantId,
@@ -1019,11 +1022,22 @@ public sealed partial class ChiefBacklogLoopService(
             }
             else if (snapshot.Status is AgentRunStatus.Failed or AgentRunStatus.Cancelled)
             {
-                // Tentativa morta: abandona e devolve o card à fila (`ready`) para re-despacho.
+                // Tentativa morta: devolve o card à fila (`ready`) para re-despacho. Só uma
+                // falha PERMANENTE do executor representa rodada de trabalho gasta; problemas
+                // transitórios/infraestrutura e cancelamentos continuam recuperáveis sem queimar
+                // o orçamento anti-loop.
+                var countsTowardRoundBudget = CountsFailedRunTowardRoundBudget(snapshot);
+                var permanentFailureReason = countsTowardRoundBudget
+                    ? snapshot.FinalError
+                        ?? snapshot.Execution?.FailureCode
+                        ?? "run.permanent_failure"
+                    : null;
                 _ = await chain.ExpireAttemptLeaseAsync(
                     new WorkAttemptLeaseExpiredCommand(
                         tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
-                        $"chief-loop-expire:{running.Id}", now),
+                        $"chief-loop-expire:{running.Id}", now,
+                        countsTowardRoundBudget,
+                        permanentFailureReason),
                     token);
                 LogRunRequeued(logger, task.Id, running.Id, snapshot.Status.ToString());
             }
@@ -1032,6 +1046,25 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         return harvested;
+    }
+
+    /// <summary>
+    /// Separa falha de TRABALHO de falha de INFRAESTRUTURA. Sem um resultado externo real não
+    /// existe evidência de que a especialidade executou e falhou; por isso exceções internas do
+    /// orquestrador não queimam rodada. Quando existe resultado, a classificação canônica decide.
+    /// </summary>
+    public static bool CountsFailedRunTowardRoundBudget(AgentRunSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (snapshot.Status != AgentRunStatus.Failed || snapshot.Execution is null)
+        {
+            return false;
+        }
+
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            snapshot.Execution.Status,
+            snapshot.FinalError ?? snapshot.Execution.FailureCode);
+        return outcome.Kind == AgentRunOutcomeKind.Permanent;
     }
 
     /// <summary>

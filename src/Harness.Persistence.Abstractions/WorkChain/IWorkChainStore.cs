@@ -214,7 +214,9 @@ public sealed record WorkAttemptLeaseExpiredCommand(
     string AttemptId,
     long ExpectedTaskVersion,
     string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    bool CountsTowardRoundBudget = false,
+    string? FailureReason = null);
 
 public sealed record WorkTaskBlockCommand(
     string TenantId,
@@ -556,6 +558,22 @@ public static class WorkChainMutationValidator
             command.AttemptId,
             command.ExpectedTaskVersion,
             command.IdempotencyKey);
+        if (command.FailureReason is not null)
+        {
+            ValidateText(command.FailureReason, nameof(command), 2_000);
+        }
+        if (command.CountsTowardRoundBudget && command.FailureReason is null)
+        {
+            throw new ArgumentException(
+                "A failed attempt that consumes a round requires a failure reason.",
+                nameof(command));
+        }
+        if (!command.CountsTowardRoundBudget && command.FailureReason is not null)
+        {
+            throw new ArgumentException(
+                "A deferred attempt cannot persist a work failure reason.",
+                nameof(command));
+        }
     }
 
     public static void Validate(WorkTaskBlockCommand command)
