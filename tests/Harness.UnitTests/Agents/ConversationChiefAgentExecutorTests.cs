@@ -78,6 +78,26 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task ThePromptTiesEscalatedCardsToTheCardActionThatClosesTheLoop()
+    {
+        // OPS-024: a chefe recebia o card escalado no contexto, respondia "decisão registrada e
+        // aplicada" e não emitia cardActions — a decisão do dono morria como texto e o card
+        // seguia escalado. O prompt precisa apontar ONDE o cardId vive (project.escalatedCards)
+        // e mostrar um exemplo concreto da ação que fecha o laço. Se alguém "simplificar" o
+        // prompt e remover isso, este teste reprova antes de o dono descobrir no chat.
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(ChiefRegistry(), fake);
+
+        await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var prompt = Assert.Single(fake.Requests).Prompt;
+        Assert.Contains("project.escalatedCards", prompt, StringComparison.Ordinal);
+        Assert.Contains("\"action\":\"replan\"", prompt, StringComparison.Ordinal);
+        Assert.Contains("cardActions", prompt, StringComparison.Ordinal);
+        Assert.Contains("voltou a andar", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ItParsesTheStructuredOutputAndPropagatesTheSessionForContinuity()
     {
         var fake = new FakeExternalExecutor(ValidChiefJson) { SessionId = "session-nova" };
@@ -324,6 +344,32 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Equal("create_persona", action.Action);
         Assert.Equal("accessibility-auditor", action.Persona!.Key);
         Assert.Equal(["repo.read"], action.Persona.RequiredCapabilities);
+    }
+
+    [Fact]
+    public async Task CardActionsSurviveIntoTheStructuredOutput()
+    {
+        // OPS-024 (a ponte, de novo): a chefe recebia o card escalado no contexto, emitia a
+        // cardActions correta — e ela NUNCA chegava ao worker, porque a reserialização da saída
+        // estruturada não reescrevia o campo. O dono ouvia "decisão registrada e aplicada" e o
+        // card seguia escalated. O que não passa por aqui não acontece.
+        const string json =
+            """
+            {"intent":"decidir_escalacao","intentConfidence":0.93,
+             "response":"Decisão registrada: vou redirecionar esse trabalho com o escopo menor.",
+             "demands":[],
+             "cardActions":[{"action":"replan","cardId":"01KZ26X4RN6V96W19ZXTKKGTJE",
+               "instruction":"Reescrever o plano com escopo reduzido: histórico simples."}]}
+            """;
+        var fake = new FakeExternalExecutor(json);
+        var executor = Build(ChiefRegistry(), fake);
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var parsed = ChiefTurnOutputContract.Parse(result.StructuredOutput);
+        var action = Assert.Single(parsed.CardActions!);
+        Assert.Equal("replan", action.Action);
+        Assert.Equal("01KZ26X4RN6V96W19ZXTKKGTJE", action.CardId);
     }
 
     private ConversationChiefAgentExecutor Build(

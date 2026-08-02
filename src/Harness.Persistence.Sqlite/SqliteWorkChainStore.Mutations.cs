@@ -597,6 +597,22 @@ public sealed partial class SqliteWorkChainStore
                 SET state='ready',version=$nextTaskVersion,updated_at=$occurredAt,
                     board_state='ready',blocked_reason=NULL,assignee_agent_id=NULL
                 WHERE id=$taskId AND tenant_id=$tenantId AND version=$expectedTaskVersion;
+                -- O replanejamento é o ÚNICO caminho que reabre o circuito do card — e ele vivia
+                -- desligado: o card voltava a 'ready', o circuito era rederivado do MESMO
+                -- histórico de falhas no ciclo seguinte e o card re-escalava, desfazendo a
+                -- decisão do dono minutos depois de anunciada. O fechamento mora na mutação,
+                -- na mesma transação, porque os dois lados são um só ato.
+                INSERT INTO card_circuit_breakers
+                    (tenant_id,task_id,project_id,state,consecutive_failures,
+                     last_failure_reason_code,last_failure_at,opened_at,replanned_at,
+                     replan_note,updated_at)
+                VALUES
+                    ($tenantId,$taskId,$projectId,'closed',0,NULL,NULL,NULL,
+                     $occurredAt,$circuitNote,$occurredAt)
+                ON CONFLICT(tenant_id,task_id) DO UPDATE SET
+                    state='closed',consecutive_failures=0,last_failure_reason_code=NULL,
+                    last_failure_at=NULL,opened_at=NULL,replanned_at=$occurredAt,
+                    replan_note=$circuitNote,updated_at=$occurredAt;
                 """;
             Add(mutation, "$instructionId", command.InstructionVersionId);
             Add(mutation, "$tenantId", command.TenantId);
@@ -610,6 +626,7 @@ public sealed partial class SqliteWorkChainStore
             Add(mutation, "$chiefAgentId", command.ChiefAgentId);
             Add(mutation, "$nextTaskVersion", nextTaskVersion);
             Add(mutation, "$expectedTaskVersion", command.ExpectedTaskVersion);
+            Add(mutation, "$circuitNote", command.Reason);
             await mutation.ExecuteNonQueryAsync(cancellationToken);
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied,

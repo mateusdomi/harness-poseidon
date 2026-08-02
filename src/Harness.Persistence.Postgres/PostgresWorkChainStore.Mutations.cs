@@ -570,6 +570,29 @@ public sealed partial class PostgresWorkChainStore
                 Text(command.TaskId),
                 Text(command.TenantId),
                 Bigint(command.ExpectedTaskVersion));
+            // Paridade com o SQLite: o replanejamento é o ÚNICO caminho que reabre o circuito do
+            // card, e o fechamento mora na mutação — sem isto o circuito era rederivado do mesmo
+            // histórico de falhas no ciclo seguinte e o card re-escalava, desfazendo a decisão.
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                INSERT INTO harness.card_circuit_breakers
+                    (tenant_id,task_id,project_id,state,consecutive_failures,
+                     last_failure_reason_code,last_failure_at,opened_at,replanned_at,
+                     replan_note,updated_at)
+                VALUES ($1,$2,$3,'closed',0,NULL,NULL,NULL,$4,$5,$4)
+                ON CONFLICT (tenant_id,task_id) DO UPDATE SET
+                    state='closed',consecutive_failures=0,last_failure_reason_code=NULL,
+                    last_failure_at=NULL,opened_at=NULL,replanned_at=$4,
+                    replan_note=$5,updated_at=$4;
+                """,
+                cancellationToken,
+                Text(command.TenantId),
+                Text(command.TaskId),
+                Text(row.ProjectId),
+                Timestamp(command.OccurredAt),
+                Text(command.Reason));
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied,
                 command.TaskId,

@@ -324,10 +324,23 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           descartados pelo sistema — conversa não vira trabalho por engano.
         - `cardActions`: quando o usuário DECIDE sobre um card que você escalou, emita aqui
           um item com `action` igual a `replan`, o `cardId` do card escalado e a `instruction` nova.
+          Os cards que esperam decisão dele estão no StatusDigest, em `project.escalatedCards`,
+          cada um com `cardId`, `title` e `reason` — é DESSE lugar que sai o `cardId`, nunca da
+          sua memória nem de um identificador inventado. Enquanto `escalatedCards` não estiver
+          vazio, releia essa lista antes de responder: se a mensagem do usuário decide sobre um
+          deles (aprovar, reduzir escopo, trocar abordagem, descartar), a saída SEM `cardActions`
+          está incompleta — mesmo que a decisão pareça óbvia ou já tenha sido conversada antes.
           A instrução SUBSTITUI o enunciado anterior e precisa conter a decisão dele já traduzida
           em trabalho — não repita o texto do chat, escreva o que a pessoa da equipe deve fazer.
+          Exemplo concreto — usuário: "sobre o Plano de Observabilidade, minha decisão é reduzir:
+          basta registrar cada empréstimo no próprio sistema". Saída correta: `intent` igual a
+          `decidir_escalacao`, `response` confirmando a decisão em linguagem de negócio, e
+          `cardActions` contendo um item com "action":"replan", "cardId" igual ao identificador
+          exato vindo de `escalatedCards` e "instruction" igual a "Reescrever o plano de
+          observabilidade com escopo reduzido: registrar empréstimos, devoluções e atrasos no
+          próprio sistema, sem painel nem integração externa."
           Sem isto a decisão do usuário fica só na conversa e o card continua parado: NUNCA diga
-          que algo "voltou a andar" sem ter emitido a ação correspondente.
+          que algo "foi aplicado" ou "voltou a andar" sem ter emitido a ação correspondente.
           O `cardId` é dado de máquina e vive SOMENTE dentro da ação. Ele nunca aparece no
           `response`: para a pessoa você fala do trabalho pelo NOME ("o Plano de Observabilidade"),
           jamais por identificador.
@@ -597,6 +610,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                     demand.Title, demand.Description, demand.RiskTier, demand.AcceptanceCriteria,
                     demand.Specialty, demand.Surfaces))],
                 output.TeamActions,
+                output.CardActions,
                 ChiefIntentDispatchTable.Name(output.Intent),
                 output.IntentConfidence),
             StructuredJsonOptions);
@@ -639,6 +653,10 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         string Response,
         IReadOnlyList<ChiefStructuredDemand> Demands,
         IReadOnlyList<ChiefTeamAction>? TeamActions,
+        // OPS-024: sem este campo a decisão do dono morria AQUI — a chefe emitia cardActions,
+        // a reserialização as descartava e o worker nunca as via. É a mesma ponte que o
+        // TeamActions acima já teve de reconstruir.
+        IReadOnlyList<ChiefCardAction>? CardActions,
         string Intent,
         double IntentConfidence);
 

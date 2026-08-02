@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-01T19:48:57.9244950+00:00
+lastGeneratedAt: 2026-08-02T23:55:06.0096870+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -8,6 +8,16 @@ knownOwners:
 - Quality Engineering
 - Operations
 markdownAllowlist:
+- path: coordination/final-operation/ANALISE-COMPORTAMENTAL.md
+  reason: Registro operacional da Operação Final; evidência datada de comportamento observado, não norma canônica.
+- path: coordination/final-operation/BOOTSTRAP-PROMPT.md
+  reason: Prompt de bootstrap entregue pelo OperationSupervisor à Integradora; artefato operacional, não norma canônica.
+- path: coordination/final-operation/HANDOFF.md
+  reason: Registro de transferência entre integradoras da Operação Final; evidência operacional, não norma canônica.
+- path: coordination/final-operation/OPERATION-SPEC.md
+  reason: Especificação operacional da Operação Final (objetivo, regras R1/R2 e CompletionGate); rege a operação, não o produto — não é norma canônica do repositório.
+- path: coordination/final-operation/ORDEM-ORIGINAL.md
+  reason: Ordem original do proprietário que abriu a Operação Final; registro de proveniência, não norma canônica.
 - path: RELATORIO-VALIDACAO-POSEIDON.md
   reason: Relatório de auditoria das 17 fases da campanha v6, solicitado pelo dono na raiz do repositório. É registro de validação com data fechada, não norma — por isso fica no allowlist e não entre os documentos canônicos.
 - path: docs/architecture/audits/bruna/AUDITORIA-ARQUITETURAL-BRUNA-FINAL.md

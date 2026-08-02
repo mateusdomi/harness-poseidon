@@ -52,6 +52,10 @@ public sealed class PostgresSkipLockedPocTests
         await WorkChainStoreBehavior.AssertUndispatchableEscalationAsync(
             new PostgresWorkChainStore(dataSource),
             timeout.Token);
+        await WorkChainStoreBehavior.AssertReplanClosesCircuitAsync(
+            new PostgresWorkChainStore(dataSource),
+            new PostgresCardCircuitBreakerStore(dataSource),
+            timeout.Token);
         await ValidateWorkflowSchemaAsync(dataSource, timeout.Token);
         await WorkflowStoreBehavior.AssertAsync(
             new PostgresWorkflowStore(dataSource),

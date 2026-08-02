@@ -30,6 +30,10 @@ public sealed class SqliteWorkChainStoreTests
                 store, timeout.Token);
             await WorkChainStoreBehavior.AssertUndispatchableEscalationAsync(
                 store, timeout.Token);
+            await WorkChainStoreBehavior.AssertReplanClosesCircuitAsync(
+                store,
+                new SqliteCardCircuitBreakerStore(dispatcher),
+                timeout.Token);
 
             // O consumo medido precisa chegar à projeção do quadro. Sem isso, custo, duração e
             // tokens aparecem zerados na interface mesmo com trabalho real executado — e a

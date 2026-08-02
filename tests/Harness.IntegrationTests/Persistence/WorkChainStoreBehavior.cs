@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
+using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
@@ -1369,6 +1370,103 @@ internal static class WorkChainStoreBehavior
         var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
         Assert.NotNull(final);
         Assert.Equal("ready", final.TaskState);
+    }
+
+    /// <summary>
+    /// OPS-027: o replanejamento é o ÚNICO caminho que reabre o circuito do card — e vivia
+    /// desligado. O card voltava a `ready`, o circuito era rederivado do MESMO histórico de
+    /// falhas no ciclo seguinte e o card re-escalava, desfazendo a decisão do dono minutos
+    /// depois de ela ser anunciada como aplicada. O fechamento é parte da mutação de
+    /// replanejamento, na mesma transação, nos DOIS provedores.
+    /// </summary>
+    public static async Task AssertReplanClosesCircuitAsync(
+        IWorkChainStore store,
+        ICardCircuitBreakerStore circuits,
+        CancellationToken cancellationToken)
+    {
+        const string instruction = "Close the circuit when the escalated card is replanned.";
+        var chain = new WorkChainCreateCommand(
+            FoundationTransactionBehavior.TenantId,
+            FoundationTransactionBehavior.ProjectId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+            "01ARZ3NDEKTSV4RRFFQ69G5G21",
+            "Prove that the replan reopens the card circuit.",
+            "01ARZ3NDEKTSV4RRFFQ69G5G22",
+            "Persist the circuit demand",
+            "[\"The circuit closes with provenance\"]",
+            "01ARZ3NDEKTSV4RRFFQ69G5G23",
+            "Circuit work chain",
+            "low",
+            5m,
+            "01ARZ3NDEKTSV4RRFFQ69G5G24",
+            instruction,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instruction))),
+            "work-chain:create:circuit-replan",
+            new DateTimeOffset(2026, 8, 2, 14, 0, 0, TimeSpan.Zero));
+        var created = await store.CreateAsync(chain, cancellationToken);
+        Assert.False(created.Replay);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        // Três falhas consecutivas abrem o circuito — o mesmo limiar da política de coordenação.
+        for (var failure = 1; failure <= 3; failure++)
+        {
+            await circuits.RecordFailureAsync(
+                chain.TenantId,
+                chain.ProjectId,
+                chain.TaskId,
+                chain.OccurredAt.AddMinutes(failure),
+                3,
+                "run.failed",
+                cancellationToken);
+        }
+
+        var open = await circuits.GetAsync(chain.TenantId, chain.TaskId, cancellationToken);
+        Assert.NotNull(open);
+        Assert.True(open.IsOpen);
+
+        var escalated = await store.EscalateUndispatchableTaskAsync(
+            new WorkTaskUndispatchableCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                "Circuito aberto após três falhas idênticas de execução.",
+                $"card:{chain.TaskId}",
+                3,
+                "work-chain:task:undispatchable:circuit",
+                chain.OccurredAt.AddMinutes(4)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, escalated.Status);
+        Assert.Equal("escalated", escalated.TaskState);
+
+        const string revised = "Instrução revisada pelo dono: reduzir ao menor incremento.";
+        var replanAt = chain.OccurredAt.AddMinutes(5);
+        var replan = await store.ReplanEscalatedTaskAsync(
+            new WorkTaskReplanCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                "01ARZ3NDEKTSV4RRFFQ69G5G25",
+                revised,
+                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(revised))),
+                "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+                "owner.decision_after_escalation",
+                "turn:01ARZ3NDEKTSV4RRFFQ69G5G26",
+                escalated.TaskVersion!.Value,
+                "work-chain:task:replan:circuit",
+                replanAt),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, replan.Status);
+        Assert.Equal("ready", replan.TaskState);
+
+        // A outra metade do ato: o circuito FECHOU, com a proveniência do replanejamento —
+        // sem isto o próximo ciclo rederiva as três falhas e re-escala o card.
+        var closed = await circuits.GetAsync(chain.TenantId, chain.TaskId, cancellationToken);
+        Assert.NotNull(closed);
+        Assert.False(closed.IsOpen);
+        Assert.Equal(0, closed.ConsecutiveFailures);
+        Assert.Null(closed.OpenedAt);
+        Assert.Equal(replanAt, closed.ReplannedAt);
+        Assert.Equal("owner.decision_after_escalation", closed.ReplanNote);
     }
 
     private static async Task AssertInitialLifecycleAsync(

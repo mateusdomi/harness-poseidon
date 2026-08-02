@@ -489,6 +489,16 @@ public sealed partial class ChiefTurnBackgroundService(
                     "intent_gate", "team.intent_disallowed", null, false)];
             }
 
+            // OPS-024: o laço de escalação só fecha se a chefe EMITIR a ação. Estes dois números
+            // são a fronteira exata do diagnóstico — quantos cards escalados foram ao contexto e
+            // quantas ações voltaram na saída. Com eles, "ela não obedeceu" se separa de "ela não
+            // recebeu" em uma leitura de log, sem reinstrumentar nada.
+            LogChiefCardActionSignal(
+                logger,
+                lease.Turn.TurnId,
+                projectContext?.EscalatedCards?.Count ?? 0,
+                output.CardActions?.Count ?? 0);
+
             // A decisão do dono sobre um card ESCALADO precisa virar transição de estado, não só
             // texto. Sem isto o laço de escalação ficava aberto: a Bruna chamava o dono, ele
             // respondia reduzindo o escopo, ela confirmava — e o card seguia escalado, enquanto
@@ -1038,7 +1048,14 @@ public sealed partial class ChiefTurnBackgroundService(
         ILogger logger, string taskId, WorkChainMutationStatus status);
 
     [LoggerMessage(
-        EventId = 2109,
+        EventId = 2110,
+        Level = LogLevel.Information,
+        Message = "Chief: turno {TurnId} recebeu {EscalatedInContext} card(s) escalado(s) no contexto e emitiu {CardActionsEmitted} cardAction(s).")]
+    private static partial void LogChiefCardActionSignal(
+        ILogger logger, string turnId, int escalatedInContext, int cardActionsEmitted);
+
+    [LoggerMessage(
+        EventId = 2111,
         Level = LogLevel.Warning,
         Message = "Chief: decisão do dono sobre o card {CardId} NÃO foi aplicada ({Reason}).")]
     private static partial void LogCardActionRejected(ILogger logger, string cardId, string reason);
