@@ -311,9 +311,20 @@ public sealed partial class ChiefBacklogLoopService(
                 //
                 // Isto não despacha, não revisa, não integra e não anuncia — apenas fecha o que já
                 // morreu. Nenhuma cota é gasta e nenhum slot de despacho é ocupado.
+                //
+                // O modo do projeto é resolvido AQUI, antes dos portões, só para responder a uma
+                // pergunta: a colheita rica vai rodar neste ciclo? Se não vai — projeto pausado,
+                // fora da raiz controlada ou manual — a reconciliação também precisa REGISTRAR o
+                // run que terminou. Pausar deve impedir trabalho novo, não apagar trabalho já
+                // feito: um run que concluiu e nunca foi colhido deixa o card preso para sempre.
+                var willHarvest = IsDispatchable(project)
+                    && IsInsideControlledRoot(project, controlledRoot, repositories.RootPath)
+                    && await ResolvesToAutonomousAsync(workflows, profile.TenantId, project, token);
+
                 try
                 {
-                    await ReconcileDeadAttemptsAsync(profile.TenantId, project, board, chain, token);
+                    await ReconcileDeadAttemptsAsync(
+                        profile.TenantId, project, board, chain, willHarvest, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -1400,11 +1411,34 @@ public sealed partial class ChiefBacklogLoopService(
     /// Só toca no que está morto: run concluído continua sendo colhido pela colheita, com
     /// evidência e consumo medido.
     /// </summary>
+    /// <summary>
+    /// Modo do projeto sem deixar a exceção do resolvedor derrubar o ciclo. Não saber o modo é
+    /// motivo para NÃO produzir — e, portanto, para a reconciliação assumir o registro.
+    /// </summary>
+    private static async Task<bool> ResolvesToAutonomousAsync(
+        Harness.Persistence.Abstractions.Workflows.IWorkflowCatalogStore workflows,
+        string tenantId,
+        ProjectRecord project,
+        CancellationToken token)
+    {
+        try
+        {
+            var mode = await Harness.Host.Workflows.ProjectOperationModeResolver.ResolveAsync(
+                workflows, tenantId, project.Id, project.OperationMode, token);
+            return mode != Harness.Modules.Workflows.Application.ProjectOperationMode.Manual;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
     private async Task ReconcileDeadAttemptsAsync(
         string tenantId,
         ProjectRecord project,
         IWorkBoardStore board,
         IWorkChainStore chain,
+        bool willHarvest,
         CancellationToken token)
     {
         var page = await board.PageTasksAsync(
@@ -1441,7 +1475,7 @@ public sealed partial class ChiefBacklogLoopService(
             // Aqui a falha fica contida no card que a causou e o restante do projeto continua.
             try
             {
-                await ReconcileDeadAttemptAsync(tenantId, task, board, chain, token);
+                await ReconcileDeadAttemptAsync(tenantId, task, board, chain, willHarvest, token);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -1455,6 +1489,7 @@ public sealed partial class ChiefBacklogLoopService(
         BoardTaskRecord task,
         IWorkBoardStore board,
         IWorkChainStore chain,
+        bool willHarvest,
         CancellationToken token)
     {
         var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
@@ -1485,6 +1520,47 @@ public sealed partial class ChiefBacklogLoopService(
                         $"chief-loop-orphan:{running.Id}", now),
                     token);
                 LogRunRequeued(logger, task.Id, running.Id, "orphan");
+            }
+
+            return;
+        }
+
+        if (snapshot.Status == AgentRunStatus.Completed)
+        {
+            // Run que TERMINOU. Se a colheita rica vai rodar neste ciclo, é ela quem registra —
+            // ela harmoniza a worktree e mede o consumo. Se NÃO vai (projeto pausado, manual ou
+            // fora da raiz controlada), o registro é feito aqui, porque pausar deve impedir
+            // trabalho novo e não apagar trabalho já feito: sem isto o card fica preso para
+            // sempre com uma entrega pronta que ninguém colheu.
+            //
+            // Só estado DURÁVEL é usado — o SHA já persistido no workspace. Nada de tocar o
+            // sistema de arquivos: a worktree pode estar fora da raiz controlada, e reconciliar
+            // não é licença para atravessar essa fronteira.
+            if (!willHarvest)
+            {
+                var deliveryCommit = snapshot.Workspace?.CommitSha;
+                var evidence = new List<WorkEvidenceInput>
+                {
+                    new(UlidValue.New(now).ToString(), $"agent-run:{running.Id}"),
+                    new(UlidValue.New(now.AddTicks(1)).ToString(),
+                        $"git-branch:task/agent-run-{running.Id.ToLowerInvariant()}"),
+                };
+                if (!string.IsNullOrWhiteSpace(deliveryCommit))
+                {
+                    evidence.Add(new WorkEvidenceInput(
+                        UlidValue.New(now.AddTicks(2)).ToString(), $"git-commit:{deliveryCommit}"));
+                }
+
+                var completed = await chain.CompleteAttemptAsync(
+                    new WorkAttemptCompleteCommand(
+                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                        evidence, $"chief-loop-reconcile-complete:{running.Id}", now, null),
+                    token);
+                if (completed.Status is WorkChainMutationStatus.Applied
+                    or WorkChainMutationStatus.IdempotentReplay)
+                {
+                    LogRunHarvested(logger, task.Id, running.Id);
+                }
             }
 
             return;
