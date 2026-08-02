@@ -1,11 +1,11 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-02T23:10:00Z",
+  "updatedAt": "2026-08-03T00:05:00Z",
   "updatedBy": "integrator",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
-  "headCommit": "abd34c6a",
+  "headCommit": "54dc03f9",
   "pushedToOrigin": false,
   "cleanE2E": {
     "status": "running",
@@ -42,7 +42,7 @@
   },
   "metricsInstrumented": false,
   "metricsNote": "Custo, tokens, invocacoes e transient-failure-waste NAO foram instrumentados (SPEC 31/32). Nao inventar numeros: reportar como nao medido ate existir coleta real.",
-  "nextAction": "OPS-024 etapa 3: a Bruna recebe os cards escalados no contexto mas nao emite cardActions. Instrumentar contexto+output e reforcar o prompt com exemplo concreto.",
+  "nextAction": "OPS-023 (bloqueador critico): ligar a execucao isolada ao caminho de run — attestation e emitida antes de o conteiner existir e o AgentRunOrchestrator nunca cria conteiner; sem isto toda persona com ferramentas e recusada (sandbox_required) e a fase 5 nao executa.",
   "humanDecisionRequired": false,
   "externalBlockers": []
 }
