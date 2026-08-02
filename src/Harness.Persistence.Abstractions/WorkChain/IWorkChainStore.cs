@@ -659,6 +659,17 @@ public static class WorkChainMutationValidator
         // para sempre. `CardCircuitBreakerService.IsFailure` depende exatamente desta combinação.
     }
 
+    /// <summary>
+    /// Uma tentativa está ENCERRADA sem aprovação e, por isso, o card pode ser replanejado.
+    ///
+    /// `rejected` vem do crítico; `cancelled` e `abandoned` vêm de uma expiração de lease (com e
+    /// sem motivo de falha). As três significam a mesma coisa para o replanejamento: aquela
+    /// rodada acabou e não entregou. O que NÃO é replanejável é tentativa ainda viva (`running`)
+    /// ou já aprovada — não há o que reescrever.
+    /// </summary>
+    public static bool WorkAttemptIsReplannable(string? attemptState) =>
+        attemptState is "rejected" or "cancelled" or "abandoned";
+
     public static void Validate(WorkTaskBlockCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);

@@ -731,6 +731,48 @@ internal static class WorkChainStoreBehavior
         // caminho do quadro em SqliteWorkChainStoreTests.
         Assert.Equal("cancelled", attempt.State);
         Assert.NotNull(attempt.CompletedAt);
+
+        // BECO SEM SAÍDA DO ANTI-LOOP (regressão 2026-08-02).
+        //
+        // Um card cujas tentativas MORRERAM — em vez de terem sido reprovadas por um crítico —
+        // escala normalmente, mas o replanejamento, que é o ÚNICO caminho de volta, era recusado
+        // como estado inválido: a precondição exigia literalmente `rejected`, e uma expiração de
+        // lease projeta `cancelled` (com motivo) ou `abandoned` (sem). O card ficava escalado para
+        // sempre e a Bruna só podia chamar o dono — exatamente o "humano obrigatório" que o
+        // playbook reserva para quando não há alternativa.
+        var escalated = await store.EscalateUndispatchableTaskAsync(
+            new WorkTaskUndispatchableCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                "Todas as tentativas morreram por falha transitória.",
+                $"card:{chain.TaskId}",
+                6,
+                "work-chain:task:undispatchable:transient",
+                chain.OccurredAt.AddMinutes(3)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, escalated.Status);
+
+        const string replanned = "Replanejar o card depois de tentativas que morreram sem review.";
+        var replan = await store.ReplanEscalatedTaskAsync(
+            new WorkTaskReplanCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                UlidValue.New(chain.OccurredAt.AddMinutes(4)).ToString(),
+                replanned,
+                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(replanned))),
+                "bruna",
+                "chief.replan_after_escalation",
+                "attempts:transient",
+                escalated.TaskVersion!.Value,
+                "work-chain:task:replan:transient",
+                chain.OccurredAt.AddMinutes(4)),
+            cancellationToken);
+
+        // Antes da correção isto vinha `InvalidState` e o card não tinha mais caminho de volta.
+        Assert.Equal(WorkChainMutationStatus.Applied, replan.Status);
+        Assert.Equal("ready", replan.TaskState);
     }
 
     private static async Task AssertMutationsAsync(

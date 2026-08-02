@@ -519,7 +519,11 @@ public sealed partial class PostgresWorkChainStore
         // inválido. Replanejar um card que nunca rodou é o caso mais simples de todos: só a
         // instrução muda.
         else if (row.TaskState != "escalated" ||
-                 (row.LatestAttemptState is not null && row.LatestAttemptState != "rejected"))
+                 // Paridade com o SQLite: tentativa ENCERRADA sem aprovação (reprovada pelo
+                 // crítico, cancelada ou abandonada por expiração de lease) é caminho de volta.
+                 // Só tentativa viva ou aprovada barra o replanejamento.
+                 (row.LatestAttemptState is not null &&
+                  !WorkChainMutationValidator.WorkAttemptIsReplannable(row.LatestAttemptState)))
         {
             receipt = Rejected(
                 WorkChainMutationStatus.InvalidState,

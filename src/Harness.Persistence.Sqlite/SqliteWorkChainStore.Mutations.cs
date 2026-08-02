@@ -561,8 +561,17 @@ public sealed partial class SqliteWorkChainStore
         // sempre, e o replanejamento, que é o ÚNICO caminho de volta, recusado como estado
         // inválido. Replanejar um card que nunca rodou é o caso mais simples de todos: só a
         // instrução muda.
+        //
+        // Uma tentativa ENCERRADA sem aprovação também é caminho de volta, não só a reprovada.
+        // A projeção acima traduz uma expiração de lease em `cancelled` (falha com motivo) ou
+        // `abandoned` (sem motivo) — nunca em `rejected`. Exigir literalmente `rejected` prendia
+        // todo card cujas tentativas MORRERAM em vez de terem sido reprovadas por um crítico:
+        // ele escalava, o replanejamento era recusado como estado inválido e a Bruna só podia
+        // chamar o dono. O que precisa ser barrado é tentativa AINDA VIVA (`running`) ou já
+        // APROVADA — nesses casos não há o que replanejar.
         else if (row.TaskState != "escalated" ||
-                 (row.LatestAttemptState is not null && row.LatestAttemptState != "rejected"))
+                 (row.LatestAttemptState is not null &&
+                  !WorkChainMutationValidator.WorkAttemptIsReplannable(row.LatestAttemptState)))
         {
             receipt = Rejected(
                 WorkChainMutationStatus.InvalidState,
