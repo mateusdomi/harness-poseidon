@@ -124,13 +124,13 @@ export function PhaseStepper({ phases, gates, documents }: PhaseStepperProps) {
                     aria-label={t('workflows.phases.gatesLabel', { phase: phase.name })}
                     className="mt-2 flex flex-col gap-1.5"
                   >
-                    {phaseGates.map((gate, gateIndex) => (
+                    {phaseGates.map((gate) => (
                       <li key={gate.id} className="flex flex-wrap items-center gap-2 text-xs">
                         <ShieldCheck aria-hidden="true" className="size-4 text-foreground-muted" />
                         <span>
                           {isBusiness
                             ? t('workflows.phases.businessRequirement', {
-                                index: gateIndex + 1,
+                                index: phase.order,
                               })
                             : gate.name}
                         </span>

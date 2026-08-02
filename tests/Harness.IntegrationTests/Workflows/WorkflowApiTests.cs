@@ -11,6 +11,9 @@ using Harness.Modules.Documents.Contracts;
 using Harness.Modules.Organizations.Contracts;
 using Harness.Modules.Projects.Contracts;
 using Harness.Modules.Workflows.Contracts;
+using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.Workflows;
+using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -187,6 +190,53 @@ public sealed class WorkflowApiTests
                     Assert.Equal(0, activePhase.Progress.Completed);
                     Assert.Equal(1, activePhase.Progress.Total);
                     Assert.Equal(0, activePhase.Progress.Percent);
+
+                    // A projeção da tela usa o MESMO plano de obrigações que governa o avanço.
+                    // Antes, a fase podia fechar pelo plano e continuar aparecendo com 33% porque
+                    // esta rota recalculava um segundo progresso a partir de objetivos legados.
+                    var localProfile = await app.Services
+                        .GetRequiredService<ILocalProfileStore>()
+                        .GetAsync(profileId, timeout.Token);
+                    Assert.NotNull(localProfile);
+                    var obligationStore = app.Services.GetRequiredService<IPhaseObligationStore>();
+                    var obligationAt = DateTimeOffset.UtcNow;
+                    Assert.Equal(1, await obligationStore.EnsurePlanAsync(
+                        new PhaseObligationPlanCommand(
+                            localProfile.TenantId,
+                            projectId,
+                            runId,
+                            "phase-1",
+                            1,
+                            [new PhaseObligationInput(
+                                "card:work-1",
+                                "implementation",
+                                "Executar o trabalho da etapa.",
+                                true,
+                                100,
+                                "plan",
+                                CardId: UlidValue.New(obligationAt).ToString(),
+                                ObjectiveKey: "work-1")],
+                            obligationAt),
+                        timeout.Token));
+                    var obligation = Assert.Single(await obligationStore.ListCurrentAsync(
+                        localProfile.TenantId, runId, "phase-1", timeout.Token));
+                    Assert.True(await obligationStore.UpdateStateAsync(
+                        new PhaseObligationStateCommand(
+                            localProfile.TenantId,
+                            obligation.ObligationId,
+                            "accepted",
+                            ["test:review-approved"],
+                            null,
+                            obligationAt.AddTicks(1)),
+                        timeout.Token));
+                    phases = await client.GetFromJsonAsync<PhasePage>(
+                        $"/api/v1/phases?runId={runId}", timeout.Token);
+                    activePhase = Assert.Single(phases!.Items, x => x.State == "active");
+                    Assert.Equal("phase_obligation_plan", activePhase.Progress.Source);
+                    Assert.Equal(1, activePhase.Progress.Completed);
+                    Assert.Equal(1, activePhase.Progress.Total);
+                    Assert.Equal(100, activePhase.Progress.Percent);
+                    Assert.Equal(new PhaseProgressBreakdownContract(1, 1), activePhase.Progress.Tasks);
                     var gates = await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={runId}", timeout.Token); var gate = Assert.Single(gates!.Items); Assert.Equal("Qualidade", gate.Name); Assert.True(gate.RequiresApproval); Assert.Null(gate.DecidedAt);
                     using (var pause = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/transitions", new TransitionWorkflowRunRequest("pause"), timeout.Token)) Assert.Equal(HttpStatusCode.OK, pause.StatusCode);
                     using (var resume = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/transitions", new TransitionWorkflowRunRequest("resume"), timeout.Token)) Assert.Equal(HttpStatusCode.OK, resume.StatusCode);
@@ -201,7 +251,7 @@ public sealed class WorkflowApiTests
                     using (var complete = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{runId}/phases/phase-2/completion", new { }, timeout.Token))
                     { Assert.Equal(HttpStatusCode.OK, complete.StatusCode); var finished = await complete.Content.ReadFromJsonAsync<WorkflowRunContract>(timeout.Token); Assert.Equal("completed", finished?.State); Assert.NotNull(finished?.FinishedAt); }
                     gate = (await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={runId}", timeout.Token))!.Items.Single();
-                    Assert.Equal("passed", gate.State); Assert.Equal(profileId, gate.DecidedByProfileId); Assert.Equal("Evidência revisada.", gate.Note);
+                    Assert.Equal("approved", gate.State); Assert.Equal(profileId, gate.DecidedByProfileId); Assert.Equal("Evidência revisada.", gate.Note);
                     var projectEvents = await WaitForEventsAsync(client, $"project:{projectId}", "gate.changed", 2, timeout.Token);
                     var gatePayload = projectEvents.Delta.Last(x => x.Type == "gate.changed").Payload;
                     Assert.Equal(gate.Id, gatePayload.GetProperty("gateId").GetString()); Assert.Equal(runId, gatePayload.GetProperty("runId").GetString());
@@ -222,7 +272,7 @@ public sealed class WorkflowApiTests
                     foreach (var state in new[] { "executed", "validated" }) using (var advance = await client.PostAsJsonAsync($"/api/v1/workflow-runs/{approvalRunId}/objectives", new AdvanceWorkflowObjectiveRequest("phase-2", "work-2", state), timeout.Token)) Assert.Equal(HttpStatusCode.OK, advance.StatusCode);
                     using (var approved = await client.PostAsJsonAsync($"/api/v1/approvals/{gateApprovalId}/resolution", new ResolveApprovalRequest("approved", "Requisitos atendidos."), timeout.Token)) Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
                     approvalGate = Assert.Single((await client.GetFromJsonAsync<GatePage>($"/api/v1/gates?runId={approvalRunId}", timeout.Token))!.Items);
-                    Assert.Equal("passed", approvalGate.State); Assert.Equal(profileId, approvalGate.DecidedByProfileId);
+                    Assert.Equal("approved", approvalGate.State); Assert.Equal(profileId, approvalGate.DecidedByProfileId);
                     var approvalGateEvents = await WaitForEventsAsync(client, $"project:{projectId}", "gate.changed", 3, timeout.Token);
                     Assert.Equal("approved", approvalGateEvents.Delta.Last(x => x.Type == "gate.changed").Payload.GetProperty("to").GetString());
                 }

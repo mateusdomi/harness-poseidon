@@ -1813,7 +1813,7 @@
       "businessRequirement": "What is needed to move past stage {{index}}",
       "progressLabel": "Progress of stage {{phase}}",
       "progressDetails": "View progress calculation for stage {{phase}}",
-      "progressTooltip": "Single source: persisted workflow-run objectives and approval points.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nApproval points: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "progressTooltip": "Single source: persisted stage obligations. Approval points are shown separately and do not change the percentage of delivered work.\n\nTasks: {{tasksDone}}/{{tasksTotal}}\nDocuments: {{documentsDone}}/{{documentsTotal}}\nApproval points: {{gatesDone}}/{{gatesTotal}}\nAccepted obligations: {{completed}}/{{total}}",
       "deliverablesLabel": "Expected deliverables",
       "deliverablesUnavailable": "This run version did not publish deliverables for the stage.",
       "producedDocumentsLabel": "Produced documents",

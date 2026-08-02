@@ -45,9 +45,9 @@ describe('WorkflowsPage', () => {
     expect(screen.queryByRole('heading', { name: 'Modo de operação' })).not.toBeInTheDocument();
     expect(screen.queryByText(/segue a versão v1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Gate de Qualidade/)).not.toBeInTheDocument();
-    expect(
-      screen.getAllByText('O que falta para avançar de etapa 1').length,
-    ).toBeGreaterThan(0);
+    expect(screen.getByText('O que falta para avançar de etapa 3')).toBeInTheDocument();
+    expect(screen.getByText('O que falta para avançar de etapa 4')).toBeInTheDocument();
+    expect(screen.queryByText('O que falta para avançar de etapa 1')).not.toBeInTheDocument();
   });
 
   it('renderiza o stepper de fases com status, gates e documentos por fase', async () => {

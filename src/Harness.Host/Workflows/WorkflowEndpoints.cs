@@ -476,7 +476,7 @@ public static class WorkflowEndpoints
 
     private static async Task<IResult> ListPhasesAsync(string? runId, string? cursor, int? limit,
         HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store,
-        IWorkflowStore authority, CancellationToken token)
+        IWorkflowStore authority, IPhaseObligationStore obligations, CancellationToken token)
     {
         var invalid = Page(cursor, limit, runId);
         if (invalid is not null) return invalid;
@@ -488,17 +488,27 @@ public static class WorkflowEndpoints
         var run = runId is null
             ? null
             : await authority.ReadRunAggregateAsync(profile.TenantId, runId, token);
-        return Paged(
-            rows,
-            size,
-            row => ToContract(row, run),
-            row => row.Id,
-            (items, next) => new PhasePage(items, next));
+        var more = rows.Count > size;
+        var selected = rows.Take(size).ToArray();
+        var items = new List<PhaseContract>(selected.Length);
+        foreach (var row in selected)
+        {
+            var phase = run?.Phases.FirstOrDefault(item => item.PhaseRunId == row.Id);
+            var plan = phase is null
+                ? Array.Empty<PhaseObligationRecord>()
+                : await obligations.ListCurrentAsync(
+                    profile.TenantId, row.RunId, phase.Key, token);
+            items.Add(ToContract(row, run, plan));
+        }
+
+        return Results.Ok(new PhasePage(
+            items,
+            more ? selected[^1].Id : null));
     }
 
     private static async Task<IResult> GetPhaseAsync(string id, HttpRequest request,
         ILocalProfileStore profiles, IWorkflowCatalogStore store, IWorkflowStore authority,
-        CancellationToken token)
+        IPhaseObligationStore obligations, CancellationToken token)
     {
         if (!Valid(id)) return InvalidId();
         var profile = await Session(request, profiles, token);
@@ -506,7 +516,11 @@ public static class WorkflowEndpoints
         var row = await store.GetPhaseAsync(profile.TenantId, id, token);
         if (row is null) return NotFound("phase");
         var run = await authority.ReadRunAggregateAsync(profile.TenantId, row.RunId, token);
-        return Results.Ok(ToContract(row, run));
+        var phase = run?.Phases.FirstOrDefault(item => item.PhaseRunId == row.Id);
+        var plan = phase is null
+            ? Array.Empty<PhaseObligationRecord>()
+            : await obligations.ListCurrentAsync(profile.TenantId, row.RunId, phase.Key, token);
+        return Results.Ok(ToContract(row, run, plan));
     }
     private static async Task<IResult> ListGatesAsync(string? runId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, IWorkflowCatalogStore store, CancellationToken token)
     { var invalid = Page(cursor, limit, runId); if (invalid is not null) return invalid; var profile = await Session(request, profiles, token); if (profile is null) return Unauthorized(); var size = limit ?? 100; var rows = await store.ListGatesAsync(profile.TenantId, runId, cursor, size + 1, token); return Paged(rows, size, ToContract, x => x.Id, (items, next) => new GatePage(items, next)); }
@@ -529,7 +543,8 @@ public static class WorkflowEndpoints
     private static WorkflowRunContract ToContract(WorkflowRunCatalogRecord x) => new(x.Id, x.WorkflowId, x.VersionId, x.State, x.StartedAt, x.FinishedAt);
     private static PhaseContract ToContract(
         WorkflowPhaseCatalogRecord row,
-        WorkflowRunAggregateSnapshot? run = null)
+        WorkflowRunAggregateSnapshot? run = null,
+        IReadOnlyList<PhaseObligationRecord>? obligationPlan = null)
     {
         var phase = run?.Phases.FirstOrDefault(item => item.PhaseRunId == row.Id);
         if (phase is null)
@@ -557,6 +572,11 @@ public static class WorkflowEndpoints
         var documentObjectives = phase.Objectives
             .Where(objective => objective.Kind == "document")
             .ToArray();
+        if (obligationPlan is { Count: > 0 })
+        {
+            return ToContractFromObligations(row, phase, documentObjectives, obligationPlan);
+        }
+
         var taskObjectives = phase.Objectives
             .Where(objective => objective.Kind != "document" && objective.Kind != "gate")
             .ToArray();
@@ -604,21 +624,121 @@ public static class WorkflowEndpoints
             deliverables);
     }
 
+    /// <summary>
+    /// O plano de obrigações é a mesma fonte que autoriza o avanço da fase. Usá-lo aqui evita a
+    /// contradição em que o runtime concluía uma fase com todas as obrigações aceitas, mas a API
+    /// continuava calculando 33% a partir dos objetivos legados e mostrava o documento aprovado
+    /// como "em revisão".
+    /// </summary>
+    private static PhaseContract ToContractFromObligations(
+        WorkflowPhaseCatalogRecord row,
+        WorkflowPhaseRunSnapshot phase,
+        WorkflowObjectiveRunSnapshot[] documentObjectives,
+        IReadOnlyList<PhaseObligationRecord> obligationPlan)
+    {
+        var live = obligationPlan
+            .Where(item => !string.Equals(item.State, "cancelled", StringComparison.Ordinal))
+            .ToArray();
+        var snapshot = PhaseProgressEvaluator.Evaluate(
+        [
+            .. live.Select(item => new PhaseObligation(
+                item.ObligationKey,
+                PhaseProgressEvaluator.ParseKind(item.Kind),
+                item.Description,
+                item.Required,
+                (decimal)item.Weight,
+                PhaseProgressEvaluator.ParseState(item.State),
+                item.Source,
+                item.CardId,
+                item.ObjectiveKey,
+                item.ArtifactRef)),
+        ]);
+        var required = live.Where(item => item.Required).ToArray();
+        var documents = required
+            .Where(item => string.Equals(item.Kind, "document", StringComparison.Ordinal))
+            .ToArray();
+        var tasks = required
+            .Where(item => !string.Equals(item.Kind, "document", StringComparison.Ordinal))
+            .ToArray();
+        var gateProgress = new PhaseProgressBreakdownContract(
+            phase.Gates.Count(gate => gate.State == "passed"),
+            phase.Gates.Count);
+        var byObjective = documents
+            .Where(item => !string.IsNullOrWhiteSpace(item.ObjectiveKey))
+            .GroupBy(item => item.ObjectiveKey!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        var deliverables = documentObjectives
+            .Select(objective => new PhaseDeliverableContract(
+                objective.Name,
+                byObjective.TryGetValue(objective.Key, out var obligation)
+                    ? DeliverableStatus(obligation.State, row.State)
+                    : DeliverableStatus(objective.State, row.State)))
+            .ToArray();
+        var updatedAt = live
+            .Select(item => (DateTimeOffset?)item.UpdatedAt)
+            .Concat(phase.Gates.Select(gate => gate.EvaluatedAt))
+            .Append(row.FinishedAt)
+            .Append(row.StartedAt)
+            .Where(value => value.HasValue)
+            .Max();
+
+        return new(
+            row.Id,
+            row.RunId,
+            row.Name,
+            row.Order,
+            row.State,
+            row.StartedAt,
+            row.FinishedAt,
+            new(
+                snapshot.RequiredAccepted,
+                snapshot.RequiredTotal,
+                snapshot.Percentage,
+                "phase_obligation_plan",
+                updatedAt,
+                ObligationBreakdown(tasks),
+                ObligationBreakdown(documents),
+                gateProgress),
+            deliverables);
+    }
+
     private static PhaseProgressBreakdownContract Breakdown(
         WorkflowObjectiveRunSnapshot[] objectives) => new(
         objectives.Count(objective => objective.State == "approved"),
         objectives.Length);
 
+    private static PhaseProgressBreakdownContract ObligationBreakdown(
+        PhaseObligationRecord[] obligations) => new(
+        obligations.Count(item => string.Equals(item.State, "accepted", StringComparison.Ordinal)),
+        obligations.Length);
+
     private static string DeliverableStatus(string objectiveState, string phaseState) =>
         objectiveState switch
         {
-            "approved" => "approved",
-            "validated" => "inReview",
-            "executed" => "inProduction",
+            "approved" or "accepted" => "approved",
+            "validated" or "in_review" => "inReview",
+            "executed" or "in_progress" => "inProduction",
+            "blocked" => "rejected",
             _ when phaseState == "pending" => "planned",
             _ => "notStarted",
         };
-    private static GateContract ToContract(WorkflowGateCatalogRecord x) => new(x.Id, x.PhaseId, x.RunId, x.Name, x.State, x.RequiresApproval, x.DecidedByProfileId, x.DecidedAt, x.Note);
+    private static GateContract ToContract(WorkflowGateCatalogRecord x) => new(
+        x.Id,
+        x.PhaseId,
+        x.RunId,
+        x.Name,
+        x.State switch
+        {
+            // O armazenamento usa a linguagem do avaliador; o contrato público usa a linguagem
+            // canônica compartilhada pelo frontend e pelos eventos de aprovação.
+            "passed" => "approved",
+            "failed" => "rejected",
+            _ => x.State,
+        },
+        x.RequiresApproval,
+        x.DecidedByProfileId,
+        x.DecidedAt,
+        x.Note);
     private static WorkflowPhaseCreateInput[] ToPersistence(IReadOnlyList<WorkflowApiPhaseCreation> phases) =>
         phases.Select(p => new WorkflowPhaseCreateInput(p.Id, p.Key, p.Name, p.Order,
             p.Objectives.Select(o => new WorkflowObjectiveCreateInput(o.Id, o.Key, o.Name, o.Kind, o.Weight)).ToArray(),

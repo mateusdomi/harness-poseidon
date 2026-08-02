@@ -1813,7 +1813,7 @@
       "businessRequirement": "O que falta para avançar de etapa {{index}}",
       "progressLabel": "Progresso da etapa {{phase}}",
       "progressDetails": "Ver cálculo do progresso da etapa {{phase}}",
-      "progressTooltip": "Fonte única: objetivos e pontos de aprovação persistidos da execução do fluxo de trabalho.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nPontos de aprovação: {{gatesDone}}/{{gatesTotal}}\nTotal: {{completed}}/{{total}}",
+      "progressTooltip": "Fonte única: obrigações persistidas da etapa. Os pontos de aprovação são mostrados separadamente e não alteram o percentual do trabalho entregue.\n\nTarefas: {{tasksDone}}/{{tasksTotal}}\nDocumentos: {{documentsDone}}/{{documentsTotal}}\nPontos de aprovação: {{gatesDone}}/{{gatesTotal}}\nObrigações aceitas: {{completed}}/{{total}}",
       "deliverablesLabel": "Entregáveis esperados",
       "deliverablesUnavailable": "A versão desta execução não publicou entregáveis para a etapa.",
       "producedDocumentsLabel": "Documentos produzidos",

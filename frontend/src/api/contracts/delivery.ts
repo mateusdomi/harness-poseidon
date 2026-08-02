@@ -221,7 +221,11 @@ export const phaseProgressSchema = z.object({
   completed: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
   percent: z.number().min(0).max(100),
-  source: z.enum(['workflow_run_objectives_and_gates', 'workflow_run_unavailable']),
+  source: z.enum([
+    'phase_obligation_plan',
+    'workflow_run_objectives_and_gates',
+    'workflow_run_unavailable',
+  ]),
   updatedAt: isoDateTimeSchema.nullable(),
   tasks: phaseProgressBreakdownSchema,
   documents: phaseProgressBreakdownSchema,
