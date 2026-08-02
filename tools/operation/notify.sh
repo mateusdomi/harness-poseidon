@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Notificação da Operação Final pelo Telegram.
+#
+# O token vem do Keychain; nunca de arquivo, argumento ou log. O chat de destino é
+# DESCOBERTO em tempo de execução: um bot do Telegram não pode iniciar conversa, então só
+# existe destino depois que o proprietário mandar qualquer mensagem para o bot uma vez.
+#
+#   notify.sh "texto"
+#
+# Saídas: 0 enviado · 10 sem destino (o dono ainda não falou com o bot) · 1 falha
+set -uo pipefail
+
+TEXT="${1:-}"
+[[ -n "$TEXT" ]] || { echo "uso: notify.sh <texto>" >&2; exit 2; }
+
+TOKEN="$(security find-generic-password -s "poseidon-telegram-bot" -w 2>/dev/null)"
+[[ -n "$TOKEN" ]] || { echo "token do bot ausente no Keychain" >&2; exit 1; }
+
+CHAT="${POSEIDON_TELEGRAM_CHAT_ID:-}"
+if [[ -z "$CHAT" ]]; then
+  CHAT="$(curl -s --max-time 15 "https://api.telegram.org/bot${TOKEN}/getUpdates" |
+    python3 -c "
+import sys,json
+try: d=json.load(sys.stdin)
+except Exception: raise SystemExit
+for u in reversed(d.get('result',[])):
+    m=u.get('message') or u.get('edited_message') or {}
+    c=(m.get('chat') or {}).get('id')
+    if c: print(c); break" 2>/dev/null)"
+fi
+
+if [[ -z "$CHAT" ]]; then
+  echo "sem destino: mande qualquer mensagem para @SystemPoseidon_bot uma vez e repita." >&2
+  exit 10
+fi
+
+CODE="$(curl -s -o /tmp/poseidon-notify.out -w '%{http_code}' --max-time 20 \
+  -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  --data-urlencode "chat_id=${CHAT}" \
+  --data-urlencode "text=${TEXT}")"
+
+if [[ "$CODE" == "200" ]]; then
+  echo "notificado (chat ${CHAT})"
+  exit 0
+fi
+
+echo "falha ao notificar: HTTP ${CODE}" >&2
+head -c 300 /tmp/poseidon-notify.out >&2; echo >&2
+exit 1

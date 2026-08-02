@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/Modules/Harness.Modules.Operations/Harness.Modules.Operations.csproj" />
     <ProjectReference Include="../../src/Harness.Host/Harness.Host.csproj" />
     <ProjectReference Include="../../src/Harness.Persistence.Migration/Harness.Persistence.Migration.csproj" />
   </ItemGroup>

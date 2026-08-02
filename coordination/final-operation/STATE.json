@@ -1,0 +1,53 @@
+{
+  "operation": "poseidon-final-validation",
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-02T21:30:00Z",
+  "updatedBy": "integrator",
+
+  "branch": "develop",
+  "baselineCommit": "a25bb1ff",
+  "headCommit": "8bdc24d7",
+  "pushedToOrigin": false,
+
+  "cleanE2E": {
+    "status": "running",
+    "projectId": "01KZ24JCFRHN2RGP8NHGP75JMK",
+    "projectName": "QA-PROVA-LIMPA-20260802-EMPRESTIMOS",
+    "conversationId": "01KZ24JKCCWCH0G8C7PJN3AKH4",
+    "phase": 2,
+    "phaseName": "2-Descoberta",
+    "startedAt": "2026-08-02T21:02:39Z",
+    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria."
+  },
+
+  "contaminatedE2E": {
+    "status": "abandoned",
+    "projectId": "01KZ1PPR1XQ1YC7WKQ1NGCBQ81",
+    "projectName": "QA-POSEIDON-E2E-20260802-EMPRESTIMOS",
+    "phase": 3,
+    "reason": "Dois cards de Arquitetura escalados por falhas de cota da conta GLM registradas ANTES das correcoes, com motivo cru (executor.exit_code_1) em vez do canonico. O circuito recalcula do historico, entao eles nao voltam sozinhos. Estado semanticamente invalido — substituido pela prova limpa."
+  },
+
+  "generatedProduct": "pending",
+  "recoveryTests": "partial",
+  "qaPoseidon": "partial",
+  "reAudit": "pending",
+
+  "mandatoryGatesFailed": 0,
+  "mandatoryTestsPending": 0,
+
+  "testBaseline": {
+    "unit": 1516,
+    "integrationTargeted": 26,
+    "frontend": 783,
+    "allGreenAt": "2026-08-02T20:50:00Z"
+  },
+
+  "metricsInstrumented": false,
+  "metricsNote": "Custo, tokens, invocacoes e transient-failure-waste NAO foram instrumentados (SPEC 31/32). Nao inventar numeros: reportar como nao medido ate existir coleta real.",
+
+  "nextAction": "Acompanhar a prova limpa por turn/card/attempt concretos ate a fase 9; em paralelo, atacar os findings abertos por severidade.",
+
+  "humanDecisionRequired": false,
+  "externalBlockers": []
+}

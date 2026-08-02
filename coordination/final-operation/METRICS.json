@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "instrumented": false,
+  "note": "SPEC 31/32 pedem custo, tokens, invocacoes, wall time e transient-failure-waste por fase/card/persona. A coleta ainda NAO existe. Enquanto isso, estes campos permanecem null: numero inventado e pior que numero ausente.",
+  "costPerAcceptedArtifact": null,
+  "costPerDeliveredRequirement": null,
+  "costOfRework": null,
+  "transientFailureWasteRate": null,
+  "firstPassAcceptanceRate": null,
+  "meanRunDuration": null,
+  "phaseWallTime": null,
+  "modelUtilization": null
+}

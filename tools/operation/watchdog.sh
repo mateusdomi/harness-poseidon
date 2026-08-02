@@ -33,12 +33,19 @@ else
   echo "host: DOWN (nenhum processo vivo em $DATA_DIR/launcher.pid)"
 fi
 
-# Pressão de máquina — governa a liberação de operações HEAVY.
-pages_free=$(vm_stat | awk '/Pages free/ {gsub("\\.","",$3); print $3}')
-pages_spec=$(vm_stat | awk '/Pages speculative/ {gsub("\\.","",$3); print $3}')
-free_mb=$(( (pages_free + pages_spec) * 16384 / 1048576 ))
+# Pressão de máquina. RAM LIVRE NÃO É O SINAL: o macOS usa a memória disponível
+# agressivamente como cache, e "211 MB livres" com swap zerado descreve um sistema saudável,
+# não um sistema afogado. O que importa é pressão, swap e pageouts — foi por ler RAM livre
+# que se concluiu, erradamente, que só cabiam dois agentes.
+pressure=$(memory_pressure 2>/dev/null | awk '/System-wide memory free percentage/ {print $NF}')
 swap_used=$(sysctl -n vm.swapusage | awk '{print $6}')
-echo "host_mem: free=${free_mb}MB swap_used=${swap_used}"
+pageouts=$(vm_stat | awk '/Pageouts/ {gsub("\\.","",$NF); print $NF}')
+compressed=$(vm_stat | awk '/Pages occupied by compressor/ {gsub("\\.","",$NF); print $NF}')
+echo "host: pressure_free=${pressure:-?} swap_used=${swap_used} pageouts=${pageouts:-0} compressed_pages=${compressed:-0}"
+case "${swap_used}" in
+  0,00M|0.00M|0M) echo "host: sem swap em uso — LIGHT à vontade, HEAVY=1" ;;
+  *) echo "host: SWAP EM USO — não admitir trabalho novo até o atual terminar" ;;
+esac
 
 echo
 printf '%-10s %-34s %-16s %-12s %-8s %-9s %s\n' \
