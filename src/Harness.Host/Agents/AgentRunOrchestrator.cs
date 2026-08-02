@@ -40,7 +40,7 @@ namespace Harness.Host.Agents;
 ///
 /// Nenhum atalho: sem claim não há escrita, e um papel nunca escreve fora do seu escopo.
 /// </summary>
-public sealed class AgentRunOrchestrator(
+public sealed partial class AgentRunOrchestrator(
     IAttemptWorkspaceStore workspaces,
     IGovernanceRuntimeStore governance,
     ContextBundleBuilder bundleBuilder,
@@ -60,9 +60,24 @@ public sealed class AgentRunOrchestrator(
     SandboxAttestationService sandboxAttestations,
     ExecutionCheckpointService checkpoints,
     Harness.Host.Governance.PromotedSkillProvider promotedSkills,
-    IAgentCatalogStore personas) : IHostedService
+    IAgentCatalogStore personas,
+    ILogger<AgentRunOrchestrator> logger) : IHostedService
 {
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+
+    [LoggerMessage(Level = LogLevel.Error,
+        Message = "Agent run {AttemptId} terminou fora do caminho normal ({ErrorType}); reconciliando o estado durável.")]
+    private static partial void LogUnhandledCompletion(
+        ILogger logger, string attemptId, string errorType);
+
+    [LoggerMessage(Level = LogLevel.Error,
+        Message = "Agent run {AttemptId} não convergiu para terminal após a reconciliação.")]
+    private static partial void LogReconciliationNotTerminal(ILogger logger, string attemptId);
+
+    [LoggerMessage(Level = LogLevel.Error,
+        Message = "Falha ao reconciliar agent run {AttemptId} ({ErrorType}); o recovery por lease permanece ativo.")]
+    private static partial void LogReconciliationFailure(
+        ILogger logger, string attemptId, string errorType);
 
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
     private int _acceptingRuns = 1;
@@ -277,15 +292,69 @@ public sealed class AgentRunOrchestrator(
         // durável responde. Sem esta remoção, LiveRunCount cresceria para sempre e o teto
         // global do ScaleGate estrangularia o despacho após poucas runs terminadas.
         _ = completion.ContinueWith(
-            _ => _live.TryRemove(command.AttemptId, out var removed),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+                completed => ObserveCompletionAsync(command, completed),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default)
+            .Unwrap();
 
         return new AgentRunSnapshot(
             runId, command.AttemptId, command.AccountAlias, command.Role, account.ExecutorId,
             AgentRunStatus.Accepted, acquired.Workspace, [], null, null, null,
             accountLock.FencingToken, null, null, null);
+    }
+
+    /// <summary>
+    /// A execução normal fecha e libera o workspace no <c>finally</c>. Esta barreira cobre o caso
+    /// que escapa daquele caminho (por exemplo, o próprio cleanup ou heartbeat falha): sem ela a
+    /// entrada viva sumia, mas o estado durável continuava <c>running</c> sem PID nem heartbeat.
+    /// A worktree não é apagada aqui; uma falha inesperada deve preservar qualquer trabalho para
+    /// a recuperação governada.
+    /// </summary>
+    private async Task ObserveCompletionAsync(
+        StartAgentRunCommand command,
+        Task<AgentRunSnapshot> completion)
+    {
+        _live.TryRemove(command.AttemptId, out _);
+        if (completion.IsCompletedSuccessfully)
+        {
+            return;
+        }
+
+        var errorType = completion.Exception?.GetBaseException().GetType().Name ??
+            (completion.IsCanceled ? "TaskCanceledException" : "UnknownException");
+        LogUnhandledCompletion(logger, command.AttemptId, errorType);
+
+        try
+        {
+            var current = await workspaces.GetAsync(
+                command.TenantId, command.AttemptId, CancellationToken.None);
+            if (current is null || AttemptWorkspaceLifecycle.IsTerminal(current.State))
+            {
+                return;
+            }
+
+            var failed = await TransitionAsync(
+                command,
+                current,
+                current.State,
+                AttemptWorkspaceState.Failed,
+                finalError: $"orchestrator.unhandled_completion:{errorType.ToLowerInvariant()}",
+                cancellationToken: CancellationToken.None);
+            if (!AttemptWorkspaceLifecycle.IsTerminal(failed.State))
+            {
+                LogReconciliationNotTerminal(logger, command.AttemptId);
+                return;
+            }
+
+            await TryReleaseWorkspaceAsync(command, failed);
+            await PublishStateAsync(
+                command.AttemptId, command, AgentRunStatus.Failed, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            LogReconciliationFailure(logger, command.AttemptId, exception.GetType().Name);
+        }
     }
 
     /// <summary>Estado durável do run. Sobrevive a restart porque lê o banco.</summary>
