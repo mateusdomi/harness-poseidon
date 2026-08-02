@@ -815,9 +815,13 @@ public sealed class WorkflowPhaseDriver(
                 UlidValue.New(now.AddMilliseconds(2)).ToString(),
                 UlidValue.New(now.AddMilliseconds(3)).ToString(),
                 actorProfileId, title,
-                // Alta: o conselho destrava a fase inteira. Na fila atrás do trabalho comum, ele
-                // atrasaria tudo o que vem depois dele.
-                "high",
+                // Este campo é o RISCO do trabalho, não a posição dele na fila — a cadeia grava o
+                // valor em `risk_tier`. Declará-lo "high" para o conselho furar a fila fazia a
+                // política de ferramentas exigir sandbox atestada, e todo parecer era recusado com
+                // `sandbox_required` em milissegundos: o portão que autoriza o desenvolvimento
+                // nunca acontecia. O trabalho de um conselheiro é ler os documentos da fase e
+                // escrever UM parecer sob um claim estreito — risco baixo, e é isso que se declara.
+                "low",
                 null, null, instructionId, instruction, now, phaseName, "revisao"),
             cancellationToken);
 
