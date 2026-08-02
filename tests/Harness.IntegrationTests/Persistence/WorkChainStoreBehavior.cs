@@ -79,6 +79,7 @@ internal static class WorkChainStoreBehavior
         await AssertLeaseExpiryAsync(store, command, cancellationToken);
         await AssertFailedAttemptAsync(store, command, cancellationToken);
         await AssertTransientFailureKeepsReasonAsync(store, command, cancellationToken);
+        await AssertCrowdedCardHasThreeAttemptsAsync(store, command, cancellationToken);
         await AssertCancellationAsync(store, command, cancellationToken);
         await AssertBlockingAsync(store, command, cancellationToken);
         await AssertReviewEscalationAsync(store, command, cancellationToken);
@@ -652,6 +653,15 @@ internal static class WorkChainStoreBehavior
         Assert.NotNull(attempt.CompletedAt);
     }
 
+    /// <summary>Card com mais tentativas do que a página do quadro comporta.</summary>
+    public const string CrowdedTaskId = "01ARZ3NDEKTSV4RRFFQ69G5FH2";
+
+    /// <summary>Primeira tentativa do card lotado — a que uma página curta NÃO deve devolver.</summary>
+    public const string CrowdedOldestAttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FH4";
+
+    /// <summary>Última tentativa do card lotado — a que precisa sobreviver ao corte.</summary>
+    public const string CrowdedNewestAttemptId = "01ARZ3NDEKTSV4RRFFQ69G5FH6";
+
     /// <summary>Card usado pelo cenário de falha transitória, conferido também pelo quadro.</summary>
     public const string TransientFailureTaskId = "01ARZ3NDEKTSV4RRFFQ69G5FG2";
 
@@ -773,6 +783,72 @@ internal static class WorkChainStoreBehavior
         // Antes da correção isto vinha `InvalidState` e o card não tinha mais caminho de volta.
         Assert.Equal(WorkChainMutationStatus.Applied, replan.Status);
         Assert.Equal("ready", replan.TaskState);
+    }
+
+    /// <summary>
+    /// Cria um card com TRÊS tentativas — mais do que uma página curta comporta.
+    ///
+    /// Serve para provar, do lado do quadro, que uma página menor que o histórico devolve as
+    /// tentativas MAIS RECENTES. Em produção dois cards chegaram a 101 tentativas com limite
+    /// 100: a que estava em execução era a última e simplesmente não aparecia.
+    /// </summary>
+    private static async Task AssertCrowdedCardHasThreeAttemptsAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FH0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FH1",
+            TaskId = CrowdedTaskId,
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FH3",
+            IdempotencyKey = "work-chain:create:crowded",
+            OccurredAt = template.OccurredAt.AddDays(9),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        string[] attemptIds = [CrowdedOldestAttemptId, "01ARZ3NDEKTSV4RRFFQ69G5FH5", CrowdedNewestAttemptId];
+
+        // A versão do card é encadeada pelos recibos: cada mutação a incrementa, e fixá-la
+        // adivinhando só produziria VersionConflict.
+        var version = 3L;
+
+        for (var index = 0; index < attemptIds.Length; index++)
+        {
+            var at = chain.OccurredAt.AddMinutes(index * 4);
+            var started = await store.StartAttemptAsync(
+                new WorkAttemptStartCommand(
+                    chain.TenantId,
+                    chain.SolicitationId,
+                    chain.TaskId,
+                    chain.InstructionVersionId,
+                    attemptIds[index],
+                    "crowded-owner",
+                    version,
+                    $"work-chain:attempt:start:crowded:{index}",
+                    at.AddMinutes(1)),
+                cancellationToken);
+            Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+            version = started.TaskVersion!.Value;
+
+            // A última permanece VIVA: é exatamente ela que precisa sobreviver ao corte.
+            if (index == attemptIds.Length - 1)
+            {
+                break;
+            }
+
+            var expired = await store.ExpireAttemptLeaseAsync(
+                new WorkAttemptLeaseExpiredCommand(
+                    chain.TenantId, chain.SolicitationId, chain.TaskId, attemptIds[index], version,
+                    $"work-chain:attempt:crowded:{index}", at.AddMinutes(2),
+                    CountsTowardRoundBudget: false,
+                    FailureReason: TransientFailureReason),
+                cancellationToken);
+            Assert.Equal(WorkChainMutationStatus.Applied, expired.Status);
+            version = expired.TaskVersion!.Value;
+        }
     }
 
     private static async Task AssertMutationsAsync(

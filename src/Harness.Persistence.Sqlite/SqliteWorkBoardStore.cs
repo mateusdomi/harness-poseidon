@@ -248,14 +248,30 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
         CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<IReadOnlyList<BoardAttemptRecord>>(async (c, t) =>
         {
+            // Sem cursor, o limite precisa cortar as tentativas MAIS ANTIGAS.
+            //
+            // Com `ORDER BY a.id LIMIT` (ULID é ordenado por tempo, então crescente = mais
+            // velhas primeiro), um card com mais tentativas que o limite devolvia sempre as
+            // primeiras e escondia as recentes. Medido: dois cards com 101 tentativas e limite
+            // 100 — a tentativa EM EXECUÇÃO era a 101ª e ficava invisível. Quem lê por aqui
+            // decide coisas sérias: a colheita procura o run vivo, a reconciliação fecha órfã, o
+            // circuito conta falhas consecutivas e o replanejamento conta reprovações. Todos
+            // liam um passado congelado, e os cards ficaram presos por dias sem nenhum sinal.
+            //
+            // Busca-se decrescente e inverte-se antes de devolver, preservando a ordem
+            // cronológica de que o circuito depende. Com cursor a intenção é outra — percorrer
+            // adiante a partir de um ponto — e a ordem crescente permanece.
+            var descending = afterId is null;
             var values = new List<BoardAttemptRecord>(); await using var q = c.CreateCommand();
             q.CommandText = $"{AttemptSelect} WHERE a.tenant_id=$tenant " +
                 "AND ($task IS NULL OR a.task_id=$task) AND ($after IS NULL OR a.id>$after) " +
-                "ORDER BY a.id LIMIT $limit;";
+                (descending ? "ORDER BY a.id DESC LIMIT $limit;" : "ORDER BY a.id LIMIT $limit;");
             Add(q, "$tenant", tenantId); AddNullable(q, "$task", taskId);
             AddNullable(q, "$after", afterId); Add(q, "$limit", limit);
             await using var r = await q.ExecuteReaderAsync(t);
-            while (await r.ReadAsync(t)) values.Add(ReadAttempt(r)); return values;
+            while (await r.ReadAsync(t)) values.Add(ReadAttempt(r));
+            if (descending) { values.Reverse(); }
+            return values;
         }, cancellationToken);
 
     public Task<BoardAttemptEventRecord?> GetAttemptEventAsync(

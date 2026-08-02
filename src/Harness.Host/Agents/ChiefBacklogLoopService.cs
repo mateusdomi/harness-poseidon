@@ -1411,6 +1411,15 @@ public sealed partial class ChiefBacklogLoopService(
             tenantId,
             new BoardTaskPageQuery(project.Id, null, null, "development", null, null, "active", null, 0, 50),
             token);
+
+        // Diagnóstico da própria reconciliação. Três tentativas ficaram presas em `running` por
+        // até seis dias sem produzir UMA linha de log: nenhuma exceção, nenhum requeue, nada. Não
+        // se conserta o que não se enxerga, e a dedução estática já se esgotou neste caso — então
+        // o caminho passa a declarar quantos cards viu e quantos qualificou.
+        var running = page.Items.Count(item =>
+            string.Equals(item.InternalState, "running", StringComparison.Ordinal));
+        LogReconcileScan(logger, project.Id, page.Items.Count, page.Total, running);
+
         foreach (var task in page.Items)
         {
             token.ThrowIfCancellationRequested();
@@ -1453,11 +1462,15 @@ public sealed partial class ChiefBacklogLoopService(
             string.Equals(attempt.State, "running", StringComparison.Ordinal));
         if (running is null)
         {
+            // O card diz `running` mas nenhuma tentativa dele se diz `running`. É um estado
+            // inconsistente que a reconciliação atual não resolve e, calada, parecia sucesso.
+            LogReconcileNoRunningAttempt(logger, task.Id, attempts.Count);
             return;
         }
 
         var snapshot = await orchestrator.GetAsync(tenantId, running.Id, token);
         var now = clock.UtcNow;
+        LogReconcileSubject(logger, task.Id, running.Id, snapshot?.Status);
 
         if (snapshot is null)
         {
@@ -3355,6 +3368,22 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: run {Status} da tentativa {AttemptId} — card {TaskId} devolvido a `ready`.")]
     private static partial void LogRunRequeued(ILogger logger, string taskId, string attemptId, string status);
+
+    [LoggerMessage(Level = LogLevel.Debug,
+        Message = "Reconciliação do projeto {ProjectId}: {Scanned} de {Total} card(s) em desenvolvimento, {Running} em execução.")]
+    private static partial void LogReconcileScan(
+        ILogger logger, string projectId, int scanned, int total, int running);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Reconciliação: card {TaskId} está `running` mas nenhuma de suas {AttemptCount} tentativa(s) está `running` — estado inconsistente.")]
+    private static partial void LogReconcileNoRunningAttempt(
+        ILogger logger, string taskId, int attemptCount);
+
+    /// <summary>Execução nula significa que o workspace já sumiu — a tentativa é órfã.</summary>
+    [LoggerMessage(Level = LogLevel.Debug,
+        Message = "Reconciliação: card {TaskId}, tentativa {AttemptId}, execução {RunStatus}.")]
+    private static partial void LogReconcileSubject(
+        ILogger logger, string taskId, string attemptId, AgentRunStatus? runStatus);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: review da tentativa {AttemptId} (card {TaskId}) por {CriticAlias}: {Decision}.")]
     private static partial void LogReviewApplied(ILogger logger, string taskId, string attemptId, string criticAlias, string decision);

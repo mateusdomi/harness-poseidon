@@ -59,6 +59,30 @@ public sealed class SqliteWorkChainStoreTests
                 timeout.Token));
             Assert.Equal("cancelled", transient.State);
             Assert.Equal(WorkChainStoreBehavior.TransientFailureReason, transient.FailureReason);
+
+            // Um card com MAIS tentativas que o limite não pode esconder as recentes.
+            //
+            // Com `ORDER BY a.id LIMIT` (ULID cresce com o tempo), a página devolvia as mais
+            // ANTIGAS. Medido em produção: dois cards com 101 tentativas e limite 100 — a
+            // tentativa EM EXECUÇÃO era a 101ª e sumia. A colheita não achava o run vivo, a
+            // reconciliação não fechava a órfã, o circuito contava falhas de um passado
+            // congelado e o card ficava preso por dias sem emitir um único sinal.
+            var board = new SqliteWorkBoardStore(dispatcher);
+            var pageOfTwo = await board.ListAttemptsAsync(
+                FoundationTransactionBehavior.TenantId,
+                WorkChainStoreBehavior.CrowdedTaskId,
+                null,
+                2,
+                timeout.Token);
+
+            Assert.Equal(2, pageOfTwo.Count);
+            // As duas ÚLTIMAS, em ordem cronológica — o circuito depende dessa ordem.
+            Assert.Equal(
+                WorkChainStoreBehavior.CrowdedNewestAttemptId,
+                pageOfTwo[^1].Id);
+            Assert.DoesNotContain(
+                pageOfTwo,
+                attempt => attempt.Id == WorkChainStoreBehavior.CrowdedOldestAttemptId);
         }
         finally
         {

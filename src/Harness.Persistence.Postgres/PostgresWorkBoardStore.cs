@@ -317,10 +317,16 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         string tenantId, string? taskId, string? afterId, int limit,
         CancellationToken cancellationToken = default)
     {
+        // Paridade com o SQLite: sem cursor, o limite corta as tentativas mais ANTIGAS. Um card
+        // com mais tentativas que o limite escondia justamente a que estava em execução, e quem
+        // lê por aqui — colheita, reconciliação, circuito do card e replanejamento — passava a
+        // decidir sobre um passado congelado. Com cursor, a ordem crescente permanece.
+        var descending = afterId is null;
         var values = new List<BoardAttemptRecord>();
         await using var query = _dataSource.CreateCommand(
             $"{AttemptSelect} WHERE a.tenant_id=$1 AND ($2 IS NULL OR a.task_id=$2) " +
-            "AND ($3 IS NULL OR a.id>$3) ORDER BY a.id LIMIT $4;");
+            "AND ($3 IS NULL OR a.id>$3) " +
+            (descending ? "ORDER BY a.id DESC LIMIT $4;" : "ORDER BY a.id LIMIT $4;"));
         query.Parameters.Add(Text(tenantId));
         query.Parameters.Add(NullableText(taskId));
         query.Parameters.Add(NullableText(afterId));
@@ -329,6 +335,11 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
         while (await reader.ReadAsync(cancellationToken))
         {
             values.Add(ReadAttempt(reader));
+        }
+
+        if (descending)
+        {
+            values.Reverse();
         }
 
         return values;
