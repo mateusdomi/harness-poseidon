@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Harness.Host.Workflows;
 using Harness.Modules.Coordination.Application;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Coordination;
@@ -234,9 +235,14 @@ public sealed class PlanMaterializationService(
         // diferente — fatiar menor, exigir critério explícito ou revisar mais fundo. Classificar
         // sem consumir era telemetria bonita: o painel media e o planejamento continuava igual.
         var correction = await ReadMastCorrectionAsync(job, cancellationToken);
+        var activePhase = await activePhases.ResolveSnapshotAsync(
+            job.TenantId, demand.ProjectId, cancellationToken);
+        var effectiveRequest = PromoteRequestForDevelopment(
+            job.Request, demand, activePhase, job.TurnId is not null);
         var saved = await materializer.EnsurePlanAsync(
-            job.TenantId, demand, job.Request.AcceptanceCriteria, ToHints(job.Request.Surfaces),
-            job.Request.Specialty, clock.UtcNow, cancellationToken);
+            job.TenantId, demand, effectiveRequest.AcceptanceCriteria,
+            ToHints(effectiveRequest.Surfaces), effectiveRequest.Specialty,
+            clock.UtcNow, cancellationToken);
 
         // B9/F12: materializar um plano é a Bruna gerando trabalho a partir do próprio output — é
         // aqui que o laço se fecha. A guarda só se aplica ao trabalho que o PRÓPRIO turno gerou;
@@ -250,10 +256,8 @@ public sealed class PlanMaterializationService(
                 PlanId: saved.Plan.Id);
         }
 
-        var activePhase = await activePhases.ResolveAsync(
-            job.TenantId, demand.ProjectId, cancellationToken);
         var outcome = await materializer.MaterializeAsync(
-            job.TenantId, profile.Id, saved.Plan, demand, clock.UtcNow, faults, activePhase,
+            job.TenantId, profile.Id, saved.Plan, demand, clock.UtcNow, faults, activePhase?.Name,
             cancellationToken);
 
         var expected = saved.Plan.Cards.Count;
@@ -284,6 +288,73 @@ public sealed class PlanMaterializationService(
             CreatedCards: outcome.CreatedCards,
             PlanId: saved.Plan.Id);
     }
+
+    /// <summary>
+    /// Um pedido de produto capturado na Triagem costuma nascer como trabalho de descoberta:
+    /// especialidade de PO e superfícies de código negadas. Esse fato é correto antes do gate,
+    /// mas reutilizar literalmente o mesmo envelope na Fase 5 criaria apenas outro documento de
+    /// requisitos. Quando a própria demanda preserva intenção explícita de construir um produto,
+    /// promovemos o compromisso para backend + interface e removemos a persona de descoberta.
+    /// Negação explícita de construção continua prevalecendo (Default-FAIL para inferência).
+    /// </summary>
+    internal static PlanMaterializationRequest PromoteRequestForDevelopment(
+        PlanMaterializationRequest request,
+        BoardDemandRecord demand,
+        ActiveWorkflowPhase? activePhase,
+        bool chiefGenerated)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(demand);
+        if (!chiefGenerated || activePhase is null || activePhase.Order < 5)
+        {
+            return request;
+        }
+
+        var surfaces = request.Surfaces;
+        if (surfaces?.Backend == true || surfaces?.Frontend == true)
+        {
+            return request;
+        }
+
+        var text = $"{demand.Title} {demand.Description}".ToLowerInvariant();
+        var explicitlyNotBuilding = ContainsAny(
+            text, "não implementar", "nao implementar", "não construir", "nao construir",
+            "somente requisitos", "apenas requisitos", "só documentar", "so documentar");
+        var explicitProductIntent = ContainsAny(
+            text, "quero um sistema", "criar um sistema", "construir um sistema",
+            "desenvolver um sistema", "pediu um sistema", "pediu uma aplicação",
+            "pediu uma aplicacao", "aplicativo", "portal", "site", "pode tocar");
+        if (explicitlyNotBuilding || !explicitProductIntent)
+        {
+            return request;
+        }
+
+        var explicitlyHeadless = ContainsAny(
+            text, "linha de comando", " cli ", "somente api", "api sem interface",
+            "serviço sem interface", "servico sem interface", "job em lote");
+        var provenance =
+            $"DECISÃO DE PLANEJAMENTO [demanda:{demand.Id}]: o pedido explícito de produto " +
+            "é promovido para implementação na Fase 5; o detalhamento de requisitos já foi " +
+            "tratado nas fases anteriores.";
+        var criteria = request.AcceptanceCriteria
+            .Concat([provenance])
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return request with
+        {
+            AcceptanceCriteria = criteria,
+            Specialty = null,
+            Surfaces = new PlanMaterializationSurfaces(
+                Frontend: !explicitlyHeadless,
+                Backend: true,
+                ExternalCredential: surfaces?.ExternalCredential,
+                TechnicalUncertainty: surfaces?.TechnicalUncertainty,
+                Decision: surfaces?.Decision),
+        };
+    }
+
+    private static bool ContainsAny(string value, params string[] fragments) =>
+        fragments.Any(fragment => value.Contains(fragment, StringComparison.Ordinal));
 
 
     /// <summary>
