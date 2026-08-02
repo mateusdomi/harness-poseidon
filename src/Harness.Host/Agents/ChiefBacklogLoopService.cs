@@ -52,6 +52,15 @@ public sealed partial class ChiefBacklogLoopService(
     private static readonly ScaleDispatcher ScaleGate = new();
 
     /// <summary>
+    /// Último projeto que ocupou um slot por tenant. O próximo ciclo começa DEPOIS dele, evitando
+    /// que um backlog antigo no início da lista por ULID mantenha projetos novos sem vez enquanto
+    /// houver trabalho. O cursor é apenas de escalonamento; nenhuma verdade de negócio depende
+    /// dele e um reinício continua seguro.
+    /// </summary>
+    private readonly Dictionary<string, string> _lastDispatchedProjectByTenant =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Traduz o estado do Capacity Manager (Fase 3) em sinal de cota para o plano de despacho:
     /// conta com circuito aberto por falhas consecutivas, ou marcada como esgotada com janela de
     /// volta, não recebe card nesta rodada. A confiança é ALTA porque o fato é local e medido —
@@ -268,7 +277,9 @@ public sealed partial class ChiefBacklogLoopService(
             var personas = await catalog.ListDefinitionsForTenantAsync(profile.TenantId, null, 100, false, token);
             var plans = scope.ServiceProvider.GetRequiredService<IDemandPlanStore>();
 
-            var projectList = await projects.ListAsync(profile.TenantId, null, 50, token);
+            var listedProjects = await projects.ListAsync(profile.TenantId, null, 50, token);
+            _lastDispatchedProjectByTenant.TryGetValue(profile.TenantId, out var lastProjectId);
+            var projectList = RotateProjectsAfter(listedProjects, lastProjectId);
             foreach (var project in projectList)
             {
                 token.ThrowIfCancellationRequested();
@@ -656,7 +667,10 @@ public sealed partial class ChiefBacklogLoopService(
                 var scale = ScaleGate.Dispatch(
                     queue,
                     Math.Max(1, settings.AutoDispatchMaxConcurrent),
-                    orchestrator.LiveRunCount + dispatched);
+                    // LiveRunCount já inclui as tentativas admitidas acima neste mesmo ciclo. Somar
+                    // `dispatched` outra vez contava cada slot novo em dobro e reduzia a capacidade
+                    // global artificialmente conforme o laço avançava entre projetos.
+                    orchestrator.LiveRunCount);
                 var admitted = new HashSet<string>(
                     scale.DispatchedWorkerCards.Concat(scale.DispatchedCriticCards),
                     StringComparer.Ordinal);
@@ -720,6 +734,7 @@ public sealed partial class ChiefBacklogLoopService(
                             board, chain, token))
                     {
                         dispatched++;
+                        _lastDispatchedProjectByTenant[profile.TenantId] = project.Id;
                     }
                 }
             }
@@ -727,6 +742,40 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         return (dispatched, deferred);
+    }
+
+    /// <summary>
+    /// Ordem round-robin estável: começa depois do último projeto que conseguiu despachar e mantém
+    /// a ordem canônica relativa. Se o cursor sumiu do catálogo, volta à ordem recebida.
+    /// </summary>
+    public static IReadOnlyList<ProjectRecord> RotateProjectsAfter(
+        IReadOnlyList<ProjectRecord> projects,
+        string? lastDispatchedProjectId)
+    {
+        ArgumentNullException.ThrowIfNull(projects);
+        if (projects.Count < 2 || string.IsNullOrWhiteSpace(lastDispatchedProjectId))
+        {
+            return projects;
+        }
+
+        var lastIndex = -1;
+        for (var index = 0; index < projects.Count; index++)
+        {
+            if (string.Equals(projects[index].Id, lastDispatchedProjectId, StringComparison.Ordinal))
+            {
+                lastIndex = index;
+                break;
+            }
+        }
+
+        if (lastIndex < 0 || lastIndex == projects.Count - 1)
+        {
+            return lastIndex < 0
+                ? projects
+                : [.. projects];
+        }
+
+        return [.. projects.Skip(lastIndex + 1), .. projects.Take(lastIndex + 1)];
     }
 
     private static async Task<PlanGraphValidation> ValidatePlanAgainstGraphAsync(
