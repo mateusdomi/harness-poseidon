@@ -19,6 +19,7 @@ using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.CodeGraph;
+using Harness.SharedKernel.Providers;
 using Harness.SharedKernel.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -376,7 +377,8 @@ public sealed partial class ChiefBacklogLoopService(
                 try
                 {
                     await HarvestCompletedRunsAsync(
-                        profile.TenantId, project, projectControlledRoot, board, chain, token);
+                        profile.TenantId, project, projectControlledRoot, board, chain,
+                        scope.ServiceProvider.GetRequiredService<IModelInvocationStore>(), token);
                     token.ThrowIfCancellationRequested();
                     await ReviewAwaitingAttemptsAsync(
                         profile.TenantId,
@@ -1200,6 +1202,7 @@ public sealed partial class ChiefBacklogLoopService(
         string controlledRoot,
         IWorkBoardStore board,
         IWorkChainStore chain,
+        IModelInvocationStore invocations,
         CancellationToken token)
     {
         var harvested = 0;
@@ -1266,12 +1269,19 @@ public sealed partial class ChiefBacklogLoopService(
                 // Central de Entregas e a auditoria leem duração, tokens e custo zerados mesmo
                 // com trabalho real feito. Métrica não exposta pelo executor fica nula (o store
                 // preserva o valor anterior) em vez de virar zero.
+                //
+                // `snapshot.Execution` vem da SESSÃO VIVA e é nulo sempre que a colheita acontece
+                // num ciclo posterior ao término do processo — o caso comum. Por isso a fonte
+                // primária é o ledger durável de invocações, que sobrevive ao fim da sessão e ao
+                // reinício do Host.
+                var usage = await ReadAttemptUsageAsync(
+                    tenantId, task.Id, running.Id, snapshot.Execution, invocations, token);
                 var completed = await chain.CompleteAttemptAsync(
                     new WorkAttemptCompleteCommand(
                         tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
                         evidence,
                         $"chief-loop-complete:{running.Id}", now,
-                        ToAttemptUsage(snapshot.Execution)),
+                        usage),
                     token);
                 if (completed.Status is WorkChainMutationStatus.Applied
                     or WorkChainMutationStatus.IdempotentReplay)
@@ -1372,24 +1382,71 @@ public sealed partial class ChiefBacklogLoopService(
     }
 
     /// <summary>
-    /// Projeta o consumo medido do executor para a tentativa. Duração sempre existe (o adapter
-    /// cronometra o processo); tokens e custo só quando a CLI os expôs — quando não expõe, os
-    /// campos ficam nulos e o store preserva o valor anterior, para que "zero medido" nunca seja
-    /// confundido com "desconhecido".
+    /// Consumo medido da tentativa. A sessão viva é a fonte mais rica, mas some assim que o
+    /// processo termina; o ledger de invocações é durável e cobre inclusive a colheita feita
+    /// depois de um reinício do Host. Somar as invocações da tentativa é o número certo: uma
+    /// tentativa pode ter mais de uma chamada (retry interno, continuação).
     /// </summary>
-    public static WorkAttemptUsage? ToAttemptUsage(ExternalAgentRunResult? execution)
+    private static async Task<WorkAttemptUsage?> ReadAttemptUsageAsync(
+        string tenantId,
+        string taskId,
+        string attemptId,
+        ExternalAgentRunResult? execution,
+        IModelInvocationStore invocations,
+        CancellationToken token)
     {
-        if (execution is null)
+        IReadOnlyList<ModelInvocationRecord> recorded = [];
+        try
         {
-            return null;
+            recorded = [.. (await invocations.GetTaskInvocationsAsync(tenantId, taskId, token))
+                .Where(entry => string.Equals(entry.AttemptId, attemptId, StringComparison.Ordinal))];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Telemetria não pode impedir a colheita de um trabalho que já ficou pronto.
         }
 
-        var usage = execution.Usage;
-        return new WorkAttemptUsage(
-            execution.DurationMs,
-            usage?.InputTokens,
-            usage?.OutputTokens,
-            usage?.CostUsd);
+        return ToAttemptUsage(execution, recorded);
+    }
+
+    /// <summary>
+    /// Combina sessão viva e ledger durável. Um campo permanece <see langword="null"/> quando
+    /// NENHUMA das duas fontes o mediu — o store então preserva o valor anterior, para que "zero
+    /// medido" nunca seja confundido com "desconhecido".
+    ///
+    /// Uma invocação sem uso exposto grava zero no ledger e é marcada com o sufixo
+    /// <c>usage_unknown</c> no desfecho; somar esse zero como se fosse medição produziria um custo
+    /// falso de US$ 0,00. Por isso tokens e custo só sobem quando existe ao menos uma invocação
+    /// com uso realmente conhecido.
+    /// </summary>
+    public static WorkAttemptUsage? ToAttemptUsage(
+        ExternalAgentRunResult? execution,
+        IReadOnlyList<ModelInvocationRecord> recorded)
+    {
+        ArgumentNullException.ThrowIfNull(recorded);
+        var measured = recorded
+            .Where(entry => !entry.Outcome.EndsWith("|usage_unknown", StringComparison.Ordinal))
+            .ToArray();
+
+        long? durationMs = execution?.DurationMs;
+        if (durationMs is null && recorded.Count > 0)
+        {
+            durationMs = recorded.Sum(entry => entry.DurationMs);
+        }
+
+        long? tokensInput = execution?.Usage?.InputTokens;
+        long? tokensOutput = execution?.Usage?.OutputTokens;
+        decimal? costUsd = execution?.Usage?.CostUsd;
+        if (measured.Length > 0)
+        {
+            tokensInput ??= measured.Sum(entry => (long)entry.InputTokens);
+            tokensOutput ??= measured.Sum(entry => (long)entry.OutputTokens);
+            costUsd ??= measured.Sum(entry => entry.EstimatedCostUsd);
+        }
+
+        return durationMs is null && tokensInput is null && tokensOutput is null && costUsd is null
+            ? null
+            : new WorkAttemptUsage(durationMs, tokensInput, tokensOutput, costUsd);
     }
 
     /// <summary>

@@ -4,7 +4,7 @@
       "title": "Area available in Technical mode",
       "body": "Change the presentation mode in Settings to manage the connections used by the team."
     },
-    "subtitle": "Connect your AI accounts and track each provider's models, health and usage.",
+    "subtitle": "Connect the accounts the team uses and track each provider's models, health and usage.",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "local": "Local",

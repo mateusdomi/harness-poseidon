@@ -11,6 +11,7 @@ using Harness.Modules.Projects.Contracts;
 using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -229,7 +230,8 @@ public sealed class ChiefFollowUpLoopTests
 
             // 4. COLHEITA: o run Completed vira `awaiting_review` durável e o card vai a `review`.
             var harvested = await service.HarvestCompletedRunsAsync(
-                tenantId, project, Path.GetFullPath(controlledRoot), board, chain, cts.Token);
+                tenantId, project, Path.GetFullPath(controlledRoot), board, chain,
+                app.Services.GetRequiredService<IModelInvocationStore>(), cts.Token);
             Assert.Equal(1, harvested);
             var afterHarvest = (await board.GetTaskAsync(tenantId, wave1.Id, cts.Token))!;
             Assert.Equal("review", afterHarvest.State);
