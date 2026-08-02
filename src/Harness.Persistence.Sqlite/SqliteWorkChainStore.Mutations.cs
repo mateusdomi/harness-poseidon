@@ -367,6 +367,16 @@ public sealed partial class SqliteWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> EscalateUndispatchableTaskAsync(
+        WorkTaskUndispatchableCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => EscalateUndispatchableTaskCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReplanEscalatedTaskAsync(
         WorkTaskReplanCommand command,
         CancellationToken cancellationToken = default)
@@ -797,6 +807,82 @@ public sealed partial class SqliteWorkChainStore
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
             "attempt.completed", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    /// <summary>
+    /// Escala um card PRONTO que o despacho não consegue assumir. Não há tentativa: nada foi
+    /// executado, então nada é reprovado — o card apenas sai da fila e vira impedimento visível.
+    /// </summary>
+    private static async Task<WorkChainMutationReceipt> EscalateUndispatchableTaskCoreAsync(
+        SqliteConnection connection,
+        WorkTaskUndispatchableCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId, command.TaskId,
+            attemptId: null, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, attemptId: null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict, row, command.TaskId, attemptId: null);
+        }
+        else if (row.TaskState is not ("ready" or "backlog" or "triaged"))
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState, row, command.TaskId, attemptId: null);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                UPDATE work_tasks SET state = 'escalated', version = $nextVersion,
+                    updated_at = $occurredAt, board_state = 'blocked', blocked_reason = $reason
+                WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
+                """;
+            Add(mutation, "$reason", command.Reason);
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$nextVersion", nextVersion);
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$expectedVersion", command.ExpectedTaskVersion);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, AttemptId: null,
+                nextVersion, "escalated", null);
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "task.stateChanged", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "ready",
+                receipt.TaskState ?? "ready",
+                "dispatchImpossible",
+                "dispatch",
+                "system",
+                "chief-backlog-loop",
+                command.Reason,
+                command.EvidenceReference),
+            cancellationToken);
     }
 
     /// <summary>

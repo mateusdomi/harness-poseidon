@@ -343,6 +343,14 @@ public sealed partial class PostgresWorkChainStore
         return EscalateUnreviewableTaskCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> EscalateUndispatchableTaskAsync(
+        WorkTaskUndispatchableCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return EscalateUndispatchableTaskCoreAsync(command, cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReplanEscalatedTaskAsync(
         WorkTaskReplanCommand command,
         CancellationToken cancellationToken = default)
@@ -892,6 +900,77 @@ public sealed partial class PostgresWorkChainStore
                 command.ReviewerAgentId,
                 command.Rationale,
                 $"review:{command.ReviewId}"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Escala um card PRONTO que o despacho não consegue assumir. Não há tentativa: nada foi
+    /// executado, então nada é reprovado — o card apenas sai da fila e vira impedimento visível.
+    /// </summary>
+    private async Task<WorkChainMutationReceipt> EscalateUndispatchableTaskCoreAsync(
+        WorkTaskUndispatchableCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId,
+            command.TaskId, attemptId: null, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, attemptId: null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict, row, command.TaskId, attemptId: null);
+        }
+        else if (row.TaskState is not ("ready" or "backlog" or "triaged"))
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState, row, command.TaskId, attemptId: null);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                UPDATE harness.work_tasks SET state = 'escalated', version = $1, updated_at = $2,
+                    board_state = 'blocked', blocked_reason = $3
+                WHERE id = $4 AND tenant_id = $5 AND version = $6;
+                """,
+                cancellationToken,
+                Bigint(nextVersion), Timestamp(command.OccurredAt), Text(command.Reason),
+                Text(command.TaskId), Text(command.TenantId), Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, AttemptId: null,
+                nextVersion, "escalated", null);
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "task.stateChanged", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "ready",
+                receipt.TaskState ?? "ready",
+                "dispatchImpossible",
+                "dispatch",
+                "system",
+                "chief-backlog-loop",
+                command.Reason,
+                command.EvidenceReference),
             cancellationToken);
     }
 

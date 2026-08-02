@@ -5,28 +5,6 @@ namespace Harness.UnitTests.Documents;
 public sealed class DocumentLifecycleMutationValidatorTests
 {
     [Fact]
-    public void ReopeningAnApprovedDocumentIsReservedToTheGovernedRevisionPath()
-    {
-        // Um documento aprovado é imutável. Sem uma reabertura explícita, revisar um artefato já
-        // aceito só poderia ser feito gravando a versão nova por baixo do estado `approved` — e
-        // ela herdaria a aprovação da anterior sem que ninguém a tivesse revisado. Reabrir devolve
-        // o documento à elaboração, onde a versão nova conquista a própria aprovação.
-        Assert.True(DocumentLifecycleMutationValidator.CanTransition(
-            "approved", "in_elaboration", "system"));
-
-        // Restrito ao sistema: se a API ou um humano pudesse reabrir, a imutabilidade viraria
-        // apenas um passo a mais para contornar.
-        Assert.False(DocumentLifecycleMutationValidator.CanTransition(
-            "approved", "in_elaboration", "user"));
-        Assert.False(DocumentLifecycleMutationValidator.CanTransition(
-            "approved", "in_elaboration", "agent"));
-
-        // Nada além disso muda: aprovado continua sem caminho de volta para revisão direta.
-        Assert.False(DocumentLifecycleMutationValidator.CanTransition(
-            "approved", "in_review", "system"));
-    }
-
-    [Fact]
     public void OnlySystemEvidenceCanProjectAnIndependentlyReviewedCardAsApproved()
     {
         Assert.True(DocumentLifecycleMutationValidator.CanTransition(

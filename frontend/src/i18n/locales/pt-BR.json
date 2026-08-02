@@ -547,7 +547,9 @@
       "workflow.bind": "Vincular fluxo de trabalho",
       "chief.configureModel": "Configurar Bruna",
       "agent.recover": "Reativar pessoa da equipe",
-      "conversation.start": "Iniciar conversa"
+      "conversation.start": "Iniciar conversa",
+      "dispatch.enable": "Ligar a esteira",
+      "project.fixRepository": "Corrigir a pasta do projeto"
     },
     "blockers": {
       "profile.missing": "Nenhum perfil local ativo.",
@@ -560,7 +562,9 @@
       "chief.missing": "O projeto não tem liderança configurada.",
       "chief.model_unresolved": "Não foi possível definir o modo de trabalho da Bruna.",
       "agent.unavailable": "Ninguém da equipe está disponível.",
-      "agent.degraded": "Alguém da equipe está indisposto."
+      "agent.degraded": "Alguém da equipe está indisposto.",
+      "dispatch.disabled": "A esteira está desligada: o trabalho é organizado, mas ninguém começa a executar.",
+      "repository.unreachable": "Não encontrei a pasta de trabalho deste projeto no seu computador."
     }
   },
   "onboarding": {

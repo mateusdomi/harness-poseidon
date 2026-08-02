@@ -1074,6 +1074,76 @@ internal static class WorkChainStoreBehavior
         Assert.Equal("escalated", final.TaskState);
     }
 
+    /// <summary>
+    /// Um card PRONTO que o despacho nunca conseguiria assumir — papel sem escopo de escrita, cuja
+    /// tentativa a política de path recusaria em toda rodada — precisa virar impedimento, não ficar
+    /// para sempre na fila sendo reexaminado a cada ciclo sem ninguém saber.
+    /// </summary>
+    public static async Task AssertUndispatchableEscalationAsync(
+        IWorkChainStore store,
+        CancellationToken cancellationToken)
+    {
+        const string instruction = "Revisar sem poder escrever em lugar nenhum.";
+        var chain = new WorkChainCreateCommand(
+            FoundationTransactionBehavior.TenantId,
+            FoundationTransactionBehavior.ProjectId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+            "01ARZ3NDEKTSV4RRFFQ69G5G11",
+            "Prove that an undispatchable card escalates instead of idling forever.",
+            "01ARZ3NDEKTSV4RRFFQ69G5G12",
+            "Persist the undispatchable demand",
+            "[\"The impediment is auditable\"]",
+            "01ARZ3NDEKTSV4RRFFQ69G5G13",
+            "Undispatchable work chain",
+            "low",
+            5m,
+            "01ARZ3NDEKTSV4RRFFQ69G5G14",
+            instruction,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instruction))),
+            "work-chain:create:undispatchable",
+            new DateTimeOffset(2026, 8, 2, 12, 0, 0, TimeSpan.Zero));
+        var created = await store.CreateAsync(chain, cancellationToken);
+        Assert.False(created.Replay);
+
+        var escalation = new WorkTaskUndispatchableCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            "Especialidade sem permissão para alterar arquivo nenhum.",
+            $"card:{chain.TaskId}",
+            1,
+            "work-chain:task:undispatchable:planned",
+            chain.OccurredAt.AddMinutes(1));
+
+        // Recém-criado o card ainda não foi triado: escalar antes disso é estado inválido, porque
+        // ninguém sequer tentou resolver o papel dele.
+        var beforeTriage = await store.EscalateUndispatchableTaskAsync(escalation, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, beforeTriage.Status);
+
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        var ready = escalation with
+        {
+            ExpectedTaskVersion = 3,
+            IdempotencyKey = "work-chain:task:undispatchable:ready",
+            OccurredAt = chain.OccurredAt.AddMinutes(2),
+        };
+        var escalated = await store.EscalateUndispatchableTaskAsync(ready, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, escalated.Status);
+        Assert.Equal("escalated", escalated.TaskState);
+        Assert.NotNull(escalated.LedgerHash);
+
+        var replay = await store.EscalateUndispatchableTaskAsync(ready, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, replay.Status);
+        Assert.Equal(escalated.LedgerHash, replay.LedgerHash);
+
+        var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
+        Assert.NotNull(final);
+        Assert.Equal("escalated", final.TaskState);
+        // Nada foi executado, então nada foi reprovado: o card escala sem tentativa nenhuma.
+        Assert.Equal(0, final.AttemptCount);
+    }
+
     private static async Task AssertInitialLifecycleAsync(
         IWorkChainStore store,
         WorkChainCreateCommand chain,

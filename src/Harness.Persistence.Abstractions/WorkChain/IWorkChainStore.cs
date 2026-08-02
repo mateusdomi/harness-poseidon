@@ -69,6 +69,10 @@ public interface IWorkChainStore
         WorkTaskReviewUnavailableCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> EscalateUndispatchableTaskAsync(
+        WorkTaskUndispatchableCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> MergeApprovedTaskAsync(
         WorkTaskMergeCommand command,
         CancellationToken cancellationToken = default);
@@ -270,6 +274,28 @@ public sealed record WorkTaskReviewUnavailableCommand(
     string SolicitationId,
     string TaskId,
     string AttemptId,
+    string Reason,
+    string EvidenceReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+/// <summary>
+/// Escala um card PRONTO que o despacho não consegue assumir por uma razão estrutural — hoje, um
+/// papel resolvido sem nenhum escopo de escrita, cuja tentativa a política de path recusaria em
+/// toda rodada.
+///
+/// Existe pelo mesmo motivo da escalação de revisão impossível: pular é a resposta certa uma vez e
+/// errada para sempre. Sem um destino, o card ficava em `ready` indefinidamente, o loop o
+/// reexaminava a cada ciclo, o log crescia sem limite e ninguém — nem a Diretora de Engenharia,
+/// nem o dono — jamais ficava sabendo que aquele trabalho nunca ia acontecer.
+///
+/// Não há tentativa envolvida: nada foi executado, então nada é reprovado.
+/// </summary>
+public sealed record WorkTaskUndispatchableCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
     string Reason,
     string EvidenceReference,
     long ExpectedTaskVersion,
@@ -654,6 +680,19 @@ public static class WorkChainMutationValidator
             command.SolicitationId,
             command.TaskId,
             command.AttemptId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateText(command.Reason, nameof(command), 10_000);
+        ValidateText(command.EvidenceReference, nameof(command), 2_000);
+    }
+
+    public static void Validate(WorkTaskUndispatchableCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
             command.ExpectedTaskVersion,
             command.IdempotencyKey);
         ValidateText(command.Reason, nameof(command), 10_000);

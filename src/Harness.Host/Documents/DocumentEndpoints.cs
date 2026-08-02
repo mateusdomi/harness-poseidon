@@ -216,6 +216,20 @@ public static class DocumentEndpoints
         var snapshot = await authority.ReadAsync(profile.TenantId, documentId, token);
         if (snapshot is null) return NotFound("document");
 
+        // Documento APROVADO é imutável por esta porta. O store reabre um documento aprovado ao
+        // receber uma versão nova — é o caminho governado da revisão, disparado pela publicação de
+        // um card já revisado por outro profissional. Pela API, a mesma escrita é uma edição
+        // avulsa: ela derrubaria a aprovação de um artefato aceito sem nenhuma revisão por trás, e
+        // a fase seguinte passaria a se apoiar num documento que ninguém aceitou. Revisar um
+        // artefato aprovado é trabalho, e trabalho nasce de card.
+        if (string.Equals(snapshot.State, "approved", StringComparison.Ordinal))
+        {
+            return Problem(
+                409,
+                "document_approved_immutable",
+                "An approved document cannot be edited directly. Revise it through a reviewed card.");
+        }
+
         // Fase 2A.1 (correção de achado do parecer): a conformidade vale para TODA versão, não só
         // para a primeira. Validar apenas na criação deixava o caminho óbvio aberto — criar
         // conforme e, na versão seguinte, gravar qualquer coisa. O gate valeria para o primeiro

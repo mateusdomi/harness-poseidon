@@ -547,7 +547,9 @@
       "workflow.bind": "Link workflow",
       "chief.configureModel": "Configure Bruna",
       "agent.recover": "Bring a team member back",
-      "conversation.start": "Start conversation"
+      "conversation.start": "Start conversation",
+      "dispatch.enable": "Turn the pipeline on",
+      "project.fixRepository": "Fix the project folder"
     },
     "blockers": {
       "profile.missing": "No active local profile.",
@@ -560,7 +562,9 @@
       "chief.missing": "The project has no configured leadership.",
       "chief.model_unresolved": "Bruna's working mode could not be resolved.",
       "agent.unavailable": "Nobody on the team is available.",
-      "agent.degraded": "Someone on the team is unwell."
+      "agent.degraded": "Someone on the team is unwell.",
+      "dispatch.disabled": "The pipeline is switched off: work gets organised, but nobody starts executing it.",
+      "repository.unreachable": "I could not find this project's working folder on your computer."
     }
   },
   "onboarding": {

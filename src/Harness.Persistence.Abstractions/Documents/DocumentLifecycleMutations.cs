@@ -117,14 +117,6 @@ public static class DocumentLifecycleMutationValidator
     /// Política única de transição usada pelos stores. O caminho especial para `approved` não é
     /// uma aprovação genérica: só o ator `system`, já validado com evidência card+review acima,
     /// pode projetar no catálogo a aprovação que aconteceu na cadeia durável de trabalho.
-    ///
-    /// A REABERTURA de um documento aprovado obedece à mesma disciplina e pelo mesmo motivo. Um
-    /// documento aprovado é imutável: sem essa transição, revisar um artefato já aceito só poderia
-    /// ser feito gravando uma versão nova por baixo do estado `approved` — a nova versão herdaria
-    /// silenciosamente a aprovação da anterior, e a fase seguinte passaria a se apoiar num
-    /// documento que ninguém revisou. Reabrir devolve o documento a `in_elaboration`, onde a nova
-    /// versão precisa conquistar a própria aprovação. Fica restrito ao ator `system` para que nem
-    /// a API nem um humano possam reabrir e contornar a imutabilidade.
     /// </summary>
     public static bool CanTransition(string current, string target, string actorKind) =>
         (current, target) switch
@@ -133,7 +125,6 @@ public static class DocumentLifecycleMutationValidator
             ("in_elaboration", "in_review" or "not_applicable") => true,
             ("in_elaboration", "approved") => actorKind == "system",
             ("in_review", "in_elaboration") => true,
-            ("approved", "in_elaboration") => actorKind == "system",
             ("approved", "outdated" or "superseded") => true,
             _ => false,
         };

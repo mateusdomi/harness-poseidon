@@ -1,5 +1,6 @@
 using System.Globalization;
 using Harness.Host.Providers;
+using Harness.Host.Agents;
 using Harness.Host.Readiness;
 using Harness.Host.Workflows;
 using Harness.Modules.Readiness.Contracts;
@@ -73,7 +74,7 @@ public sealed class ChiefCliProviderCatalogSeederTests
                 var seeder = new ChiefCliProviderCatalogSeeder(
                     providers, agents, projects, workflowCatalog, workflowSeeder, workflowAuthority, clock);
                 var readiness = new ProjectReadinessService(
-                    organizations, providers, agents, workflowCatalog);
+                    organizations, providers, agents, workflowCatalog, new AgentRunSettings());
 
                 // Antes do seed: a execução está BLOQUEADA (sem conta/modelo/workflow reais).
                 var project = await projects.GetAsync(tenantId, projectId, timeout.Token);

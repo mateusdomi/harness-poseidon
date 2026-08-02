@@ -167,38 +167,6 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
                         : new(false, "document.approved_state_not_converged", documentId, versionId, sourcePath);
                 }
 
-                // REVISÃO de um artefato já aceito: o documento aprovado é imutável, então a nova
-                // versão não pode ser gravada por baixo do estado `approved` — ela herdaria a
-                // aprovação da versão anterior sem que ninguém a tivesse revisado. Reabrir devolve
-                // o documento a `in_elaboration`, e é ali que a versão nova conquista a própria
-                // aprovação, logo abaixo, com a evidência da revisão desta tentativa.
-                if (string.Equals(snapshot.State, "approved", StringComparison.Ordinal))
-                {
-                    var reopened = await documents.TransitionAsync(
-                        new DocumentTransitionCommand(
-                            tenantId,
-                            documentId,
-                            attempt.Id,
-                            "in_elaboration",
-                            $"revision-card:{task.Id};revision-attempt:{attempt.Id}",
-                            "system",
-                            null,
-                            snapshot.Version,
-                            $"reopen-approved-document:{attempt.Id}",
-                            clock.UtcNow),
-                        cancellationToken);
-                    if (reopened.Status is not (DocumentMutationStatus.Applied
-                        or DocumentMutationStatus.IdempotentReplay))
-                    {
-                        throw new InvalidOperationException(
-                            $"Approved document could not be reopened for revision: {reopened.Status}.");
-                    }
-
-                    snapshot = await documents.ReadAsync(tenantId, documentId, cancellationToken)
-                        ?? throw new InvalidOperationException(
-                            "The catalog document disappeared after being reopened.");
-                }
-
                 var receipt = await documents.AppendVersionAsync(
                     new DocumentVersionAppendCommand(
                         tenantId,

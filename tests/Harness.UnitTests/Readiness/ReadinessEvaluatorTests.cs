@@ -38,6 +38,45 @@ public sealed class ReadinessEvaluatorTests
         snapshot.Steps.Single(item => item.Step == step);
 
     [Fact]
+    public void UmProjetoConfiguradoComAEsteiraDesligadaNaoEstaPronto()
+    {
+        // O pior estado possível para quem começa um projeto e sai do computador: tudo aparece
+        // pronto, a conversa responde, o trabalho é organizado — e nada nunca é executado. O
+        // silêncio fica indistinguível de trabalho em curso.
+        var snapshot = ReadinessEvaluator.Evaluate(FullyReal() with { DispatchEnabled = false });
+
+        var execution = StepOf(snapshot, ReadinessStep.ExecutionReady);
+        Assert.NotEqual(ConfigurationState.Ready, execution.State);
+        Assert.Contains(execution.Blockers, blocker => blocker.Code == "dispatch.disabled");
+        Assert.Equal("dispatch.enable", execution.NextAction?.Code);
+    }
+
+    [Fact]
+    public void UmProjetoSemPastaDeTrabalhoNaoEstaPronto()
+    {
+        // Sem repositório toda tentativa falha na largada, uma depois da outra, e a causa só
+        // aparece no log de execução — nunca para quem pediu o projeto.
+        var snapshot = ReadinessEvaluator.Evaluate(FullyReal() with { RepositoryReachable = false });
+
+        var execution = StepOf(snapshot, ReadinessStep.ExecutionReady);
+        Assert.NotEqual(ConfigurationState.Ready, execution.State);
+        var blocker = Assert.Single(
+            execution.Blockers, candidate => candidate.Code == "repository.unreachable");
+        Assert.Equal([ProjectId], blocker.RelatedIds);
+        Assert.Equal("project.fixRepository", execution.NextAction?.Code);
+    }
+
+    [Fact]
+    public void ComTudoRealEOperacionalEmPeAExecucaoEstaPronta()
+    {
+        var execution = StepOf(
+            ReadinessEvaluator.Evaluate(FullyReal()), ReadinessStep.ExecutionReady);
+
+        Assert.Equal(ConfigurationState.Ready, execution.State);
+        Assert.Empty(execution.Blockers);
+    }
+
+    [Fact]
     public void EmptyInstallReportsEverythingUnconfiguredWithTypedBlockers()
     {
         var snapshot = ReadinessEvaluator.Evaluate(Empty());

@@ -19,7 +19,11 @@ public sealed class AgentExecutorTests
         Assert.Equal(first.StructuredOutput, replay.StructuredOutput);
         Assert.Equal(first.Chunks, replay.Chunks);
         var output = ChiefTurnOutputContract.Parse(first.StructuredOutput);
-        Assert.Contains("Continue com segurança", output.Response, StringComparison.Ordinal);
+        // A resposta NÃO devolve a instrução recebida: ecoar o texto do usuário arrastava o
+        // vocabulário técnico dele para a experiência de negócio, e o validador do turno recusava
+        // — corretamente — um texto que o próprio sistema escreveu.
+        Assert.DoesNotContain("Continue com segurança", output.Response, StringComparison.Ordinal);
+        Assert.Contains("Recebi sua mensagem", output.Response, StringComparison.Ordinal);
         Assert.Empty(output.Demands);
     }
 

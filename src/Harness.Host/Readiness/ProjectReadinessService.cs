@@ -17,7 +17,8 @@ public sealed class ProjectReadinessService(
     IOrganizationStore organizations,
     IProviderCatalogStore providers,
     IAgentCatalogStore agents,
-    IWorkflowCatalogStore workflows)
+    IWorkflowCatalogStore workflows,
+    Agents.AgentRunSettings settings)
 {
     // ULIDs do auto-seed de conveniência da RC3 (ADR-018). Enquanto o seed existir (até a
     // Fatia B removê-lo), esses recursos são marcados como Simulated para que a prontidão
@@ -70,6 +71,12 @@ public sealed class ProjectReadinessService(
 
         var chiefFact = await ResolveChiefAsync(tenantId, project.ChiefAgentId, activeProviderIds, cancellationToken);
 
+        // Sinais OPERACIONAIS: sem eles a prontidão dizia "pronto" para um projeto que nunca ia
+        // andar. A esteira desligada e o repositório inacessível produzem exatamente o mesmo
+        // sintoma para quem pediu o projeto — silêncio — e nenhum dos dois aparecia em lugar
+        // nenhum da experiência.
+        var repositoryReachable = RepositoryIsReachable(project.RepositoryUrl);
+
         var inputs = new ReadinessInputs(
             profileReady,
             organizationReady,
@@ -78,8 +85,38 @@ public sealed class ProjectReadinessService(
             accountFact,
             modelFact,
             workflowBound,
-            chiefFact);
+            chiefFact,
+            settings.AutoDispatchEnabled,
+            repositoryReachable);
         return ReadinessEvaluator.Evaluate(inputs);
+    }
+
+    /// <summary>
+    /// A pasta de trabalho DECLARADA pelo projeto existe. O alvo é o defeito silencioso observado:
+    /// o projeto aponta para um caminho local que sumiu (movido, renomeado, em outro disco), toda
+    /// tentativa morre na largada e a causa só aparece no log de execução.
+    ///
+    /// O que NÃO se afirma aqui: um caminho remoto não é verificado (exigiria IO de rede) e a
+    /// ausência de repositório declarado não é tratada como falha — sobre ela esta checagem não
+    /// tem prova, e afirmar sem prova é o mesmo erro que ela existe para corrigir.
+    /// </summary>
+    private static bool RepositoryIsReachable(string? repositoryUrl)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryUrl) ||
+            repositoryUrl.Contains("://", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        try
+        {
+            return Directory.Exists(Path.GetFullPath(repositoryUrl));
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private async Task<ChiefFact> ResolveChiefAsync(

@@ -20,6 +20,15 @@ public sealed record ChiefFact(
 }
 
 /// <summary>Entradas puras já coletadas dos stores. A avaliação não acessa IO.</summary>
+/// <param name="DispatchEnabled">
+/// A esteira está ligada. Configuração completa com despacho desligado é o pior estado possível
+/// para quem começa um projeto e sai do computador: tudo aparece pronto, a conversa responde, os
+/// cards nascem — e nada nunca é executado. O silêncio é indistinguível de trabalho em curso.
+/// </param>
+/// <param name="RepositoryReachable">
+/// O repositório do projeto existe e é acessível. Sem ele toda tentativa falha na largada, uma
+/// depois da outra, e a causa só aparece no log de execução — nunca para quem pediu o projeto.
+/// </param>
 public sealed record ReadinessInputs(
     bool ProfileReady,
     bool OrganizationReady,
@@ -28,7 +37,9 @@ public sealed record ReadinessInputs(
     DependencyFact ProviderAccount,
     DependencyFact Model,
     bool WorkflowBound,
-    ChiefFact Chief);
+    ChiefFact Chief,
+    bool DispatchEnabled = true,
+    bool RepositoryReachable = true);
 
 /// <summary>
 /// Avaliador puro e determinístico do read model de prontidão (ADR-017). Não persiste
@@ -193,13 +204,25 @@ public static class ReadinessEvaluator
             (inputs.Model.Present && inputs.Model.Simulated) ||
             (inputs.Chief.AgentPresent && inputs.Chief.Simulated);
 
-        if (accountReal && modelReal && inputs.WorkflowBound && chiefReal)
+        // Prontidão de EXECUÇÃO é sobre o trabalho realmente acontecer, não só sobre as peças
+        // estarem no lugar. Dois estados operacionais fazem um projeto inteiramente configurado
+        // ficar parado sem ninguém perceber, e por isso entram aqui: a esteira desligada e o
+        // repositório inacessível.
+        if (accountReal && modelReal && inputs.WorkflowBound && chiefReal &&
+            inputs.DispatchEnabled && inputs.RepositoryReachable)
         {
             return Step(ReadinessStep.ExecutionReady, "execution", ConfigurationState.Ready,
                 nextAction: new ReadinessNextAction("conversation.start", "/projects", inputs.ProjectId));
         }
 
         var blockers = new List<ReadinessBlocker>();
+        if (!inputs.DispatchEnabled) blockers.Add(new ReadinessBlocker("dispatch.disabled", []));
+        if (!inputs.RepositoryReachable)
+        {
+            blockers.Add(new ReadinessBlocker(
+                "repository.unreachable", inputs.ProjectId is null ? [] : [inputs.ProjectId]));
+        }
+
         if (!inputs.ProviderAccount.Present) blockers.Add(new ReadinessBlocker("provider_account.missing", []));
         if (!inputs.Model.Present) blockers.Add(new ReadinessBlocker("model.none_chat_enabled", []));
         if (!inputs.WorkflowBound) blockers.Add(new ReadinessBlocker("workflow.unbound", []));
@@ -226,6 +249,9 @@ public static class ReadinessEvaluator
             ? new ReadinessNextAction("conversation.start", "/projects", inputs.ProjectId)
             : blockers[0].Code switch
             {
+                "dispatch.disabled" => new ReadinessNextAction("dispatch.enable", "/settings", null),
+                "repository.unreachable" =>
+                    new ReadinessNextAction("project.fixRepository", "/projects", inputs.ProjectId),
                 "provider_account.missing" => new ReadinessNextAction("provider.connectAccount", "/providers", null),
                 "model.none_chat_enabled" => new ReadinessNextAction("model.enable", "/providers", null),
                 "workflow.unbound" => new ReadinessNextAction("workflow.bind", "/workflows", null),

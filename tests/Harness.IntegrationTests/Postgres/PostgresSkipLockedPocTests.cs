@@ -49,6 +49,9 @@ public sealed class PostgresSkipLockedPocTests
         await WorkChainStoreBehavior.AssertReviewUnavailableEscalationAsync(
             new PostgresWorkChainStore(dataSource),
             timeout.Token);
+        await WorkChainStoreBehavior.AssertUndispatchableEscalationAsync(
+            new PostgresWorkChainStore(dataSource),
+            timeout.Token);
         await ValidateWorkflowSchemaAsync(dataSource, timeout.Token);
         await WorkflowStoreBehavior.AssertAsync(
             new PostgresWorkflowStore(dataSource),
@@ -489,9 +492,9 @@ public sealed class PostgresSkipLockedPocTests
             INSERT INTO harness.work_attempts
                 (id, tenant_id, project_id, task_id, instruction_version_id,
                  attempt_number, producer_agent_id, state, started_at)
-            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-                    '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2',
-                    '01ARZ3NDEKTSV4RRFFQ69G5FE3', 2, 'engineer-2', 'running',
+            VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ7', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                    '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FZ2',
+                    '01ARZ3NDEKTSV4RRFFQ69G5FZ3', 2, 'engineer-2', 'running',
                     '2026-07-18T16:00:01Z');
             """);
         var exception = await Assert.ThrowsAsync<PostgresException>(
@@ -698,43 +701,49 @@ public sealed class PostgresSkipLockedPocTests
                 '01ARZ3NDEKTSV4RRFFQ69G5FG5', 'pending');
         """;
 
+    // Sonda de ESQUEMA: linhas cruas só para provar que tabelas, colunas e chaves existem.
+    // Precisam de identificadores EXCLUSIVOS. Enquanto compartilhavam a faixa `…FE*` com o
+    // comportamento dual-provider, a sonda semeava a MESMA solicitação que
+    // `AssertFailedAttemptAsync` criaria logo depois: a suíte inteira do PostgreSQL morria em
+    // `solicitations_pkey` antes de exercitar qualquer regra — um vermelho que não falava sobre o
+    // produto e escondia todo o resto do arquivo.
     private const string WorkChainInsertSql =
         """
         INSERT INTO harness.solicitations (id, tenant_id, project_id, user_id, content, created_at)
-        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE0', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ0', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
                 '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FAY', 'Request',
                 '2026-07-18T16:00:00Z');
         INSERT INTO harness.demands
             (id, tenant_id, project_id, solicitation_id, title, acceptance_criteria_json, created_at)
-        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE1', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE0', 'Demand',
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ1', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FZ0', 'Demand',
                 '["green"]', '2026-07-18T16:00:00Z');
         INSERT INTO harness.work_tasks
             (id, tenant_id, project_id, demand_id, title, risk_tier, weight, state, created_at, updated_at)
-        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE2', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE1', 'Task',
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ2', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FZ1', 'Task',
                 'medium', 3, 'running', '2026-07-18T16:00:00Z', '2026-07-18T16:00:00Z');
         INSERT INTO harness.instruction_versions
             (id, tenant_id, project_id, task_id, version, content, content_hash, created_at)
-        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE3', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2', 1, 'Instruction',
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ3', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FZ2', 1, 'Instruction',
                 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
                 '2026-07-18T16:00:00Z');
         INSERT INTO harness.work_attempts
             (id, tenant_id, project_id, task_id, instruction_version_id,
              attempt_number, producer_agent_id, state, started_at)
-        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE4', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE2',
-                '01ARZ3NDEKTSV4RRFFQ69G5FE3', 1, 'engineer', 'running', '2026-07-18T16:00:00Z');
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ4', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FZ2',
+                '01ARZ3NDEKTSV4RRFFQ69G5FZ3', 1, 'engineer', 'running', '2026-07-18T16:00:00Z');
         INSERT INTO harness.work_evidence
             (id, tenant_id, project_id, attempt_id, ordinal, reference, created_at)
-        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE5', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE4', 1, 'test:green',
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ5', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FZ4', 1, 'test:green',
                 '2026-07-18T16:00:00Z');
         INSERT INTO harness.work_reviews
             (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, created_at)
-        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FE6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FE4', 'critic',
+        VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FZ6', '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                '01ARZ3NDEKTSV4RRFFQ69G5FAX', '01ARZ3NDEKTSV4RRFFQ69G5FZ4', 'critic',
                 'approved', 'Evidence reviewed.', '2026-07-18T16:00:00Z');
         """;
 

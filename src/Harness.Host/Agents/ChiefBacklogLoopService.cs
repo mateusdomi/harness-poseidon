@@ -548,15 +548,28 @@ public sealed partial class ChiefBacklogLoopService(
                         dispatchTask.Priority,
                         surfaceMap: surfaceMap);
 
-                    // Defesa em profundidade: um papel SEM escopo de escrita (o crítico, por exemplo)
-                    // produz claim vazia, e a política de path rejeita a tentativa com
-                    // `agent_path_scope_empty`. Sem esta guarda o loop redespachava o mesmo card a cada
-                    // ciclo, para sempre, queimando slot e registrando tentativa rejeitada sem NUNCA
-                    // avisar ninguém. O card é pulado com motivo tipado — quem decide o que fazer com
-                    // ele é a triagem, não um retry cego.
+                    // Um papel SEM escopo de escrita (o crítico, por exemplo) produz claim vazia, e a
+                    // política de path rejeitaria a tentativa com `agent_path_scope_empty`. Pular o
+                    // card evitava queimar slot — mas pular é a resposta certa uma vez e errada para
+                    // sempre: o card ficava em `ready` indefinidamente, o loop o reexaminava a cada
+                    // ciclo, o log crescia sem limite e ninguém ficava sabendo que aquele trabalho
+                    // nunca ia acontecer. Agora ele vira impedimento escalado, que a Diretora de
+                    // Engenharia anuncia — é uma decisão, não um silêncio.
                     if (resolution.ScopeClaims.Count == 0)
                     {
                         LogCardWithoutWriteScope(logger, task.Id, resolution.Role);
+                        _ = await chain.EscalateUndispatchableTaskAsync(
+                            new WorkTaskUndispatchableCommand(
+                                profile.TenantId, dispatchTask.BackingSolicitationId, dispatchTask.Id,
+                                $"Este trabalho foi organizado para uma especialidade que não pode " +
+                                $"alterar arquivo nenhum ('{resolution.Role}'), então nunca sairia do " +
+                                "lugar por mais que a equipe tentasse. Preciso redefinir quem faz e o " +
+                                "que ele pode tocar.",
+                                $"card:{dispatchTask.Id}",
+                                dispatchTask.Version,
+                                $"chief-loop-undispatchable:{dispatchTask.Id}:{dispatchTask.Version}",
+                                clock.UtcNow),
+                            token);
                         continue;
                     }
 

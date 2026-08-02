@@ -92,6 +92,10 @@ public sealed class SerializedMergeWorkChainStore(
         WorkTaskReviewUnavailableCommand command, CancellationToken cancellationToken = default) =>
         _inner.EscalateUnreviewableTaskAsync(command, cancellationToken);
 
+    public Task<WorkChainMutationReceipt> EscalateUndispatchableTaskAsync(
+        WorkTaskUndispatchableCommand command, CancellationToken cancellationToken = default) =>
+        _inner.EscalateUndispatchableTaskAsync(command, cancellationToken);
+
     public Task<WorkChainMutationReceipt> CompleteMergedTaskAsync(
         WorkTaskDeliveryCompleteCommand command, CancellationToken cancellationToken = default) =>
         _inner.CompleteMergedTaskAsync(command, cancellationToken);
