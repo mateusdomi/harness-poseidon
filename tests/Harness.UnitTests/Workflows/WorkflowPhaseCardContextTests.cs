@@ -76,6 +76,10 @@ public sealed class WorkflowPhaseCardContextTests
         Assert.Contains("lista exaustiva do que o usuário afirmou", instruction, StringComparison.Ordinal);
         Assert.Contains("não pode entrar silenciosamente", instruction, StringComparison.Ordinal);
         Assert.Contains("prova intenção de construir", instruction, StringComparison.Ordinal);
+        Assert.Contains("# Proporcionalidade e custo", instruction, StringComparison.Ordinal);
+        Assert.Contains("até 250 linhas e 20.000 caracteres", instruction, StringComparison.Ordinal);
+        Assert.Contains("não reproduza capítulos de artefatos predecessores", instruction, StringComparison.Ordinal);
+        Assert.Contains("Melhorias opcionais pertencem ao backlog", instruction, StringComparison.Ordinal);
         Assert.Contains("Evidências obrigatórias", instruction, StringComparison.Ordinal);
         Assert.Contains("git-commit:<sha>", instruction, StringComparison.Ordinal);
         Assert.Contains("Não invente hash", instruction, StringComparison.Ordinal);
