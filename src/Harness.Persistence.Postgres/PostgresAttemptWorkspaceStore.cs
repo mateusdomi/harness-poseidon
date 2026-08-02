@@ -52,6 +52,14 @@ public sealed class PostgresAttemptWorkspaceStore(NpgsqlDataSource dataSource) :
         return ListExpiredCoreAsync(tenantId, expiredBefore, cancellationToken);
     }
 
+    public Task<IReadOnlyList<AttemptWorkspaceSnapshot>> ListActiveAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        AttemptWorkspaceAcquireValidator.ValidateUlid(tenantId, nameof(tenantId));
+        return ListActiveCoreAsync(tenantId, cancellationToken);
+    }
+
     public Task<AttemptWorkspaceReceipt> HeartbeatAsync(
         AttemptWorkspaceLeaseCommand command,
         CancellationToken cancellationToken = default)
@@ -507,6 +515,37 @@ public sealed class PostgresAttemptWorkspaceStore(NpgsqlDataSource dataSource) :
             snapshots.Add(
                 await ReadAsync(connection, null, tenantId, attemptId, forUpdate: false, cancellationToken)
                 ?? throw new InvalidOperationException("An expired workspace disappeared while listing."));
+        }
+
+        return snapshots;
+    }
+
+    private async Task<IReadOnlyList<AttemptWorkspaceSnapshot>> ListActiveCoreAsync(
+        string tenantId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        var attemptIds = new List<string>();
+        await using (var query = connection.CreateCommand())
+        {
+            query.CommandText =
+                "SELECT attempt_id FROM harness.attempt_workspaces " +
+                "WHERE tenant_id=$1 AND released_at IS NULL " +
+                "ORDER BY created_at,attempt_id;";
+            query.Parameters.Add(Text(tenantId));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                attemptIds.Add(reader.GetString(0).TrimEnd());
+            }
+        }
+
+        var snapshots = new List<AttemptWorkspaceSnapshot>(attemptIds.Count);
+        foreach (var attemptId in attemptIds)
+        {
+            snapshots.Add(
+                await ReadAsync(connection, null, tenantId, attemptId, forUpdate: false, cancellationToken)
+                ?? throw new InvalidOperationException("An active workspace disappeared while listing."));
         }
 
         return snapshots;

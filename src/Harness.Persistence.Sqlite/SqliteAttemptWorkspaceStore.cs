@@ -49,6 +49,16 @@ public sealed class SqliteAttemptWorkspaceStore(SqliteWriteDispatcher dispatcher
             cancellationToken);
     }
 
+    public Task<IReadOnlyList<AttemptWorkspaceSnapshot>> ListActiveAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        AttemptWorkspaceAcquireValidator.ValidateUlid(tenantId, nameof(tenantId));
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => ListActiveCoreAsync(connection, tenantId, token),
+            cancellationToken);
+    }
+
     public Task<AttemptWorkspaceReceipt> HeartbeatAsync(
         AttemptWorkspaceLeaseCommand command,
         CancellationToken cancellationToken = default)
@@ -503,6 +513,36 @@ public sealed class SqliteAttemptWorkspaceStore(SqliteWriteDispatcher dispatcher
         {
             snapshots.Add(await ReadAsync(connection, null, tenantId, attemptId, token)
                 ?? throw new InvalidOperationException("An expired workspace disappeared while listing."));
+        }
+
+        return snapshots;
+    }
+
+    private static async Task<IReadOnlyList<AttemptWorkspaceSnapshot>> ListActiveCoreAsync(
+        SqliteConnection connection,
+        string tenantId,
+        CancellationToken token)
+    {
+        var attemptIds = new List<string>();
+        await using (var query = connection.CreateCommand())
+        {
+            query.CommandText =
+                "SELECT attempt_id FROM attempt_workspaces " +
+                "WHERE tenant_id=$tenant AND released_at IS NULL " +
+                "ORDER BY created_at,attempt_id;";
+            Add(query, "$tenant", tenantId);
+            await using var reader = await query.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token))
+            {
+                attemptIds.Add(reader.GetString(0));
+            }
+        }
+
+        var snapshots = new List<AttemptWorkspaceSnapshot>(attemptIds.Count);
+        foreach (var attemptId in attemptIds)
+        {
+            snapshots.Add(await ReadAsync(connection, null, tenantId, attemptId, token)
+                ?? throw new InvalidOperationException("An active workspace disappeared while listing."));
         }
 
         return snapshots;

@@ -32,6 +32,30 @@ public sealed partial class AttemptRecoveryBackgroundService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Ciclo de recuperação de tentativas falhou: {ErrorType}")]
     private static partial void LogFailure(ILogger logger, string errorType);
 
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        // AddHostedService preserva a ordem de registro: este StartAsync termina antes de o loop
+        // do Chief iniciar. Assim podemos distinguir com segurança workspaces do processo antigo
+        // sem esperar o lease vencer e sem competir com um novo despacho.
+        using var scope = scopes.CreateScope();
+        var profiles = scope.ServiceProvider.GetRequiredService<ILocalProfileStore>();
+        var tenantIds = (await profiles.ListAsync(cancellationToken))
+            .Select(profile => profile.TenantId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        foreach (var tenantId in tenantIds)
+        {
+            var recovered = await orchestrator.RecoverStartupOrphansAsync(
+                tenantId, cancellationToken);
+            if (recovered.Count > 0)
+            {
+                LogRecovered(logger, recovered.Count);
+            }
+        }
+
+        await base.StartAsync(cancellationToken);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)

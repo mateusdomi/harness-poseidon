@@ -628,6 +628,85 @@ public sealed partial class AgentRunOrchestrator(
         return [.. recoveredAccounts.Concat(released).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
     }
 
+    /// <summary>
+    /// Reconciliação exclusiva da subida do Host. Antes que o Chief possa despachar, todo
+    /// workspace ainda aberto pertence necessariamente ao processo anterior: esta instância não
+    /// teve oportunidade de registrar um run em <see cref="_live"/>. Esperar o lease vencer nesse
+    /// caso cria falso trabalho por toda a duração configurada, mesmo sem PID ou Runner.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> RecoverStartupOrphansAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var now = clock.UtcNow;
+        var active = await workspaces.ListActiveAsync(tenantId, cancellationToken);
+        var released = new List<string>();
+        foreach (var workspace in active)
+        {
+            // Proteção adicional para testes/hosts customizados: nunca tocar num run que esta
+            // própria instância já conhece. No bootstrap canônico a lista ainda está vazia.
+            if (_live.ContainsKey(workspace.AttemptId))
+            {
+                continue;
+            }
+
+            var snapshot = workspace;
+            if (!AttemptWorkspaceLifecycle.IsTerminal(snapshot.State))
+            {
+                var failed = await workspaces.TransitionAsync(
+                    new AttemptWorkspaceTransitionCommand
+                    {
+                        TenantId = tenantId,
+                        AttemptId = snapshot.AttemptId,
+                        Owner = snapshot.Owner,
+                        FencingToken = snapshot.FencingToken,
+                        ExpectedState = snapshot.State,
+                        State = AttemptWorkspaceState.Failed,
+                        FinalError = "attempt.orphaned_by_host_restart",
+                        OccurredAt = now,
+                    },
+                    cancellationToken);
+                if (!failed.Succeeded || failed.Workspace is null)
+                {
+                    continue;
+                }
+
+                snapshot = failed.Workspace;
+                await TryCaptureOrphanCheckpointAsync(tenantId, snapshot, cancellationToken);
+            }
+
+            var release = await workspaces.ReleaseAsync(
+                new AttemptWorkspaceReleaseCommand(
+                    tenantId,
+                    snapshot.AttemptId,
+                    snapshot.Owner,
+                    snapshot.FencingToken,
+                    now),
+                cancellationToken);
+            if (!release.Succeeded)
+            {
+                continue;
+            }
+
+            released.Add(snapshot.AttemptId);
+            await events.PublishAsync(
+                tenantId,
+                $"project:{snapshot.ProjectId}",
+                "agentRun.startupOrphanRecovered",
+                new
+                {
+                    attemptId = snapshot.AttemptId,
+                    taskId = snapshot.TaskId,
+                    reasonCode = "attempt.orphaned_by_host_restart",
+                    lastHeartbeatAt = snapshot.LastHeartbeatAt,
+                    leaseExpiresAt = snapshot.LeaseExpiresAt,
+                },
+                cancellationToken);
+        }
+
+        return released;
+    }
+
 
     /// <summary>
     /// Captura o checkpoint de uma tentativa órfã recuperada pelo Host. Fora do caminho crítico:

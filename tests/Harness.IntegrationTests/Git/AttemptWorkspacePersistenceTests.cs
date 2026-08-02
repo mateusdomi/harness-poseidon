@@ -101,6 +101,9 @@ public sealed class AttemptWorkspacePersistenceTests
                     Assert.All(
                         acquired.Workspace.ScopeClaims,
                         claim => Assert.True(UlidValue.TryParse(claim.ClaimId, out _)));
+                    Assert.Equal(
+                        firstAttemptId,
+                        Assert.Single(await store.ListActiveAsync(tenantId, timeout.Token)).AttemptId);
 
                     var replay = await store.AcquireAsync(acquireCommand, timeout.Token);
                     Assert.Equal(AttemptWorkspaceMutationStatus.IdempotentReplay, replay.Status);
@@ -317,6 +320,7 @@ public sealed class AttemptWorkspacePersistenceTests
                         tenantId,
                         baseInstant.AddSeconds(200),
                         timeout.Token));
+                    Assert.Empty(await store.ListActiveAsync(tenantId, timeout.Token));
 
                     var migrationCount = await SqliteMigrationRunner.ApplyAsync(
                         restarted.Services.GetRequiredService<SqliteWriteDispatcher>(),

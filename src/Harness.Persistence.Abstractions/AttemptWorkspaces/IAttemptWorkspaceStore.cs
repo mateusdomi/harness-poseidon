@@ -21,6 +21,10 @@ public interface IAttemptWorkspaceStore
         DateTimeOffset expiredBefore,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<AttemptWorkspaceSnapshot>> ListActiveAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default);
+
     Task<AttemptWorkspaceReceipt> HeartbeatAsync(
         AttemptWorkspaceLeaseCommand command,
         CancellationToken cancellationToken = default);
