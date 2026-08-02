@@ -774,6 +774,14 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     token.ThrowIfCancellationRequested();
                     var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
+                    if (orchestrator.HasLiveScopeConflict(
+                            project.Id, entry.Resolution.ScopeClaims))
+                    {
+                        deferred++;
+                        LogCardScopeDeferred(logger, entry.Task.Id);
+                        continue;
+                    }
+
                     var routing = await providerRouting.RouteAndAuditAsync(
                         profile.TenantId,
                         project.Id,
@@ -2523,6 +2531,9 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} adiado: {ReasonCode} (volta: {RetryAfter}; contas: {Candidates}).")]
     private static partial void LogCardDeferred(ILogger logger, string taskId, string reasonCode, string retryAfter, string candidates);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Chief: card {TaskId} adiado antes da tentativa — escopo ocupado por run vivo.")]
+    private static partial void LogCardScopeDeferred(ILogger logger, string taskId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: esteira do projeto {ProjectId} — {Created} card(s) de artefato criado(s), {Advanced} objetivo(s) de fase concluído(s).")]
     private static partial void LogPhaseDriven(ILogger logger, string projectId, int created, int advanced);

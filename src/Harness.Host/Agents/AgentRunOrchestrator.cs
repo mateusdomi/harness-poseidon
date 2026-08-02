@@ -93,6 +93,31 @@ public sealed partial class AgentRunOrchestrator(
     /// </summary>
     public int LiveRunCount => _live.Count;
 
+    /// <summary>
+    /// Pré-admissão barata para o scheduler: impede que ele crie uma tentativa durável que a
+    /// aquisição transacional de workspace recusaria logo depois. A store continua sendo a
+    /// autoridade final (inclusive entre processos); este sinal elimina o conflito já conhecido
+    /// entre runs vivos deste Host, sem substituir o CAS durável.
+    /// </summary>
+    public bool HasLiveScopeConflict(string projectId, IReadOnlyList<string> requestedClaims)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectId);
+        ArgumentNullException.ThrowIfNull(requestedClaims);
+        return _live.Values.Any(run =>
+            string.Equals(run.Command.ProjectId, projectId, StringComparison.Ordinal) &&
+            ScopeSetsIntersect(requestedClaims, run.Command.ScopeClaims));
+    }
+
+    public static bool ScopeSetsIntersect(
+        IReadOnlyList<string> left,
+        IReadOnlyList<string> right)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+        return left.Any(requested => right.Any(existing =>
+            AttemptWorkspaceScopePattern.Intersects(requested, existing)));
+    }
+
     /// <summary>Runs vivos neste processo, por attempt.</summary>
     private sealed record LiveRun(
         string RunId,
