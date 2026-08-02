@@ -11,6 +11,7 @@ using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Coordination;
+using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Providers;
@@ -409,6 +410,10 @@ public sealed partial class ChiefBacklogLoopService(
                     profile.TenantId,
                     new BoardTaskPageQuery(project.Id, null, null, "ready", null, null, "active", null, 0, 50),
                     token);
+                if (page.Items.Count == 0)
+                {
+                    continue;
+                }
 
                 // Mapa das superfícies REAIS do repositório do projeto, lido uma vez por ciclo. É ele
                 // que permite ao card reivindicar o módulo que ele mexe em vez de `src/**` inteiro —
@@ -416,6 +421,11 @@ public sealed partial class ChiefBacklogLoopService(
                 var surfaceMap = string.IsNullOrWhiteSpace(project.RepositoryUrl)
                     ? RepositorySurfaceMap.Empty
                     : RepositorySurfaceMap.Build(System.IO.Path.GetFullPath(project.RepositoryUrl));
+                var acceptedDocuments = await LoadAcceptedDocumentReferencesAsync(
+                    profile.TenantId,
+                    project.Id,
+                    scope.ServiceProvider.GetRequiredService<IDocumentCatalogStore>(),
+                    token);
 
                 var cards = new List<(ChiefCard Card, ChiefCardResolution Resolution, BoardTaskRecord Task, string InstructionVersionId)>();
                 foreach (var task in page.Items)
@@ -479,8 +489,49 @@ public sealed partial class ChiefBacklogLoopService(
                         continue;
                     }
 
+                    var dispatchTask = task;
+                    var dispatchInstruction = instructions[^1];
+                    var refreshedInstruction = EnrichInstructionWithAcceptedDocuments(
+                        dispatchInstruction.Body,
+                        task.PhaseName,
+                        acceptedDocuments);
+                    if (!string.Equals(
+                            refreshedInstruction,
+                            dispatchInstruction.Body,
+                            StringComparison.Ordinal))
+                    {
+                        try
+                        {
+                            var contextNow = clock.UtcNow;
+                            dispatchInstruction = await board.AppendInstructionAsync(
+                                new BoardInstructionAppendCommand(
+                                    profile.TenantId,
+                                    task.Id,
+                                    UlidValue.New(contextNow).ToString(),
+                                    refreshedInstruction,
+                                    "chief",
+                                    project.ChiefAgentId,
+                                    contextNow),
+                                token);
+                            dispatchTask = await board.GetTaskAsync(
+                                    profile.TenantId, task.Id, token)
+                                ?? throw new InvalidOperationException(
+                                    $"Card {task.Id} disappeared after its context was refreshed.");
+                        }
+                        catch (WorkBoardInvalidStateException)
+                        {
+                            // O card mudou entre a paginação e o refresh. Não despache com a versão
+                            // obsoleta nem trate a corrida legítima como falha: o próximo ciclo relê.
+                            continue;
+                        }
+                    }
+
                     var resolution = ChiefCardResolver.Resolve(
-                        task.Title, instructions[^1].Body, [], task.Priority, surfaceMap: surfaceMap);
+                        dispatchTask.Title,
+                        dispatchInstruction.Body,
+                        [],
+                        dispatchTask.Priority,
+                        surfaceMap: surfaceMap);
 
                     // Defesa em profundidade: um papel SEM escopo de escrita (o crítico, por exemplo)
                     // produz claim vazia, e a política de path rejeita a tentativa com
@@ -505,7 +556,7 @@ public sealed partial class ChiefBacklogLoopService(
                             PreferMostCapable: budget is { ReviewDepth: >= 2 } ||
                                 string.Equals(resolution.Role, "critic", StringComparison.Ordinal) ||
                                 task.Priority is "high" or "critical"),
-                        resolution, task, instructions[^1].Id));
+                        resolution, dispatchTask, dispatchInstruction.Id));
                 }
 
                 if (cards.Count == 0)
@@ -748,6 +799,169 @@ public sealed partial class ChiefBacklogLoopService(
 
         return (dispatched, deferred);
     }
+
+    public sealed record AcceptedDocumentReference(
+        string DocumentId,
+        string Title,
+        string? PhaseName,
+        string? TemplateCode,
+        int Version,
+        string VersionId,
+        string CatalogPath,
+        string ContentHash);
+
+    private const string AcceptedDocumentsHeading =
+        "\n\n## Contexto documental aceito no momento do despacho\n";
+    private const string AcceptedDocumentsStart =
+        "<!-- poseidon:accepted-documents:start";
+    private const string AcceptedDocumentsEnd =
+        "<!-- poseidon:accepted-documents:end -->";
+
+    private static async Task<IReadOnlyList<AcceptedDocumentReference>>
+        LoadAcceptedDocumentReferencesAsync(
+            string tenantId,
+            string projectId,
+            IDocumentCatalogStore catalog,
+            CancellationToken token)
+    {
+        var documents = (await catalog.ListDocumentsAsync(
+                tenantId, projectId, null, 500, token))
+            .Where(document =>
+                string.Equals(document.State, "approved", StringComparison.Ordinal) &&
+                !document.Inconsistent)
+            .OrderBy(document => PhaseOrder(document.PhaseName) ?? int.MaxValue)
+            .ThenBy(document => document.Title, StringComparer.Ordinal)
+            .ThenBy(document => document.Id, StringComparer.Ordinal)
+            .ToArray();
+        var accepted = new List<AcceptedDocumentReference>(documents.Length);
+        foreach (var document in documents)
+        {
+            var current = (await catalog.ListVersionsAsync(
+                    tenantId, document.Id, null, 500, token))
+                .SingleOrDefault(version => version.Version == document.CurrentVersion)
+                ?? throw new InvalidOperationException(
+                    $"Approved document {document.Id} has no current immutable version.");
+            accepted.Add(new AcceptedDocumentReference(
+                document.Id,
+                document.Title,
+                document.PhaseName,
+                document.TemplateCode,
+                current.Version,
+                current.Id,
+                current.CatalogPath,
+                current.ContentHash));
+        }
+
+        return accepted;
+    }
+
+    /// <summary>
+    /// Congela no briefing imutável as versões documentais aceitas que existiam NO DESPACHO.
+    /// O bloco é substituível e leva checksum: retry sem mudança não cria versão nova; documento
+    /// aprovado depois produz uma nova instrução, preservando exatamente o contexto recebido.
+    /// </summary>
+    public static string EnrichInstructionWithAcceptedDocuments(
+        string instruction,
+        string? taskPhaseName,
+        IReadOnlyList<AcceptedDocumentReference> documents)
+    {
+        ArgumentNullException.ThrowIfNull(instruction);
+        ArgumentNullException.ThrowIfNull(documents);
+
+        var baseInstruction = RemoveAcceptedDocumentsBlock(instruction).TrimEnd();
+        var taskPhaseOrder = PhaseOrder(taskPhaseName);
+        var relevant = documents
+            .Where(document =>
+            {
+                if (taskPhaseOrder is null)
+                {
+                    return true;
+                }
+
+                var documentOrder = PhaseOrder(document.PhaseName);
+                return documentOrder is not null && documentOrder <= taskPhaseOrder;
+            })
+            .OrderBy(document => PhaseOrder(document.PhaseName) ?? int.MaxValue)
+            .ThenBy(document => document.Title, StringComparer.Ordinal)
+            .ThenBy(document => document.DocumentId, StringComparer.Ordinal)
+            .ToArray();
+        if (relevant.Length == 0)
+        {
+            return baseInstruction;
+        }
+
+        var manifest = new System.Text.StringBuilder();
+        foreach (var document in relevant)
+        {
+            manifest.Append("- ").Append(SingleLine(document.Title))
+                .Append(" — documento `").Append(document.DocumentId)
+                .Append("`, fase `").Append(SingleLine(document.PhaseName ?? "sem fase"))
+                .Append("`, template `").Append(SingleLine(document.TemplateCode ?? "não informado"))
+                .Append("`, versão ").Append(document.Version)
+                .Append(" (`").Append(document.VersionId)
+                .Append("`), catálogo `").Append(SingleLine(document.CatalogPath))
+                .Append("`, SHA-256 `").Append(document.ContentHash).Append("`.\n");
+        }
+
+        var checksum = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(manifest.ToString())));
+        var enriched = baseInstruction + AcceptedDocumentsHeading +
+            $"{AcceptedDocumentsStart} checksum={checksum} -->\n" +
+            "Estas são as versões canônicas aprovadas disponíveis para este trabalho. " +
+            "Localize em `docs/` o arquivo correspondente (o hash confirma o conteúdo), cite " +
+            "a versão usada e não substitua uma decisão aceita por memória ou suposição.\n" +
+            manifest + AcceptedDocumentsEnd + "\n";
+        if (enriched.Length > 100_000)
+        {
+            throw new InvalidOperationException(
+                "The immutable delegation package exceeds the supported instruction size.");
+        }
+
+        return enriched;
+    }
+
+    private static string RemoveAcceptedDocumentsBlock(string instruction)
+    {
+        var heading = instruction.IndexOf(AcceptedDocumentsHeading, StringComparison.Ordinal);
+        if (heading < 0)
+        {
+            return instruction;
+        }
+
+        var start = instruction.IndexOf(AcceptedDocumentsStart, heading, StringComparison.Ordinal);
+        var end = instruction.IndexOf(AcceptedDocumentsEnd, start < 0 ? heading : start,
+            StringComparison.Ordinal);
+        if (start < 0 || end < 0)
+        {
+            // Um bloco incompleto não é apagado em silêncio; manter o conteúdo faz o limite de
+            // tamanho/critic detectar a corrupção em vez de esconder evidência.
+            return instruction;
+        }
+
+        end += AcceptedDocumentsEnd.Length;
+        return string.Concat(instruction.AsSpan(0, heading), instruction.AsSpan(end));
+    }
+
+    private static int? PhaseOrder(string? phaseName)
+    {
+        if (string.IsNullOrWhiteSpace(phaseName))
+        {
+            return null;
+        }
+
+        var separator = phaseName.IndexOf('-', StringComparison.Ordinal);
+        return separator > 0 && int.TryParse(
+            phaseName.AsSpan(0, separator),
+            System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var value)
+            ? value
+            : null;
+    }
+
+    private static string SingleLine(string value) =>
+        value.Replace('`', '\'').Replace('\r', ' ').Replace('\n', ' ').Trim();
 
     /// <summary>
     /// Ordem justa e estável: menos slots consumidos primeiro; entre projetos igualmente atendidos,

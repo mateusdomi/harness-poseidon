@@ -240,9 +240,13 @@ public sealed partial class SqliteWorkBoardStore
             "ORDER BY attempt_number DESC LIMIT 1;";
         Add(latestAttempt, "$tenant", command.TenantId); Add(latestAttempt, "$task", command.TaskId);
         var attemptState = await latestAttempt.ExecuteScalarAsync(token) as string;
-        if (task.InternalState != "running" || attemptState != "rejected")
+        var correction = task.InternalState == "running" && attemptState == "rejected";
+        var readyContextRefresh = task.InternalState == "ready" && attemptState != "running" &&
+            command.AuthorKind is "chief" or "system";
+        if (!correction && !readyContextRefresh)
             throw new WorkBoardInvalidStateException(
-                "A new instruction version requires a rejected attempt awaiting correction.");
+                "A new instruction version requires either a rejected attempt awaiting correction " +
+                "or a ready card being refreshed by the chief/system before dispatch.");
 
         var nextVersion = task.InstructionVersion + 1;
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(command.Body)));
@@ -274,7 +278,9 @@ public sealed partial class SqliteWorkBoardStore
             from = task.State,
             to = "ready",
             changedByKind = command.AuthorKind,
-            note = "instructionVersionAppended",
+            note = readyContextRefresh
+                ? "delegationContextRefreshed"
+                : "instructionVersionAppended",
         }, JsonOptions);
         await AppendAuditAsync(c, tx, command.TenantId, "task.stateChanged", payload,
             command.OccurredAt, token);

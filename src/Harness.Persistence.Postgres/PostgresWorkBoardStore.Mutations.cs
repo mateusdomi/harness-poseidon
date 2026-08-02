@@ -286,10 +286,14 @@ public sealed partial class PostgresWorkBoardStore
             attemptState = await latestAttempt.ExecuteScalarAsync(cancellationToken) as string;
         }
 
-        if (task.InternalState != "running" || attemptState != "rejected")
+        var correction = task.InternalState == "running" && attemptState == "rejected";
+        var readyContextRefresh = task.InternalState == "ready" && attemptState != "running" &&
+            command.AuthorKind is "chief" or "system";
+        if (!correction && !readyContextRefresh)
         {
             throw new WorkBoardInvalidStateException(
-                "A new instruction version requires a rejected attempt awaiting correction.");
+                "A new instruction version requires either a rejected attempt awaiting correction " +
+                "or a ready card being refreshed by the chief/system before dispatch.");
         }
 
         var nextVersion = task.InstructionVersion + 1;
@@ -334,7 +338,9 @@ public sealed partial class PostgresWorkBoardStore
             from = task.State,
             to = "ready",
             changedByKind = command.AuthorKind,
-            note = "instructionVersionAppended",
+            note = readyContextRefresh
+                ? "delegationContextRefreshed"
+                : "instructionVersionAppended",
         }, JsonOptions);
         await AppendAuditAsync(
             connection, transaction, command.TenantId, "task.stateChanged", payload,

@@ -83,6 +83,72 @@ public sealed class WorkflowPhaseCardContextTests
         Assert.DoesNotContain("valor-secreto", instruction, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DispatchContextFreezesAcceptedDocumentVersionsAndExcludesFuturePhases()
+    {
+        var accepted = new[]
+        {
+            new ChiefBacklogLoopService.AcceptedDocumentReference(
+                "doc-triage", "Ficha de Demanda", "1-Triagem", "01", 1,
+                "version-triage-v1", "documents/ficha/v1.md", new string('A', 64)),
+            new ChiefBacklogLoopService.AcceptedDocumentReference(
+                "doc-architecture", "SAD", "3-Arquitetura", "04", 1,
+                "version-sad-v1", "documents/sad/v1.md", new string('B', 64)),
+        };
+
+        var enriched = ChiefBacklogLoopService.EnrichInstructionWithAcceptedDocuments(
+            "Produzir a Story Map.", "2-Descoberta", accepted);
+
+        Assert.Contains("Contexto documental aceito no momento do despacho", enriched,
+            StringComparison.Ordinal);
+        Assert.Contains("version-triage-v1", enriched, StringComparison.Ordinal);
+        Assert.Contains("documents/ficha/v1.md", enriched, StringComparison.Ordinal);
+        Assert.Contains(new string('A', 64), enriched, StringComparison.Ordinal);
+        Assert.DoesNotContain("version-sad-v1", enriched, StringComparison.Ordinal);
+        Assert.Equal(
+            enriched,
+            ChiefBacklogLoopService.EnrichInstructionWithAcceptedDocuments(
+                enriched, "2-Descoberta", accepted));
+    }
+
+    [Fact]
+    public void DispatchContextReplacesTheManifestWhenAnAcceptedVersionChanges()
+    {
+        var first = new ChiefBacklogLoopService.AcceptedDocumentReference(
+            "doc-prd", "PRD", "2-Descoberta", "03", 1,
+            "version-prd-v1", "documents/prd/v1.md", new string('C', 64));
+        var v1 = ChiefBacklogLoopService.EnrichInstructionWithAcceptedDocuments(
+            "Produzir a Story Map.", "2-Descoberta", [first]);
+        var v2 = ChiefBacklogLoopService.EnrichInstructionWithAcceptedDocuments(
+            v1,
+            "2-Descoberta",
+            [first with
+            {
+                Version = 2,
+                VersionId = "version-prd-v2",
+                CatalogPath = "documents/prd/v2.md",
+                ContentHash = new string('D', 64),
+            }]);
+
+        Assert.DoesNotContain("version-prd-v1", v2, StringComparison.Ordinal);
+        Assert.Contains("version-prd-v2", v2, StringComparison.Ordinal);
+        Assert.Equal(1, Count(v2, "poseidon:accepted-documents:start"));
+        Assert.NotEqual(v1, v2);
+    }
+
+    private static int Count(string value, string needle)
+    {
+        var count = 0;
+        var offset = 0;
+        while ((offset = value.IndexOf(needle, offset, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            offset += needle.Length;
+        }
+
+        return count;
+    }
+
     [Theory]
     [InlineData("1-Triagem", "Ficha de Demanda Qualificada", "playbook-product-owner")]
     [InlineData("3-Arquitetura", "Threat Model STRIDE", "playbook-security")]

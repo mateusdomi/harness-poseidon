@@ -173,6 +173,29 @@ public sealed class WorkBoardApiTests
                     var boardStore = app.Services.GetRequiredService<IWorkBoardStore>();
                     var chainStore = app.Services.GetRequiredService<IWorkChainStore>();
                     var localProfile = await profileStore.GetAsync(profileId, timeout.Token);
+                    var contextRefreshAt = DateTimeOffset.UtcNow;
+                    _ = await boardStore.MoveTaskAsync(
+                        new BoardTaskMoveCommand(
+                            localProfile!.TenantId,
+                            independentTask!.Id,
+                            "ready",
+                            "Contexto canônico disponível antes do despacho.",
+                            "chief",
+                            contextRefreshAt),
+                        timeout.Token);
+                    var refreshedContext = await boardStore.AppendInstructionAsync(
+                        new BoardInstructionAppendCommand(
+                            localProfile.TenantId,
+                            independentTask.Id,
+                            UlidValue.New(contextRefreshAt).ToString(),
+                            "Instrução original.\n\nContexto documental aceito: documento v1.",
+                            "chief",
+                            null,
+                            contextRefreshAt.AddMilliseconds(1)),
+                        timeout.Token);
+                    Assert.Equal(2, refreshedContext.Version);
+                    Assert.Contains("documento v1", refreshedContext.Body, StringComparison.Ordinal);
+
                     var persistedTask = await boardStore.GetTaskAsync(localProfile!.TenantId, taskId, timeout.Token);
                     var initialInstruction = Assert.Single(await boardStore.ListInstructionsAsync(
                         localProfile.TenantId, taskId, null, 10, timeout.Token));
