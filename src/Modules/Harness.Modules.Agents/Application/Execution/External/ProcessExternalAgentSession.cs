@@ -223,6 +223,18 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
         _cancelled = true;
         try
         {
+            // O processo direto pode já ter saído enquanto um neto ainda mantém stdout/stderr
+            // abertos. Cancelar os leitores é obrigatório: matar apenas o PID não fecha um pipe
+            // herdado e fazia DisposeAsync aguardar para sempre após o timeout do critic.
+            _timeoutSource.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            return Task.CompletedTask;
+        }
+
+        try
+        {
             if (!_process.HasExited)
             {
                 // A árvore inteira: um filho do CLI não pode sobreviver à sessão.
@@ -346,7 +358,7 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
     {
         try
         {
-            while (await _process.StandardError.ReadLineAsync(CancellationToken.None) is { } line)
+            while (await _process.StandardError.ReadLineAsync(_timeoutSource.Token) is { } line)
             {
                 // O parser inspeciona a linha CRUA para classificar falha (sentinela de auth);
                 // apenas depois ela é redigida para diagnóstico. Nenhum evento é emitido aqui.

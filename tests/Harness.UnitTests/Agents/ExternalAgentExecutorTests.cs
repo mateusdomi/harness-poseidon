@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
@@ -254,6 +255,80 @@ public sealed class ExternalAgentExecutorTests : IDisposable
 
         Assert.Equal(ExternalAgentEventKind.Failed, failed.Kind);
         Assert.Equal("executor.result_error_max_turns", parser.FailureCode);
+    }
+
+    [Fact]
+    public async Task DisposingASessionCancelsAStderrPipeHeldByAnOrphanedChild()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var childPidFile = Path.Combine(_root, $"orphan-{Guid.NewGuid():N}.pid");
+        Directory.CreateDirectory(_root);
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "/bin/sh",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add("-c");
+        process.StartInfo.ArgumentList.Add(
+            $"sleep 30 >&2 & echo $! > {childPidFile}; exit 0");
+
+        Assert.True(process.Start());
+        var session = new ProcessExternalAgentSession(
+            "run-orphaned-stderr",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-claude-secondary",
+            [],
+            TimeSpan.FromMinutes(1));
+        session.BeginPump();
+
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
+        await AssertFileAppearsAsync(childPidFile);
+        var childPid = int.Parse(
+            await File.ReadAllTextAsync(childPidFile),
+            System.Globalization.CultureInfo.InvariantCulture);
+
+        try
+        {
+            await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        finally
+        {
+            try
+            {
+                Process.GetProcessById(childPid).Kill(entireProcessTree: true);
+            }
+            catch (ArgumentException)
+            {
+                // O processo filho já encerrou.
+            }
+            catch (InvalidOperationException)
+            {
+                // O processo filho já encerrou.
+            }
+        }
+    }
+
+    private static async Task AssertFileAppearsAsync(string path)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(3);
+        while (!File.Exists(path) && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(25);
+        }
+
+        Assert.True(File.Exists(path), $"Expected child pid file at {path}.");
     }
 
     public void Dispose()
