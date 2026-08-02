@@ -108,7 +108,13 @@ export function MessageBubble({
                 ? (chiefName ?? identity?.humanName ?? authorName ?? roleLabel)
                 : (identity?.humanName ?? authorName ?? roleLabel)}
             </span>
-            {isAgentAuthor && (
+            {/*
+              O crachá carrega o cargo da Bruna ("Diretora de Engenharia") e por isso pertence
+              só a ela. Aplicado a qualquer autor da equipe, aparecia ao lado do papel real do
+              especialista — duas funções conflitantes na mesma linha, o que quebra a leitura de
+              equipe profissional em vez de reforçá-la.
+            */}
+            {message.authorRole === 'chief' && (
               <Badge variant="info">{t('chat.authors.virtualTeam')}</Badge>
             )}
             {(identity || authorName) && message.authorRole !== 'chief' && (

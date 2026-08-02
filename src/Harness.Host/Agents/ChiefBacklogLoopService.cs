@@ -1507,25 +1507,39 @@ public sealed partial class ChiefBacklogLoopService(
         var now = clock.UtcNow;
         LogReconcileSubject(logger, task.Id, running.Id, snapshot?.Status);
 
-        if (snapshot is null)
-        {
-            // Tentativa SEM workspace: o orquestrador nunca aceitou o run (órfã de uma
-            // compensação perdida — ex.: processo caiu entre o start da cadeia e o aceite).
-            // A janela de tolerância evita expirar um lançamento em curso deste mesmo ciclo.
-            if (running.StartedAt < now.AddMinutes(-2))
-            {
-                _ = await chain.ExpireAttemptLeaseAsync(
-                    new WorkAttemptLeaseExpiredCommand(
-                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
-                        $"chief-loop-orphan:{running.Id}", now),
-                    token);
-                LogRunRequeued(logger, task.Id, running.Id, "orphan");
-            }
+        // A DECISÃO é da política pura; aqui fica só a execução dela. Cada ramo custou um card
+        // travado, e separar os dois permite verificar todos sem subir Host, banco e Git.
+        var decision = AttemptReconciliationPolicy.Decide(new AttemptReconciliationFacts(
+            HasWorkspace: snapshot is not null,
+            RunCompleted: snapshot?.Status == AgentRunStatus.Completed,
+            RunDead: snapshot?.Status is AgentRunStatus.Failed or AgentRunStatus.Cancelled,
+            Age: now - running.StartedAt,
+            RichHarvestWillRun: willHarvest));
 
+        if (decision == AttemptReconciliationAction.None)
+        {
             return;
         }
 
-        if (snapshot.Status == AgentRunStatus.Completed)
+        if (decision == AttemptReconciliationAction.ExpireOrphan)
+        {
+            // Tentativa SEM workspace: o orquestrador nunca aceitou o run (órfã de uma
+            // compensação perdida — ex.: processo caiu entre o start da cadeia e o aceite).
+            _ = await chain.ExpireAttemptLeaseAsync(
+                new WorkAttemptLeaseExpiredCommand(
+                    tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                    $"chief-loop-orphan:{running.Id}", now),
+                token);
+            LogRunRequeued(logger, task.Id, running.Id, "orphan");
+            return;
+        }
+
+        if (snapshot is null)
+        {
+            return;
+        }
+
+        if (decision == AttemptReconciliationAction.RecordCompleted)
         {
             // Run que TERMINOU. Se a colheita rica vai rodar neste ciclo, é ela quem registra —
             // ela harmoniza a worktree e mede o consumo. Se NÃO vai (projeto pausado, manual ou
@@ -1536,7 +1550,6 @@ public sealed partial class ChiefBacklogLoopService(
             // Só estado DURÁVEL é usado — o SHA já persistido no workspace. Nada de tocar o
             // sistema de arquivos: a worktree pode estar fora da raiz controlada, e reconciliar
             // não é licença para atravessar essa fronteira.
-            if (!willHarvest)
             {
                 var deliveryCommit = snapshot.Workspace?.CommitSha;
                 var evidence = new List<WorkEvidenceInput>
@@ -1563,11 +1576,6 @@ public sealed partial class ChiefBacklogLoopService(
                 }
             }
 
-            return;
-        }
-
-        if (snapshot.Status is not (AgentRunStatus.Failed or AgentRunStatus.Cancelled))
-        {
             return;
         }
 
