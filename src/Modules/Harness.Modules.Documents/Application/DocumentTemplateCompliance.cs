@@ -13,7 +13,7 @@ namespace Harness.Modules.Documents.Application;
 /// campo obrigatório era obrigatório apenas no papel.
 ///
 /// O que esta verificação exige (o FIXO do contrato Fixed/Flexible):
-///   * cada campo obrigatório aparece como um cabeçalho de seção no corpo;
+///   * cada campo obrigatório aparece como um cabeçalho de seção ou rótulo forte isolado no corpo;
 ///   * os cabeçalhos aparecem na ORDEM declarada pelo template.
 ///
 /// O que ela NÃO exige (o FLEXÍVEL): prosa, vocabulário, tom, extensão. O conteúdo de cada seção é
@@ -65,7 +65,7 @@ public static class DocumentTemplateCompliance
             return new Result([], []);
         }
 
-        var headings = Headings(body ?? string.Empty)
+        var headings = StructuralLabels(body ?? string.Empty)
             .Select(Normalize)
             .ToArray();
 
@@ -130,14 +130,42 @@ public static class DocumentTemplateCompliance
         }
     }
 
-    /// <summary>Cabeçalhos Markdown (`#`..`######`) do corpo, na ordem em que aparecem.</summary>
-    private static List<string> Headings(string body)
+    /// <summary>
+    /// Delimitadores estruturais Markdown, na ordem em que aparecem: cabeçalhos ATX
+    /// (`#`..`######`) e rótulos fortes isolados (`**contexto**`). O segundo formato é comum em
+    /// MADR quando vários registros vivem no mesmo arquivo: o título identifica o ADR e os
+    /// rótulos identificam seus campos sem criar uma árvore de sete níveis.
+    ///
+    /// Texto forte dentro de uma frase e conteúdo de blocos de código não contam. Assim uma
+    /// menção em prosa ou um exemplo copiado não consegue satisfazer o gate por acidente.
+    /// </summary>
+    private static List<string> StructuralLabels(string body)
     {
         var values = new List<string>();
+        string? codeFence = null;
         foreach (var rawLine in body.Split('\n'))
         {
             var line = rawLine.TrimStart();
-            if (line.Length == 0 || line[0] != '#')
+            if (TryReadFence(line, out var fence))
+            {
+                codeFence = codeFence is null
+                    ? fence
+                    : string.Equals(codeFence, fence, StringComparison.Ordinal) ? null : codeFence;
+                continue;
+            }
+
+            if (codeFence is not null || line.Length == 0)
+            {
+                continue;
+            }
+
+            if (TryReadStrongLabel(line, out var strongLabel))
+            {
+                values.Add(strongLabel);
+                continue;
+            }
+
+            if (line[0] != '#')
             {
                 continue;
             }
@@ -161,6 +189,54 @@ public static class DocumentTemplateCompliance
         }
 
         return values;
+    }
+
+    private static bool TryReadFence(string line, out string fence)
+    {
+        if (line.StartsWith("```", StringComparison.Ordinal))
+        {
+            fence = "```";
+            return true;
+        }
+
+        if (line.StartsWith("~~~", StringComparison.Ordinal))
+        {
+            fence = "~~~";
+            return true;
+        }
+
+        fence = string.Empty;
+        return false;
+    }
+
+    private static bool TryReadStrongLabel(string line, out string label)
+    {
+        var trimmed = line.Trim();
+        var delimiter = trimmed.StartsWith("**", StringComparison.Ordinal)
+            ? "**"
+            : trimmed.StartsWith("__", StringComparison.Ordinal) ? "__" : null;
+        if (delimiter is null)
+        {
+            label = string.Empty;
+            return false;
+        }
+
+        var closing = trimmed.IndexOf(delimiter, delimiter.Length, StringComparison.Ordinal);
+        if (closing <= delimiter.Length)
+        {
+            label = string.Empty;
+            return false;
+        }
+
+        var remainder = trimmed[(closing + delimiter.Length)..].Trim();
+        if (remainder.Length > 0 && !string.Equals(remainder, ":", StringComparison.Ordinal))
+        {
+            label = string.Empty;
+            return false;
+        }
+
+        label = trimmed[delimiter.Length..closing].Trim().TrimEnd(':').Trim();
+        return label.Length > 0;
     }
 
     /// <summary>

@@ -171,6 +171,76 @@ public sealed class DocumentTemplateComplianceTests
         Assert.True(DocumentTemplateCompliance.Check(body, demand).IsCompliant);
     }
 
+    [Fact]
+    public void ARepeatedMadrUsesStandaloneStrongLabelsAsStructuralFields()
+    {
+        const string adr =
+            """["contexto","decisao","status","alternativas_consideradas","consequencias","consequencias_negativas"]""";
+        var body = """
+            # Registros de decisão
+
+            ### ADR-001 — Persistência local
+
+            **contexto**
+            Uma pessoa opera o produto.
+
+            **decisao**
+            Usar persistência local na primeira versão.
+
+            **status**
+            Aceita.
+
+            **alternativas_consideradas**
+            - Servidor dedicado.
+
+            **consequencias**
+            Menor custo operacional.
+
+            **consequencias_negativas**
+            Exige migração para uso concorrente.
+
+            ### ADR-002 — Aplicação única
+
+            **contexto:**
+            Uma jornada pequena.
+
+            **decisao**:
+            Um único processo implantável.
+
+            **status**
+            Aceita.
+
+            **alternativas_consideradas**
+            - Serviços separados.
+
+            **consequencias**
+            Operação simples.
+
+            **consequencias_negativas**
+            Crescimento futuro exige revisão.
+            """;
+
+        Assert.True(DocumentTemplateCompliance.Check(body, adr).IsCompliant);
+    }
+
+    [Fact]
+    public void StrongTextInProseOrCodeDoesNotSatisfyARequiredSection()
+    {
+        const string required = """["contexto","decisao"]""";
+        var body = """
+            **contexto** aparece nesta frase, mas não delimita uma seção.
+
+            ```markdown
+            **decisao**
+            ```
+            """;
+
+        var result = DocumentTemplateCompliance.Check(body, required);
+
+        Assert.Contains("contexto", result.MissingFields);
+        Assert.Contains("decisao", result.MissingFields);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
