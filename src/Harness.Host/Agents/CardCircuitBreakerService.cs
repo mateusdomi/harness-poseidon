@@ -123,7 +123,24 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
         string.Equals(attempt.State, "failed", StringComparison.Ordinal) ||
         string.Equals(attempt.State, "rejected", StringComparison.Ordinal) ||
         (string.Equals(attempt.State, "cancelled", StringComparison.Ordinal) &&
-         !string.IsNullOrWhiteSpace(attempt.FailureReason));
+         !string.IsNullOrWhiteSpace(attempt.FailureReason) &&
+         !IsInfrastructureReason(attempt.FailureReason));
+
+    /// <summary>
+    /// Motivos que descrevem a INFRAESTRUTURA, não o card.
+    ///
+    /// Desde que a expiração de lease passou a gravar o motivo, um reinício do Host deixou de ser
+    /// um cancelamento anônimo — o que é bom para a auditoria e péssimo para o circuito, porque
+    /// derrubar o Host durante uma tentativa passaria a contar como falha do card. Três reinícios
+    /// abririam o circuito de um card perfeitamente saudável, e como só o replanejamento da Bruna
+    /// reabre, o falso positivo PARA trabalho de verdade.
+    ///
+    /// A falha do executor (`run.failed`, `executor.exit_code_*`) continua contando: ali quem não
+    /// entregou foi a tentativa, e repeti-la é repetir o fracasso.
+    /// </summary>
+    private static bool IsInfrastructureReason(string reason) =>
+        reason.Contains("host_shutdown", StringComparison.OrdinalIgnoreCase) ||
+        reason.Contains("host_restart", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSuccess(string state) =>
         string.Equals(state, "completed", StringComparison.Ordinal) ||

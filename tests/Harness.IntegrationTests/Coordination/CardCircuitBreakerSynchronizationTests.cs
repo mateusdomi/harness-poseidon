@@ -174,6 +174,22 @@ public sealed class CardCircuitBreakerSynchronizationTests
                 timeout.Token);
             Assert.Equal(CardCircuitState.Closed, semMotivo.State);
             Assert.Equal(0, semMotivo.ConsecutiveFailures);
+
+            // Reinício do Host COM motivo gravado. Desde que a expiração de lease passou a
+            // registrar o motivo, um restart deixou de ser cancelamento anônimo — bom para a
+            // auditoria, e uma armadilha para o circuito: derrubar o Host três vezes durante
+            // tentativas de um card saudável abriria o circuito dele, e só o replanejamento da
+            // Bruna reabre. O motivo descreve a INFRAESTRUTURA, não o card, e não pode contar.
+            var reiniciado = await service.SynchronizeAsync(
+                Tenant, Project, "card-host-caiu",
+                [
+                    Outcome("cancelled", Now, "attempt.interrupted_by_host_shutdown"),
+                    Outcome("cancelled", Now.AddMinutes(2), "attempt.orphaned_by_host_restart"),
+                    Outcome("cancelled", Now.AddMinutes(4), "attempt.interrupted_by_host_shutdown"),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Closed, reiniciado.State);
+            Assert.Equal(0, reiniciado.ConsecutiveFailures);
         }
         finally
         {
