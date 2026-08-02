@@ -83,12 +83,15 @@ with tempfile.TemporaryDirectory(dir="/tmp") as directory:
         )
         archive.writestr(
             "xl/worksheets/sheet1.xml",
-            '<worksheet xmlns="urn:s"><sheetData><row><c t="s"><v>0</v></c></row></sheetData></worksheet>',
+            '<worksheet xmlns="urn:s"><sheetData><row>'
+            '<c t="s"><v>0</v></c>'
+            '<c t="inlineStr"><is><t>REGRA-INLINE-XLSX-7319</t></is></c>'
+            '</row></sheetData></worksheet>',
         )
     require(
         xlsx_path,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "REGRA-XLSX-7319",
+        "REGRA-INLINE-XLSX-7319",
     )
 
     pdf_path = os.path.join(directory, "source.pdf")
@@ -105,10 +108,13 @@ with tempfile.TemporaryDirectory(dir="/tmp") as directory:
     require(os.path.join(directory, "ocr.png"), "image/png", "REGRA PDF 7319")
 
     audio_path = os.path.join(directory, "source.wav")
-    with open(audio_path, "wb") as stream:
-        stream.write(b"RIFF\x24\x00\x00\x00WAVE")
-    audio = extract(audio_path, "audio/wav")
-    if audio["status"] != "stored_not_interpreted":
-        raise AssertionError(f"audio/wav: {audio}")
+    subprocess.run(
+        ["espeak-ng", "-v", "pt-br", "-s", "135", "-w", audio_path,
+         "poseidon controla empréstimos de equipamentos"],
+        capture_output=True,
+        timeout=20,
+        check=True,
+    )
+    require(audio_path, "audio/wav", "equipamentos")
 
-print("artifact extractor self-test: text, PDF, DOCX, XLSX and image extracted; audio explicit")
+print("artifact extractor self-test: text, PDF, DOCX, XLSX, image and audio extracted")

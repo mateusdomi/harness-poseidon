@@ -216,7 +216,40 @@ public sealed class RagContextProvider(
             topK,
             projectId);
 
-        return results.Select(result => new RagContextSlice(
+        // Fontes anexadas e citadas nominalmente no turno não são "lembranças opcionais".
+        // O ranking semântico serve para contexto complementar, mas não pode descartar a sexta
+        // fonte apenas porque o topK padrão é cinco. A UI inclui os nomes persistidos na mensagem;
+        // promovemos todos os anexos explicitamente mencionados, ainda respeitando tenant/projeto.
+        var explicitAttachments = corpus
+            .Where(document =>
+                string.Equals(document.TenantId, tenantId, StringComparison.Ordinal) &&
+                (string.IsNullOrWhiteSpace(projectId) ||
+                    string.Equals(document.ProjectId, projectId, StringComparison.Ordinal)) &&
+                string.Equals(
+                    document.DocumentType,
+                    "solicitation_attachment",
+                    StringComparison.Ordinal) &&
+                document.Metadata.TryGetValue("fileName", out var fileName) &&
+                !string.IsNullOrWhiteSpace(fileName) &&
+                query.Contains(fileName, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(document => MentionPosition(query, document.Metadata["fileName"]))
+            .ThenBy(document => document.Id, StringComparer.Ordinal)
+            .Take(50)
+            .Select(document => new HybridSearchResult(
+                document,
+                1.0,
+                "explicit_attachment_reference"))
+            .ToArray();
+        var explicitIds = explicitAttachments
+            .Select(result => result.Document.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var selected = explicitAttachments
+            .Concat(results
+                .Where(result => !explicitIds.Contains(result.Document.Id))
+                .Take(Math.Max(0, topK - explicitAttachments.Length)))
+            .ToArray();
+
+        return selected.Select(result => new RagContextSlice(
             result.Document.Id,
             result.Document.DocumentType,
             result.Document.ProjectId,
@@ -225,6 +258,12 @@ public sealed class RagContextProvider(
             $"{result.Document.DocumentType}:{result.Document.Id}",
             result.Document.Metadata,
             Math.Max(1, result.Document.Content.Length / 4))).ToArray();
+    }
+
+    private static int MentionPosition(string query, string fileName)
+    {
+        var position = query.IndexOf(fileName, StringComparison.OrdinalIgnoreCase);
+        return position < 0 ? int.MaxValue : position;
     }
 }
 

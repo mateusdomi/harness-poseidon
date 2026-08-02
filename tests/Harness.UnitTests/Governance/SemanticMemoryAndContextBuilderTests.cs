@@ -96,4 +96,73 @@ public sealed class SemanticMemoryAndContextBuilderTests
         Assert.Equal(2, snapshot.Bundles.Count);
         Assert.Equal("doc-1", snapshot.Bundles[0].DocumentId);
     }
+
+    [Fact]
+    public async Task RagProviderKeepsEveryExplicitAttachmentBeyondSemanticTopK()
+    {
+        var tenantId = "tenant-1";
+        var projectId = "proj-1";
+        var documents = Enumerable.Range(1, 6)
+            .Select(index => new VectorDocumentRecord(
+                $"attachment-{index}",
+                tenantId,
+                projectId,
+                "solicitation_attachment",
+                $"fonte-{index}.txt: conteúdo {index}",
+                DeterministicLocalEmbedding.Embed($"conteúdo {index}"),
+                new Dictionary<string, string> { ["fileName"] = $"fonte-{index}.txt" },
+                DateTimeOffset.UtcNow.AddSeconds(index)))
+            .Append(new VectorDocumentRecord(
+                "other-project",
+                tenantId,
+                "proj-2",
+                "solicitation_attachment",
+                "fonte-externa.txt: segredo",
+                DeterministicLocalEmbedding.Embed("segredo"),
+                new Dictionary<string, string> { ["fileName"] = "fonte-externa.txt" },
+                DateTimeOffset.UtcNow))
+            .ToArray();
+        var provider = new RagContextProvider(
+            new StubVectorIndex(documents),
+            new HybridRagSearchEngine());
+
+        var result = await provider.SearchAsync(
+            tenantId,
+            projectId,
+            "Fontes fornecidas: fonte-1.txt fonte-2.txt fonte-3.txt fonte-4.txt " +
+            "fonte-5.txt fonte-6.txt fonte-externa.txt",
+            topK: 5);
+
+        Assert.Equal(6, result.Count);
+        Assert.Equal(
+            Enumerable.Range(1, 6).Select(index => $"attachment-{index}"),
+            result.Select(slice => slice.DocumentId));
+        Assert.DoesNotContain(result, slice => slice.DocumentId == "other-project");
+    }
+
+    private sealed class StubVectorIndex(IReadOnlyList<VectorDocumentRecord> documents)
+        : IVectorIndex
+    {
+        public Task IndexAsync(
+            VectorDocumentRecord document,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<VectorDocumentRecord>> ListAsync(
+            string tenantId,
+            string? projectId = null,
+            CancellationToken cancellationToken = default) => Task.FromResult(documents);
+
+        public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
+            string tenantId,
+            IReadOnlyList<float> queryEmbedding,
+            int topK = 10,
+            double minScore = 0,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<VectorSearchResult>>([]);
+
+        public Task DeleteAsync(
+            string tenantId,
+            string documentId,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 }

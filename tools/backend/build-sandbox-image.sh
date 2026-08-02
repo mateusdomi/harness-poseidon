@@ -41,7 +41,7 @@ if ! jq -e '.status == "extracted" and (.text | contains("Núcleo de governança
   exit 4
 fi
 
-echo "Verificando extração de texto, PDF, DOCX, XLSX, imagem e falha explícita de áudio…"
+echo "Verificando extração de texto, PDF, DOCX, XLSX, imagem e transcrição de áudio…"
 docker run --rm --network=none --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges \

@@ -43,11 +43,28 @@ RUN apt-get update \
         git \
         ca-certificates \
         python3 \
+        python3-pip \
+        libatomic1 \
+        ffmpeg \
+        espeak-ng \
+        unzip \
         poppler-utils \
         tesseract-ocr \
         tesseract-ocr-eng \
         tesseract-ocr-por \
     && rm -rf /var/lib/apt/lists/*
+
+# Transcrição local e sem egress. O modelo pequeno em português fica dentro da imagem,
+# com checksum fixo; assim um áudio nunca depende de baixar pesos durante a execução nem é
+# enviado a um serviço externo. A versão do motor também é fixa para tornar a evidência
+# reproduzível.
+RUN python3 -m pip install --no-cache-dir --break-system-packages vosk==0.3.45
+ADD --checksum=sha256:6e1ce909032e1afa7a88e68a3d628ecafff302bdf195befab308826c395e93b7 \
+    https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip /tmp/vosk-model-pt.zip
+RUN mkdir -p /opt/harness/models \
+    && unzip -q /tmp/vosk-model-pt.zip -d /opt/harness/models \
+    && mv /opt/harness/models/vosk-model-small-pt-0.3 /opt/harness/models/vosk-pt \
+    && rm /tmp/vosk-model-pt.zip
 
 # Versões FIXAS. Um `latest` faz a mesma imagem produzir comportamentos diferentes em dias
 # diferentes, e aí nenhuma execução é reproduzível — o oposto do que uma sandbox atestada promete.

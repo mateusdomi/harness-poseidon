@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import wave
 import zipfile
 import xml.etree.ElementTree as et
 
@@ -48,7 +49,14 @@ def xlsx_text(path):
                 values = []
                 for cell in (node for node in row if node.tag.endswith("}c")):
                     kind = cell.attrib.get("t")
-                    raw = next((node.text or "" for node in cell if node.tag.endswith("}v")), "")
+                    if kind == "inlineStr":
+                        raw = "".join(
+                            node.text or "" for node in cell.iter() if node.tag.endswith("}t")
+                        )
+                    else:
+                        raw = next(
+                            (node.text or "" for node in cell if node.tag.endswith("}v")), ""
+                        )
                     if kind == "s" and raw.isdigit() and int(raw) < len(shared):
                         raw = shared[int(raw)]
                     values.append(raw)
@@ -88,6 +96,40 @@ def pdf_text(path):
         )
 
 
+def audio_text(path):
+    """Normaliza áudio e transcreve localmente; nenhum byte deixa a sandbox."""
+    from vosk import KaldiRecognizer, Model, SetLogLevel
+
+    SetLogLevel(-1)
+    with tempfile.TemporaryDirectory(dir="/tmp") as directory:
+        wav_path = os.path.join(directory, "audio.wav")
+        converted = subprocess.run(
+            [
+                "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", path,
+                "-t", "180", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", wav_path,
+            ],
+            capture_output=True,
+            timeout=45,
+            check=False,
+        )
+        if converted.returncode != 0:
+            return ""
+
+        model = Model("/opt/harness/models/vosk-pt")
+        transcript = []
+        with wave.open(wav_path, "rb") as source:
+            recognizer = KaldiRecognizer(model, source.getframerate())
+            while chunk := source.readframes(8000):
+                if recognizer.AcceptWaveform(chunk):
+                    value = json.loads(recognizer.Result()).get("text", "")
+                    if value:
+                        transcript.append(value)
+            final = json.loads(recognizer.FinalResult()).get("text", "")
+            if final:
+                transcript.append(final)
+        return " ".join(transcript)
+
+
 def main():
     path, content_type = sys.argv[1], sys.argv[2]
     if content_type.startswith("text/") or content_type == "application/json":
@@ -102,6 +144,8 @@ def main():
         text = xlsx_text(path)
     elif content_type in {"application/zip", "application/x-zip-compressed"}:
         text = zip_text(path)
+    elif content_type in {"audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4"}:
+        text = audio_text(path)
     else:
         result("stored_not_interpreted", "Fonte armazenada, mas este tipo ainda não possui extrator.")
         return
