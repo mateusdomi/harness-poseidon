@@ -112,6 +112,10 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: run REJEITADO para o card {TaskId}: {Status}/{Code}")]
     private static partial void LogRunRejected(ILogger logger, string taskId, string status, string code);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: etapa '{PhaseName}' do projeto {ProjectId} anunciada ao dono.")]
+    private static partial void LogPhaseMilestoneAnnounced(
+        ILogger logger, string projectId, string phaseName);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Chief: card {TaskId} (tentativa {AttemptId}) ESCALADO — revisão independente indisponível após {Failures} adiamentos por {ReasonCode}.")]
     private static partial void LogReviewUnavailableEscalated(
         ILogger logger, string taskId, string attemptId, string reasonCode, int failures);
@@ -398,6 +402,10 @@ public sealed partial class ChiefBacklogLoopService(
                         profile.TenantId, profile.Id, project, projectControlledRoot, board, scope, token);
                     token.ThrowIfCancellationRequested();
                     await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
+                    token.ThrowIfCancellationRequested();
+                    // Caminho BOM também é notícia: sem isto o dono só ouvia a Bruna quando algo
+                    // travava, e um projeto saudável avançava fases inteiras em silêncio.
+                    await AnnouncePhaseMilestonesAsync(profile.TenantId, project, scope, token);
                     token.ThrowIfCancellationRequested();
                     await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
                     token.ThrowIfCancellationRequested();
@@ -1154,6 +1162,15 @@ public sealed partial class ChiefBacklogLoopService(
         new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Abertura fixa do aviso de etapa concluída. É por ela — mais o nome da etapa — que um aviso
+    /// já publicado é reconhecido depois de um reinício do Host.
+    /// </summary>
+    private const string MilestoneMarker = "Concluímos uma etapa do projeto:";
+
+    /// <summary>Etapas já anunciadas nesta execução do processo.</summary>
+    private readonly HashSet<string> _announcedMilestones = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Espera antes de re-tentar um card cujo run foi RECUSADO na largada (tipicamente conflito de
     /// claim com um run vivo do mesmo escopo). Sem ela, o ciclo re-despachava o card a cada
     /// intervalo do loop: cada rodada abria uma tentativa durável, colhia a recusa, expirava a
@@ -1170,7 +1187,7 @@ public sealed partial class ChiefBacklogLoopService(
     /// Marcador estável do aviso de escalação. É o que permite reconhecer, na própria conversa,
     /// que aquele card JÁ foi levado ao dono — idempotência que sobrevive a restart.
     /// </summary>
-    private const string EscalationMarker = "Preciso da sua decisão em um card:";
+    private const string EscalationMarker = "Preciso da sua decisão em uma parte do projeto:";
 
     /// <summary>Cards cuja escalação já foi anunciada ao dono — o aviso é uma vez, não a cada ciclo.</summary>
     private readonly HashSet<string> _announcedEscalations = new(StringComparer.Ordinal);
@@ -1992,6 +2009,126 @@ public sealed partial class ChiefBacklogLoopService(
     /// ser decidido. Uma vez por card — o anúncio é idempotente por conteúdo, não vira spam a
     /// cada ciclo do loop.
     /// </summary>
+    /// <summary>
+    /// Elo de COMUNICAÇÃO PROATIVA: quando uma etapa do playbook fecha, a Diretora de Engenharia
+    /// conta ao dono o que ficou pronto e o que vem a seguir.
+    ///
+    /// Existe porque a esteira andava em silêncio: entre a pergunta inicial e a entrega final o
+    /// projeto atravessava etapas inteiras sem uma palavra, e quem saía do computador não tinha
+    /// como saber se o trabalho seguia, tinha parado ou estava esperando por ele. Anunciar
+    /// escalação cobria só o caminho ruim; o bom não existia.
+    ///
+    /// A linguagem é de negócio: etapa, entrega, próximo passo. Nada de card, gate, objetivo,
+    /// estado interno ou identificador.
+    /// </summary>
+    private async Task<int> AnnouncePhaseMilestonesAsync(
+        string tenantId,
+        ProjectRecord project,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var catalog = scope.ServiceProvider.GetRequiredService<IWorkflowCatalogStore>();
+        var bindings = await catalog.ListBindingsAsync(tenantId, project.Id, null, 1, token);
+        if (bindings.Count == 0)
+        {
+            return 0;
+        }
+
+        var runs = await catalog.ListRunsAsync(tenantId, bindings[0].Id, null, 20, token);
+        var running = runs.FirstOrDefault(run =>
+            string.Equals(run.State, "running", StringComparison.Ordinal));
+        if (running is null)
+        {
+            return 0;
+        }
+
+        var aggregate = await scope.ServiceProvider.GetRequiredService<IWorkflowStore>()
+            .ReadRunAggregateAsync(tenantId, running.Id, token);
+        if (aggregate is null)
+        {
+            return 0;
+        }
+
+        var ordered = aggregate.Phases.OrderBy(phase => phase.Order).ToArray();
+        var pending = ordered
+            .Where(phase => string.Equals(phase.State, "completed", StringComparison.Ordinal))
+            .Where(phase => _announcedMilestones.Add($"{project.Id}:{phase.PhaseRunId}"))
+            .ToArray();
+        if (pending.Length == 0)
+        {
+            return 0;
+        }
+
+        var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
+        var open = await conversations.ListConversationsAsync(tenantId, project.Id, null, 1, token);
+        if (open.Count == 0)
+        {
+            // Sem conversa não há a quem contar. Libera para anunciar quando existir canal.
+            foreach (var phase in pending)
+            {
+                _ = _announcedMilestones.Remove($"{project.Id}:{phase.PhaseRunId}");
+            }
+
+            return 0;
+        }
+
+        // A memória do processo não basta: cada reinício do Host repetiria o MESMO aviso, sem
+        // nenhum fato novo. O registro durável do que já foi dito é a própria conversa.
+        var history = await conversations.ListMessagesAsync(tenantId, open[0].Id, null, 200, token);
+        var alreadySaid = history
+            .Where(entry => entry.Content.Contains(MilestoneMarker, StringComparison.Ordinal))
+            .ToArray();
+
+        var now = clock.UtcNow;
+        var announced = 0;
+        foreach (var phase in pending)
+        {
+            token.ThrowIfCancellationRequested();
+            if (alreadySaid.Any(entry => entry.Content.Contains(phase.Name, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            var delivered = phase.Objectives
+                .Where(objective => string.Equals(
+                    objective.State, "approved", StringComparison.OrdinalIgnoreCase))
+                .Select(objective => $"- {objective.Name}")
+                .ToArray();
+            var next = ordered.FirstOrDefault(candidate => candidate.Order > phase.Order);
+
+            var content =
+                $"{MilestoneMarker} **{phase.Name}**. ✅\n\n" +
+                (delivered.Length == 0
+                    ? "A etapa fechou com as verificações exigidas para ela.\n\n"
+                    : $"O que ficou pronto:\n{string.Join("\n", delivered)}\n\n") +
+                (next is null
+                    ? "Era a última etapa prevista. Vou consolidar o encerramento e te aviso.\n\n"
+                    : $"Sigo agora para **{next.Name}**. Assim que ela fechar, te aviso de novo.\n\n") +
+                "Você não precisa fazer nada neste momento — se eu precisar de uma decisão sua, " +
+                "eu te procuro.";
+
+            var result = await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    tenantId,
+                    new MessageRecord(
+                        tenantId, project.Id, UlidValue.New(now).ToString(), open[0].Id,
+                        "chief", null, project.ChiefAgentId, content, null, now),
+                    now),
+                token);
+            if (result.Status == MessageMutationStatus.Applied)
+            {
+                announced++;
+                LogPhaseMilestoneAnnounced(logger, project.Id, phase.Name);
+            }
+            else
+            {
+                _ = _announcedMilestones.Remove($"{project.Id}:{phase.PhaseRunId}");
+            }
+        }
+
+        return announced;
+    }
+
     private async Task<int> AnnounceEscalatedCardsAsync(
         string tenantId,
         ProjectRecord project,
@@ -2060,7 +2197,10 @@ public sealed partial class ChiefBacklogLoopService(
                 token.ThrowIfCancellationRequested();
                 foreach (var task in escalated)
                 {
-                    if (previous.Content.Contains(task.Id, StringComparison.Ordinal))
+                    // Reconhecimento pelo TÍTULO, não pelo identificador: o título é o que o dono
+                    // lê, e publicar um id interno no chat violaria a projeção de negócio. O
+                    // título do trabalho é estável e único dentro do projeto.
+                    if (previous.Content.Contains(task.Title, StringComparison.Ordinal))
                     {
                         _ = alreadyAnnounced.Add(task.Id);
                     }
@@ -2103,13 +2243,13 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
             var content =
-                $"{EscalationMarker} **{task.Title}** (card {task.Id}).\n\n" +
-                $"Ele foi reprovado {rejected} vez(es) pela revisão independente e atingiu o limite de " +
-                "ciclos de correção. Continuar tentando do mesmo jeito só repetiria o mesmo resultado, " +
-                "então parei e trouxe para você.\n\n" +
+                $"{EscalationMarker} **{task.Title}**.\n\n" +
+                $"A revisão independente reprovou este trabalho {rejected} vez(es) e ele chegou ao " +
+                "limite de rodadas de correção. Continuar tentando do mesmo jeito só repetiria o " +
+                "mesmo resultado, então parei e trouxe para você.\n\n" +
                 $"O que a revisão apontou:\n{findings}\n\n" +
-                "Me diga como prefere seguir: mudar o critério de aceite, reduzir o escopo do card, " +
-                "ou tratar isso como decisão de projeto.";
+                "Me diga como prefere seguir: ajustar o que consideramos pronto, reduzir o que " +
+                "essa parte precisa entregar, ou tratar isso como uma decisão do projeto.";
 
             var result = await conversations.CreateMessageAsync(
                 new MessageCreateCommand(
