@@ -16,7 +16,13 @@ public sealed record ApprovedDocumentPublishResult(
     string ReasonCode,
     string? DocumentId = null,
     string? DocumentVersionId = null,
-    string? SourcePath = null);
+    string? SourcePath = null,
+    string? Detail = null);
+
+public sealed record DocumentTemplateValidationResult(
+    bool IsValid,
+    string ReasonCode,
+    string? Detail = null);
 
 public sealed record SupersededDocumentProof(
     string DocumentId,
@@ -95,20 +101,17 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
         }
 
         var templateCode = ParseTemplateCode(instructions[^1].Body);
-        if (templateCode is not null)
+        var templateValidation = ValidateTemplateContract(
+            instructions[^1].Body,
+            body,
+            await templates.ListAsync(cancellationToken));
+        if (!templateValidation.IsValid)
         {
-            var template = (await templates.ListAsync(cancellationToken)).FirstOrDefault(candidate =>
-                string.Equals(candidate.Code, templateCode, StringComparison.OrdinalIgnoreCase));
-            if (template is null)
-            {
-                return new(false, "document.template_unknown", SourcePath: sourcePath);
-            }
-
-            var compliance = DocumentTemplateCompliance.Check(body, template.RequiredFieldsJson);
-            if (!compliance.IsCompliant)
-            {
-                return new(false, "document.template_not_satisfied", SourcePath: sourcePath);
-            }
+            return new(
+                false,
+                templateValidation.ReasonCode,
+                SourcePath: sourcePath,
+                Detail: templateValidation.Detail);
         }
 
         var matching = (await catalog.ListDocumentsAsync(
@@ -382,6 +385,35 @@ public sealed partial class ApprovedDocumentCatalogPublisher(
     {
         var match = TemplateMarker.Match(instruction);
         return match.Success ? match.Groups["code"].Value : null;
+    }
+
+    /// <summary>
+    /// Gate puro compartilhado pelo pré-review e pela publicação. Rodá-lo antes do crítico faz um
+    /// documento inválido voltar a `corrections` com a seção exata que falta; repeti-lo na
+    /// publicação mantém a defesa em profundidade contra drift entre review e integração.
+    /// </summary>
+    internal static DocumentTemplateValidationResult ValidateTemplateContract(
+        string instruction,
+        string body,
+        IReadOnlyList<WorkflowDocumentTemplateRecord> availableTemplates)
+    {
+        var templateCode = ParseTemplateCode(instruction);
+        if (templateCode is null)
+        {
+            return new(true, "document.template_not_declared");
+        }
+
+        var template = availableTemplates.FirstOrDefault(candidate =>
+            string.Equals(candidate.Code, templateCode, StringComparison.OrdinalIgnoreCase));
+        if (template is null)
+        {
+            return new(false, "document.template_unknown", $"template {templateCode}");
+        }
+
+        var compliance = DocumentTemplateCompliance.Check(body, template.RequiredFieldsJson);
+        return compliance.IsCompliant
+            ? new(true, "document.template_satisfied")
+            : new(false, "document.template_not_satisfied", compliance.Describe());
     }
 
     internal static string ExtractTitle(string body, string fallback)

@@ -381,6 +381,7 @@ public sealed partial class ChiefBacklogLoopService(
                         board,
                         chain,
                         scope.ServiceProvider.GetRequiredService<IModelInvocationStore>(),
+                        scope.ServiceProvider.GetRequiredService<IWorkflowDocumentTemplateStore>(),
                         token);
                     token.ThrowIfCancellationRequested();
                     await PrepareCorrectionsAsync(profile.TenantId, project, board, chain, token);
@@ -1303,6 +1304,7 @@ public sealed partial class ChiefBacklogLoopService(
         IWorkBoardStore board,
         IWorkChainStore chain,
         IModelInvocationStore invocations,
+        IWorkflowDocumentTemplateStore templates,
         CancellationToken token)
     {
         var reviewed = 0;
@@ -1387,11 +1389,43 @@ public sealed partial class ChiefBacklogLoopService(
             var branch = $"task/agent-run-{awaiting.Id.ToLowerInvariant()}";
             string diff;
             CodeGraphBuildResult? branchInspection = null;
+            DocumentTemplateValidationResult? documentTemplateValidation = null;
             try
             {
                 using var manager = await GitWorktreeManager.OpenAsync(
                     repositoryRoot, controlledRoot, token);
                 diff = await manager.DiffBranchAsync("HEAD", branch, token);
+
+                // Documento inválido não deve consumir um crítico e só descobrir o defeito depois
+                // de aprovado. O mesmo contrato é repetido na publicação como defesa em
+                // profundidade; aqui a falha vira review determinístico e segue pelo fluxo normal
+                // de correções, em vez de reaparecer em todo ciclo como publicação recusada.
+                if (string.Equals(task.CardType, "documento", StringComparison.Ordinal))
+                {
+                    var artifacts = ApprovedDocumentCatalogPublisher.SelectDocumentArtifacts(
+                        await manager.ListBranchChangedFilesAsync(branch, token));
+                    if (artifacts.Count != 1)
+                    {
+                        documentTemplateValidation = new(
+                            false,
+                            artifacts.Count == 0
+                                ? "document.artifact_missing"
+                                : "document.artifact_ambiguous",
+                            artifacts.Count == 0
+                                ? "nenhum arquivo Markdown em docs/ foi entregue"
+                                : $"{artifacts.Count} arquivos Markdown em docs/ foram entregues; o card documental exige exatamente um");
+                    }
+                    else
+                    {
+                        var body = await manager.ReadDocumentFromBranchAsync(
+                            branch, artifacts[0], token);
+                        documentTemplateValidation =
+                            ApprovedDocumentCatalogPublisher.ValidateTemplateContract(
+                                instructions[^1].Body,
+                                body,
+                                await templates.ListAsync(token));
+                    }
+                }
 
                 // Gate determinístico PRÉ-REVIEW sobre a branch real. A branch pode já estar numa
                 // worktree viva; se não estiver, criamos uma worktree efêmera governada e a
@@ -1433,6 +1467,38 @@ public sealed partial class ChiefBacklogLoopService(
                     awaiting.Id,
                     $"review-preflight:{exception.GetType().Name}");
                 _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                continue;
+            }
+
+            if (documentTemplateValidation is { IsValid: false } documentFailure)
+            {
+                var detail = string.IsNullOrWhiteSpace(documentFailure.Detail)
+                    ? documentFailure.ReasonCode
+                    : documentFailure.Detail;
+                var deterministicResult = new CriticReviewResult(
+                    UlidValue.New(now).ToString(), awaiting.Id, "deterministic-document-gate",
+                    "deterministic", producerAlias, CriticVerdict.Fail,
+                    "critic.fail",
+                    [new CriticFinding(
+                        CriticFindingSeverity.P1,
+                        documentFailure.ReasonCode,
+                        detail,
+                        null,
+                        "Corrija a estrutura documental e submeta uma nova versão.")],
+                    $"Gate documental recusou a entrega: {detail}",
+                    null,
+                    0);
+                if (await ApplyReviewVerdictAsync(
+                        tenantId, task, awaiting.Id, deterministicResult, chain, token))
+                {
+                    reviewed++;
+                    _reviewBackoff.Remove(awaiting.Id);
+                }
+                else
+                {
+                    _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                }
+
                 continue;
             }
 
@@ -1946,7 +2012,11 @@ public sealed partial class ChiefBacklogLoopService(
                     if (!publication.Published)
                     {
                         LogDocumentPublicationRefused(
-                            logger, task.Id, publication.ReasonCode);
+                            logger,
+                            task.Id,
+                            string.IsNullOrWhiteSpace(publication.Detail)
+                                ? publication.ReasonCode
+                                : $"{publication.ReasonCode}: {publication.Detail}");
                         continue;
                     }
 

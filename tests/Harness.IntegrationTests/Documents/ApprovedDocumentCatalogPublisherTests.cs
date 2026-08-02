@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Harness.Host.Documents;
 using Harness.Persistence.Abstractions.WorkChain;
+using Harness.Persistence.Abstractions.Workflows;
 
 namespace Harness.IntegrationTests.Documents;
 
@@ -70,6 +71,45 @@ public sealed class ApprovedDocumentCatalogPublisherTests
             "task", "attempt"));
         Assert.Null(ApprovedDocumentCatalogPublisher.SelectApprovedReview(
             approved, "task", "outra-tentativa"));
+    }
+
+    [Fact]
+    public void TemplateGateNamesTheMissingSectionsBeforePublication()
+    {
+        var templates = new[]
+        {
+            new WorkflowDocumentTemplateRecord(
+                "05", "ADR (MADR)", "3-Arquitetura", "adr",
+                "[\"contexto\",\"decisao\",\"consequencias_negativas\"]", "{}", "Trade-off."),
+        };
+
+        var result = ApprovedDocumentCatalogPublisher.ValidateTemplateContract(
+            "- Template: 05 — ADR (MADR)",
+            "## Contexto\nConhecido.\n\n## Decisão\nEscolhida.\n",
+            templates);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("document.template_not_satisfied", result.ReasonCode);
+        Assert.Contains("consequencias_negativas", result.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TemplateGateAcceptsTheCanonicalMadrStrongLabels()
+    {
+        var templates = new[]
+        {
+            new WorkflowDocumentTemplateRecord(
+                "05", "ADR (MADR)", "3-Arquitetura", "adr",
+                "[\"contexto\",\"decisao\",\"consequencias_negativas\"]", "{}", "Trade-off."),
+        };
+
+        var result = ApprovedDocumentCatalogPublisher.ValidateTemplateContract(
+            "- Template: 05 — ADR (MADR)",
+            "**contexto**\nConhecido.\n\n**decisao**\nEscolhida.\n\n**consequencias_negativas**\nCusto.\n",
+            templates);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("document.template_satisfied", result.ReasonCode);
     }
 
     [Fact]
