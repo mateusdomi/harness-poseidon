@@ -83,6 +83,11 @@ public sealed partial class AgentRunOrchestrator(
         Message = "Agent run {AttemptId} não encerrou na janela de shutdown; estado durável reconciliado antes da parada.")]
     private static partial void LogShutdownReconciled(ILogger logger, string attemptId);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Worktree recuperada da tentativa {AttemptId} permaneceu preservada porque o cleanup falhou ({ErrorType}).")]
+    private static partial void LogRecoveredWorktreeCleanupFailure(
+        ILogger logger, string attemptId, string errorType);
+
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
     private int _acceptingRuns = 1;
 
@@ -223,6 +228,7 @@ public sealed partial class AgentRunOrchestrator(
                     run.Command.TenantId,
                     snapshot,
                     CancellationToken.None);
+                await TryRemoveRecoveredWorktreeAsync(snapshot, CancellationToken.None);
                 await workspaces.ReleaseAsync(
                     new AttemptWorkspaceReleaseCommand(
                         run.Command.TenantId,
@@ -615,6 +621,8 @@ public sealed partial class AgentRunOrchestrator(
                 await TryCaptureOrphanCheckpointAsync(tenantId, snapshot, cancellationToken);
             }
 
+            await TryRemoveRecoveredWorktreeAsync(snapshot, cancellationToken);
+
             var release = await workspaces.ReleaseAsync(
                 new AttemptWorkspaceReleaseCommand(
                     tenantId, workspace.AttemptId, owner, snapshot.FencingToken, now),
@@ -675,6 +683,8 @@ public sealed partial class AgentRunOrchestrator(
                 await TryCaptureOrphanCheckpointAsync(tenantId, snapshot, cancellationToken);
             }
 
+            await TryRemoveRecoveredWorktreeAsync(snapshot, cancellationToken);
+
             var release = await workspaces.ReleaseAsync(
                 new AttemptWorkspaceReleaseCommand(
                     tenantId,
@@ -710,6 +720,50 @@ public sealed partial class AgentRunOrchestrator(
         }
 
         return released;
+    }
+
+    /// <summary>
+    /// Fecha a metade física da recuperação. Liberar lease/claim sem remover a worktree marcava
+    /// `cleanup_state=completed` enquanto o diretório continuava registrado no Git para sempre.
+    /// Antes de remover, colhe qualquer resto em commit; se algo falhar, o diretório permanece —
+    /// nunca usamos remoção forçada nem apagamos trabalho parcial.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A falha de cleanup não pode impedir a liberação da claim; a worktree permanece preservada para reconciliação operacional.")]
+    private async Task<bool> TryRemoveRecoveredWorktreeAsync(
+        AttemptWorkspaceSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(snapshot.WorktreePath))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var manager = await GitWorktreeManager.OpenAsync(
+                Path.GetFullPath(snapshot.RepositoryRoot),
+                Path.GetFullPath(snapshot.ControlledRoot),
+                cancellationToken);
+            _ = await manager.CommitWorktreeLeftoversAsync(
+                snapshot.WorktreePath,
+                $"chore(harness): recuperação da tentativa {snapshot.AttemptId}",
+                cancellationToken);
+            _ = await manager.RemoveTaskWorktreeAsync(
+                snapshot.BranchName,
+                snapshot.WorktreePath,
+                deleteBranch: false,
+                cancellationToken);
+            return true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogRecoveredWorktreeCleanupFailure(
+                logger, snapshot.AttemptId, exception.GetType().Name);
+            return false;
+        }
     }
 
 
