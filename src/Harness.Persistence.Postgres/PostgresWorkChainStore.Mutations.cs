@@ -1278,7 +1278,7 @@ public sealed partial class PostgresWorkChainStore
                 INSERT INTO harness.attempt_events
                     (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
                 VALUES
-                    ($1,$2,$3,$4,'log','Lease expired; attempt abandoned.',$5,'warning');
+                    ($1,$2,$3,$4,'log','Attempt abandoned; card returned to ready.',$5,'warning');
                 """,
                 cancellationToken,
                 Text(UlidValue.New(command.OccurredAt).ToString()),

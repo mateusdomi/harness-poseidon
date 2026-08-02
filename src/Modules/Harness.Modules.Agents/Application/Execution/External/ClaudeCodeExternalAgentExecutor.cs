@@ -83,7 +83,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
     /// Parser do `stream-json` do Claude Code. Os nomes de campo abaixo foram observados na
     /// saída real da CLI instalada, não inferidos.
     /// </summary>
-    private sealed class ClaudeStreamJsonParser : IExternalAgentOutputParser
+    internal sealed class ClaudeStreamJsonParser : IExternalAgentOutputParser
     {
         public string? SessionId { get; private set; }
 
@@ -213,6 +213,9 @@ public sealed class ClaudeCodeExternalAgentExecutor(
         {
             var isError = root.TryGetProperty("is_error", out var error) &&
                 error.ValueKind == JsonValueKind.True;
+            var subtype = Subtype(root);
+            var successSubtype = string.Equals(subtype, "success", StringComparison.Ordinal);
+            var errorSubtype = subtype?.StartsWith("error", StringComparison.Ordinal) == true;
 
             if (root.TryGetProperty("result", out var result) &&
                 result.ValueKind == JsonValueKind.String)
@@ -226,14 +229,23 @@ public sealed class ClaudeCodeExternalAgentExecutor(
                 yield return new ExternalAgentEvent(ExternalAgentEventKind.Usage, Usage: Usage);
             }
 
-            if (isError)
+            // O endpoint GLM compatível observado em produção devolve, de forma
+            // contraditória, `is_error=true` junto de `subtype=success`, depois de uma mensagem
+            // assistant com stop_sequence e de trabalho persistido. O subtipo é o desfecho
+            // canônico do envelope; priorizá-lo evita jogar fora commits válidos. O inverso
+            // também é fail-closed: subtipo `error_*` falha mesmo se o booleano vier incorreto.
+            if (errorSubtype || (isError && !successSubtype))
             {
-                FailureCode = $"executor.result_{Subtype(root) ?? "error"}";
+                FailureCode = $"executor.result_{subtype ?? "error"}";
                 yield return new ExternalAgentEvent(
                     ExternalAgentEventKind.Failed, Code: FailureCode);
                 yield break;
             }
 
+            // O stream pode conter um envelope transitório antes do resultado final. Um
+            // `success` final coerente precisa limpar a falha anterior, ou CollectAsync ainda
+            // classificaria a sessão inteira como Failed.
+            FailureCode = null;
             yield return new ExternalAgentEvent(
                 ExternalAgentEventKind.Completed,
                 ExternalAgentRedaction.Redact(FinalMessage),

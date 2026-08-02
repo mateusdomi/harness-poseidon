@@ -211,6 +211,51 @@ public sealed class ExternalAgentExecutorTests : IDisposable
         Assert.Equal(Text, ExternalAgentRedaction.Redact(Text));
     }
 
+    [Fact]
+    public void GlmContradictorySuccessEnvelopeDoesNotDiscardCompletedWork()
+    {
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        var events = parser.ParseLine(
+            """{"type":"result","subtype":"success","is_error":true,"result":"entrega concluída"}""")
+            .ToArray();
+
+        var completed = Assert.Single(events);
+        Assert.Equal(ExternalAgentEventKind.Completed, completed.Kind);
+        Assert.Null(parser.FailureCode);
+        Assert.Equal("entrega concluída", parser.FinalMessage);
+    }
+
+    [Fact]
+    public void FinalSuccessEnvelopeClearsAnEarlierTransientResultError()
+    {
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+        _ = parser.ParseLine(
+            """{"type":"result","subtype":"error_during_execution","is_error":true}""")
+            .ToArray();
+        Assert.Equal("executor.result_error_during_execution", parser.FailureCode);
+
+        var events = parser.ParseLine(
+            """{"type":"result","subtype":"success","is_error":false,"result":"ok"}""")
+            .ToArray();
+
+        Assert.Equal(ExternalAgentEventKind.Completed, Assert.Single(events).Kind);
+        Assert.Null(parser.FailureCode);
+    }
+
+    [Fact]
+    public void ErrorSubtypeRemainsFailClosedWhenBooleanIsWrong()
+    {
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        var failed = Assert.Single(parser.ParseLine(
+            """{"type":"result","subtype":"error_max_turns","is_error":false}""")
+            .ToArray());
+
+        Assert.Equal(ExternalAgentEventKind.Failed, failed.Kind);
+        Assert.Equal("executor.result_error_max_turns", parser.FailureCode);
+    }
+
     public void Dispose()
     {
         foreach (var path in new[] { _root, _workspace })

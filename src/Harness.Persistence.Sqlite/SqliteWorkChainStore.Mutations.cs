@@ -1279,7 +1279,7 @@ public sealed partial class SqliteWorkChainStore
                     (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
                 VALUES
                     ($eventId,$tenantId,$projectId,$attemptId,'log',
-                     'Lease expired; attempt abandoned.',$occurredAt,'warning');
+                     'Attempt abandoned; card returned to ready.',$occurredAt,'warning');
                 UPDATE work_tasks
                 SET state='ready',version=$nextVersion,updated_at=$occurredAt,
                     board_state='ready',blocked_reason=NULL
