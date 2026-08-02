@@ -68,16 +68,33 @@ public static class DocumentTemplateCompliance
         var headings = StructuralLabels(body ?? string.Empty)
             .Select(Normalize)
             .ToArray();
+        var normalizedRequired = required.Select(Normalize).ToArray();
 
         var missing = new List<string>();
         var positions = new List<(string Field, int Position)>();
-        foreach (var field in required)
+        for (var fieldIndex = 0; fieldIndex < required.Count; fieldIndex++)
         {
+            var field = required[fieldIndex];
             var normalizedField = Normalize(field);
             var index = Array.FindIndex(
                 headings,
                 heading => string.Equals(heading, normalizedField, StringComparison.Ordinal) ||
                            heading.StartsWith(normalizedField + " ", StringComparison.Ordinal));
+            if (index < 0)
+            {
+                // Um campo fora do início só conta quando o mesmo delimitador combina dois
+                // campos obrigatórios INDEPENDENTES. Isso aceita `relacionamentos e
+                // cardinalidades`, mas não deixa o título `Registros de decisão` roubar a seção
+                // `decisao`, nem `consequencias_negativas` substituir `consequencias`.
+                index = Array.FindIndex(
+                    headings,
+                    heading => ContainsFieldAtWordBoundary(heading, normalizedField) &&
+                               normalizedRequired.Any(other =>
+                                   !string.Equals(other, normalizedField, StringComparison.Ordinal) &&
+                                   !other.StartsWith(normalizedField + " ", StringComparison.Ordinal) &&
+                                   !normalizedField.StartsWith(other + " ", StringComparison.Ordinal) &&
+                                   ContainsFieldAtWordBoundary(heading, other)));
+            }
             if (index < 0)
             {
                 missing.Add(field);
@@ -100,6 +117,36 @@ public static class DocumentTemplateCompliance
         }
 
         return new Result(missing, outOfOrder);
+    }
+
+    /// <summary>
+    /// Um título pode representar mais de um campo relacionado (por exemplo,
+    /// `relacionamentos e cardinalidades`). Como <see cref="Normalize"/> remove conectores, a
+    /// identidade do campo precisa ser encontrada por limites de palavras, não apenas no início.
+    /// A busca continua restrita a delimitadores estruturais; prosa comum nunca chega aqui.
+    /// </summary>
+    private static bool ContainsFieldAtWordBoundary(string heading, string field)
+    {
+        if (field.Length == 0)
+        {
+            return false;
+        }
+
+        var offset = 0;
+        while ((offset = heading.IndexOf(field, offset, StringComparison.Ordinal)) >= 0)
+        {
+            var beginsAtBoundary = offset == 0 || heading[offset - 1] == ' ';
+            var end = offset + field.Length;
+            var endsAtBoundary = end == heading.Length || heading[end] == ' ';
+            if (beginsAtBoundary && endsAtBoundary)
+            {
+                return true;
+            }
+
+            offset++;
+        }
+
+        return false;
     }
 
     /// <summary>Campos declarados pelo template, na ordem. JSON inválido devolve lista vazia.</summary>

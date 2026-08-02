@@ -220,7 +220,8 @@ public sealed class DocumentTemplateComplianceTests
             Crescimento futuro exige revisão.
             """;
 
-        Assert.True(DocumentTemplateCompliance.Check(body, adr).IsCompliant);
+        var result = DocumentTemplateCompliance.Check(body, adr);
+        Assert.True(result.IsCompliant, result.Describe());
     }
 
     [Fact]
@@ -239,6 +240,38 @@ public sealed class DocumentTemplateComplianceTests
 
         Assert.Contains("contexto", result.MissingFields);
         Assert.Contains("decisao", result.MissingFields);
+    }
+
+    [Fact]
+    public void ACombinedStructuralHeadingCanSatisfyAdjacentRelatedFields()
+    {
+        const string der =
+            """["entidades","relacionamentos","cardinalidades","indices_por_query"]""";
+        var body = """
+            # DER
+
+            ## Entidades
+            Equipamento e empréstimo.
+
+            ## Relacionamentos e cardinalidades
+            Um equipamento possui muitos empréstimos ao longo do tempo.
+
+            ## Índices por query
+            Índice do empréstimo aberto por equipamento.
+            """;
+
+        Assert.True(DocumentTemplateCompliance.Check(body, der).IsCompliant);
+    }
+
+    [Fact]
+    public void AFieldNameEmbeddedInsideAnotherWordDoesNotSatisfyTheGate()
+    {
+        const string required = """["status"]""";
+
+        var result = DocumentTemplateCompliance.Check(
+            "## Statuspage da operação\nA página existe.", required);
+
+        Assert.Contains("status", result.MissingFields);
     }
 
     [Theory]
