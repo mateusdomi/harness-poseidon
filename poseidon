@@ -260,7 +260,26 @@ stop_poseidon() {
     kill -0 "${pid}" 2>/dev/null || { echo "Poseidon encerrado."; return; }
     sleep 0.25
   done
-  echo "O shutdown gracioso excedeu 20 segundos; processo preservado para diagnóstico." >&2
+
+  # O shutdown gracioso não terminou em 20 segundos.
+  #
+  # Antes, aqui o processo era PRESERVADO e o comando saía com erro. A intenção era boa —
+  # guardar o estado para diagnóstico — mas o efeito prático era o oposto: `stop; start`, que
+  # é o jeito natural de reiniciar, encontrava o processo ainda vivo, imprimia "já está em
+  # execução" e desistia; segundos depois ele morria e o Poseidon ficava FORA DO AR com uma
+  # mensagem dizendo que estava no ar. Um `stop` que não para é pior que um `stop` bruto.
+  #
+  # Agora escala para SIGKILL, avisando o que foi feito e onde olhar. O trabalho não se perde:
+  # o motor é durável e a recuperação na subida reconcilia tentativa órfã.
+  echo "Shutdown gracioso excedeu 20s; encerrando à força (SIGKILL)." >&2
+  echo "Diagnóstico em ${POSEIDON_LOG_DIR}." >&2
+  kill -KILL "${pid}" 2>/dev/null || true
+  for _ in {1..40}; do
+    kill -0 "${pid}" 2>/dev/null || { echo "Poseidon encerrado à força."; return; }
+    sleep 0.25
+  done
+
+  echo "Não foi possível encerrar o processo ${pid}." >&2
   exit 2
 }
 
