@@ -71,7 +71,20 @@ public sealed class AgentAccountConfigurationTests : IDisposable
             ["frontend/**", "docs/frontend/**"],
             registry.Get("worker-codex-frontend")!.AllowedPathScopes);
         Assert.Empty(registry.Get("chief-claude-primary")!.AllowedPathScopes);
-        Assert.Empty(registry.Get("worker-antigravity-review")!.AllowedPathScopes);
+
+        // O crítico ESCREVE uma coisa só: o próprio parecer. Enquanto o papel não tinha claim
+        // nenhum, todo card de parecer do Conselho nascia sem escopo de escrita e o despacho o
+        // pulava — o Conselho, que é o portão antes do desenvolvimento, nunca acontecia.
+        var critic = registry.Get("worker-antigravity-review")!.AllowedPathScopes;
+        Assert.Equal(["docs/conselho/**"], critic);
+
+        // A independência é o que essa estreiteza protege: nenhum documento revisado mora ali.
+        Assert.DoesNotContain(critic, scope => scope.StartsWith("src/", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            critic, scope => scope.StartsWith("frontend/", StringComparison.Ordinal));
+        Assert.DoesNotContain(critic, scope =>
+            scope.StartsWith("docs/architecture/", StringComparison.Ordinal) ||
+            scope.StartsWith("docs/decisions/", StringComparison.Ordinal));
     }
 
     [Fact]
