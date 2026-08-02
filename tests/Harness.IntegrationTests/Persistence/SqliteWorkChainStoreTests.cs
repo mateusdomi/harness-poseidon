@@ -24,9 +24,25 @@ public sealed class SqliteWorkChainStoreTests
             await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
                 FoundationTransactionBehavior.Command(),
                 timeout.Token);
-            await WorkChainStoreBehavior.AssertAsync(
-                new SqliteWorkChainStore(dispatcher),
+            var store = new SqliteWorkChainStore(dispatcher);
+            await WorkChainStoreBehavior.AssertAsync(store, timeout.Token);
+            await WorkChainStoreBehavior.AssertReviewUnavailableEscalationAsync(
+                store, timeout.Token);
+
+            // O consumo medido precisa chegar à projeção do quadro. Sem isso, custo, duração e
+            // tokens aparecem zerados na interface mesmo com trabalho real executado — e a
+            // auditoria não consegue responder quanto custou nem quanto demorou.
+            var attempts = await new SqliteWorkBoardStore(dispatcher).ListAttemptsAsync(
+                FoundationTransactionBehavior.TenantId,
+                WorkChainStoreBehavior.UnreviewableTaskId,
+                null,
+                10,
                 timeout.Token);
+            var attempt = Assert.Single(attempts);
+            Assert.Equal(12_345, attempt.DurationMs);
+            Assert.Equal(900, attempt.TokensInput);
+            Assert.Equal(350, attempt.TokensOutput);
+            Assert.Equal(1.25m, attempt.CostUsd);
         }
         finally
         {

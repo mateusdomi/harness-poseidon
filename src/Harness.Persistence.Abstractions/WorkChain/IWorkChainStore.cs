@@ -65,6 +65,10 @@ public interface IWorkChainStore
         WorkAttemptReviewCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> EscalateUnreviewableTaskAsync(
+        WorkTaskReviewUnavailableCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> MergeApprovedTaskAsync(
         WorkTaskMergeCommand command,
         CancellationToken cancellationToken = default);
@@ -205,7 +209,25 @@ public sealed record WorkAttemptCompleteCommand(
     long ExpectedTaskVersion,
     IReadOnlyList<WorkEvidenceInput> Evidence,
     string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    WorkAttemptUsage? Usage = null);
+
+/// <summary>
+/// Consumo medido de uma tentativa, colhido do executor no fechamento. Existe porque
+/// `model_invocations` é um espelho por invocação: sem esta projeção na própria tentativa, o
+/// quadro, a Central de Entregas e a observabilidade da auditoria mostram custo e duração
+/// zerados mesmo quando o trabalho realmente aconteceu.
+///
+/// <see langword="null"/> em <paramref name="TokensInput"/>, <paramref name="TokensOutput"/> ou
+/// <paramref name="CostUsd"/> significa que o executor NÃO expôs o número. Zero medido e zero
+/// desconhecido não podem ser lidos como a mesma coisa, então o campo permanece intocado no
+/// banco em vez de ser sobrescrito por zero.
+/// </summary>
+public sealed record WorkAttemptUsage(
+    long? DurationMs,
+    long? TokensInput,
+    long? TokensOutput,
+    decimal? CostUsd);
 
 public sealed record WorkAttemptLeaseExpiredCommand(
     string TenantId,
@@ -225,6 +247,29 @@ public sealed record WorkTaskBlockCommand(
     string AttemptId,
     string ActorKind,
     string ActorId,
+    string Reason,
+    string EvidenceReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+/// <summary>
+/// Escala um card que está em `awaiting_review` e cuja REVISÃO não pôde ser executada por causa
+/// de infraestrutura (nenhum crítico independente disponível, executor do crítico falhando de
+/// forma persistente, timeout repetido). Existe porque adiar com backoff é correto uma vez e
+/// errado para sempre: sem um teto, o mesmo card re-invoca o crítico a cada ciclo, derruba a
+/// capacidade da conta por falhas consecutivas e passa a bloquear a revisão de TODOS os projetos,
+/// sem ninguém nunca ser avisado.
+///
+/// A tentativa é PRESERVADA em `awaiting_review`: a falha é do revisor, não do trabalho, e nada
+/// aqui reprova o ator. O card vai a `escalated`/`blocked` com motivo tipado, o que o tira da
+/// fila de retry e faz a Diretora de Engenharia anunciá-lo como impedimento.
+/// </summary>
+public sealed record WorkTaskReviewUnavailableCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string AttemptId,
     string Reason,
     string EvidenceReference,
     long ExpectedTaskVersion,
@@ -430,6 +475,7 @@ public static class WorkChainCreateValidator
             throw new ArgumentException($"Value exceeds {maximumLength} characters.", parameterName);
         }
     }
+
 }
 
 public static class WorkChainCreateHash
@@ -535,6 +581,17 @@ public static class WorkChainMutationValidator
             throw new ArgumentException("At least one evidence reference is required.", nameof(command));
         }
 
+        if (command.Usage is { } usage)
+        {
+            ValidateNonNegative(usage.DurationMs, nameof(command));
+            ValidateNonNegative(usage.TokensInput, nameof(command));
+            ValidateNonNegative(usage.TokensOutput, nameof(command));
+            if (usage.CostUsd is < 0m)
+            {
+                throw new ArgumentException("Usage values cannot be negative.", nameof(command));
+            }
+        }
+
         var identifiers = new HashSet<string>(StringComparer.Ordinal);
         foreach (var evidence in command.Evidence)
         {
@@ -587,6 +644,20 @@ public static class WorkChainMutationValidator
             command.ExpectedTaskVersion,
             command.IdempotencyKey);
         ValidateActor(command.ActorKind, command.ActorId, command.Reason, command.EvidenceReference);
+    }
+
+    public static void Validate(WorkTaskReviewUnavailableCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        ValidateText(command.Reason, nameof(command), 10_000);
+        ValidateText(command.EvidenceReference, nameof(command), 2_000);
     }
 
     public static void Validate(WorkTaskUnblockCommand command)
@@ -742,6 +813,14 @@ public static class WorkChainMutationValidator
         ValidateText(actorId, nameof(actorId), 200);
         ValidateText(reason, nameof(reason), 10_000);
         ValidateText(evidenceReference, nameof(evidenceReference), 2_000);
+    }
+
+    private static void ValidateNonNegative(long? value, string parameterName)
+    {
+        if (value is < 0)
+        {
+            throw new ArgumentException("Usage values cannot be negative.", parameterName);
+        }
     }
 
     private static void ValidateUlid(string value, string parameterName)

@@ -961,6 +961,119 @@ internal static class WorkChainStoreBehavior
             cancellationToken));
     }
 
+    /// <summary>
+    /// Um card cuja REVISÃO é impossível (nenhum crítico independente, executor do revisor
+    /// falhando de forma persistente) precisa sair da fila de retry e virar impedimento visível.
+    /// Sem esta transição, o loop do chefe re-invocava o crítico para sempre, derrubava a
+    /// capacidade da conta por falhas consecutivas e bloqueava a revisão de todos os projetos.
+    ///
+    /// A tentativa é PRESERVADA em `awaiting_review`: quem falhou foi o revisor, não a entrega.
+    /// </summary>
+    /// <summary>Card usado por <see cref="AssertReviewUnavailableEscalationAsync"/>.</summary>
+    public const string UnreviewableTaskId = "01ARZ3NDEKTSV4RRFFQ69G5G03";
+
+    public static async Task AssertReviewUnavailableEscalationAsync(
+        IWorkChainStore store,
+        CancellationToken cancellationToken)
+    {
+        const string instruction = "Deliver the artifact that no critic can review.";
+        var chain = new WorkChainCreateCommand(
+            FoundationTransactionBehavior.TenantId,
+            FoundationTransactionBehavior.ProjectId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+            "01ARZ3NDEKTSV4RRFFQ69G5G01",
+            "Prove that an unreviewable card escalates instead of retrying forever.",
+            "01ARZ3NDEKTSV4RRFFQ69G5G02",
+            "Persist the unreviewable demand",
+            "[\"The escalation is auditable\"]",
+            "01ARZ3NDEKTSV4RRFFQ69G5G03",
+            "Unreviewable work chain",
+            "low",
+            5m,
+            "01ARZ3NDEKTSV4RRFFQ69G5G04",
+            instruction,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instruction))),
+            "work-chain:create:unreviewable",
+            new DateTimeOffset(2026, 8, 2, 10, 0, 0, TimeSpan.Zero));
+        var created = await store.CreateAsync(chain, cancellationToken);
+        Assert.False(created.Replay);
+
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        var start = new WorkAttemptStartCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            chain.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5G05",
+            "software-engineer",
+            3,
+            "work-chain:attempt:start:unreviewable",
+            chain.OccurredAt.AddMinutes(1));
+        var started = await store.StartAttemptAsync(start, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+
+        var complete = new WorkAttemptCompleteCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            start.AttemptId,
+            started.TaskVersion!.Value,
+            [new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5G06", "git-commit:deadbeef")],
+            "work-chain:attempt:complete:unreviewable",
+            chain.OccurredAt.AddMinutes(2),
+            new WorkAttemptUsage(12_345, 900, 350, 1.25m));
+        var completed = await store.CompleteAttemptAsync(complete, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, completed.Status);
+        Assert.Equal("awaiting_review", completed.TaskState);
+
+        var escalation = new WorkTaskReviewUnavailableCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            start.AttemptId,
+            "Revisão independente indisponível após 4 tentativas (critic.none_available).",
+            $"attempt:{start.AttemptId}",
+            completed.TaskVersion!.Value,
+            "work-chain:task:review-unavailable:unreviewable",
+            chain.OccurredAt.AddMinutes(3));
+
+        var staleVersion = await store.EscalateUnreviewableTaskAsync(
+            escalation with
+            {
+                ExpectedTaskVersion = completed.TaskVersion!.Value - 1,
+                IdempotencyKey = "work-chain:task:review-unavailable:stale",
+            },
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.VersionConflict, staleVersion.Status);
+
+        var escalated = await store.EscalateUnreviewableTaskAsync(escalation, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, escalated.Status);
+        Assert.Equal("escalated", escalated.TaskState);
+        // A entrega do ator continua íntegra: a falha foi do revisor.
+        Assert.Equal("awaiting_review", escalated.AttemptState);
+        Assert.NotNull(escalated.LedgerHash);
+
+        var replay = await store.EscalateUnreviewableTaskAsync(escalation, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, replay.Status);
+        Assert.Equal(escalated.LedgerHash, replay.LedgerHash);
+
+        // Escalar de novo o mesmo card já escalado é estado inválido: o retry acabou de verdade.
+        var again = await store.EscalateUnreviewableTaskAsync(
+            escalation with
+            {
+                ExpectedTaskVersion = escalated.TaskVersion!.Value,
+                IdempotencyKey = "work-chain:task:review-unavailable:again",
+                OccurredAt = chain.OccurredAt.AddMinutes(4),
+            },
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, again.Status);
+
+        var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
+        Assert.NotNull(final);
+        Assert.Equal("escalated", final.TaskState);
+    }
+
     private static async Task AssertInitialLifecycleAsync(
         IWorkChainStore store,
         WorkChainCreateCommand chain,

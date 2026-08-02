@@ -290,4 +290,11 @@ public sealed partial class SqliteWorkChainStore(
 
     private static void Add(SqliteCommand command, string name, object value) =>
         command.Parameters.AddWithValue(name, value);
+
+    /// <summary>
+    /// Parâmetro opcional: ausência vira <see cref="DBNull"/> para que o `COALESCE` do SQL
+    /// preserve o valor já gravado em vez de sobrescrevê-lo com zero.
+    /// </summary>
+    private static void AddNullable(SqliteCommand command, string name, object? value) =>
+        command.Parameters.AddWithValue(name, value ?? DBNull.Value);
 }

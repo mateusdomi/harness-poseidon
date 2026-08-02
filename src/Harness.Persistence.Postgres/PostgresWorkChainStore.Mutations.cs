@@ -335,6 +335,14 @@ public sealed partial class PostgresWorkChainStore
         return UnblockTaskCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> EscalateUnreviewableTaskAsync(
+        WorkTaskReviewUnavailableCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return EscalateUnreviewableTaskCoreAsync(command, cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReplanEscalatedTaskAsync(
         WorkTaskReplanCommand command,
         CancellationToken cancellationToken = default)
@@ -714,11 +722,25 @@ public sealed partial class PostgresWorkChainStore
                     Timestamp(command.OccurredAt));
             }
 
+            // COALESCE: métrica não exposta pelo executor preserva o valor já gravado em vez de
+            // zerar a tentativa — "zero medido" e "desconhecido" não são a mesma coisa.
             await ExecuteAsync(
                 connection, transaction,
-                "UPDATE harness.work_attempts SET state = 'awaiting_review', completed_at = $1, operational_state = 'completed' WHERE id = $2 AND state = 'running';",
+                """
+                UPDATE harness.work_attempts SET state = 'awaiting_review', completed_at = $1,
+                    operational_state = 'completed',
+                    duration_ms = COALESCE($3, duration_ms),
+                    tokens_input = COALESCE($4, tokens_input),
+                    tokens_output = COALESCE($5, tokens_output),
+                    cost_usd = COALESCE($6, cost_usd)
+                WHERE id = $2 AND state = 'running';
+                """,
                 cancellationToken,
-                Timestamp(command.OccurredAt), Text(command.AttemptId));
+                Timestamp(command.OccurredAt), Text(command.AttemptId),
+                NullableBigint(command.Usage?.DurationMs),
+                NullableBigint(command.Usage?.TokensInput),
+                NullableBigint(command.Usage?.TokensOutput),
+                NullableNumeric(command.Usage?.CostUsd));
             await ExecuteAsync(
                 connection, transaction,
                 """
@@ -870,6 +892,89 @@ public sealed partial class PostgresWorkChainStore
                 command.ReviewerAgentId,
                 command.Rationale,
                 $"review:{command.ReviewId}"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Escala um card cuja revisão é impossível. Diferente de <c>ReviewAttemptCoreAsync</c>, NÃO
+    /// grava veredito e NÃO muda o estado da tentativa: o trabalho do ator continua íntegro em
+    /// `awaiting_review` e pode ser revisado assim que houver crítico. O que muda é o card, que
+    /// sai da fila de retry e vira impedimento anunciável.
+    /// </summary>
+    private async Task<WorkChainMutationReceipt> EscalateUnreviewableTaskCoreAsync(
+        WorkTaskReviewUnavailableCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId,
+            command.TaskId, command.AttemptId, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict, row, command.TaskId, command.AttemptId);
+        }
+        else if (row.TaskState != "awaiting_review" || row.AttemptState != "awaiting_review")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
+        }
+        else
+        {
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at, severity)
+                VALUES ($1, $2, $3, $4, 'note', $5, $6, 'error');
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
+                Text(row.ProjectId), Text(command.AttemptId), Text(command.Reason),
+                Timestamp(command.OccurredAt));
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                UPDATE harness.work_tasks SET state = 'escalated', version = $1, updated_at = $2,
+                    board_state = 'blocked', blocked_reason = $3
+                WHERE id = $4 AND tenant_id = $5 AND version = $6;
+                """,
+                cancellationToken,
+                Bigint(nextVersion), Timestamp(command.OccurredAt), Text(command.Reason),
+                Text(command.TaskId), Text(command.TenantId), Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
+                nextVersion, "escalated", "awaiting_review");
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "task.stateChanged", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "awaiting_review",
+                receipt.TaskState ?? "awaiting_review",
+                "reviewUnavailable",
+                "review",
+                "system",
+                "chief-backlog-loop",
+                command.Reason,
+                command.EvidenceReference),
             cancellationToken);
     }
 
@@ -1832,6 +1937,10 @@ public sealed partial class PostgresWorkChainStore
             status, taskId, attemptId, row.Version, row.TaskState, row.AttemptState);
 
     private static NpgsqlParameter<string?> NullableText(string? value) => new() { TypedValue = value };
+
+    private static NpgsqlParameter<long?> NullableBigint(long? value) => new() { TypedValue = value };
+
+    private static NpgsqlParameter<decimal?> NullableNumeric(decimal? value) => new() { TypedValue = value };
 
     private static NpgsqlParameter<int> Integer(int value) => new() { TypedValue = value };
 

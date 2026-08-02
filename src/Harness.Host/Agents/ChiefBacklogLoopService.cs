@@ -111,6 +111,10 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: run REJEITADO para o card {TaskId}: {Status}/{Code}")]
     private static partial void LogRunRejected(ILogger logger, string taskId, string status, string code);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "Chief: card {TaskId} (tentativa {AttemptId}) ESCALADO — revisão independente indisponível após {Failures} adiamentos por {ReasonCode}.")]
+    private static partial void LogReviewUnavailableEscalated(
+        ILogger logger, string taskId, string attemptId, string reasonCode, int failures);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} pulado — o papel '{Role}' não possui escopo de escrita; despachá-lo seria rejeitado por agent_path_scope_empty a cada ciclo.")]
     private static partial void LogCardWithoutWriteScope(ILogger logger, string taskId, string role);
 
@@ -1127,8 +1131,25 @@ public sealed partial class ChiefBacklogLoopService(
 
     private static readonly TimeSpan ReviewRetryBackoff = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Teto de adiamentos consecutivos por falha de INFRAESTRUTURA na revisão de uma mesma
+    /// tentativa. Adiar é a resposta certa para uma indisponibilidade momentânea e a resposta
+    /// errada para uma permanente: sem teto, o mesmo card re-invoca o crítico a cada janela de
+    /// backoff para sempre, acumula falhas consecutivas na conta do revisor, abre o circuito de
+    /// capacidade e passa a bloquear a revisão de TODOS os projetos — sem nunca avisar ninguém.
+    /// Estourado o teto, o card vira impedimento escalado e sai da fila de retry.
+    /// </summary>
+    internal const int MaximumReviewInfrastructureFailures = 4;
+
     /// <summary>Backoff em memória por tentativa para reviews com falha de infraestrutura.</summary>
     private readonly Dictionary<string, DateTimeOffset> _reviewBackoff = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Adiamentos consecutivos por tentativa. Zera quando um veredito real é aplicado — o que
+    /// conta é a sequência SEM progresso, não o total histórico.
+    /// </summary>
+    private readonly Dictionary<string, int> _reviewInfrastructureFailures =
+        new(StringComparer.Ordinal);
 
     /// <summary>
     /// Espera antes de re-tentar um card cujo run foi RECUSADO na largada (tipicamente conflito de
@@ -1241,11 +1262,16 @@ public sealed partial class ChiefBacklogLoopService(
                     evidence.Add(new WorkEvidenceInput(
                         UlidValue.New(now.AddTicks(2)).ToString(), $"git-commit:{deliveryCommit}"));
                 }
+                // A tentativa também carrega o consumo medido: sem esta projeção o quadro, a
+                // Central de Entregas e a auditoria leem duração, tokens e custo zerados mesmo
+                // com trabalho real feito. Métrica não exposta pelo executor fica nula (o store
+                // preserva o valor anterior) em vez de virar zero.
                 var completed = await chain.CompleteAttemptAsync(
                     new WorkAttemptCompleteCommand(
                         tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
                         evidence,
-                        $"chief-loop-complete:{running.Id}", now),
+                        $"chief-loop-complete:{running.Id}", now,
+                        ToAttemptUsage(snapshot.Execution)),
                     token);
                 if (completed.Status is WorkChainMutationStatus.Applied
                     or WorkChainMutationStatus.IdempotentReplay)
@@ -1286,6 +1312,84 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         return harvested;
+    }
+
+    /// <summary>
+    /// Resposta única a um review que NÃO pôde ser executado por infraestrutura. Adia com backoff
+    /// enquanto houver crédito de tentativas; estourado o teto, escala o card com motivo tipado —
+    /// o trabalho do ator permanece íntegro em `awaiting_review` e nada aqui reprova o executor.
+    /// </summary>
+    /// <returns><see langword="true"/> quando o card foi escalado e sai da fila de retry.</returns>
+    private async Task<bool> DeferOrEscalateReviewAsync(
+        string tenantId,
+        BoardTaskRecord task,
+        string attemptId,
+        string reasonCode,
+        IWorkChainStore chain,
+        DateTimeOffset now,
+        CancellationToken token)
+    {
+        var failures = _reviewInfrastructureFailures.TryGetValue(attemptId, out var previous)
+            ? previous + 1
+            : 1;
+        _reviewInfrastructureFailures[attemptId] = failures;
+        if (failures < MaximumReviewInfrastructureFailures)
+        {
+            _reviewBackoff[attemptId] = now.Add(ReviewRetryBackoff);
+            return false;
+        }
+
+        var reason =
+            $"Revisão independente indisponível após {failures} tentativas ({reasonCode}). " +
+            "O trabalho entregue está preservado e continua aguardando revisão; o que falhou foi " +
+            "o revisor, não a entrega.";
+        var receipt = await chain.EscalateUnreviewableTaskAsync(
+            new WorkTaskReviewUnavailableCommand(
+                tenantId, task.BackingSolicitationId, task.Id, attemptId,
+                reason, $"attempt:{attemptId}", task.Version,
+                $"chief-loop-review-unavailable:{attemptId}:{failures}", now),
+            token);
+        if (receipt.Status is not (WorkChainMutationStatus.Applied
+            or WorkChainMutationStatus.IdempotentReplay))
+        {
+            // Corrida legítima (o card mudou de estado entre a leitura e a escalação): não insiste
+            // neste ciclo e deixa o próximo reler o estado atual.
+            _reviewBackoff[attemptId] = now.Add(ReviewRetryBackoff);
+            return false;
+        }
+
+        LogReviewUnavailableEscalated(logger, task.Id, attemptId, reasonCode, failures);
+        _reviewBackoff.Remove(attemptId);
+        _reviewInfrastructureFailures.Remove(attemptId);
+        return true;
+    }
+
+    /// <summary>Zera o histórico de adiamentos quando um veredito REAL foi aplicado.</summary>
+    private void ClearReviewDeferrals(string attemptId)
+    {
+        _reviewBackoff.Remove(attemptId);
+        _reviewInfrastructureFailures.Remove(attemptId);
+    }
+
+    /// <summary>
+    /// Projeta o consumo medido do executor para a tentativa. Duração sempre existe (o adapter
+    /// cronometra o processo); tokens e custo só quando a CLI os expôs — quando não expõe, os
+    /// campos ficam nulos e o store preserva o valor anterior, para que "zero medido" nunca seja
+    /// confundido com "desconhecido".
+    /// </summary>
+    public static WorkAttemptUsage? ToAttemptUsage(ExternalAgentRunResult? execution)
+    {
+        if (execution is null)
+        {
+            return null;
+        }
+
+        var usage = execution.Usage;
+        return new WorkAttemptUsage(
+            execution.DurationMs,
+            usage?.InputTokens,
+            usage?.OutputTokens,
+            usage?.CostUsd);
     }
 
     /// <summary>
@@ -1389,7 +1493,8 @@ public sealed partial class ChiefBacklogLoopService(
             if (string.IsNullOrWhiteSpace(producerAlias))
             {
                 LogNoCriticAvailable(logger, task.Id, awaiting.AgentId);
-                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                _ = await DeferOrEscalateReviewAsync(
+                    tenantId, task, awaiting.Id, "critic.producer_alias_unknown", chain, now, token);
                 continue;
             }
             var criticAliases = SelectCriticAliases(producerAlias, now);
@@ -1411,7 +1516,8 @@ public sealed partial class ChiefBacklogLoopService(
             if (criticAlias is null || !pairing.MaySubmit)
             {
                 LogNoCriticAvailable(logger, task.Id, producerAlias);
-                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                _ = await DeferOrEscalateReviewAsync(
+                    tenantId, task, awaiting.Id, "critic.none_available", chain, now, token);
                 continue;
             }
 
@@ -1496,7 +1602,9 @@ public sealed partial class ChiefBacklogLoopService(
                     task.Id,
                     awaiting.Id,
                     $"review-preflight:{exception.GetType().Name}");
-                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                _ = await DeferOrEscalateReviewAsync(
+                    tenantId, task, awaiting.Id,
+                    $"review-preflight:{exception.GetType().Name}", chain, now, token);
                 continue;
             }
 
@@ -1522,11 +1630,12 @@ public sealed partial class ChiefBacklogLoopService(
                         tenantId, task, awaiting.Id, deterministicResult, chain, token))
                 {
                     reviewed++;
-                    _reviewBackoff.Remove(awaiting.Id);
+                    ClearReviewDeferrals(awaiting.Id);
                 }
                 else
                 {
-                    _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "document.gate_not_applied", chain, now, token);
                 }
 
                 continue;
@@ -1546,11 +1655,12 @@ public sealed partial class ChiefBacklogLoopService(
                         tenantId, task, awaiting.Id, diagnosticVerdict, chain, token))
                 {
                     reviewed++;
-                    _reviewBackoff.Remove(awaiting.Id);
+                    ClearReviewDeferrals(awaiting.Id);
                 }
                 else
                 {
-                    _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "diagnostics.gate_not_applied", chain, now, token);
                 }
 
                 continue;
@@ -1586,11 +1696,12 @@ public sealed partial class ChiefBacklogLoopService(
                         tenantId, task, awaiting.Id, deterministicResult, chain, token))
                 {
                     reviewed++;
-                    _reviewBackoff.Remove(awaiting.Id);
+                    ClearReviewDeferrals(awaiting.Id);
                 }
                 else
                 {
-                    _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "delivery.gate_not_applied", chain, now, token);
                 }
 
                 continue;
@@ -1651,11 +1762,13 @@ public sealed partial class ChiefBacklogLoopService(
                 await ApplyReviewVerdictAsync(tenantId, task, awaiting.Id, result, chain, token))
             {
                 reviewed++;
-                _reviewBackoff.Remove(awaiting.Id);
+                ClearReviewDeferrals(awaiting.Id);
             }
             else
             {
-                _reviewBackoff[awaiting.Id] = now.Add(ReviewRetryBackoff);
+                _ = await DeferOrEscalateReviewAsync(
+                    tenantId, task, awaiting.Id,
+                    result?.ReasonCode ?? "critic.executor_unavailable", chain, now, token);
             }
         }
 

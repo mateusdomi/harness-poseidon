@@ -357,6 +357,16 @@ public sealed partial class SqliteWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> EscalateUnreviewableTaskAsync(
+        WorkTaskReviewUnavailableCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => EscalateUnreviewableTaskCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ReplanEscalatedTaskAsync(
         WorkTaskReplanCommand command,
         CancellationToken cancellationToken = default)
@@ -752,7 +762,11 @@ public sealed partial class SqliteWorkChainStore
             mutation.CommandText =
                 """
                 UPDATE work_attempts SET state = 'awaiting_review', completed_at = $occurredAt,
-                    operational_state = 'completed'
+                    operational_state = 'completed',
+                    duration_ms = COALESCE($durationMs, duration_ms),
+                    tokens_input = COALESCE($tokensInput, tokens_input),
+                    tokens_output = COALESCE($tokensOutput, tokens_output),
+                    cost_usd = COALESCE($costUsd, cost_usd)
                 WHERE id = $attemptId AND state = 'running';
                 INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
                 VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'log','Attempt submitted for review.',$occurredAt);
@@ -768,6 +782,12 @@ public sealed partial class SqliteWorkChainStore
             Add(mutation, "$taskId", command.TaskId);
             Add(mutation, "$tenantId", command.TenantId);
             Add(mutation, "$expectedVersion", command.ExpectedTaskVersion);
+            // COALESCE no SQL + DBNull aqui: métrica não exposta pelo executor preserva o valor
+            // anterior em vez de gravar zero, para não confundir "zero medido" com "desconhecido".
+            AddNullable(mutation, "$durationMs", command.Usage?.DurationMs);
+            AddNullable(mutation, "$tokensInput", command.Usage?.TokensInput);
+            AddNullable(mutation, "$tokensOutput", command.Usage?.TokensOutput);
+            AddNullable(mutation, "$costUsd", command.Usage?.CostUsd);
             await mutation.ExecuteNonQueryAsync(cancellationToken);
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
@@ -777,6 +797,89 @@ public sealed partial class SqliteWorkChainStore
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
             "attempt.completed", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    /// <summary>
+    /// Escala um card cuja revisão é impossível. Diferente de <c>ReviewAttemptCoreAsync</c>, NÃO
+    /// grava veredito e NÃO muda o estado da tentativa: o trabalho do ator continua íntegro em
+    /// `awaiting_review` e pode ser revisado assim que houver crítico. O que muda é o card, que
+    /// sai da fila de retry e vira impedimento anunciável.
+    /// </summary>
+    private static async Task<WorkChainMutationReceipt> EscalateUnreviewableTaskCoreAsync(
+        SqliteConnection connection,
+        WorkTaskReviewUnavailableCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId, command.TaskId,
+            command.AttemptId, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.VersionConflict, row, command.TaskId, command.AttemptId);
+        }
+        else if (row.TaskState != "awaiting_review" || row.AttemptState != "awaiting_review")
+        {
+            receipt = Rejected(
+                WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
+        }
+        else
+        {
+            var nextVersion = row.Version + 1;
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at,severity)
+                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'note',$reason,$occurredAt,'error');
+                UPDATE work_tasks SET state = 'escalated', version = $nextVersion,
+                    updated_at = $occurredAt, board_state = 'blocked', blocked_reason = $reason
+                WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
+                """;
+            Add(mutation, "$attemptEventId", UlidValue.New(command.OccurredAt).ToString());
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$projectId", row.ProjectId);
+            Add(mutation, "$attemptId", command.AttemptId);
+            Add(mutation, "$reason", command.Reason);
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$nextVersion", nextVersion);
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$expectedVersion", command.ExpectedTaskVersion);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
+                nextVersion, "escalated", "awaiting_review");
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "task.stateChanged", command.OccurredAt, receipt,
+            new TransitionAudit(
+                "awaiting_review",
+                receipt.TaskState ?? "awaiting_review",
+                "reviewUnavailable",
+                "review",
+                "system",
+                "chief-backlog-loop",
+                command.Reason,
+                command.EvidenceReference),
+            cancellationToken);
     }
 
     private static async Task<WorkChainMutationReceipt> ReviewAttemptCoreAsync(
