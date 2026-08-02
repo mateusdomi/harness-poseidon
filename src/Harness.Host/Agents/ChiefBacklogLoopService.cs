@@ -1167,6 +1167,28 @@ public sealed partial class ChiefBacklogLoopService(
     /// </summary>
     private const string MilestoneMarker = "Concluímos uma etapa do projeto:";
 
+    /// <summary>
+    /// Abertura COMPLETA do aviso de uma etapa específica. O reconhecimento precisa casar com esta
+    /// linha inteira, não só com o nome da etapa: o aviso de uma etapa anuncia para onde o projeto
+    /// segue, então o nome da PRÓXIMA etapa também aparece no texto. Procurar só pelo nome fazia o
+    /// aviso da Triagem — que diz "sigo agora para 2-Descoberta" — passar por aviso já publicado da
+    /// Descoberta, e a etapa seguinte fechava em silêncio.
+    /// </summary>
+    internal static string MilestoneHeadingFor(string phaseName) => MilestoneHeading(phaseName);
+
+    /// <summary>Um aviso já publicado é reconhecido pela abertura COMPLETA da própria etapa.</summary>
+    internal static bool MilestoneAlreadyAnnounced(
+        IEnumerable<string> publishedMessages, string phaseName)
+    {
+        ArgumentNullException.ThrowIfNull(publishedMessages);
+        var heading = MilestoneHeading(phaseName);
+        return publishedMessages.Any(content =>
+            content.Contains(heading, StringComparison.Ordinal));
+    }
+
+    private static string MilestoneHeading(string phaseName) =>
+        $"{MilestoneMarker} **{phaseName}**.";
+
     /// <summary>Etapas já anunciadas nesta execução do processo.</summary>
     private readonly HashSet<string> _announcedMilestones = new(StringComparer.Ordinal);
 
@@ -2076,7 +2098,8 @@ public sealed partial class ChiefBacklogLoopService(
         // nenhum fato novo. O registro durável do que já foi dito é a própria conversa.
         var history = await conversations.ListMessagesAsync(tenantId, open[0].Id, null, 200, token);
         var alreadySaid = history
-            .Where(entry => entry.Content.Contains(MilestoneMarker, StringComparison.Ordinal))
+            .Select(entry => entry.Content)
+            .Where(content => content.Contains(MilestoneMarker, StringComparison.Ordinal))
             .ToArray();
 
         var now = clock.UtcNow;
@@ -2084,7 +2107,8 @@ public sealed partial class ChiefBacklogLoopService(
         foreach (var phase in pending)
         {
             token.ThrowIfCancellationRequested();
-            if (alreadySaid.Any(entry => entry.Content.Contains(phase.Name, StringComparison.Ordinal)))
+            var heading = MilestoneHeading(phase.Name);
+            if (MilestoneAlreadyAnnounced(alreadySaid, phase.Name))
             {
                 continue;
             }
@@ -2101,7 +2125,7 @@ public sealed partial class ChiefBacklogLoopService(
             var next = ordered.FirstOrDefault(candidate => candidate.Order > phase.Order);
 
             var content =
-                $"{MilestoneMarker} **{phase.Name}**. ✅\n\n" +
+                $"{heading} ✅\n\n" +
                 (delivered.Length == 0
                     ? "A etapa fechou com as verificações exigidas para ela.\n\n"
                     : $"O que ficou pronto:\n{string.Join("\n", delivered)}\n\n") +
