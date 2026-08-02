@@ -11,6 +11,7 @@ using Harness.Modules.Governance.Coordination;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Coordination;
+using Harness.Persistence.Abstractions.Foundation;
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
@@ -2773,22 +2774,43 @@ public sealed partial class ChiefBacklogLoopService(
             "Se após isto o escopo ainda não couber, registre o bloqueio em vez de tentar de novo.";
 
         var now = clock.UtcNow;
-        var receipt = await chain.ReplanEscalatedTaskAsync(
-            new WorkTaskReplanCommand(
-                tenantId,
-                task.BackingSolicitationId,
-                task.Id,
-                UlidValue.New(now).ToString(),
-                content,
-                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-                    System.Text.Encoding.UTF8.GetBytes(content))),
-                project.ChiefAgentId,
-                "chief.replan_after_escalation",
-                $"attempts:{rejected}",
-                task.Version,
-                $"chief-loop-replan:{task.Id}",
-                now),
-            token);
+        var contentHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(content)));
+
+        // A chave de idempotência precisa acompanhar o CONTEÚDO. Enquanto era só o id do card, o
+        // mesmo card em outro ciclo apresentava a mesma chave com uma instrução diferente (o texto
+        // embute a contagem de reprovações e a versão do card): a cadeia recusava com
+        // `IdempotencyConflictException` e a exceção derrubava o ciclo INTEIRO do projeto — colheita,
+        // review, integração e avisos, para todos os cards. Com o hash na chave, repetir o mesmo
+        // replanejamento é replay idempotente e um replanejamento realmente diferente é uma
+        // mutação nova.
+        WorkChainMutationReceipt receipt;
+        try
+        {
+            receipt = await chain.ReplanEscalatedTaskAsync(
+                new WorkTaskReplanCommand(
+                    tenantId,
+                    task.BackingSolicitationId,
+                    task.Id,
+                    UlidValue.New(now).ToString(),
+                    content,
+                    contentHash,
+                    project.ChiefAgentId,
+                    "chief.replan_after_escalation",
+                    $"attempts:{rejected}",
+                    task.Version,
+                    $"chief-loop-replan:{task.Id}:{contentHash[..16]}",
+                    now),
+                token);
+        }
+        catch (IdempotencyConflictException)
+        {
+            // Defesa em profundidade: um conflito de chave num único card não pode calar o
+            // acompanhamento de todos os outros. Ele fica registrado e o card segue escalado.
+            LogCardEscalated(logger, task.Id, "replanejamento recusado: conflito de idempotência");
+            return false;
+        }
+
         if (receipt.Status is not (WorkChainMutationStatus.Applied
             or WorkChainMutationStatus.IdempotentReplay))
         {

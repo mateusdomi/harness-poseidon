@@ -1137,11 +1137,38 @@ internal static class WorkChainStoreBehavior
         Assert.Equal(WorkChainMutationStatus.IdempotentReplay, replay.Status);
         Assert.Equal(escalated.LedgerHash, replay.LedgerHash);
 
+        var escalatedSnapshot = await store.ReadAsync(
+            chain.TenantId, chain.SolicitationId, cancellationToken);
+        Assert.NotNull(escalatedSnapshot);
+        Assert.Equal("escalated", escalatedSnapshot.TaskState);
+        // Nada foi executado, então nada foi reprovado: o card escala sem tentativa nenhuma.
+        Assert.Equal(0, escalatedSnapshot.AttemptCount);
+
+        // E precisa haver caminho de VOLTA. O replanejamento é o único jeito de um card escalado
+        // voltar à fila; exigir uma tentativa reprovada deixava preso para sempre exatamente o
+        // card que nunca chegou a rodar — foi assim que os cinco assentos do Conselho ficaram
+        // travados, e com eles o portão que autoriza o desenvolvimento.
+        const string revised = "Instrução revisada: reduzir ao menor incremento verificável.";
+        var replan = await store.ReplanEscalatedTaskAsync(
+            new WorkTaskReplanCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                "01ARZ3NDEKTSV4RRFFQ69G5G15",
+                revised,
+                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(revised))),
+                "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+                "chief.replan_after_escalation",
+                "attempts:0",
+                escalated.TaskVersion!.Value,
+                "work-chain:task:replan:undispatchable",
+                chain.OccurredAt.AddMinutes(5)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, replan.Status);
+
         var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
         Assert.NotNull(final);
-        Assert.Equal("escalated", final.TaskState);
-        // Nada foi executado, então nada foi reprovado: o card escala sem tentativa nenhuma.
-        Assert.Equal(0, final.AttemptCount);
+        Assert.Equal("ready", final.TaskState);
     }
 
     private static async Task AssertInitialLifecycleAsync(

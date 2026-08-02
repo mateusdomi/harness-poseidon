@@ -556,7 +556,13 @@ public sealed partial class SqliteWorkChainStore
                 command.TaskId,
                 null);
         }
-        else if (row.TaskState != "escalated" || row.LatestAttemptState != "rejected")
+        // Um card pode escalar ANTES de qualquer tentativa — despacho impossível, circuito do card
+        // aberto. Exigir uma tentativa reprovada deixava justamente esses presos: escalados para
+        // sempre, e o replanejamento, que é o ÚNICO caminho de volta, recusado como estado
+        // inválido. Replanejar um card que nunca rodou é o caso mais simples de todos: só a
+        // instrução muda.
+        else if (row.TaskState != "escalated" ||
+                 (row.LatestAttemptState is not null && row.LatestAttemptState != "rejected"))
         {
             receipt = Rejected(
                 WorkChainMutationStatus.InvalidState,
