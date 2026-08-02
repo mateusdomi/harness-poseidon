@@ -77,4 +77,60 @@ public sealed class AgentRunOutcomeClassifierTests
         Assert.Equal(AgentRunOutcomeKind.Cancelled, outcome.Kind);
         Assert.False(outcome.ShouldRetry);
     }
+
+    /// <summary>
+    /// Cota esgotada que a CLI não traduz em código estruturado.
+    ///
+    /// Observado no E2E de empréstimos: o GLM/Z.AI respondeu
+    /// `429 rate_limit_error [1308] Usage limit reached for 5 hour`, a CLI imprimiu isso no erro
+    /// padrão e saiu com código 1. Só `executor.exit_code_1` chegava aqui — e ele casa com o sinal
+    /// `exit_code` da lista TRANSITÓRIA. A conta voltava de um cooldown curto, era reeleita,
+    /// queimava mais ~200s sem produzir um token e derrubava outra rodada do card. Três dessas e
+    /// um card saudável morria por um problema que era da conta.
+    /// </summary>
+    [Fact]
+    public void QuotaExhaustionIsRecognizedFromTheExecutorDiagnosticWhenTheCodeOnlySaysExitCode()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"code\":\"1308\"," +
+            "\"message\":\"[1308][Usage limit reached for 5 hour. Your limit will reset at " +
+            "2026-08-03 06:00:40]\"}}");
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+        Assert.True(outcome.ShouldWaitForReset);
+        Assert.NotNull(outcome.SuggestedCooldown);
+    }
+
+    /// <summary>
+    /// Sem sinal de cota no diagnóstico, um exit code continua sendo instabilidade — o diagnóstico
+    /// amplia o reconhecimento de cota, não reclassifica tudo.
+    /// </summary>
+    [Fact]
+    public void AnOrdinaryExitCodeStaysTransientEvenWithADiagnostic()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "TypeError: cannot read property 'map' of undefined");
+
+        Assert.Equal(AgentRunOutcomeKind.Transient, outcome.Kind);
+    }
+
+    /// <summary>
+    /// Autenticação NÃO é inferida de texto solto: ela exige ação humana e não se recupera
+    /// sozinha, então um falso positivo vindo do erro padrão pararia a conta até alguém intervir.
+    /// O diagnóstico serve só para cota.
+    /// </summary>
+    [Fact]
+    public void AuthenticationIsNeverInferredFromTheDiagnostic()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "warning: unauthorized access to /tmp/cache ignored");
+
+        Assert.NotEqual(AgentRunOutcomeKind.AuthenticationRequired, outcome.Kind);
+    }
 }

@@ -69,7 +69,23 @@ public static class AgentRunOutcomeClassifier
         ["timeout", "no_output", "tool_permission_denied", "prompt_write_failed", "start_failed",
          "connection", "reset", "econnreset", "socket", "temporarily", "overloaded", "503", "502", "exit_code"];
 
-    public static AgentRunOutcome Classify(ExternalAgentRunStatus status, string? failureCode)
+    /// <param name="failureDiagnostic">
+    /// Cauda da saída de erro do executor, quando houver.
+    ///
+    /// Existe porque a CLI nem sempre traduz o erro do provedor em código estruturado: o
+    /// GLM/Z.AI, por exemplo, imprime `rate_limit_error ... Usage limit reached` e sai com
+    /// código 1, e o que chegava aqui era só `executor.exit_code_1` — que casa com o sinal
+    /// `exit_code` da lista TRANSITÓRIA. Resultado observado: cota esgotada era tratada como
+    /// instabilidade, a conta voltava do cooldown curto em minutos, era reeleita, queimava mais
+    /// ~200s e derrubava outra rodada do card. Três dessas e um card saudável morria por um
+    /// problema que era da CONTA.
+    ///
+    /// O diagnóstico é consultado APENAS para cota. Autenticação continua vindo só do código
+    /// estruturado: ela exige ação humana e não se recupera sozinha, então um falso positivo
+    /// vindo de texto solto pararia a conta até alguém intervir — pior que o defeito.
+    /// </param>
+    public static AgentRunOutcome Classify(
+        ExternalAgentRunStatus status, string? failureCode, string? failureDiagnostic = null)
     {
         switch (status)
         {
@@ -86,7 +102,8 @@ public static class AgentRunOutcomeClassifier
         var code = failureCode ?? string.Empty;
 
         // Ordem: cota e login primeiro (adiam/escalam), depois transitório (repete), senão permanente.
-        if (Matches(code, QuotaSignals))
+        if (Matches(code, QuotaSignals) ||
+            Matches(failureDiagnostic ?? string.Empty, QuotaSignals))
         {
             return new AgentRunOutcome(AgentRunOutcomeKind.QuotaExhausted, "run.quota_exhausted", DefaultQuotaCooldown);
         }

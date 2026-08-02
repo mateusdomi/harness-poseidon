@@ -896,7 +896,7 @@ public sealed partial class AgentRunOrchestrator(
 
             var execution = await session.CollectAsync(cancellationToken);
             var outcome = AgentRunOutcomeClassifier.Classify(
-                execution.Status, execution.FailureCode);
+                execution.Status, execution.FailureCode, execution.FailureDiagnostic);
             RecordAvailability(command.CriticAlias, outcome, clock.UtcNow);
             await TryRecordCriticInvocationAsync(
                 command, critic, execution, outcome, clock.UtcNow, cancellationToken);
@@ -1282,7 +1282,8 @@ public sealed partial class AgentRunOrchestrator(
 
             // Desfecho DURÁVEL por conta: cota adia com data/hora de volta, login escala, falha
             // transitória (GLM instável) agenda retry com backoff, sucesso zera o histórico.
-            var runOutcome = AgentRunOutcomeClassifier.Classify(execution.Status, execution.FailureCode);
+            var runOutcome = AgentRunOutcomeClassifier.Classify(
+                execution.Status, execution.FailureCode, execution.FailureDiagnostic);
             RecordAvailability(command.AccountAlias, runOutcome, clock.UtcNow);
             await RecordInvocationAsync(
                 command, account, execution, runOutcome, clock.UtcNow, cancellationToken);

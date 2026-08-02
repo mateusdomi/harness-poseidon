@@ -140,7 +140,13 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
     /// </summary>
     private static bool IsInfrastructureReason(string reason) =>
         reason.Contains("host_shutdown", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("host_restart", StringComparison.OrdinalIgnoreCase);
+        reason.Contains("host_restart", StringComparison.OrdinalIgnoreCase) ||
+        // Falha da CONTA, não do card: cota esgotada e login exigido dizem que o provedor não
+        // atendeu — o enunciado do card nunca chegou a ser julgado. Observado no E2E de
+        // empréstimos: a mesma conta com cota estourada foi reeleita três vezes, cada run morreu
+        // sem produzir um token, e o card saudável escalou por culpa alheia.
+        reason.Contains("quota", StringComparison.OrdinalIgnoreCase) ||
+        reason.Contains("authentication_required", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSuccess(string state) =>
         string.Equals(state, "completed", StringComparison.Ordinal) ||

@@ -1494,11 +1494,7 @@ public sealed partial class ChiefBacklogLoopService(
         // o circuito não a contava, e o mesmo card era redespachado indefinidamente. Foi
         // exatamente o que aconteceu — nove tentativas seguidas no mesmo card, todas
         // transitórias, e o circuito parado em uma.
-        var failureReason = snapshot.Status == AgentRunStatus.Failed
-            ? snapshot.FinalError
-                ?? snapshot.Execution?.FailureCode
-                ?? (countsTowardRoundBudget ? "run.permanent_failure" : "run.failed")
-            : null;
+        var failureReason = ResolveAttemptFailureReason(snapshot, countsTowardRoundBudget);
         var expired = await chain.ExpireAttemptLeaseAsync(
             new WorkAttemptLeaseExpiredCommand(
                 tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
@@ -1654,10 +1650,48 @@ public sealed partial class ChiefBacklogLoopService(
             return false;
         }
 
-        var outcome = AgentRunOutcomeClassifier.Classify(
-            snapshot.Execution.Status,
-            snapshot.FinalError ?? snapshot.Execution.FailureCode);
-        return outcome.Kind == AgentRunOutcomeKind.Permanent;
+        return ClassifyRun(snapshot).Kind == AgentRunOutcomeKind.Permanent;
+    }
+
+    /// <summary>
+    /// Classificação canônica de um run, incluindo a cauda de erro do executor.
+    ///
+    /// O diagnóstico importa porque a CLI nem sempre traduz o erro do provedor em código: cota
+    /// esgotada no GLM/Z.AI chegava como `executor.exit_code_1` e era lida como instabilidade.
+    /// </summary>
+    private static AgentRunOutcome ClassifyRun(AgentRunSnapshot snapshot) =>
+        AgentRunOutcomeClassifier.Classify(
+            snapshot.Execution!.Status,
+            snapshot.FinalError ?? snapshot.Execution.FailureCode,
+            snapshot.Execution.FailureDiagnostic);
+
+    /// <summary>
+    /// Motivo gravado na tentativa. Quando a falha é da CONTA — cota esgotada, login exigido — o
+    /// motivo canônico substitui o código cru do executor. Sem isso, o circuito do CARD recebia
+    /// `executor.exit_code_1` e não tinha como saber que quem falhou foi o provedor: três runs
+    /// perdidos por cota matavam um card perfeitamente saudável.
+    /// </summary>
+    private static string? ResolveAttemptFailureReason(
+        AgentRunSnapshot snapshot, bool countsTowardRoundBudget)
+    {
+        if (snapshot.Status != AgentRunStatus.Failed)
+        {
+            return null;
+        }
+
+        if (snapshot.Execution is not null)
+        {
+            var outcome = ClassifyRun(snapshot);
+            if (outcome.Kind is AgentRunOutcomeKind.QuotaExhausted
+                or AgentRunOutcomeKind.AuthenticationRequired)
+            {
+                return outcome.ReasonCode;
+            }
+        }
+
+        return snapshot.FinalError
+            ?? snapshot.Execution?.FailureCode
+            ?? (countsTowardRoundBudget ? "run.permanent_failure" : "run.failed");
     }
 
     /// <summary>

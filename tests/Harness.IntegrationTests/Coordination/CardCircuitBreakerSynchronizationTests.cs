@@ -190,6 +190,21 @@ public sealed class CardCircuitBreakerSynchronizationTests
                 timeout.Token);
             Assert.Equal(CardCircuitState.Closed, reiniciado.State);
             Assert.Equal(0, reiniciado.ConsecutiveFailures);
+
+            // Falha da CONTA. Observado no E2E de empréstimos: a conta GLM estava com a cota de
+            // 5 horas estourada, foi reeleita três vezes, e cada run morreu em ~200s sem produzir
+            // um único token. O enunciado do card nunca chegou a ser julgado — punir o card por
+            // isso o mata por culpa alheia, e só o replanejamento da Bruna o traria de volta.
+            var contaSemCota = await service.SynchronizeAsync(
+                Tenant, Project, "card-conta-sem-cota",
+                [
+                    Outcome("cancelled", Now, "run.quota_exhausted"),
+                    Outcome("cancelled", Now.AddMinutes(2), "run.quota_exhausted"),
+                    Outcome("cancelled", Now.AddMinutes(4), "run.authentication_required"),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Closed, contaSemCota.State);
+            Assert.Equal(0, contaSemCota.ConsecutiveFailures);
         }
         finally
         {
