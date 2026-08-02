@@ -10,6 +10,23 @@ readonly POSEIDON_HOST_LOG="${POSEIDON_LOG_DIR}/poseidon.log"
 # PORTA-DINAMICA: porta fixa persistida no primeiro start (gravada pelo Launcher).
 readonly POSEIDON_PORT_FILE="${POSEIDON_DATA_DIR}/port"
 
+# Teto do log do Host, em bytes (padrão 64 MB). O log é append-only entre execuções e nada o
+# truncava: numa máquina de homologação ele passou de 400 MB em poucos dias, e a partir daí cada
+# consulta a ele — inclusive a do próprio operador tentando entender uma falha — ficou lenta ou
+# impossível. Rotacionar no start mantém a última execução inteira e uma anterior de referência.
+readonly POSEIDON_LOG_MAX_BYTES="${POSEIDON_LOG_MAX_BYTES:-67108864}"
+
+rotate_host_log() {
+  mkdir -p "${POSEIDON_LOG_DIR}"
+  [[ -f "${POSEIDON_HOST_LOG}" ]] || return 0
+  local size
+  size="$(wc -c <"${POSEIDON_HOST_LOG}" 2>/dev/null | tr -d ' ')" || return 0
+  [[ -n "${size}" && "${size}" -gt "${POSEIDON_LOG_MAX_BYTES}" ]] || return 0
+  # Uma geração anterior basta: guardar mais devolveria o mesmo problema com outro nome.
+  mv -f "${POSEIDON_HOST_LOG}" "${POSEIDON_HOST_LOG}.1" 2>/dev/null || return 0
+  echo "Log anterior arquivado em ${POSEIDON_HOST_LOG}.1 (passou de ${POSEIDON_LOG_MAX_BYTES} bytes)."
+}
+
 usage() {
   echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|agent|release-candidate} [opções]"
   echo "  start [--no-browser] [--port PORT] [--demo]"
@@ -199,6 +216,7 @@ start_poseidon() {
     fi
   done
   set +a
+  rotate_host_log
   local launcher
   launcher="$(resolve_launcher)"
   local args=(--data-dir "${POSEIDON_DATA_DIR}" --no-browser)
