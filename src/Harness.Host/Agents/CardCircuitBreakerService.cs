@@ -156,7 +156,16 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
         // empréstimos: a mesma conta com cota estourada foi reeleita três vezes, cada run morreu
         // sem produzir um token, e o card saudável escalou por culpa alheia.
         reason.Contains("quota", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("authentication_required", StringComparison.OrdinalIgnoreCase);
+        reason.Contains("authentication_required", StringComparison.OrdinalIgnoreCase) ||
+        // CANCELAMENTO é "nós paramos", não "o card é ruim". Uma parada do Host no meio de um
+        // run chega aqui como `TaskCanceledException`/`OperationCanceledException` — o nome do
+        // tipo sanitizado, sem nenhuma pista de que a causa foi infraestrutura. Observado na
+        // prova limpa: um card de Arquitetura abriu o circuito com três falhas, DUAS delas
+        // cancelamentos provocados por reinícios da própria sessão de auditoria. O trabalho
+        // nunca chegou a ser julgado.
+        reason.Contains("Canceled", StringComparison.OrdinalIgnoreCase) ||
+        reason.Contains("Cancelled", StringComparison.OrdinalIgnoreCase) ||
+        reason.Contains("run.cancelled", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSuccess(string state) =>
         string.Equals(state, "completed", StringComparison.Ordinal) ||

@@ -205,6 +205,22 @@ public sealed class CardCircuitBreakerSynchronizationTests
                 timeout.Token);
             Assert.Equal(CardCircuitState.Closed, contaSemCota.State);
             Assert.Equal(0, contaSemCota.ConsecutiveFailures);
+
+            // CANCELAMENTO. Parar o Host no meio de um run chega ao circuito como o nome do tipo
+            // sanitizado — `TaskCanceledException` — sem nenhuma pista de que a causa foi
+            // infraestrutura. Observado na prova limpa: um card de Arquitetura abriu o circuito
+            // com tres falhas, duas delas cancelamentos provocados por reinicios da sessao de
+            // auditoria. O trabalho nunca chegou a ser julgado, e so o replanejamento reabriria.
+            var cancelado = await service.SynchronizeAsync(
+                Tenant, Project, "card-cancelado",
+                [
+                    Outcome("cancelled", Now, "TaskCanceledException"),
+                    Outcome("cancelled", Now.AddMinutes(2), "OperationCanceledException"),
+                    Outcome("cancelled", Now.AddMinutes(4), "run.cancelled"),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Closed, cancelado.State);
+            Assert.Equal(0, cancelado.ConsecutiveFailures);
         }
         finally
         {
