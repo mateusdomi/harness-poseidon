@@ -322,6 +322,12 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         - SOMENTE `planejar_demanda` e `decidir_escalacao` podem emitir `demands`; SOMENTE
           `planejar_demanda` pode emitir `teamActions`. Nas demais intenções, esses campos são
           descartados pelo sistema — conversa não vira trabalho por engano.
+        - `cardActions`: quando o usuário DECIDE sobre um card que você escalou, emita aqui
+          um item com `action` igual a `replan`, o `cardId` do card escalado e a `instruction` nova.
+          A instrução SUBSTITUI o enunciado anterior e precisa conter a decisão dele já traduzida
+          em trabalho — não repita o texto do chat, escreva o que a pessoa da equipe deve fazer.
+          Sem isto a decisão do usuário fica só na conversa e o card continua parado: NUNCA diga
+          que algo "voltou a andar" sem ter emitido a ação correspondente.
         - `response`: sua resposta ao usuário, em texto natural (o que aparece no chat).
         - `demands`: lista das necessidades que você quer registrar para delegação; use `[]`
           quando não for delegar nada neste turno. Antes da Fase 5, elas são necessidades

@@ -16,7 +16,22 @@ public sealed record ChiefTurnOutput(
     IReadOnlyList<ChiefDemandProposal> Demands,
     IReadOnlyList<ChiefTeamAction>? TeamActions = null,
     ChiefTurnIntent Intent = ChiefTurnIntent.Unmatched,
-    double IntentConfidence = 0);
+    double IntentConfidence = 0,
+    IReadOnlyList<ChiefCardAction>? CardActions = null);
+
+/// <summary>
+/// Decisão do dono sobre um card ESCALADO, traduzida em ação.
+///
+/// Existe porque o laço de escalação ficava aberto: a Bruna chamava o dono, ele respondia
+/// reduzindo o escopo, ela registrava a decisão na conversa — e o card continuava escalado. Pior,
+/// ela anunciava que "essa parte volta a andar" enquanto nada mudava, relatando um progresso que
+/// não houve. Sem uma ação estruturada, a decisão humana morria como texto.
+///
+/// O que chega aqui é PROPOSTA: a instrução do dono vira a nova instrução do card e o
+/// replanejamento é aplicado pela cadeia, que valida estado e versão. A chefe não escreve no
+/// banco por conta própria.
+/// </summary>
+public sealed record ChiefCardAction(string Action, string CardId, string Instruction);
 
 /// <summary>
 /// Uma intenção de GESTÃO DE EQUIPE emitida pela chefe. Formar e reorganizar a equipe é atribuição
@@ -63,9 +78,12 @@ public sealed record ChiefDemandProposal(
 public static class ChiefTurnOutputContract
 {
     private static readonly HashSet<string> RootProperties =
-        new(["response", "demands", "teamActions", "intent", "intentConfidence"], StringComparer.Ordinal);
+        new(["response", "demands", "teamActions", "cardActions", "intent", "intentConfidence"],
+            StringComparer.Ordinal);
     private static readonly HashSet<string> TeamActionProperties =
         new(["action", "reason", "persona", "personaKey"], StringComparer.Ordinal);
+    private static readonly HashSet<string> CardActionProperties =
+        new(["action", "cardId", "instruction"], StringComparer.Ordinal);
     private static readonly HashSet<string> PersonaProperties =
         new(
             ["key", "name", "purpose", "specialty", "responsibilities", "constraints",
@@ -169,7 +187,54 @@ public static class ChiefTurnOutputContract
 
         return new ChiefTurnOutput(
             response, demands, ReadTeamActions(root),
-            ChiefIntentDispatchTable.Resolve(intent, confidence), confidence);
+            ChiefIntentDispatchTable.Resolve(intent, confidence), confidence,
+            ReadCardActions(root));
+    }
+
+    /// <summary>
+    /// Lê as ações sobre cards já existentes. Hoje só `replan`, e de propósito: reabrir um card
+    /// escalado é o caminho de volta que a decisão do dono precisa ter. Qualquer outra
+    /// manipulação de card continua sendo do laço do chefe, não de um turno de conversa.
+    /// </summary>
+    private static List<ChiefCardAction>? ReadCardActions(JsonElement root)
+    {
+        if (!root.TryGetProperty("cardActions", out var node) || node.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (node.ValueKind != JsonValueKind.Array || node.GetArrayLength() > 10)
+        {
+            throw new AgentOutputValidationException(
+                "Chief card actions must be an array with at most 10 items.");
+        }
+
+        var actions = new List<ChiefCardAction>();
+        foreach (var entry in node.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                throw new AgentOutputValidationException("Every card action must be an object.");
+            }
+
+            EnsureOnlyProperties(entry, CardActionProperties, "card action");
+            var action = ReadRequiredText(entry, "action", 1, 40);
+            if (!string.Equals(action, "replan", StringComparison.Ordinal))
+            {
+                throw new AgentOutputValidationException("Card action is not part of the closed set.");
+            }
+
+            // O identificador é ULID e tem tamanho fixo: aceitar texto livre aqui deixaria o
+            // modelo apontar para qualquer coisa.
+            var cardId = ReadRequiredText(entry, "cardId", 26, 26);
+
+            // A instrução é o que o dono decidiu, e ela SUBSTITUI o enunciado anterior. Um texto
+            // curto demais não redireciona trabalho nenhum.
+            var instruction = ReadRequiredText(entry, "instruction", 20, 10_000);
+            actions.Add(new ChiefCardAction(action, cardId, instruction));
+        }
+
+        return actions.Count == 0 ? null : actions;
     }
 
     /// <summary>
@@ -381,6 +446,20 @@ public static class ChiefTurnOutputContract
                           "riskTiers": { "type": "array", "maxItems": 20, "items": { "type": "string" } }
                         }
                       }
+                    }
+                  }
+                },
+                "cardActions": {
+                  "type": ["array", "null"],
+                  "maxItems": 10,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["action", "cardId", "instruction"],
+                    "properties": {
+                      "action": { "type": "string", "enum": ["replan"] },
+                      "cardId": { "type": "string", "minLength": 26, "maxLength": 26 },
+                      "instruction": { "type": "string", "minLength": 20, "maxLength": 10000 }
                     }
                   }
                 },

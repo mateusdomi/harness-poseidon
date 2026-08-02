@@ -45,6 +45,7 @@ public sealed partial class ChiefTurnBackgroundService(
     IConversationStore conversations,
     ILicenseStore licenses,
     ChiefTeamManager teamManager,
+    IServiceScopeFactory scopes,
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -488,6 +489,16 @@ public sealed partial class ChiefTurnBackgroundService(
                     "intent_gate", "team.intent_disallowed", null, false)];
             }
 
+            // A decisão do dono sobre um card ESCALADO precisa virar transição de estado, não só
+            // texto. Sem isto o laço de escalação ficava aberto: a Bruna chamava o dono, ele
+            // respondia reduzindo o escopo, ela confirmava — e o card seguia escalado, enquanto
+            // ela anunciava que "essa parte volta a andar". Progresso relatado sem progresso real
+            // é a pior falha possível para quem confia no sistema de longe.
+            if (output.CardActions is { Count: > 0 } cardActions)
+            {
+                await ApplyCardActionsAsync(lease, cardActions, cancellationToken);
+            }
+
             output = output with
             {
                 Response = ChiefTeamActionResponse.Project(output.Response, teamActionResults),
@@ -666,6 +677,72 @@ public sealed partial class ChiefTurnBackgroundService(
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "A failed team action must not poison the completed turn.")]
+    /// <summary>
+    /// Aplica a decisão do dono sobre cards escalados.
+    ///
+    /// A instrução que ele deu SUBSTITUI o enunciado do card e o replanejamento devolve o card à
+    /// fila. Quem valida estado e versão é a cadeia — um card que não está escalado, ou que
+    /// pertence a outro projeto, é recusado ali, não aqui. Uma falha isolada não derruba o turno:
+    /// a resposta ao dono já foi produzida e o registro do que não pôde ser aplicado fica no log.
+    /// </summary>
+    private async Task ApplyCardActionsAsync(
+        ChiefTurnLease lease,
+        IReadOnlyList<ChiefCardAction> actions,
+        CancellationToken cancellationToken)
+    {
+        using var scope = scopes.CreateScope();
+        var board = scope.ServiceProvider.GetRequiredService<IWorkBoardStore>();
+        var chain = scope.ServiceProvider.GetRequiredService<IWorkChainStore>();
+
+        foreach (var action in actions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var task = await board.GetTaskAsync(lease.Turn.TenantId, action.CardId, cancellationToken);
+
+                // O card precisa existir, pertencer a ESTE projeto e estar escalado. A checagem de
+                // projeto não é formalidade: sem ela, um identificador inventado pelo modelo
+                // alcançaria trabalho de outro projeto do mesmo tenant.
+                if (task is null ||
+                    !string.Equals(task.ProjectId, lease.Turn.ProjectId, StringComparison.Ordinal) ||
+                    !string.Equals(task.InternalState, "escalated", StringComparison.Ordinal))
+                {
+                    LogCardActionRejected(logger, action.CardId, "card_not_escalated_in_project");
+                    continue;
+                }
+
+                var now = clock.UtcNow;
+                var contentHash = Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(
+                        System.Text.Encoding.UTF8.GetBytes(action.Instruction)));
+                var receipt = await chain.ReplanEscalatedTaskAsync(
+                    new WorkTaskReplanCommand(
+                        lease.Turn.TenantId,
+                        task.BackingSolicitationId,
+                        task.Id,
+                        UlidValue.New(now).ToString(),
+                        action.Instruction,
+                        contentHash,
+                        lease.Turn.ProjectId,
+                        "owner.decision_after_escalation",
+                        $"turn:{lease.Turn.TurnId}",
+                        task.Version,
+                        // A versão entra na chave porque o inbox guarda também mutações RECUSADAS:
+                        // uma chave fixa envenenaria toda tentativa posterior com conflito.
+                        $"chief-turn-replan:{task.Id}:v{task.Version}:{contentHash[..12]}",
+                        now),
+                    cancellationToken);
+
+                LogCardActionApplied(logger, task.Id, receipt.Status);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                LogCardActionRejected(logger, action.CardId, exception.GetType().Name);
+            }
+        }
+    }
+
     private async Task<IReadOnlyList<ChiefTeamActionResult>> ApplyTeamActionsAsync(
         ChiefTurnLease lease,
         IReadOnlyList<ChiefTeamAction> actions,
@@ -947,6 +1024,19 @@ public sealed partial class ChiefTurnBackgroundService(
         Level = LogLevel.Warning,
         Message = "Chief: gestão de equipe do turno {TurnId} falhou: {ErrorType}.")]
     private static partial void LogTeamActionFailure(ILogger logger, string turnId, string errorType);
+
+    [LoggerMessage(
+        EventId = 2108,
+        Level = LogLevel.Information,
+        Message = "Chief: decisão do dono replanejou o card {TaskId} ({Status}).")]
+    private static partial void LogCardActionApplied(
+        ILogger logger, string taskId, WorkChainMutationStatus status);
+
+    [LoggerMessage(
+        EventId = 2109,
+        Level = LogLevel.Warning,
+        Message = "Chief: decisão do dono sobre o card {CardId} NÃO foi aplicada ({Reason}).")]
+    private static partial void LogCardActionRejected(ILogger logger, string cardId, string reason);
 
     [LoggerMessage(
         EventId = 2105,
