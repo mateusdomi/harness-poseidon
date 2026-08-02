@@ -40,6 +40,7 @@ import {
   type ChiefHealth,
   type ChiefReadiness,
 } from '@/features/orchestrator/lib/orchestrator-derive';
+import { publicLeadershipText } from '@/features/chat/lib/public-leadership';
 import { usePauseChief, useResumeChief } from '@/features/orchestrator/hooks/use-orchestrator';
 import { LeadershipProfileDialog } from '@/features/orchestrator/components/leadership-profile-dialog';
 import { useLeadershipProfile } from '@/features/shared/hooks/use-leadership-profile';
@@ -164,7 +165,11 @@ export function ChiefCard({
 
   const chiefIdentity = resolveAgentIdentity('chief-orchestrator', chief.name);
   const publicName = leadershipProfile.data?.displayName ?? chiefIdentity.humanName;
-  const publicTitle = leadershipProfile.data?.title ?? 'Diretora de Engenharia';
+  // A ficha é persistida e editável: uma instância antiga ainda carrega "Operações de IA" no
+  // cargo. A humanização é de apresentação — o formulário de edição segue mostrando o texto real.
+  const publicTitle = publicLeadershipText(
+    leadershipProfile.data?.title ?? 'Diretora de Engenharia',
+  );
   const processHealth = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
   const readiness = deriveChiefReadiness({
     model,

@@ -357,6 +357,20 @@ public sealed class ChiefCommunicationPolicyTests
     }
 
     [Fact]
+    public void TheUserNameIsNeverDeducedFromAPath()
+    {
+        // Observado em homologação: a Bruna tratou o dono por um primeiro nome que ele nunca
+        // disse. Ele estava no caminho do repositório, que entra no contexto dela. Acertar o
+        // palpite não muda a natureza do ato — é um fato pessoal inventado, e o mesmo mecanismo
+        // erra com qualquer máquina compartilhada ou conta corporativa.
+        var instructions = ChiefCommunicationPolicy.BuildInstructions(
+            ChiefCommunicationPolicy.Business);
+
+        Assert.Contains("Caminho de arquivo", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("não são o nome de ninguém", instructions, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void VoicePreferencesCannotOverrideTheBusinessPolicy()
     {
         var instructions = ChiefCommunicationPolicy.BuildInstructions(

@@ -332,7 +332,9 @@ public sealed record LeadershipProfileRecord(
         "Pragmática, transparente, cuidadosa com riscos e direta nas decisões.",
         ["Café", "Leitura", "Tecnologia", "Caminhadas"],
         27,
-        "Chame o usuário pelo nome quando conhecido. Use tom profissional, leve e direto, em português do Brasil.",
+        "Chame o usuário pelo nome apenas quando ele mesmo o disse ou o cadastrou — nome deduzido " +
+        "de caminho de arquivo ou conta do sistema não conta. Use tom profissional, leve e direto, " +
+        "em português do Brasil.",
         null,
         null,
         1,
