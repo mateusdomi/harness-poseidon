@@ -62,9 +62,13 @@ public sealed partial class PostgresDocumentStore
                 row.State,
                 row.CurrentVersion);
         }
+        // `approved` NÃO entra: documento aprovado é imutável. Gravar uma versão nova por baixo
+        // desse estado faria a versão nova herdar a aprovação da anterior sem nenhuma revisão —
+        // e a fase seguinte se apoiaria num artefato que ninguém aceitou. Revisar um documento
+        // aprovado exige reabri-lo (`approved → in_elaboration`, restrito ao ator `system`), onde
+        // a nova versão conquista a própria aprovação.
         else if (row.State is not (
-                     "in_elaboration" or "in_review" or "awaiting_approval" or
-                     "approved" or "outdated"))
+                     "in_elaboration" or "in_review" or "awaiting_approval" or "outdated"))
         {
             receipt = Rejected(
                 DocumentMutationStatus.InvalidState,

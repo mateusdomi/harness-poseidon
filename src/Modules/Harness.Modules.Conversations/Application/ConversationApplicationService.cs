@@ -49,19 +49,22 @@ public static class ConversationApplicationService
             CountTokens(content),
             now));
 
+    /// <summary>
+    /// Confirmação determinística de recebimento.
+    ///
+    /// NÃO devolve a mensagem do usuário. Ecoar o texto recebido parece inofensivo e não é: se ele
+    /// escrever "adicionar o endpoint /status", a confirmação passa a conter vocabulário técnico
+    /// que a experiência de negócio proíbe — e a política de comunicação, corretamente, recusa a
+    /// própria resposta do sistema. Confirmar o recebimento não exige repetir o conteúdo.
+    /// </summary>
     public static string[] ComposeDeterministicReply(string content)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(content);
-        var subject = content.Trim();
-        if (subject.Length > 160)
-        {
-            subject = string.Concat(subject.AsSpan(0, 157), "...");
-        }
-
         return
         [
             "Recebi sua mensagem. ",
-            $"O turno foi registrado de forma durável para: {subject}",
+            "Ela ficou registrada com segurança e já estou olhando o que ela pede. " +
+            "Volto assim que tiver o próximo passo.",
         ];
     }
 

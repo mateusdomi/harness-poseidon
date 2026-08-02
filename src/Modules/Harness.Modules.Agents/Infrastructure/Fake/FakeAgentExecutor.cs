@@ -16,16 +16,18 @@ public sealed class FakeAgentExecutor : IAgentExecutor
         cancellationToken.ThrowIfCancellationRequested();
         Validate(request);
         var started = Stopwatch.GetTimestamp();
-        var subject = request.Instruction.Trim();
-        if (subject.Length > 160)
-        {
-            subject = string.Concat(subject.AsSpan(0, 157), "...");
-        }
 
+        // O simulado precisa satisfazer a MESMA política de comunicação que o executor real: a
+        // resposta dele passa pelo validador do turno como qualquer outra. Devolver a instrução
+        // recebida quebrava exatamente isso — bastava o usuário escrever "adicionar o endpoint
+        // /status" para a resposta carregar vocabulário técnico proibido na experiência de
+        // negócio, e o turno falhava com um veredito correto sobre um texto que o próprio sistema
+        // escreveu. Confirmar o recebimento não exige repetir o conteúdo.
         string[] chunks =
         [
             "Recebi sua mensagem. ",
-            $"O turno foi registrado de forma durável para: {subject}",
+            "Ela ficou registrada com segurança e já estou olhando o que ela pede. " +
+            "Volto assim que tiver o próximo passo.",
         ];
         var demands = request.Instruction
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

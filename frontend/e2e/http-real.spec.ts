@@ -700,8 +700,11 @@ async function exerciseRealtimeAndAudit(page: Page, testInfo: TestInfo) {
   await composer.fill(postReconnectMessage);
   await page.getByRole('button', { name: 'Enviar mensagem' }).click();
   await expect(page.getByText(postReconnectMessage, { exact: true })).toBeVisible();
+  // A confirmação não devolve o texto do usuário: ecoar a mensagem arrastava vocabulário técnico
+  // dele para a resposta, e a política de comunicação recusava — corretamente — o próprio texto do
+  // sistema. O que se prova aqui é que a resposta CHEGA depois da reconexão.
   await expect(
-    page.getByText(/O turno foi registrado de forma durável para: Confirme a reconexão/),
+    page.getByText(/Ela ficou registrada com segurança/),
   ).toBeVisible({
     timeout: 30_000,
   });
