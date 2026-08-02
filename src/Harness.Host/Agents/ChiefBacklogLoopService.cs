@@ -482,12 +482,29 @@ public sealed partial class ChiefBacklogLoopService(
                         profile.TenantId,
                         project.Id,
                         task.Id,
-                        [.. attemptHistory.Select(attempt =>
-                            (attempt.State, attempt.FinishedAt ?? attempt.StartedAt))],
+                        [.. attemptHistory.Select(attempt => new CardAttemptOutcome(
+                            attempt.State,
+                            attempt.FailureReason,
+                            attempt.FinishedAt ?? attempt.StartedAt))],
                         token);
                     if (!circuit.IsDispatchable)
                     {
                         LogCardCircuitOpen(logger, task.Id, circuit.ConsecutiveFailures);
+                        // O circuito aberto só reabre por replanejamento da Bruna — e ela não pode
+                        // replanejar o que não sabe que parou. Sem escalar, o card ficava em
+                        // `ready` para sempre, reexaminado a cada ciclo e invisível para todos.
+                        _ = await chain.EscalateUndispatchableTaskAsync(
+                            new WorkTaskUndispatchableCommand(
+                                profile.TenantId, task.BackingSolicitationId, task.Id,
+                                $"Tentamos executar este trabalho {circuit.ConsecutiveFailures} vezes " +
+                                "seguidas e todas falharam do mesmo jeito. Insistir só repetiria o " +
+                                "mesmo resultado, então parei: preciso rever o enunciado ou reduzir " +
+                                "o que ele pede antes de tentar de novo.",
+                                $"card:{task.Id}",
+                                task.Version,
+                                $"chief-loop-circuit-open:{task.Id}:{task.Version}",
+                                clock.UtcNow),
+                            token);
                         continue;
                     }
 
@@ -1349,17 +1366,25 @@ public sealed partial class ChiefBacklogLoopService(
                 // transitórios/infraestrutura e cancelamentos continuam recuperáveis sem queimar
                 // o orçamento anti-loop.
                 var countsTowardRoundBudget = CountsFailedRunTowardRoundBudget(snapshot);
-                var permanentFailureReason = countsTowardRoundBudget
+
+                // O MOTIVO é gravado sempre que o run realmente falhou, mesmo transitório. Ele não
+                // é o orçamento de rodadas (acima) — é o que torna a falha VISÍVEL para o circuito
+                // do card. Sem ele, uma falha de execução chegava ao quadro como `cancelled` sem
+                // motivo, indistinguível de um cancelamento do operador ou de um reinício do Host:
+                // o circuito não a contava, e o mesmo card era redespachado indefinidamente. Foi
+                // exatamente o que aconteceu — nove tentativas seguidas no mesmo card, todas
+                // transitórias, e o circuito parado em uma.
+                var failureReason = snapshot.Status == AgentRunStatus.Failed
                     ? snapshot.FinalError
                         ?? snapshot.Execution?.FailureCode
-                        ?? "run.permanent_failure"
+                        ?? (countsTowardRoundBudget ? "run.permanent_failure" : "run.failed")
                     : null;
                 var expired = await chain.ExpireAttemptLeaseAsync(
                     new WorkAttemptLeaseExpiredCommand(
                         tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
                         $"chief-loop-expire:{running.Id}", now,
                         countsTowardRoundBudget,
-                        permanentFailureReason),
+                        failureReason),
                     token);
                 if (expired.Status is WorkChainMutationStatus.Applied
                     or WorkChainMutationStatus.IdempotentReplay)

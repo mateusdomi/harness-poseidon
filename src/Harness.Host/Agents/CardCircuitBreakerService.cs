@@ -27,7 +27,7 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
         string tenantId,
         string projectId,
         string taskId,
-        IReadOnlyList<(string State, DateTimeOffset OccurredAt)> attempts,
+        IReadOnlyList<CardAttemptOutcome> attempts,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(attempts);
@@ -41,12 +41,12 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
         string? lastReason = null;
         foreach (var attempt in attempts.Where(item => horizon is null || item.OccurredAt > horizon))
         {
-            if (IsFailure(attempt.State))
+            if (IsFailure(attempt))
             {
                 snapshot = CardCircuitBreakerPolicy.RecordFailure(
-                    snapshot, attempt.OccurredAt, attempt.State);
+                    snapshot, attempt.OccurredAt, attempt.FailureReason ?? attempt.State);
                 lastFailureAt = attempt.OccurredAt;
-                lastReason = attempt.State;
+                lastReason = attempt.FailureReason ?? attempt.State;
             }
             else if (IsSuccess(attempt.State))
             {
@@ -107,12 +107,32 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
         CancellationToken cancellationToken = default) =>
         _store.ReplanAsync(tenantId, projectId, taskId, occurredAt, note, cancellationToken);
 
-    private static bool IsFailure(string state) =>
-        string.Equals(state, "failed", StringComparison.Ordinal) ||
-        string.Equals(state, "rejected", StringComparison.Ordinal);
+    /// <summary>
+    /// Rodada perdida do ponto de vista do CARD.
+    ///
+    /// `cancelled` sozinho não conta: é o mesmo estado operacional de um reinício do Host ou de um
+    /// cancelamento do operador, e punir o card por uma ação de infraestrutura abriria o circuito
+    /// de cards saudáveis — o circuito só reabre por replanejamento, então um falso positivo aqui
+    /// PARA o trabalho de verdade.
+    ///
+    /// Um MOTIVO gravado é o que separa as duas coisas: ele só existe quando o run realmente
+    /// falhou. Sem essa distinção, nove falhas consecutivas de execução no mesmo card chegavam ao
+    /// circuito como cancelamentos anônimos e ele não contava nenhuma.
+    /// </summary>
+    private static bool IsFailure(CardAttemptOutcome attempt) =>
+        string.Equals(attempt.State, "failed", StringComparison.Ordinal) ||
+        string.Equals(attempt.State, "rejected", StringComparison.Ordinal) ||
+        (string.Equals(attempt.State, "cancelled", StringComparison.Ordinal) &&
+         !string.IsNullOrWhiteSpace(attempt.FailureReason));
 
     private static bool IsSuccess(string state) =>
         string.Equals(state, "completed", StringComparison.Ordinal) ||
         string.Equals(state, "merged", StringComparison.Ordinal) ||
         string.Equals(state, "approved", StringComparison.Ordinal);
 }
+
+/// <summary>Desfecho de uma tentativa, como o circuito do card precisa vê-lo.</summary>
+public readonly record struct CardAttemptOutcome(
+    string State,
+    string? FailureReason,
+    DateTimeOffset OccurredAt);

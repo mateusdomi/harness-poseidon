@@ -26,11 +26,11 @@ public sealed class CardCircuitBreakerSynchronizationTests
         {
             var store = new SqliteCardCircuitBreakerStore(dispatcher);
             var service = new CardCircuitBreakerService(store);
-            (string, DateTimeOffset)[] history =
+            CardAttemptOutcome[] history =
             [
-                ("failed", Now),
-                ("failed", Now.AddMinutes(10)),
-                ("failed", Now.AddMinutes(20))
+                Outcome("failed", Now),
+                Outcome("failed", Now.AddMinutes(10)),
+                Outcome("failed", Now.AddMinutes(20))
             ];
 
             var snapshot = await service.SynchronizeAsync(
@@ -70,11 +70,11 @@ public sealed class CardCircuitBreakerSynchronizationTests
         {
             var store = new SqliteCardCircuitBreakerStore(dispatcher);
             var service = new CardCircuitBreakerService(store);
-            (string, DateTimeOffset)[] history =
+            CardAttemptOutcome[] history =
             [
-                ("failed", Now),
-                ("failed", Now.AddMinutes(10)),
-                ("failed", Now.AddMinutes(20))
+                Outcome("failed", Now),
+                Outcome("failed", Now.AddMinutes(10)),
+                Outcome("failed", Now.AddMinutes(20))
             ];
 
             await service.SynchronizeAsync(Tenant, Project, "card-1", history, timeout.Token);
@@ -92,7 +92,7 @@ public sealed class CardCircuitBreakerSynchronizationTests
             // Mas falhas POSTERIORES ao replanejamento voltam a contar do zero.
             var afterNewFailures = await service.SynchronizeAsync(
                 Tenant, Project, "card-1",
-                [.. history, ("failed", Now.AddMinutes(40)), ("failed", Now.AddMinutes(50))],
+                [.. history, Outcome("failed", Now.AddMinutes(40)), Outcome("failed", Now.AddMinutes(50))],
                 timeout.Token);
             Assert.Equal(CardCircuitState.Closed, afterNewFailures.State);
             Assert.Equal(2, afterNewFailures.ConsecutiveFailures);
@@ -116,13 +116,13 @@ public sealed class CardCircuitBreakerSynchronizationTests
 
             await service.SynchronizeAsync(
                 Tenant, Project, "card-1",
-                [("failed", Now), ("failed", Now.AddMinutes(5))],
+                [Outcome("failed", Now), Outcome("failed", Now.AddMinutes(5))],
                 timeout.Token);
             Assert.Equal(2, (await store.GetAsync(Tenant, "card-1", timeout.Token))!.ConsecutiveFailures);
 
             var snapshot = await service.SynchronizeAsync(
                 Tenant, Project, "card-1",
-                [("failed", Now), ("failed", Now.AddMinutes(5)), ("completed", Now.AddMinutes(9))],
+                [Outcome("failed", Now), Outcome("failed", Now.AddMinutes(5)), Outcome("completed", Now.AddMinutes(9))],
                 timeout.Token);
 
             Assert.Equal(0, snapshot.ConsecutiveFailures);
@@ -134,6 +134,57 @@ public sealed class CardCircuitBreakerSynchronizationTests
             Cleanup(root);
         }
     }
+
+    [Fact]
+    public async Task FalhaDeExecucaoContaMesmoChegandoComoCancelamento()
+    {
+        // Observado em execução real: nove tentativas seguidas no mesmo card, todas mortas por
+        // falha do executor, e o circuito parado em UMA. A cadeia projeta uma tentativa expirada
+        // como `cancelled`, e o circuito só contava `failed`/`rejected` — então a falha de
+        // execução, que é justamente o sinal de que o card não anda, era invisível.
+        //
+        // O MOTIVO é o que separa falha de execução de um cancelamento de infraestrutura: só a
+        // primeira grava um. Um reinício do Host continua não punindo o card, porque o circuito
+        // só reabre por replanejamento e um falso positivo aqui PARARIA trabalho saudável.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var (root, dispatcher) = await CreateDatabaseAsync(timeout.Token);
+        try
+        {
+            var store = new SqliteCardCircuitBreakerStore(dispatcher);
+            var service = new CardCircuitBreakerService(store);
+
+            var comMotivo = await service.SynchronizeAsync(
+                Tenant, Project, "card-falho",
+                [
+                    Outcome("cancelled", Now, "executor.exit_code_1"),
+                    Outcome("cancelled", Now.AddMinutes(2), "executor.exit_code_1"),
+                    Outcome("cancelled", Now.AddMinutes(4), "executor.exit_code_1"),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Open, comMotivo.State);
+            Assert.Equal(3, comMotivo.ConsecutiveFailures);
+
+            var semMotivo = await service.SynchronizeAsync(
+                Tenant, Project, "card-reiniciado",
+                [
+                    Outcome("cancelled", Now),
+                    Outcome("cancelled", Now.AddMinutes(2)),
+                    Outcome("cancelled", Now.AddMinutes(4)),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Closed, semMotivo.State);
+            Assert.Equal(0, semMotivo.ConsecutiveFailures);
+        }
+        finally
+        {
+            await dispatcher.DisposeAsync();
+            Cleanup(root);
+        }
+    }
+
+    private static CardAttemptOutcome Outcome(
+        string state, DateTimeOffset occurredAt, string? failureReason = null) =>
+        new(state, failureReason, occurredAt);
 
     private static async Task<(string Root, SqliteWriteDispatcher Dispatcher)> CreateDatabaseAsync(
         CancellationToken token)
