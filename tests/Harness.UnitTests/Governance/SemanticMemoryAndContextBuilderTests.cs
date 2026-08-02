@@ -121,6 +121,15 @@ public sealed class SemanticMemoryAndContextBuilderTests
                 DeterministicLocalEmbedding.Embed("segredo"),
                 new Dictionary<string, string> { ["fileName"] = "fonte-externa.txt" },
                 DateTimeOffset.UtcNow))
+            .Append(new VectorDocumentRecord(
+                "attachment-1-obsolete",
+                tenantId,
+                projectId,
+                "solicitation_attachment",
+                "fonte-1.txt: conteúdo obsoleto",
+                DeterministicLocalEmbedding.Embed("conteúdo obsoleto"),
+                new Dictionary<string, string> { ["fileName"] = "fonte-1.txt" },
+                DateTimeOffset.UtcNow.AddDays(-1)))
             .ToArray();
         var provider = new RagContextProvider(
             new StubVectorIndex(documents),

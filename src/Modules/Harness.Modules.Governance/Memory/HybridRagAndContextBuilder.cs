@@ -232,6 +232,14 @@ public sealed class RagContextProvider(
                 document.Metadata.TryGetValue("fileName", out var fileName) &&
                 !string.IsNullOrWhiteSpace(fileName) &&
                 query.Contains(fileName, StringComparison.OrdinalIgnoreCase))
+            // Um novo upload com o mesmo nome é uma nova versão da fonte para a conversa.
+            // Levar todas as cópias mistura conteúdo obsoleto e consome budget; a mais recente
+            // preserva a proveniência pelo id/checksum do documento vetorial selecionado.
+            .GroupBy(document => document.Metadata["fileName"], StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(document => document.CreatedAt)
+                .ThenByDescending(document => document.Id, StringComparer.Ordinal)
+                .First())
             .OrderBy(document => MentionPosition(query, document.Metadata["fileName"]))
             .ThenBy(document => document.Id, StringComparer.Ordinal)
             .Take(50)
