@@ -692,10 +692,15 @@ public sealed partial class AgentRunOrchestrator(
             await events.PublishAsync(
                 tenantId,
                 $"project:{snapshot.ProjectId}",
-                "agentRun.startupOrphanRecovered",
+                "agentRun.stateChanged",
                 new
                 {
+                    runId = snapshot.AttemptId,
                     attemptId = snapshot.AttemptId,
+                    projectId = snapshot.ProjectId,
+                    state = "failed",
+                    accountAlias = string.Empty,
+                    role = string.Empty,
                     taskId = snapshot.TaskId,
                     reasonCode = "attempt.orphaned_by_host_restart",
                     lastHeartbeatAt = snapshot.LastHeartbeatAt,
