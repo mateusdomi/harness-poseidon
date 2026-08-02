@@ -513,6 +513,25 @@ public sealed partial class PostgresConversationStore(NpgsqlDataSource dataSourc
         {
             throw new InvalidOperationException("Active conversation disappeared during message append.");
         }
+
+        await using var projectUpdate = connection.CreateCommand();
+        projectUpdate.Transaction = transaction;
+        projectUpdate.CommandText =
+            """
+            UPDATE harness.projects
+            SET last_activity_at=GREATEST(COALESCE(last_activity_at,$1),$1),version=version+1
+            WHERE tenant_id=$2 AND deleted_at IS NULL
+              AND id=(
+                  SELECT project_id FROM harness.conversations
+                  WHERE tenant_id=$2 AND id=$3);
+            """;
+        projectUpdate.Parameters.Add(Timestamp(at));
+        projectUpdate.Parameters.Add(Text(tenantId));
+        projectUpdate.Parameters.Add(Text(conversationId));
+        if (await projectUpdate.ExecuteNonQueryAsync(cancellationToken) != 1)
+        {
+            throw new InvalidOperationException("Conversation project disappeared during message append.");
+        }
     }
 
     private static async Task AppendAuditAsync(

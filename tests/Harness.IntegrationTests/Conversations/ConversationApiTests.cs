@@ -257,6 +257,9 @@ public sealed class ConversationApiTests
                     Assert.Equal("user", direct?.AuthorRole);
                     Assert.Equal(profileId, direct?.AuthorProfileId);
                     Assert.Null(direct?.AuthorAgentId);
+                    var activeProject = await client.GetFromJsonAsync<ProjectResponse>(
+                        $"/api/v1/projects/{project.Id}", timeout.Token);
+                    Assert.Equal(direct?.CreatedAt, activeProject?.LastActivityAt);
 
                     var accounts = (await client.GetFromJsonAsync<AccountPage>(
                         "/api/v1/accounts", timeout.Token))!;

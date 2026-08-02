@@ -551,6 +551,29 @@ public sealed partial class SqliteConversationStore(SqliteWriteDispatcher dispat
         {
             throw new InvalidOperationException("Active conversation disappeared during message append.");
         }
+
+        await using var projectUpdate = connection.CreateCommand();
+        projectUpdate.Transaction = transaction;
+        projectUpdate.CommandText =
+            """
+            UPDATE projects
+            SET last_activity_at=CASE
+                    WHEN last_activity_at IS NULL OR last_activity_at<$at THEN $at
+                    ELSE last_activity_at
+                END,
+                version=version+1
+            WHERE tenant_id=$tenant AND deleted_at IS NULL
+              AND id=(
+                  SELECT project_id FROM conversations
+                  WHERE tenant_id=$tenant AND id=$conversation);
+            """;
+        Add(projectUpdate, "$at", Store(at));
+        Add(projectUpdate, "$tenant", tenantId);
+        Add(projectUpdate, "$conversation", conversationId);
+        if (await projectUpdate.ExecuteNonQueryAsync(cancellationToken) != 1)
+        {
+            throw new InvalidOperationException("Conversation project disappeared during message append.");
+        }
     }
 
     private static async Task AppendAuditAsync(
