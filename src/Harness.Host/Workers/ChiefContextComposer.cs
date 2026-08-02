@@ -4,6 +4,7 @@ using Harness.Modules.Governance.Documentation;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Governance;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
@@ -28,6 +29,19 @@ public sealed record ChiefProjectBrandContext(
     string? SecondaryColor,
     string? Typography);
 
+/// <summary>
+/// Um card que a Bruna ESCALOU e que espera decisão do dono.
+///
+/// O identificador vai junto de propósito. Sem ele a decisão humana não tinha como virar ação:
+/// o dono respondia "reduz o escopo dessa parte", a Bruna concordava — e não conseguia apontar
+/// QUAL card replanejar, porque nenhum card chegava ao contexto do turno. A decisão morria como
+/// texto e ela ainda anunciava que o trabalho tinha voltado a andar.
+/// </summary>
+public sealed record ChiefEscalatedCardContext(
+    string CardId,
+    string Title,
+    string? Reason);
+
 public sealed record ChiefProjectContext(
     string ProjectId,
     string Title,
@@ -37,7 +51,8 @@ public sealed record ChiefProjectContext(
     ChiefProjectBrandContext Brand,
     IReadOnlyList<string> Technologies,
     string? WorkflowTemplateId,
-    string? WorkflowName);
+    string? WorkflowName,
+    IReadOnlyList<ChiefEscalatedCardContext>? EscalatedCards = null);
 
 /// <summary>
 /// Seam de integração da <see cref="IContextStrategy"/> no ponto onde o Chief monta o histórico que
@@ -52,7 +67,8 @@ public sealed class ChiefContextComposer(
     IClock clock,
     ChiefContextStrategyOptions options,
     IProjectStore? projects = null,
-    IWorkflowCatalogStore? workflows = null)
+    IWorkflowCatalogStore? workflows = null,
+    IWorkBoardStore? board = null)
 {
     private readonly IConversationStore _conversations = conversations ?? throw new ArgumentNullException(nameof(conversations));
     private readonly IContextStrategy _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
@@ -61,6 +77,7 @@ public sealed class ChiefContextComposer(
     private readonly ChiefContextStrategyOptions _options = options ?? throw new ArgumentNullException(nameof(options));
     private readonly IProjectStore? _projects = projects;
     private readonly IWorkflowCatalogStore? _workflows = workflows;
+    private readonly IWorkBoardStore? _board = board;
 
     /// <summary>
     /// Conjunto mínimo e tipado dos campos de projeto que a Bruna precisa para
@@ -115,7 +132,51 @@ public sealed class ChiefContextComposer(
                 project.Brand.Typography),
             project.Technologies,
             binding?.TemplateId,
-            template?.Name);
+            template?.Name,
+            await ReadEscalatedCardsAsync(tenantId, projectId, cancellationToken));
+    }
+
+    /// <summary>
+    /// Cards que esperam decisão do dono, com IDENTIFICADOR.
+    ///
+    /// É o que fecha o laço de escalação: o dono responde no chat e a Bruna precisa saber a qual
+    /// card aquilo se refere para emitir o replanejamento. Sem esta lista ela só podia concordar
+    /// por escrito enquanto o card seguia parado.
+    ///
+    /// Vinte é bastante para uma conversa e evita inundar o contexto: um projeto com mais cards
+    /// escalados que isso tem um problema maior do que a próxima frase do chat.
+    /// </summary>
+    private async Task<IReadOnlyList<ChiefEscalatedCardContext>?> ReadEscalatedCardsAsync(
+        string tenantId,
+        string projectId,
+        CancellationToken cancellationToken)
+    {
+        if (_board is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var page = await _board.PageTasksAsync(
+                tenantId,
+                new BoardTaskPageQuery(
+                    projectId, null, null, "blocked", null, null, "active", null, 0, 20),
+                cancellationToken);
+
+            var escalated = page.Items
+                .Where(task => string.Equals(task.InternalState, "escalated", StringComparison.Ordinal))
+                .Select(task => new ChiefEscalatedCardContext(task.Id, task.Title, task.BlockedReason))
+                .ToArray();
+
+            return escalated.Length == 0 ? null : escalated;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Contexto é auxílio, não pré-requisito: falhar aqui não pode impedir a Bruna de
+            // responder ao dono.
+            return null;
+        }
     }
 
     public async Task<ChiefContextComposition> ComposeAsync(

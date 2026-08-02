@@ -741,7 +741,11 @@ public static class HostApplication
             services.GetRequiredService<IClock>(),
             services.GetRequiredService<ChiefContextStrategyOptions>(),
             services.GetRequiredService<IProjectStore>(),
-            services.GetRequiredService<IWorkflowCatalogStore>()));
+            services.GetRequiredService<IWorkflowCatalogStore>(),
+            // O quadro entra para que os cards ESCALADOS cheguem ao contexto do turno com
+            // identificador: é o que permite a decisão do dono virar replanejamento em vez de
+            // ficar só na conversa.
+            services.GetRequiredService<IWorkBoardStore>()));
         var governanceRoot = ResolveGovernanceRoot(builder.Environment.ContentRootPath)
             ?? throw new DirectoryNotFoundException("governance/manifest.yaml is required by the Chief runtime.");
         // Raiz do repositório para leitura/escrita dos docs de governança pela UI.

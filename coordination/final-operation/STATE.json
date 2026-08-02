@@ -1,7 +1,7 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-02T22:35:00Z",
+  "updatedAt": "2026-08-02T23:10:00Z",
   "updatedBy": "integrator",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
@@ -42,7 +42,7 @@
   },
   "metricsInstrumented": false,
   "metricsNote": "Custo, tokens, invocacoes e transient-failure-waste NAO foram instrumentados (SPEC 31/32). Nao inventar numeros: reportar como nao medido ate existir coleta real.",
-  "nextAction": "OPS-024 (bloqueante): incluir cards ESCALADOS com id no contexto do turno da Bruna — o contrato cardActions e o handler ja existem e estao testados; falta so ela conhecer o cardId. Depois repetir a prova HITL na conversa 01KZ24JKCCWCH0G8C7PJN3AKH4.",
+  "nextAction": "OPS-024 etapa 3: a Bruna recebe os cards escalados no contexto mas nao emite cardActions. Instrumentar contexto+output e reforcar o prompt com exemplo concreto.",
   "humanDecisionRequired": false,
   "externalBlockers": []
 }

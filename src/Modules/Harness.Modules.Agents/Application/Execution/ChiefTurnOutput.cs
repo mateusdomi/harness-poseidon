@@ -83,7 +83,7 @@ public static class ChiefTurnOutputContract
     private static readonly HashSet<string> TeamActionProperties =
         new(["action", "reason", "persona", "personaKey"], StringComparer.Ordinal);
     private static readonly HashSet<string> CardActionProperties =
-        new(["action", "cardId", "instruction"], StringComparer.Ordinal);
+        new(["action", "cardId", "instruction", "reason"], StringComparer.Ordinal);
     private static readonly HashSet<string> PersonaProperties =
         new(
             ["key", "name", "purpose", "specialty", "responsibilities", "constraints",
@@ -459,7 +459,8 @@ public static class ChiefTurnOutputContract
                     "properties": {
                       "action": { "type": "string", "enum": ["replan"] },
                       "cardId": { "type": "string", "minLength": 26, "maxLength": 26 },
-                      "instruction": { "type": "string", "minLength": 20, "maxLength": 10000 }
+                      "instruction": { "type": "string", "minLength": 20, "maxLength": 10000 },
+                      "reason": { "type": ["string", "null"], "maxLength": 2000 }
                     }
                   }
                 },

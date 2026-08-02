@@ -643,11 +643,15 @@ public sealed partial class ChiefTurnBackgroundService(
                 new ChiefTurnFailCommand(
                     lease, exception.GetType().Name, clock.UtcNow, retryable),
                 cancellationToken);
+            // A MENSAGEM entra no log, não só o nome do tipo. Um turno que morre por validação
+            // de contrato dizia apenas "AgentOutputValidationException", e descobrir QUAL campo o
+            // modelo errou virava tentativa e erro com o Host reiniciando a cada palpite.
             LogTurnFailure(
                 logger,
                 lease.Turn.TurnId,
                 exception.GetType().Name,
-                retryable);
+                retryable,
+                exception.Message);
 
             // O turno morreu: o usuário perguntou e NINGUÉM ia responder. Até aqui o fato ficava
             // só no mailbox e no log — do lado de fora, a conversa simplesmente parava, sem
@@ -986,12 +990,13 @@ public sealed partial class ChiefTurnBackgroundService(
     [LoggerMessage(
         EventId = 2101,
         Level = LogLevel.Warning,
-        Message = "Chief turn {TurnId} failed with {ErrorType}; retryable={Retryable}.")]
+        Message = "Chief turn {TurnId} failed with {ErrorType}; retryable={Retryable}. {Detail}")]
     private static partial void LogTurnFailure(
         ILogger logger,
         string turnId,
         string errorType,
-        bool retryable);
+        bool retryable,
+        string detail);
 
     [LoggerMessage(
         EventId = 2104,

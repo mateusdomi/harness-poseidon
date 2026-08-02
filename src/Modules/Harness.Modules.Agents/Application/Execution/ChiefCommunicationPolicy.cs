@@ -225,7 +225,21 @@ public static partial class ChiefCommunicationPolicy
              RecognizableReasonCodePattern().IsMatch(referenceSafeSurface) ||
              RawReasonCodePattern().IsMatch(reasonCodeSurface)))
         {
-            violation = "A resposta contém detalhe técnico não autorizado para a experiência de negócio.";
+            // O TERMO entra na mensagem. Sem ele, "detalhe técnico não autorizado" obrigava a
+            // adivinhar qual palavra derrubou o turno — e cada palpite custava um reinício do
+            // Host. O trecho citado é o que a própria chefe escreveu; não expõe segredo nem dado
+            // do usuário, e é justamente o que precisa ser corrigido no prompt dela.
+            var offending =
+                TechnicalVocabularyPattern().Match(response) is { Success: true } vocabulary
+                    ? vocabulary.Value
+                    : InternalIdentifierPattern().Match(response) is { Success: true } identifier
+                        ? identifier.Value
+                        : RecognizableReasonCodePattern().Match(referenceSafeSurface) is { Success: true } code
+                            ? code.Value
+                            : RawReasonCodePattern().Match(reasonCodeSurface).Value;
+            violation =
+                "A resposta contém detalhe técnico não autorizado para a experiência de negócio: " +
+                $"\"{offending}\".";
             return false;
         }
 

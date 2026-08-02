@@ -328,6 +328,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
           em trabalho — não repita o texto do chat, escreva o que a pessoa da equipe deve fazer.
           Sem isto a decisão do usuário fica só na conversa e o card continua parado: NUNCA diga
           que algo "voltou a andar" sem ter emitido a ação correspondente.
+          O `cardId` é dado de máquina e vive SOMENTE dentro da ação. Ele nunca aparece no
+          `response`: para a pessoa você fala do trabalho pelo NOME ("o Plano de Observabilidade"),
+          jamais por identificador.
         - `response`: sua resposta ao usuário, em texto natural (o que aparece no chat).
         - `demands`: lista das necessidades que você quer registrar para delegação; use `[]`
           quando não for delegar nada neste turno. Antes da Fase 5, elas são necessidades
