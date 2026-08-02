@@ -52,6 +52,32 @@ public sealed class CorrectionBaseBranchTests
             "-TODO: preencher\n+Commit: 0123456789abcdef"));
     }
 
+    [Fact]
+    public void DispatchDeferralsDoNotConsumeTheCardRoundBudget()
+    {
+        var attempts = new[]
+        {
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAA", 1, "cancelled"),
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAB", 2, "queued"),
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAC", 3, "completed"),
+        };
+
+        Assert.Equal(1, ChiefBacklogLoopService.CountSpentRounds(attempts));
+    }
+
+    [Fact]
+    public void ExecutedFailuresAndActiveRunsConsumeTheCardRoundBudget()
+    {
+        var attempts = new[]
+        {
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAA", 1, "failed"),
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAB", 2, "running"),
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAC", 3, "completed"),
+        };
+
+        Assert.Equal(3, ChiefBacklogLoopService.CountSpentRounds(attempts));
+    }
+
     private static BoardAttemptRecord Attempt(string id, int number, string state) =>
         new("tenant", id, "task", number, state, "agent", Now, null, null, 0, 0, 0,
             [], null, null);

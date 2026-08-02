@@ -455,10 +455,11 @@ public sealed partial class ChiefBacklogLoopService(
                     // coisa (falha técnica, não esgotamento do plano). Um card que já consumiu as
                     // rodadas orçadas não é redespachado em silêncio: ele ESCALA, com o fato auditado.
                     var budget = await ReadCardBudgetAsync(profile.TenantId, task, plans, token);
-                    if (budget is not null && attemptHistory.Count >= budget.MaxRounds)
+                    var spentRounds = CountSpentRounds(attemptHistory);
+                    if (budget is not null && spentRounds >= budget.MaxRounds)
                     {
                         await EscalateBudgetExhaustionAsync(
-                            profile.TenantId, project.Id, task, budget, attemptHistory.Count, token);
+                            profile.TenantId, project.Id, task, budget, spentRounds, token);
                         continue;
                     }
 
@@ -2005,6 +2006,22 @@ public sealed partial class ChiefBacklogLoopService(
         ReviewDepth: 1,
         FanOutAllowed: false,
         ReasonCode: "effort.default_off_plan");
+
+    /// <summary>
+    /// Conta somente rodadas que chegaram a executar. O registro durável nasce antes da aquisição
+    /// do workspace para que a compensação seja rastreável; por isso uma recusa de agendamento
+    /// (por exemplo, <c>workspace.scopeconflict</c>) aparece no histórico como <c>cancelled</c>.
+    /// Queimar orçamento com esse registro transforma contenção normal em falso esgotamento.
+    /// <c>queued</c> também não executou; os demais estados representam trabalho em curso ou uma
+    /// execução que de fato terminou e, portanto, consomem uma rodada.
+    /// </summary>
+    public static int CountSpentRounds(IReadOnlyList<BoardAttemptRecord> attempts)
+    {
+        ArgumentNullException.ThrowIfNull(attempts);
+        return attempts.Count(attempt =>
+            !string.Equals(attempt.State, "queued", StringComparison.Ordinal) &&
+            !string.Equals(attempt.State, "cancelled", StringComparison.Ordinal));
+    }
 
     /// <summary>
     /// O card esgotou as rodadas orçadas. Parar em silêncio esconderia um card morto no board;
