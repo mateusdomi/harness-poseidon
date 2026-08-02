@@ -4,12 +4,17 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { createTestBundle, type TestBundle } from '@/api/__tests__/test-utils';
 import OrchestratorPage from '@/features/orchestrator/pages/orchestrator-page';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 import { renderWithApi } from '@/test/render-with-providers';
 
 function renderDefinitions(
   bundle: TestBundle = createTestBundle(),
   route = '/orchestrator?tab=definitions',
 ) {
+  const profileId = bundle.fixtures.meta.currentProfileId;
+  useSessionStore.setState({ activeProfileId: profileId });
+  usePresentationStore.getState().requestMode(profileId, 'admin');
   return renderWithApi(
     <MemoryRouter initialEntries={[route]}>
       <OrchestratorPage />
