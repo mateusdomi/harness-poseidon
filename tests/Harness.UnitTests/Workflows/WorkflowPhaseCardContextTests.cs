@@ -31,6 +31,22 @@ public sealed class WorkflowPhaseCardContextTests
         Assert.False(WorkflowPhaseDriver.NeedsDocumentRevision(Now, card));
     }
 
+    [Theory]
+    [InlineData("3-Arquitetura", "SAD Ideal e Restrito", "Não tenho prazo fixo. Pode seguir.", false)]
+    [InlineData("4-Planejamento", "Cronograma de releases", "Preciso até dezembro.", true)]
+    [InlineData("3-Arquitetura", "SAD Ideal e Restrito", "Também quero registrar uma foto do equipamento.", true)]
+    [InlineData("3-Arquitetura", "Threat Model STRIDE", "Uma pessoa responsável fará os registros.", true)]
+    public void LateInformationOnlyRevisesDocumentsItCanMateriallyAffect(
+        string phase,
+        string objective,
+        string message,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            WorkflowPhaseDriver.IsDocumentRevisionRelevant(phase, objective, message));
+    }
+
     [Fact]
     public void ObjectiveCardCarriesProvenanceTemplateDependenciesAndEvidenceWithoutSecrets()
     {

@@ -250,9 +250,26 @@ public sealed class WorkflowPhaseDriver(
                 .ToArray();
             var latestHuman = humanMessages.Count == 0 ? null : humanMessages[^1];
             var latestObjectiveCard = objectiveCards.FirstOrDefault();
-            if (latestHuman is not null && latestObjectiveCard is not null &&
+            var revisionTitle = latestHuman is null ? null : revisionPrefix + latestHuman.Id;
+            var revisionRelevant = latestHuman is not null &&
+                IsDocumentRevisionRelevant(phase.Name, objective.Name, latestHuman.Content);
+            if (revisionTitle is not null && !revisionRelevant &&
+                byTitle.TryGetValue(revisionTitle, out var obsoleteRevision) &&
+                obsoleteRevision.State is "backlog" or "ready")
+            {
+                // Versões automáticas só existem para propagar delta material. Se uma mensagem de
+                // agenda chegou enquanto a arquitetura era executada, preservar a fonte no
+                // contexto da fase futura é suficiente; deixar o card pronto queimaria cota sem
+                // mudar o artefato. O arquivamento é auditado e ocorre antes do despacho.
+                _ = await _board.SetTaskArchivedAsync(
+                    new BoardTaskArchiveCommand(
+                        tenantId, obsoleteRevision.Id, true, "system", _clock.UtcNow),
+                    cancellationToken);
+            }
+            else if (latestHuman is not null && latestObjectiveCard is not null &&
+                revisionRelevant &&
                 NeedsDocumentRevision(latestHuman.CreatedAt, latestObjectiveCard) &&
-                !byTitle.ContainsKey(revisionPrefix + latestHuman.Id))
+                !byTitle.ContainsKey(revisionTitle!))
             {
                 await CreateObjectiveCardAsync(
                     tenantId, project, actorProfileId, phase.Name, objective.Name,
@@ -999,6 +1016,43 @@ public sealed class WorkflowPhaseDriver(
         return latestObjectiveCard.State is "approved" or "merged" or "done" or "completed" ||
                latestObjectiveCard.InternalState is "approved" or "merged" or "done" or "completed";
     }
+
+    /// <summary>
+    /// Agenda e prazo pertencem ao Planejamento. A resposta tardia continua na proveniência e será
+    /// carregada nos próximos cards, mas não reescreve SAD, C4, DER ou Threat Model sem uma mudança
+    /// funcional explícita. Outras informações permanecem relevantes por padrão: perder uma regra
+    /// de negócio é mais grave que produzir uma revisão conservadora.
+    /// </summary>
+    public static bool IsDocumentRevisionRelevant(
+        string phaseName,
+        string objectiveName,
+        string humanMessage)
+    {
+        var message = NormalizeSearch(humanMessage);
+        var mentionsSchedule = ContainsAny(
+            message, "prazo", "deadline", "data limite", "ate quando", "sem data",
+            "sem prazo", "urgente", "urgencia", "ordem de prioridade");
+        if (!mentionsSchedule)
+        {
+            return true;
+        }
+
+        var explicitProductChange = ContainsAny(
+            message, "tambem quero", "agora quero", "nao quero", "preciso que", "inclua",
+            "adicion", "remova", "retire", "mude", "altere", "corrija", "passa a");
+        if (explicitProductChange)
+        {
+            return true;
+        }
+
+        var target = NormalizeSearch($"{phaseName} {objectiveName}");
+        return ContainsAny(
+            target, "planejamento", "cronograma", "roadmap", "release", "calendario",
+            "priorizacao", "estimativa");
+    }
+
+    private static bool ContainsAny(string value, params string[] fragments) =>
+        fragments.Any(fragment => value.Contains(fragment, StringComparison.Ordinal));
 
     /// <summary>
     /// Pacote efetivo do card de documento. Referências substituem o despejo indiscriminado do
