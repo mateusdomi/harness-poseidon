@@ -29,9 +29,13 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   // o dono é stakeholder. O que sobrou no cabeçalho é a escolha de CONVERSA, que é dele. A
   // asserção acompanha o produto — e a linha seguinte continua garantindo que nenhum jargão de
   // modelo vazou para esta tela.
-  // O produto humanizou a projeção pública: "Equipe virtual" virou "Equipe de IA", e "Chief"
-  // virou "Bruna Magalhães" (`public-leadership.ts`). O teste segue o produto.
-  await expect(page.getByText('Equipe de IA').first()).toBeVisible();
+  // A humanização foi até o fim: nenhuma pessoa da equipe é apresentada como IA, robô, bot ou
+  // modelo. Quem conduz o projeto aparece pelo cargo humano. O teste segue o produto — e afirmar
+  // a AUSÊNCIA do jargão é o que de fato protege a regra, porque uma regressão volta a exibi-lo.
+  await expect(page.getByText('Diretora de Engenharia').first()).toBeVisible();
+  for (const jargon of ['Equipe de IA', 'Equipe virtual', 'Chief']) {
+    await expect(page.getByText(jargon, { exact: false })).toHaveCount(0);
+  }
   await expect(page.getByRole('combobox', { name: 'Modelo' })).toHaveCount(0);
   await expect
     .poll(() =>

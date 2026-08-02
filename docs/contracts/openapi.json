@@ -19668,6 +19668,13 @@
                         }
                     },
                     {
+                        "name": "taskId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
                         "name": "state",
                         "in": "query",
                         "schema": {

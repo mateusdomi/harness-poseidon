@@ -6,9 +6,9 @@ async function enterBusinessChat(page: Page) {
   await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
   await page.goto('/chat');
   await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
-  // O produto humanizou a projeção pública: "Equipe virtual" virou "Equipe de IA", e "Chief"
-  // virou "Bruna Magalhães" (`public-leadership.ts`). O teste segue o produto.
-  await expect(page.getByText('Equipe de IA').first()).toBeVisible();
+  // A humanização foi até o fim: ninguém da equipe é apresentado como IA, e "Chief" virou
+  // "Bruna Magalhães" (`public-leadership.ts`). O teste segue o produto.
+  await expect(page.getByText('Diretora de Engenharia').first()).toBeVisible();
 }
 
 test.describe('Chat — fluxos determinísticos da experiência de negócio', () => {
