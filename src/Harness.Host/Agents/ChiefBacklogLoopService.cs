@@ -52,12 +52,12 @@ public sealed partial class ChiefBacklogLoopService(
     private static readonly ScaleDispatcher ScaleGate = new();
 
     /// <summary>
-    /// Último projeto que ocupou um slot por tenant. O próximo ciclo começa DEPOIS dele, evitando
-    /// que um backlog antigo no início da lista por ULID mantenha projetos novos sem vez enquanto
-    /// houver trabalho. O cursor é apenas de escalonamento; nenhuma verdade de negócio depende
-    /// dele e um reinício continua seguro.
+    /// Quantos slots cada projeto ocupou neste processo, por tenant. A fila sempre começa pelos
+    /// menos atendidos; isso impede que dois backlogs longos recapturem todos os slots a cada
+    /// rodada. É estado apenas de escalonamento: um restart zera os contadores e usa atividade
+    /// recente como desempate, sem alterar nenhuma verdade de negócio.
     /// </summary>
-    private readonly Dictionary<string, string> _lastDispatchedProjectByTenant =
+    private readonly Dictionary<string, Dictionary<string, int>> _projectDispatchCountsByTenant =
         new(StringComparer.Ordinal);
 
     /// <summary>
@@ -278,8 +278,12 @@ public sealed partial class ChiefBacklogLoopService(
             var plans = scope.ServiceProvider.GetRequiredService<IDemandPlanStore>();
 
             var listedProjects = await projects.ListAsync(profile.TenantId, null, 50, token);
-            _lastDispatchedProjectByTenant.TryGetValue(profile.TenantId, out var lastProjectId);
-            var projectList = RotateProjectsAfter(listedProjects, lastProjectId);
+            if (!_projectDispatchCountsByTenant.TryGetValue(profile.TenantId, out var dispatchCounts))
+            {
+                dispatchCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+                _projectDispatchCountsByTenant[profile.TenantId] = dispatchCounts;
+            }
+            var projectList = OrderProjectsForDispatch(listedProjects, dispatchCounts);
             foreach (var project in projectList)
             {
                 token.ThrowIfCancellationRequested();
@@ -734,7 +738,7 @@ public sealed partial class ChiefBacklogLoopService(
                             board, chain, token))
                     {
                         dispatched++;
-                        _lastDispatchedProjectByTenant[profile.TenantId] = project.Id;
+                        dispatchCounts[project.Id] = dispatchCounts.GetValueOrDefault(project.Id) + 1;
                     }
                 }
             }
@@ -745,37 +749,20 @@ public sealed partial class ChiefBacklogLoopService(
     }
 
     /// <summary>
-    /// Ordem round-robin estável: começa depois do último projeto que conseguiu despachar e mantém
-    /// a ordem canônica relativa. Se o cursor sumiu do catálogo, volta à ordem recebida.
+    /// Ordem justa e estável: menos slots consumidos primeiro; entre projetos igualmente atendidos,
+    /// a atividade de negócio mais recente tem precedência e o id fecha o desempate.
     /// </summary>
-    public static IReadOnlyList<ProjectRecord> RotateProjectsAfter(
+    public static IReadOnlyList<ProjectRecord> OrderProjectsForDispatch(
         IReadOnlyList<ProjectRecord> projects,
-        string? lastDispatchedProjectId)
+        IReadOnlyDictionary<string, int> dispatchCounts)
     {
         ArgumentNullException.ThrowIfNull(projects);
-        if (projects.Count < 2 || string.IsNullOrWhiteSpace(lastDispatchedProjectId))
-        {
-            return projects;
-        }
-
-        var lastIndex = -1;
-        for (var index = 0; index < projects.Count; index++)
-        {
-            if (string.Equals(projects[index].Id, lastDispatchedProjectId, StringComparison.Ordinal))
-            {
-                lastIndex = index;
-                break;
-            }
-        }
-
-        if (lastIndex < 0 || lastIndex == projects.Count - 1)
-        {
-            return lastIndex < 0
-                ? projects
-                : [.. projects];
-        }
-
-        return [.. projects.Skip(lastIndex + 1), .. projects.Take(lastIndex + 1)];
+        ArgumentNullException.ThrowIfNull(dispatchCounts);
+        return projects
+            .OrderBy(project => dispatchCounts.GetValueOrDefault(project.Id))
+            .ThenByDescending(project => project.LastActivityAt)
+            .ThenBy(project => project.Id, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static async Task<PlanGraphValidation> ValidatePlanAgainstGraphAsync(
