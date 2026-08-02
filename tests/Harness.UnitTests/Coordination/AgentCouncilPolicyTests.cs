@@ -144,4 +144,38 @@ public sealed class AgentCouncilPolicyTests
     {
         Assert.False(AgentCouncilPolicy.Consolidate([]).MayProceed);
     }
+
+    [Fact]
+    public void AssentoBloqueadoSemParecerNaoViraAchadoTecnico()
+    {
+        // Observado em execução real: o card de parecer não pôde ser despachado, e o motivo
+        // operacional foi publicado como se fosse a opinião do arquiteto — o Control Plane chegou
+        // a abrir "corrigir achado de playbook-arquiteto" para uma opinião que ninguém deu.
+        var seat = AgentCouncilPolicy.Seats[0];
+        var opinion = AgentCouncilPolicy.FromExecution(
+            seat, attemptSummary: null, blockedReason: "Especialidade sem escopo de escrita.");
+
+        Assert.NotNull(opinion);
+        // Continua segurando a fase: conselho incompleto não libera nada.
+        Assert.True(opinion.IsBlocking);
+        Assert.True(opinion.IsOperational);
+        Assert.Contains("não pôde ser ouvido", opinion.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ParecerRealPrevaleceSobreBloqueioOperacional()
+    {
+        // Quando o conselheiro EFETIVAMENTE opinou, o veredito dele é o que vale — mesmo que o
+        // card tenha terminado bloqueado por outro motivo.
+        var seat = AgentCouncilPolicy.Seats[0];
+        var opinion = AgentCouncilPolicy.FromExecution(
+            seat,
+            "VEREDITO: BLOQUEAR\nRESUMO: o modelo de dados não sustenta o requisito de aviso.",
+            blockedReason: "algum bloqueio operacional");
+
+        Assert.NotNull(opinion);
+        Assert.True(opinion.IsBlocking);
+        Assert.False(opinion.IsOperational);
+        Assert.Contains("modelo de dados", opinion.Summary, StringComparison.Ordinal);
+    }
 }

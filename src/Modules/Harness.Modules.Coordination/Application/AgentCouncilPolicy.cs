@@ -114,10 +114,16 @@ public static class AgentCouncilPolicy
         string? blockedReason = null)
     {
         ArgumentNullException.ThrowIfNull(seat);
-        if (!string.IsNullOrWhiteSpace(blockedReason))
+        // Bloqueio SEM parecer é ausência de opinião, não opinião contrária. O que se sabe é que
+        // este assento não pôde ser ouvido — e é isso que precisa ser dito.
+        if (!string.IsNullOrWhiteSpace(blockedReason) && string.IsNullOrWhiteSpace(attemptSummary))
         {
             return new CouncilOpinion(
-                seat.PersonaKey, true, false, blockedReason.Trim());
+                seat.PersonaKey,
+                IsBlocking: true,
+                HasConcern: false,
+                $"Este conselheiro não pôde ser ouvido: {blockedReason.Trim()}",
+                IsOperational: true);
         }
 
         if (string.IsNullOrWhiteSpace(attemptSummary))
@@ -153,11 +159,19 @@ public sealed record CouncilSeat(string PersonaKey, string Lens);
 /// Ressalva que não bloqueia. Fica no ledger mesmo assim: a ressalva de hoje costuma ser o
 /// incidente de depois, e apagá-la por não bloquear é perder o aviso.
 /// </param>
+/// <param name="IsOperational">
+/// O assento NÃO opinou: o card do parecer foi bloqueado por uma causa operacional (não pôde ser
+/// despachado, o executor falhou, escalou). Continua segurando a fase — um conselho incompleto não
+/// libera nada —, mas não é achado técnico e não gera card de correção. Sem essa distinção, uma
+/// falha de infraestrutura era publicada como parecer do arquiteto, e o Control Plane abria
+/// trabalho para "corrigir" uma opinião que ninguém deu.
+/// </param>
 public sealed record CouncilOpinion(
     string Seat,
     bool IsBlocking,
     bool HasConcern,
-    string Summary);
+    string Summary,
+    bool IsOperational = false);
 
 /// <param name="Dissent">
 /// Toda discordância, bloqueante ou não. Um conselho cuja divergência some do registro vira

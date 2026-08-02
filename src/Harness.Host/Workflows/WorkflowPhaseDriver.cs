@@ -706,6 +706,15 @@ public sealed class WorkflowPhaseDriver(
                 continue;
             }
 
+            // Assento que não pôde ser ouvido segura a fase, mas não gera card de correção: não há
+            // achado a corrigir. Abrir "corrigir achado de playbook-arquiteto" quando o arquiteto
+            // nunca falou inventa trabalho sobre uma opinião que ninguém deu.
+            if (opinion.IsOperational)
+            {
+                opinions.Add(opinion);
+                continue;
+            }
+
             // Achado bloqueante vira TRABALHO VISÍVEL, seguido por nova revisão independente.
             // Três ciclos com o mesmo assento ainda bloqueando interrompem o crescimento infinito
             // de cards e devolvem um diagnóstico objetivo à chefe.
@@ -880,8 +889,10 @@ public sealed class WorkflowPhaseDriver(
             "Leia as versões mais recentes dos documentos produzidos nas fases 1 a 4 em `docs/` e " +
             "critique o conjunto sob a sua lente. Cite arquivo, versão e trecho de cada evidência. " +
             "Não repita outra lente e não force consenso.\n\n" +
-            "Em escopo: parecer independente em `docs/`.\n" +
-            "Fora de escopo: código de produção, alteração dos documentos revisados e decisão final.\n\n" +
+            $"Em escopo: escrever SOMENTE o seu parecer, em `docs/conselho/{seat.PersonaKey}-" +
+            $"ciclo-{cycle}.md`.\n" +
+            "Fora de escopo: código de produção, alteração dos documentos revisados e decisão final. " +
+            "Você opina sobre esses documentos; não os edita.\n\n" +
             "Na conclusão do card, use obrigatoriamente:\n" +
             "VEREDITO: LIBERAR | RESSALVA | BLOQUEAR\n" +
             "RESUMO: <conclusão independente>\n" +

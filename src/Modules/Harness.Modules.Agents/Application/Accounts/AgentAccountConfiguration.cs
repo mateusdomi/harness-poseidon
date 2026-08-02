@@ -29,7 +29,20 @@ public static class AgentRoles
             ? ["frontend/**", "docs/frontend/**"]
             : string.Equals(role, BackendSpecialist, StringComparison.OrdinalIgnoreCase)
                 ? BackendDefaultScopes
-                : [];
+                : string.Equals(role, Critic, StringComparison.OrdinalIgnoreCase)
+                    ? CriticDefaultScopes
+                    : [];
+
+    /// <summary>
+    /// O crítico ESCREVE uma coisa só: o próprio parecer. Enquanto o papel não tinha claim nenhum,
+    /// todo card de parecer do Conselho nascia sem escopo de escrita e o despacho o pulava — o
+    /// Conselho, que é o portão antes do desenvolvimento, nunca chegava a acontecer.
+    ///
+    /// A área é dedicada e deliberadamente estreita: `docs/conselho/**` não é o lugar de nenhum
+    /// documento revisado. É isso que preserva a independência — o conselheiro registra o que
+    /// pensa e continua sem poder tocar aquilo sobre o que opina.
+    /// </summary>
+    private static readonly string[] CriticDefaultScopes = ["docs/conselho/**"];
 
     // `governance/**` NÃO entra aqui: varrer a raiz de governança engoliria as duas fontes
     // canônicas, e um card comum passaria a poder reescrever a regra que o restringe. Um card que
