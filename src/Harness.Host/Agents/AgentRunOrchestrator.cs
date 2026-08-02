@@ -79,6 +79,10 @@ public sealed partial class AgentRunOrchestrator(
     private static partial void LogReconciliationFailure(
         ILogger logger, string attemptId, string errorType);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Agent run {AttemptId} não encerrou na janela de shutdown; estado durável reconciliado antes da parada.")]
+    private static partial void LogShutdownReconciled(ILogger logger, string attemptId);
+
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
     private int _acceptingRuns = 1;
 
@@ -95,6 +99,7 @@ public sealed partial class AgentRunOrchestrator(
         string Alias,
         string Role,
         string ExecutorId,
+        StartAgentRunCommand Command,
         IExternalAgentSession Session,
         long AccountFencingToken,
         CancellationTokenSource Cancellation,
@@ -136,12 +141,85 @@ public sealed partial class AgentRunOrchestrator(
         }
         catch (OperationCanceledException)
         {
-            // O processo externo já foi encerrado. O Host pode concluir o shutdown mesmo se uma
-            // persistência best-effort de encerramento ultrapassar a janela do operador.
+            await ReconcileIncompleteShutdownRunsAsync(live);
         }
         catch (TimeoutException)
         {
-            // Mesma garantia: nenhuma CLI sobrevive; a recuperação durável reconcilia o workspace.
+            await ReconcileIncompleteShutdownRunsAsync(live);
+        }
+    }
+
+    /// <summary>
+    /// Depois que as árvores externas já foram encerradas, nenhuma tentativa pode permanecer
+    /// registrada como <c>running</c> só porque o cleanup cooperativo ultrapassou a janela do
+    /// Host. A transição usa owner + fencing da própria concessão; uma conclusão concorrente
+    /// vence por CAS e nunca é sobrescrita. O checkpoint preserva a branch para a retomada.
+    /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1031:DoNotCatchGeneralExceptionTypes",
+        Justification = "Uma falha de reconciliação não pode impedir o Host de encerrar; o lease permanece como fallback durável.")]
+    private async Task ReconcileIncompleteShutdownRunsAsync(IReadOnlyList<LiveRun> live)
+    {
+        foreach (var run in live.Where(candidate => !candidate.Completion.IsCompleted))
+        {
+            try
+            {
+                var workspace = await workspaces.GetAsync(
+                    run.Command.TenantId,
+                    run.Command.AttemptId,
+                    CancellationToken.None);
+                if (workspace is null || AttemptWorkspaceLifecycle.IsTerminal(workspace.State))
+                {
+                    continue;
+                }
+
+                var failed = await workspaces.TransitionAsync(
+                    new AttemptWorkspaceTransitionCommand
+                    {
+                        TenantId = run.Command.TenantId,
+                        AttemptId = run.Command.AttemptId,
+                        Owner = workspace.Owner,
+                        FencingToken = workspace.FencingToken,
+                        ExpectedState = workspace.State,
+                        State = AttemptWorkspaceState.Failed,
+                        FinalError = "attempt.interrupted_by_host_shutdown",
+                        OccurredAt = clock.UtcNow,
+                    },
+                    CancellationToken.None);
+                if (!failed.Succeeded || failed.Workspace is not { } snapshot)
+                {
+                    // Uma conclusão simultânea pode ter vencido o CAS. Nesse caso ela é a verdade
+                    // e seu próprio finally faz a liberação; não tentamos reclassificá-la.
+                    continue;
+                }
+
+                await TryCaptureOrphanCheckpointAsync(
+                    run.Command.TenantId,
+                    snapshot,
+                    CancellationToken.None);
+                await workspaces.ReleaseAsync(
+                    new AttemptWorkspaceReleaseCommand(
+                        run.Command.TenantId,
+                        run.Command.AttemptId,
+                        snapshot.Owner,
+                        snapshot.FencingToken,
+                        clock.UtcNow),
+                    CancellationToken.None);
+                await PublishStateAsync(
+                    run.RunId,
+                    run.Command,
+                    AgentRunStatus.Failed,
+                    CancellationToken.None);
+                LogShutdownReconciled(logger, run.Command.AttemptId);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                LogReconciliationFailure(
+                    logger,
+                    run.Command.AttemptId,
+                    exception.GetType().Name);
+            }
         }
     }
 
@@ -286,7 +364,7 @@ public sealed partial class AgentRunOrchestrator(
 
         _live[command.AttemptId] = new LiveRun(
             runId, command.AccountAlias, command.Role, account.ExecutorId,
-            PendingSession.Instance, accountLock.FencingToken, cancellation, completion);
+            command, PendingSession.Instance, accountLock.FencingToken, cancellation, completion);
 
         // A entrada viva rastreia um run EM VOO (acompanhar/cancelar); concluído, o estado
         // durável responde. Sem esta remoção, LiveRunCount cresceria para sempre e o teto
