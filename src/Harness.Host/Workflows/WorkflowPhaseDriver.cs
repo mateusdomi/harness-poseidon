@@ -174,10 +174,18 @@ public sealed class WorkflowPhaseDriver(
         foreach (var objective in documents)
         {
             var title = CardTitleFor(phase.Name, objective.Name);
+            var revisionPrefix = title + " — atualização ";
+            var objectiveCards = page.Items
+                .Where(item => string.Equals(item.Title, title, StringComparison.Ordinal) ||
+                               item.Title.StartsWith(revisionPrefix, StringComparison.Ordinal))
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            var card = objectiveCards.FirstOrDefault();
             // Objetivo ainda no primeiro degrau: é ele que precisa de um card para produzir o artefato.
             var isPending = string.Equals(objective.State, "pending", StringComparison.OrdinalIgnoreCase);
 
-            if (!byTitle.TryGetValue(title, out var card))
+            if (card is null)
             {
                 // Cadastrar um projeto não equivale a autorizar trabalho invisível. A esteira só
                 // materializa o primeiro artefato depois de existir um pedido humano autenticado
@@ -241,13 +249,6 @@ public sealed class WorkflowPhaseDriver(
             // canônico congelado e quebrava a rastreabilidade. A atualização espera a execução
             // anterior estabilizar para evitar duas pessoas editando o mesmo documento em
             // paralelo, e o id da mensagem torna o card idempotente entre ciclos do driver.
-            var revisionPrefix = title + " — atualização ";
-            var objectiveCards = page.Items
-                .Where(item => string.Equals(item.Title, title, StringComparison.Ordinal) ||
-                               item.Title.StartsWith(revisionPrefix, StringComparison.Ordinal))
-                .OrderByDescending(item => item.CreatedAt)
-                .ThenByDescending(item => item.Id, StringComparer.Ordinal)
-                .ToArray();
             var latestHuman = humanMessages.Count == 0 ? null : humanMessages[^1];
             var latestObjectiveCard = objectiveCards.FirstOrDefault();
             var revisionTitle = latestHuman is null ? null : revisionPrefix + latestHuman.Id;

@@ -241,8 +241,9 @@ public sealed partial class SqliteWorkBoardStore
             ?? throw new WorkBoardReferenceNotFoundException("task");
         if (current.ArchivedAt is not null)
             throw new WorkBoardInvalidStateException("Task is already archived.");
-        if (current.State is not ("backlog" or "ready"))
-            throw new WorkBoardInvalidStateException("Only inactive backlog or ready tasks can be dismissed.");
+        if (!BoardTaskDismissalPolicy.MayDismiss(current, command))
+            throw new WorkBoardInvalidStateException(
+                "Only inactive work or a system-superseded approved document can be dismissed.");
 
         var reason = command.Reason.Trim();
         await using var mutation = c.CreateCommand();

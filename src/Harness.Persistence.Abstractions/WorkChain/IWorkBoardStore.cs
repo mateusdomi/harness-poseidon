@@ -212,6 +212,26 @@ public sealed record BoardTaskDismissCommand(
     string TenantId, string TaskId, string Reason, string ChangedByKind,
     DateTimeOffset OccurredAt);
 
+/// <summary>
+/// Política única, compartilhada pelos dois providers, para encerramento sem entrega. Além de
+/// trabalho ainda inativo, permite ao gate documental substituir um card já aprovado pelo
+/// crítico quando a validação determinística posterior prova que o artefato não é publicável.
+/// O caso é deliberadamente estreito: somente documento, ator system e razão tipada.
+/// </summary>
+public static class BoardTaskDismissalPolicy
+{
+    public const string DocumentGateReasonPrefix = "document-gate:";
+
+    public static bool MayDismiss(BoardTaskRecord task, BoardTaskDismissCommand command) =>
+        task.State is "backlog" or "ready" ||
+        (string.Equals(task.InternalState, "approved", StringComparison.Ordinal) &&
+         string.Equals(task.State, "review", StringComparison.Ordinal) &&
+         string.Equals(task.CardType, "documento", StringComparison.Ordinal) &&
+         string.Equals(command.ChangedByKind, "system", StringComparison.Ordinal) &&
+         command.Reason.TrimStart().StartsWith(
+             DocumentGateReasonPrefix, StringComparison.Ordinal));
+}
+
 public sealed record BoardInstructionAppendCommand(
     string TenantId, string TaskId, string InstructionId, string Body, string AuthorKind,
     string? AuthorId, DateTimeOffset OccurredAt);

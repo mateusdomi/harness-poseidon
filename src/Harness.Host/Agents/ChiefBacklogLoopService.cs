@@ -389,7 +389,7 @@ public sealed partial class ChiefBacklogLoopService(
                     await ResolveAgentRequestsAsync(profile.TenantId, project, scope, token);
                     token.ThrowIfCancellationRequested();
                     await IntegrateApprovedCardsAsync(
-                        profile.TenantId, project, projectControlledRoot, board, scope, token);
+                        profile.TenantId, profile.Id, project, projectControlledRoot, board, scope, token);
                     token.ThrowIfCancellationRequested();
                     await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
                     token.ThrowIfCancellationRequested();
@@ -1113,6 +1113,16 @@ public sealed partial class ChiefBacklogLoopService(
     /// </summary>
     private static readonly HashSet<string> AppliableReviewReasons = new(
         ["critic.pass", "critic.fail", "critic.pass_contradicted_by_findings"],
+        StringComparer.Ordinal);
+
+    private static readonly HashSet<string> CorrectableDocumentPublicationFailures = new(
+        [
+            "document.artifact_missing",
+            "document.artifact_ambiguous",
+            "document.delivery_placeholder",
+            "document.template_unknown",
+            "document.template_not_satisfied",
+        ],
         StringComparer.Ordinal);
 
     private static readonly TimeSpan ReviewRetryBackoff = TimeSpan.FromMinutes(5);
@@ -1965,6 +1975,7 @@ public sealed partial class ChiefBacklogLoopService(
     /// </summary>
     private async Task<int> IntegrateApprovedCardsAsync(
         string tenantId,
+        string actorProfileId,
         ProjectRecord project,
         string controlledRoot,
         IWorkBoardStore board,
@@ -2017,6 +2028,14 @@ public sealed partial class ChiefBacklogLoopService(
                             string.IsNullOrWhiteSpace(publication.Detail)
                                 ? publication.ReasonCode
                                 : $"{publication.ReasonCode}: {publication.Detail}");
+                        _ = await EnsureDocumentPublicationCorrectionAsync(
+                            tenantId,
+                            actorProfileId,
+                            project,
+                            task,
+                            publication,
+                            board,
+                            token);
                         continue;
                     }
 
@@ -2074,6 +2093,128 @@ public sealed partial class ChiefBacklogLoopService(
         return integrated;
     }
 
+    /// <summary>
+    /// Recupera documentos aprovados por versões antigas que só descobriam o defeito estrutural
+    /// na publicação. O parecer original continua imutável; nasce um card de atualização ligado
+    /// à tentativa e ao artefato recusados, e o card anterior é encerrado como cancelado — nunca
+    /// como entregue. A partir da versão atual o pré-review evita esse caminho, mas a recuperação
+    /// é necessária para estado durável já existente e para drift defensivo entre gates.
+    /// </summary>
+    private async Task<bool> EnsureDocumentPublicationCorrectionAsync(
+        string tenantId,
+        string actorProfileId,
+        ProjectRecord project,
+        BoardTaskRecord task,
+        ApprovedDocumentPublishResult publication,
+        IWorkBoardStore board,
+        CancellationToken token)
+    {
+        if (!CorrectableDocumentPublicationFailures.Contains(publication.ReasonCode) ||
+            !string.Equals(task.CardType, "documento", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+        var attempt = ApprovedDocumentCatalogPublisher.SelectDeliveredAttempt(attempts);
+        var instructions = await board.ListInstructionsAsync(tenantId, task.Id, null, 100, token);
+        if (attempt is null || instructions.Count == 0)
+        {
+            return false;
+        }
+
+        var correctionTitle = $"{task.Title} — atualização gate-{attempt.Id}";
+        var projectTasks = await board.ListTasksAsync(
+            tenantId, project.Id, null, null, 500, token);
+        var correction = projectTasks.FirstOrDefault(candidate =>
+            string.Equals(candidate.Title, correctionTitle, StringComparison.Ordinal));
+        if (correction is null)
+        {
+            var now = clock.UtcNow;
+            var correctionId = UlidValue.New(now).ToString();
+            var instructionId = UlidValue.New(now.AddMilliseconds(1)).ToString();
+            var detail = string.IsNullOrWhiteSpace(publication.Detail)
+                ? publication.ReasonCode
+                : publication.Detail.Trim();
+            var sourcePath = publication.SourcePath ?? "(artefato não identificado)";
+            var body = $"""
+                {instructions[^1].Body}
+
+                # Correção obrigatória do gate documental
+                - Card substituído: `{task.Id}`.
+                - Tentativa aprovada, mas não publicável: `{attempt.Id}`.
+                - Branch da versão recusada: `task/agent-run-{attempt.Id.ToLowerInvariant()}`.
+                - Artefato recusado: `{sourcePath}`.
+                - Código do gate: `{publication.ReasonCode}`.
+                - Diagnóstico acionável: {detail}
+
+                Recupere a versão recusada com Git, preserve o conteúdo válido e produza uma nova
+                versão que corrija integralmente o diagnóstico. Não marque a versão anterior como
+                entregue. Registre no documento o delta e a origem desta atualização.
+                """;
+            var created = await board.CreateTaskAsync(
+                new BoardTaskCreateCommand(
+                    tenantId,
+                    correctionId,
+                    project.Id,
+                    task.DemandId,
+                    task.BackingDemandId,
+                    task.BackingSolicitationId,
+                    actorProfileId,
+                    correctionTitle,
+                    task.Priority,
+                    null,
+                    task.DueAt,
+                    instructionId,
+                    body,
+                    now,
+                    task.PhaseName,
+                    "documento"),
+                token);
+            correction = await board.MoveTaskAsync(
+                new BoardTaskMoveCommand(
+                    tenantId,
+                    created.Task.Id,
+                    "ready",
+                    $"correção do gate documental do card {task.Id}",
+                    "system",
+                    now.AddMilliseconds(2)),
+                token);
+            LogDocumentCorrectionCreated(
+                logger, task.Id, correction.Id, publication.ReasonCode);
+        }
+        else if (string.Equals(correction.State, "backlog", StringComparison.Ordinal))
+        {
+            correction = await board.MoveTaskAsync(
+                new BoardTaskMoveCommand(
+                    tenantId,
+                    correction.Id,
+                    "ready",
+                    $"retomada da correção do gate documental do card {task.Id}",
+                    "system",
+                    clock.UtcNow),
+                token);
+        }
+
+        var reason = string.Concat(
+            BoardTaskDismissalPolicy.DocumentGateReasonPrefix,
+            publication.ReasonCode,
+            "; replacement:",
+            correction.Id,
+            string.IsNullOrWhiteSpace(publication.Detail)
+                ? string.Empty
+                : $"; {publication.Detail}");
+        _ = await board.DismissTaskAsync(
+            new BoardTaskDismissCommand(
+                tenantId,
+                task.Id,
+                reason.Length <= 2_000 ? reason : reason[..2_000],
+                "system",
+                clock.UtcNow),
+            token);
+        return true;
+    }
+
     /// <summary>Ator registrado na cadeia quando quem integra é a chefe, não um humano.</summary>
     public const string ChiefIntegrationActor = "chief";
 
@@ -2092,6 +2233,11 @@ public sealed partial class ChiefBacklogLoopService(
         Message = "Chief: publicação documental do card {TaskId} recusada: {ReasonCode}.")]
     private static partial void LogDocumentPublicationRefused(
         ILogger logger, string taskId, string reasonCode);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Chief: card documental {TaskId} substituído pelo card de correção {CorrectionTaskId} após o gate {ReasonCode}.")]
+    private static partial void LogDocumentCorrectionCreated(
+        ILogger logger, string taskId, string correctionTaskId, string reasonCode);
 
     /// <summary>
     /// Leva ao dono os cards que NENHUMA conta pode executar por motivo estrutural. O scheduler já
