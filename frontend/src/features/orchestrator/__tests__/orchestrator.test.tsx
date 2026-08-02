@@ -262,6 +262,8 @@ describe('OrchestratorPage', () => {
     expect(screen.queryByText('Jornada')).not.toBeInTheDocument();
     expect(screen.queryByText('GPT-4o')).not.toBeInTheDocument();
     expect(screen.queryByText('Diagnóstico avançado')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Definições de agentes' })).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/chief-claude-primary|claude-code|anthropic/i);
     expect(document.body.textContent).not.toMatch(/lease|fencing|heartbeat/i);
   });
 

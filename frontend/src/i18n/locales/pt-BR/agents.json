@@ -1,9 +1,9 @@
 {
   "agents": {
     "roster": {
-      "title": "Roster da fleet de execução",
-      "subtitle": "Identidades globais de execução que Bruna pode acionar em qualquer projeto, diferenciadas por provedor e papel. Somente dados redigidos — nunca há credencial ou token.",
-      "count": "{{count}} identidades",
+      "title": "Equipe profissional disponível",
+      "subtitle": "Profissionais que Bruna pode acionar conforme a necessidade de cada projeto.",
+      "count": "{{count}} profissionais",
       "provider": "Provedor",
       "executor": "Executor",
       "roles": "Papéis",
@@ -17,13 +17,13 @@
         "degraded": "Degradada",
         "disabled": "Desabilitada"
       },
-      "empty": "Nenhuma identidade de execução configurada.",
-      "error": "Não foi possível carregar o roster de execução."
+      "empty": "Nenhum profissional disponível no momento.",
+      "error": "Não foi possível carregar a equipe disponível."
     },
-    "count": "{{count}} agente(s) na equipe",
+    "count": "{{count}} profissionais na equipe",
     "chart": {
       "title": "Utilização da equipe",
-      "subtitle": "Tarefas concluídas por agente (acumulado) — onde está a vazão da equipe agora.",
+      "subtitle": "Tarefas concluídas por profissional — onde está a capacidade da equipe agora.",
       "empty": "A equipe ainda não concluiu nenhuma tarefa.",
       "bar": "{{agent}}: {{count}} tarefas concluídas"
     },
@@ -51,18 +51,18 @@
       "label": "Organograma da equipe do projeto"
     },
     "noProject": {
-      "body": "Selecione ou crie um projeto para ver a equipe de agentes.",
+      "body": "Selecione ou crie um projeto para ver a equipe.",
       "cta": "Ver projetos"
     },
     "empty": {
-      "title": "Nenhum agente alocado",
-      "body": "Nenhum agente foi acionado neste projeto ainda. A fleet global acima continua disponível para invocação; esta área mostra apenas a atividade efetiva do projeto."
+      "title": "Nenhum profissional alocado",
+      "body": "Ninguém da equipe foi acionado neste projeto ainda. A equipe disponível acima continua pronta para novos trabalhos."
     },
     "executionCount_one": "{{count}} identidade de execução global",
     "executionCount_other": "{{count}} identidades de execução globais",
     "fleetTree": {
-      "title": "Organograma da fleet global",
-      "help": "Bruna coordena todas as identidades abaixo. Elas podem ser invocadas em qualquer projeto; atividade de projeto e disponibilidade global são conceitos distintos.",
+      "title": "Organograma da equipe disponível",
+      "help": "Bruna coordena os profissionais abaixo e pode acioná-los conforme a necessidade de cada projeto.",
       "teams": {
         "leadership": "Liderança",
         "engineering": "Engenharia",

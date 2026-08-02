@@ -3,6 +3,8 @@ import { screen, waitFor } from '@testing-library/react';
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { AgentExecutionRoster } from '@/features/agents/components/agent-execution-roster';
 import { renderWithApi } from '@/test/render-with-providers';
+import { usePresentationStore } from '@/stores/presentation-store';
+import { useSessionStore } from '@/stores/session-store';
 
 const SEVEN_ALIASES = [
   'chief-claude-primary',
@@ -15,8 +17,17 @@ const SEVEN_ALIASES = [
 ];
 
 describe('AgentExecutionRoster', () => {
+  beforeEach(() => {
+    usePresentationStore.setState({ modeByProfile: {} });
+    useSessionStore.setState({ activeProfileId: null });
+  });
+
   it('surfaces the 7 execution identities with provider and executor', async () => {
-    renderWithApi(<AgentExecutionRoster />);
+    const bundle = createTestBundle();
+    const profileId = bundle.fixtures.meta.currentProfileId;
+    useSessionStore.setState({ activeProfileId: profileId });
+    usePresentationStore.getState().requestMode(profileId, 'technical');
+    renderWithApi(<AgentExecutionRoster />, bundle);
 
     for (const alias of SEVEN_ALIASES) {
       expect(await screen.findByText(alias)).toBeInTheDocument();
@@ -26,11 +37,22 @@ describe('AgentExecutionRoster', () => {
     expect(screen.getAllByText('antigravity').length).toBeGreaterThan(0);
   });
 
+  it('presents people without infrastructure details in business mode', async () => {
+    const { container } = renderWithApi(<AgentExecutionRoster />);
+
+    expect(await screen.findByText('Bruna Magalhães')).toBeInTheDocument();
+    const text = container.textContent ?? '';
+    expect(text).toContain('Equipe profissional disponível');
+    expect(text).not.toContain('chief-claude-primary');
+    expect(text).not.toContain('anthropic');
+    expect(text).not.toContain('claude-code');
+  });
+
   it('never renders any credential reference or secret value', async () => {
     // A cópia explicativa pode citar a palavra "token"/"credencial"; o que NÃO pode
     // aparecer é uma REFERÊNCIA de credencial (o vetor real de vazamento).
     const { container } = renderWithApi(<AgentExecutionRoster />);
-    await screen.findByText('chief-claude-primary');
+    await screen.findByText('Bruna Magalhães');
 
     const text = (container.textContent ?? '').toLowerCase();
     expect(text).not.toContain('keychain://');

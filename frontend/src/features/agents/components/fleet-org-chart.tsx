@@ -12,6 +12,7 @@ import { useUploadAgentPhoto } from '@/features/shared/hooks/use-leadership-prof
 import { canonicalPhotoAlias } from '@/features/shared/lib/agent-photo';
 import { apiMode } from '@/config/features';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
+import { usePresentationMode } from '@/app/presentation';
 
 const STATE_VARIANT: Record<string, 'warning' | 'default' | 'success' | 'info' | 'error'> = {
   working: 'info',
@@ -95,6 +96,7 @@ export function FleetOrgChart() {
 
 function FleetNode({ account }: { account: AgentAccountRoster }) {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const upload = useUploadAgentPhoto(canonicalPhotoAlias(account.alias));
   const identity = resolveAgentIdentity(account.alias);
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
@@ -109,9 +111,11 @@ function FleetNode({ account }: { account: AgentAccountRoster }) {
             {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
           </Badge>
         </div>
-        <p className="min-w-0 break-words text-xs text-foreground-muted">
-          {account.providerKind} · {account.roles.join(', ')}
-        </p>
+        {showTechnicalDetails ? (
+          <p className="min-w-0 break-words text-xs text-foreground-muted">
+            {account.providerKind} · {account.roles.join(', ')}
+          </p>
+        ) : null}
         <dl className="grid min-w-0 grid-cols-3 gap-2 text-center">
           {(['completed', 'approved', 'rework'] as const).map((metric) => (
             <div key={metric} className="min-w-0 rounded bg-surface p-2">

@@ -1,9 +1,9 @@
 {
   "agents": {
     "roster": {
-      "title": "Execution fleet roster",
-      "subtitle": "Global execution identities Bruna may invoke in any project, differentiated by provider and role. Redacted data only — never a credential or token.",
-      "count": "{{count}} identities",
+      "title": "Available professional team",
+      "subtitle": "Professionals Bruna can involve according to each project's needs.",
+      "count": "{{count}} professionals",
       "provider": "Provider",
       "executor": "Executor",
       "roles": "Roles",
@@ -17,13 +17,13 @@
         "degraded": "Degraded",
         "disabled": "Disabled"
       },
-      "empty": "No execution identity configured.",
-      "error": "Could not load the execution roster."
+      "empty": "No professional is currently available.",
+      "error": "Could not load the available team."
     },
-    "count": "{{count}} agent(s) on the team",
+    "count": "{{count}} professionals on the team",
     "chart": {
       "title": "Team utilization",
-      "subtitle": "Tasks completed by each agent (accumulated) — where the team's throughput sits right now.",
+      "subtitle": "Tasks completed by each professional — where the team's capacity sits right now.",
       "empty": "The team has not completed any tasks yet.",
       "bar": "{{agent}}: {{count}} tasks completed"
     },
@@ -51,18 +51,18 @@
       "label": "Project team org chart"
     },
     "noProject": {
-      "body": "Select or create a project to see the agent team.",
+      "body": "Select or create a project to see the team.",
       "cta": "View projects"
     },
     "empty": {
-      "title": "No agents allocated",
-      "body": "No agent has been invoked in this project yet. The global fleet above remains available; this area shows only effective project activity."
+      "title": "No professionals allocated",
+      "body": "No one from the team has been involved in this project yet. The available team above is ready for new work."
     },
     "executionCount_one": "{{count}} global execution identity",
     "executionCount_other": "{{count}} global execution identities",
     "fleetTree": {
-      "title": "Global fleet organization chart",
-      "help": "Bruna coordinates all identities below. They may be invoked in any project; project activity and global availability are distinct concepts.",
+      "title": "Available team organization chart",
+      "help": "Bruna coordinates the professionals below and can involve them according to each project's needs.",
       "teams": {
         "leadership": "Leadership",
         "engineering": "Engineering",

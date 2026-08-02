@@ -23,6 +23,7 @@ import { useNow } from '@/features/shared/hooks/use-now';
 import { useProjectWorkflow } from '@/features/workflows/hooks/use-workflows';
 import { useLeadershipProfile } from '@/features/shared/hooks/use-leadership-profile';
 import { AgentExecutionRoster } from '@/features/agents/components/agent-execution-roster';
+import { usePresentationMode } from '@/app/presentation';
 
 /**
  * Tela do orquestrador (/orchestrator): card do chefe do projeto ativo
@@ -31,10 +32,14 @@ import { AgentExecutionRoster } from '@/features/agents/components/agent-executi
  */
 export default function UorchestratorPage() {
   const { t } = useTranslation();
+  const { showAdministrativeActions } = usePresentationMode();
   // Abas via query param: `?tab=overview` (padrão) | `?tab=definitions`
   // (com deep-link `&definition=<id>`, tratado pela própria aba).
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') === 'definitions' ? 'definitions' : 'overview';
+  const activeTab =
+    showAdministrativeActions && searchParams.get('tab') === 'definitions'
+      ? 'definitions'
+      : 'overview';
   const {
     activeProject,
     isPending: projectPending,
@@ -105,29 +110,31 @@ export default function UorchestratorPage() {
     <div className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold">{t('features.orchestrator.title')}</h1>
 
-      <div
-        role="tablist"
-        aria-label={t('orchestrator.tabs.label')}
-        className="flex flex-wrap gap-1"
-      >
-        {(['overview', 'definitions'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            id={`orchestrator-tab-${tab}`}
-            aria-selected={activeTab === tab}
-            onClick={() => selectTab(tab)}
-            className={
-              activeTab === tab
-                ? 'min-h-touch rounded-md border border-brand px-3 py-2 text-sm font-medium text-brand-strong'
-                : 'min-h-touch rounded-md border border-border px-3 py-2 text-sm text-foreground-muted hover:text-foreground'
-            }
-          >
-            {t(`orchestrator.tabs.${tab}`)}
-          </button>
-        ))}
-      </div>
+      {showAdministrativeActions ? (
+        <div
+          role="tablist"
+          aria-label={t('orchestrator.tabs.label')}
+          className="flex flex-wrap gap-1"
+        >
+          {(['overview', 'definitions'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              id={`orchestrator-tab-${tab}`}
+              aria-selected={activeTab === tab}
+              onClick={() => selectTab(tab)}
+              className={
+                activeTab === tab
+                  ? 'min-h-touch rounded-md border border-brand px-3 py-2 text-sm font-medium text-brand-strong'
+                  : 'min-h-touch rounded-md border border-border px-3 py-2 text-sm text-foreground-muted hover:text-foreground'
+              }
+            >
+              {t(`orchestrator.tabs.${tab}`)}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {activeTab === 'definitions' ? (
         <DefinitionsTab />
