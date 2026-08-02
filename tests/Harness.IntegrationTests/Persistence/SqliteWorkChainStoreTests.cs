@@ -45,6 +45,20 @@ public sealed class SqliteWorkChainStoreTests
             Assert.Equal(900, attempt.TokensInput);
             Assert.Equal(350, attempt.TokensOutput);
             Assert.Equal(1.25m, attempt.CostUsd);
+
+            // Falha TRANSITÓRIA lida pelo MESMO caminho do Chief (ChiefBacklogLoopService lê
+            // ListAttemptsAsync e alimenta o circuito do card). O motivo precisa sobreviver à
+            // escrita mesmo sem consumir rodada: 'cancelled' SEM motivo é indistinguível de um
+            // reinício do Host, e foi assim que nove falhas seguidas no mesmo card não contaram
+            // nenhuma. A combinação abaixo é a que `CardCircuitBreakerService.IsFailure` exige.
+            var transient = Assert.Single(await new SqliteWorkBoardStore(dispatcher).ListAttemptsAsync(
+                FoundationTransactionBehavior.TenantId,
+                WorkChainStoreBehavior.TransientFailureTaskId,
+                null,
+                10,
+                timeout.Token));
+            Assert.Equal("cancelled", transient.State);
+            Assert.Equal(WorkChainStoreBehavior.TransientFailureReason, transient.FailureReason);
         }
         finally
         {

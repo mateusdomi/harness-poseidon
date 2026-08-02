@@ -1484,8 +1484,12 @@ public sealed partial class SqliteWorkChainStore
             Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
             Add(mutation, "$operationalState",
                 command.CountsTowardRoundBudget ? "failed" : "cancelled");
+            // O motivo é gravado SEMPRE que existe, independente do orçamento de rodadas: é ele
+            // que distingue uma falha real de um cancelamento por infraestrutura para o circuito
+            // do card (`CardCircuitBreakerService.IsFailure`). Descartá-lo aqui tornava invisível
+            // toda falha transitória e reabria o redespacho infinito.
             Add(mutation, "$failureReason",
-                command.CountsTowardRoundBudget && command.FailureReason is not null
+                command.FailureReason is not null
                     ? command.FailureReason
                     : DBNull.Value);
             Add(mutation, "$eventContent", command.CountsTowardRoundBudget

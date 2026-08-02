@@ -1460,7 +1460,10 @@ public sealed partial class PostgresWorkChainStore
                 cancellationToken,
                 Text(command.CountsTowardRoundBudget ? "failed" : "cancelled"),
                 Timestamp(command.OccurredAt),
-                NullableText(command.CountsTowardRoundBudget ? command.FailureReason : null),
+                // Paridade com o SQLite: o motivo é gravado sempre que existe. Ele distingue falha
+                // real de cancelamento por infraestrutura para o circuito do card; o orçamento de
+                // rodadas é o outro eixo e continua governando `operational_state`.
+                NullableText(command.FailureReason),
                 Text(command.AttemptId),
                 Text(command.TenantId));
             await ExecuteAsync(

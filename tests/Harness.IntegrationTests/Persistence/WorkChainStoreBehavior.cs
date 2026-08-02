@@ -78,6 +78,7 @@ internal static class WorkChainStoreBehavior
         await AssertMutationsAsync(store, command, cancellationToken);
         await AssertLeaseExpiryAsync(store, command, cancellationToken);
         await AssertFailedAttemptAsync(store, command, cancellationToken);
+        await AssertTransientFailureKeepsReasonAsync(store, command, cancellationToken);
         await AssertCancellationAsync(store, command, cancellationToken);
         await AssertBlockingAsync(store, command, cancellationToken);
         await AssertReviewEscalationAsync(store, command, cancellationToken);
@@ -648,6 +649,87 @@ internal static class WorkChainStoreBehavior
         var task = Assert.Single(Assert.Single(aggregate.Demands).Tasks);
         var attempt = Assert.Single(task.Attempts);
         Assert.Equal("rejected", attempt.State);
+        Assert.NotNull(attempt.CompletedAt);
+    }
+
+    /// <summary>Card usado pelo cenário de falha transitória, conferido também pelo quadro.</summary>
+    public const string TransientFailureTaskId = "01ARZ3NDEKTSV4RRFFQ69G5FG2";
+
+    /// <summary>Motivo gravado por uma expiração transitória.</summary>
+    public const string TransientFailureReason = "run.failed";
+
+    /// <summary>
+    /// Falha TRANSITÓRIA: não consome rodada do orçamento, mas grava o motivo.
+    ///
+    /// Regressão real (2026-08-02): o validador rejeitava esta combinação com
+    /// <see cref="ArgumentException"/>. Como a expiração de lease roda dentro do ciclo do
+    /// <c>ChiefBacklogLoopService</c>, a exceção derrubava o ciclo INTEIRO do projeto a cada
+    /// rodada — o projeto congelava para sempre e nenhuma tentativa órfã era recuperada.
+    /// O motivo também precisa SOBREVIVER à escrita: é ele que faz o circuito do card enxergar
+    /// uma falha transitória em vez de um cancelamento anônimo de infraestrutura.
+    /// </summary>
+    private static async Task AssertTransientFailureKeepsReasonAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FG0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FG1",
+            TaskId = TransientFailureTaskId,
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FG3",
+            IdempotencyKey = "work-chain:create:transient-attempt",
+            OccurredAt = template.OccurredAt.AddDays(8),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        var start = new WorkAttemptStartCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            chain.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FG4",
+            "transient-owner",
+            3,
+            "work-chain:attempt:start:transient-attempt",
+            chain.OccurredAt.AddMinutes(1));
+        Assert.Equal(
+            WorkChainMutationStatus.Applied,
+            (await store.StartAttemptAsync(start, cancellationToken)).Status);
+
+        var transient = new WorkAttemptLeaseExpiredCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            start.AttemptId,
+            5,
+            "work-chain:attempt:transient",
+            chain.OccurredAt.AddMinutes(2),
+            CountsTowardRoundBudget: false,
+            FailureReason: TransientFailureReason);
+
+        // Antes da correção esta chamada lançava ArgumentException e congelava o ciclo.
+        var expired = await store.ExpireAttemptLeaseAsync(transient, cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, expired.Status);
+        Assert.Equal("ready", expired.TaskState);
+        // A rodada NÃO foi consumida: o desfecho continua sendo 'abandoned', não 'failed'.
+        Assert.Equal("abandoned", expired.AttemptState);
+
+        var aggregate = await store.ReadAggregateAsync(
+            chain.TenantId,
+            chain.SolicitationId,
+            cancellationToken);
+        Assert.NotNull(aggregate);
+        var task = Assert.Single(Assert.Single(aggregate.Demands).Tasks);
+        var attempt = Assert.Single(task.Attempts);
+        // 'cancelled' + motivo gravado é a assinatura EXATA que
+        // `CardCircuitBreakerService.IsFailure` usa para separar falha transitória de
+        // cancelamento por infraestrutura. A persistência do motivo é conferida pelo
+        // caminho do quadro em SqliteWorkChainStoreTests.
+        Assert.Equal("cancelled", attempt.State);
         Assert.NotNull(attempt.CompletedAt);
     }
 

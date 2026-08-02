@@ -651,12 +651,12 @@ public static class WorkChainMutationValidator
                 "A failed attempt that consumes a round requires a failure reason.",
                 nameof(command));
         }
-        if (!command.CountsTowardRoundBudget && command.FailureReason is not null)
-        {
-            throw new ArgumentException(
-                "A deferred attempt cannot persist a work failure reason.",
-                nameof(command));
-        }
+        // Uma expiração DEFERIDA pode — e precisa — gravar o motivo. Os dois campos medem eixos
+        // diferentes: `CountsTowardRoundBudget` diz se a rodada foi consumida (orçamento de
+        // esforço), `FailureReason` diz se houve falha real (saúde do card). Uma falha transitória
+        // não queima rodada e ainda assim é falha; sem o motivo ela chega ao circuito do card como
+        // um `cancelled` anônimo, indistinguível de um reinício do Host, e o card é redespachado
+        // para sempre. `CardCircuitBreakerService.IsFailure` depende exatamente desta combinação.
     }
 
     public static void Validate(WorkTaskBlockCommand command)
