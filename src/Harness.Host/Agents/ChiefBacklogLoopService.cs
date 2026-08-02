@@ -2916,8 +2916,17 @@ public sealed partial class ChiefBacklogLoopService(
         // Prendê-lo na guarda criava um beco sem saída: foi assim que os cinco assentos do Conselho
         // ficaram travados mesmo depois de a causa ter sido corrigida. O teto de rodadas impede que
         // a exceção vire outro laço.
+        //
+        // "TENTOU" precisa significar que uma abordagem foi de fato exercida. Uma tentativa morta
+        // por infraestrutura — reinício do Host, conta sem cota — nunca chegou a julgar o
+        // enunciado: ela terminou sem produzir nada. Contá-la aqui gastava o único
+        // replanejamento do card por culpa alheia e o deixava escalado para sempre, com o dono
+        // como unica saida. Foi o que prendeu os cards de Arquitetura do E2E de emprestimos,
+        // cujas tres tentativas morreram todas na mesma conta com a cota estourada.
+        var realAttempts = attempts.Count(attempt =>
+            !CardCircuitBreakerService.IsInfrastructureFailure(attempt.FailureReason));
         if (alreadyReplanned &&
-            (attempts.Count > 0 || instructions.Count >= MaximumOperationalReplanRounds))
+            (realAttempts > 0 || instructions.Count >= MaximumOperationalReplanRounds))
         {
             return false;
         }

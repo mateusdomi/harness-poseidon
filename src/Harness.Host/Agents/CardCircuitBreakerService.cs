@@ -138,6 +138,16 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
     /// A falha do executor (`run.failed`, `executor.exit_code_*`) continua contando: ali quem não
     /// entregou foi a tentativa, e repeti-la é repetir o fracasso.
     /// </summary>
+    /// <summary>
+    /// A falha descreve a INFRAESTRUTURA (host, conta, provedor), não o trabalho do card.
+    ///
+    /// Público porque é a mesma pergunta em três lugares — circuito do card, orçamento de rodadas
+    /// e teto de replanejamento. Uma pergunta, uma resposta: uma tentativa morta por reinício do
+    /// Host ou por conta sem cota nunca chegou a julgar o enunciado do card.
+    /// </summary>
+    public static bool IsInfrastructureFailure(string? reason) =>
+        !string.IsNullOrWhiteSpace(reason) && IsInfrastructureReason(reason);
+
     private static bool IsInfrastructureReason(string reason) =>
         reason.Contains("host_shutdown", StringComparison.OrdinalIgnoreCase) ||
         reason.Contains("host_restart", StringComparison.OrdinalIgnoreCase) ||
