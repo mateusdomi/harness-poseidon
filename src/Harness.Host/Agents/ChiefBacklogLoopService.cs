@@ -1138,6 +1138,7 @@ public sealed partial class ChiefBacklogLoopService(
     /// O escopo só libera quando o run concorrente termina, o que leva minutos, não segundos.
     /// </summary>
     private static readonly TimeSpan RejectedDispatchBackoff = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan FailedRunRetryBackoff = TimeSpan.FromMinutes(2);
 
     /// <summary>Backoff em memória por CARD para despachos recusados na largada.</summary>
     private readonly Dictionary<string, DateTimeOffset> _dispatchBackoff = new(StringComparer.Ordinal);
@@ -1265,13 +1266,19 @@ public sealed partial class ChiefBacklogLoopService(
                         ?? snapshot.Execution?.FailureCode
                         ?? "run.permanent_failure"
                     : null;
-                _ = await chain.ExpireAttemptLeaseAsync(
+                var expired = await chain.ExpireAttemptLeaseAsync(
                     new WorkAttemptLeaseExpiredCommand(
                         tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
                         $"chief-loop-expire:{running.Id}", now,
                         countsTowardRoundBudget,
                         permanentFailureReason),
                     token);
+                if (expired.Status is WorkChainMutationStatus.Applied
+                    or WorkChainMutationStatus.IdempotentReplay)
+                {
+                    _dispatchBackoff[task.Id] = now.Add(
+                        RetryDelayAfterRun(snapshot) ?? FailedRunRetryBackoff);
+                }
                 LogRunRequeued(logger, task.Id, running.Id, snapshot.Status.ToString());
             }
 
@@ -1298,6 +1305,19 @@ public sealed partial class ChiefBacklogLoopService(
             snapshot.Execution.Status,
             snapshot.FinalError ?? snapshot.Execution.FailureCode);
         return outcome.Kind == AgentRunOutcomeKind.Permanent;
+    }
+
+    /// <summary>
+    /// Falha transitória não gasta rodada, mas também não autoriza retry em rajada. A mesma janela
+    /// usada para uma largada recusada dá tempo para conta, rede ou processo se recuperar sem
+    /// transformar cada ciclo do Chief em uma nova tentativa durável.
+    /// </summary>
+    public static TimeSpan? RetryDelayAfterRun(AgentRunSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        return snapshot.Status is AgentRunStatus.Failed or AgentRunStatus.Cancelled
+            ? FailedRunRetryBackoff
+            : null;
     }
 
     /// <summary>

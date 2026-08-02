@@ -110,6 +110,28 @@ public sealed class CorrectionBaseBranchTests
         Assert.False(ChiefBacklogLoopService.CountsFailedRunTowardRoundBudget(snapshot));
     }
 
+    [Theory]
+    [InlineData(AgentRunStatus.Failed, true)]
+    [InlineData(AgentRunStatus.Cancelled, true)]
+    [InlineData(AgentRunStatus.Completed, false)]
+    [InlineData(AgentRunStatus.Running, false)]
+    public void TerminalFailureGetsABackoffBeforeRedispatch(
+        AgentRunStatus status,
+        bool expected)
+    {
+        var snapshot = new AgentRunSnapshot(
+            "run", "attempt", "account", "role", "executor", status,
+            null, [], null, null, null, null, null, null, null);
+
+        var delay = ChiefBacklogLoopService.RetryDelayAfterRun(snapshot);
+
+        Assert.Equal(expected, delay is not null);
+        if (expected)
+        {
+            Assert.True(delay >= TimeSpan.FromMinutes(1));
+        }
+    }
+
     private static BoardAttemptRecord Attempt(string id, int number, string state) =>
         new("tenant", id, "task", number, state, "agent", Now, null, null, 0, 0, 0,
             [], null, null);
