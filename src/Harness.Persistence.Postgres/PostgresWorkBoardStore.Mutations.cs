@@ -42,6 +42,13 @@ public sealed partial class PostgresWorkBoardStore
         return SetTaskArchivedCoreAsync(command, cancellationToken);
     }
 
+    public Task<BoardTaskRecord> DismissTaskAsync(
+        BoardTaskDismissCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return DismissTaskCoreAsync(command, cancellationToken);
+    }
+
     public Task<BoardInstructionRecord> AppendInstructionAsync(
         BoardInstructionAppendCommand command, CancellationToken cancellationToken = default)
     {
@@ -261,6 +268,55 @@ public sealed partial class PostgresWorkBoardStore
         return current with
         {
             ArchivedAt = archivedAt,
+            UpdatedAt = command.OccurredAt,
+            Version = current.Version + 1,
+        };
+    }
+
+    private async Task<BoardTaskRecord> DismissTaskCoreAsync(
+        BoardTaskDismissCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.Reason);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var current = await ReadTaskAsync(
+                connection, transaction, command.TenantId, command.TaskId, cancellationToken)
+            ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (current.ArchivedAt is not null)
+            throw new WorkBoardInvalidStateException("Task is already archived.");
+        if (current.State is not ("backlog" or "ready"))
+            throw new WorkBoardInvalidStateException("Only inactive backlog or ready tasks can be dismissed.");
+
+        var reason = command.Reason.Trim();
+        await ExecuteAsync(
+            connection, transaction,
+            "UPDATE harness.work_tasks SET state='cancelled',board_state='done',archived_at=$1," +
+            "blocked_reason=$2,version=version+1,updated_at=$1 WHERE tenant_id=$3 AND id=$4;",
+            cancellationToken,
+            Timestamp(command.OccurredAt), Text(reason), Text(command.TenantId), Text(command.TaskId));
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = current.ProjectId,
+            taskId = current.Id,
+            from = current.State,
+            to = "cancelled",
+            changedByKind = command.ChangedByKind,
+            note = reason,
+            archivedAt = command.OccurredAt,
+        }, JsonOptions);
+        await AppendAuditAsync(
+            connection, transaction, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, cancellationToken);
+        await AppendOutboxAsync(
+            connection, transaction, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return current with
+        {
+            State = "done",
+            InternalState = "cancelled",
+            BlockedReason = reason,
+            ArchivedAt = command.OccurredAt,
             UpdatedAt = command.OccurredAt,
             Version = current.Version + 1,
         };

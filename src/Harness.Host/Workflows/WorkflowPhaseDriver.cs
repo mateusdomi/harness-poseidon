@@ -261,9 +261,13 @@ public sealed class WorkflowPhaseDriver(
                 // agenda chegou enquanto a arquitetura era executada, preservar a fonte no
                 // contexto da fase futura é suficiente; deixar o card pronto queimaria cota sem
                 // mudar o artefato. O arquivamento é auditado e ocorre antes do despacho.
-                _ = await _board.SetTaskArchivedAsync(
-                    new BoardTaskArchiveCommand(
-                        tenantId, obsoleteRevision.Id, true, "system", _clock.UtcNow),
+                _ = await _board.DismissTaskAsync(
+                    new BoardTaskDismissCommand(
+                        tenantId,
+                        obsoleteRevision.Id,
+                        "Informação de agenda preservada para Planejamento; não altera este artefato.",
+                        "system",
+                        _clock.UtcNow),
                     cancellationToken);
             }
             else if (latestHuman is not null && latestObjectiveCard is not null &&

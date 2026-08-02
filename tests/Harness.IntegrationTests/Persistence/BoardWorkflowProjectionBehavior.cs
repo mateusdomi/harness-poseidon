@@ -77,6 +77,38 @@ public static class BoardWorkflowProjectionBehavior
         Assert.Single(pagedTasks.Items); Assert.Equal(1, pagedTasks.Total);
         Assert.Equal(taskId, pagedTasks.Items[0].Id);
 
+        // Trabalho que perdeu a finalidade não pode ser marcado como entrega bem-sucedida.
+        // O descarte é uma transição explícita, auditável e provider-neutral.
+        var obsoleteTaskId = UlidValue.New(now.AddMilliseconds(8)).ToString();
+        _ = await board.CreateTaskAsync(
+            new BoardTaskCreateCommand(
+                tenantId, obsoleteTaskId, projectId, demandId,
+                UlidValue.New(now.AddMilliseconds(9)).ToString(),
+                UlidValue.New(now.AddMilliseconds(10)).ToString(),
+                profileId, "Tarefa sem delta material", "low", null, null,
+                UlidValue.New(now.AddMilliseconds(11)).ToString(),
+                "Validar descarte auditável.", now.AddMilliseconds(11)),
+            cancellationToken);
+        _ = await board.MoveTaskAsync(
+            new BoardTaskMoveCommand(
+                tenantId, obsoleteTaskId, "ready", null, "system",
+                now.AddMilliseconds(12)),
+            cancellationToken);
+        var dismissed = await board.DismissTaskAsync(
+            new BoardTaskDismissCommand(
+                tenantId, obsoleteTaskId, "O objetivo deixou de exigir esta atividade.",
+                "system", now.AddMilliseconds(13)),
+            cancellationToken);
+        Assert.Equal("done", dismissed.State);
+        Assert.Equal("cancelled", dismissed.InternalState);
+        Assert.Equal("O objetivo deixou de exigir esta atividade.", dismissed.BlockedReason);
+        Assert.Equal(now.AddMilliseconds(13), dismissed.ArchivedAt);
+
+        var archivedTasks = await board.PageTasksAsync(tenantId, new BoardTaskPageQuery(
+            projectId, demandId, null, null, null, null, "archived",
+            null, 0, 15, null), cancellationToken);
+        Assert.Contains(archivedTasks.Items, item => item.Id == obsoleteTaskId);
+
         // Catálogo de workflows: definição publicada pela autoridade projeta como template;
         // binding registra aceite; troca de modo grava nova aceitação.
         var draftTemplateId = UlidValue.New(now.AddMilliseconds(19)).ToString();

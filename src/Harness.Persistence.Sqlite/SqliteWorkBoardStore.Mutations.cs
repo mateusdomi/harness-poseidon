@@ -28,6 +28,10 @@ public sealed partial class SqliteWorkBoardStore
         BoardTaskArchiveCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => SetTaskArchivedCoreAsync(c, command, t), cancellationToken);
 
+    public Task<BoardTaskRecord> DismissTaskAsync(
+        BoardTaskDismissCommand command, CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync((c, t) => DismissTaskCoreAsync(c, command, t), cancellationToken);
+
     public Task<BoardInstructionRecord> AppendInstructionAsync(
         BoardInstructionAppendCommand command, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((c, t) => AppendInstructionCoreAsync(c, command, t), cancellationToken);
@@ -223,6 +227,56 @@ public sealed partial class SqliteWorkBoardStore
         return current with
         {
             ArchivedAt = archivedAt,
+            UpdatedAt = command.OccurredAt,
+            Version = current.Version + 1,
+        };
+    }
+
+    private static async Task<BoardTaskRecord> DismissTaskCoreAsync(
+        SqliteConnection c, BoardTaskDismissCommand command, CancellationToken token)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.Reason);
+        await using var tx = (SqliteTransaction)await c.BeginTransactionAsync(token);
+        var current = await ReadTaskAsync(c, tx, command.TenantId, command.TaskId, token)
+            ?? throw new WorkBoardReferenceNotFoundException("task");
+        if (current.ArchivedAt is not null)
+            throw new WorkBoardInvalidStateException("Task is already archived.");
+        if (current.State is not ("backlog" or "ready"))
+            throw new WorkBoardInvalidStateException("Only inactive backlog or ready tasks can be dismissed.");
+
+        var reason = command.Reason.Trim();
+        await using var mutation = c.CreateCommand();
+        mutation.Transaction = tx;
+        mutation.CommandText =
+            "UPDATE work_tasks SET state='cancelled',board_state='done',archived_at=$at," +
+            "blocked_reason=$reason,version=version+1,updated_at=$at " +
+            "WHERE tenant_id=$tenant AND id=$id;";
+        Add(mutation, "$at", Store(command.OccurredAt));
+        Add(mutation, "$reason", reason);
+        Add(mutation, "$tenant", command.TenantId);
+        Add(mutation, "$id", command.TaskId);
+        await mutation.ExecuteNonQueryAsync(token);
+        var payload = JsonSerializer.Serialize(new
+        {
+            projectId = current.ProjectId,
+            taskId = current.Id,
+            from = current.State,
+            to = "cancelled",
+            changedByKind = command.ChangedByKind,
+            note = reason,
+            archivedAt = command.OccurredAt,
+        }, JsonOptions);
+        await AppendAuditAsync(c, tx, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, token);
+        await AppendOutboxAsync(c, tx, command.TenantId, "task.stateChanged", payload,
+            command.OccurredAt, token);
+        await tx.CommitAsync(token);
+        return current with
+        {
+            State = "done",
+            InternalState = "cancelled",
+            BlockedReason = reason,
+            ArchivedAt = command.OccurredAt,
             UpdatedAt = command.OccurredAt,
             Version = current.Version + 1,
         };

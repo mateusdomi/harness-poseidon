@@ -144,6 +144,46 @@ public sealed class WorkflowPhaseDriverCardTests
             Assert.Contains($"demanda:{demandId}", instruction.Body, StringComparison.Ordinal);
             Assert.Contains("PREMISSA INFERIDA", instruction.Body, StringComparison.Ordinal);
             Assert.Contains("Evidências obrigatórias", instruction.Body, StringComparison.Ordinal);
+
+            var deadlineMessageId = UlidValue.New(now.AddMinutes(1)).ToString();
+            var deadlineMessage = await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    localProfile.TenantId,
+                    new MessageRecord(
+                        localProfile.TenantId, projectContract.Id, deadlineMessageId,
+                        conversationId, "user", profile.Id, null,
+                        "Não tenho prazo fixo. Pode seguir.", null, now.AddMinutes(1)),
+                    now.AddMinutes(1)),
+                timeout.Token);
+            Assert.Equal(MessageMutationStatus.Applied, deadlineMessage.Status);
+            var obsoleteTaskId = UlidValue.New(now.AddMinutes(1).AddMilliseconds(1)).ToString();
+            var obsoleteTitle =
+                $"1-Triagem — Ficha de Demanda Qualificada — atualização {deadlineMessageId}";
+            _ = await board.CreateTaskAsync(
+                new BoardTaskCreateCommand(
+                    localProfile.TenantId, obsoleteTaskId, project.Id, demandId,
+                    UlidValue.New(now.AddMinutes(1).AddMilliseconds(2)).ToString(),
+                    solicitationId, profile.Id, obsoleteTitle, "low", null, null,
+                    UlidValue.New(now.AddMinutes(1).AddMilliseconds(3)).ToString(),
+                    "Atualização documental que não possui delta material.",
+                    now.AddMinutes(1).AddMilliseconds(1), "1-Triagem", "documento"),
+                timeout.Token);
+            _ = await board.MoveTaskAsync(
+                new BoardTaskMoveCommand(
+                    localProfile.TenantId, obsoleteTaskId, "ready", null, "system",
+                    now.AddMinutes(1).AddMilliseconds(4)),
+                timeout.Token);
+
+            _ = await driver.DriveAsync(
+                localProfile.TenantId, project, profile.Id, timeout.Token);
+
+            var dismissed = await board.GetTaskAsync(
+                localProfile.TenantId, obsoleteTaskId, timeout.Token);
+            Assert.Equal("done", dismissed?.State);
+            Assert.Equal("cancelled", dismissed?.InternalState);
+            Assert.NotNull(dismissed?.ArchivedAt);
+            Assert.Contains("não altera este artefato", dismissed?.BlockedReason,
+                StringComparison.Ordinal);
         }
         finally
         {

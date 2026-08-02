@@ -64,6 +64,8 @@ public interface IWorkBoardStore
         BoardTaskPlanningCommand command, CancellationToken cancellationToken = default);
     Task<BoardTaskRecord> SetTaskArchivedAsync(
         BoardTaskArchiveCommand command, CancellationToken cancellationToken = default);
+    Task<BoardTaskRecord> DismissTaskAsync(
+        BoardTaskDismissCommand command, CancellationToken cancellationToken = default);
 
     Task<BoardInstructionRecord?> GetInstructionAsync(
         string tenantId, string instructionId, CancellationToken cancellationToken = default);
@@ -199,6 +201,15 @@ public sealed record BoardTaskPlanningCommand(
 
 public sealed record BoardTaskArchiveCommand(
     string TenantId, string TaskId, bool Archived, string ChangedByKind,
+    DateTimeOffset OccurredAt);
+
+/// <summary>
+/// Encerra sem sucesso um card que deixou de representar trabalho necessário. Diferente de
+/// arquivar uma entrega concluída, esta operação preserva <c>cancelled</c> como fato interno e
+/// exige justificativa auditável.
+/// </summary>
+public sealed record BoardTaskDismissCommand(
+    string TenantId, string TaskId, string Reason, string ChangedByKind,
     DateTimeOffset OccurredAt);
 
 public sealed record BoardInstructionAppendCommand(
