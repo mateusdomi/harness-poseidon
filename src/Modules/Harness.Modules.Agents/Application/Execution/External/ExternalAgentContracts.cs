@@ -131,6 +131,12 @@ public sealed record ExternalAgentRunResult(
     long DurationMs)
 {
     public bool Succeeded => Status == ExternalAgentRunStatus.Completed;
+
+    /// <summary>
+    /// Diagnóstico limitado e redigido capturado do STDERR quando a CLI falha. Nunca é
+    /// preenchido no sucesso e não substitui <see cref="FailureCode"/> nas decisões automáticas.
+    /// </summary>
+    public string? FailureDiagnostic { get; init; }
 }
 
 /// <summary>Falha do adapter externa ao modelo; carrega somente CÓDIGO, nunca segredo.</summary>

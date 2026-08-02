@@ -174,7 +174,12 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
                 _parser.Usage,
                 exitCode,
                 failureCode,
-                (long)Stopwatch.GetElapsedTime(_startedTimestamp).TotalMilliseconds);
+                (long)Stopwatch.GetElapsedTime(_startedTimestamp).TotalMilliseconds)
+            {
+                FailureDiagnostic = status == ExternalAgentRunStatus.Failed
+                    ? BuildFailureDiagnostic()
+                    : null,
+            };
             return _result;
         }
         finally
@@ -310,6 +315,24 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
 
     /// <summary>Últimas linhas de stderr, redigidas — usadas apenas para diagnóstico.</summary>
     internal IReadOnlyList<string> CapturedStandardError => [.. _errorLines];
+
+    private string? BuildFailureDiagnostic()
+    {
+        const int maximumLength = 1200;
+        if (_errorLines.Count == 0)
+        {
+            return null;
+        }
+
+        var distinct = _errorLines
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Distinct(StringComparer.Ordinal)
+            .TakeLast(10);
+        var diagnostic = string.Join(" | ", distinct);
+        return diagnostic.Length <= maximumLength
+            ? diagnostic
+            : diagnostic[..maximumLength];
+    }
 
     private async Task PumpAsync()
     {

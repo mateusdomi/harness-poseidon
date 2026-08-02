@@ -320,6 +320,46 @@ public sealed class ExternalAgentExecutorTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task FailedProcessPreservesABoundedRedactedStderrDiagnostic()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "/bin/sh",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add("-c");
+        process.StartInfo.ArgumentList.Add("echo provider-connection-reset >&2; exit 1");
+
+        Assert.True(process.Start());
+        await using var session = new ProcessExternalAgentSession(
+            "run-stderr-diagnostic",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-claude-secondary",
+            [],
+            TimeSpan.FromMinutes(1));
+        session.BeginPump();
+
+        var result = await session.CollectAsync().WaitAsync(TimeSpan.FromSeconds(3));
+
+        Assert.Equal(ExternalAgentRunStatus.Failed, result.Status);
+        Assert.Equal("executor.exit_code_1", result.FailureCode);
+        Assert.Equal("provider-connection-reset", result.FailureDiagnostic);
+    }
+
     private static async Task AssertFileAppearsAsync(string path)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(3);

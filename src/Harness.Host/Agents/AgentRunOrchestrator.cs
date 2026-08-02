@@ -1214,6 +1214,7 @@ public sealed partial class AgentRunOrchestrator(
 
             var execution = await session.CollectAsync(cancellationToken);
             var succeeded = execution.Status == ExternalAgentRunStatus.Completed;
+            var executionFailure = succeeded ? null : ComposeExecutionFailure(execution);
 
             // Desfecho DURÁVEL por conta: cota adia com data/hora de volta, login escala, falha
             // transitória (GLM instável) agenda retry com backoff, sucesso zera o histórico.
@@ -1261,7 +1262,7 @@ public sealed partial class AgentRunOrchestrator(
                 succeeded ? AttemptWorkspaceState.Completed : AttemptWorkspaceState.Failed,
                 commitSha: deliveryCommit,
                 sessionId: execution.SessionId,
-                finalError: succeeded ? null : execution.FailureCode,
+                finalError: executionFailure,
                 cancellationToken: cancellationToken);
 
             receipt = await governance.CompleteReceiptAsync(
@@ -1282,7 +1283,7 @@ public sealed partial class AgentRunOrchestrator(
             return new AgentRunSnapshot(
                 runId, command.AttemptId, command.AccountAlias, command.Role, account.ExecutorId,
                 status, current, [], execution, execution.SessionId, session.ProcessId,
-                accountLock.FencingToken, bundle.BundleChecksum, runId, execution.FailureCode);
+                accountLock.FencingToken, bundle.BundleChecksum, runId, executionFailure);
         }
         catch (Exception exception)
         {
@@ -1998,6 +1999,18 @@ public sealed partial class AgentRunOrchestrator(
         {
             // Silencioso por design: ver o resumo do método.
         }
+    }
+
+    internal static string ComposeExecutionFailure(ExternalAgentRunResult execution)
+    {
+        ArgumentNullException.ThrowIfNull(execution);
+        var code = string.IsNullOrWhiteSpace(execution.FailureCode)
+            ? "executor.failed"
+            : execution.FailureCode;
+        var detail = execution.FailureDiagnostic;
+        var combined = string.IsNullOrWhiteSpace(detail) ? code : $"{code}: {detail}";
+        return AttemptWorkspaceErrorSanitizer.Sanitize(
+            ExternalAgentRedaction.Redact(combined));
     }
 
     private async Task ClassifyFailureModeAsync(
