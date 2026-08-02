@@ -71,6 +71,30 @@ MandatoryTestsPending == 0
 Qualquer `false` classifica a saída da Integradora como `YIELD` e o
 `OperationSupervisor` a relança.
 
+## Como rodar o supervisor
+
+Avaliar o gate (0 = PASS, 1 = FAIL):
+
+```sh
+dotnet run --project src/Harness.OperationSupervisor -- status
+```
+
+Deixar a operação andando sozinha — é isto que permite ao proprietário sair do
+computador:
+
+```sh
+export POSEIDON_INTEGRATOR_COMMAND="claude -p --permission-mode bypassPermissions"
+dotnet run --project src/Harness.OperationSupervisor -- run
+```
+
+O supervisor entrega `BOOTSTRAP-PROMPT.md` pela entrada padrão, espera a Integradora sair,
+trata a saída como YIELD e relança enquanto o gate estiver em FAIL. Validado com sessão
+real em 2026-08-02.
+
+Variáveis: `POSEIDON_OPERATION_ROOT` (padrão `coordination/final-operation`),
+`POSEIDON_SUPERVISOR_MAX_CYCLES` (padrão 100), `POSEIDON_SUPERVISOR_COOLDOWN_SECONDS`
+(padrão 20).
+
 ## Fases que precisam ser provadas
 
 `1 Triagem → 2 Descoberta → 3 Arquitetura → 4 Planejamento → CONSELHO → 5 Desenvolvimento

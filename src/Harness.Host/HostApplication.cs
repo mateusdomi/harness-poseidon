@@ -85,6 +85,16 @@ public static class HostApplication
     {
         ArgumentNullException.ThrowIfNull(args);
         var builder = WebApplication.CreateBuilder(args);
+
+        // O ruído de requisição precisa morrer AQUI, não só no appsettings. Quando o Launcher
+        // inicia o Host, a raiz de conteúdo é a do Launcher, então o `appsettings.json` do Host —
+        // que já declara `Microsoft.AspNetCore: Warning` — simplesmente não é encontrado, e cada
+        // sondagem do runner vira quatro linhas de log. Medido: 21 MB em cinco minutos, com uma
+        // rotação anterior de 418 MB. Um log desse tamanho não é observabilidade, é um lugar onde
+        // o diagnóstico de verdade se esconde. A configuração externa continua valendo e pode
+        // subir o nível de novo; isto é só o piso que não depende de onde o processo roda.
+        builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
+
         builder.Services.AddPoseidonTelemetry(builder.Configuration);
 
         var frontendPath = ResolveFrontendPath(builder.Environment.ContentRootPath,

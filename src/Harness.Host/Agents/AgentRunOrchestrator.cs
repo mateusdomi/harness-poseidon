@@ -88,6 +88,12 @@ public sealed partial class AgentRunOrchestrator(
     private static partial void LogRecoveredWorktreeCleanupFailure(
         ILogger logger, string attemptId, string errorType);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Agent run {AttemptId} ({Alias}) falhou — código {FailureCode}, classificado como " +
+                  "{Outcome}. Diagnóstico do executor: {Diagnostic}")]
+    private static partial void LogRunFailureDiagnostic(
+        ILogger logger, string attemptId, string alias, string failureCode, string outcome, string diagnostic);
+
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
     private int _acceptingRuns = 1;
 
@@ -1284,6 +1290,25 @@ public sealed partial class AgentRunOrchestrator(
             // transitória (GLM instável) agenda retry com backoff, sucesso zera o histórico.
             var runOutcome = AgentRunOutcomeClassifier.Classify(
                 execution.Status, execution.FailureCode, execution.FailureDiagnostic);
+
+            // O DIAGNÓSTICO precisa aparecer no log quando um run morre. Ele já era capturado e
+            // já alimentava a classificação, mas nunca era registrado — e sem ele "por que esta
+            // tentativa falhou?" vira adivinhação. Foi exatamente assim que uma cota estourada do
+            // provedor passou horas se disfarçando de instabilidade: o executor devolvia apenas
+            // `executor.exit_code_1`, e a resposta real (`429 rate_limit_error ... Usage limit
+            // reached`) estava no erro padrão, visível para ninguém. O texto já vem redigido pelo
+            // pipeline de redação do executor e é limitado a 1200 caracteres na origem.
+            if (!succeeded && !string.IsNullOrWhiteSpace(execution.FailureDiagnostic))
+            {
+                LogRunFailureDiagnostic(
+                    logger,
+                    command.AttemptId,
+                    command.AccountAlias,
+                    execution.FailureCode ?? "desconhecido",
+                    runOutcome.Kind.ToString(),
+                    execution.FailureDiagnostic);
+            }
+
             RecordAvailability(command.AccountAlias, runOutcome, clock.UtcNow);
             await RecordInvocationAsync(
                 command, account, execution, runOutcome, clock.UtcNow, cancellationToken);
