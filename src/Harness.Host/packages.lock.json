@@ -338,6 +338,12 @@
           "Harness.SharedKernel": "[1.0.0, )"
         }
       },
+      "harness.modules.operations": {
+        "type": "Project",
+        "dependencies": {
+          "Harness.SharedKernel": "[1.0.0, )"
+        }
+      },
       "harness.modules.organizations": {
         "type": "Project",
         "dependencies": {
