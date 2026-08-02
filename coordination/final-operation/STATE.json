@@ -1,12 +1,12 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-02T21:30:00Z",
+  "updatedAt": "2026-08-02T21:40:00Z",
   "updatedBy": "integrator",
 
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
-  "headCommit": "8bdc24d7",
+  "headCommit": "ca40f572",
   "pushedToOrigin": false,
 
   "cleanE2E": {
@@ -17,6 +17,8 @@
     "phase": 2,
     "phaseName": "2-Descoberta",
     "startedAt": "2026-08-02T21:02:39Z",
+    "phase1CompletedAt": "2026-08-02T21:15:18Z",
+    "phase1DurationMinutes": 12.6,
     "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria."
   },
 
