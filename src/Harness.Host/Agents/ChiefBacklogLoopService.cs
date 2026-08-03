@@ -165,6 +165,11 @@ public sealed partial class ChiefBacklogLoopService(
         string explanation,
         int evidenceCount);
 
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Chief: aviso de esteira publicado no projeto {ProjectId} — parada={Stalled}, {IdleMinutes} min sem entrega.")]
+    private static partial void LogDeliveryStallAnnounced(
+        ILogger logger, string projectId, bool stalled, int idleMinutes);
+
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Chief: card {TaskId} PAROU de progredir — {Attempts} tentativas seguidas sem produzir um token. Parede: {Reason}. Não é falha do card; olhe a infraestrutura antes de replanejar.")]
     private static partial void LogCardNoProgress(
@@ -462,6 +467,7 @@ public sealed partial class ChiefBacklogLoopService(
                     // Caminho BOM também é notícia: sem isto o dono só ouvia a Bruna quando algo
                     // travava, e um projeto saudável avançava fases inteiras em silêncio.
                     await AnnouncePhaseMilestonesAsync(profile.TenantId, project, scope, token);
+                    await AnnounceDeliveryStallAsync(profile.TenantId, project, board, scope, token);
                     token.ThrowIfCancellationRequested();
                     await DrivePhaseAsync(profile.TenantId, profile.Id, project, scope, token);
                     token.ThrowIfCancellationRequested();
@@ -2524,6 +2530,186 @@ public sealed partial class ChiefBacklogLoopService(
     /// A linguagem é de negócio: etapa, entrega, próximo passo. Nada de card, gate, objetivo,
     /// estado interno ou identificador.
     /// </summary>
+    /// <summary>Abertura fixa do aviso de parada. É por ela que um aviso já dito é reconhecido.</summary>
+    private const string StallMarker = "Uma pausa no andamento:";
+
+    /// <summary>Abertura fixa do aviso de retomada.</summary>
+    private const string ResumedMarker = "Voltamos a andar:";
+
+    /// <summary>Projetos cujo aviso de parada já foi dito nesta execução do processo.</summary>
+    private readonly HashSet<string> _stallAnnounced = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A Bruna avisa quando a esteira PARA — e avisa de novo quando ela volta.
+    ///
+    /// Existe por uma pergunta do proprietário que o produto não sabia responder: "se algo
+    /// tivesse parado, eu só ia perceber horas depois?". A resposta era sim. Em 2026-08-03 a
+    /// fábrica passou uma hora e meia sem produzir nada e ninguém foi avisado: o quadro mostrava
+    /// exatamente o que mostraria se estivesse tudo bem, e o único aviso que existia — o do
+    /// marco de etapa — só dispara quando algo FECHA. Ausência de notícia era indistinguível
+    /// de trabalho em curso.
+    ///
+    /// Duas disciplinas evitam que isto vire ruído. Só se fala na TRANSIÇÃO (andando → parado,
+    /// parado → andando), nunca a cada ciclo; e o que já foi dito é reconhecido na própria
+    /// conversa, para que um reinício do Host não repita o mesmo aviso sem fato novo.
+    /// </summary>
+    private async Task AnnounceDeliveryStallAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var now = clock.UtcNow;
+        var health = await ReadDeliveryHealthAsync(tenantId, project.Id, board, now, token);
+        if (health is null)
+        {
+            return;
+        }
+
+        var key = project.Id;
+        var stalledNow = health.Value.Stalled;
+        var announced = _stallAnnounced.Contains(key);
+        if (stalledNow == announced)
+        {
+            return;
+        }
+
+        var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
+        var open = await conversations.ListConversationsAsync(tenantId, project.Id, null, 1, token);
+        if (open.Count == 0)
+        {
+            return;
+        }
+
+        var content = stalledNow
+            ? $"{StallMarker} o trabalho desta etapa está sem avançar há cerca de " +
+              $"{health.Value.IdleMinutes} minutos. {health.Value.Explanation} " +
+              "Estou acompanhando e retomo assim que o caminho abrir — você não precisa fazer " +
+              "nada. Se eu precisar de uma decisão sua, eu te procuro."
+            : $"{ResumedMarker} o trabalho desta etapa voltou a avançar. " +
+              "Sigo daqui e te aviso quando a etapa fechar.";
+
+        var result = await conversations.CreateMessageAsync(
+            new MessageCreateCommand(
+                tenantId,
+                new MessageRecord(
+                    tenantId, project.Id, UlidValue.New(now).ToString(), open[0].Id,
+                    "chief", null, project.ChiefAgentId, content, null, now),
+                now),
+            token);
+
+        if (result.Status != MessageMutationStatus.Applied)
+        {
+            return;
+        }
+
+        if (stalledNow)
+        {
+            _ = _stallAnnounced.Add(key);
+        }
+        else
+        {
+            _ = _stallAnnounced.Remove(key);
+        }
+
+        LogDeliveryStallAnnounced(logger, project.Id, stalledNow, health.Value.IdleMinutes);
+    }
+
+    /// <summary>
+    /// Saúde da esteira DESTE projeto: há trabalho esperando e há quanto tempo nada é entregue.
+    ///
+    /// O sinal honesto não é "existe tarefa" nem "existe tentativa" — é a última tentativa que
+    /// PRODUZIU. Fila com trabalho e nenhuma entrega recente é parede.
+    /// </summary>
+    private async Task<(bool Stalled, int IdleMinutes, string Explanation)?> ReadDeliveryHealthAsync(
+        string tenantId,
+        string projectId,
+        IWorkBoardStore board,
+        DateTimeOffset now,
+        CancellationToken token)
+    {
+        var page = await PagedScan.CollectAsync<BoardTaskRecord>(
+            async (offset, size) =>
+            {
+                var current = await board.PageTasksAsync(
+                    tenantId,
+                    new BoardTaskPageQuery(projectId, null, null, null, null, null, "active", null, offset, size),
+                    token);
+                return (current.Items, current.Total);
+            },
+            token);
+
+        var waiting = page.Items.Count(task =>
+            task.InternalState is "ready" or "running");
+        if (waiting == 0)
+        {
+            return null;
+        }
+
+        DateTimeOffset? lastDelivery = null;
+        string? lastWall = null;
+        foreach (var task in page.Items)
+        {
+            var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 20, token);
+            foreach (var attempt in attempts)
+            {
+                if (attempt.TokensOutput > 0 &&
+                    (lastDelivery is null || attempt.StartedAt > lastDelivery))
+                {
+                    lastDelivery = attempt.StartedAt;
+                }
+
+                if (attempt.TokensOutput == 0 &&
+                    !string.IsNullOrWhiteSpace(attempt.FailureReason) &&
+                    !CardCircuitBreakerService.IsInfrastructureFailure(attempt.FailureReason))
+                {
+                    continue;
+                }
+
+                if (attempt.TokensOutput == 0 && !string.IsNullOrWhiteSpace(attempt.FailureReason))
+                {
+                    lastWall = attempt.FailureReason;
+                }
+            }
+        }
+
+        var idle = lastDelivery is { } delivered
+            ? (int)Math.Round((now - delivered).TotalMinutes)
+            : int.MaxValue;
+
+        var stalled = idle >= settings.DeliveryStallMinutes;
+        var explanation = DescribeWallForOwner(lastWall);
+        return (stalled, idle == int.MaxValue ? 0 : idle, explanation);
+    }
+
+    /// <summary>
+    /// Traduz a parede para linguagem de NEGÓCIO. A Bruna não fala vocabulário técnico — e a
+    /// política de comunicação recusa a mensagem inteira se ela escorregar, o que transformaria
+    /// um aviso útil numa falha genérica na tela do dono.
+    /// </summary>
+    private static string DescribeWallForOwner(string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return "Ainda estou apurando o motivo.";
+        }
+
+        if (reason.Contains("quota", StringComparison.OrdinalIgnoreCase))
+        {
+            return "O serviço que faz esse trabalho atingiu o limite da janela dele e volta " +
+                   "sozinho quando a janela renovar.";
+        }
+
+        if (reason.Contains("authentication", StringComparison.OrdinalIgnoreCase))
+        {
+            return "O acesso de um dos profissionais precisa ser renovado — isso depende de " +
+                   "você, e eu te procuro para resolvermos.";
+        }
+
+        return "Estou tratando um problema de infraestrutura que não é do trabalho em si.";
+    }
+
     private async Task<int> AnnouncePhaseMilestonesAsync(
         string tenantId,
         ProjectRecord project,

@@ -103,6 +103,13 @@ public sealed record AgentRunSettings
     /// quatorze que a operação gastou contra a mesma parede em 03/08/2026.
     /// </summary>
     public int CardNoProgressCeiling { get; init; } = 5;
+
+    /// <summary>
+    /// Minutos sem NENHUMA entrega, com trabalho esperando, a partir dos quais a Bruna avisa o
+    /// dono que a esteira parou. Vinte por padrão: uma tarefa real leva de três a dez minutos,
+    /// então abaixo disso silêncio ainda é trabalho.
+    /// </summary>
+    public int DeliveryStallMinutes { get; init; } = 20;
 }
 
 /// <summary>Situação de um run de agente. Conjunto fechado.</summary>
