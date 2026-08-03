@@ -108,7 +108,100 @@ public sealed class LocalOperationsService
         checks.Add(new("backups", Directory.Exists(_backupRoot) ? "ok" : "warning",
             Directory.Exists(_backupRoot) ? "Local backup directory is available." : "No local backup has been created yet."));
         checks.Add(new("realtime", "ok", "Persisted realtime endpoint and SignalR hub are enabled."));
+        checks.Add(await DiagnoseDeliveryLineAsync(token));
         return checks;
+    }
+
+    /// <summary>
+    /// A esteira está PRODUZINDO, ou batendo numa parede?
+    ///
+    /// Existe por um pedido do proprietário, e por um episódio que lhe deu razão: em
+    /// 03/08/2026 a fábrica passou uma hora e meia tentando e falhando, e o quadro dele
+    /// mostrava exatamente o que mostraria se estivesse tudo bem — cards prontos, um em
+    /// andamento. "Trabalhando devagar" e "bloqueado" eram visualmente idênticos, e a única
+    /// forma de saber a diferença era abrir terminal.
+    ///
+    /// O sinal honesto não é "existe card" nem "existe tentativa": é a última tentativa que
+    /// PRODUZIU alguma coisa. Fila cheia sem produção recente é parede, e o motivo da última
+    /// falha diz qual.
+    /// </summary>
+    private async Task<DiagnosticCheck> DiagnoseDeliveryLineAsync(CancellationToken token)
+    {
+        try
+        {
+            return await _dispatcher.ExecuteAsync(async (connection, cancellationToken) =>
+            {
+                await using var query = connection.CreateCommand();
+                query.CommandText =
+                    """
+                    -- Só projetos ATIVOS. Card de projeto pausado não é fila: contá-lo
+                    -- transformava dezesseis projetos parados por decisão do operador em
+                    -- "131 cards esperando", que é alarme falso e treina a ignorar o painel.
+                    SELECT
+                      (SELECT COUNT(*) FROM work_tasks t JOIN projects p ON p.id = t.project_id
+                        WHERE t.state='ready' AND p.state='active'),
+                      (SELECT COUNT(*) FROM work_attempts a JOIN projects p ON p.id = a.project_id
+                        WHERE a.state='running' AND p.state='active'),
+                      (SELECT MAX(a.started_at) FROM work_attempts a JOIN projects p ON p.id = a.project_id
+                        WHERE a.tokens_output > 0 AND p.state='active'),
+                      -- Cancelamento é "nós paramos", não a parede: um reinício do operador
+                      -- apareceria como causa e mandaria quem lê para o lugar errado.
+                      (SELECT REPLACE(COALESCE(a.failure_reason,''), char(10), ' ')
+                         FROM work_attempts a JOIN projects p ON p.id = a.project_id
+                        WHERE a.state='rejected' AND p.state='active'
+                          AND a.failure_reason IS NOT NULL
+                          AND a.failure_reason NOT LIKE '%Cancel%'
+                        ORDER BY a.started_at DESC LIMIT 1);
+                    """;
+                await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    return new DiagnosticCheck("esteira", "ok", "Sem trabalho na fila.");
+                }
+
+                var ready = reader.GetInt32(0);
+                var running = reader.GetInt32(1);
+                var lastProductive = reader.IsDBNull(2) ? null : reader.GetString(2);
+                var lastFailure = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+
+                if (ready == 0 && running == 0)
+                {
+                    return new DiagnosticCheck("esteira", "ok", "Nenhum card aguardando execução.");
+                }
+
+                var idleMinutes = lastProductive is not null &&
+                    DateTimeOffset.TryParse(
+                        lastProductive, CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind, out var producedAt)
+                        ? (DateTimeOffset.UtcNow - producedAt).TotalMinutes
+                        : double.PositiveInfinity;
+
+                // Vinte minutos: uma tentativa real leva de três a dez. Abaixo disso, silêncio é
+                // trabalho; acima, é sintoma.
+                if (idleMinutes <= 20)
+                {
+                    return new DiagnosticCheck(
+                        "esteira", "ok",
+                        $"Produzindo: {running} em execução, {ready} na fila, última entrega há " +
+                        $"{Math.Round(idleMinutes)} min.");
+                }
+
+                var wall = string.IsNullOrWhiteSpace(lastFailure)
+                    ? "sem motivo registrado na última tentativa"
+                    : lastFailure[..Math.Min(120, lastFailure.Length)];
+
+                return new DiagnosticCheck(
+                    "esteira", "error",
+                    double.IsInfinity(idleMinutes)
+                        ? $"{ready} card(s) na fila e NENHUMA entrega registrada. Última falha: {wall}"
+                        : $"{ready} card(s) na fila e nada produzido há {Math.Round(idleMinutes)} min. " +
+                          $"Última falha: {wall}");
+            }, token);
+        }
+        catch (SqliteException exception)
+        {
+            return new DiagnosticCheck("esteira", "warning", $"Não foi possível medir: {exception.SqliteErrorCode}.");
+        }
     }
 
     private Task RestoreDatabaseAsync(string sourcePath, CancellationToken token) =>

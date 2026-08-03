@@ -99,6 +99,28 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
     private protected virtual string? ResolveCliDiagnosticPath(string configHome, string sessionId) => null;
 
     /// <summary>
+    /// Segunda fonte, no HOST: o transcript que a CLI mantém da própria sessão, quando ela não
+    /// escreve o log de depuração.
+    ///
+    /// Existe porque a primeira fonte não é estável entre versões: o Claude Code 2.0.30
+    /// escrevia o motivo em <c>debug/&lt;sessão&gt;.txt</c> e o 2.1.220 não escreve — o arquivo
+    /// simplesmente não existe. O motivo continuava registrado, em outro lugar, e a sonda
+    /// olhava para o lugar antigo e devolvia nada; o turno morria como
+    /// <c>executor.exit_code_1</c>, que a classificação lê como transitório, e o card era
+    /// redespachado contra a mesma parede indefinidamente.
+    ///
+    /// Devolve <see langword="null"/> quando o executor não tem transcript próprio.
+    /// </summary>
+    private protected virtual string? ResolveCliTranscriptPath(string configHome, string sessionId) => null;
+
+    /// <summary>
+    /// Traduz as linhas cruas de uma fonte de diagnóstico em texto legível. O padrão é a
+    /// identidade; um transcript estruturado precisa extrair a mensagem de dentro do envelope.
+    /// </summary>
+    private protected virtual IReadOnlyList<string> ExtractDiagnosticLines(
+        string path, IReadOnlyList<string> rawLines) => rawLines;
+
+    /// <summary>
     /// Sonda de última instância: lê a cauda do log da CLI quando o turno morreu sem dizer por
     /// quê. Dentro da sandbox isso exige entrar no contêiner — o arquivo mora em volume, sem
     /// caminho no host.
@@ -130,6 +152,16 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
             var lines = containerName is null || dockerPath is null
                 ? ReadHostTail(path)
                 : await ReadContainerTailAsync(dockerPath, containerName, path, cancellationToken);
+            lines = ExtractDiagnosticLines(path, lines);
+
+            // A primeira fonte vazia não é resposta: ela some entre versões da CLI. O transcript
+            // fica no host, então esta segunda tentativa só existe fora do contêiner — dentro
+            // dele o volume não tem caminho de host para varrer.
+            if (lines.Count == 0 && containerName is null &&
+                ResolveCliTranscriptPath(configHome, sessionId) is { } transcriptPath)
+            {
+                lines = ExtractDiagnosticLines(transcriptPath, ReadHostTail(transcriptPath));
+            }
 
             return lines.Count == 0
                 ? null

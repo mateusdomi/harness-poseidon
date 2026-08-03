@@ -78,8 +78,26 @@ public static class AgentRunOutcomeClassifier
 
     // Sinais OBSERVADOS nos adapters e nas CLIs: cota/limite, autenticação e falhas
     // transitórias (o GLM/Z.AI é instável e cai com reset de conexão / exit code).
+    /// <summary>
+    /// Hora LOCAL de reset, com o fuso nomeado, como a assinatura do Claude Code escreve:
+    /// `You've hit your session limit · resets 11:30am (America/Sao_Paulo)`. Não há data: o
+    /// reset é a PRÓXIMA ocorrência daquele horário naquele fuso.
+    ///
+    /// Sem ler isto, o limite de sessão caía no cooldown conservador de três horas — e a conta
+    /// ficava fora da eleição bem depois de já ter voltado.
+    /// </summary>
+    private static readonly Regex ResetLocalTimePattern = new(
+        @"reset(?:s)?\s+(?:at\s+|em\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*\(([A-Za-z]+/[A-Za-z_+\-]+)\)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(200));
+
     private static readonly string[] QuotaSignals =
-        ["quota", "rate_limit", "ratelimit", "rate-limit", "resource_exhausted", "429", "usage_limit", "over_capacity"];
+        ["quota", "rate_limit", "ratelimit", "rate-limit", "resource_exhausted", "429", "usage_limit", "over_capacity",
+         // O limite de SESSÃO da assinatura não traz código de cota nenhum: a CLI escreve a
+         // frase e sai com 1. Ancorado na expressão inteira porque "limit" sozinho aparece em
+         // trabalho legítimo sobre limites — e um falso positivo aqui tira uma conta boa da
+         // eleição até o relógio virar.
+         "session limit", "limite de sessão"];
 
     private static readonly string[] AuthSignals =
         ["authentication_required", "not_logged_in", "logged in", "log in", "unauthorized",
@@ -233,7 +251,80 @@ public static class AgentRunOutcomeClassifier
             return window > MaximumQuotaCooldown ? MaximumQuotaCooldown : window;
         }
 
+        foreach (var source in new[] { failureDiagnostic, failureCode })
+        {
+            if (ResolveLocalReset(source, now) is { } localWindow)
+            {
+                return localWindow;
+            }
+        }
+
         return DefaultQuotaCooldown;
+    }
+
+    /// <summary>
+    /// Converte um reset escrito em hora LOCAL com fuso nomeado na janela até a PRÓXIMA
+    /// ocorrência dele. Devolve <see langword="null"/> quando o texto não traz esse formato ou
+    /// quando o fuso é desconhecido nesta máquina — nesses casos o cooldown conservador é a
+    /// resposta certa, e não um instante inventado.
+    /// </summary>
+    private static TimeSpan? ResolveLocalReset(string? source, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return null;
+        }
+
+        Match match;
+        try
+        {
+            match = ResetLocalTimePattern.Match(source);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return null;
+        }
+
+        if (!match.Success ||
+            !int.TryParse(match.Groups[1].Value, CultureInfo.InvariantCulture, out var hour) ||
+            hour is < 1 or > 12)
+        {
+            return null;
+        }
+
+        var minute = 0;
+        if (match.Groups[2].Success &&
+            (!int.TryParse(match.Groups[2].Value, CultureInfo.InvariantCulture, out minute) ||
+             minute is < 0 or > 59))
+        {
+            return null;
+        }
+
+        var isAfternoon = string.Equals(match.Groups[3].Value, "pm", StringComparison.OrdinalIgnoreCase);
+        hour = hour % 12 + (isAfternoon ? 12 : 0);
+
+        TimeZoneInfo zone;
+        try
+        {
+            zone = TimeZoneInfo.FindSystemTimeZoneById(match.Groups[4].Value);
+        }
+        catch (Exception exception) when (
+            exception is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return null;
+        }
+
+        var localNow = TimeZoneInfo.ConvertTime(now, zone);
+        var candidate = new DateTimeOffset(
+            localNow.Year, localNow.Month, localNow.Day, hour, minute, 0, localNow.Offset);
+        if (candidate <= now)
+        {
+            // O horário de hoje já passou: o provedor está falando do de amanhã.
+            candidate = candidate.AddDays(1);
+        }
+
+        var window = candidate - now;
+        return window > MaximumQuotaCooldown ? MaximumQuotaCooldown : window;
     }
 
     private static bool Matches(string code, string[] signals) =>

@@ -42,6 +42,101 @@ public sealed class ClaudeCodeExternalAgentExecutor(
     private protected override string? ResolveCliDiagnosticPath(string configHome, string sessionId) =>
         string.IsNullOrWhiteSpace(configHome) ? null : $"{configHome.TrimEnd('/')}/debug/{sessionId}.txt";
 
+    /// <summary>
+    /// O transcript da sessão, em <c>&lt;config home&gt;/projects/&lt;pasta&gt;/&lt;sessão&gt;.jsonl</c>.
+    ///
+    /// A pasta é derivada do diretório de trabalho por uma regra da CLI que já mudou de forma
+    /// entre versões; reproduzi-la aqui seria acoplar o host a um detalhe que não controlamos.
+    /// O identificador de sessão já é único, então a busca é por ELE — e o primeiro casamento
+    /// em ordem estável é a resposta.
+    /// </summary>
+    private protected override string? ResolveCliTranscriptPath(string configHome, string sessionId) =>
+        FindTranscript(configHome, sessionId);
+
+    internal static string? FindTranscript(string configHome, string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(configHome) || string.IsNullOrWhiteSpace(sessionId))
+        {
+            return null;
+        }
+
+        var projects = Path.Combine(configHome, "projects");
+        try
+        {
+            return Directory.Exists(projects)
+                ? Directory
+                    .EnumerateFiles(projects, $"{sessionId}.jsonl", SearchOption.AllDirectories)
+                    .Order(StringComparer.Ordinal)
+                    .FirstOrDefault()
+                : null;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// No transcript cada linha é um envelope JSON e a mensagem legível está dentro dele. Sem
+    /// esta extração o diagnóstico seria JSON cru — que a seleção de linha de erro não
+    /// reconhece e que ninguém lê no quadro.
+    /// </summary>
+    private protected override IReadOnlyList<string> ExtractDiagnosticLines(
+        string path, IReadOnlyList<string> rawLines)
+    {
+        ArgumentNullException.ThrowIfNull(rawLines);
+        return path.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
+            ? ExtractTranscriptText(rawLines)
+            : rawLines;
+    }
+
+    internal static IReadOnlyList<string> ExtractTranscriptText(IReadOnlyList<string> rawLines)
+    {
+        ArgumentNullException.ThrowIfNull(rawLines);
+        var extracted = new List<string>();
+        foreach (var line in rawLines)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            JsonElement root;
+            try
+            {
+                using var document = JsonDocument.Parse(line);
+                root = document.RootElement.Clone();
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("message", out var message) ||
+                message.ValueKind != JsonValueKind.Object ||
+                !message.TryGetProperty("content", out var content) ||
+                content.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var block in content.EnumerateArray())
+            {
+                if (block.ValueKind == JsonValueKind.Object &&
+                    block.TryGetProperty("text", out var text) &&
+                    text.ValueKind == JsonValueKind.String &&
+                    text.GetString() is { Length: > 0 } value)
+                {
+                    extracted.Add(value);
+                }
+            }
+        }
+
+        return extracted;
+    }
+
     public override IReadOnlyList<string> BuildArguments(
         ExternalAgentRunRequest request, ExternalAgentRunContext context)
     {
