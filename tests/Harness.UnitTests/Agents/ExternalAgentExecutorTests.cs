@@ -565,6 +565,146 @@ public sealed class ExternalAgentExecutorTests : IDisposable
         Assert.Equal("provider-connection-reset", result.FailureDiagnostic);
     }
 
+    /// <summary>
+    /// Processo vivo NÃO prova trabalho. Observado ao vivo em 2026-08-03: a CLI recebeu 429 de
+    /// cota, caiu no modo não-streaming e ficou dezesseis minutos em `epoll` — sem UMA conexão
+    /// ao modelo e sem UMA linha de saída. O único fim possível era o timeout de trinta
+    /// minutos, classificado como transitório: tudo de novo, na mesma conta morta.
+    /// </summary>
+    [Fact]
+    public async Task ASilentProcessIsEndedAsStalledInsteadOfHoldingTheAttempt()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var process = StartShell("sleep 120");
+        await using var session = new ProcessExternalAgentSession(
+            "run-no-progress",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-glm-general",
+            [],
+            TimeSpan.FromMinutes(30),
+            TimeSpan.FromSeconds(1));
+        session.BeginPump();
+
+        var result = await session.CollectAsync().WaitAsync(TimeSpan.FromSeconds(20));
+
+        // Falha, e com código PRÓPRIO: cancelamento diria "alguém mandou parar" e o timeout
+        // diria "demorou demais". O que houve foi silêncio.
+        Assert.Equal(ExternalAgentRunStatus.Failed, result.Status);
+        Assert.Equal("executor.no_progress", result.FailureCode);
+    }
+
+    /// <summary>Quem fala continua vivo: o vigia mede SILÊNCIO, não duração.</summary>
+    [Fact]
+    public async Task AProcessThatKeepsTalkingIsNeverTreatedAsStalled()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var process = StartShell(
+            "i=0; while [ $i -lt 6 ]; do echo tick; sleep 0.5; i=$((i+1)); done");
+        await using var session = new ProcessExternalAgentSession(
+            "run-progress",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-glm-general",
+            [],
+            TimeSpan.FromMinutes(30),
+            TimeSpan.FromSeconds(2));
+        session.BeginPump();
+
+        var result = await session.CollectAsync().WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.Equal(ExternalAgentRunStatus.Completed, result.Status);
+    }
+
+    /// <summary>
+    /// Quando a CLI não escreve o motivo em lugar nenhum que o host leia, o motivo é buscado
+    /// no log DELA. Sem isso, `run.timeout` chega ao humano como resposta final e a linha que
+    /// dizia "cota semanal esgotada" morre dentro do contêiner.
+    /// </summary>
+    [Fact]
+    public async Task WhenTheCliSaysNothingTheCauseIsFetchedFromItsOwnLog()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var process = StartShell("exit 1");
+        await using var session = new ProcessExternalAgentSession(
+            "run-probe",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-glm-general",
+            [],
+            TimeSpan.FromMinutes(1),
+            default,
+            (_, _) => Task.FromResult<string?>(
+                "[ERROR] 429 rate_limit_error: Weekly/Monthly Limit Exhausted"));
+        session.BeginPump();
+
+        var result = await session.CollectAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(ExternalAgentRunStatus.Failed, result.Status);
+        Assert.Contains("Weekly/Monthly Limit Exhausted", result.FailureDiagnostic);
+    }
+
+    /// <summary>O que a CLI já explicou tem precedência: a sonda é o último recurso.</summary>
+    [Fact]
+    public async Task TheProbeNeverOverwritesACauseTheCliAlreadyPrinted()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var process = StartShell("echo 'error: provider-connection-reset' >&2; exit 1");
+        await using var session = new ProcessExternalAgentSession(
+            "run-probe-not-needed",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-glm-general",
+            [],
+            TimeSpan.FromMinutes(1),
+            default,
+            (_, _) => Task.FromResult<string?>("cauda do log que não deveria ser lida"));
+        session.BeginPump();
+
+        var result = await session.CollectAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal("error: provider-connection-reset", result.FailureDiagnostic);
+    }
+
+    private static Process StartShell(string script)
+    {
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "/bin/sh",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add("-c");
+        process.StartInfo.ArgumentList.Add(script);
+        Assert.True(process.Start());
+        return process;
+    }
+
     private static async Task AssertFileAppearsAsync(string path)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(3);

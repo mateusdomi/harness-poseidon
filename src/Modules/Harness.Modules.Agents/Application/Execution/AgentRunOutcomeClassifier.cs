@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Harness.Modules.Agents.Application.Execution.External;
 
 namespace Harness.Modules.Agents.Application.Execution;
@@ -56,6 +58,24 @@ public static class AgentRunOutcomeClassifier
     /// <summary>Cooldown conservador padrão quando a CLI não expõe a janela de reset.</summary>
     public static readonly TimeSpan DefaultQuotaCooldown = TimeSpan.FromHours(3);
 
+    /// <summary>
+    /// Teto de um reset DECLARADO pelo provedor. Um texto corrompido não pode aposentar uma
+    /// conta para sempre; uma janela semanal cabe folgada aqui.
+    /// </summary>
+    public static readonly TimeSpan MaximumQuotaCooldown = TimeSpan.FromDays(8);
+
+    /// <summary>
+    /// Instante de reset que o provedor ESCREVE na mensagem de cota. Observado ao vivo no
+    /// GLM/Z.AI: `[1310][Weekly/Monthly Limit Exhausted. Your limit will reset at
+    /// 2026-08-06 10:11:22]`. Sem ler esse instante, o cooldown padrão de três horas expirava,
+    /// a conta voltava a ser elegível, era eleita e o card morria de novo — foi o que consumiu
+    /// a madrugada de 2026-08-03: a cota era SEMANAL e o sistema tentava de três em três horas.
+    /// </summary>
+    private static readonly Regex ResetInstantPattern = new(
+        @"reset(?:s)?\s+(?:at|em)\s+(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(200));
+
     // Sinais OBSERVADOS nos adapters e nas CLIs: cota/limite, autenticação e falhas
     // transitórias (o GLM/Z.AI é instável e cai com reset de conexão / exit code).
     private static readonly string[] QuotaSignals =
@@ -89,7 +109,7 @@ public static class AgentRunOutcomeClassifier
         ["account_model_unsupported", "not supported when using"];
 
     private static readonly string[] TransientSignals =
-        ["timeout", "no_output", "tool_permission_denied", "prompt_write_failed", "start_failed",
+        ["timeout", "no_output", "no_progress", "tool_permission_denied", "prompt_write_failed", "start_failed",
          "connection", "reset", "econnreset", "socket", "temporarily", "overloaded", "503", "502", "exit_code"];
 
     /// <param name="failureDiagnostic">
@@ -108,8 +128,15 @@ public static class AgentRunOutcomeClassifier
     /// ação humana e não se recupera sozinha, então um falso positivo vindo do erro padrão
     /// pararia a conta até alguém intervir — pior que o defeito.
     /// </param>
+    /// <param name="now">
+    /// Agora, para converter um reset declarado em cooldown. Injetável para o teste não
+    /// depender do relógio.
+    /// </param>
     public static AgentRunOutcome Classify(
-        ExternalAgentRunStatus status, string? failureCode, string? failureDiagnostic = null)
+        ExternalAgentRunStatus status,
+        string? failureCode,
+        string? failureDiagnostic = null,
+        DateTimeOffset? now = null)
     {
         switch (status)
         {
@@ -129,7 +156,10 @@ public static class AgentRunOutcomeClassifier
         if (Matches(code, QuotaSignals) ||
             Matches(failureDiagnostic ?? string.Empty, QuotaSignals))
         {
-            return new AgentRunOutcome(AgentRunOutcomeKind.QuotaExhausted, "run.quota_exhausted", DefaultQuotaCooldown);
+            return new AgentRunOutcome(
+                AgentRunOutcomeKind.QuotaExhausted,
+                "run.quota_exhausted",
+                ResolveQuotaCooldown(failureDiagnostic, failureCode, now ?? DateTimeOffset.UtcNow));
         }
 
         if (Matches(code, AuthSignals) ||
@@ -151,6 +181,59 @@ public static class AgentRunOutcomeClassifier
         }
 
         return new AgentRunOutcome(AgentRunOutcomeKind.Permanent, "run.permanent_failure", null);
+    }
+
+    /// <summary>
+    /// Cooldown de cota: o instante que o PROVEDOR declarou, quando ele declara; senão o
+    /// padrão conservador.
+    ///
+    /// O texto do provedor não traz fuso (o GLM/Z.AI escreve no horário dele, UTC+8). Ler como
+    /// UTC deixa a conta parada por algumas horas A MAIS que o necessário — erro na direção
+    /// segura. O erro na outra direção é o que já custou uma madrugada: voltar cedo, ser
+    /// eleita e matar o card de novo.
+    /// </summary>
+    internal static TimeSpan ResolveQuotaCooldown(
+        string? failureDiagnostic, string? failureCode, DateTimeOffset now)
+    {
+        foreach (var source in new[] { failureDiagnostic, failureCode })
+        {
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                continue;
+            }
+
+            Match match;
+            try
+            {
+                match = ResetInstantPattern.Match(source);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                continue;
+            }
+
+            if (!match.Success ||
+                !DateTimeOffset.TryParse(
+                    $"{match.Groups[1].Value}T{match.Groups[2].Value}Z",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+                    out var reset))
+            {
+                continue;
+            }
+
+            var window = reset - now;
+            if (window <= TimeSpan.Zero)
+            {
+                // Reset já passado: a cota deveria ter voltado. Um cooldown curto e novo
+                // teste vale mais que confiar no texto.
+                return DefaultQuotaCooldown;
+            }
+
+            return window > MaximumQuotaCooldown ? MaximumQuotaCooldown : window;
+        }
+
+        return DefaultQuotaCooldown;
     }
 
     private static bool Matches(string code, string[] signals) =>

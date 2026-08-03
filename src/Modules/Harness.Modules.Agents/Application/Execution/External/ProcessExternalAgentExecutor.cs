@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
 
@@ -13,6 +14,9 @@ namespace Harness.Modules.Agents.Application.Execution.External;
 /// </summary>
 public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
 {
+    /// <summary>Cauda lida do log da CLI: o bastante para conter a causa, pouco para virar log.</summary>
+    private const int DiagnosticTailLines = 40;
+
     private readonly AccountProfileProvisioner _profiles;
     private readonly ExecutorProbe _probe;
     private SandboxedCommand? _sandbox;
@@ -38,7 +42,9 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
         /// <summary>O workdir do agente no contêiner (a worktree montada).</summary>
         string AgentWorkingDirectory,
         /// <summary>O volume de estado gravável do contêiner.</summary>
-        string ContainerStateDirectory);
+        string ContainerStateDirectory,
+        /// <summary>Nome do contêiner do agente, para ler diagnóstico de dentro dele.</summary>
+        string? ContainerName = null);
 
     /// <summary>
     /// Liga o executor a uma sessão de sandbox já aberta: o processo hospedado passa a ser o
@@ -81,6 +87,111 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
 
     /// <summary>Artefatos temporários criados para o run, removidos no cleanup.</summary>
     protected virtual IReadOnlyList<string> TemporaryPaths(ExternalAgentRunContext context) => [];
+
+    /// <summary>
+    /// Caminho do log que a PRÓPRIA CLI mantém para a sessão, relativo ao config home dela.
+    /// Nulo quando a CLI não mantém um — e aí não há segunda fonte de diagnóstico.
+    /// </summary>
+    /// <param name="configHome">
+    /// O config home VÁLIDO no ambiente onde a CLI rodou: o do host quando não há sandbox, o
+    /// do contêiner quando há.
+    /// </param>
+    private protected virtual string? ResolveCliDiagnosticPath(string configHome, string sessionId) => null;
+
+    /// <summary>
+    /// Sonda de última instância: lê a cauda do log da CLI quando o turno morreu sem dizer por
+    /// quê. Dentro da sandbox isso exige entrar no contêiner — o arquivo mora em volume, sem
+    /// caminho no host.
+    /// </summary>
+    private ExternalDiagnosticProbe? CreateDiagnosticProbe(ExternalAgentRunRequest request)
+    {
+        var configHome = _sandbox?.ContainerStateDirectory ?? request.Profile.ConfigHomePath;
+        if (ResolveCliDiagnosticPath(configHome, "probe") is null)
+        {
+            return null;
+        }
+
+        var containerName = _sandbox?.ContainerName;
+        var dockerPath = _sandbox?.HostExecutablePath;
+        return async (sessionId, cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+            {
+                // Sem identificador de sessão não há arquivo a ler: a CLI nomeia o log por ele.
+                return null;
+            }
+
+            var path = ResolveCliDiagnosticPath(configHome, sessionId);
+            if (path is null)
+            {
+                return null;
+            }
+
+            var lines = containerName is null || dockerPath is null
+                ? ReadHostTail(path)
+                : await ReadContainerTailAsync(dockerPath, containerName, path, cancellationToken);
+
+            return lines.Count == 0
+                ? null
+                : ProcessExternalAgentSession.SelectDiagnostic(
+                    [.. lines.Select(ExternalAgentRedaction.Redact)]);
+        };
+    }
+
+    private static IReadOnlyList<string> ReadHostTail(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? [.. File.ReadLines(path).TakeLast(DiagnosticTailLines)] : [];
+        }
+        catch (IOException)
+        {
+            return [];
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
+    private static async Task<IReadOnlyList<string>> ReadContainerTailAsync(
+        string dockerPath, string containerName, string path, CancellationToken cancellationToken)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = dockerPath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add("exec");
+        startInfo.ArgumentList.Add(containerName);
+        startInfo.ArgumentList.Add("tail");
+        startInfo.ArgumentList.Add("-n");
+        startInfo.ArgumentList.Add(DiagnosticTailLines.ToString(CultureInfo.InvariantCulture));
+        startInfo.ArgumentList.Add(path);
+
+        try
+        {
+            using var probe = Process.Start(startInfo);
+            if (probe is null)
+            {
+                return [];
+            }
+
+            var output = await probe.StandardOutput.ReadToEndAsync(cancellationToken);
+            await probe.WaitForExitAsync(cancellationToken);
+            return probe.ExitCode == 0
+                ? output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : [];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // O contêiner já pode ter sido removido junto com a tentativa: diagnóstico é
+            // best-effort e nunca derruba a coleta do turno.
+            return [];
+        }
+    }
 
     public async Task<IExternalAgentSession> StartAsync(
         ExternalAgentRunRequest request, CancellationToken cancellationToken = default)
@@ -178,7 +289,9 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
             ExecutorId,
             request.Alias,
             TemporaryPaths(context),
-            request.Timeout);
+            request.Timeout,
+            request.NoProgressTimeout,
+            CreateDiagnosticProbe(request));
         session.BeginPump();
 
         try

@@ -50,6 +50,13 @@ public sealed record AgentRunSettings
 
     public TimeSpan RunTimeout { get; init; } = TimeSpan.FromMinutes(30);
 
+    /// <summary>
+    /// Silêncio máximo tolerado dentro de um run: sem UMA linha de saída por este tempo, a
+    /// execução é encerrada como travada em vez de esperar o <see cref="RunTimeout"/> inteiro.
+    /// Zero desliga a vigilância.
+    /// </summary>
+    public TimeSpan RunNoProgressTimeout { get; init; } = TimeSpan.FromMinutes(10);
+
     public int ContextTokenBudget { get; init; } = 8000;
 
     /// <summary>

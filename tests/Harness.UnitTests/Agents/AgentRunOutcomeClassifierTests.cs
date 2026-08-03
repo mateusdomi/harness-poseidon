@@ -1,3 +1,4 @@
+using System.Globalization;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
 
@@ -156,6 +157,104 @@ public sealed class AgentRunOutcomeClassifierTests
         Assert.Equal("run.account_model_unsupported", outcome.ReasonCode);
         Assert.True(outcome.NeedsHuman);
         Assert.False(outcome.ShouldRetry);
+    }
+
+    /// <summary>
+    /// Cota SEMANAL não volta em três horas. Quando o provedor declara o instante do reset, o
+    /// cooldown é ELE — senão a conta reaparece elegível a cada três horas, é eleita, e o card
+    /// morre de novo. Foi o laço que consumiu a madrugada de 2026-08-03 com o GLM.
+    /// </summary>
+    [Fact]
+    public void AQuotaCooldownHonoursTheResetInstantTheProviderDeclared()
+    {
+        var now = DateTimeOffset.Parse("2026-08-03T04:56:00Z", CultureInfo.InvariantCulture);
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.no_progress",
+            "[ERROR] Error streaming, falling back to non-streaming mode: 429 " +
+            "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"code\":\"1310\"," +
+            "\"message\":\"[1310][Weekly/Monthly Limit Exhausted. Your limit will reset at " +
+            "2026-08-06 10:11:22]\"}}",
+            now);
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+        Assert.NotNull(outcome.SuggestedCooldown);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-08-06T10:11:22Z", CultureInfo.InvariantCulture) - now,
+            outcome.SuggestedCooldown!.Value);
+        Assert.True(outcome.SuggestedCooldown.Value > AgentRunOutcomeClassifier.DefaultQuotaCooldown);
+    }
+
+    /// <summary>Sem instante declarado, o padrão conservador continua valendo.</summary>
+    [Fact]
+    public void AQuotaWithoutADeclaredResetKeepsTheConservativeDefault()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed, "executor.exit_code_1", "429 rate_limit_error");
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+        Assert.Equal(AgentRunOutcomeClassifier.DefaultQuotaCooldown, outcome.SuggestedCooldown);
+    }
+
+    /// <summary>
+    /// Um reset já vencido não vale nada — a cota deveria ter voltado. Confiar no texto
+    /// aposentaria a conta por engano; o padrão curto testa de novo.
+    /// </summary>
+    [Fact]
+    public void AResetInThePastFallsBackToTheDefaultCooldown()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "rate_limit_error: your limit will reset at 2020-01-01 00:00:00",
+            DateTimeOffset.Parse("2026-08-03T04:56:00Z", CultureInfo.InvariantCulture));
+
+        Assert.Equal(AgentRunOutcomeClassifier.DefaultQuotaCooldown, outcome.SuggestedCooldown);
+    }
+
+    /// <summary>Texto corrompido não pode aposentar uma conta para sempre.</summary>
+    [Fact]
+    public void ADeclaredResetIsCappedSoATypoCannotRetireTheAccount()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "rate_limit_error: limit will reset at 2099-01-01 00:00:00",
+            DateTimeOffset.Parse("2026-08-03T04:56:00Z", CultureInfo.InvariantCulture));
+
+        Assert.Equal(AgentRunOutcomeClassifier.MaximumQuotaCooldown, outcome.SuggestedCooldown);
+    }
+
+    /// <summary>
+    /// Travamento por silêncio é da CONTA quando o diagnóstico diz cota: sem isso ele casaria
+    /// o sinal transitório e faria tudo de novo na mesma conta morta.
+    /// </summary>
+    [Fact]
+    public void ASilentRunWithAQuotaDiagnosticIsQuotaAndNotTransient()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.no_progress",
+            "429 rate_limit_error Weekly/Monthly Limit Exhausted");
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+        Assert.False(outcome.ShouldRetry);
+        Assert.True(outcome.ShouldWaitForReset);
+    }
+
+    /// <summary>
+    /// Sem diagnóstico, silêncio é instabilidade: repete. Classificar como permanente mataria
+    /// o card por uma CLI que emudeceu.
+    /// </summary>
+    [Fact]
+    public void ASilentRunWithoutADiagnosticIsTransient()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed, "executor.no_progress");
+
+        Assert.Equal(AgentRunOutcomeKind.Transient, outcome.Kind);
+        Assert.True(outcome.ShouldRetry);
+        Assert.False(outcome.NeedsHuman);
     }
 
     /// <summary>

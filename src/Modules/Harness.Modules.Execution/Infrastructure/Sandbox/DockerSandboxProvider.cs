@@ -210,7 +210,8 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
                 RootFilesystemReadOnly: true,
                 WorktreeIsolated: true,
                 EgressRestricted: true,
-                ResourceLimitsApplied: true);
+                ResourceLimitsApplied: true,
+                ContainerName: sandboxContainer);
             return new DockerSandboxProcessSession(this, request.AttemptId, plan);
         }
         catch

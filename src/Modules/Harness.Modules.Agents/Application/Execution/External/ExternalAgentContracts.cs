@@ -115,6 +115,20 @@ public sealed record ExternalAgentRunRequest
     public IReadOnlyList<string> AdditionalDirectories { get; init; } = [];
 
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Silêncio máximo tolerado: tempo sem UMA linha de saída (stdout ou stderr) antes de a
+    /// execução ser tratada como travada.
+    ///
+    /// Existe porque uma CLI pode ficar viva e muda para sempre. Observado ao vivo em
+    /// 2026-08-03: a CLI recebeu 429 de cota, caiu no modo não-streaming, e ficou dezesseis
+    /// minutos em `epoll` sem UMA conexão ao modelo — de fora, indistinguível de "o agente
+    /// está pensando". O único fim possível era o timeout de trinta minutos, que classifica
+    /// como transitório e faz TUDO de novo na mesma conta morta.
+    ///
+    /// <see cref="TimeSpan.Zero"/> desliga a vigilância.
+    /// </summary>
+    public TimeSpan NoProgressTimeout { get; init; } = TimeSpan.FromMinutes(10);
 }
 
 /// <summary>Resultado coletado de uma execução externa.</summary>

@@ -35,6 +35,14 @@ internal interface IExternalAgentOutputParser
 }
 
 /// <summary>
+/// Última tentativa de descobrir POR QUE um turno morreu, quando a saída padrão não disse.
+/// Recebe o identificador da sessão da CLI (é por ele que a CLI nomeia o log dela) e devolve
+/// a cauda já redigida, ou nulo quando não há nada a dizer.
+/// </summary>
+internal delegate Task<string?> ExternalDiagnosticProbe(
+    string? sessionId, CancellationToken cancellationToken);
+
+/// <summary>
 /// Sessão viva de um executor externo hospedado como subprocesso (CA-4).
 ///
 /// O prompt é entregue por STDIN — nunca em argumento — de modo que não apareça na tabela
@@ -51,12 +59,17 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
     private const int MaxRetainedDeltas = 2000;
     private const int MaxRetainedErrorLines = 50;
 
+    private static readonly TimeSpan ProgressPollInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan DiagnosticProbeTimeout = TimeSpan.FromSeconds(15);
+
     private readonly Process _process;
     private readonly IExternalAgentOutputParser _parser;
     private readonly string _executorId;
     private readonly string _alias;
     private readonly IReadOnlyList<string> _temporaryPaths;
     private readonly TimeSpan _timeout;
+    private readonly TimeSpan _noProgressTimeout;
+    private readonly ExternalDiagnosticProbe? _diagnosticProbe;
     private readonly Channel<ExternalAgentEvent> _events;
     private readonly List<string> _deltas = [];
     private readonly Queue<string> _errorLines = new();
@@ -65,9 +78,12 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
     private readonly long _startedTimestamp;
 
     private Task? _pump;
+    private Task? _progressWatch;
+    private long _lastProgressTimestamp;
     private ExternalAgentRunResult? _result;
     private bool _cancelled;
     private bool _timedOut;
+    private bool _stalled;
     private bool _disposed;
 
     internal ProcessExternalAgentSession(
@@ -77,7 +93,9 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
         string executorId,
         string alias,
         IReadOnlyList<string> temporaryPaths,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        TimeSpan noProgressTimeout = default,
+        ExternalDiagnosticProbe? diagnosticProbe = null)
     {
         RunId = runId;
         _process = process;
@@ -86,7 +104,10 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
         _alias = alias;
         _temporaryPaths = temporaryPaths;
         _timeout = timeout;
+        _noProgressTimeout = noProgressTimeout;
+        _diagnosticProbe = diagnosticProbe;
         _startedTimestamp = Stopwatch.GetTimestamp();
+        _lastProgressTimestamp = _startedTimestamp;
         _events = Channel.CreateBounded<ExternalAgentEvent>(
             new BoundedChannelOptions(LiveEventCapacity)
             {
@@ -120,8 +141,13 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
     internal void BeginPump()
     {
         ProcessId = _process.Id;
+        _lastProgressTimestamp = Stopwatch.GetTimestamp();
         _timeoutSource.CancelAfter(_timeout);
         _pump = Task.Run(PumpAsync);
+        if (_noProgressTimeout > TimeSpan.Zero)
+        {
+            _progressWatch = Task.Run(WatchProgressAsync);
+        }
     }
 
     public IAsyncEnumerable<ExternalAgentEvent> StreamAsync(
@@ -147,22 +173,37 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
             _parser.Complete();
 
             var exitCode = TryGetExitCode();
-            var status = _cancelled
-                ? ExternalAgentRunStatus.Cancelled
-                : _timedOut
-                    ? ExternalAgentRunStatus.TimedOut
-                    : _parser.FailureCode is not null || exitCode is not 0
-                        ? ExternalAgentRunStatus.Failed
-                        : ExternalAgentRunStatus.Completed;
+            // A ordem importa: encerrar por silêncio passa por StopAsync, que marca
+            // `_cancelled`. Sem testar `_stalled` primeiro, o travamento seria contado como
+            // cancelamento — o motivo REAL apagado pelo envelope do encerramento.
+            var status = _stalled
+                ? ExternalAgentRunStatus.Failed
+                : _cancelled
+                    ? ExternalAgentRunStatus.Cancelled
+                    : _timedOut
+                        ? ExternalAgentRunStatus.TimedOut
+                        : _parser.FailureCode is not null || exitCode is not 0
+                            ? ExternalAgentRunStatus.Failed
+                            : ExternalAgentRunStatus.Completed;
 
             var failureCode = status switch
             {
                 ExternalAgentRunStatus.Completed => null,
                 ExternalAgentRunStatus.Cancelled => "executor.cancelled",
                 ExternalAgentRunStatus.TimedOut => "executor.timeout",
+                // Um código específico do parser vale mais que o genérico do silêncio.
+                _ when _stalled => _parser.FailureCode ?? "executor.no_progress",
                 _ => _parser.FailureCode ??
                     $"executor.exit_code_{exitCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown"}",
             };
+
+            // Timeout e travamento também precisam de causa. Enquanto só a falha "normal"
+            // carregava diagnóstico, um turno morto por silêncio chegava ao humano como
+            // `executor.timeout` puro — e a linha que dizia "cota semanal esgotada" ficava
+            // dentro do contêiner, sem ninguém para lê-la.
+            var diagnostic = status is ExternalAgentRunStatus.Failed or ExternalAgentRunStatus.TimedOut
+                ? await ResolveDiagnosticAsync(cancellationToken)
+                : null;
 
             _result = new ExternalAgentRunResult(
                 _executorId,
@@ -176,9 +217,7 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
                 failureCode,
                 (long)Stopwatch.GetElapsedTime(_startedTimestamp).TotalMilliseconds)
             {
-                FailureDiagnostic = status == ExternalAgentRunStatus.Failed
-                    ? BuildFailureDiagnostic()
-                    : null,
+                FailureDiagnostic = diagnostic,
             };
             return _result;
         }
@@ -295,6 +334,18 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
 
         _disposed = true;
         await StopAsync(CancellationToken.None);
+        if (_progressWatch is not null)
+        {
+            try
+            {
+                await _progressWatch;
+            }
+            catch (OperationCanceledException)
+            {
+                // Vigia encerrado junto com o turno.
+            }
+        }
+
         if (_pump is not null)
         {
             try
@@ -317,6 +368,80 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
     internal IReadOnlyList<string> CapturedStandardError => [.. _errorLines];
 
     private string? BuildFailureDiagnostic() => SelectDiagnostic([.. _errorLines]);
+
+    /// <summary>
+    /// Diagnóstico da falha: primeiro o que a CLI escreveu em stderr; quando isso não explica
+    /// nada, o que ela escreveu no log DELA.
+    ///
+    /// A segunda fonte existe porque o Claude Code 2.0.30 em modo `-p` não manda uma linha
+    /// sequer para stderr: o 429 de cota vai só para o arquivo de depuração da sessão, dentro
+    /// do contêiner. Sem lê-lo, a causa nunca sai de lá.
+    /// </summary>
+    private async Task<string?> ResolveDiagnosticAsync(CancellationToken cancellationToken)
+    {
+        var observed = BuildFailureDiagnostic();
+        if (_diagnosticProbe is null || (observed is not null && IsError(observed)))
+        {
+            return observed;
+        }
+
+        string? probed = null;
+        try
+        {
+            // Teto curto: diagnóstico não pode segurar a coleta do turno.
+            probed = await _diagnosticProbe(_parser.SessionId, cancellationToken)
+                .WaitAsync(DiagnosticProbeTimeout, cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            // Sem diagnóstico extra: registrado por ausência.
+        }
+        catch (OperationCanceledException)
+        {
+            // Coleta cancelada; o observado já basta.
+        }
+
+        if (string.IsNullOrWhiteSpace(probed))
+        {
+            return observed;
+        }
+
+        return observed is null ? probed : $"{observed} | {probed}";
+    }
+
+    private async Task WatchProgressAsync()
+    {
+        var poll = _noProgressTimeout < ProgressPollInterval ? _noProgressTimeout : ProgressPollInterval;
+        try
+        {
+            while (!_timeoutSource.IsCancellationRequested)
+            {
+                await Task.Delay(poll, _timeoutSource.Token);
+                if (!IsRunning || _cancelled)
+                {
+                    return;
+                }
+
+                if (Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastProgressTimestamp)) < _noProgressTimeout)
+                {
+                    continue;
+                }
+
+                // Marcar ANTES de parar: StopAsync marca `_cancelled`, e quem lê o resultado
+                // precisa distinguir "alguém cancelou" de "a CLI emudeceu".
+                _stalled = true;
+                await StopAsync(CancellationToken.None);
+                return;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // O turno acabou por outro caminho.
+        }
+    }
+
+    private void MarkProgress() =>
+        Interlocked.Exchange(ref _lastProgressTimestamp, Stopwatch.GetTimestamp());
 
     /// <summary>Escolha das linhas que explicam a falha. Interno para ser verificável sem processo.</summary>
     internal static string? SelectDiagnostic(IReadOnlyCollection<string> errorLines)
@@ -364,6 +489,7 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
         {
             while (await _process.StandardOutput.ReadLineAsync(_timeoutSource.Token) is { } line)
             {
+                MarkProgress();
                 if (line.Length == 0)
                 {
                     continue;
@@ -406,6 +532,8 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
         {
             while (await _process.StandardError.ReadLineAsync(_timeoutSource.Token) is { } line)
             {
+                MarkProgress();
+
                 // O parser inspeciona a linha CRUA para classificar falha (sentinela de auth);
                 // apenas depois ela é redigida para diagnóstico. Nenhum evento é emitido aqui.
                 _parser.ObserveErrorLine(line);

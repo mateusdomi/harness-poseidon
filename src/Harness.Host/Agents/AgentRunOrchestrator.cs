@@ -450,7 +450,8 @@ public sealed partial class AgentRunOrchestrator(
                 sandboxSession.ProcessPlan.ExecutablePrefixArguments,
                 sandboxSession.ProcessPlan.ContainerEnvironment,
                 sandboxSession.ProcessPlan.AgentWorkingDirectory,
-                sandboxSession.ProcessPlan.ContainerStateDirectory));
+                sandboxSession.ProcessPlan.ContainerStateDirectory,
+                sandboxSession.ProcessPlan.ContainerName));
         }
 
         // Fase 0B1 (BR-002): a evidência de contenção existe ANTES da autorização — agora de
@@ -982,12 +983,13 @@ public sealed partial class AgentRunOrchestrator(
                     Access = ExternalAgentAccess.ReadOnly,
                     Model = command.Model,
                     Timeout = settings.RunTimeout,
+                    NoProgressTimeout = settings.RunNoProgressTimeout,
                 },
                 cancellationToken);
 
             var execution = await session.CollectAsync(cancellationToken);
             var outcome = AgentRunOutcomeClassifier.Classify(
-                execution.Status, execution.FailureCode, execution.FailureDiagnostic);
+                execution.Status, execution.FailureCode, execution.FailureDiagnostic, clock.UtcNow);
             RecordAvailability(command.CriticAlias, outcome, clock.UtcNow);
             await TryRecordCriticInvocationAsync(
                 command, critic, execution, outcome, clock.UtcNow, cancellationToken);
@@ -1362,6 +1364,7 @@ public sealed partial class AgentRunOrchestrator(
                     Model = command.Model,
                     Effort = command.Effort,
                     Timeout = settings.RunTimeout,
+                    NoProgressTimeout = settings.RunNoProgressTimeout,
                 },
                 cancellationToken);
 
@@ -1377,7 +1380,7 @@ public sealed partial class AgentRunOrchestrator(
             // Desfecho DURÁVEL por conta: cota adia com data/hora de volta, login escala, falha
             // transitória (GLM instável) agenda retry com backoff, sucesso zera o histórico.
             var runOutcome = AgentRunOutcomeClassifier.Classify(
-                execution.Status, execution.FailureCode, execution.FailureDiagnostic);
+                execution.Status, execution.FailureCode, execution.FailureDiagnostic, clock.UtcNow);
 
             // O DIAGNÓSTICO precisa aparecer no log quando um run morre. Ele já era capturado e
             // já alimentava a classificação, mas nunca era registrado — e sem ele "por que esta

@@ -15,4 +15,10 @@ public sealed record SandboxProcessPlan(
     /// </summary>
     IReadOnlyDictionary<string, string>? ContainerEnvironment = null,
     /// <summary>O volume de estado gravável dentro do contêiner (sessões, auth hidratada).</summary>
-    string ContainerStateDirectory = "/codex-state");
+    string ContainerStateDirectory = "/codex-state",
+    /// <summary>
+    /// Nome do contêiner do agente. Existe para que o diagnóstico de uma falha possa LER de
+    /// dentro dele: a CLI escreve o motivo no log dela, que vive no volume de estado e não
+    /// tem caminho no host.
+    /// </summary>
+    string? ContainerName = null);

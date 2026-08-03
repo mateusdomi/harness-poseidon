@@ -1,14 +1,14 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T04:42:00Z",
-  "updatedBy": "integrador-claude-noturno",
+  "updatedAt": "2026-08-03T05:20:00Z",
+  "updatedBy": "integrador-claude-noturno-2",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
   "headCommit": "HEAD",
   "pushedToOrigin": false,
   "cleanE2E": {
-    "status": "running",
+    "status": "blocked",
     "projectId": "01KZ24JCFRHN2RGP8NHGP75JMK",
     "projectName": "QA-PROVA-LIMPA-20260802-EMPRESTIMOS",
     "conversationId": "01KZ24JKCCWCH0G8C7PJN3AKH4",
@@ -17,7 +17,7 @@
     "startedAt": "2026-08-02T21:02:39Z",
     "phase1CompletedAt": "2026-08-02T21:15:18Z",
     "phase1DurationMinutes": 12.6,
-    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao. | 04:10: OPS-036 (papel do card) corrigido — glm virou account.eligible e o primeiro card de Arquitetura voltou a executar. | 04:42: OPS-037 (laco de telemetria negada pelo proxy) corrigido — log do proxy limpo e tentativa nova em execucao.",
+    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao. | 04:10: OPS-036 (papel do card) corrigido — glm virou account.eligible e o primeiro card de Arquitetura voltou a executar. | 04:42: OPS-037 (laco de telemetria negada pelo proxy) corrigido — log do proxy limpo e tentativa nova em execucao. | 05:20: PARADO POR FALTA DE CONTA, nao por defeito. As tres tentativas de 04:38 morreram no mesmo 429: a cota do glm e SEMANAL e so volta em 2026-08-06 10:11. Projeto PAUSADO de proposito (POST /chief/pause) para nao queimar card contra conta morta; retomar com POST /api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume assim que houver conta. OPS-038/039/040 corrigidos para que isso apareca como 'conta sem cota ate 06/08' em vez de virar laco de tentativa a cada tres horas.",
     "phase2CompletedAt": "2026-08-02T21:43:18Z",
     "phase2DurationMinutes": 28.0
   },
@@ -35,7 +35,7 @@
   "mandatoryGatesFailed": 0,
   "mandatoryTestsPending": 0,
   "testBaseline": {
-    "unit": 1615,
+    "unit": 1625,
     "integration": 306,
     "recovery": 26,
     "frontend": 783,
@@ -43,12 +43,12 @@
   },
   "metricsInstrumented": true,
   "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
-  "nextAction": "Fase 3 da prova limpa executando na conta glm (tentativa 01KZ2YN6FN5SYKPSYXGJ7481YR). Acompanhar por ID ate os 7 cards de Arquitetura fecharem, seguir as fases 4-9 e entao abrir e testar o produto gerado (§49). Se uma tentativa passar de ~10 min sem token, LER O LOG DO PROXY dela antes de qualquer hipotese (ver OPS-037 no HANDOFF).",
+  "nextAction": "A prova limpa nao anda ate existir UMA conta que execute papel de ator: glm sem cota ate 2026-08-06 10:11 UTC (confirmado ao vivo no 429), as duas claude sem credencial dentro do conteiner e a codex recusando todo modelo. Enquanto isso, trabalho do agente que NAO depende de conta: fechar OPS-041 (contrato da pausa), §49 preparado, QA do Poseidon e metricas. Assim que houver conta: POST /api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume e acompanhar por ID ate os 7 cards de Arquitetura fecharem.",
   "humanDecisionRequired": false,
   "externalBlockers": [
     "OPS-030: contas claude sem credencial dentro do conteiner — decidir extracao do OAuth do Keychain, ANTHROPIC_API_KEY ou frota reduzida",
     "OPS-029: conta codex/ChatGPT recusa todos os modelos do CLI 0.44.0 — verificar plano ou atualizar CLI/modelo",
-    "OPS-028: GLM com cota semanal ate 2026-08-06 10:11 UTC — aguardar ou provisionar outra conta"
+    "OPS-028: GLM com cota SEMANAL ate 2026-08-06 10:11 UTC — CONFIRMADO ao vivo em 2026-08-03 04:38 e 04:56: toda chamada volta 429 [1310] Weekly/Monthly Limit Exhausted. Nenhuma conta de ATOR disponivel ate o proprietario agir; a prova limpa esta parada por isso, nao por defeito."
   ],
   "recoveryEvidence": "coordination/final-operation/EVIDENCIA-RECUPERACAO.md — reinicio do Host e morte de worker provados AO VIVO com IDs; falha de provedor ao vivo e fixada em teste; 26 provas de recuperacao verdes."
 }

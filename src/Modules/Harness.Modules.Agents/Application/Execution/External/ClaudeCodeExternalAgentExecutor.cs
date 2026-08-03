@@ -31,6 +31,17 @@ public sealed class ClaudeCodeExternalAgentExecutor(
         AccountProfileProvisioner profiles, ExecutorProbe? probe = null) =>
         new(ExecutorCatalog.Find(ExecutorCatalog.Glm)!, profiles, probe);
 
+    /// <summary>
+    /// O Claude Code mantém um log por sessão em <c>&lt;config home&gt;/debug/&lt;session id&gt;.txt</c>.
+    ///
+    /// É a ÚNICA fonte de alguns motivos: na 2.0.30, em modo <c>-p</c>, o erro do provedor não
+    /// vai para stderr. Verificado ao vivo em 2026-08-03 — a CLI recebeu
+    /// <c>429 rate_limit_error … Weekly/Monthly Limit Exhausted</c>, escreveu isso só no log
+    /// dela e emudeceu; para o host, o turno era um processo vivo sem explicação.
+    /// </summary>
+    private protected override string? ResolveCliDiagnosticPath(string configHome, string sessionId) =>
+        string.IsNullOrWhiteSpace(configHome) ? null : $"{configHome.TrimEnd('/')}/debug/{sessionId}.txt";
+
     public override IReadOnlyList<string> BuildArguments(
         ExternalAgentRunRequest request, ExternalAgentRunContext context)
     {
