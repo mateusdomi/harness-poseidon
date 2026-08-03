@@ -31,20 +31,25 @@ feche defeito.
 Para rodar sem ninguém digitando "continue":
 
 ```sh
-export POSEIDON_INTEGRATOR_COMMAND="claude -p --permission-mode bypassPermissions"
-dotnet run --project src/Harness.OperationSupervisor -- run
+tools/operation/supervisor-start.sh [PID-da-sessao-atual]
 ```
 
-Validado com sessão real. O supervisor entrega `BOOTSTRAP-PROMPT.md` pela entrada padrão.
+O script publica o binário antes (não recompila às 3 da manhã), desacopla com `nohup` e
+recusa subir em duplicidade. Passando o PID da sessão que está trabalhando, o supervisor
+**observa** em vez de duplicar e só lança a sucessora quando aquele processo morrer — então
+ele pode subir AGORA, no meio da sessão, e assumir a madrugada sozinho quando ela cair.
+
+Estado do supervisor em um olhar: `cat coordination/final-operation/LEASE.json` (pid,
+heartbeat, ciclo) e `coordination/final-operation/supervisor.log`.
 
 ## Onde a operação está
 
 | eixo | situação |
 |---|---|
-| defeitos | 24 corrigidos de 32 (**75%**), 8 abertos, **zero bloqueantes** |
-| prova limpa 1–9 | **fase 3 de 9** (projeto `01KZ24JCFRHN2RGP8NHGP75JMK`) |
+| defeitos | 33 corrigidos de 37, **4 abertos e TODOS do proprietário** (contas/Telegram) |
+| prova limpa 1–9 | **fase 3 de 9** (projeto `01KZ24JCFRHN2RGP8NHGP75JMK`) — destravada, executando |
 | produto gerado | **nunca iniciado nem testado** |
-| testes de recuperação | parciais |
+| testes de recuperação | **pass** — ver `EVIDENCIA-RECUPERACAO.md` |
 | QA do Poseidon | parcial — só humanização, read-only |
 | métricas §31/§32 | **medidas** — `METRICS.json` tem números reais |
 | gate | **FAIL** |
@@ -195,3 +200,79 @@ Playwright). Agentes LIGHT podem 3–4 em paralelo. **Não leia RAM livre** — 
   Por isso `ORDEM-ORIGINAL.md` e `ANALISE-COMPORTAMENTAL.md` existem agora.
 - **Não instrumentei as métricas** do §31/§32. Deixei `METRICS.json` com `null` em vez de
   número inventado, e recomendo manter essa disciplina.
+
+---
+
+# Noite de 2026-08-03 — o que mudou e o que aprendi
+
+## O defeito que teria custado a noite inteira
+
+O supervisor saía no PRIMEIRO ciclo com "Bloqueio humano" sempre que existisse **qualquer**
+bloqueador externo registrado. Havia três (contas sem credencial) — e quatro defeitos que a
+Integradora fazia sozinha, mais a prova limpa parada na fase 3. A supervisão inteira estava
+desligada por uma pergunta mal formulada.
+
+Agora o dono da ação é **declarado** no finding (`"owner": "human"`), não adivinhado no
+texto, e só se chama o proprietário quando NADA que dispensa o proprietário restou: zero
+findings do agente **e** os três eixos de prova verdes. Se você registrar um finding novo,
+ele nasce do agente por omissão — o default importa: se nascesse "do humano", a operação
+pararia sozinha ao registrá-lo.
+
+## A família de defeitos desta noite: **a causa apagada pelo envelope**
+
+Três defeitos independentes, o mesmo formato — algo genérico escrito por cima de algo
+específico, e a informação que resolvia o problema desaparecendo em silêncio:
+
+1. `turn.failed` do Codex sobrescrevia `account_model_unsupported`. Falha genérica de turno
+   não marca conta indisponível ⇒ a eleição mandou card para uma conta morta por horas.
+2. A cauda de diagnóstico de dez linhas perdia a linha que explicava para um aviso tardio.
+   O `failure_reason` no banco mostrava um aviso onde deveria mostrar a causa.
+3. A sonda chamava de `COMPLETED` um card em `ready` — inclusive um que tinha voltado à fila
+   depois de cinquenta tentativas fracassadas.
+
+**Se você encontrar mais um lugar onde um código genérico é escrito sem perguntar se já
+existe um específico, desconfie.** O padrão é o mesmo do `oldest-N` do handoff anterior:
+aparece três vezes antes de alguém nomear.
+
+## A armadilha que mais enganou: PID vivo não prova trabalho
+
+Uma tentativa ficou **dezesseis minutos** com processo vivo, CPU, memória e contêiner de pé
+— sem UMA conexão ao endpoint do modelo. O log do proxy explicava em uma linha repetida
+centenas de vezes: `proxy-deny statsig.anthropic.com:443`. A CLI tentava telemetria **antes**
+do trabalho, o egresso restrito negava corretamente, e ela reentrava no retry.
+
+De fora era indistinguível de "o agente está pensando".
+
+Quando uma tentativa passar de ~10 minutos sem token, **leia o log do proxy da tentativa**
+antes de qualquer outra hipótese:
+
+```sh
+docker logs harness-proxy-wsp-<sufixo-do-attempt> | grep -v statsig | sort | uniq -c
+```
+
+Zero linhas para o endpoint do modelo com a allowlist certa carregada = a CLI nem chegou lá.
+
+## O bloqueio real da Fase 3 não era o que o finding dizia
+
+O `OPS-032` (renumerado para `OPS-033`) dizia "o perfil isolado não cria o `sessions/`". Não
+era: o diretório existia em disco desde antes das falhas. A CLI do Codex roda com **sandbox
+própria** (`--sandbox workspace-write`, raízes graváveis = workdir, `/tmp`, `$TMPDIR`) e o
+alvo estava fora dela.
+
+E, corrigido isso, o bloqueio seguinte era de ROTEAMENTO: os sete cards de Arquitetura
+resolviam para `frontend-specialist` porque o texto dizia "componente" — vocabulário de
+arquitetura antes de ser de interface, o C4 tem um nível com esse nome — e depois porque um
+SAD de quatro mil caracteres cita "tela" uma vez. Como só uma conta serve esse papel, a fase
+inteira morreu junto com aquela conta. **A persona já dizia "Arquiteto" e o papel dizia outra
+coisa: a contradição estava visível e ninguém a lia.**
+
+Lição operacional: quando um card não anda, leia a linha `adiado:` inteira. Ela lista TODAS
+as contas com o motivo de cada uma — e `role_not_allowed` em todas menos uma é um diagnóstico
+de roteamento, não de disponibilidade.
+
+## O que continua sendo do proprietário
+
+`OPS-018` (Telegram), `OPS-028` (cota GLM), `OPS-029` (plano ChatGPT), `OPS-030` (credencial
+Claude no Keychain). Nenhum deles é executável daqui — e a decisão do `OPS-030` é de
+POLÍTICA, não técnica: extrair OAuth do Keychain para disco viola a regra de nunca persistir
+segredo. Não a tome sozinho.
