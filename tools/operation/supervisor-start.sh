@@ -25,6 +25,14 @@ export POSEIDON_INTEGRATOR_COMMAND="${POSEIDON_INTEGRATOR_COMMAND:-claude -p --p
 export POSEIDON_SUPERVISOR_COOLDOWN_SECONDS="${POSEIDON_SUPERVISOR_COOLDOWN_SECONDS:-30}"
 export POSEIDON_SUPERVISOR_MAX_CYCLES="${POSEIDON_SUPERVISOR_MAX_CYCLES:-100}"
 
+# A cerca nao pode depender so do ARQUIVO: apagar o lease a mao (foi o que eu fiz em
+# 03/08/2026) deixava subir um segundo supervisor com o primeiro vivo — exatamente o
+# duplo-relance que o lease existe para impedir. Processo vivo manda mais que arquivo.
+if pgrep -f "Harness.OperationSupervisor.dll run" >/dev/null 2>&1; then
+  echo "supervisor já em execução (processo vivo). Nada a fazer."
+  exit 0
+fi
+
 if [ -f "$ROOT/LEASE.json" ]; then
   pid=$(python3 -c "import json,sys;print(json.load(open('$ROOT/LEASE.json'))['pid'])" 2>/dev/null || echo "")
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
