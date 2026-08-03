@@ -160,6 +160,8 @@ BASE AUDITADA:      520dd71e9e383f7dcc389d4f6fb4a2c04775f658
 ```
 
 Qualquer LLM pode consultar **exatamente** o código auditado nessa ref.
+*(A ponta da branch pode estar 1–2 commits à frente desse SHA: são apenas os commits que
+registram esta própria seção. Nenhum arquivo fora de `docs/` mudou depois dele.)*
 
 **Por que não `origin/develop`:** o `develop` local está 213 commits à frente e 0 atrás de
 `origin/develop` — ou seja, um *fast-forward* seguro, sem force. Mesmo assim **não movi o ref**:
