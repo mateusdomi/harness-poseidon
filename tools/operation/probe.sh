@@ -68,8 +68,23 @@ verdict_for() {
 }
 
 # Sinais reais de que algo ainda acontece — a diferença entre esperar e estar travado.
+#
+# O heartbeat do workspace vem PRIMEIRO porque é o único sinal que estava disponível quando
+# esta sonda errou: em 2026-08-03 ela declarou STALLED uma tentativa cujo heartbeat tinha
+# SETE SEGUNDOS e cujo executor estava vivo como filho do Host. Os dois sinais anteriores
+# são cegos por construção — `model_invocations` só é gravado no fim do run (durante o voo
+# a tabela está vazia, não "sem chamada em aberto"), e o `pgrep` procura o id do attempt na
+# linha de comando de um processo que não a cita. Uma sonda que grita "travado" em toda
+# tentativa saudável de dez minutos ensina quem lê a ignorá-la, e aí ela não serve para o
+# caso em que estiver certa.
 has_live_signal() {
-  local inflight
+  local beat_age inflight
+  beat_age=$(q "select cast((julianday('now') - julianday(last_heartbeat_at)) * 86400 as integer)
+                from attempt_workspaces
+                where attempt_id='$subject' or task_id='$subject'
+                order by last_heartbeat_at desc limit 1;")
+  [[ -n "$beat_age" && "$beat_age" -lt "${HEARTBEAT_STALE_SECONDS:-180}" ]] && return 0
+
   inflight=$(q "select count(*) from model_invocations
                 where (attempt_id='$subject' or work_task_id='$subject')
                   and completed_at is null;")
