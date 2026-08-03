@@ -198,5 +198,5 @@ durante o trabalho (`e3c4025a`, `7ea4b60e`, `75971b37`) e está incluído nesta 
 | 15 | **[Guia: como alterar o comportamento](15-GUIA-COMO-ALTERAR-O-COMPORTAMENTO.md)** |
 | 16 | [Mapa de fontes da verdade](16-MAPA-DE-FONTES-DA-VERDADE.md) |
 | 17 | [Recomendações arquiteturais](17-RECOMENDACOES-ARQUITETURAIS.md) |
-| 18 | **[Visão para gestão](18-VISAO-PARA-GESTAO.md)** |
+| 18 | **[Visão para gestão](18-VISAO-PARA-GESTAO.md)** — inclui, como Anexo A e Anexo B, os dois documentos de apresentação na íntegra, já corrigidos com o medido |
 | 19 | [Mapa dos 30 projetos da solution](19-MAPA-DOS-PROJETOS-DA-SOLUTION.md) |
