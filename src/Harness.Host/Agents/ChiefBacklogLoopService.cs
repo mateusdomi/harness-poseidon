@@ -159,6 +159,10 @@ public sealed partial class ChiefBacklogLoopService(
         string explanation,
         int evidenceCount);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Chief: card {TaskId} (papel {Role}) foi planejado e NÃO recebeu desfecho — nem despacho, nem adiamento. Isto é um defeito do planejador, não espera normal.")]
+    private static partial void LogCardVanishedFromCycle(ILogger logger, string taskId, string role);
+
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Chief: card {TaskId} retido pelo teto global de execução ({LiveRuns} em voo, teto {Ceiling}); volta na próxima rodada.")]
     private static partial void LogCardHeldByGlobalCeiling(
@@ -850,6 +854,22 @@ public sealed partial class ChiefBacklogLoopService(
                     accounts, availability,
                     settings.AutoDispatchMaxConcurrent, routingNow,
                     CapacitySignals(routingNow));
+                // INVARIANTE: nenhum card sai de um ciclo sem desfecho registrado.
+                //
+                // Todo card avaliado tem de terminar a rodada despachado, adiado com motivo, ou
+                // retido pelo teto — e dito em voz alta. Em 03/08/2026 dois entregáveis de
+                // Arquitetura sumiram entre a avaliação e o despacho: o log mostrava "impacto do
+                // card" e nada depois, e não havia como saber se o card estava andando, parado ou
+                // esquecido. Um card que desaparece em silêncio é indistinguível de um card que
+                // ninguém pediu, e foi assim que treze horas passaram sem ninguém notar.
+                var accountedFor = plan.Dispatch.Select(item => item.Card.TaskId)
+                    .Concat(plan.Deferred.Select(item => item.Card.TaskId))
+                    .ToHashSet(StringComparer.Ordinal);
+                foreach (var missing in planningCards.Where(card => !accountedFor.Contains(card.TaskId)))
+                {
+                    LogCardVanishedFromCycle(logger, missing.TaskId, missing.Role);
+                }
+
                 deferred += plan.Deferred.Count;
                 foreach (var deferral in plan.Deferred)
                 {
