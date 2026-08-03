@@ -522,7 +522,8 @@ public sealed partial class ChiefBacklogLoopService(
                             attempt.State,
                             attempt.FailureReason,
                             attempt.FinishedAt ?? attempt.StartedAt,
-                            attempt.TokensOutput))],
+                            attempt.TokensOutput,
+                            attempt.DurationMs))],
                         token);
                     if (!circuit.IsDispatchable)
                     {

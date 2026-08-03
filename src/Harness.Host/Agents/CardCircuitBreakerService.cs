@@ -136,6 +136,25 @@ internal sealed class CardCircuitBreakerService(
     /// </summary>
     private static bool IsFailure(CardAttemptOutcome attempt)
     {
+        // PRIMEIRO: a tentativa chegou a existir de fato?
+        //
+        // Sem duração medida e sem token, ela não executou. É o cancelamento de DESPACHO — a
+        // tentativa que perde a corrida pelo slot da conta e morre em zero milissegundo, sem
+        // motivo, sem token, sem ter lido o enunciado. Observado em 03/08/2026: cards da prova
+        // limpa acumulando `rejected` de duração vazia, cada um contando para abrir o circuito
+        // de um trabalho que ninguém julgou — e o circuito só reabre por replanejamento da
+        // Bruna, replanejamento que não conserta nada porque o enunciado nunca esteve errado.
+        //
+        // A duração é o que separa esse caso da reprovação de review, que também chega como
+        // `rejected` sem motivo e também pode ter zero token do executor: a reprovação veio
+        // DEPOIS de trabalho real, e trabalho real deixa duração.
+        if (attempt.DurationMs is null && attempt.OutputTokens == 0)
+        {
+            return false;
+        }
+
+        // Reprovação de REVIEW chega como `rejected` sem motivo de run. Ali o julgamento
+        // aconteceu — quem avaliou foi o crítico — e conta mesmo sem token do executor.
         if (string.Equals(attempt.State, "rejected", StringComparison.Ordinal) &&
             attempt.FailureReason is null)
         {
@@ -213,4 +232,12 @@ public readonly record struct CardAttemptOutcome(
     /// Tokens de saída medidos da tentativa. Zero significa que o modelo nunca respondeu —
     /// o enunciado não chegou a ser julgado — e é o pivô da regra invertida do circuito.
     /// </summary>
-    long OutputTokens = 0);
+    long OutputTokens = 0,
+    /// <summary>
+    /// Duração medida da tentativa. <see langword="null"/> significa que ela NÃO CHEGOU A
+    /// EXECUTAR — é o caso da tentativa que perde a corrida pelo slot da conta e morre no
+    /// despacho, sem motivo, sem token e sem ter lido o enunciado. Distingue-a da reprovação
+    /// de review, que também chega como `rejected` sem motivo mas veio depois de trabalho
+    /// real, e portanto tem duração.
+    /// </summary>
+    long? DurationMs = null);

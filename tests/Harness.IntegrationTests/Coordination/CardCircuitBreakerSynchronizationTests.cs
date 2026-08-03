@@ -260,9 +260,9 @@ public sealed class CardCircuitBreakerSynchronizationTests
             var reprovado = await service.SynchronizeAsync(
                 Tenant, Project, "card-reprovado",
                 [
-                    Outcome("rejected", Now, null, outputTokens: 0),
-                    Outcome("rejected", Now.AddMinutes(2), null, outputTokens: 0),
-                    Outcome("rejected", Now.AddMinutes(4), null, outputTokens: 0),
+                    Outcome("rejected", Now, null, outputTokens: 0, durationMs: 180_000),
+                    Outcome("rejected", Now.AddMinutes(2), null, outputTokens: 0, durationMs: 210_000),
+                    Outcome("rejected", Now.AddMinutes(4), null, outputTokens: 0, durationMs: 195_000),
                 ],
                 timeout.Token);
             Assert.Equal(CardCircuitState.Open, reprovado.State);
@@ -288,8 +288,9 @@ public sealed class CardCircuitBreakerSynchronizationTests
     }
 
     private static CardAttemptOutcome Outcome(
-        string state, DateTimeOffset occurredAt, string? failureReason = null, long outputTokens = 100) =>
-        new(state, failureReason, occurredAt, outputTokens);
+        string state, DateTimeOffset occurredAt, string? failureReason = null, long outputTokens = 100,
+        long? durationMs = 120_000) =>
+        new(state, failureReason, occurredAt, outputTokens, durationMs);
 
     private static async Task<(string Root, SqliteWriteDispatcher Dispatcher)> CreateDatabaseAsync(
         CancellationToken token)
@@ -332,6 +333,41 @@ public sealed class CardCircuitBreakerSynchronizationTests
         catch (IOException)
         {
             // Artefato em disco não é resultado: falha ao limpar não reprova a suíte.
+        }
+    }
+
+    /// <summary>
+    /// O cancelamento de DESPACHO: a tentativa que perde a corrida pelo slot da conta e morre
+    /// sem motivo, sem token e sem duração. Ela chega ao circuito com a mesma cara de uma
+    /// reprovação de review, e por isso contava contra o card — abrindo o circuito de um
+    /// trabalho que ninguém chegou a ler. Observado na prova limpa em 03/08/2026.
+    /// </summary>
+    [Fact]
+    public async Task ADispatchCancellationThatNeverRanDoesNotCountAgainstTheCard()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var (root, dispatcher) = await CreateDatabaseAsync(timeout.Token);
+        try
+        {
+            var service = new CardCircuitBreakerService(new SqliteCardCircuitBreakerStore(dispatcher));
+
+            var circuit = await service.SynchronizeAsync(
+                Tenant, Project, "card-cancelado-no-despacho",
+                [
+                    Outcome("rejected", Now, null, outputTokens: 0, durationMs: null),
+                    Outcome("rejected", Now.AddMinutes(1), null, outputTokens: 0, durationMs: null),
+                    Outcome("rejected", Now.AddMinutes(2), null, outputTokens: 0, durationMs: null),
+                    Outcome("rejected", Now.AddMinutes(3), null, outputTokens: 0, durationMs: null),
+                ],
+                timeout.Token);
+
+            Assert.Equal(CardCircuitState.Closed, circuit.State);
+            Assert.Equal(0, circuit.ConsecutiveFailures);
+        }
+        finally
+        {
+            await dispatcher.DisposeAsync();
+            Directory.Delete(root, recursive: true);
         }
     }
 }
