@@ -42,9 +42,20 @@ public static class AgentCouncilPolicy
     /// dá para executar. Nenhuma delas depende do domínio — um planejamento sem essas três
     /// respostas não foi criticado, foi carimbado.
     /// </summary>
+    /// <remarks>
+    /// A CHAVE É CONTRATO, não rótulo. Ela é resolvida contra o catálogo de personas; uma chave
+    /// que não existe lá não falha — cai no fallback de persona inferida, e o assento executa com
+    /// OUTRA lente. Medido em 03/08/2026: <c>playbook-po</c> não existia (o catálogo registra
+    /// <c>playbook-product-owner</c>) e o assento de Produto foi executado pela persona Software
+    /// Architect — justamente a lente que menos deveria se repetir numa mesa que já tem um
+    /// arquiteto. O conselho continuou com seis assentos e uma lente a menos, sem nada acusar.
+    ///
+    /// Por isso <c>CouncilSeatCatalogContractTests</c> valida TODA chave contra o catálogo: a
+    /// divergência precisa quebrar o build, não a semântica do conselho em silêncio.
+    /// </remarks>
     public static IReadOnlyList<CouncilSeat> CoreSeats { get; } =
     [
-        new("playbook-po",
+        new("playbook-product-owner",
             "Isto resolve o problema que a pessoa trouxe? O escopo entrega valor verificável ou " +
             "só entrega atividade?"),
         new("playbook-arquiteto",
@@ -74,7 +85,10 @@ public static class AgentCouncilPolicy
                 "O modelo sustenta as consultas e o crescimento reais, ou só o diagrama?"),
             context => context.Persistence || context.Migration ||
                 context.HighVolume || context.Analytics),
-        new(new CouncilSeat("playbook-sre-devops",
+        // `playbook-devops`, e não `playbook-sre-sustentacao`: a lente pergunta pela SUBIDA e pelo
+        // caminho de volta quando a entrega dá errado — release e rollback, que é o que o DevOps
+        // do catálogo conduz. Sustentação responde pelo que já está de pé, e essa é outra pergunta.
+        new(new CouncilSeat("playbook-devops",
                 "Isto sobe, fica de pé e avisa quando cai? Existe caminho de volta quando a " +
                 "entrega der errado em produção?"),
             context => context.Deployment || context.Infrastructure ||

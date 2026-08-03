@@ -21,7 +21,7 @@ public sealed class AgentCouncilSeatSelectionTests
         var seats = AgentCouncilPolicy.SelectSeats(new CouncilContext());
 
         Assert.Equal(
-            ["playbook-po", "playbook-arquiteto", "playbook-tech-lead"],
+            ["playbook-product-owner", "playbook-arquiteto", "playbook-tech-lead"],
             Keys(seats));
     }
 
@@ -67,10 +67,10 @@ public sealed class AgentCouncilSeatSelectionTests
     public void OperacaoSentaQuandoHaDeployInfraObservabilidadeOuDisponibilidade()
     {
         Assert.Contains(
-            "playbook-sre-devops",
+            "playbook-devops",
             Keys(AgentCouncilPolicy.SelectSeats(new CouncilContext(Deployment: true))));
         Assert.DoesNotContain(
-            "playbook-sre-devops",
+            "playbook-devops",
             Keys(AgentCouncilPolicy.SelectSeats(new CouncilContext())));
     }
 
