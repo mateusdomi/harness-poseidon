@@ -1,7 +1,7 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T04:00:00Z",
+  "updatedAt": "2026-08-03T04:10:00Z",
   "updatedBy": "integrador-claude-noturno",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
@@ -17,7 +17,7 @@
     "startedAt": "2026-08-02T21:02:39Z",
     "phase1CompletedAt": "2026-08-02T21:15:18Z",
     "phase1DurationMinutes": 12.6,
-    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao.",
+    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao. | 04:10: OPS-036 (papel do card) corrigido — glm virou account.eligible e o primeiro card de Arquitetura voltou a executar.",
     "phase2CompletedAt": "2026-08-02T21:43:18Z",
     "phase2DurationMinutes": 28.0
   },
@@ -42,7 +42,7 @@
   },
   "metricsInstrumented": true,
   "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
-  "nextAction": "Prova limpa na Fase 3: com a conta codex fora da eleicao, os cards de Arquitetura voltaram a executar em conteiner. Acompanhar por ID ate a Fase 3 fechar e seguir 4-9; depois abrir e testar o produto gerado (§49).",
+  "nextAction": "Fase 3 destravada e executando na conta glm (unica elegivel: claude=OPS-030, codex=OPS-029). Acompanhar os 7 cards de Arquitetura por ID ate a fase fechar; depois 4-9 e abrir o produto gerado (§49).",
   "humanDecisionRequired": false,
   "externalBlockers": [
     "OPS-030: contas claude sem credencial dentro do conteiner — decidir extracao do OAuth do Keychain, ANTHROPIC_API_KEY ou frota reduzida",
