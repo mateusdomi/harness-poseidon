@@ -209,11 +209,23 @@ public static class Program
                 return 3;
             }
 
+            // Já existe Integradora viva (tipicamente a sessão que o dono abriu à mão):
+            // observar, não duplicar. Espera curta e com sujeito — o PID — como manda o §15.
+            var incumbent = IntegratorPresence.ActivePid(root);
+            if (incumbent is int pid)
+            {
+                Console.WriteLine($"[ciclo {cycle}] WORKING: Integradora {pid} já ativa — supervisor observando.");
+                lease.Heartbeat(cycle, $"observando integrador {pid}");
+                await DelayWithHeartbeatAsync(lease, cycle, TimeSpan.FromSeconds(30));
+                cycle--; // observar não consome ciclo: ciclo é tentativa de relance.
+                continue;
+            }
+
             Append(root, "integrator.launch", new { cycle, reasons = verdict.Reasons });
             Console.WriteLine($"[ciclo {cycle}] CompletionGate = FAIL ({verdict.Reasons.Count} motivo(s)). Relançando a Integradora.");
 
             var started = DateTimeOffset.UtcNow;
-            var (exitCode, outputTail) = await LaunchIntegratorAsync(root);
+            var (exitCode, outputTail) = await LaunchIntegratorAsync(root, lease, cycle);
             var duration = DateTimeOffset.UtcNow - started;
 
             shortRuns = duration < IntegratorRelaunchPolicy.ShortRunThreshold ? shortRuns + 1 : 0;
@@ -251,7 +263,11 @@ public static class Program
                 Console.WriteLine($"WAITING_EXTERNAL: CLAUDE_QUOTA — retomando por volta de {until:HH:mm} UTC.");
             }
 
-            await DelayWithHeartbeatAsync(lease, cycle, decision.Delay);
+            // Esperar depois do último ciclo é tempo morto: ninguém vai usar o resultado.
+            if (cycle < maxCycles)
+            {
+                await DelayWithHeartbeatAsync(lease, cycle, decision.Delay);
+            }
         }
 
         Append(root, "operation.max_cycles", new { maxCycles });
@@ -279,7 +295,10 @@ public static class Program
     /// Lança a Integradora. O comando é configurável porque o executor da sessão é externo
     /// ao produto — o supervisor não presume qual CLI está instalada.
     /// </summary>
-    private static async Task<(int ExitCode, string OutputTail)> LaunchIntegratorAsync(string root)
+    private static async Task<(int ExitCode, string OutputTail)> LaunchIntegratorAsync(
+        string root,
+        SupervisorLease lease,
+        int cycle)
     {
         var command = Environment.GetEnvironmentVariable("POSEIDON_INTEGRATOR_COMMAND");
         if (string.IsNullOrWhiteSpace(command))
@@ -333,6 +352,8 @@ public static class Program
             Console.WriteLine($"    | {line}");
         }
 
+        IntegratorPresence.Claim(root, process.Id, "supervisor");
+
         process.OutputDataReceived += (_, e) => Capture(e.Data);
         process.ErrorDataReceived += (_, e) => Capture(e.Data);
         process.BeginOutputReadLine();
@@ -344,7 +365,32 @@ public static class Program
         }
 
         process.StandardInput.Close();
+
+        // Heartbeat enquanto a filha trabalha. Sem isto, uma sessão de três horas deixa o
+        // LEASE.json com carimbo de três horas atrás — indistinguível de supervisor morto
+        // para quem só olha o arquivo.
+        using var beating = new CancellationTokenSource();
+        var heartbeat = Task.Run(async () =>
+        {
+            while (!beating.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30), beating.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                lease.Heartbeat(cycle, $"integrador pid {process.Id}");
+            }
+        });
+
         await process.WaitForExitAsync();
+        await beating.CancelAsync();
+        await heartbeat;
+        IntegratorPresence.Release(root);
 
         string captured;
         lock (tail)
