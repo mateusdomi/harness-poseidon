@@ -1,7 +1,7 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T04:10:00Z",
+  "updatedAt": "2026-08-03T04:30:00Z",
   "updatedBy": "integrador-claude-noturno",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
@@ -29,7 +29,7 @@
     "reason": "Dois cards de Arquitetura escalados por falhas de cota da conta GLM registradas ANTES das correcoes, com motivo cru (executor.exit_code_1) em vez do canonico. O circuito recalcula do historico, entao eles nao voltam sozinhos. Estado semanticamente invalido — substituido pela prova limpa."
   },
   "generatedProduct": "pending",
-  "recoveryTests": "partial",
+  "recoveryTests": "pass",
   "qaPoseidon": "partial",
   "reAudit": "pending",
   "mandatoryGatesFailed": 0,
@@ -48,5 +48,6 @@
     "OPS-030: contas claude sem credencial dentro do conteiner — decidir extracao do OAuth do Keychain, ANTHROPIC_API_KEY ou frota reduzida",
     "OPS-029: conta codex/ChatGPT recusa todos os modelos do CLI 0.44.0 — verificar plano ou atualizar CLI/modelo",
     "OPS-028: GLM com cota semanal ate 2026-08-06 10:11 UTC — aguardar ou provisionar outra conta"
-  ]
+  ],
+  "recoveryEvidence": "coordination/final-operation/EVIDENCIA-RECUPERACAO.md — reinicio do Host e morte de worker provados AO VIVO com IDs; falha de provedor ao vivo e fixada em teste; 26 provas de recuperacao verdes."
 }
