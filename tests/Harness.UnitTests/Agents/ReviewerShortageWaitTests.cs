@@ -72,3 +72,47 @@ public sealed class ReviewerShortageWaitTests
             "janela de cota típica; o card voltaria a escalar por culpa de terceiro");
     }
 }
+
+/// <summary>
+/// A chave de idempotência do replanejamento identifica o COMANDO, não a intenção.
+///
+/// Terceiro cadeado dos seis assentos do Conselho, aparecido só depois que o segundo saiu: a
+/// chave era estável enquanto a carga não era — o id da nova versão de instrução é sorteado a
+/// cada rodada. O inbox guarda também as mutações RECUSADAS, então a primeira recusa gravava
+/// chave+hash e toda rodada seguinte chegava com a mesma chave e um hash novo: conflito
+/// permanente, com a causa técnica sumindo e o card parado.
+/// </summary>
+public sealed class ReplanIdempotencyKeyTests
+{
+    private const string Card = "01KZ4B7K34KMCSYNH0T36GF5NN";
+    private const string Hash = "A1B2C3D4E5F60718293A4B5C6D7E8F90";
+
+    [Fact]
+    public void OMesmoComandoRepetidoDaAMesmaChave()
+    {
+        // Reenvio literal — o caso que a idempotência existe para proteger — continua sendo replay.
+        Assert.Equal(
+            ChiefBacklogLoopService.ReplanIdempotencyKey(Card, 14, Hash, "01KZ4C000000000000000000A1"),
+            ChiefBacklogLoopService.ReplanIdempotencyKey(Card, 14, Hash, "01KZ4C000000000000000000A1"));
+    }
+
+    [Fact]
+    public void UmaInstrucaoNovaDaUmaChaveNova()
+    {
+        // Sem isto, a recusa da primeira rodada envenenava a chave e nenhuma rodada posterior
+        // conseguia ser sequer avaliada — nem depois de a causa da recusa ter sido corrigida.
+        Assert.NotEqual(
+            ChiefBacklogLoopService.ReplanIdempotencyKey(Card, 14, Hash, "01KZ4C000000000000000000A1"),
+            ChiefBacklogLoopService.ReplanIdempotencyKey(Card, 14, Hash, "01KZ4C000000000000000000B2"));
+    }
+
+    [Fact]
+    public void AChaveCabeNoLimiteDaCadeia()
+    {
+        // O validador da cadeia recusa chave acima de 200 caracteres, e uma chave recusada aqui
+        // derrubaria o replanejamento por um motivo que nada tem a ver com o card.
+        var key = ChiefBacklogLoopService.ReplanIdempotencyKey(
+            Card, long.MaxValue, Hash, "01KZ4C000000000000000000A1");
+        Assert.True(key.Length <= 200, $"chave com {key.Length} caracteres");
+    }
+}

@@ -3541,6 +3541,20 @@ public sealed partial class ChiefBacklogLoopService(
     /// que a escalação existe para cortar. O histórico de instruções é o registro durável desse
     /// gasto — sobrevive a restart sem estado em memória.
     /// </summary>
+    /// <summary>
+    /// Chave de idempotência do replanejamento. Identifica o COMANDO — card, versão, conteúdo e a
+    /// versão de instrução que ele cria. O id da instrução precisa entrar: sem ele, duas rodadas
+    /// com intenção idêntica apresentavam a mesma chave com cargas diferentes, e o inbox — que
+    /// guarda também as mutações RECUSADAS — devolvia conflito para sempre depois da primeira
+    /// recusa.
+    /// </summary>
+    internal static string ReplanIdempotencyKey(
+        string taskId,
+        long taskVersion,
+        string contentHash,
+        string instructionVersionId) =>
+        $"chief-loop-replan:{taskId}:v{taskVersion}:{contentHash[..12]}:{instructionVersionId}";
+
     private async Task<bool> TryReplanEscalatedAsync(
         string tenantId,
         ProjectRecord project,
@@ -3605,6 +3619,18 @@ public sealed partial class ChiefBacklogLoopService(
         // review, integração e avisos, para todos os cards. Com o hash na chave, repetir o mesmo
         // replanejamento é replay idempotente e um replanejamento realmente diferente é uma
         // mutação nova.
+        // O id da nova versão de instrução é sorteado a cada rodada — e é ele que faz o COMANDO
+        // ser diferente mesmo quando a intenção é idêntica. Deixá-lo fora da chave prometia uma
+        // estabilidade que a carga não tinha: o inbox guardava chave+hash da primeira recusa e
+        // toda rodada seguinte chegava com a mesma chave e um hash novo, ou seja, conflito
+        // permanente. Foi o terceiro cadeado dos seis assentos do Conselho, depois do estado
+        // inválido: a causa técnica sumia, o card seguia parado.
+        //
+        // A chave identifica o COMANDO, não a intenção. Repetir literalmente o mesmo comando
+        // continua sendo replay idempotente; um comando novo é uma mutação nova, e quem barra a
+        // repetição indevida é a precondição de estado — o card já replanejado não está mais
+        // escalado e o segundo replanejamento é recusado por ela, como deve.
+        var instructionVersionId = UlidValue.New(now).ToString();
         WorkChainMutationReceipt receipt;
         try
         {
@@ -3613,21 +3639,15 @@ public sealed partial class ChiefBacklogLoopService(
                     tenantId,
                     task.BackingSolicitationId,
                     task.Id,
-                    UlidValue.New(now).ToString(),
+                    instructionVersionId,
                     content,
                     contentHash,
                     project.ChiefAgentId,
                     "chief.replan_after_escalation",
                     $"attempts:{rejected}",
                     task.Version,
-                    // A chave carrega o ESTADO que o replanejamento está tentando mudar: card,
-                    // versão e conteúdo. O inbox de idempotência guarda também as mutações
-                    // RECUSADAS — então uma tentativa que falhou por estado inválido (por exemplo,
-                    // antes de a causa operacional ser corrigida) envenenava a chave, e toda
-                    // tentativa seguinte batia em conflito para sempre, mesmo depois de o estado
-                    // ficar bom. Com a versão na chave, o card mudar de estado dá uma chave nova; e
-                    // uma repetição sem nenhuma mudança continua sendo recusada, como deve.
-                    $"chief-loop-replan:{task.Id}:v{task.Version}:{contentHash[..12]}",
+                    ReplanIdempotencyKey(
+                        task.Id, task.Version, contentHash, instructionVersionId),
                     now),
                 token);
         }
